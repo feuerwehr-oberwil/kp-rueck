@@ -12,6 +12,8 @@ from uuid import uuid4
 import bcrypt
 from sqlalchemy import select
 
+from app.environment import is_production_environment
+
 from . import models
 from .database import async_session_maker
 from .seed_training import seed_training_data
@@ -24,7 +26,7 @@ def get_admin_password() -> str:
     Security: In production, ADMIN_SEED_PASSWORD must be explicitly set.
     In development, generates a random password if not provided.
     """
-    is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+    is_production = is_production_environment()
     admin_password = os.getenv("ADMIN_SEED_PASSWORD", "")
 
     if admin_password:
@@ -52,7 +54,7 @@ def get_shared_account_password(env_var: str, dev_default: str) -> str:
     ADMIN_SEED_PASSWORD. Otherwise a fresh/restored DB would go live with
     internet-facing editor/editor and viewer/viewer logins (audit point 15).
     """
-    is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+    is_production = is_production_environment()
     password = os.getenv(env_var, "")
 
     if password:
@@ -460,7 +462,7 @@ async def seed_database() -> None:
             # Create shared editor account (dev/local only). In production,
             # editors come from SSO and the admin account covers break-glass —
             # a shared password login would just be extra attack surface.
-            if os.getenv("RAILWAY_ENVIRONMENT") is None:
+            if not is_production_environment():
                 editor_password = get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
                 editor_password_hash = bcrypt.hashpw(
                     editor_password.encode("utf-8"), bcrypt.gensalt()
@@ -729,7 +731,7 @@ async def seed_database() -> None:
             # Sample events/incidents are dev-only fixtures. On a fresh or
             # restored production DB they would appear as REAL operations on
             # the board - skip them there (audit point 15).
-            if os.getenv("RAILWAY_ENVIRONMENT") is not None:
+            if is_production_environment():
                 print("Production environment - skipping sample events/incidents.")
             else:
                 await _seed_sample_operations(db, admin_user, vehicles, personnel, materials)
@@ -739,7 +741,7 @@ async def seed_database() -> None:
             # ============================================
             await db.commit()
             print("\n✅ Database seeded successfully!")
-            is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+            is_production = is_production_environment()
             if is_production:
                 print(
                     "  - Created dev-user (for auth bypass) and admin user: admin / [password from ADMIN_SEED_PASSWORD]"
@@ -747,7 +749,7 @@ async def seed_database() -> None:
             else:
                 print(f"  - Created dev-user (for auth bypass) and admin user: admin / {password}")
                 print("  ⚠️  Save this password - it was randomly generated for development")
-            if os.getenv("RAILWAY_ENVIRONMENT") is None:
+            if not is_production_environment():
                 print("  - Created shared editor account: editor / [EDITOR_PASSWORD, default 'editor']")
             print("  - Created read-only viewer account: viewer / [VIEWER_PASSWORD, default 'viewer']")
             print(f"  - Created {settings_created} default settings")
@@ -767,7 +769,7 @@ async def seed_database() -> None:
     try:
         # Skip geocoding in production (Railway) to avoid slow startup
         # Use environment-based detection for production
-        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+        is_production = is_production_environment()
         await seed_training_data(skip_geocoding=is_production)
         print("✅ Training data seeded successfully!")
     except Exception as e:

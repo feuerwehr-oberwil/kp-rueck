@@ -10,6 +10,8 @@ from typing import Any
 
 import socketio
 
+from app.environment import is_production_environment
+
 from .config import settings
 
 logger = logging.getLogger(__name__)
@@ -56,7 +58,7 @@ def get_role_from_environ(environ: dict) -> str | None:
 
 def _is_production() -> bool:
     """Check if running in production environment."""
-    return os.getenv("RAILWAY_ENVIRONMENT") is not None
+    return is_production_environment()
 
 
 def get_websocket_cors_origins() -> list[str]:

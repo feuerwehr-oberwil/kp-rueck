@@ -182,17 +182,21 @@ kp-rueck/
 
 ## Deployment
 
-Runs on any Docker host. The repo includes configuration for
-[Railway](https://railway.app/), but works on any platform.
+Runs on any Docker host, from **published images** – no build toolchain on the server:
 
-**Minimum production setup:**
-1. Set `DATABASE_URL` for your PostgreSQL instance
-2. Set strong backend secrets: `SECRET_KEY`, `AUTH_SECRET_KEY`, `ADMIN_SEED_PASSWORD`, and
-   `EDITOR_PASSWORD`
-3. Set `CORS_ORIGINS` to your frontend domain
-4. Configure a persistent volume for photo uploads and set `PHOTOS_DIR` to that mount
+```bash
+cp .env.example .env          # POSTGRES_PASSWORD, SECRET_KEY, AUTH_SECRET_KEY, ADMIN_SEED_PASSWORD
+docker compose up -d          # pulls ghcr.io/feuerwehr-oberwil/kp-rueck-*, migrates on boot
+```
 
-See **[docs/RAILWAY.md](docs/RAILWAY.md)** for a step-by-step guide.
+Everything is served through one origin (Caddy in front of frontend, backend and tileserver),
+with automatic HTTPS when you set `DOMAIN`. Updating is
+`docker compose pull && docker compose up -d`; pin a version with `KP_RUECK_TAG` in `.env` and
+follow the [releases](https://github.com/feuerwehr-oberwil/kp-rueck/releases) –
+[CHANGELOG.md](CHANGELOG.md) explains what a MAJOR/MINOR/PATCH bump means for a deployment.
+
+See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full self-hosting guide, or
+**[docs/RAILWAY.md](docs/RAILWAY.md)** for the managed-PaaS route.
 
 ## Documentation
 

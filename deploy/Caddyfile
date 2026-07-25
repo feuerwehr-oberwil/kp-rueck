@@ -1,0 +1,41 @@
+# The single origin in front of the KP Rück stack.
+#
+# DOMAIN comes from .env. Set it to a hostname (its A/AAAA record pointing here, ports 80+443
+# open) and Caddy fetches a certificate automatically — Let's Encrypt / ZeroSSL, no manual cert
+# work. Leave it empty and it falls back to `:80`, plain HTTP for a trusted LAN.
+# Optional: add a global block `{ email you@example.com }` above to register an ACME account.
+#
+# One origin is what keeps the published frontend image generic: the browser only ever talks to
+# its own host, so nothing about this station is baked into the image at build time.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Live board updates (Socket.IO). Must reach the backend directly — a WebSocket upgrade
+	# can't go through the Next.js /backend-api proxy route, which is HTTP-only.
+	handle /socket.io/* {
+		reverse_proxy backend:8000
+	}
+
+	# The REST API, direct. The app itself goes through Next's /backend-api proxy, but
+	# inbound integrations (alarm webhooks, the print agent, the intake form) post here.
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Backend liveness, handy for uptime monitoring from outside.
+	handle /health {
+		reverse_proxy backend:8000
+	}
+
+	# Offline map tiles. The frontend requests /tiles/... on its own origin (lib/env.ts
+	# getTileBaseUrl) so no second host and no CSP exception are needed.
+	handle_path /tiles/* {
+		reverse_proxy tileserver:8080
+	}
+
+	# Everything else is the Next.js app.
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

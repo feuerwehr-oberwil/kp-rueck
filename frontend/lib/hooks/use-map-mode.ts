@@ -7,7 +7,7 @@
  * Modes:
  * - auto: Try online tiles first, fall back to offline on error
  * - online: Always use online tiles
- * - offline: Always use offline tiles (localhost:8080)
+ * - offline: Always use offline tiles (the bundled tileserver)
  *
  * Styles (online only):
  * - osm: OpenStreetMap standard
@@ -18,6 +18,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
+import { getTileBaseUrl } from '@/lib/env';
 
 export type MapMode = 'auto' | 'online' | 'offline';
 export type EffectiveMode = 'online' | 'offline';
@@ -47,10 +48,13 @@ const TILE_STYLES: Record<MapStyle, TileConfig> = {
   },
 };
 
-const OFFLINE_TILE: TileConfig = {
-  url: 'http://localhost:8080/styles/basic-preview/512/{z}/{x}/{y}.png',
+// Resolved per call, not at module load: the tile host depends on where the page is served
+// from (dev → localhost:8080, deployment → /tiles on the same origin), and on the server
+// there is no window to ask.
+const offlineTile = (): TileConfig => ({
+  url: `${getTileBaseUrl()}/styles/basic-preview/512/{z}/{x}/{y}.png`,
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (Offline)',
-};
+});
 
 interface MapModeState {
   preferredMode: MapMode;
@@ -126,14 +130,14 @@ export function useMapMode() {
 
   const getTileUrl = useCallback((): string => {
     if (state.effectiveMode === 'offline') {
-      return OFFLINE_TILE.url;
+      return offlineTile().url;
     }
     return TILE_STYLES[state.mapStyle]?.url || TILE_STYLES.osm.url;
   }, [state.effectiveMode, state.mapStyle]);
 
   const getAttribution = useCallback((): string => {
     if (state.effectiveMode === 'offline') {
-      return OFFLINE_TILE.attribution;
+      return offlineTile().attribution;
     }
     return TILE_STYLES[state.mapStyle]?.attribution || TILE_STYLES.osm.attribution;
   }, [state.effectiveMode, state.mapStyle]);

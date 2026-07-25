@@ -59,6 +59,27 @@ chore: update dependencies
 5. **Describe your changes:** explain what and why in the PR description
 6. **Run linting:** ensure `just lint` passes before submitting
 
+## Releases (maintainers)
+
+Other stations run **published images**, not `main`, so a tag is a promise. A release is a
+label on a `main` commit CI already proved green – never a rushed cut. All four images
+(backend, frontend, tileserver, print-agent) ship under one version.
+
+```bash
+just changelog            # draft notes from the commits since the last tag
+#                           → curate them into CHANGELOG.md's [Unreleased] section
+just release 0.2.0        # bump all four packages + open the CHANGELOG section
+just release-tag 0.2.0    # commit (only the release files) + annotated tag
+git push --follow-tags    # → CI gate → four GHCR images → GitHub Release
+```
+
+Pick the number by **what the update costs the operator**, not by how much code moved:
+PATCH = fixes only, MINOR = features with automatic migrations, MAJOR = operator action
+required. The table at the top of [`CHANGELOG.md`](CHANGELOG.md) is the contract.
+
+Write the notes for a station commander deciding whether to update tonight – not for the
+person who wrote the diff.
+
 ## Areas for Contribution
 
 ### High Impact

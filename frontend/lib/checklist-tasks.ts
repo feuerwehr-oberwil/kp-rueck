@@ -1,5 +1,6 @@
 import { LucideIcon, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { getTileBaseUrl } from '@/lib/env'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { LAGEBLATT_AUTODOWNLOAD_KEY } from '@/components/settings/fallback-settings'
 
@@ -313,7 +314,7 @@ export async function summarizeEventChecklist(
 
   let mapTilesAvailable = false
   try {
-    mapTilesAvailable = (await fetch('http://localhost:8080/health')).ok
+    mapTilesAvailable = (await fetch(`${getTileBaseUrl()}/health`)).ok
   } catch {
     mapTilesAvailable = false
   }

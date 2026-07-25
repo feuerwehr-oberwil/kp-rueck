@@ -12,6 +12,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # release.yml runs this whole gate against the tag before publishing images.
+  workflow_call:
 
 env:
   PYTHON_VERSION: "3.12"
@@ -366,3 +368,106 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 7
+
+  # ============================================
+  # Images: build all four, boot the production stack, smoke it
+  # ============================================
+  # This is the job that makes a published release trustworthy: it builds the SAME images
+  # release.yml pushes, boots them through docker-compose.yml exactly as a self-hoster would,
+  # and proves the one thing that can't be unit-tested — that the four containers can talk to
+  # each other behind Caddy on a single origin.
+  images:
+    name: Images (build + boot + smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Write .env (compose reads it before anything else)
+        run: |
+          {
+            echo "POSTGRES_PASSWORD=ci_test_password"
+            echo "SECRET_KEY=$(openssl rand -hex 32)"
+            echo "AUTH_SECRET_KEY=$(openssl rand -hex 32)"
+            echo "ADMIN_SEED_PASSWORD=$(openssl rand -hex 16)"
+            echo "VIEWER_PASSWORD=$(openssl rand -hex 16)"
+            echo "HTTP_PORT=8080"
+            echo "PUBLIC_URL=http://localhost:8080"
+            # compose pulls ghcr.io/…:${KP_RUECK_TAG:-latest}; point it at the images built
+            # below so the stack boots THIS commit instead of the last published release.
+            echo "KP_RUECK_TAG=ci"
+          } > .env
+
+      - name: Validate compose config
+        run: docker compose config -q
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      # Built WITHOUT NEXT_PUBLIC_API_URL on purpose: the published image must not carry any
+      # one station's API URL. The browser calls /backend-api on its own origin instead.
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          target: runner
+          load: true
+          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Build tileserver image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./tileserver/Dockerfile
+          load: true
+          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver:ci
+          cache-from: type=gha,scope=tileserver
+          cache-to: type=gha,mode=max,scope=tileserver
+
+      # Not booted (it needs a printer on the LAN), but built so a broken Dockerfile can't
+      # reach a release.
+      - name: Build print-agent image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./print-agent
+          load: true
+          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-print-agent:ci
+          cache-from: type=gha,scope=print-agent
+          cache-to: type=gha,mode=max,scope=print-agent
+
+      - name: Boot the stack
+        run: docker compose up -d --wait   # waits for db/backend/frontend/tileserver health
+
+      - name: Smoke test (everything through the single origin)
+        run: |
+          set -euo pipefail
+          # Backend, routed by Caddy.
+          curl -fsS http://localhost:8080/health
+          # Backend through the Next.js proxy — the path a browser takes when the image
+          # carries no baked-in API URL. This is the whole generic-image premise.
+          curl -fsSL http://localhost:8080/backend-api/health
+          # The app itself renders. Written to a file first: `curl | grep -q` exits on the
+          # first match, curl dies of SIGPIPE, and pipefail turns a PASS into a failure.
+          curl -fsS http://localhost:8080/ -o /tmp/index.html
+          grep -qi "<html" /tmp/index.html || { echo "frontend did not render"; exit 1; }
+          # Offline tiles reachable on the same origin.
+          curl -fsS http://localhost:8080/tiles/health
+          echo "stack smoke OK"
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

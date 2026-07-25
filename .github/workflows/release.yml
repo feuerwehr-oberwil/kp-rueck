@@ -1,0 +1,197 @@
+name: Release
+
+# Pushing a v* tag publishes a release. The tag is expected to sit on a main commit whose CI
+# was already green – but the full gate runs again here anyway, because published images are
+# the one artifact a strange station downloads without reading the diff.
+#
+#   just release 0.2.0 && just release-tag 0.2.0 && git push --follow-tags
+#
+# All four images carry the SAME version: a station runs a matched set, never a mix.
+#
+# NOTE (one-time, after the first run): GHCR packages start PRIVATE even on a public repo.
+# Set each of the four to public under Packages → Package settings → Change visibility,
+# or `docker compose pull` fails for everyone else.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # The same gate as a normal push, including the job that boots the real stack.
+  gate:
+    name: CI gate
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish images + GitHub Release
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release
+      packages: write   # push to GHCR
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the newest-tag comparison needs the full tag list
+
+      # The tag is the source of truth; the committed files must agree with it, or a
+      # mistyped tag would publish images that report another version.
+      - name: Resolve and verify the version
+        id: v
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH"; exit 1 ;;
+          esac
+          pkg=$(python3 -c 'import json;print(json.load(open("frontend/package.json"))["version"])')
+          if [ "$pkg" != "$version" ]; then
+            echo "tag says $version but frontend/package.json says $pkg – run 'just release $version' first"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor=${version%.*}" >> "$GITHUB_OUTPUT"
+
+          # Only move `latest` when this really is the newest release – a late patch on an
+          # older series (0.1.1 after 0.2.0) must not drag `latest` backwards.
+          newest=$(git tag -l 'v*' | sort -V | tail -1)
+          if [ "$newest" = "$GITHUB_REF_NAME" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$GITHUB_REF_NAME is older than $newest – not moving 'latest'"
+          fi
+
+      # Fails the release if the version has no notes, rather than publishing an empty one.
+      - name: Extract the release notes
+        run: python3 scripts/changelog_section.py "${{ steps.v.outputs.version }}" > RELEASE_NOTES.md
+
+      - name: Set up QEMU (arm64 emulation for the print agent)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: tags
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+          MINOR: ${{ steps.v.outputs.minor }}
+          LATEST: ${{ steps.v.outputs.latest }}
+        run: |
+          set -euo pipefail
+          for svc in backend frontend tileserver print-agent; do
+            image="ghcr.io/feuerwehr-oberwil/kp-rueck-${svc}"
+            tags="${image}:${VERSION}"$'\n'"${image}:${MINOR}"
+            if [ "$LATEST" = "true" ]; then
+              tags="$tags"$'\n'"${image}:latest"
+            fi
+            # Output names can't contain '-': steps.tags.outputs.print-agent would be
+            # parsed as an expression subtracting "agent" from "print".
+            key="${svc//-/_}"
+            {
+              echo "${key}<<TAGS_EOF"
+              echo "$tags"
+              echo "TAGS_EOF"
+            } >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          platforms: linux/amd64
+          push: true
+          cache-from: type=gha,scope=backend
+          tags: ${{ steps.tags.outputs.backend }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.description=KP Rück backend – FastAPI service for the fire-service operations dashboard
+
+      # Deliberately built WITHOUT NEXT_PUBLIC_API_URL: baking a URL in would tie the image
+      # to one station. The browser calls /backend-api on its own origin and the Next server
+      # forwards to API_URL, which is set at RUNTIME by docker-compose.
+      - name: Push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          target: runner
+          platforms: linux/amd64
+          push: true
+          cache-from: type=gha,scope=frontend
+          tags: ${{ steps.tags.outputs.frontend }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.description=KP Rück frontend – Next.js dashboard
+
+      - name: Push tileserver image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./tileserver/Dockerfile
+          platforms: linux/amd64
+          push: true
+          cache-from: type=gha,scope=tileserver
+          tags: ${{ steps.tags.outputs.tileserver }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.description=KP Rück tileserver – offline map tiles
+
+      # arm64 as well: the print agent is the one component that runs on a Raspberry Pi at
+      # the command post, next to the thermal printer.
+      - name: Push print-agent image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./print-agent
+          platforms: linux/amd64,linux/arm64
+          push: true
+          cache-from: type=gha,scope=print-agent
+          tags: ${{ steps.tags.outputs.print_agent }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.description=KP Rück print agent – thermal printer relay for the command post
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "**Images** (all at \`${VERSION}\`): \`kp-rueck-backend\`, \`kp-rueck-frontend\`, \`kp-rueck-tileserver\`, \`kp-rueck-print-agent\` under \`ghcr.io/${{ github.repository_owner }}/\`."
+            echo
+            echo "**Update:** \`docker compose pull && docker compose up -d\` · **New deployment:** [docs/DEPLOYMENT.md](https://github.com/${{ github.repository }}/blob/${GITHUB_REF_NAME}/docs/DEPLOYMENT.md)"
+            echo
+            echo "Migrations run automatically on boot."
+            echo
+            echo "---"
+            echo
+            cat RELEASE_NOTES.md
+          } > BODY.md
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file BODY.md \
+            --verify-tag
