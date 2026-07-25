@@ -1,7 +1,7 @@
 # KP Rück
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://kp-rueck-demo.up.railway.app/)
+[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-rueck.ch)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
@@ -29,7 +29,7 @@ to be adaptable for any fire department.
 
 ## Try the demo
 
-**[Try the live demo](https://kp-rueck-demo.up.railway.app/)** — no account needed, just pick a
+**[Try the live demo](https://demo.kp-rueck.ch)** — no account needed, just pick a
 role and go. The demo seeds a realistic board and resets on a schedule; each visitor gets an
 isolated training sandbox.
 
@@ -218,7 +218,7 @@ Start with the [documentation index](docs/README.md). Highlights:
 KP Rück runs the **rear** command post — the resource board. If you're looking for **frontline**
 Einsatzführung — a shared Lagekarte, tactical symbols, Atemschutz (SCBA) tracking, and object
 plans — see its companion **[KP Front](https://github.com/feuerwehr-oberwil/kp-front)**
-([live demo](https://kp-front-demo.up.railway.app/); open-sourcing soon).
+([live demo](https://demo.kp-front.ch)).
 
 The two grew out of the same brigade and share a design language, but they are **completely
 independent** codebases and deployments — neither requires the other. They can *optionally* hand
