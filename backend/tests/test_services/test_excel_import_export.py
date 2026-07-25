@@ -30,7 +30,6 @@ from app.services.excel_import_export import (
     validate_and_parse_excel,
 )
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -323,9 +322,7 @@ class TestValidateAndParseExcel:
 
     def test_validates_personnel_name_required(self):
         """Test validates Personnel name is required."""
-        file_bytes = create_valid_excel_bytes(
-            personnel=[{"name": None, "role": "Test", "availability": "available"}]
-        )
+        file_bytes = create_valid_excel_bytes(personnel=[{"name": None, "role": "Test", "availability": "available"}])
         with pytest.raises(ExcelImportError, match="'name' is required"):
             validate_and_parse_excel(file_bytes)
 
@@ -339,9 +336,7 @@ class TestValidateAndParseExcel:
 
     def test_sets_default_personnel_availability(self):
         """Test sets default availability to 'unavailable' when empty."""
-        file_bytes = create_valid_excel_bytes(
-            personnel=[{"name": "Test Person", "role": "Test", "availability": None}]
-        )
+        file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test Person", "role": "Test", "availability": None}])
         result = validate_and_parse_excel(file_bytes)
         assert result["personnel"][0]["availability"] == "unavailable"
 
@@ -537,9 +532,7 @@ class TestImportData:
         parsed_data = {
             "personnel": [],
             "vehicles": [],
-            "materials": [
-                {"name": "Imported Material", "type": "Pumps", "location": "TLF", "description": "Test"}
-            ],
+            "materials": [{"name": "Imported Material", "type": "Pumps", "location": "TLF", "description": "Test"}],
         }
         counts = await import_data(db_session, parsed_data, "replace", str(excel_user.id))
 
@@ -621,9 +614,7 @@ class TestExportDataToExcel:
         assert "Materials" in wb.sheetnames
 
     @pytest.mark.asyncio
-    async def test_exports_personnel_data(
-        self, db_session: AsyncSession, sample_personnel: list[Personnel]
-    ):
+    async def test_exports_personnel_data(self, db_session: AsyncSession, sample_personnel: list[Personnel]):
         """Test exports personnel data correctly."""
         result = await export_data_to_excel(db_session)
         wb = load_workbook(result)
@@ -641,9 +632,7 @@ class TestExportDataToExcel:
         assert len(data_rows) == 3
 
     @pytest.mark.asyncio
-    async def test_exports_vehicles_data(
-        self, db_session: AsyncSession, sample_vehicles: list[Vehicle]
-    ):
+    async def test_exports_vehicles_data(self, db_session: AsyncSession, sample_vehicles: list[Vehicle]):
         """Test exports vehicles data correctly."""
         result = await export_data_to_excel(db_session)
         wb = load_workbook(result)
@@ -660,9 +649,7 @@ class TestExportDataToExcel:
         assert len(data_rows) == 2
 
     @pytest.mark.asyncio
-    async def test_exports_materials_data(
-        self, db_session: AsyncSession, sample_materials: list[Material]
-    ):
+    async def test_exports_materials_data(self, db_session: AsyncSession, sample_materials: list[Material]):
         """Test exports materials data correctly."""
         result = await export_data_to_excel(db_session)
         wb = load_workbook(result)
@@ -698,9 +685,7 @@ class TestExportDataToExcel:
         assert result.tell() == 0
 
     @pytest.mark.asyncio
-    async def test_personnel_sorted_by_name(
-        self, db_session: AsyncSession, sample_personnel: list[Personnel]
-    ):
+    async def test_personnel_sorted_by_name(self, db_session: AsyncSession, sample_personnel: list[Personnel]):
         """Test personnel are sorted by name."""
         result = await export_data_to_excel(db_session)
         wb = load_workbook(result)
@@ -710,9 +695,7 @@ class TestExportDataToExcel:
         assert names == sorted(names)
 
     @pytest.mark.asyncio
-    async def test_vehicles_sorted_by_display_order(
-        self, db_session: AsyncSession, sample_vehicles: list[Vehicle]
-    ):
+    async def test_vehicles_sorted_by_display_order(self, db_session: AsyncSession, sample_vehicles: list[Vehicle]):
         """Test vehicles are sorted by display_order."""
         result = await export_data_to_excel(db_session)
         wb = load_workbook(result)
@@ -810,9 +793,7 @@ class TestEdgeCases:
         """Test importing a large dataset."""
         # Create data for 100 items of each type
         parsed_data = {
-            "personnel": [
-                {"name": f"Person {i}", "role": "Test", "availability": "available"} for i in range(100)
-            ],
+            "personnel": [{"name": f"Person {i}", "role": "Test", "availability": "available"} for i in range(100)],
             "vehicles": [
                 {
                     "name": f"Vehicle {i}",
@@ -823,9 +804,7 @@ class TestEdgeCases:
                 }
                 for i in range(100)
             ],
-            "materials": [
-                {"name": f"Material {i}", "type": "Pumps", "location": "TLF"} for i in range(100)
-            ],
+            "materials": [{"name": f"Material {i}", "type": "Pumps", "location": "TLF"} for i in range(100)],
         }
         counts = await import_data(db_session, parsed_data, "replace", str(excel_user.id))
 
@@ -836,9 +815,7 @@ class TestEdgeCases:
     def test_validates_all_personnel_statuses(self):
         """Test all valid personnel statuses are accepted by parser."""
         for status in PERSONNEL_STATUSES:
-            file_bytes = create_valid_excel_bytes(
-                personnel=[{"name": "Test", "role": "Test", "availability": status}]
-            )
+            file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test", "role": "Test", "availability": status}])
             result = validate_and_parse_excel(file_bytes)
             assert result["personnel"][0]["availability"] == status
 

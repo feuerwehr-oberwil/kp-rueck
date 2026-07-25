@@ -41,10 +41,7 @@ class TestSharedAccountPassword:
 
     def test_explicit_strong_password_wins(self, production_env, monkeypatch):
         monkeypatch.setenv("EDITOR_PASSWORD", "a-strong-password-123")
-        assert (
-            get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
-            == "a-strong-password-123"
-        )
+        assert get_shared_account_password("EDITOR_PASSWORD", dev_default="editor") == "a-strong-password-123"
 
 
 class TestAdminPassword:

@@ -32,9 +32,7 @@ class TestQRCodePrintEndpoint:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_creates_qr_code_job(
-        self, editor_client: AsyncClient, db_session: AsyncSession, printer_enabled
-    ):
+    async def test_creates_qr_code_job(self, editor_client: AsyncClient, db_session: AsyncSession, printer_enabled):
         response = await editor_client.post("/api/print/qr-code/", json=QR_BODY)
         assert response.status_code == 201
 

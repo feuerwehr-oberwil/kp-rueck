@@ -12,9 +12,7 @@ from app.models import Event, Incident, User
 class TestIncidentModel:
     """Test Incident model operations."""
 
-    async def test_create_incident_minimal(
-        self, db_session: AsyncSession, test_user: User, test_event: Event
-    ):
+    async def test_create_incident_minimal(self, db_session: AsyncSession, test_user: User, test_event: Event):
         """Test creating an incident with minimal required fields."""
         incident = Incident(
             id=uuid4(),
@@ -38,9 +36,7 @@ class TestIncidentModel:
         assert incident.created_at is not None
         assert incident.updated_at is not None
 
-    async def test_create_incident_with_location(
-        self, db_session: AsyncSession, test_user: User, test_event: Event
-    ):
+    async def test_create_incident_with_location(self, db_session: AsyncSession, test_user: User, test_event: Event):
         """Test creating an incident with location coordinates."""
         incident = Incident(
             id=uuid4(),
@@ -82,9 +78,7 @@ class TestIncidentModel:
         with pytest.raises(IntegrityError):
             await db_session.commit()
 
-    async def test_invalid_priority_constraint(
-        self, db_session: AsyncSession, test_user: User, test_event: Event
-    ):
+    async def test_invalid_priority_constraint(self, db_session: AsyncSession, test_user: User, test_event: Event):
         """Test that invalid priority is rejected."""
         incident = Incident(
             id=uuid4(),
@@ -100,9 +94,7 @@ class TestIncidentModel:
         with pytest.raises(IntegrityError):
             await db_session.commit()
 
-    async def test_invalid_status_constraint(
-        self, db_session: AsyncSession, test_user: User, test_event: Event
-    ):
+    async def test_invalid_status_constraint(self, db_session: AsyncSession, test_user: User, test_event: Event):
         """Test that invalid status is rejected."""
         incident = Incident(
             id=uuid4(),

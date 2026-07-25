@@ -21,9 +21,7 @@ FRONTEND_PKG = ROOT / "frontend" / "package.json"
 BACKEND_PYPROJECT = ROOT / "backend" / "pyproject.toml"
 AGENT_PYPROJECT = ROOT / "print-agent" / "pyproject.toml"
 
-pytestmark = pytest.mark.skipif(
-    not FRONTEND_PKG.exists(), reason="repo root not available (running from the image)"
-)
+pytestmark = pytest.mark.skipif(not FRONTEND_PKG.exists(), reason="repo root not available (running from the image)")
 
 
 def _toml_version(path: pathlib.Path) -> str:
@@ -50,6 +48,4 @@ def test_version_is_semver():
 def test_changelog_documents_the_current_version():
     """A released version must have notes; an in-progress bump must not be tagged yet."""
     changelog = (ROOT / "CHANGELOG.md").read_text()
-    assert f"## [{settings.version}]" in changelog, (
-        f"CHANGELOG.md has no section for {settings.version}"
-    )
+    assert f"## [{settings.version}]" in changelog, f"CHANGELOG.md has no section for {settings.version}"

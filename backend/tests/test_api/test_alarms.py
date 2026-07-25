@@ -127,9 +127,7 @@ async def test_alarm_created_and_stored_with_provenance(
     assert data["auto_attached_incident_id"] is None  # no auto-attach event
 
     row = (
-        await db_session.execute(
-            select(DiveraEmergency).where(DiveraEmergency.id == data["emergency_id"])
-        )
+        await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.id == data["emergency_id"]))
     ).scalar_one()
     assert row.source == "leitstelle"
     assert row.source_id == "A-2026-001"
@@ -153,9 +151,7 @@ async def test_alarm_minimal_payload(client: AsyncClient, db_session: AsyncSessi
     assert response.status_code == 200
     data = response.json()
     row = (
-        await db_session.execute(
-            select(DiveraEmergency).where(DiveraEmergency.id == data["emergency_id"])
-        )
+        await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.id == data["emergency_id"]))
     ).scalar_one()
     assert row.source == "webhook"
     assert row.source_id is None
@@ -170,9 +166,7 @@ async def test_alarm_listed_in_pool(client: AsyncClient, webhook_secret: str, te
         response = await _post(client, alarm_payload())
     assert response.status_code == 200
 
-    login = await client.post(
-        "/api/auth/login", data={"username": "fixture_editor", "password": "testpassword1234"}
-    )
+    login = await client.post("/api/auth/login", data={"username": "fixture_editor", "password": "testpassword1234"})
     assert login.status_code == 200
 
     listing = await client.get("/api/divera/emergencies")
@@ -191,9 +185,7 @@ async def test_alarm_listed_in_pool(client: AsyncClient, webhook_secret: str, te
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_alarm_redelivery_is_deduplicated(
-    client: AsyncClient, db_session: AsyncSession, webhook_secret: str
-):
+async def test_alarm_redelivery_is_deduplicated(client: AsyncClient, db_session: AsyncSession, webhook_secret: str):
     with patch("app.api.alarms.broadcast_emergency_received", new_callable=AsyncMock):
         first = await _post(client, alarm_payload())
         second = await _post(client, alarm_payload(title="FEUER Dachstockbrand (Update)"))
@@ -204,9 +196,7 @@ async def test_alarm_redelivery_is_deduplicated(
     assert second.json()["created"] is False
     assert second.json()["emergency_id"] == first.json()["emergency_id"]
 
-    count = (
-        await db_session.execute(select(func.count()).select_from(DiveraEmergency))
-    ).scalar_one()
+    count = (await db_session.execute(select(func.count()).select_from(DiveraEmergency))).scalar_one()
     assert count == 1
 
 
@@ -223,9 +213,7 @@ async def test_same_source_id_different_source_creates_both(
     assert first.json()["created"] is True
     assert second.json()["created"] is True
 
-    count = (
-        await db_session.execute(select(func.count()).select_from(DiveraEmergency))
-    ).scalar_one()
+    count = (await db_session.execute(select(func.count()).select_from(DiveraEmergency))).scalar_one()
     assert count == 2
 
 
@@ -241,9 +229,7 @@ async def test_alarm_without_source_id_always_creates(
     assert first.json()["created"] is True
     assert second.json()["created"] is True
 
-    count = (
-        await db_session.execute(select(func.count()).select_from(DiveraEmergency))
-    ).scalar_one()
+    count = (await db_session.execute(select(func.count()).select_from(DiveraEmergency))).scalar_one()
     assert count == 2
 
 
@@ -309,9 +295,7 @@ async def test_alarm_auto_attaches_to_active_event(
     assert data["auto_attached_incident_id"] is not None
 
     incident = (
-        await db_session.execute(
-            select(Incident).where(Incident.id == data["auto_attached_incident_id"])
-        )
+        await db_session.execute(select(Incident).where(Incident.id == data["auto_attached_incident_id"]))
     ).scalar_one()
     assert incident.event_id == auto_attach_event.id
     assert incident.title == "FEUER Dachstockbrand"
@@ -324,9 +308,7 @@ async def test_alarm_auto_attaches_to_active_event(
     assert incident.source_ref == "A-2026-001"
 
     row = (
-        await db_session.execute(
-            select(DiveraEmergency).where(DiveraEmergency.id == data["emergency_id"])
-        )
+        await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.id == data["emergency_id"]))
     ).scalar_one()
     assert row.attached_to_event_id == auto_attach_event.id
     assert str(row.created_incident_id) == data["auto_attached_incident_id"]
@@ -376,21 +358,13 @@ async def test_alarm_redelivery_acks_attached_incident(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_divera_webhook_rows_carry_divera_source(
-    client: AsyncClient, db_session: AsyncSession
-):
+async def test_divera_webhook_rows_carry_divera_source(client: AsyncClient, db_session: AsyncSession):
     """The Divera adapter now stamps source="divera" / source_id=str(divera id)."""
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
-        response = await client.post(
-            "/api/divera/webhook", json={"id": 424242, "title": "BMA Schulhaus"}
-        )
+        response = await client.post("/api/divera/webhook", json={"id": 424242, "title": "BMA Schulhaus"})
 
     assert response.status_code == 200
-    row = (
-        await db_session.execute(
-            select(DiveraEmergency).where(DiveraEmergency.divera_id == 424242)
-        )
-    ).scalar_one()
+    row = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 424242))).scalar_one()
     assert row.source == "divera"
     assert row.source_id == "424242"
 
@@ -409,21 +383,15 @@ async def test_manual_attach_carries_provenance(
     db_session.add(event)
     await db_session.commit()
 
-    login = await client.post(
-        "/api/auth/login", data={"username": "fixture_editor", "password": "testpassword1234"}
-    )
+    login = await client.post("/api/auth/login", data={"username": "fixture_editor", "password": "testpassword1234"})
     assert login.status_code == 200
 
-    attach = await client.post(
-        f"/api/divera/emergencies/{emergency_id}/attach", json={"event_id": str(event.id)}
-    )
+    attach = await client.post(f"/api/divera/emergencies/{emergency_id}/attach", json={"event_id": str(event.id)})
     assert attach.status_code == 201
     body = attach.json()
     assert body["source"] == "leitstelle"
     assert body["source_ref"] == "A-2026-001"
 
-    incident = (
-        await db_session.execute(select(Incident).where(Incident.id == body["id"]))
-    ).scalar_one()
+    incident = (await db_session.execute(select(Incident).where(Incident.id == body["id"]))).scalar_one()
     assert incident.source == "leitstelle"
     assert incident.source_ref == "A-2026-001"

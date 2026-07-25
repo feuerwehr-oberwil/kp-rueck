@@ -1,6 +1,6 @@
-# Ausfall-SOP — Papier-Fallback für KP Rück
+# Ausfall-SOP – Papier-Fallback für KP Rück
 
-**Eine Seite. Ausgedruckt im KP aufbewahren — zusammen mit dem Magnetboard/Formularvorrat.**
+**Eine Seite. Ausgedruckt im KP aufbewahren – zusammen mit dem Magnetboard/Formularvorrat.**
 
 ## Grundsatz
 
@@ -17,13 +17,13 @@ Papier führend, bis der Wiederanlauf ausgerufen wird.
 - [ ] Physischer Fallback bereit: Magnetboard **oder** leere Führungsformulare
       (Elementarschaden FWI BL/BS) + Stifte + Klemmbrett im KP
 - [ ] Das Lageblatt aus KP Rück hat dieselben Spalten wie das kantonale
-      Führungsformular — es kann direkt von Hand weitergeführt werden
+      Führungsformular – es kann direkt von Hand weitergeführt werden
 
 ## Auslösung (Trigger)
 
 Das Board gilt als ausgefallen, wenn **eine** der Bedingungen zutrifft:
 
-- Board länger als **2 Minuten** nicht erreichbar oder eingefroren — auch von
+- Board länger als **2 Minuten** nicht erreichbar oder eingefroren – auch von
   einem zweiten Gerät aus (damit ein defektes Tablet nicht zum Fehlalarm führt)
 - Stromausfall der KP-Infrastruktur ohne Notstrom-Weiterbetrieb der Geräte
 
@@ -34,8 +34,8 @@ Das Board gilt als ausgefallen, wenn **eine** der Bedingungen zutrifft:
 1. Ansage im KP: **«Papier führt.»** (laut und eindeutig)
 2. Letztes Lageblatt aufs Klemmbrett / Zeilen aufs Magnetboard übertragen
 3. Neue Meldungen auf den **leeren Zeilen** des Lageblatts erfassen:
-   Zeit, Wo, Was — danach Reko und Auftrag wie gewohnt nachführen
-4. Jede Änderung mit **Uhrzeit und Kürzel** — das Blatt ist nachher die
+   Zeit, Wo, Was – danach Reko und Auftrag wie gewohnt nachführen
+4. Jede Änderung mit **Uhrzeit und Kürzel** – das Blatt ist nachher die
    einzige Quelle für die Nachführung
 5. Funkbetrieb läuft unverändert weiter
 
@@ -43,16 +43,16 @@ Das Board gilt als ausgefallen, wenn **eine** der Bedingungen zutrifft:
 
 1. Board auf **zwei** Geräten prüfen (lädt, Anmeldung funktioniert, Daten aktuell)
 2. **Eine** designierte Person überträgt die Papieränderungen chronologisch
-   zurück ins System — alle anderen fassen das Board noch nicht an
+   zurück ins System – alle anderen fassen das Board noch nicht an
 3. Ansage: **«Board führt wieder.»**
-4. Papierblätter aufbewahren — sie sind Teil der Einsatzdokumentation
+4. Papierblätter aufbewahren – sie sind Teil der Einsatzdokumentation
    (Beilage zum Einsatztagebuch im Einsatzbericht)
 
 ## Was fällt wann aus? (Merkhilfe)
 
 | Ausfall | Board | Thermodrucker (Pi, lokal) | Massnahme |
 |---|---|---|---|
-| Internet im Magazin | ✗ (Backend ist in der Cloud) | ✗ (erreicht Backend nicht) | Papier führt — darum **vorher** drucken/downloaden |
+| Internet im Magazin | ✗ (Backend ist in der Cloud) | ✗ (erreicht Backend nicht) | Papier führt – darum **vorher** drucken/downloaden |
 | Railway/Backend-Störung | ✗ | ✗ | Papier führt |
 | Einzelnes Tablet defekt | ✓ (anderes Gerät) | ✓ | Gerät wechseln, kein Fallback |
 | Stromausfall (mit Notstrom) | ✓ solange Internet steht | ✓ | Beobachten, Lageblatt drucken |
@@ -67,7 +67,7 @@ Gerät liegt.
 
 1. Übungsereignis mit 5–10 Einsätzen laufen lassen (Übungssteuerung → Automatik)
 2. Ohne Vorwarnung: WLAN am Führungs-Tablet trennen («Ausfall»)
-3. Stoppuhr: Team führt gemäss dieser SOP auf Papier weiter — **Ziel < 2 Minuten**
+3. Stoppuhr: Team führt gemäss dieser SOP auf Papier weiter – **Ziel < 2 Minuten**
    bis zur ersten auf Papier erfassten Änderung
 4. 5 Minuten auf Papier arbeiten (mind. 1 neue Meldung, 1 Statuswechsel, 1 Auftrag)
 5. WLAN wieder verbinden, Wiederanlauf gemäss SOP durchspielen

@@ -1,4 +1,4 @@
-# Plan 09 — Emergency Plans Integration (Einsatzpläne, generic provider)
+# Plan 09 – Emergency Plans Integration (Einsatzpläne, generic provider)
 
 **Priority:** P2 (post-publication feature)
 **Scope:** Backend + frontend.
@@ -8,7 +8,7 @@
 
 When an incident has a location, the operator can pull up the **Einsatzplan**
 (building emergency plan PDFs), Sofortmassnahmen, tactical info, and nearest
-hydrants for that address — directly in the incident detail view.
+hydrants for that address – directly in the incident detail view.
 
 The first (reference) data source is **SchlüHü** (`https://schlue-api.fwo.li`, the
 FWO Schlüsselbox-Planer at `../fwo-schlühü`), but kp-rueck is meant to be
@@ -29,7 +29,7 @@ leak into kp-rueck's core code or UI strings.
   (`backend/app/models.py:287-360`), so the resolver is only a fallback for
   incidents that have an address but no coordinates.
 
-## Design decisions (final — do not change)
+## Design decisions (final – do not change)
 
 - **Backend proxy, never direct browser calls.** The provider API key must stay
   server-side; the browser talks only to kp-rueck
@@ -41,10 +41,10 @@ leak into kp-rueck's core code or UI strings.
     plus `async def health(self) -> bool` for the settings "Verbindung testen"
     button.
   - `schemas.py`: the **normalized contract** (Pydantic) that the frontend
-    consumes — this is the open-source interface, documented in code:
+    consumes – this is the open-source interface, documented in code:
     - `EmergencyPlanResult { provider: str, objects: list[PlanObject] }`
     - `PlanObject { name: str, address: str, lat: float|None, lng: float|None, distance_m: float|None, documents: list[PlanDocument], measures: list[str], info: dict[str, str], hydrants: list[Hydrant] }`
-      (`info` is a flat ordered label→value dict — providers map their tactical
+      (`info` is a flat ordered label→value dict – providers map their tactical
       fields into it; the UI renders it generically as a definition list)
     - `PlanDocument { name: str, type: str|None, url: str }`
     - `Hydrant { ref: str|None, type: str|None, distance_m: float|None }`
@@ -67,16 +67,16 @@ leak into kp-rueck's core code or UI strings.
   `backend/app/config.py` (env `EMERGENCY_PLANS_API_KEY`), like other secrets.
 - **kp-rueck endpoints** (new router `backend/app/api/emergency_plans.py`,
   mounted like the other routers in `main.py`):
-  - `GET /api/emergency-plans/query?lat=<f>&lng=<f>` — auth `CurrentUser`, rate
+  - `GET /api/emergency-plans/query?lat=<f>&lng=<f>` – auth `CurrentUser`, rate
     limit: new `RateLimits.EMERGENCY_PLANS = "30/minute"`. Returns the normalized
     contract. 404-style empty result (`objects: []`) when nothing nearby; **503**
     with `{"detail": "Einsatzplan-Dienst nicht erreichbar"}` when the provider
     errors/times out; **409** when `emergency_plans.enabled` is false (frontend
-    hides the feature anyway — this is a guard, exact code matters only for tests).
-  - `GET /api/emergency-plans/health` — auth `CurrentEditor`; used by the
+    hides the feature anyway – this is a guard, exact code matters only for tests).
+  - `GET /api/emergency-plans/health` – auth `CurrentEditor`; used by the
     settings test button; returns `{"ok": bool, "provider": str}`.
 - **Caching:** in-memory TTL cache in the service module keyed by
-  `(round(lat, 4), round(lng, 4))` (~11 m grid), TTL **10 minutes** — well under
+  `(round(lat, 4), round(lng, 4))` (~11 m grid), TTL **10 minutes** – well under
   the ~1 h validity of SchlüHü's pre-authenticated download URLs, and enough to
   absorb repeated opens of the same incident. Simple dict + timestamps; evict
   on read when expired; cap at 200 entries (drop oldest). No Redis.
@@ -84,7 +84,7 @@ leak into kp-rueck's core code or UI strings.
   the settings section shows the standard demo-hint card and the toggle is
   disabled when `demo_mode` (mirror how printer settings handle demo mode).
 - **Frontend placement:** a collapsible **"Einsatzpläne"** section in the incident
-  detail view (the side panel / detail modal — locate the component that renders
+  detail view (the side panel / detail modal – locate the component that renders
   incident details, the one opened by `E`/`Enter` per
   `use-kanban-shortcuts.ts`). Visible only when the feature is enabled (expose
   `emergency_plans.enabled` through whatever settings payload the frontend
@@ -93,12 +93,12 @@ leak into kp-rueck's core code or UI strings.
   `url` in a new tab, `rel="noopener noreferrer"`), Sofortmassnahmen as a bullet
   list, `info` as a compact two-column definition list, hydrants one-liner.
   Data is fetched **lazily on expand** (not on detail open) via a new api-client
-  method; loading spinner + error state ("Einsatzplan-Dienst nicht erreichbar —
+  method; loading spinner + error state ("Einsatzplan-Dienst nicht erreichbar –
   erneut versuchen").
 
 ## Implementation steps
 
-### Phase 1 — Backend
+### Phase 1 – Backend
 
 1. `backend/app/services/emergency_plans/{__init__,base,schemas,schluehue,generic_json,cache}.py`
    as specified above. Provider selection: factory
@@ -106,10 +106,10 @@ leak into kp-rueck's core code or UI strings.
    config secret; returns `None` when disabled/unconfigured.
 2. Router + rate-limit constant + mount in `main.py`.
 3. Settings keys in `DEFAULT_SETTINGS`; config secret field.
-4. `docs/EMERGENCY_PLANS_PROVIDER.md` — the public provider contract (write it
+4. `docs/EMERGENCY_PLANS_PROVIDER.md` – the public provider contract (write it
    from `schemas.py`, include one full example JSON response and a curl example).
 
-### Phase 2 — Frontend
+### Phase 2 – Frontend
 
 5. `frontend/lib/api-client.ts`: `async queryEmergencyPlans(lat: number, lng: number): Promise<EmergencyPlanResult>`
    (+ TS types mirroring the contract in `frontend/lib/types/`).
@@ -118,7 +118,7 @@ leak into kp-rueck's core code or UI strings.
    component.
 7. Settings UI: new entry in the **Konfiguration** group of the settings page
    (`frontend/app/settings/page.tsx`, `SECTIONS` at lines 92-103, `editorOnly`):
-   "Einsatzpläne" — enable toggle, provider select (SchlüHü / Generisches JSON),
+   "Einsatzpläne" – enable toggle, provider select (SchlüHü / Generisches JSON),
    base-URL field, radius field, hint that the API key is set via the
    `EMERGENCY_PLANS_API_KEY` environment variable (never typed into the UI), and
    a "Verbindung testen" button calling the health endpoint (success/error toast).
@@ -127,10 +127,10 @@ leak into kp-rueck's core code or UI strings.
 
 ## Test plan
 
-### Backend — `backend/tests/test_services/test_emergency_plans.py` + `backend/tests/test_api/test_emergency_plans.py`
+### Backend – `backend/tests/test_services/test_emergency_plans.py` + `backend/tests/test_api/test_emergency_plans.py`
 
 Mock HTTP with `respx` (add as dev dependency, `uv add --dev respx`) or
-monkeypatch the provider's httpx client — check `backend/tests/test_services/`
+monkeypatch the provider's httpx client – check `backend/tests/test_services/`
 for existing httpx-mocking precedent (the Divera poller tests likely have one;
 reuse that approach).
 
@@ -145,7 +145,7 @@ reuse that approach).
 3. **Endpoint behavior:** enabled + provider mocked → 200 with contract;
    disabled → 409; provider timeout (mock raises `httpx.TimeoutException`) → 503
    with German detail; missing/invalid lat/lng → 422; unauthenticated → 401.
-4. **Secret hygiene:** the API key never appears in any response body — query
+4. **Secret hygiene:** the API key never appears in any response body – query
    the kp-rueck endpoint and the settings list endpoint and assert the key
    string is absent.
 5. **Cache:** two queries with coordinates 5 m apart hit the upstream once
@@ -157,7 +157,7 @@ reuse that approach).
 ### Frontend
 
 - **Unit (Vitest + RTL, `emergency-plans-section.test.tsx`):** mock
-  `apiClient.queryEmergencyPlans` —
+  `apiClient.queryEmergencyPlans` –
   1. collapsed → no fetch; expand → fetch called with the incident's lat/lng;
   2. renders object name, document links (with `target="_blank"` and correct
      `href`), measures, hydrant line;
@@ -165,7 +165,7 @@ reuse that approach).
   4. empty `objects` → "Keine Einsatzpläne in der Nähe gefunden".
 - **E2E:** skip live-provider E2E (external dependency). One spec only if cheap:
   with the feature disabled (default), assert the section does **not** render in
-  the incident detail — guards against leaking a half-configured feature into
+  the incident detail – guards against leaking a half-configured feature into
   the demo.
 
 ## Acceptance criteria
@@ -174,12 +174,12 @@ reuse that approach).
 - [ ] Manual against real SchlüHü (`EMERGENCY_PLANS_API_KEY` set, base URL `https://schlue-api.fwo.li`): open an incident at a known Oberwil address → section lists the object, PDF opens in a new tab, hydrants shown.
 - [ ] Manual: "Verbindung testen" in settings reports ok; with a wrong key reports failure without exposing the key.
 - [ ] `docs/EMERGENCY_PLANS_PROVIDER.md` is sufficient for a third party to implement the generic JSON endpoint without reading kp-rueck source.
-- [ ] Nothing FWO-specific in UI strings or defaults (grep "schlue", "fwo", "Oberwil" in the diff — allowed only in the provider name label and docs).
+- [ ] Nothing FWO-specific in UI strings or defaults (grep "schlue", "fwo", "Oberwil" in the diff – allowed only in the provider name label and docs).
 
 ## Out of scope
 
 - Embedding/rendering PDFs inline (new tab is fine; command-post screens have a PDF viewer).
 - Offline caching of plan PDFs (SharePoint URLs expire; a future plan could mirror PDFs into kp-rueck's photo-storage pattern).
-- Showing plan objects/hydrants as map layers on `/map` — natural follow-up once this lands.
-- Write-back (inspections, service events) — kp-rueck is read-only toward the provider.
-- Using SchlüHü's `/api/v1/geo/resolve` for incidents without coordinates — follow-up.
+- Showing plan objects/hydrants as map layers on `/map` – natural follow-up once this lands.
+- Write-back (inspections, service events) – kp-rueck is read-only toward the provider.
+- Using SchlüHü's `/api/v1/geo/resolve` for incidents without coordinates – follow-up.

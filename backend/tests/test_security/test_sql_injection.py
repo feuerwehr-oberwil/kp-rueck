@@ -49,9 +49,7 @@ async def test_event(db_session: AsyncSession) -> Event:
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)  # Test first 8 payloads
-async def test_incident_title_sql_injection(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_incident_title_sql_injection(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that SQL injection in incident title is safely handled."""
     incident_data = {
         "event_id": str(test_event.id),
@@ -74,9 +72,7 @@ async def test_incident_title_sql_injection(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-async def test_incident_description_sql_injection(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_incident_description_sql_injection(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that SQL injection in incident description is safely handled."""
     incident_data = {
         "event_id": str(test_event.id),
@@ -97,9 +93,7 @@ async def test_incident_description_sql_injection(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-async def test_incident_location_sql_injection(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_incident_location_sql_injection(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that SQL injection in incident location is safely handled."""
     incident_data = {
         "event_id": str(test_event.id),
@@ -125,9 +119,7 @@ async def test_incident_location_sql_injection(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-async def test_personnel_name_sql_injection(
-    editor_client: AsyncClient, payload: str
-):
+async def test_personnel_name_sql_injection(editor_client: AsyncClient, payload: str):
     """Test that SQL injection in personnel name is safely handled."""
     personnel_data = {
         "name": payload,
@@ -146,9 +138,7 @@ async def test_personnel_name_sql_injection(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-async def test_personnel_role_sql_injection(
-    editor_client: AsyncClient, payload: str
-):
+async def test_personnel_role_sql_injection(editor_client: AsyncClient, payload: str):
     """Test that SQL injection in personnel role is safely handled."""
     personnel_data = {
         "name": "Test Person",
@@ -172,11 +162,10 @@ async def test_personnel_role_sql_injection(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-async def test_vehicle_name_sql_injection(
-    editor_client: AsyncClient, payload: str
-):
+async def test_vehicle_name_sql_injection(editor_client: AsyncClient, payload: str):
     """Test that SQL injection in vehicle name is safely handled."""
     import uuid
+
     # Use unique radio call sign to avoid conflicts
     unique_call_sign = f"SQLInjTest-{uuid.uuid4().hex[:8]}"
     vehicle_data = {
@@ -203,9 +192,7 @@ async def test_vehicle_name_sql_injection(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-async def test_material_name_sql_injection(
-    editor_client: AsyncClient, payload: str
-):
+async def test_material_name_sql_injection(editor_client: AsyncClient, payload: str):
     """Test that SQL injection in material name is safely handled."""
     material_data = {
         "name": payload,
@@ -230,13 +217,9 @@ async def test_material_name_sql_injection(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-async def test_status_filter_sql_injection(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_status_filter_sql_injection(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that SQL injection in status query parameter is safely handled."""
-    response = await editor_client.get(
-        f"/api/incidents/?event_id={test_event.id}&status={payload}"
-    )
+    response = await editor_client.get(f"/api/incidents/?event_id={test_event.id}&status={payload}")
 
     # Should return empty list or validation error, not 500
     assert response.status_code in [200, 422, 400]
@@ -304,9 +287,7 @@ async def test_settings_key_sql_injection(editor_client: AsyncClient, payload: s
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-async def test_update_incident_sql_injection(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_update_incident_sql_injection(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that SQL injection in update operations is safely handled."""
     # First create a valid incident
     incident_data = {
@@ -361,9 +342,7 @@ async def test_database_tables_intact_after_injections(
     tables_to_check = ["users", "incidents", "personnel", "vehicles", "materials", "events"]
 
     for table in tables_to_check:
-        result = await db_session.execute(
-            text(f"SELECT COUNT(*) FROM {table}")
-        )
+        result = await db_session.execute(text(f"SELECT COUNT(*) FROM {table}"))
         count = result.scalar()
         # Table exists if we can query it (count >= 0)
         assert count >= 0, f"Table {table} appears to be compromised"

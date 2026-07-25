@@ -150,9 +150,7 @@ class TrainingGenerator:
         # collided often). Fall back to the full pool once it's exhausted.
         template = random.choice(templates)
         used_addresses = await self._active_addresses(event_id)
-        free_locations = [
-            loc for loc in self._cache_locations if loc.get_full_address() not in used_addresses
-        ]
+        free_locations = [loc for loc in self._cache_locations if loc.get_full_address() not in used_addresses]
         location = random.choice(free_locations or self._cache_locations)
 
         incident = await self._create_incident_from(
@@ -273,18 +271,14 @@ class TrainingGenerator:
 
         template = random.choice(templates)
         used_addresses = await self._active_addresses(event_id)
-        free_locations = [
-            loc for loc in self._cache_locations if loc.get_full_address() not in used_addresses
-        ]
+        free_locations = [loc for loc in self._cache_locations if loc.get_full_address() not in used_addresses]
         location = random.choice(free_locations or self._cache_locations)
 
         # Negative divera_id keeps simulated alarms clear of real Divera IDs
         # (which are positive). Retry on the unlikely collision.
         divera_id = -random.randint(10_000_000, 2_000_000_000)
         for _ in range(5):
-            existing = await self.db.execute(
-                select(DiveraEmergency.id).where(DiveraEmergency.divera_id == divera_id)
-            )
+            existing = await self.db.execute(select(DiveraEmergency.id).where(DiveraEmergency.divera_id == divera_id))
             if existing.scalar_one_or_none() is None:
                 break
             divera_id = -random.randint(10_000_000, 2_000_000_000)

@@ -8,19 +8,16 @@ Tests cover:
 - delete_vehicle: Soft delete vehicle
 """
 
-from datetime import datetime
 from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
 from app.crud import vehicles as vehicle_crud
 from app.models import User, Vehicle
-
 
 # ============================================
 # Fixtures
@@ -63,12 +60,14 @@ async def test_vehicle(db_session: AsyncSession) -> Vehicle:
 async def multiple_vehicles(db_session: AsyncSession) -> list[Vehicle]:
     """Create multiple test vehicles."""
     vehicles = []
-    for i, (name, vtype) in enumerate([
-        ("TLF 1", "TLF"),
-        ("DLK 1", "DLK"),
-        ("MTW 1", "MTW"),
-        ("ELW 1", "ELW"),
-    ]):
+    for i, (name, vtype) in enumerate(
+        [
+            ("TLF 1", "TLF"),
+            ("DLK 1", "DLK"),
+            ("MTW 1", "MTW"),
+            ("ELW 1", "ELW"),
+        ]
+    ):
         vehicle = Vehicle(
             id=uuid4(),
             name=name,

@@ -160,11 +160,13 @@ async def _check_time_based_alerts(
     )
 
     transitions_result = await db.execute(
-        select(StatusTransition)
-        .join(subquery, and_(
-            StatusTransition.incident_id == subquery.c.incident_id,
-            StatusTransition.timestamp == subquery.c.max_timestamp,
-        ))
+        select(StatusTransition).join(
+            subquery,
+            and_(
+                StatusTransition.incident_id == subquery.c.incident_id,
+                StatusTransition.timestamp == subquery.c.max_timestamp,
+            ),
+        )
     )
     transitions = {str(t.incident_id): t for t in transitions_result.scalars().all()}
 
@@ -597,9 +599,7 @@ async def _auto_resolve_stale_notifications(
     """
     # Get all active (non-dismissed) notifications for this event
     result = await db.execute(
-        select(Notification)
-        .where(Notification.event_id == event_id)
-        .where(Notification.dismissed == False)  # noqa: E712
+        select(Notification).where(Notification.event_id == event_id).where(Notification.dismissed == False)  # noqa: E712
     )
     active_notifications = list(result.scalars().all())
 

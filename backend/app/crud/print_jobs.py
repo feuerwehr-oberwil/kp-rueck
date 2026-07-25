@@ -153,16 +153,8 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
                 IncidentGroupAssignment.unassigned_at.is_(None),
             )
         )
-        effective.update(
-            {(a.resource_type, a.resource_id): a for a in group_result.scalars().all()}
-        )
-    effective.update(
-        {
-            (a.resource_type, a.resource_id): a
-            for a in incident.assignments
-            if a.unassigned_at is None
-        }
-    )
+        effective.update({(a.resource_type, a.resource_id): a for a in group_result.scalars().all()})
+    effective.update({(a.resource_type, a.resource_id): a for a in incident.assignments if a.unassigned_at is None})
     active_assignments = list(effective.values())
 
     # Separate by type

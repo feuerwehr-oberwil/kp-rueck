@@ -47,9 +47,7 @@ async def _divera_id_for(db: AsyncSession, personnel_id) -> str | None:
 
 
 @pytest.mark.asyncio
-async def test_sync_new_person_writes_identity(
-    db_session: AsyncSession, sync_user: User, mock_request
-):
+async def test_sync_new_person_writes_identity(db_session: AsyncSession, sync_user: User, mock_request):
     """A newly created person gets both the legacy id and an identity row."""
     preview = {
         "new": [{"member": {"divera_id": 800001, "name": "Neu Person"}, "status": "new"}],
@@ -61,17 +59,13 @@ async def test_sync_new_person_writes_identity(
     assert result["created"] == 1
     assert result["linked"] == 1
 
-    person = (
-        await db_session.execute(select(Personnel).where(Personnel.name == "Neu Person"))
-    ).scalar_one()
+    person = (await db_session.execute(select(Personnel).where(Personnel.name == "Neu Person"))).scalar_one()
     assert person.divera_user_id == 800001  # legacy dual-write
     assert await _divera_id_for(db_session, person.id) == "800001"  # neutral identity
 
 
 @pytest.mark.asyncio
-async def test_sync_backfills_identity_for_existing_match(
-    db_session: AsyncSession, sync_user: User, mock_request
-):
+async def test_sync_backfills_identity_for_existing_match(db_session: AsyncSession, sync_user: User, mock_request):
     """An existing person without a link gets an identity row on sync."""
     person = Personnel(id=uuid4(), name="Bestand Person", availability="available")
     db_session.add(person)
@@ -100,17 +94,13 @@ async def test_sync_backfills_identity_for_existing_match(
 
 
 @pytest.mark.asyncio
-async def test_sync_updates_identity_when_divera_id_changes(
-    db_session: AsyncSession, sync_user: User, mock_request
-):
+async def test_sync_updates_identity_when_divera_id_changes(db_session: AsyncSession, sync_user: User, mock_request):
     """Re-linking a person to a new Divera id updates the identity row (upsert)."""
     person = Personnel(id=uuid4(), name="Wechsel Person", availability="available", divera_user_id=700000)
     db_session.add(person)
     await db_session.commit()
     await db_session.refresh(person)
-    db_session.add(
-        PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id="700000")
-    )
+    db_session.add(PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id="700000"))
     await db_session.commit()
 
     preview = {
@@ -135,10 +125,10 @@ async def test_sync_updates_identity_when_divera_id_changes(
     count = len(
         (
             await db_session.execute(
-                select(PersonnelExternalIdentity).where(
-                    PersonnelExternalIdentity.personnel_id == person.id
-                )
+                select(PersonnelExternalIdentity).where(PersonnelExternalIdentity.personnel_id == person.id)
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     assert count == 1

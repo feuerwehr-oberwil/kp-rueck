@@ -51,9 +51,16 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
+# UP042: the schema enums are `class X(str, Enum)`. StrEnum would be the modern form, but it
+# changes what `str(X.member)` returns ("value" instead of "X.member"), and those enums are
+# serialised into API responses. Deliberate deferral, not an oversight.
+ignore = ["E501", "UP042"]
 
 [tool.ruff.lint.per-file-ignores]
+# Tests bind throwaway values, patch in mock classes named like classes, and annotate fixtures
+# with string forward-refs whose real import happens inside the function body. All deliberate
+# in test code; none of it would pass in `app/`.
+"tests/**" = ["F821", "N806", "F841", "E731", "F811"]
 # E402: Module import not at top - intentional for logging setup before imports
 "app/main.py" = ["E402"]
 # E402: Secondary routers defined after primary router in same file

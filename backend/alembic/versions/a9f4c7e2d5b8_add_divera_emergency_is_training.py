@@ -30,9 +30,7 @@ def upgrade() -> None:
         "divera_emergencies",
         sa.Column("is_training", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
-    op.create_index(
-        "idx_divera_emergencies_is_training", "divera_emergencies", ["is_training"], unique=False
-    )
+    op.create_index("idx_divera_emergencies_is_training", "divera_emergencies", ["is_training"], unique=False)
 
 
 def downgrade() -> None:

@@ -168,9 +168,7 @@ async def test_update_driver_stay_broadcasts(
     )
     assignment_id = assign.json()["id"]
 
-    with patch(
-        "app.api.assignments.broadcast_assignment_update", new_callable=AsyncMock
-    ) as mock_broadcast:
+    with patch("app.api.assignments.broadcast_assignment_update", new_callable=AsyncMock) as mock_broadcast:
         response = await editor_client.patch(
             f"/api/incidents/{test_incident.id}/assignments/{assignment_id}",
             json={"driver_stay": True},

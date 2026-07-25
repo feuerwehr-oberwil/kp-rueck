@@ -354,7 +354,7 @@ async def test_sync_rejects_concurrent_operations(sync_admin_client: AsyncClient
 @pytest_asyncio.fixture
 async def sync_log_success(db_session: AsyncSession) -> "SyncLog":
     """Create a successful sync log entry."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
     from uuid import uuid4
 
     from app.models import SyncLog
@@ -453,7 +453,7 @@ async def test_get_sync_status_with_empty_errors(sync_admin_client: AsyncClient)
 @pytest.mark.api
 async def test_sync_from_railway_success(sync_admin_client: AsyncClient):
     """Test successful sync from Railway."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
 
     from app.schemas import SyncDirection, SyncResult
 
@@ -485,7 +485,7 @@ async def test_sync_from_railway_success(sync_admin_client: AsyncClient):
 @pytest.mark.api
 async def test_sync_to_railway_success(sync_admin_client: AsyncClient):
     """Test successful sync to Railway."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
 
     from app.schemas import SyncDirection, SyncResult
 
@@ -516,7 +516,7 @@ async def test_sync_to_railway_success(sync_admin_client: AsyncClient):
 @pytest.mark.api
 async def test_sync_bidirectional_success(sync_admin_client: AsyncClient):
     """Test successful bidirectional sync."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
 
     from app.schemas import SyncDirection, SyncResult
 
@@ -560,7 +560,7 @@ async def test_sync_bidirectional_success(sync_admin_client: AsyncClient):
 @pytest.mark.api
 async def test_trigger_immediate_sync_success(sync_admin_client: AsyncClient):
     """Test successful immediate sync trigger."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
 
     from app.schemas import SyncDirection, SyncResult
 
@@ -642,7 +642,7 @@ async def test_get_sync_logs_with_entries(sync_admin_client: AsyncClient, sync_l
 @pytest.mark.api
 async def test_get_sync_logs_with_limit(sync_admin_client: AsyncClient, db_session: AsyncSession):
     """Test getting sync logs with custom limit."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
     from uuid import uuid4
 
     from app.models import SyncLog
@@ -875,9 +875,7 @@ class TestSyncConfigRedaction:
 
         await self._seed_url(db_session)
 
-        response = await sync_admin_client.put(
-            "/api/sync/config", json={"railway_database_url": REDACTED_URL}
-        )
+        response = await sync_admin_client.put("/api/sync/config", json={"railway_database_url": REDACTED_URL})
         assert response.status_code == 200
 
         result = await db_session.execute(select(Setting).where(Setting.key == "railway_database_url"))

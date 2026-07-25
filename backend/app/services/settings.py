@@ -74,13 +74,7 @@ DEFAULT_SETTINGS = {
     "alerting.enabled": "false",  # Master toggle for outbound alarms
     "alerting.title_template": "KP: {type}",  # Push title (Stichwort)
     "alerting.text_template": (
-        "📝 {notes}\n"
-        "☎️ {contact}\n"
-        "📋 {internal_notes}\n"
-        "\n"
-        "🚒 {vehicles}\n"
-        "👤 {crew}\n"
-        "🧰 {materials}"
+        "📝 {notes}\n☎️ {contact}\n📋 {internal_notes}\n\n🚒 {vehicles}\n👤 {crew}\n🧰 {materials}"
     ),
     # GPS-driven status automation (plan 10) — opt-in, OFF by default. GPS is noisy
     # here (the Traccar feed returns frequent 404/no-fix), so all rules are gated on the
