@@ -58,7 +58,7 @@
     "input-otp": "1.4.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.454.0",
-    "next": "15.5.18",
+    "next": "15.5.21",
     "next-intl": "^4.13.2",
     "next-themes": "^0.4.6",
     "qrcode.react": "^4.2.0",
@@ -98,11 +98,12 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
-    "postcss": "^8.5.15",
+    "postcss": "^8.5.23",
     "tailwindcss": "^4.3.0",
     "tw-animate-css": "1.3.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.60.0",
+    "vite": "^8.0.16",
     "vitest": "^4.1.7"
   },
   "engines": {
@@ -110,8 +111,15 @@
     "pnpm": ">=9.0.0"
   },
   "pnpm": {
+    "// overrides": "Transitive advisories our direct deps still pin. Each target is bounded to the same major as the vulnerable version, so this closes the CVE without a breaking upgrade. Drop an entry once the parent ships a fixed range on its own.",
     "overrides": {
-      "postcss@<8.5.10": ">=8.5.10"
+      "postcss@8": ">=8.5.18 <9",
+      "brace-expansion@1": ">=1.1.16 <2",
+      "brace-expansion@5": ">=5.0.7 <6",
+      "js-yaml@4": ">=4.3.0 <5",
+      "undici@7": ">=7.28.0 <8",
+      "ws@8": ">=8.21.0 <9",
+      "sharp": ">=0.35.0 <1"
     }
   },
   "packageManager": "pnpm@9.12.0"
