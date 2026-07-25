@@ -51,7 +51,7 @@ class LoginThrottle:
     def __init__(self) -> None:
         self._attempts: dict[tuple[str, str], _Attempts] = {}
         self._lock = asyncio.Lock()
-        self._cleanup_task: asyncio.Task | None = None
+        self._cleanup_task: asyncio.Task[None] | None = None
         self._cleanup_interval = 600  # Prune stale entries every 10 minutes
 
     # ── lifecycle ──────────────────────────────────────────────────────

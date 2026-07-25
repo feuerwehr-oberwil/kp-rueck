@@ -8,7 +8,7 @@ this package implementing the protocol below, registered in ``__init__``.
 """
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class AlarmSendError(Exception):
@@ -31,7 +31,7 @@ class AlarmResult:
 
     provider_alarm_id: int | None = None
     count_recipients: int | None = None
-    raw: dict = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 class AlarmProvider(Protocol):

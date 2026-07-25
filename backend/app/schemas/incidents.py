@@ -143,11 +143,14 @@ class PublicIncidentCreate(BaseModel):
     contact: str | None = None  # "Melder / Anrufer"
     contact_phone: str | None = None  # Direct phone number
 
-    # Reuse the shared validators from IncidentBase.
-    _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)
-    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)
-    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)
-    _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)
+    # Reuse the shared validators from IncidentBase. `.__func__` unwraps the classmethod so it
+    # can be re-registered here; mypy sees the already-bound method and doesn't model the
+    # descriptor, hence the narrow ignores. The runtime behaviour is pydantic's documented way
+    # of sharing validators between models.
+    _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
+    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
+    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
+    _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
 
 
 class IncidentUpdate(BaseModel):
@@ -225,7 +228,7 @@ class IncidentResponse(IncidentBase):
     location_display: str | None = None
 
     @field_serializer("location_lat", "location_lng")
-    def serialize_decimal(self, value):
+    def serialize_decimal(self, value: str | Decimal | None) -> str | None:
         """Convert Decimal to string for JSON serialization."""
         if value is None:
             return None

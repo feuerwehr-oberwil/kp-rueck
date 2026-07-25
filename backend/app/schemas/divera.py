@@ -52,7 +52,7 @@ class DiveraEmergencyResponse(BaseModel):
     is_training: bool = False
 
     @field_serializer("latitude", "longitude")
-    def serialize_decimal(self, value):
+    def serialize_decimal(self, value: Decimal | None) -> str | None:
         """Convert Decimal to string for JSON serialization."""
         if value is None:
             return None

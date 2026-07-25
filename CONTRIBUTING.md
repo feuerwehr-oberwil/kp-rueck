@@ -164,6 +164,14 @@ just test            # Run all E2E tests
 just test-ui         # Interactive UI mode
 ```
 
+> **The E2E suite does not run in CI – running it locally is your job.** ~300 Playwright tests
+> take about 25 minutes, too slow to sit in front of every pull request, so the job in
+> `.github/workflows/ci.yml` is switched off (`if: false`). Nothing else covers a full
+> click-through, so **run `pnpm test:e2e` locally before a release and after any change to
+> auth, the board, or alarm intake.** It needs the backend and frontend up (`just dev`).
+>
+> Making the suite fast enough to bring back into CI is [plan 15](docs/plans/15-e2e-in-ci.md).
+
 ## Project Architecture
 
 - **Backend**: FastAPI with async SQLAlchemy, PostgreSQL, Alembic migrations
