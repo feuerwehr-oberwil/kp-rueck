@@ -123,6 +123,21 @@ class Settings(BaseSettings):
     audit_retention_days: int = 90  # Delete audit_log rows older than this (capped at 7 in demo mode)
     audit_cleanup_interval_hours: int = 24  # How often the cleanup job runs (hours)
 
+    # Login throttling
+    # A command post NATs every tablet and wall display behind ONE public IP,
+    # so a per-IP limit that counts every attempt locks out the whole crew as
+    # soon as a few people sign in within the same minute. Brute-force
+    # protection therefore lives in the per-username FAILURE throttle below;
+    # this per-IP ceiling only exists to blunt username spraying from a single
+    # host and is set well above legitimate command-post traffic.
+    login_rate_limit_per_ip: str = "30/minute"
+    # Consecutive FAILED logins for one username from one IP before that pair
+    # is locked out. Successful logins never consume budget and clear the
+    # counter, so honest operators can never lock each other out.
+    login_max_failed_attempts: int = 5
+    login_failed_lockout_seconds: int = 300  # Lockout duration after the cap
+    login_failed_window_seconds: int = 900  # Failures older than this are forgotten
+
     # SSO provisioning
     # Comma-separated emails (case-insensitive) that get role=editor on first
     # Microsoft login. Everyone else is provisioned as viewer — any tenant

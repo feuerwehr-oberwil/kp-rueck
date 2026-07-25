@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.config import auth_settings
 from ..auth.dependencies import CurrentUser, get_current_user
+from ..auth.login_throttle import login_throttle
 from ..auth.security import (
     create_access_token,
     create_refresh_token,
@@ -23,7 +24,7 @@ from ..auth.security import (
 from ..auth.token_blocklist import token_blocklist
 from ..config import settings
 from ..database import get_db
-from ..middleware.rate_limit import RateLimits, limiter
+from ..middleware.rate_limit import RateLimits, get_client_identifier, limiter
 from ..models import User
 from ..services.audit import log_login, log_logout
 
@@ -53,12 +54,25 @@ async def login(
         5. Log login attempt
         6. Return user data
     """
+    # Brute-force control, keyed on (client IP, username) and counting only
+    # FAILURES — see auth/login_throttle.py for why this isn't the slowapi
+    # per-IP limit (that one would lock out a whole NAT'd command post).
+    client_ip = get_client_identifier(request)
+    retry_after = await login_throttle.retry_after(client_ip, form_data.username)
+    if retry_after:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Zu viele fehlgeschlagene Anmeldeversuche. Bitte {retry_after} Sekunden warten.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     # Find user by username
     result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
 
     # Verify credentials (password_hash can be None for Microsoft-only users)
     if not user or not user.password_hash or not verify_password(form_data.password, user.password_hash):
+        await login_throttle.record_failure(client_ip, form_data.username)
         # Log failed login attempt if user exists
         if user:
             await log_login(db=db, user=user, request=request, success=False)
@@ -72,6 +86,8 @@ async def login(
 
     # Check if user is active
     if not user.is_active:
+        # Not a credential failure — the password was right, so counting it
+        # would lock out an account the admin is about to re-enable.
         await log_login(db=db, user=user, request=request, success=False)
         await db.commit()
         raise HTTPException(
@@ -79,6 +95,10 @@ async def login(
             detail="Benutzerkonto ist deaktiviert",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Correct credentials prove this isn't an attack — clear the counter so a
+    # few typos before a successful sign-in leave nothing behind.
+    await login_throttle.record_success(client_ip, form_data.username)
 
     # Create tokens
     access_token = create_access_token(
