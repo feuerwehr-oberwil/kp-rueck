@@ -75,11 +75,18 @@ export function AuftragPickerDialog({
     const name = newName.trim()
     if (!name || busy) return
     setBusy(true)
-    const created = await onCreate(name)
-    setBusy(false)
-    if (created) {
-      onChoose(created.id)
-      handleOpenChange(false)
+    try {
+      const created = await onCreate(name)
+      if (created) {
+        onChoose(created.id)
+        handleOpenChange(false)
+      }
+    } finally {
+      // Without the finally, a rejected onCreate stranded `busy` at true. This
+      // component stays mounted while the dialog is closed, so the flag — and
+      // the early return above that reads it — survived closing and reopening:
+      // creating an Auftrag stayed impossible until a full page reload.
+      setBusy(false)
     }
   }
 

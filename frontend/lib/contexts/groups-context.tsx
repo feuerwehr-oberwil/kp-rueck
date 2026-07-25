@@ -13,7 +13,7 @@ import {
 } from "@/lib/api-client"
 import type { GroupAssignment, GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
-import { isValidUUID } from "@/lib/utils/validation"
+import { isValidUUID, randomId } from "@/lib/utils/validation"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
@@ -282,7 +282,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       mutationEpochRef.current++
 
       // Optimistic placeholder appended at the end of the list.
-      const tempId = `temp-${crypto.randomUUID()}`
+      const tempId = `temp-${randomId()}`
       const nextPosition = groups.reduce((max, g) => Math.max(max, g.position), -1) + 1
       const now = new Date()
       const optimistic: IncidentGroup = {
@@ -505,7 +505,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
 
       mutationEpochRef.current++
 
-      const tempId = `temp-${crypto.randomUUID()}`
+      const tempId = `temp-${randomId()}`
       const optimistic: GroupAssignment = { id: tempId, resourceType, resourceId, driverStay: false }
       setGroups((gs) =>
         gs.map((g) => (g.id === groupId ? { ...g, assignments: [...g.assignments, optimistic] } : g)),
