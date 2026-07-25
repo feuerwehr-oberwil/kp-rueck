@@ -182,9 +182,13 @@ services:
   # local LAN, so it runs on the host network and only starts with the `printing` profile:
   #   docker compose --profile printing up -d
   print-agent:
-    image: ghcr.io/feuerwehr-oberwil/kp-rueck-print-agent:${KP_RUECK_TAG:-latest}
+    # Neutral name on purpose: ONE agent serves KP Front and KP Rück both. The old
+    # kp-rueck-print-agent name is still published for this release so nothing breaks on
+    # update. To print from both systems, mount a config with a `backends` list instead of
+    # the single-backend variables below — see tools/print-agent/README.md.
+    image: ghcr.io/feuerwehr-oberwil/kp-print-agent:${KP_RUECK_TAG:-latest}
     # Build from source instead: comment out `image:` and uncomment
-    # build: { context: ./print-agent, dockerfile: Dockerfile }
+    # build: { context: ./tools/print-agent, dockerfile: Dockerfile }
     restart: unless-stopped
     logging: *default-logging
     profiles: ["printing"]

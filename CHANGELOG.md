@@ -63,8 +63,25 @@ will keep holding.
   > test in both repositories – a rule tightened in one app and not the other would mean one of
   > them quietly forwards what the other removes.
 - **[`docs/RUNNING-BOTH.md`](docs/RUNNING-BOTH.md)** for stations running KP Front *and* KP Rück
-  on one host: the three places two otherwise-independent stacks collide, and the traps around
-  each. `.env.example` links to it.
+  on one host: the three places two otherwise-independent stacks collide, the traps around each,
+  and a mapping table for the variables the two projects name differently. `.env.example` links
+  to it, and the file is kept identical in both repositories.
+- **One print agent for both systems.** A station running both used to need two agents on the
+  same box — two services, two secrets, two install methods, two log streams — to reach the same
+  printer room. The agent now lives at [`tools/print-agent/`](tools/print-agent/) and speaks
+  **both** protocols: KP Rück's (structured JSON → ESC/POS thermal) and KP Front's (opaque PDF →
+  CUPS/A4 laser). Give it a `backends` list and run one service.
+
+  Neither backend changed and neither wire protocol changed. The core is stdlib-only, so the
+  bare-Pi install with no venv keeps working; `python-escpos`/`pillow` are now an optional extra
+  needed only for the thermal output.
+
+  > **No action required.** The environment variables the previous agent used are read exactly
+  > as before, so an existing `--profile printing` deployment keeps working untouched. The image
+  > is published under the neutral name `ghcr.io/feuerwehr-oberwil/kp-print-agent`; the old
+  > `kp-rueck-print-agent` name is **also** published this release, so nothing breaks on update.
+  > Migrating from two agents to one: **stop the old ones first** — two agents polling one queue
+  > both claim jobs, and each job then prints once, from whichever asked first.
 
 ### Changed
 - **`PUBLIC_URL` is now `CORS_ORIGINS`.** The variable was always passed to the backend as
@@ -84,11 +101,21 @@ will keep holding.
   Front's, it is deliberately *not* behind a compose profile, since nothing else here publishes a
   port at all. It is also not a way to run a second automatic-HTTPS setup – certificate issuance
   needs port 80 or 443 reachable from outside.
+- **Assigning to a missing incident no longer 500s, and a missing resource no longer creates an
+  orphan.** `POST /api/incidents/{id}/assign` with an incident id that no longer exists died on a
+  foreign-key violation — a 500 for what is plainly a stale id. Worse, the *resource* was never
+  checked at all: assigning a personnel id that does not exist returned 200 and stored the
+  assignment anyway, leaving a row pointing at nothing and no error to explain it. Both are now
+  404, matching the neighbouring endpoints.
 - **The alarm webhook secret can be set from `.env`.** It could previously only be read back out
   of the database after first boot
   (`SELECT value FROM settings WHERE key = 'alarm_webhook_secret';`) – the one setup step that
   could not be scripted. `ALARM_WEBHOOK_SECRET` now wins over the stored value, so a deployment
   can be provisioned entirely from the file. Left blank, the previous behaviour is unchanged.
+- **The generic alarm intake reserves the same `source` slugs as KP Front.** Both now reject the
+  union of the two lists, so a station feeding one dispatch system into both apps can't pick a
+  name that one accepts and the other rejects — a trap that only surfaced on the second
+  integration.
 - Dependency updates across the frontend, and the GitHub Actions used by CI.
 - **The app can no longer get stuck in a state only a browser reset would clear.** A sweep for
   crashes and dead ends turned up several, all of which needed something no screen offered:

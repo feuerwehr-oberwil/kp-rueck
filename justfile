@@ -169,15 +169,15 @@ printer cmd="start":
             echo -e "\033[1;34m→ Starting thermal print agent...\033[0m"
             echo -e "\033[1;34m→ Printer config is fetched from backend settings\033[0m"
             echo -e "\033[1;34m→ Use 'just printer dry' for testing without a printer\033[0m"
-            cd print-agent && uv run python agent.py
+            cd tools/print-agent && uv run python agent.py
             ;;
         dry)
             echo -e "\033[1;34m→ Starting print agent in DRY RUN mode (no printer needed)...\033[0m"
-            cd print-agent && DRY_RUN=true uv run python agent.py
+            cd tools/print-agent && DRY_RUN=true uv run python agent.py
             ;;
         bg)
             echo -e "\033[1;34m→ Starting thermal print agent in background...\033[0m"
-            cd print-agent && nohup uv run python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
+            cd tools/print-agent && nohup uv run python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
             echo -e "\033[1;32m✓ Print agent started in background\033[0m"
             echo -e "\033[1;34m→ Logs: just printer logs\033[0m"
             ;;
@@ -267,7 +267,7 @@ release version:
 # Commit the bump and tag it. Stages ONLY the release files.
 # Then: git push --follow-tags  → CI gate → four GHCR images + GitHub Release.
 release-tag version:
-    git add frontend/package.json backend/pyproject.toml backend/uv.lock backend/app/config.py print-agent/pyproject.toml print-agent/uv.lock CHANGELOG.md
+    git add frontend/package.json backend/pyproject.toml backend/uv.lock backend/app/config.py tools/print-agent/pyproject.toml CHANGELOG.md
     git commit -m "chore(release): v{{version}}"
     git tag -a v{{version}} -m "v{{version}}"
     @echo "\033[1;32m✓ Tagged v{{version}}. Push with: git push --follow-tags\033[0m"

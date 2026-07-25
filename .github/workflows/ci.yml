@@ -98,6 +98,30 @@ jobs:
         run: uv run mypy app --ignore-missing-imports
         continue-on-error: true
 
+  # The print agent is not part of the backend: it runs on a box in the station, speaks to
+  # BOTH KP Front and KP Rück, and its core is deliberately dependency-free. So it gets its
+  # own job with a plain Python — which is also what proves the bare-Pi install path, since
+  # the run would fail here if anything in the core started needing a package.
+  print-agent:
+    name: Print Agent
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/print-agent
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Tests (stub backends + fake lp/lpstat, no printer needed)
+        run: |
+          python -m pip install --quiet pytest
+          python -m pytest -q
+
   backend-security:
     name: Backend Security Scan
     runs-on: ubuntu-latest
