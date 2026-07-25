@@ -63,7 +63,11 @@ services:
       # Signs JWTs — keep it STABLE (changing it logs everyone out).
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?set AUTH_SECRET_KEY in .env (openssl rand -hex 32)}
       # Same origin for everything, so the only allowed origin is the deployment's own URL.
-      CORS_ORIGINS: ${PUBLIC_URL:-http://localhost:8080}
+      # Named CORS_ORIGINS in .env too — it is what the backend actually reads, and the old
+      # name PUBLIC_URL collided with KP Front's PUBLIC_URL, which means something else there
+      # (the base for absolute links in outbound webhooks). Copying one .env into the other
+      # broke CORS silently. PUBLIC_URL stays accepted as a deprecated fallback.
+      CORS_ORIGINS: ${CORS_ORIGINS:-${PUBLIC_URL:-http://localhost:8080}}
       # Login cookies are Secure by default. A browser DROPS a Secure cookie over plain
       # http://, so a trusted-LAN install with no DOMAIN must set this to false or nobody
       # can log in. Blank = leave the secure default alone.
@@ -82,6 +86,10 @@ services:
       TRACCAR_URL: ${TRACCAR_URL:-}
       TRACCAR_EMAIL: ${TRACCAR_EMAIL:-}
       TRACCAR_PASSWORD: ${TRACCAR_PASSWORD:-}
+      # Shared secret for POST /api/alarms and the Divera webhook. Set it here and it wins
+      # over the auto-generated value in the settings table, so a station never has to read
+      # the secret back out of the database with SQL. Blank = keep using the DB value.
+      ALARM_WEBHOOK_SECRET: ${ALARM_WEBHOOK_SECRET:-}
       # Shared secret for the pull-based thermal print agent (fail-closed when empty).
       PRINT_AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
@@ -163,7 +171,11 @@ services:
       - caddy_config:/config
     ports:
       - "${HTTP_PORT:-8080}:80"
-      - "443:443"
+      # Both host ports are variable so a station running KP Front and KP Rück on ONE box can
+      # move this stack off 443 (the other stack, or a single shared reverse proxy, keeps it).
+      # Caddy is NOT optional here — unlike KP Front, no other service publishes a port and
+      # this is the single origin the Caddyfile routes. Don't gate it behind a profile.
+      - "${HTTPS_PORT:-443}:443"
     networks: [kprueck]
 
   # Thermal printer agent for the command post. Opt-in: it needs to reach a printer on the

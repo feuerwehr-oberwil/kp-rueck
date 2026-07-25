@@ -116,6 +116,24 @@ async def get_setting_value(db: AsyncSession, key: str, default: str = None) -> 
     return value
 
 
+async def get_alarm_webhook_secret(db: AsyncSession) -> str:
+    """The shared secret for POST /api/alarms and the Divera webhook.
+
+    ``ALARM_WEBHOOK_SECRET`` in the environment WINS over the settings-table value. That is
+    what lets a station provision the whole deployment from ``.env`` — the DB value is
+    auto-generated on first boot, and reading it back out with SQL was the one setup step
+    that could not be scripted (and the one KP Front never had, since it is env-only there).
+
+    Empty env = the DB value, i.e. the existing behaviour for every deployment that does not
+    set it. Returns "" when neither is configured, which both call sites treat as fail-closed.
+    """
+    from ..config import settings as app_settings
+
+    if app_settings.alarm_webhook_secret:
+        return app_settings.alarm_webhook_secret
+    return await get_setting(db, "alarm_webhook_secret") or ""
+
+
 async def get_all_settings(db: AsyncSession) -> dict[str, str]:
     """Get all settings as dict."""
     result = await db.execute(select(Setting))

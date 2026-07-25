@@ -107,6 +107,49 @@ async def test_alarm_accepts_secret_via_header(client: AsyncClient, webhook_secr
     assert response.json()["created"] is True
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_accepts_secret_from_env_without_any_db_setting(client: AsyncClient):
+    """ALARM_WEBHOOK_SECRET alone is enough — no settings row required.
+
+    This is what makes a deployment provisionable purely from .env, instead of booting once
+    and reading the auto-generated secret back out of the database with SQL.
+    """
+    with (
+        patch("app.config.settings.alarm_webhook_secret", "from_env"),
+        patch("app.api.alarms.broadcast_emergency_received", new_callable=AsyncMock),
+    ):
+        response = await _post(client, alarm_payload(), secret="from_env")
+    assert response.status_code == 200
+    assert response.json()["created"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_env_secret_wins_over_db_setting(client: AsyncClient, webhook_secret: str):
+    """With both configured the env value is authoritative and the DB one stops working."""
+    with patch("app.config.settings.alarm_webhook_secret", "from_env"):
+        stale = await _post(client, alarm_payload(), secret=webhook_secret)
+        assert stale.status_code == 403
+
+        with patch("app.api.alarms.broadcast_emergency_received", new_callable=AsyncMock):
+            fresh = await _post(client, alarm_payload(), secret="from_env")
+    assert fresh.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_falls_back_to_db_when_env_unset(client: AsyncClient, webhook_secret: str):
+    """Empty env keeps the existing DB behaviour — the default for every current deployment."""
+    with (
+        patch("app.config.settings.alarm_webhook_secret", ""),
+        patch("app.api.alarms.broadcast_emergency_received", new_callable=AsyncMock),
+    ):
+        response = await _post(client, alarm_payload(), secret=webhook_secret)
+    assert response.status_code == 200
+    assert response.json()["created"] is True
+
+
 # ============================================
 # Creation and pool storage
 # ============================================

@@ -144,8 +144,18 @@ class Settings(BaseSettings):
     # member can reach the login, so write access must be an explicit grant.
     sso_editor_allowlist: str = ""
 
+    # Alarm intake
+    # Shared secret for POST /api/alarms and the Divera webhook. Set here it WINS over the
+    # value in the settings table, so a deployment can be provisioned entirely from .env
+    # instead of reading the auto-generated one back out of the database with SQL. Empty =
+    # fall back to the DB value (auto-generated on first boot), which stays the default.
+    alarm_webhook_secret: str = ""
+
     # Print Agent
-    print_agent_token: str = ""  # Shared token for print agent endpoints (empty = no auth, LAN-only installs)
+    # Shared token for the print agent endpoints. Fail CLOSED: empty means the four agent
+    # endpoints answer 403 for everyone, not that they are open. Setting it is the
+    # deployment's opt-in to printing — see api/print.py::require_print_agent.
+    print_agent_token: str = ""
 
     # WebSocket
     ws_require_auth: bool = False  # Reject WebSocket connects without a valid JWT (strict mode, off for now)
