@@ -44,8 +44,52 @@ will keep holding.
 - **arm64 images.** All four images build for `linux/arm64` as well as `linux/amd64`, so an ARM
   host (Hetzner CAX, Oracle Ampere, a Raspberry Pi) can run the whole stack – previously only the
   print agent could.
+- **Opt-in error reporting, off by default.** When something breaks, a deployment *may* forward a
+  sanitised crash report – but only after switching it on in the admin area. Off means a NULL
+  setting, which is exactly what every existing installation updates into, and consent is a
+  deployment decision rather than a device preference: the fire service is the controller, not
+  whoever is holding the tablet.
+
+  What can leave the building is built field by field in `app/telemetry/scrub.py` – nothing is
+  passed through or spread, so a field nobody wrote a line for cannot leak. Free text is scrubbed
+  as well, because the value is usually *in* the message: paths, e-mails, phone numbers, IPs,
+  coordinates, UUIDs, tokens, street names with house numbers, and the full user agent reduced to
+  a coarse label so it can't fingerprint. Every payload is logged on your own server before it is
+  sent and kept verbatim in `telemetry_outbox`, so you can audit it with a `SELECT` instead of
+  taking our word for it. `KP_TELEMETRY_ENABLED=0` overrides every switch in the UI.
+  See [`PRIVACY.md`](PRIVACY.md).
+
+  > The scrubber and envelope are byte-identical copies of KP Front's, held in step by a checksum
+  > test in both repositories – a rule tightened in one app and not the other would mean one of
+  > them quietly forwards what the other removes.
+- **[`docs/RUNNING-BOTH.md`](docs/RUNNING-BOTH.md)** for stations running KP Front *and* KP Rück
+  on one host: the three places two otherwise-independent stacks collide, and the traps around
+  each. `.env.example` links to it.
+
+### Changed
+- **`PUBLIC_URL` is now `CORS_ORIGINS`.** The variable was always passed to the backend as
+  `CORS_ORIGINS`; the old name collided with KP Front's `PUBLIC_URL`, which means something else
+  there (the base for absolute links in outbound webhooks). Copying one `.env` into the other
+  therefore broke CORS with no error message anywhere. The new name is what the backend actually
+  reads.
+
+  > **No action required.** `PUBLIC_URL` is still accepted as a deprecated fallback; rename it
+  > when you next touch the file.
 
 ### Fixed
+- **Two stacks on one host no longer fight over port 443.** Caddy had it hard-coded, and KP
+  Front's Caddy wants it too – so the second stack simply failed to start. The HTTPS host port is
+  now `HTTPS_PORT`, matching the existing `HTTP_PORT`. Note it must be moved even when an outer
+  reverse proxy never touches it, because this stack's Caddy publishes unconditionally: unlike KP
+  Front's, it is deliberately *not* behind a compose profile, since nothing else here publishes a
+  port at all. It is also not a way to run a second automatic-HTTPS setup – certificate issuance
+  needs port 80 or 443 reachable from outside.
+- **The alarm webhook secret can be set from `.env`.** It could previously only be read back out
+  of the database after first boot
+  (`SELECT value FROM settings WHERE key = 'alarm_webhook_secret';`) – the one setup step that
+  could not be scripted. `ALARM_WEBHOOK_SECRET` now wins over the stored value, so a deployment
+  can be provisioned entirely from the file. Left blank, the previous behaviour is unchanged.
+- Dependency updates across the frontend, and the GitHub Actions used by CI.
 - **The app can no longer get stuck in a state only a browser reset would clear.** A sweep for
   crashes and dead ends turned up several, all of which needed something no screen offered:
   - A corrupt value in browser storage crashed the app on **every** load. The read happened in a
