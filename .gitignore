@@ -96,3 +96,20 @@ test-results/
 
 # Die Ein-Datei-Variante der Landingpage wird gebaut, nicht eingecheckt.
 site/dist/
+
+# Interne Arbeitsdokumente: bleiben lokal, gehören nicht ins öffentliche Repo.
+# (Gleiche Politik wie kp-front — Audits, Kritiken, Pläne, Pitches, QA-Protokolle.)
+.claude/
+docs/AUDIT-*.md
+docs/AUDIT_*.md
+docs/CRITIQUE-*.md
+docs/UI_UX_FIXES.md
+docs/TODO.md
+docs/DEMO_PLAN.md
+docs/FEEDBACK_*.md
+docs/verify-polling.md
+docs/118-magazin-statement.md
+docs/research/
+FEEDBACK-PLAN.md
+ALARM-WEBHOOK-TEST-PROTOCOL.md
+GPS-TEST-PROTOCOL.md
