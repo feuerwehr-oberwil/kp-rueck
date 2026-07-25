@@ -26,6 +26,7 @@ from .api.assignments import bulk_router as assignments_bulk_router
 from .api.assignments import router as assignments_router
 from .api.audit import router as audit_router
 from .api.auth import router as auth_router
+from .api.diag import router as diag_router
 from .api.divera import router as divera_router
 from .api.events import router as events_router
 from .api.exports import router as exports_router
@@ -59,9 +60,11 @@ from .background import (
     start_audit_cleanup_scheduler,
     start_demo_reset_scheduler,
     start_sync_scheduler,
+    start_telemetry_scheduler,
     stop_audit_cleanup_scheduler,
     stop_demo_reset_scheduler,
     stop_sync_scheduler,
+    stop_telemetry_scheduler,
 )
 from .config import settings
 from .database import engine, get_db
@@ -171,6 +174,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         start_sync_scheduler()
     except Exception as e:
         logger.warning(f"Sync scheduler failed to start: {e}")
+
+    # Start the telemetry flush loop. Always registered, and a genuine no-op unless an
+    # admin has opted in — see app/telemetry/. Registering it unconditionally means turning
+    # consent on does not require a restart.
+    logger.info("Starting telemetry flush scheduler...")
+    try:
+        start_telemetry_scheduler()
+    except Exception as e:
+        logger.warning(f"Telemetry scheduler failed to start: {e}")
 
     # Start WebSocket stale session cleanup
     logger.info("Starting WebSocket stale session cleanup...")
@@ -318,6 +330,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Sync scheduler shutdown failed: {e}")
 
+    try:
+        stop_telemetry_scheduler()
+    except Exception as e:
+        logger.warning(f"Telemetry scheduler shutdown failed: {e}")
+
     # Shutdown: Dispose engine
     logger.info("Shutting down...")
     await engine.dispose()
@@ -426,6 +443,7 @@ app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(alarms_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
+app.include_router(diag_router, prefix=settings.api_v1_prefix)
 app.include_router(divera_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
 app.include_router(exports_router, prefix=settings.api_v1_prefix)

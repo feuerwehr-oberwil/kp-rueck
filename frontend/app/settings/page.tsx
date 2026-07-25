@@ -91,6 +91,7 @@ import { PrinterSettings } from '@/components/settings/printer-settings';
 import { FallbackSettings } from '@/components/settings/fallback-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
+import { TelemetrySettings } from '@/components/settings/telemetry-settings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
@@ -112,6 +113,9 @@ const SECTIONS = [
   { id: 'materials', icon: Package, group: 'resources', editorOnly: true, adminOnly: false },
   { id: 'import', icon: FileSpreadsheet, group: 'data', editorOnly: true, adminOnly: false },
   { id: 'audit', icon: FileText, group: 'data', editorOnly: true, adminOnly: false },
+  // Not adminOnly: «Problem melden» is for whoever hit the problem. The consent switch
+  // inside the section is what checks isAdmin.
+  { id: 'telemetry', icon: LifeBuoy, group: 'data', editorOnly: false, adminOnly: false },
 ] as const;
 
 // Audit log constants
@@ -785,6 +789,9 @@ export default function SettingsPage() {
             <FallbackSettings demoMode={demoMode} />
           </div>
         );
+
+      case 'telemetry':
+        return <TelemetrySettings isAdmin={isAdmin} />;
 
       case 'users':
         return (

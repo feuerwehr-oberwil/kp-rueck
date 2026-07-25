@@ -1,0 +1,131 @@
+# Privacy
+
+KP Rück is self-hosted. Your incidents, your roster, your vehicles and materials, your audit
+trail and your Divera data live on **your** server and are never transmitted anywhere by this
+software. There is no cloud account, no licence check, no usage beacon, and no "phone home" on
+start-up.
+
+This document covers the one exception: the two channels through which a station can *choose* to
+send something to the maintainer. Both are off or manual by default. If you never touch them,
+nothing about your installation ever reaches us — you can verify that with `tcpdump`, and
+several of the tests in this repository exist to prove it stays true.
+
+## The short version
+
+| | Problem melden | Automatische Fehlerberichte |
+| --- | --- | --- |
+| Who starts it | Anyone logged in, by pressing **Senden** | The app, after a crash |
+| Default | Always available | **Off** |
+| Consent | Pressing the button | An admin switches it on |
+| Where | Einstellungen → Fehlerberichte | Same page, admin-only half |
+| Can be disabled entirely | Yes, `KP_TELEMETRY_ENABLED=0` | Yes, same variable |
+
+Both live in **Einstellungen → Fehlerberichte**.
+
+## What is sent
+
+Both channels send the same **context block** and nothing else besides it:
+
+| Field | Example | Why |
+| --- | --- | --- |
+| `install` | `9f1c…` (random UUID) | So two reports from the same station are recognisably the same station |
+| `app` | `kp-rueck` | Which of the two apps |
+| `release` | `0.1.0` | The single most useful field in any bug report |
+| `device` | `iPad Safari` | A rendering bug is usually a browser bug |
+| `viewport` | `1024×768` | A layout bug is a viewport bug |
+| `locale` | `de-CH` | Which message catalogue was active |
+| `online` | `true` | Whether the client had a connection |
+
+A manual report adds the text the operator typed. A background error report adds the exception
+type, a scrubbed message, a stack reduced to function names and module basenames, and the route
+shape.
+
+## What is never sent
+
+Not "we try not to send" — these are constructed out of the payload and asserted by tests
+(`backend/tests/test_telemetry_scrub.py`):
+
+- **Incident data of any kind**: addresses, coordinates, incident IDs, Reko reports, danger
+  flags, notes, photos, Divera payloads, WhatsApp message templates.
+- **People**: roster names, functions, ranks, phone numbers, e-mail addresses, check-in state,
+  user accounts, passwords.
+- **Your instance**: hostname, station name, settings, database contents, file paths, usernames,
+  environment variables, tokens, secrets, the Railway sync connection string.
+- **Network identity**: no IP address is placed in the payload, and no `user` object exists for
+  one to appear in later. See "The IP question" below for the part we cannot solve in code.
+- **Screenshots.** There is no code path that captures one.
+
+The payload is built by an **allow-list**: every field is named in
+`backend/app/telemetry/scrub.py` and the caller's object is never forwarded, merged or spread.
+A field nobody wrote a line of code for cannot leak. Free text is additionally scrubbed, because
+the value is often *inside* the message — `TypeError … at Hauptstrasse 12` is a real shape.
+
+`scrub.py` and the three modules around it are kept byte-identical to the copies in
+[KP Front](https://github.com/feuerwehr-oberwil/kp-front), enforced by
+`backend/tests/test_telemetry_vendored.py`. A rule tightened in one app and not the other would
+mean one of them quietly leaks what the other strips.
+
+## How to check, rather than trust
+
+You do not have to take any of the above on faith:
+
+1. **Your own log.** Every payload is written to your server's log in full, at `INFO`, *before*
+   it is sent. Look for `telemetry: queuing … exact content follows`.
+2. **Your own database.** The same payload stays verbatim in the `telemetry_outbox` table.
+   `SELECT payload_json FROM telemetry_outbox;` is the whole story, before and after delivery.
+3. **The settings page.** *Einstellungen → Fehlerberichte* shows the same rows, newest first, as
+   formatted JSON.
+4. **The manual report** tells you what it collects before you send, and shows you what the
+   server says it actually queued afterwards.
+
+## Where it goes
+
+To a GlitchTip instance run by the maintainer — the same host KP Front reports to, but a
+separate project. GlitchTip is an open-source, Sentry-compatible error tracker; it runs on a
+host that is network-isolated from anything else of ours. Its configuration (rate limits, IP
+stripping, retention) is checked in at
+[`deploy/ingest/`](https://github.com/feuerwehr-oberwil/kp-front/tree/main/deploy/ingest) in the
+KP Front repository.
+
+The credential embedded in this repository (`backend/app/telemetry/dsn.py`) is a Sentry **public
+key**. It is write-only by construction: it can submit an event and nothing else — it cannot
+read stored events, cannot reach another project, and cannot log in. It is checked in in the
+clear deliberately, so that anyone auditing this repository finds it and can satisfy themselves
+in thirty seconds that it does not read their data.
+
+**Retention:** reports are kept for 90 days and then deleted. Delivered rows in your own outbox
+are swept after 14 days (yours to change).
+
+## Your choices
+
+- **Never send anything.** Do nothing. This is the default state of a fresh install and of every
+  instance that upgrades into this version.
+- **Enforce it centrally.** Set `KP_TELEMETRY_ENABLED=0` in your compose file. This outranks the
+  settings page, so no later click can turn it on.
+- **Point it at yourself.** Set `KP_TELEMETRY_DSN` to your own GlitchTip and the same machinery
+  reports to *your* server. We never hear from you.
+- **Unlink your history.** *Einstellungen → Fehlerberichte → Neue Kennung* mints a fresh install
+  UUID. Reports we already hold keep the old one and can no longer be connected to anything you
+  send after.
+- **Ask for deletion.** Mail the install UUID to bastian@eichenbergers.ch and everything under
+  it is deleted. You do not have to explain why.
+
+## The IP question
+
+Your server's IP address is visible to our ingest host, the same way it is visible to any server
+you make a request to. We do not put it in the payload, the reverse proxy in front of the ingest
+strips the forwarding headers, and its access log does not record remote addresses. We cannot
+prove those last two to you from inside this repository, which is exactly why
+`KP_TELEMETRY_ENABLED=0` exists and why the default is off. If your threat model includes the
+maintainer's own infrastructure, do not switch this on — that is a legitimate position and the
+app is fully functional without it.
+
+## Legal
+
+Your fire service is the data controller for everything in its instance. Switching on background
+error reports makes the maintainer a recipient of the (sanitised, non-personal) data described
+above. That decision belongs to the organisation, which is why the switch is admin-only and
+deliberately kept out of the generic settings API that editors can reach — and why nothing is
+enabled by an upgrade.
+
+Questions, or a deletion request: **bastian@eichenbergers.ch**.

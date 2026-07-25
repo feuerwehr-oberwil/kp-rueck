@@ -3,6 +3,8 @@
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .telemetry.dsn import UPSTREAM_DSN
+
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -192,6 +194,29 @@ class Settings(BaseSettings):
     divera_api_url: str = "https://app.divera247.com/api/v2"  # Divera API base URL
     divera_poll_interval_seconds: int = 30  # How often to poll when users are connected
     divera_poll_max_alarms: int = 50  # Maximum number of recent alarms to fetch per poll
+
+    # --- Telemetry (opt-in; see app/telemetry/) ---
+    # The DEPLOYER's half of the switch, above whatever an admin later clicks in the UI:
+    # KP_TELEMETRY_ENABLED=0 (or a blank DSN) compiles the forwarder out of this process, so
+    # a station whose IT policy forbids outbound traffic can enforce that in the compose file
+    # rather than trusting that nobody ticks a box. Consent is the SECOND gate, not the first.
+    telemetry_enabled: bool = True
+    # Points at our ingest by default (a public, write-only key — read app/telemetry/dsn.py
+    # before assuming that's a mistake). Override to aim the same machinery at your own
+    # GlitchTip and upstream never hears from you.
+    telemetry_dsn: str = UPSTREAM_DSN
+    # Minutes between flush attempts. Nothing waits on this; it exists so an offline station
+    # drains its queue eventually, not so a crash reaches us quickly.
+    telemetry_flush_minutes: int = 5
+
+    @field_validator("telemetry_enabled", mode="before")
+    @classmethod
+    def _empty_telemetry_flag_is_false(cls, v: object) -> object:
+        # compose passes an unset variable through as "" — the safe reading of "unset" here is
+        # "don't send", not "crash the boot on a pydantic bool parse".
+        if isinstance(v, str) and v.strip() == "":
+            return False
+        return v
 
     @property
     def is_production(self) -> bool:
