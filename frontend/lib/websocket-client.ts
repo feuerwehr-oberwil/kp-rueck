@@ -30,11 +30,28 @@ class WebSocketClient {
   private maxReconnectAttempts = 10
   private reconnectDelay = 1000
   private pingIntervalId: ReturnType<typeof setInterval> | null = null
+  // How many mounted consumers currently want this socket alive. The socket is
+  // a module singleton shared by OperationsProvider (root layout, effectively
+  // permanent) and several page-level consumers (/check-in, /reko-dashboard).
+  // Without refcounting, the FIRST page to unmount tore the socket down for
+  // everyone — navigating board → Check-in → board silently killed realtime
+  // for the rest of the session, because the provider's connect() lives in a
+  // root-layout effect that never re-runs. Polling covered the data, so
+  // nothing on screen ever revealed it.
+  private consumers = 0
 
   /**
-   * Connect to the WebSocket server
+   * Connect to the WebSocket server.
+   *
+   * Registers one consumer; pair every call with `disconnect()`.
    */
   connect() {
+    this.consumers++
+    this.dial()
+  }
+
+  /** Open a socket if one isn't already alive. Does not touch the refcount. */
+  private dial() {
     if (this.socket) {
       if (this.socket.connected) {
         console.log('WebSocket already connected')
@@ -82,9 +99,21 @@ class WebSocketClient {
   }
 
   /**
-   * Disconnect from the WebSocket server
+   * Release one consumer's claim on the socket. The connection is only really
+   * torn down once the last consumer has released it.
    */
   disconnect() {
+    this.consumers = Math.max(0, this.consumers - 1)
+    if (this.consumers > 0) return
+    this.forceDisconnect()
+  }
+
+  /**
+   * Tear the socket down regardless of refcount. For teardown paths that must
+   * not depend on consumers having balanced their calls (tests, sign-out).
+   */
+  forceDisconnect() {
+    this.consumers = 0
     if (this.pingIntervalId) {
       clearInterval(this.pingIntervalId)
       this.pingIntervalId = null
@@ -94,6 +123,24 @@ class WebSocketClient {
       this.socket = null
       this.updateStatus('disconnected')
     }
+  }
+
+  /**
+   * Drop a dead socket and dial again, keeping the current consumer count.
+   *
+   * socket.io stops retrying after `maxReconnectAttempts`, which latches the
+   * status at 'error' with no way back. Used by the stale-data banner's
+   * "Neu verbinden" action so operators aren't left reloading the page.
+   */
+  reconnect() {
+    if (this.socket) {
+      this.socket.disconnect()
+      this.socket = null
+    }
+    this.reconnectAttempts = 0
+    // dial(), not connect(): this is an existing consumer re-dialling, so the
+    // refcount must not move.
+    this.dial()
   }
 
   /**
