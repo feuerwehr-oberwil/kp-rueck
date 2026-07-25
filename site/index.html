@@ -77,49 +77,37 @@
     <div class="wrap">
       <p class="eyebrow">Der Massstab</p>
       <blockquote>«Wenn das Netz weg ist, führt <em>Papier</em>.»</blockquote>
-      <p class="expl">Ein Board, das beim Stromausfall schwarz wird, ist keine Führungsunterlage.
-        Darum druckt KP Rück im Hintergrund weiter: <strong>der Boardstand alle 15 Minuten auf den
-        Thermodrucker, ein Lageblatt nach dem kantonalen Führungsformular auf Knopfdruck, und eine
-        Ausfall-Anleitung, die vorher geschrieben wurde – nicht im Ereignis.</strong></p>
-    </div>
-  </section>
-
-  <section class="wrap" id="ausfall">
-    <div class="sec-head">
-      <p class="eyebrow">Redundanz</p>
-      <h2>Drei Stufen, bevor der KP blind ist.</h2>
-      <p>KP Rück läuft üblicherweise in der Cloud – bequem, aber abhängig vom Uplink des
-        Magazins. Darum ist der Rückweg gestuft gebaut: jede Stufe funktioniert ohne die
-        darüber.</p>
-    </div>
-    <div class="pillars-grid three">
-      <div class="pillar">
-        <p class="tag">Stufe 1</p>
-        <h3>Mehrere Geräte am selben Stand.</h3>
-        <p>Tablet, Beamer-Anzeige und Handy hängen live am gleichen Board. Fällt ein Gerät aus
-          oder friert ein, macht das nächste weiter – es gibt nichts zu retten und nichts
-          nachzutragen.</p>
+      <p class="expl">Ein Board, das beim Stromausfall schwarz wird, ist keine
+        Führungsunterlage. Darum ist der Rückweg gestuft gebaut – <strong>jede Stufe funktioniert
+        ohne die darüber</strong>.</p>
+      <div class="stages">
+        <div class="stage">
+          <p class="stage-n">Stufe 1</p>
+          <h3>Mehrere Geräte am selben Stand</h3>
+          <p>Tablet, Beamer-Anzeige und Handy hängen live am gleichen Board. Fällt ein Gerät aus
+            oder friert ein, macht das nächste weiter – es gibt nichts zu retten und nichts
+            nachzutragen.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Stufe 2</p>
+          <h3>Eine zweite Instanz im Magazin</h3>
+          <p>KP Rück lässt sich zusätzlich lokal betreiben. Der eingebaute Abgleich hält
+            Ereignisse, Einsätze, Personal, Fahrzeuge, Material und Einstellungen zwischen Cloud
+            und lokaler Datenbank auf Stand. Die Karte kommt aus dem eigenen Kachelserver, der
+            Drucker hängt ohnehin im LAN.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Stufe 3</p>
+          <h3>Papier führt</h3>
+          <p>Der Boardstand geht alle 15 Minuten auf den Thermodrucker, das Lageblatt auf
+            Knopfdruck. Fällt alles aus, wird das letzte Blatt zum Board; beim Wiederanlauf
+            überträgt <strong>eine</strong> Person die Papierzeilen zurück.</p>
+        </div>
       </div>
-      <div class="pillar">
-        <p class="tag">Stufe 2</p>
-        <h3>Eine zweite Instanz im Magazin.</h3>
-        <p>KP Rück lässt sich zusätzlich lokal betreiben. Der eingebaute Abgleich hält
-          <strong>Ereignisse, Einsätze, Personal, Fahrzeuge, Material und Einstellungen</strong>
-          zwischen Cloud und lokaler Datenbank auf Stand – mit Status und Verlauf jedes Laufs in
-          den Einstellungen. Die Karte kann aus dem eigenen Kachelserver kommen, der Drucker
-          hängt ohnehin im LAN.</p>
-      </div>
-      <div class="pillar">
-        <p class="tag">Stufe 3</p>
-        <h3>Papier führt.</h3>
-        <p>Der Boardstand geht alle 15 Minuten auf den Thermodrucker, das Lageblatt auf
-          Knopfdruck. Fällt alles aus, wird das letzte Blatt zum Board; beim Wiederanlauf
-          überträgt <strong>eine</strong> Person die Papierzeilen zurück.</p>
-      </div>
+      <p class="stage-note">Ehrlich dazu: Stufe 2 hält die Daten bereit, sie schaltet nicht von
+        selber um – wer sie als Ausfallsicherung nutzt, übt den Wechsel vorher. Die Ausfall-SOP
+        dazu liegt im Repo, nicht nur im Kopf.</p>
     </div>
-    <p class="contact-note">Ehrlich dazu: Stufe 2 hält die Daten bereit, sie schaltet nicht von
-      selber um – wer sie als Ausfallsicherung nutzt, übt den Wechsel vorher. Die Ausfall-SOP
-      dazu liegt im Repo, nicht nur im Kopf.</p>
   </section>
 
   <section class="wrap" id="einsatz">
@@ -220,24 +208,24 @@
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/alarm.jpg" alt="Alarm-Link: QR-Code und Link für Meldungen von aussen" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/meldung.jpg" alt="Meldeformular: Adresse, Meldung, Priorität, Einsatzart und Angaben zum Melder" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
-          <div class="cap-t">Meldungen von aussen</div>
-          <div class="cap-s">Link oder QR-Code – Telefonmeldung und Laufkundschaft ohne Konto</div>
+          <div class="cap-t">Meldeformular</div>
+          <div class="cap-s">Telefonmeldung und Laufkundschaft – per Link oder QR, ohne Konto</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/reko.jpg" alt="Reko-Formular: Einsatz, «Ich bin vor Ort» und Gefahren zum Ankreuzen" width="900" height="562" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Reko-Formular</div>
+          <div class="cap-s">Auf dem Handy des Trupps: vor Ort melden, Gefahren, Fotos</div>
         </figcaption>
       </figure>
       <figure class="shot">
         <img src="shots/auftraege.jpg" alt="Aufträge: mehrere Einsätze zu einer Route gebündelt" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Aufträge</div>
-          <div class="cap-s">Mehrere Einsätze als eine Route an einen Trupp</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="shots/drucken.jpg" alt="Status drucken: Auswahl der Listen für den Ausdruck" width="1500" height="937" loading="lazy" decoding="async">
-        <figcaption>
-          <div class="cap-t">Drucken</div>
-          <div class="cap-s">Boardstand aufs Papier – automatisch oder auf Knopfdruck</div>
+          <div class="cap-s">Mehrere Einsätze als eine Route – mit Mannschaft, Mitteln und den nächsten Stopps</div>
         </figcaption>
       </figure>
       <figure class="shot">
@@ -309,24 +297,13 @@
 
   <section class="wrap" id="offen">
     <div class="sec-head">
-      <p class="eyebrow">Zwei Grundsätze</p>
-      <h2>Üben am Ernstfall-System – und quelloffen.</h2>
-    </div>
-    <div class="pillars-grid">
-      <div class="pillar">
-        <p class="tag">Übungsbetrieb</p>
-        <h3>Geübt wird am echten Werkzeug.</h3>
-        <p>Übungslagen laufen im gleichen System wie der Ernstfall, nur <strong>sauber davon
-          getrennt</strong>. Ein Generator speist Einsätze und Alarme ein – der KP-Dienst übt am
-          Gerät, das in der Einsatznacht auch dasteht, statt an einer Attrappe.</p>
-      </div>
-      <div class="pillar">
-        <p class="tag">Open Source · AGPL</p>
-        <h3>Eure Feuerwehr, eure Daten.</h3>
-        <p>Eine Instanz pro Feuerwehr, <strong>keine Lizenz pro Gerät</strong>, kein Vendor-Lock-in.
-          Selbst gehostet oder in der Cloud – der ganze Code steht auf
-          <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>.</p>
-      </div>
+      <p class="eyebrow">Open Source · AGPL</p>
+      <h2>Eure Feuerwehr, eure Daten.</h2>
+      <p>Eine Instanz pro Feuerwehr, <strong>keine Lizenz pro Gerät</strong>, kein
+        Vendor-Lock-in. Selbst gehostet im Magazin oder in der Cloud – ihr entscheidet, wo die
+        Einsatzdaten liegen. Der ganze Code steht auf
+        <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>,
+        und wer etwas anders braucht, kann es selber bauen oder bauen lassen.</p>
     </div>
   </section>
 
@@ -352,8 +329,7 @@
         <p>Willst du KP Rück bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,
           wie du es erwartest? Melde dich – wir lesen alles.</p>
         <p class="alt">Für Fragen und offene Ideen gibt es die
-          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub-Diskussionen</a>.
-          Sicherheitslücken bitte nicht öffentlich melden – siehe <a href="https://github.com/feuerwehr-oberwil/kp-rueck/security/policy" target="_blank" rel="noopener">SECURITY.md</a>.</p>
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">GitHub-Diskussionen</a>.</p>
       </div>
       <div class="contact-ways">
         <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=bug_report.md" target="_blank" rel="noopener">
@@ -404,7 +380,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
