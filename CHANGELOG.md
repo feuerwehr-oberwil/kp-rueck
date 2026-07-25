@@ -126,11 +126,25 @@ something another station can pin.
   are now atomic.
 
 ### Fixed
-- Self-hosting fixes found by booting the published stack end to end: the API proxy no longer
-  forces redirect targets to `https://` (a Railway-specific rewrite that made every
-  trailing-slash redirect fail against a plain-HTTP backend), the photo volume is mounted where
-  the image actually prepares it, and the frontend health probe uses `127.0.0.1` instead of
-  `localhost`, which resolves to IPv6 first while Next binds IPv4 only.
+- **Self-hosting outside Railway now actually works.** KP Rück had only ever been deployed to
+  Railway, and that was baked into paths that looked platform-neutral. Found by building the
+  images and booting the stack end to end:
+  - The API proxy forced every redirect target to `https://` (a Railway-edge workaround), so
+    against a plain-HTTP backend it attempted TLS on a cleartext port — and since the proxy
+    appends a trailing slash, FastAPI's redirect made that the common path: `/backend-api/*`
+    returned 502 for everything.
+  - The live board never connected: the WebSocket URL applied Railway's
+    `X.up.railway.app → X-api.up.railway.app` convention to *any* hostname with three or more
+    labels, pointing at a host that doesn't exist. It now uses the deployment's own origin
+    (and keeps `ws://` on a plain-HTTP LAN instead of forcing `wss://`).
+  - Login was impossible on a trusted-LAN install: `Secure` cookies were forced on in
+    production, and browsers drop those over plain HTTP, so signing in failed with no visible
+    error. `AUTH_COOKIE_SECURE=false` is now a deliberate opt-out; unset still means secure.
+  - Offline map tiles were requested from a hard-coded `localhost:8080`, which no browser on a
+    deployment can reach; they now come from `/tiles` on the same origin.
+  - The photo volume is mounted where the image actually prepares it, and the frontend health
+    probe uses `127.0.0.1` instead of `localhost`, which resolves to IPv6 first while Next
+    binds IPv4 only.
 - The Divera webhook auto-attach never fails the ACK, and the member sync now counts created
   personnel correctly.
 - `/incidents/sync-version` is no longer shadowed by the `/{incident_id}` route.
