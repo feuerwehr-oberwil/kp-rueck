@@ -20,6 +20,39 @@ version – a station runs the set, not a mix.
 
 ## [Unreleased]
 
+### Fixed
+- **The app can no longer get stuck in a state only a browser reset would clear.** A sweep for
+  crashes and dead ends turned up several, all of which needed something no screen offered:
+  - A corrupt value in browser storage crashed the app on **every** load. The read happened in a
+    provider above every error boundary, so it produced an untranslated "Application error" with
+    no way out — and because the bad value was saved, reloading (or restarting the browser)
+    reproduced it. There is now a last-resort error screen with a **"Lokale Daten zurücksetzen"**
+    action, and all storage reads validate what they find instead of trusting it.
+  - On an installation served over plain **HTTP from a LAN address**, creating an Auftrag or
+    assigning a resource to one silently did nothing: the browser only provides the id generator
+    the code used over HTTPS or on localhost. The dialog's create button then stayed dead until
+    the page was reloaded.
+  - Visiting **Check-in** or the **Reko-Dashboard** and navigating back killed live updates for
+    the rest of the session. Those pages closed a connection the whole app shares. Data kept
+    flowing via background polling, so nothing looked wrong.
+  - When the live connection gave up for good, the "Verbindung verloren" banner only reported it.
+    It now has a **"Neu verbinden"** button; previously the sole cure was a page reload.
+- **Wall displays recover on their own.** An error on an unattended `/display/*` screen used to
+  leave a dead page with a button nobody was there to press. Displays now reload themselves after
+  15s, then 30s, then 60s — backing off so a broken deploy can't turn every screen in the station
+  into a retry loop against the backend. Applies to crashes in the page and in the app shell.
+- **A shared command-post IP no longer locks out the crew.** Login was capped at 3 attempts per
+  minute per IP and counted *successful* logins, so a few operators signing in together from
+  behind the same NAT locked everyone out with nothing to do but wait. Brute-force protection is
+  now per-username and counts only *failures* (5 → 5 minute lockout, cleared by a correct
+  password), which is stricter against an attacker while honest operators can't exhaust each
+  other's budget. Tunable via `LOGIN_RATE_LIMIT_PER_IP`, `LOGIN_MAX_FAILED_ATTEMPTS`,
+  `LOGIN_FAILED_LOCKOUT_SECONDS` and `LOGIN_FAILED_WINDOW_SECONDS`.
+- Development stack: the host and the backend container no longer share one `.venv`. Running
+  `uv run` (or `just db migrate`) on the host used to recreate the virtualenv under the
+  container's feet, flooding the reloader until the backend stopped responding and had to be
+  restarted by hand.
+
 ## [0.1.0] – 2026-07-25
 
 The first tagged release, and the first with **published container images**: self-hosting is a
