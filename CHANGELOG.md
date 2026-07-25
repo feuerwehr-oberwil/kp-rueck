@@ -93,6 +93,11 @@ something another station can pin.
   are now atomic.
 
 ### Fixed
+- Self-hosting fixes found by booting the published stack end to end: the API proxy no longer
+  forces redirect targets to `https://` (a Railway-specific rewrite that made every
+  trailing-slash redirect fail against a plain-HTTP backend), the photo volume is mounted where
+  the image actually prepares it, and the frontend health probe uses `127.0.0.1` instead of
+  `localhost`, which resolves to IPv6 first while Next binds IPv4 only.
 - The Divera webhook auto-attach never fails the ACK, and the member sync now counts created
   personnel correctly.
 - `/incidents/sync-version` is no longer shadowed by the `/{incident_id}` route.

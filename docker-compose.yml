@@ -64,12 +64,15 @@ services:
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?set AUTH_SECRET_KEY in .env (openssl rand -hex 32)}
       # Same origin for everything, so the only allowed origin is the deployment's own URL.
       CORS_ORIGINS: ${PUBLIC_URL:-http://localhost:8080}
-      PHOTOS_DIR: /data/photos
+      # Must live under /mnt/data: entrypoint.sh chowns exactly that path to the non-root
+      # app user, and a fresh named volume is otherwise created root-owned.
+      PHOTOS_DIR: /mnt/data/photos
       # Admin account seeded on first boot (≥12 chars, required in production) — rotate
       # after the first login. The shared editor login is dev-only and never seeded here.
       ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:?set ADMIN_SEED_PASSWORD in .env (≥12 chars)}
-      # Optional read-only account; unset leaves the viewer login untouched.
-      VIEWER_PASSWORD: ${VIEWER_PASSWORD:-}
+      # Read-only account, also required in production: seeding refuses to fall back to a
+      # default viewer login on an internet-facing deployment.
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD:?set VIEWER_PASSWORD in .env (≥12 chars)}
       # Optional integrations — leave blank to disable. See .env.example.
       DIVERA_ACCESS_KEY: ${DIVERA_ACCESS_KEY:-}
       TRACCAR_URL: ${TRACCAR_URL:-}
@@ -82,7 +85,7 @@ services:
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       MICROSOFT_REDIRECT_URI: ${MICROSOFT_REDIRECT_URI:-}
     volumes:
-      - photos:/data/photos
+      - photos:/mnt/data/photos
     healthcheck:
       # The backend image ships no curl; probe with the interpreter instead.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
@@ -108,7 +111,9 @@ services:
       API_URL: http://backend:8000
       NODE_ENV: production
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      # 127.0.0.1, not localhost: Next binds IPv4 only (HOSTNAME=0.0.0.0) while `localhost`
+      # resolves to ::1 first inside the image, so the probe would always be refused.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000"]
       interval: 30s
       timeout: 10s
       retries: 3

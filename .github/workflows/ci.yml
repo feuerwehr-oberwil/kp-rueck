@@ -455,8 +455,10 @@ jobs:
           # Backend through the Next.js proxy — the path a browser takes when the image
           # carries no baked-in API URL. This is the whole generic-image premise.
           curl -fsSL http://localhost:8080/backend-api/health
-          # The app itself renders.
-          curl -fsS http://localhost:8080/ | grep -qi "<html" || { echo "frontend did not render"; exit 1; }
+          # The app itself renders. Written to a file first: `curl | grep -q` exits on the
+          # first match, curl dies of SIGPIPE, and pipefail turns a PASS into a failure.
+          curl -fsS http://localhost:8080/ -o /tmp/index.html
+          grep -qi "<html" /tmp/index.html || { echo "frontend did not render"; exit 1; }
           # Offline tiles reachable on the same origin.
           curl -fsS http://localhost:8080/tiles/health
           echo "stack smoke OK"
