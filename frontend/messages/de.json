@@ -47,7 +47,8 @@
     },
     "staleDataBanner": {
       "connectionLost": "Verbindung verloren — Daten sind möglicherweise veraltet.",
-      "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund."
+      "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund.",
+      "reconnect": "Neu verbinden"
     },
     "statsWidget": {
       "loading": "Statistiken werden geladen...",
@@ -2280,6 +2281,12 @@
       "errorId": "Fehler-ID: {digest}",
       "retry": "Erneut versuchen",
       "home": "Zur Startseite"
+    },
+    "displayError": {
+      "title": "Anzeige unterbrochen",
+      "retryingIn": "Automatischer Neustart in {seconds} s …",
+      "retrying": "Wird neu geladen …",
+      "retryNow": "Jetzt neu laden"
     },
     "mapError": {
       "title": "Kartenfehler",
