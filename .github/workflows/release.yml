@@ -33,7 +33,7 @@ jobs:
       contents: write   # create the GitHub Release
       packages: write   # push to GHCR
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # the newest-tag comparison needs the full tag list
 
