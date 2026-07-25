@@ -35,7 +35,6 @@ from app.services.event_export import (
     export_event_to_zip,
 )
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -71,9 +70,7 @@ async def export_event(db_session: AsyncSession) -> Event:
 
 
 @pytest_asyncio.fixture
-async def export_incident(
-    db_session: AsyncSession, export_event: Event, export_user: User
-) -> Incident:
+async def export_incident(db_session: AsyncSession, export_event: Event, export_user: User) -> Incident:
     """Create a test incident for export tests."""
     incident = Incident(
         id=uuid4(),
@@ -263,9 +260,7 @@ class TestExportEventToZip:
             zf.testzip()
 
     @pytest.mark.asyncio
-    async def test_zip_contains_required_files(
-        self, db_session: AsyncSession, export_event: Event
-    ):
+    async def test_zip_contains_required_files(self, db_session: AsyncSession, export_event: Event):
         """Test ZIP archive contains all required files."""
         result = await export_event_to_zip(db_session, str(export_event.id))
         with ZipFile(result, "r") as zf:
@@ -279,9 +274,7 @@ class TestExportEventToZip:
             assert "README.txt" in file_names
 
     @pytest.mark.asyncio
-    async def test_event_metadata_json_valid(
-        self, db_session: AsyncSession, export_event: Event
-    ):
+    async def test_event_metadata_json_valid(self, db_session: AsyncSession, export_event: Event):
         """Test event metadata JSON is valid and contains correct data."""
         result = await export_event_to_zip(db_session, str(export_event.id))
         with ZipFile(result, "r") as zf:
@@ -345,9 +338,7 @@ class TestExportEventToZip:
             assert "summary_text" in reko_reports[0]
 
     @pytest.mark.asyncio
-    async def test_readme_contains_event_info(
-        self, db_session: AsyncSession, export_event: Event
-    ):
+    async def test_readme_contains_event_info(self, db_session: AsyncSession, export_event: Event):
         """Test README contains event information."""
         result = await export_event_to_zip(db_session, str(export_event.id))
         with ZipFile(result, "r") as zf:
@@ -358,9 +349,7 @@ class TestExportEventToZip:
             assert "Files Included" in readme_content
 
     @pytest.mark.asyncio
-    async def test_excel_file_is_valid(
-        self, db_session: AsyncSession, export_event: Event, export_incident: Incident
-    ):
+    async def test_excel_file_is_valid(self, db_session: AsyncSession, export_event: Event, export_incident: Incident):
         """Test Excel summary file is valid and contains data."""
         result = await export_event_to_zip(db_session, str(export_event.id))
         with ZipFile(result, "r") as zf:
@@ -406,9 +395,7 @@ class TestExportEventToZip:
             assert minimal_inc["completed_at"] is None
 
     @pytest.mark.asyncio
-    async def test_handles_training_event(
-        self, db_session: AsyncSession
-    ):
+    async def test_handles_training_event(self, db_session: AsyncSession):
         """Test export works for training mode events."""
         training_event = Event(
             id=uuid4(),
@@ -424,9 +411,7 @@ class TestExportEventToZip:
             assert metadata["training_flag"] is True
 
     @pytest.mark.asyncio
-    async def test_handles_archived_event(
-        self, db_session: AsyncSession
-    ):
+    async def test_handles_archived_event(self, db_session: AsyncSession):
         """Test export includes archived_at timestamp when present."""
         archived_event = Event(
             id=uuid4(),
@@ -443,9 +428,7 @@ class TestExportEventToZip:
             assert metadata["archived_at"] is not None
 
     @pytest.mark.asyncio
-    async def test_json_uses_utf8_encoding(
-        self, db_session: AsyncSession, export_event: Event, export_user: User
-    ):
+    async def test_json_uses_utf8_encoding(self, db_session: AsyncSession, export_event: Event, export_user: User):
         """Test JSON files use UTF-8 encoding for special characters."""
         # Create incident with German special characters
         incident = Incident(
@@ -622,9 +605,7 @@ class TestExportEdgeCases:
     """Tests for edge cases in event export."""
 
     @pytest.mark.asyncio
-    async def test_event_with_many_incidents(
-        self, db_session: AsyncSession, export_event: Event, export_user: User
-    ):
+    async def test_event_with_many_incidents(self, db_session: AsyncSession, export_event: Event, export_user: User):
         """Test export handles event with many incidents."""
         # Create 20 incidents
         for i in range(20):

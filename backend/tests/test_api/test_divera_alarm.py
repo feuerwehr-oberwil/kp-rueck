@@ -59,9 +59,7 @@ async def _make_person(db_session, name, divera_user_id=None):
 
 
 async def _assign(db_session, incident, person):
-    a = IncidentAssignment(
-        id=uuid4(), incident_id=incident.id, resource_type="personnel", resource_id=person.id
-    )
+    a = IncidentAssignment(id=uuid4(), incident_id=incident.id, resource_type="personnel", resource_id=person.id)
     db_session.add(a)
     await db_session.commit()
 
@@ -96,9 +94,7 @@ async def test_alarm_requires_auth(client: AsyncClient, alarm_incident: Incident
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_alarm_blocked_when_no_access_key(
-    editor_client: AsyncClient, alarm_incident: Incident, monkeypatch
-):
+async def test_alarm_blocked_when_no_access_key(editor_client: AsyncClient, alarm_incident: Incident, monkeypatch):
     monkeypatch.setattr(settings, "divera_access_key", "", raising=False)
     resp = await editor_client.post(
         f"/api/divera/incidents/{alarm_incident.id}/alarm",
@@ -109,9 +105,7 @@ async def test_alarm_blocked_when_no_access_key(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_alarm_blocked_when_disabled(
-    editor_client: AsyncClient, alarm_incident: Incident, configured_key
-):
+async def test_alarm_blocked_when_disabled(editor_client: AsyncClient, alarm_incident: Incident, configured_key):
     # alerting.enabled defaults to false (no Setting row created)
     resp = await editor_client.post(
         f"/api/divera/incidents/{alarm_incident.id}/alarm",
@@ -136,17 +130,19 @@ async def test_alarm_blocked_in_demo_mode(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_alarm_simulated_for_training_event(
-    editor_client: AsyncClient, db_session, configured_key
-):
+async def test_alarm_simulated_for_training_event(editor_client: AsyncClient, db_session, configured_key):
     """Training: run the full flow but send NOTHING to Divera (simulated result)."""
     await _enable_alarm(db_session)
     event = Event(id=uuid4(), name="Übung", training_flag=True, created_at=datetime.now(UTC))
     db_session.add(event)
     await db_session.commit()
     incident = Incident(
-        id=uuid4(), event_id=event.id, title="Test", type="brandbekaempfung",
-        priority="low", status="disponiert",
+        id=uuid4(),
+        event_id=event.id,
+        title="Test",
+        type="brandbekaempfung",
+        priority="low",
+        status="disponiert",
     )
     db_session.add(incident)
     await db_session.commit()
@@ -337,9 +333,7 @@ async def test_service_updates_existing_alarm_instead_of_duplicating(monkeypatch
             return _Resp({"success": True, "data": {"id": 5550}})
 
     monkeypatch.setattr(httpx, "AsyncClient", _Client)
-    data = await divera_alarm.send_alarm(
-        user_cluster_relation=[1], title="t", text="x", foreign_id="kprueck-x"
-    )
+    data = await divera_alarm.send_alarm(user_cluster_relation=[1], title="t", text="x", foreign_id="kprueck-x")
     assert data == {"id": 5550}
     methods = [m for m, _ in calls]
     assert "GET" in methods and "PUT" in methods and "POST" not in methods
@@ -374,18 +368,14 @@ async def test_service_treats_200_success_false_as_error(monkeypatch):
 
     monkeypatch.setattr(httpx, "AsyncClient", _Client)
     with pytest.raises(divera_alarm.DiveraAlarmError):
-        await divera_alarm.send_alarm(
-            user_cluster_relation=[1], title="t", text="x", foreign_id="f"
-        )
+        await divera_alarm.send_alarm(user_cluster_relation=[1], title="t", text="x", foreign_id="f")
 
 
 @pytest.mark.asyncio
 async def test_service_errors_without_access_key(monkeypatch):
     monkeypatch.setattr(settings, "divera_access_key", "", raising=False)
     with pytest.raises(divera_alarm.DiveraAlarmError):
-        await divera_alarm.send_alarm(
-            user_cluster_relation=[1], title="t", text="x", foreign_id="f"
-        )
+        await divera_alarm.send_alarm(user_cluster_relation=[1], title="t", text="x", foreign_id="f")
 
 
 # ============================================
@@ -395,9 +385,7 @@ async def test_service_errors_without_access_key(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_test_alarm_success_targets_divera_user(
-    editor_client: AsyncClient, db_session, configured_key
-):
+async def test_test_alarm_success_targets_divera_user(editor_client: AsyncClient, db_session, configured_key):
     await _enable_alarm(db_session)
 
     mock_send = AsyncMock(return_value={"id": 42, "count_recipients": 1})
@@ -419,14 +407,10 @@ async def test_test_alarm_success_targets_divera_user(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_test_alarm_blocked_when_disabled(
-    editor_client: AsyncClient, configured_key
-):
+async def test_test_alarm_blocked_when_disabled(editor_client: AsyncClient, configured_key):
     # alerting.enabled defaults to false (no Setting row created)
     with patch.object(divera_alarm, "send_alarm", new=AsyncMock()) as mock_send:
-        resp = await editor_client.post(
-            "/api/divera/test-alarm", json={"divera_user_id": 999001}
-        )
+        resp = await editor_client.post("/api/divera/test-alarm", json={"divera_user_id": 999001})
     assert resp.status_code == 403
     mock_send.assert_not_called()
 
@@ -447,11 +431,7 @@ async def test_alarm_resolves_recipient_via_identity_table(
 
     await _enable_alarm(db_session)
     person = await _make_person(db_session, "Neutral Linked", divera_user_id=None)
-    db_session.add(
-        PersonnelExternalIdentity(
-            personnel_id=person.id, provider="divera", external_id="777001"
-        )
-    )
+    db_session.add(PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id="777001"))
     await db_session.commit()
     await _assign(db_session, alarm_incident, person)
 
@@ -480,11 +460,7 @@ async def test_alarm_identity_table_wins_over_legacy_column(
 
     await _enable_alarm(db_session)
     person = await _make_person(db_session, "Both Linked", divera_user_id=111111)
-    db_session.add(
-        PersonnelExternalIdentity(
-            personnel_id=person.id, provider="divera", external_id="222222"
-        )
-    )
+    db_session.add(PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id="222222"))
     await db_session.commit()
     await _assign(db_session, alarm_incident, person)
 

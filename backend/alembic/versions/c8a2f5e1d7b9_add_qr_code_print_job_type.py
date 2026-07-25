@@ -30,6 +30,4 @@ def downgrade() -> None:
     # Remove any qr_code jobs first so the stricter constraint can be applied.
     op.execute("DELETE FROM print_jobs WHERE job_type = 'qr_code'")
     op.drop_constraint("valid_print_job_type", "print_jobs", type_="check")
-    op.create_check_constraint(
-        "valid_print_job_type", "print_jobs", "job_type IN ('assignment', 'board', 'test')"
-    )
+    op.create_check_constraint("valid_print_job_type", "print_jobs", "job_type IN ('assignment', 'board', 'test')")

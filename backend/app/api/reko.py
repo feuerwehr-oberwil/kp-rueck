@@ -400,9 +400,7 @@ async def generate_reko_link(
     if not authorized:
         user = await get_current_user(request, access_token, authorization, db)
         if user.role not in ("editor", "admin"):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich")
 
     token = generate_form_token(str(incident_id), form_type)
     link = f"/reko?incident_id={incident_id}&token={token}"

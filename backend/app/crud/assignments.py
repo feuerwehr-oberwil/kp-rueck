@@ -244,9 +244,7 @@ async def get_assignments_by_event(
         if assignment.incident_id not in assignments_by_incident:
             assignments_by_incident[assignment.incident_id] = []
 
-        assignments_by_incident[assignment.incident_id].append(
-            schemas.AssignmentResponse.model_validate(assignment)
-        )
+        assignments_by_incident[assignment.incident_id].append(schemas.AssignmentResponse.model_validate(assignment))
 
     return assignments_by_incident
 

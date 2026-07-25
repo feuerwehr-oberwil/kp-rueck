@@ -127,7 +127,13 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
         {"name": "Ölbindemittel", "type": "Ölwehr", "location": "Magazin", "status": "available", "consumable": True},
         {"name": "Ölsperre", "type": "Ölwehr", "location": "Pio", "status": "available"},
         # An unlimited consumable example
-        {"name": "Triopan / Absperrband", "type": "Verbrauchsmaterial", "location": "Magazin", "status": "available", "consumable": True},
+        {
+            "name": "Triopan / Absperrband",
+            "type": "Verbrauchsmaterial",
+            "location": "Magazin",
+            "status": "available",
+            "consumable": True,
+        },
     ]
     # Depot order for the location filter/grouping: the mobile depots (vehicles,
     # closest to the scene) first, the central Magazin last.
@@ -672,36 +678,63 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     }
     reko_reports_data = [
         (
-            "Abgedecktes Dach Scheune", "Suter Beat", True,
+            "Abgedecktes Dach Scheune",
+            "Suter Beat",
+            True,
             {**no_dangers, "collapse": True},
             "available",
-            {"personnel_count": 4, "vehicles_needed": ["Pio"], "equipment_needed": ["Flutlichtstrahler"], "estimated_duration_hours": 2.5},
+            {
+                "personnel_count": 4,
+                "vehicles_needed": ["Pio"],
+                "equipment_needed": ["Flutlichtstrahler"],
+                "estimated_duration_hours": 2.5,
+            },
             "Mehrere Ziegelreihen abgedeckt, Unterdach beschädigt. Absturzgefahr, Notabdeckung mit Blachen nötig.",
-            95, 78,
+            95,
+            78,
         ),
         (
-            "Wasser im Keller Doppelhaus", "Gerber Elias", True,
+            "Wasser im Keller Doppelhaus",
+            "Gerber Elias",
+            True,
             {**no_dangers, "electrical": True},
             "emergency_needed",
-            {"personnel_count": 3, "vehicles_needed": ["Trawa"], "equipment_needed": ["Tauchpumpe Kl.", "Wassersauger"], "estimated_duration_hours": 1.5},
+            {
+                "personnel_count": 3,
+                "vehicles_needed": ["Trawa"],
+                "equipment_needed": ["Tauchpumpe Kl.", "Wassersauger"],
+                "estimated_duration_hours": 1.5,
+            },
             "Ca. 25 cm Wasser im Keller, Elektroverteilung betroffen, Strom abgestellt. Auspumpen mit Tauchpumpe nötig.",
-            90, 72,
+            90,
+            72,
         ),
         (
-            "Ölfilm auf Dorfbach", "Suter Beat", True,
+            "Ölfilm auf Dorfbach",
+            "Suter Beat",
+            True,
             {**no_dangers, "chemical": True},
             "available",
-            {"personnel_count": 3, "vehicles_needed": ["Mawa"], "equipment_needed": ["Ölsperre", "Ölbindemittel"], "estimated_duration_hours": 1.5},
+            {
+                "personnel_count": 3,
+                "vehicles_needed": ["Mawa"],
+                "equipment_needed": ["Ölsperre", "Ölbindemittel"],
+                "estimated_duration_hours": 1.5,
+            },
             "Heizöl aus überflutetem Tankraum in den Bach gelangt. Ölsperre und Bindemittel erforderlich.",
-            158, 145,
+            158,
+            145,
         ),
         (
-            "Wasser im Keller Praxis", "Gerber Elias", False,
+            "Wasser im Keller Praxis",
+            "Gerber Elias",
+            False,
             dict(no_dangers),
             "available",
             {"personnel_count": 2, "vehicles_needed": [], "equipment_needed": [], "estimated_duration_hours": 0.5},
             "Nur wenig Wasser über den Lichtschacht eingedrungen, kein Einsatz der Feuerwehr nötig. Bewohner instruiert.",
-            168, 160,
+            168,
+            160,
         ),
     ]
     for i, (title, author, is_relevant, dangers, power, effort, summary, arrived_min, submitted_min) in enumerate(
@@ -787,7 +820,9 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         transition("Wasser im Keller Praxis", "eingegangen", "reko", 170, "Reko aufgeboten"),
         transition("Wasser im Keller Praxis", "reko", "reko_done", 159, "Reko abgeschlossen"),
         transition("Wasser im Keller Praxis", "reko_done", "abschluss", 40, "Kein Einsatz nötig, abgeschlossen"),
-        transition("Wasser im Keller Einliegerwohnung", "einsatz", "abschluss", 55, "Keller ausgepumpt, Einsatz abgeschlossen"),
+        transition(
+            "Wasser im Keller Einliegerwohnung", "einsatz", "abschluss", 55, "Keller ausgepumpt, Einsatz abgeschlossen"
+        ),
     ]
     for t in transitions:
         db.add(t)

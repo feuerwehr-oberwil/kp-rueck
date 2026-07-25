@@ -163,12 +163,12 @@ class RateLimitHeadersMiddleware:
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start" and request.url.path.startswith("/api"):
                 # Check if X-RateLimit-Limit is already present (slowapi sets it for limited routes)
-                existing_headers = dict(message.get("headers", []))
                 has_rate_limit = any(k == b"x-ratelimit-limit" for k, _ in message.get("headers", []))
                 if not has_rate_limit:
                     message = {
                         **message,
-                        "headers": list(message.get("headers", [])) + [
+                        "headers": list(message.get("headers", []))
+                        + [
                             (b"x-ratelimit-policy", b"100/minute"),
                         ],
                     }

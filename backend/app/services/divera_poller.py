@@ -7,12 +7,12 @@ connected via WebSocket to avoid unnecessary API load.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
-from ..config import settings
 from .. import schemas
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -68,12 +68,8 @@ class DiveraPoller:
 
         self._should_poll = True
         self._http_client = httpx.AsyncClient(timeout=30.0)
-        self._polling_task = asyncio.create_task(
-            self._poll_loop(on_alarm_callback)
-        )
-        logger.info(
-            f"Started Divera polling (interval: {settings.divera_poll_interval_seconds}s)"
-        )
+        self._polling_task = asyncio.create_task(self._poll_loop(on_alarm_callback))
+        logger.info(f"Started Divera polling (interval: {settings.divera_poll_interval_seconds}s)")
 
     async def stop_polling(self):
         """Stop polling for alarms."""
@@ -101,7 +97,7 @@ class DiveraPoller:
         while self._should_poll:
             try:
                 await self._fetch_and_process_alarms(on_alarm_callback)
-                self._last_poll_time = datetime.now(timezone.utc)
+                self._last_poll_time = datetime.now(UTC)
                 self._poll_count += 1
             except asyncio.CancelledError:
                 break

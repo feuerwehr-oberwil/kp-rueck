@@ -79,19 +79,11 @@ class ManualDispatchRequest(BaseModel):
     @model_validator(mode="after")
     def exactly_one_location_source(self):
         has_seeded = self.location_id is not None
-        has_pin = (
-            self.latitude is not None
-            and self.longitude is not None
-            and bool(self.address)
-        )
+        has_pin = self.latitude is not None and self.longitude is not None and bool(self.address)
         if has_seeded and has_pin:
-            raise ValueError(
-                "Provide either location_id OR (latitude, longitude, address), not both"
-            )
+            raise ValueError("Provide either location_id OR (latitude, longitude, address), not both")
         if not has_seeded and not has_pin:
-            raise ValueError(
-                "Provide either location_id OR (latitude, longitude, address)"
-            )
+            raise ValueError("Provide either location_id OR (latitude, longitude, address)")
         return self
 
 
@@ -149,9 +141,7 @@ class TrainingLocationBase(BaseModel):
             try:
                 lat_val = float(str(v))
                 if not (47.3 <= lat_val <= 47.6):
-                    raise ValueError(
-                        "Latitude should be within Basel-Landschaft area (47.3 to 47.6)"
-                    )
+                    raise ValueError("Latitude should be within Basel-Landschaft area (47.3 to 47.6)")
             except (ValueError, TypeError) as e:
                 if "Latitude should be" not in str(e):
                     raise ValueError("Invalid latitude value")
@@ -166,9 +156,7 @@ class TrainingLocationBase(BaseModel):
             try:
                 lng_val = float(str(v))
                 if not (7.3 <= lng_val <= 7.9):
-                    raise ValueError(
-                        "Longitude should be within Basel-Landschaft area (7.3 to 7.9)"
-                    )
+                    raise ValueError("Longitude should be within Basel-Landschaft area (7.3 to 7.9)")
             except (ValueError, TypeError) as e:
                 if "Longitude should be" not in str(e):
                     raise ValueError("Invalid longitude value")

@@ -1,11 +1,24 @@
 name: CI
 
-# CI Strategy:
-# - BLOCKING: backend-test, frontend-typecheck, frontend-unit-tests, frontend-build
-# - NON-BLOCKING (TODO): backend-lint (87 errors), backend-typecheck (mypy),
-#                        backend-security (bandit), frontend-lint (158 errors)
-# - E2E: Only runs on main branch after blocking checks pass
-# - Coverage: Min 35% (target: 50% → 70%)
+# CI strategy – keep this comment truthful, it is the only place the split is written down.
+#
+# BLOCKING (a red one of these must stop a merge; these are the checks required on main):
+#   backend-lint, backend-test, frontend-lint, frontend-typecheck, frontend-unit-tests,
+#   frontend-build, images
+#
+# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-25,
+# so nobody has to guess how far off "make it blocking" is:
+#   backend-typecheck  mypy    – 757 errors in 87 files. A real project, not a cleanup.
+#   backend-security   bandit  – 52 findings (45 high-confidence). Needs triage before it can
+#                                gate anything; most are expected patterns in test/dev paths.
+# Both stay advisory deliberately: a check that is always red teaches people to ignore red.
+#
+# DISABLED:
+#   e2e – `if: false`. Playwright runs locally (`just test`), not in CI. It is kept here so it
+#         can be switched back on, and it is NOT in the required-checks list on main, because a
+#         permanently skipped required check blocks every pull request.
+#
+# Coverage: min 35% (target: 50% → 70%).
 
 on:
   push:
@@ -47,11 +60,9 @@ jobs:
 
       - name: Check formatting with Ruff
         run: uv run ruff format --check .
-        continue-on-error: true  # TODO: Fix formatting issues then make blocking
 
       - name: Lint with Ruff
         run: uv run ruff check .
-        continue-on-error: true  # TODO: Fix 87 lint errors then make blocking
 
   backend-typecheck:
     name: Backend Type Check
@@ -190,7 +201,6 @@ jobs:
 
       - name: Run ESLint
         run: pnpm lint
-        continue-on-error: true  # TODO: Fix 158 lint errors then make blocking
 
   frontend-typecheck:
     name: Frontend Type Check

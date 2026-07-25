@@ -181,8 +181,12 @@ services:
       # On the host network the stack isn't reachable by service name — point this at the
       # deployment's public URL (or http://localhost:<HTTP_PORT> on the same host).
       BACKEND_URL: ${PRINT_AGENT_BACKEND_URL:-http://localhost:8080}
-      PRINT_AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-}
-      POLL_INTERVAL: ${POLL_INTERVAL:-2}
+      # The agent reads AGENT_TOKEN; the backend reads PRINT_AGENT_TOKEN. One value in .env
+      # feeds both — they are the two ends of the same shared secret and must match.
+      AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-}
+      # Adaptive polling: idle until a job arrives, then brisk for ACTIVE_DURATION seconds.
+      POLL_INTERVAL_IDLE: ${PRINT_POLL_INTERVAL_IDLE:-60}
+      POLL_INTERVAL_ACTIVE: ${PRINT_POLL_INTERVAL_ACTIVE:-5}
       DRY_RUN: ${DRY_RUN:-false}
       LOG_LEVEL: INFO
 

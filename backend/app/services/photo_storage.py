@@ -190,9 +190,7 @@ class PhotoStorageService:
         # thread propagate normally.
         return await asyncio.to_thread(self._process_and_store, content, file.filename, file_path, filename)
 
-    def _process_and_store(
-        self, content: bytes, original_filename: str | None, file_path: Path, filename: str
-    ) -> str:
+    def _process_and_store(self, content: bytes, original_filename: str | None, file_path: Path, filename: str) -> str:
         """Blocking part of save_photo — must run off the event loop."""
         # Validate file type (extension + MIME type)
         self._validate_file_type(content, original_filename)

@@ -112,9 +112,7 @@ async def create_intake_alarm(
     # Demo mode: cap incidents per event at 50 (same as the authenticated create path)
     if settings.demo_mode:
         count_result = await db.execute(
-            select(sa_func.count())
-            .select_from(models.Incident)
-            .where(models.Incident.event_id == event_id)
+            select(sa_func.count()).select_from(models.Incident).where(models.Incident.event_id == event_id)
         )
         event_incidents = count_result.scalar() or 0
         if event_incidents >= 50:

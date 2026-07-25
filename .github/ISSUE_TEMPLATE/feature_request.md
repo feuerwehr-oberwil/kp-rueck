@@ -16,7 +16,7 @@ What you'd like to see happen.
 
 ## At the board
 
-How does this hold up for the one operator running the board under load — during a storm night
+How does this hold up for the one operator running the board under load – during a storm night
 with a full column of incidents, on a shared screen everyone is watching?
 
 ## Alternatives considered

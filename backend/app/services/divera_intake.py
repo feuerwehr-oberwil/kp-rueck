@@ -167,9 +167,7 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
     return schemas.IncidentPriority.LOW
 
 
-def incident_create_from_emergency(
-    emergency: models.DiveraEmergency, event_id
-) -> schemas.IncidentCreate:
+def incident_create_from_emergency(emergency: models.DiveraEmergency, event_id) -> schemas.IncidentCreate:
     """Derive the IncidentCreate payload for attaching an emergency to an event."""
     return schemas.IncidentCreate(
         event_id=event_id,
@@ -184,9 +182,7 @@ def incident_create_from_emergency(
     )
 
 
-async def try_auto_attach(
-    db: AsyncSession, emergency: models.DiveraEmergency
-) -> models.Incident | None:
+async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> models.Incident | None:
     """Attach a fresh emergency to the newest active event with auto-attach on.
 
     Only real emergencies attach to real events: simulated training alarms are
@@ -213,9 +209,7 @@ async def try_auto_attach(
         return None
 
 
-async def _auto_attach(
-    db: AsyncSession, emergency: models.DiveraEmergency
-) -> models.Incident | None:
+async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> models.Incident | None:
     if emergency.is_training or emergency.attached_to_event_id is not None:
         return None
 

@@ -86,10 +86,12 @@ async def fetch_divera_members() -> list[dict]:
         if not name:
             continue  # Skip members without a name
 
-        members.append({
-            "divera_id": divera_id,
-            "name": name,
-        })
+        members.append(
+            {
+                "divera_id": divera_id,
+                "name": name,
+            }
+        )
 
     logger.info(f"Fetched {len(members)} members from Divera")
     return members
@@ -115,11 +117,13 @@ def build_sync_preview(divera_members: list[dict], existing_personnel: list) -> 
         matches = existing_by_name.get(key, [])
 
         if not matches:
-            new_items.append({
-                "member": member,
-                "status": "new",
-                "existing_id": None,
-            })
+            new_items.append(
+                {
+                    "member": member,
+                    "status": "new",
+                    "existing_id": None,
+                }
+            )
         else:
             # Match to first unmatched existing person with same name
             matched_person = None
@@ -131,27 +135,31 @@ def build_sync_preview(divera_members: list[dict], existing_personnel: list) -> 
                 matched_person = matches[0]
 
             matched_existing_ids.add(matched_person.id)
-            unchanged_items.append({
-                "member": member,
-                "status": "unchanged",
-                "existing_id": str(matched_person.id),
-                # Whether this person already has the Divera id stored locally.
-                # False here means execute_sync will backfill it.
-                "divera_linked": getattr(matched_person, "divera_user_id", None) is not None,
-            })
+            unchanged_items.append(
+                {
+                    "member": member,
+                    "status": "unchanged",
+                    "existing_id": str(matched_person.id),
+                    # Whether this person already has the Divera id stored locally.
+                    # False here means execute_sync will backfill it.
+                    "divera_linked": getattr(matched_person, "divera_user_id", None) is not None,
+                }
+            )
 
     # Find personnel not in Divera
     not_in_divera = []
     for person in existing_personnel:
         if person.id not in matched_existing_ids:
-            not_in_divera.append({
-                "member": {
-                    "divera_id": 0,
-                    "name": person.name,
-                },
-                "status": "not_in_divera",
-                "existing_id": str(person.id),
-            })
+            not_in_divera.append(
+                {
+                    "member": {
+                        "divera_id": 0,
+                        "name": person.name,
+                    },
+                    "status": "not_in_divera",
+                    "existing_id": str(person.id),
+                }
+            )
 
     return {
         "new": new_items,

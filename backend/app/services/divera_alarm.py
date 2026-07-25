@@ -176,12 +176,8 @@ async def send_alarm(
     existing_id = await _find_existing_alarm_id(foreign_id)
     if existing_id is not None:
         logger.info("Updating existing Divera alarm %s (foreign_id=%s)", existing_id, foreign_id)
-        data = await _request_with_retry(
-            "PUT", f"{base}/alarms/{existing_id}", params=params, json_body=payload
-        )
+        data = await _request_with_retry("PUT", f"{base}/alarms/{existing_id}", params=params, json_body=payload)
     else:
-        data = await _request_with_retry(
-            "POST", f"{base}/alarms", params=params, json_body=payload
-        )
+        data = await _request_with_retry("POST", f"{base}/alarms", params=params, json_body=payload)
 
     return data if isinstance(data, dict) else {}

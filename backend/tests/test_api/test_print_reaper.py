@@ -15,7 +15,9 @@ from app.crud.print_jobs import MAX_PRINT_ATTEMPTS, requeue_lost_jobs
 from app.models import PrintJob
 
 
-def _job(status: str, *, retry_count: int = 0, claimed_ago: int | None = None, completed_ago: int | None = None) -> PrintJob:
+def _job(
+    status: str, *, retry_count: int = 0, claimed_ago: int | None = None, completed_ago: int | None = None
+) -> PrintJob:
     now = datetime.now(UTC)
     return PrintJob(
         id=uuid4(),

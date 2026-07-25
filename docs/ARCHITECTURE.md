@@ -15,14 +15,14 @@ graph TB
         public["Public Pages<br/><small>Check-In / Viewer / Reko</small>"]
     end
 
-    subgraph frontend["Frontend — Next.js 15"]
+    subgraph frontend["Frontend – Next.js 15"]
         app["App Router<br/><small>React 19 + TypeScript</small>"]
         contexts["Context Providers<br/><small>Operations, Personnel,<br/>Materials, Auth, Events</small>"]
         ws_client["Socket.IO Client<br/><small>Real-time sync</small>"]
         api_client["API Client<br/><small>HTTP + polling fallback</small>"]
     end
 
-    subgraph backend["Backend — FastAPI"]
+    subgraph backend["Backend – FastAPI"]
         routes["API Routes<br/><small>/api/*</small>"]
         ws_server["Socket.IO Server<br/><small>WebSocket broadcast</small>"]
         services["Services<br/><small>Divera, Sync, Training,<br/>Photos, Export</small>"]
@@ -390,10 +390,10 @@ stateDiagram-v2
     Abschluss --> Archiv: Auto-archive (24h)
     Archiv --> [*]
 
-    note right of Eingegangen: Incoming — not yet assessed
+    note right of Eingegangen: Incoming – not yet assessed
     note right of Reko: Field recon in progress
     note right of Disponiert: Crew and vehicles en route
-    note right of Abschluss: Completed — resources released
+    note right of Abschluss: Completed – resources released
     note right of Archiv: Historical record
 ```
 

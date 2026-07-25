@@ -394,8 +394,10 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
     for transition in transitions:
         db.add(transition)
 
-    print(f"  - Created {len(incidents)} sample incidents, {len(assignments)} assignments, "
-          f"{len(special_functions)} special functions, {len(transitions)} transitions (dev only)")
+    print(
+        f"  - Created {len(incidents)} sample incidents, {len(assignments)} assignments, "
+        f"{len(special_functions)} special functions, {len(transitions)} transitions (dev only)"
+    )
 
 
 async def seed_database() -> None:
@@ -464,9 +466,7 @@ async def seed_database() -> None:
             # a shared password login would just be extra attack surface.
             if not is_production_environment():
                 editor_password = get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
-                editor_password_hash = bcrypt.hashpw(
-                    editor_password.encode("utf-8"), bcrypt.gensalt()
-                ).decode("utf-8")
+                editor_password_hash = bcrypt.hashpw(editor_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
                 editor_user = models.User(
                     id=uuid4(),

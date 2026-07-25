@@ -20,9 +20,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """Allow 'test' as a print job type (for the Testdruck feature)."""
     op.drop_constraint("valid_print_job_type", "print_jobs", type_="check")
-    op.create_check_constraint(
-        "valid_print_job_type", "print_jobs", "job_type IN ('assignment', 'board', 'test')"
-    )
+    op.create_check_constraint("valid_print_job_type", "print_jobs", "job_type IN ('assignment', 'board', 'test')")
 
 
 def downgrade() -> None:
@@ -30,6 +28,4 @@ def downgrade() -> None:
     # Remove any test jobs first so the stricter constraint can be applied.
     op.execute("DELETE FROM print_jobs WHERE job_type = 'test'")
     op.drop_constraint("valid_print_job_type", "print_jobs", type_="check")
-    op.create_check_constraint(
-        "valid_print_job_type", "print_jobs", "job_type IN ('assignment', 'board')"
-    )
+    op.create_check_constraint("valid_print_job_type", "print_jobs", "job_type IN ('assignment', 'board')")

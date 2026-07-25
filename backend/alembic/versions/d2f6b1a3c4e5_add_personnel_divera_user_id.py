@@ -29,9 +29,7 @@ def upgrade() -> None:
         "personnel",
         sa.Column("divera_user_id", sa.Integer(), nullable=True),
     )
-    op.create_index(
-        "ix_personnel_divera_user_id", "personnel", ["divera_user_id"], unique=False
-    )
+    op.create_index("ix_personnel_divera_user_id", "personnel", ["divera_user_id"], unique=False)
 
 
 def downgrade() -> None:
