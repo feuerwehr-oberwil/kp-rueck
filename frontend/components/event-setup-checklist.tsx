@@ -13,6 +13,7 @@ import {
 import { X, ClipboardCheck, Check, MessageCircle, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
+import { getTileBaseUrl } from '@/lib/env'
 import {
   generateChecklistTasks,
   ChecklistTaskState,
@@ -145,16 +146,16 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
     try {
       setIsLoading(true)
 
-      // The tile-server health probe points at the operator's own localhost, which
-      // has no tile server on most setups (incl. prod) — a bare fetch there has no
-      // timeout and stalls the whole checklist open. Bound it and run it alongside
-      // the API calls instead of sequentially after them.
+      // Tile-server health probe. On a deployment this is /tiles on our own origin; in
+      // local dev it is the tileserver container on :8080, which most dev machines don't
+      // run — and a bare fetch there has no timeout and stalls the whole checklist open.
+      // Bound it and run it alongside the API calls instead of sequentially after them.
       const checkMapTiles = async () => {
         try {
           const controller = new AbortController()
           const timer = setTimeout(() => controller.abort(), 1500)
           try {
-            return (await fetch('http://localhost:8080/health', { signal: controller.signal })).ok
+            return (await fetch(`${getTileBaseUrl()}/health`, { signal: controller.signal })).ok
           } finally {
             clearTimeout(timer)
           }

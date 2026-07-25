@@ -50,6 +50,10 @@ const nextConfig = {
       "font-src 'self' data:",
       // Connect: self + API + map tiles + local tile server + WebSocket
       // Dynamically include backend URL from env (supports custom domains like kp-api.fwo.li)
+      // A self-hosted deployment needs no entry of its own: it is served from ONE origin, so
+      // the API (/backend-api), the tiles (/tiles) and the WebSocket all fall under 'self' —
+      // which per CSP3 covers same-origin ws:/wss: too. The explicit hosts below are for the
+      // split-origin Railway deployment and for local development.
       `connect-src 'self' http://localhost:8000 https://*.railway.app ${process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : ''} ${process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/^https?/, 'wss') : ''} https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080 ws://localhost:* wss://*.railway.app`,
       // Frame ancestors: prevent clickjacking
       "frame-ancestors 'none'",

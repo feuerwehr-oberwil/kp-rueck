@@ -64,6 +64,10 @@ services:
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?set AUTH_SECRET_KEY in .env (openssl rand -hex 32)}
       # Same origin for everything, so the only allowed origin is the deployment's own URL.
       CORS_ORIGINS: ${PUBLIC_URL:-http://localhost:8080}
+      # Login cookies are Secure by default. A browser DROPS a Secure cookie over plain
+      # http://, so a trusted-LAN install with no DOMAIN must set this to false or nobody
+      # can log in. Blank = leave the secure default alone.
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-}
       # Must live under /mnt/data: entrypoint.sh chowns exactly that path to the non-root
       # app user, and a fresh named volume is otherwise created root-owned.
       PHOTOS_DIR: /mnt/data/photos

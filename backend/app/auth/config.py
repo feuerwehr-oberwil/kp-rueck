@@ -35,10 +35,25 @@ class AuthSettings(BaseSettings):
     MAX_PASSWORD_LENGTH: int = 72  # Bcrypt has a hard limit of 72 bytes
 
     # Cookie Security
-    COOKIE_SECURE: bool = False  # Will be overridden by property in production
+    # None = decide from the environment (secure on a deployment, plain in development).
+    # Set explicitly to opt out — see the cookie_secure property.
+    COOKIE_SECURE: bool | None = None
     COOKIE_HTTPONLY: bool = True  # Prevent XSS attacks
     COOKIE_SAMESITE: str = "lax"  # Use "none" for cross-origin setups (requires COOKIE_SECURE=true)
     COOKIE_DOMAIN: str = ""  # Empty = use request host. Set to ".example.com" for subdomain sharing
+
+    @field_validator("COOKIE_SECURE", mode="before")
+    @classmethod
+    def blank_means_unset(cls, v: object) -> object:
+        """Treat `AUTH_COOKIE_SECURE=` (blank) as "not configured".
+
+        Operators copy .env.example and leave keys they don't need empty. Without this,
+        pydantic rejects the empty string and the backend refuses to boot with a parsing
+        error — a hostile failure for something that is supposed to be optional.
+        """
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @model_validator(mode="after")
     def validate_security_settings(self) -> "AuthSettings":
@@ -108,13 +123,22 @@ class AuthSettings(BaseSettings):
     @property
     def cookie_secure(self) -> bool:
         """
-        Force secure cookies in production (HTTPS only).
+        Secure cookies on a real deployment — unless the operator explicitly opts out.
 
-        Always forced True in production (Railway). Configure via AUTH_COOKIE_SECURE.
+        A station on a trusted LAN runs plain HTTP with no domain (docker-compose with an
+        empty DOMAIN). A browser silently DROPS a Secure cookie over http://, so forcing it
+        there makes login impossible with no visible error — the failure looks like "the PIN
+        doesn't work". `AUTH_COOKIE_SECURE=false` is the deliberate escape hatch; leaving it
+        unset keeps the secure default, so nothing is weakened by accident.
         """
-        if _is_production_environment():
-            return True
-        return self.COOKIE_SECURE
+        if self.COOKIE_SECURE is not None:
+            if _is_production_environment() and not self.COOKIE_SECURE:
+                logger.warning(
+                    "AUTH_COOKIE_SECURE=false: login cookies are sent over plain HTTP. "
+                    "Only acceptable on a trusted LAN, never on an internet-facing deployment."
+                )
+            return self.COOKIE_SECURE
+        return _is_production_environment()
 
     @property
     def cookie_samesite(self) -> str:

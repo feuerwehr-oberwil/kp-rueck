@@ -44,7 +44,10 @@ docker compose up -d           # add --profile printing if you use the thermal p
 ```
 
 On a LAN with no domain, leave `DOMAIN` empty: Caddy serves plain HTTP on `HTTP_PORT`
-(default 8080) and `PUBLIC_URL` should be `http://<host>:8080`.
+(default 8080), `PUBLIC_URL` should be `http://<host>:8080`, and you **must** also set
+`AUTH_COOKIE_SECURE=false`. Browsers refuse to send a `Secure` cookie over plain HTTP, so
+without it the login cookie is silently dropped and signing in fails with no visible error.
+Only do this on a network you trust – never on an internet-facing deployment.
 
 **Production hardening is automatic** under compose: the stack sets `ENVIRONMENT=production`,
 which makes the secrets mandatory (no per-restart `SECRET_KEY`), forbids the development auth
