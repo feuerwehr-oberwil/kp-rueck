@@ -238,9 +238,7 @@ async def mark_reko_arrived(
     return report
 
 
-async def get_reko_summaries_by_event(
-    db: AsyncSession, event_id: uuid.UUID
-) -> dict[uuid.UUID, dict]:
+async def get_reko_summaries_by_event(db: AsyncSession, event_id: uuid.UUID) -> dict[uuid.UUID, dict]:
     """
     Get reko summaries for all incidents in an event (bulk load).
 
@@ -311,9 +309,7 @@ async def get_reko_summaries_by_event(
     if personnel_ids:
         from ..models import Personnel
 
-        personnel_result = await db.execute(
-            select(Personnel.id, Personnel.name).where(Personnel.id.in_(personnel_ids))
-        )
+        personnel_result = await db.execute(select(Personnel.id, Personnel.name).where(Personnel.id.in_(personnel_ids)))
         personnel_names = {row.id: row.name for row in personnel_result.all()}
 
     # Build response dictionary
@@ -376,14 +372,16 @@ async def process_reko_submission(
     # Auto-bump priority from low → medium if any danger flags are set
     if report.dangers_json:
         dangers = report.dangers_json
-        has_danger = any([
-            dangers.get("fire"),
-            dangers.get("explosion"),
-            dangers.get("collapse"),
-            dangers.get("chemical"),
-            dangers.get("electrical"),
-            dangers.get("fire_danger"),
-        ])
+        has_danger = any(
+            [
+                dangers.get("fire"),
+                dangers.get("explosion"),
+                dangers.get("collapse"),
+                dangers.get("chemical"),
+                dangers.get("electrical"),
+                dangers.get("fire_danger"),
+            ]
+        )
         if has_danger and incident.priority == "low":
             incident.priority = "medium"
             await db.commit()

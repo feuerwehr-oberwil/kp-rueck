@@ -111,9 +111,7 @@ class TrainingAutoGenTask:
         # pool alarms the trainee hasn't attached yet — both are exercise load.
         max_emergencies = int(settings.get("training_autogen_max_emergencies", 50))
         incident_count = (
-            await db.execute(
-                select(func.count()).select_from(Incident).where(Incident.event_id == event.id)
-            )
+            await db.execute(select(func.count()).select_from(Incident).where(Incident.event_id == event.id))
         ).scalar_one()
         pool_count = (
             await db.execute(
@@ -151,16 +149,12 @@ class TrainingAutoGenTask:
         # pool alarms both count, so switching modes doesn't double-fire.
         last_times: list[datetime] = []
         last_incident_at = (
-            await db.execute(
-                select(func.max(Incident.created_at)).where(Incident.event_id == event.id)
-            )
+            await db.execute(select(func.max(Incident.created_at)).where(Incident.event_id == event.id))
         ).scalar_one_or_none()
         if last_incident_at:
             last_times.append(last_incident_at)
         last_pool_at = (
-            await db.execute(
-                select(func.max(DiveraEmergency.received_at)).where(DiveraEmergency.is_training.is_(True))
-            )
+            await db.execute(select(func.max(DiveraEmergency.received_at)).where(DiveraEmergency.is_training.is_(True)))
         ).scalar_one_or_none()
         if last_pool_at:
             last_times.append(last_pool_at)

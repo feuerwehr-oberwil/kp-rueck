@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import select
 
 from app.background.fallback_print import FallbackPrintTask
-from app.models import Event, Incident, PrintJob, Setting
+from app.models import Event, PrintJob, Setting
 
 
 async def _set_setting(db_session, key: str, value: str):

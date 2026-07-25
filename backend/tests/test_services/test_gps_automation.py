@@ -442,9 +442,7 @@ async def test_return_emits_prompt_not_release(
     assert payload["assignment_id"] == str(assignment.id)
     assert payload["vehicle_name"] == "TLF-1"
 
-    fresh = await db_session.execute(
-        select(IncidentAssignment).where(IncidentAssignment.id == assignment.id)
-    )
+    fresh = await db_session.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment.id))
     assert fresh.scalar_one().unassigned_at is None  # never silent-released
 
 
@@ -566,7 +564,13 @@ async def test_clustered_stops_only_nearest_advances_silent(
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_clustered_stops_only_nearest_prompts_default(
-    _bc, bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_event: Event, test_user: User
+    _bc,
+    bc_msg,
+    db_session: AsyncSession,
+    disponiert_incident: Incident,
+    assigned_vehicle,
+    test_event: Event,
+    test_user: User,
 ):
     """Default mode: two in-radius stops -> exactly ONE arrival prompt (the nearer)."""
     vehicle, _assignment = assigned_vehicle

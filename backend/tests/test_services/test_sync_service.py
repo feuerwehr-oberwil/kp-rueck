@@ -20,7 +20,6 @@ from app.models import Event, Incident, Material, Personnel, Setting, SyncLog, U
 from app.schemas import Delta, SyncDirection, SyncStatus
 from app.services.sync_service import SyncService, create_sync_service
 
-
 # ============================================
 # Fixtures
 # ============================================

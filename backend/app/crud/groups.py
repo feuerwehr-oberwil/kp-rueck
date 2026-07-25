@@ -274,10 +274,12 @@ async def reorder_group_stops(
 
     await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
     result = await db.execute(
-        select(Incident).where(
+        select(Incident)
+        .where(
             Incident.group_id == group_id,
             Incident.deleted_at.is_(None),
-        ).order_by(Incident.group_position.asc(), Incident.created_at.asc())
+        )
+        .order_by(Incident.group_position.asc(), Incident.created_at.asc())
     )
     incidents_by_id = {incident.id: incident for incident in result.scalars().all()}
 
@@ -325,9 +327,7 @@ async def add_stops_to_group(
         ValueError: if any provided incident belongs to a different event.
     """
     group = await db.scalar(
-        select(IncidentGroup)
-        .where(IncidentGroup.id == group_id, IncidentGroup.deleted_at.is_(None))
-        .with_for_update()
+        select(IncidentGroup).where(IncidentGroup.id == group_id, IncidentGroup.deleted_at.is_(None)).with_for_update()
     )
     if group is None:
         return None

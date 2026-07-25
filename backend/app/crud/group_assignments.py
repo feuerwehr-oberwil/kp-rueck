@@ -51,9 +51,10 @@ async def assign_group_resource(
     if await db.scalar(select(resource_model.id).where(resource_model.id == resource_id)) is None:
         exists_as_other_type = False
         for candidate_type, model in model_by_type.items():
-            if candidate_type != resource_type and await db.scalar(
-                select(model.id).where(model.id == resource_id)
-            ) is not None:
+            if (
+                candidate_type != resource_type
+                and await db.scalar(select(model.id).where(model.id == resource_id)) is not None
+            ):
                 exists_as_other_type = True
                 break
         if exists_as_other_type:

@@ -28,14 +28,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "UPDATE settings SET value = 'true' "
-        "WHERE key = 'gps.rule_return_enabled' AND value = 'false'"
-    )
+    op.execute("UPDATE settings SET value = 'true' WHERE key = 'gps.rule_return_enabled' AND value = 'false'")
 
 
 def downgrade() -> None:
-    op.execute(
-        "UPDATE settings SET value = 'false' "
-        "WHERE key = 'gps.rule_return_enabled' AND value = 'true'"
-    )
+    op.execute("UPDATE settings SET value = 'false' WHERE key = 'gps.rule_return_enabled' AND value = 'true'")

@@ -9,13 +9,13 @@ instead of crash-looping the next production deploy with DuplicateTable.
 import asyncio
 from pathlib import Path
 
-from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from alembic import command
 from app import models  # noqa: F401 — register all models on Base.metadata
 from app.config import settings as app_settings
 from app.database import Base
@@ -78,6 +78,6 @@ def test_migrations_match_models(monkeypatch):
 
     assert diffs == [], (
         "Schema drift between migrations and models detected. Every model "
-        "change needs a migration (just db new \"...\"), and every migration "
+        'change needs a migration (just db new "..."), and every migration '
         "must match the model. Diffs:\n" + "\n".join(repr(d) for d in diffs)
     )

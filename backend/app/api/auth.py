@@ -322,9 +322,7 @@ def _is_on_editor_allowlist(email: str) -> bool:
     SSO_EDITOR_ALLOWLIST is a comma-separated email list, matched
     case-insensitively; surrounding whitespace is ignored.
     """
-    allowlist = {
-        entry.strip().lower() for entry in settings.sso_editor_allowlist.split(",") if entry.strip()
-    }
+    allowlist = {entry.strip().lower() for entry in settings.sso_editor_allowlist.split(",") if entry.strip()}
     return email.lower().strip() in allowlist
 
 

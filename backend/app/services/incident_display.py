@@ -25,9 +25,7 @@ def with_location_display(incident, home_city: str) -> schemas.IncidentResponse:
         else schemas.IncidentResponse.model_validate(incident)
     )
     response.location_display = (
-        format_location_for_display(response.location_address, home_city)
-        if response.location_address
-        else None
+        format_location_for_display(response.location_address, home_city) if response.location_address else None
     )
     return response
 

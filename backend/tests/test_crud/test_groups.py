@@ -580,21 +580,15 @@ class TestReleaseOnLastStop:
         group = await _make_group(db_session, test_event, test_user, mock_request)
         incident = await _make_incident(db_session, test_event, test_user, status="einsatz")
         await groups_crud.add_stops_to_group(db_session, group.id, [incident.id], test_user, mock_request)
-        await incidents_crud.update_incident_status(
-            db_session, incident.id, "abschluss", test_user, mock_request
-        )
-        await incidents_crud.update_incident_status(
-            db_session, incident.id, "einsatz", test_user, mock_request
-        )
+        await incidents_crud.update_incident_status(db_session, incident.id, "abschluss", test_user, mock_request)
+        await incidents_crud.update_incident_status(db_session, incident.id, "einsatz", test_user, mock_request)
         await db_session.refresh(incident)
         assert incident.completed_at is None
 
         await group_assignments_crud.assign_group_resource(
             db_session, group.id, "vehicle", test_vehicle.id, test_user, mock_request
         )
-        await incidents_crud.update_incident_status(
-            db_session, incident.id, "abschluss", test_user, mock_request
-        )
+        await incidents_crud.update_incident_status(db_session, incident.id, "abschluss", test_user, mock_request)
         assert await group_assignments_crud.get_group_assignments(db_session, group.id) == []
 
 

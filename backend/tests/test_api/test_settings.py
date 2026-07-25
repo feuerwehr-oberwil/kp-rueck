@@ -1,7 +1,5 @@
 """Tests for settings API endpoints."""
 
-from uuid import uuid4
-
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
@@ -35,9 +33,7 @@ class TestGetAllSettings:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_all_settings_viewer_allowed(
-        self, viewer_client: AsyncClient, test_settings_data: list[Setting]
-    ):
+    async def test_get_all_settings_viewer_allowed(self, viewer_client: AsyncClient, test_settings_data: list[Setting]):
         """Viewer role can read settings."""
         response = await viewer_client.get("/api/settings/")
         assert response.status_code == 200
@@ -49,9 +45,7 @@ class TestGetAllSettings:
         assert data["notification_enabled"] == "true"
 
     @pytest.mark.asyncio
-    async def test_get_all_settings_editor_allowed(
-        self, editor_client: AsyncClient, test_settings_data: list[Setting]
-    ):
+    async def test_get_all_settings_editor_allowed(self, editor_client: AsyncClient, test_settings_data: list[Setting]):
         """Editor role can read settings."""
         response = await editor_client.get("/api/settings/")
         assert response.status_code == 200
@@ -65,9 +59,7 @@ class TestGetSingleSetting:
     """Test GET /api/settings/{key} endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_single_setting_success(
-        self, editor_client: AsyncClient, test_settings_data: list[Setting]
-    ):
+    async def test_get_single_setting_success(self, editor_client: AsyncClient, test_settings_data: list[Setting]):
         """Get single setting returns correct schema."""
         response = await editor_client.get("/api/settings/polling_interval_ms")
         assert response.status_code == 200
@@ -89,9 +81,7 @@ class TestUpdateSetting:
     """Test PATCH /api/settings/{key} endpoint."""
 
     @pytest.mark.asyncio
-    async def test_update_setting_requires_editor(
-        self, viewer_client: AsyncClient, test_settings_data: list[Setting]
-    ):
+    async def test_update_setting_requires_editor(self, viewer_client: AsyncClient, test_settings_data: list[Setting]):
         """Viewer role cannot update settings."""
         response = await viewer_client.patch(
             "/api/settings/training_mode",

@@ -38,7 +38,6 @@ class SecurityHeadersMiddleware:
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
-                headers = dict(message.get("headers", []))
                 extra_headers = [
                     (b"x-content-type-options", b"nosniff"),
                     (b"x-frame-options", b"DENY"),
@@ -47,9 +46,7 @@ class SecurityHeadersMiddleware:
                     (b"permissions-policy", b"geolocation=(self), camera=(), microphone=()"),
                 ]
                 if self.is_production:
-                    extra_headers.append(
-                        (b"strict-transport-security", b"max-age=31536000; includeSubDomains")
-                    )
+                    extra_headers.append((b"strict-transport-security", b"max-age=31536000; includeSubDomains"))
                 message = {
                     **message,
                     "headers": list(message.get("headers", [])) + extra_headers,

@@ -20,7 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Event, Incident, Setting, User
 from app.services.training_autogen_task import TrainingAutoGenTask
 
-
 # ============================================
 # Fixtures
 # ============================================
@@ -243,9 +242,7 @@ class TestCheckAndRunLogic:
         assert task.current_event_id is None
 
     @pytest.mark.asyncio
-    async def test_uses_default_settings(
-        self, db_session: AsyncSession, training_event: Event
-    ):
+    async def test_uses_default_settings(self, db_session: AsyncSession, training_event: Event):
         """Test uses default values when settings not specified."""
         # Only enable auto-gen, other settings use defaults
         setting = Setting(key="training_autogen_enabled", value="true")
@@ -267,7 +264,11 @@ class TestCheckAndRunLogic:
 
     @pytest.mark.asyncio
     async def test_respects_max_emergencies_limit(
-        self, db_session: AsyncSession, training_event: Event, autogen_user: User, autogen_settings_enabled: list[Setting]
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        autogen_user: User,
+        autogen_settings_enabled: list[Setting],
     ):
         """Test stops generation when max emergencies reached."""
         # Update max to 2
@@ -320,7 +321,11 @@ class TestCheckAndRunLogic:
 
     @pytest.mark.asyncio
     async def test_respects_interval(
-        self, db_session: AsyncSession, training_event: Event, autogen_user: User, autogen_settings_enabled: list[Setting]
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        autogen_user: User,
+        autogen_settings_enabled: list[Setting],
     ):
         """Test respects interval between generations."""
         # Create recent incident (within interval)
@@ -346,7 +351,11 @@ class TestCheckAndRunLogic:
 
     @pytest.mark.asyncio
     async def test_generates_after_interval(
-        self, db_session: AsyncSession, training_event: Event, autogen_user: User, autogen_settings_enabled: list[Setting]
+        self,
+        db_session: AsyncSession,
+        training_event: Event,
+        autogen_user: User,
+        autogen_settings_enabled: list[Setting],
     ):
         """Test generates after interval has passed."""
         # Create old incident (past interval)
@@ -497,9 +506,7 @@ class TestEdgeCases:
     """Tests for edge cases in auto-generation."""
 
     @pytest.mark.asyncio
-    async def test_handles_missing_event(
-        self, db_session: AsyncSession, autogen_settings_enabled: list[Setting]
-    ):
+    async def test_handles_missing_event(self, db_session: AsyncSession, autogen_settings_enabled: list[Setting]):
         """Test handles case when no training event exists."""
         task = TrainingAutoGenTask()
         task.current_event_id = uuid4()

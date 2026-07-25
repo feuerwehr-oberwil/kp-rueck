@@ -9,6 +9,7 @@ Tests cover:
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from app.background import sync_scheduler
@@ -17,7 +18,6 @@ from app.background.sync_scheduler import (
     start_sync_scheduler,
     stop_sync_scheduler,
 )
-
 
 # ============================================
 # Fixtures
