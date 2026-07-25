@@ -34,6 +34,9 @@ async def assign_resource(
     (``crud.assign_resource`` raises ``ValueError``); the frontend surfaces the
     conflict (vehicles offer a move/keep dialog, personnel/material are filtered
     out of the picker).
+
+    A missing incident or resource is a 404 (``LookupError``) — previously the first
+    crashed on a foreign-key violation and the second quietly stored an orphan row.
     """
     try:
         result = await crud.assign_resource(
@@ -44,6 +47,10 @@ async def assign_resource(
             current_user=current_user,
             request=request,
         )
+    except LookupError as e:
+        # Not warn-worthy: a stale id from a client that missed a delete is routine.
+        logger.info("Assignment target missing for incident %s: %s", incident_id, e)
+        raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
     except ValueError as e:
         logger.warning("Assignment conflict for incident %s: %s", incident_id, e)
         raise HTTPException(status_code=409, detail=ErrorMessages.RESOURCE_ALREADY_ASSIGNED)

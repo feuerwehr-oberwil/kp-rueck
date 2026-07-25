@@ -93,21 +93,30 @@ jobs:
           LATEST: ${{ steps.v.outputs.latest }}
         run: |
           set -euo pipefail
-          for svc in backend frontend tileserver print-agent; do
-            image="ghcr.io/feuerwehr-oberwil/kp-rueck-${svc}"
-            tags="${image}:${VERSION}"$'\n'"${image}:${MINOR}"
+
+          emit() {  # $1 = output key, $2 = image repo
+            tags="${2}:${VERSION}"$'\n'"${2}:${MINOR}"
             if [ "$LATEST" = "true" ]; then
-              tags="$tags"$'\n'"${image}:latest"
+              tags="$tags"$'\n'"${2}:latest"
             fi
-            # Output names can't contain '-': steps.tags.outputs.print-agent would be
-            # parsed as an expression subtracting "agent" from "print".
-            key="${svc//-/_}"
             {
-              echo "${key}<<TAGS_EOF"
+              echo "${1}<<TAGS_EOF"
               echo "$tags"
               echo "TAGS_EOF"
             } >> "$GITHUB_OUTPUT"
+          }
+
+          for svc in backend frontend tileserver; do
+            emit "$svc" "ghcr.io/feuerwehr-oberwil/kp-rueck-${svc}"
           done
+
+          # The print agent is deliberately NOT in that loop any more: it serves KP Front and
+          # KP Rück both, so a kp-rueck-* name would misdescribe it. Published as the neutral
+          # kp-print-agent — plus the OLD name for this release, so existing compose files
+          # keep pulling. Drop the kp-rueck-print-agent block one release after this one.
+          # (Output keys can't contain '-': print-agent would parse as print minus agent.)
+          emit "print_agent" "ghcr.io/feuerwehr-oberwil/kp-print-agent"
+          emit "print_agent_legacy" "ghcr.io/feuerwehr-oberwil/kp-rueck-print-agent"
 
       - name: Push backend image
         uses: docker/build-push-action@v7
@@ -163,20 +172,24 @@ jobs:
             org.opencontainers.image.licenses=AGPL-3.0-or-later
             org.opencontainers.image.description=KP Rück tileserver – offline map tiles
 
+      # One build, pushed under both names. The agent is shared between the two systems, so it
+      # lives here but is not a "kp-rueck" component — see tools/print-agent/README.md.
       - name: Push print-agent image
         uses: docker/build-push-action@v7
         with:
-          context: ./print-agent
+          context: ./tools/print-agent
           platforms: linux/amd64,linux/arm64
           push: true
           cache-from: type=gha,scope=print-agent
-          tags: ${{ steps.tags.outputs.print_agent }}
+          tags: |
+            ${{ steps.tags.outputs.print_agent }}
+            ${{ steps.tags.outputs.print_agent_legacy }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.v.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=AGPL-3.0-or-later
-            org.opencontainers.image.description=KP Rück print agent – thermal printer relay for the command post
+            org.opencontainers.image.description=KP print agent – one relay for KP Front (PDF/CUPS) and KP Rück (ESC/POS)
 
       - name: Create the GitHub Release
         env:

@@ -8,8 +8,11 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import IncidentAssignment, Material, Personnel, User, Vehicle
+from ..models import Incident, IncidentAssignment, Material, Personnel, User, Vehicle
 from ..services.audit import log_action
+
+# resource_type is constrained to these three by AssignmentCreate's validator.
+_RESOURCE_MODELS = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}
 
 
 async def assign_resource(
@@ -35,7 +38,18 @@ async def assign_resource(
 
     Raises:
         ValueError: If resource already assigned to this incident
+        LookupError: If the incident or the resource does not exist
     """
+    # Both ends must exist before anything is written. Without the incident check the INSERT
+    # died on a foreign-key violation, i.e. a 500 for what is plainly a stale id; without the
+    # resource check it SUCCEEDED and stored an assignment pointing at nothing, which is worse
+    # — an orphan row that shows up on the board as a resource nobody can find.
+    if await db.get(Incident, incident_id) is None:
+        raise LookupError(f"incident {incident_id} does not exist")
+
+    if await db.get(_RESOURCE_MODELS[resource_type], resource_id) is None:
+        raise LookupError(f"{resource_type} {resource_id} does not exist")
+
     # Use FOR UPDATE to lock rows and prevent race conditions
     # This ensures that if two concurrent requests try to assign the same
     # resource, only one will succeed - the other will wait for the lock

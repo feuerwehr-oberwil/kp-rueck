@@ -35,7 +35,7 @@ VERSION_FILES = [
     ("frontend/package.json", r'"version":\s*"[^"]+"', '"version": "{v}"'),
     ("backend/pyproject.toml", r'(?m)^version = "[^"]+"', 'version = "{v}"'),
     ("backend/app/config.py", r'(?m)^(\s*version: str = )"[^"]+"', r'\g<1>"{v}"'),
-    ("print-agent/pyproject.toml", r'(?m)^version = "[^"]+"', 'version = "{v}"'),
+    ("tools/print-agent/pyproject.toml", r'(?m)^version = "[^"]+"', 'version = "{v}"'),
 ]
 
 # The tileserver image has no version file of its own – it is a thin wrapper around an
@@ -73,7 +73,7 @@ def relock() -> None:
     if not shutil.which("uv"):
         print("  uv.lock                      SKIPPED (uv not on PATH – run `uv lock` yourself)")
         return
-    for project in ("backend", "print-agent"):
+    for project in ("backend", "tools/print-agent"):
         if (ROOT / project / "uv.lock").exists():
             subprocess.run(["uv", "lock", "--quiet"], cwd=ROOT / project, check=True)
             print(f"  {project}/uv.lock{'':<14} re-locked")
