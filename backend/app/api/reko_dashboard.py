@@ -93,9 +93,7 @@ async def get_reko_assignments(
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     # Get personnel name
-    personnel_result = await db.execute(
-        select(Personnel).where(Personnel.id == personnel_id)
-    )
+    personnel_result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     personnel = personnel_result.scalar_one_or_none()
     if not personnel:
         raise HTTPException(status_code=404, detail="Personnel not found")
@@ -279,9 +277,7 @@ async def transfer_reko_assignments(
         incident = await incidents_crud.get_incident(db, assignment["incident_id"])
         if incident and incident.status in ("eingegangen", "reko"):
             # Unassign old person
-            await crud.unassign_reko_personnel_from_incident(
-                db, assignment["incident_id"], from_personnel_id
-            )
+            await crud.unassign_reko_personnel_from_incident(db, assignment["incident_id"], from_personnel_id)
             # Assign new person
             db_assignment = IncidentAssignment(
                 incident_id=assignment["incident_id"],

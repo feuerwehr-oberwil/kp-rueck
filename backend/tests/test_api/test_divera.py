@@ -705,9 +705,7 @@ async def test_priority_detection_high(editor_client: AsyncClient, test_event: E
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_priority_detection_low_default(
-    editor_client: AsyncClient, test_event: Event, db_session: AsyncSession
-):
+async def test_priority_detection_low_default(editor_client: AsyncClient, test_event: Event, db_session: AsyncSession):
     """Test that non-critical situations default to LOW priority."""
     emergency = DiveraEmergency(
         id=uuid4(),
@@ -826,9 +824,7 @@ async def test_webhook_auto_attaches_to_flagged_event(
     assert incident.status == "eingegangen"
 
     emergency = (
-        await db_session.execute(
-            select(DiveraEmergency).where(DiveraEmergency.divera_id == 555001)
-        )
+        await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 555001))
     ).scalar_one()
     assert emergency.attached_to_event_id == auto_attach_event.id
     assert emergency.created_incident_id == incident.id
@@ -836,9 +832,7 @@ async def test_webhook_auto_attaches_to_flagged_event(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_webhook_no_auto_attach_without_flag(
-    client: AsyncClient, db_session: AsyncSession, test_event: Event
-):
+async def test_webhook_no_auto_attach_without_flag(client: AsyncClient, db_session: AsyncSession, test_event: Event):
     """Without any auto-attach event the emergency stays in the pool."""
     payload = {"id": 555002, "title": "STURM Baum auf Strasse"}
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
@@ -849,18 +843,14 @@ async def test_webhook_no_auto_attach_without_flag(
     from sqlalchemy import select
 
     emergency = (
-        await db_session.execute(
-            select(DiveraEmergency).where(DiveraEmergency.divera_id == 555002)
-        )
+        await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 555002))
     ).scalar_one()
     assert emergency.attached_to_event_id is None
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_webhook_never_auto_attaches_to_training_event(
-    client: AsyncClient, db_session: AsyncSession
-):
+async def test_webhook_never_auto_attaches_to_training_event(client: AsyncClient, db_session: AsyncSession):
     """A training event with auto-attach on must never receive real alarms."""
     event = Event(
         id=uuid4(),

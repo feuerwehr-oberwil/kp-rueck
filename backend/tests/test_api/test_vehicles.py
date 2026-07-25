@@ -325,9 +325,7 @@ async def test_event(db_session: AsyncSession) -> "Event":
 
 
 @pytest_asyncio.fixture
-async def test_incident_for_vehicle(
-    db_session: AsyncSession, test_event: "Event", test_editor: User
-) -> "Incident":
+async def test_incident_for_vehicle(db_session: AsyncSession, test_event: "Event", test_editor: User) -> "Incident":
     """Create a test incident."""
     from app.models import Incident
 
@@ -372,7 +370,7 @@ async def vehicle_with_driver(
     test_personnel_driver: "Personnel",
 ) -> Vehicle:
     """Create driver assignment for vehicle."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
 
     from app.models import EventSpecialFunction
 
@@ -396,7 +394,7 @@ async def vehicle_with_incident_assignment(
     test_incident_for_vehicle: "Incident",
 ) -> Vehicle:
     """Create incident assignment for vehicle."""
-    from datetime import datetime, UTC, timedelta
+    from datetime import UTC, datetime, timedelta
 
     from app.models import IncidentAssignment
 
@@ -423,9 +421,7 @@ async def test_get_vehicle_status_requires_auth(client: AsyncClient, test_vehicl
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_vehicle_status_requires_event_id(
-    editor_client: AsyncClient, test_vehicle: Vehicle
-):
+async def test_get_vehicle_status_requires_event_id(editor_client: AsyncClient, test_vehicle: Vehicle):
     """Test that vehicle status endpoint requires event_id parameter."""
     response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status")
     assert response.status_code == 422
@@ -445,9 +441,7 @@ async def test_get_vehicle_status_no_assignments(
     editor_client: AsyncClient, test_vehicle: Vehicle, test_event: "Event"
 ):
     """Test getting status for vehicle with no driver or incident assignment."""
-    response = await editor_client.get(
-        f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}"
-    )
+    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
     assert response.status_code == 200
     data = response.json()
 
@@ -478,9 +472,7 @@ async def test_get_vehicle_status_with_driver(
     test_personnel_driver: "Personnel",
 ):
     """Test getting status for vehicle with driver assigned."""
-    response = await editor_client.get(
-        f"/api/vehicles/{vehicle_with_driver.id}/status?event_id={test_event.id}"
-    )
+    response = await editor_client.get(f"/api/vehicles/{vehicle_with_driver.id}/status?event_id={test_event.id}")
     assert response.status_code == 200
     data = response.json()
 
@@ -527,7 +519,7 @@ async def test_get_vehicle_status_with_both_driver_and_incident(
     test_incident_for_vehicle: "Incident",
 ):
     """Test getting status for vehicle with both driver and incident assignment."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
 
     from app.models import EventSpecialFunction, IncidentAssignment
 
@@ -553,9 +545,7 @@ async def test_get_vehicle_status_with_both_driver_and_incident(
     db_session.add(incident_assignment)
     await db_session.commit()
 
-    response = await editor_client.get(
-        f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}"
-    )
+    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
     assert response.status_code == 200
     data = response.json()
 
@@ -573,7 +563,7 @@ async def test_get_vehicle_status_ignores_other_event(
     test_personnel_driver: "Personnel",
 ):
     """Test that vehicle status only shows assignments for the specified event."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
 
     from app.models import Event, EventSpecialFunction
 
@@ -597,17 +587,13 @@ async def test_get_vehicle_status_ignores_other_event(
     await db_session.commit()
 
     # Query for event2 - should not see the driver
-    response = await editor_client.get(
-        f"/api/vehicles/{test_vehicle.id}/status?event_id={event2.id}"
-    )
+    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={event2.id}")
     assert response.status_code == 200
     data = response.json()
     assert data["driver_id"] is None
 
     # Query for event1 - should see the driver
-    response = await editor_client.get(
-        f"/api/vehicles/{test_vehicle.id}/status?event_id={event1.id}"
-    )
+    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={event1.id}")
     assert response.status_code == 200
     data = response.json()
     assert data["driver_id"] == str(test_personnel_driver.id)
@@ -623,7 +609,7 @@ async def test_get_vehicle_status_ignores_unassigned(
     test_incident_for_vehicle: "Incident",
 ):
     """Test that vehicle status ignores unassigned (completed) incident assignments."""
-    from datetime import datetime, UTC, timedelta
+    from datetime import UTC, datetime, timedelta
 
     from app.models import IncidentAssignment
 
@@ -639,9 +625,7 @@ async def test_get_vehicle_status_ignores_unassigned(
     db_session.add(assignment)
     await db_session.commit()
 
-    response = await editor_client.get(
-        f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}"
-    )
+    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
     assert response.status_code == 200
     data = response.json()
 
@@ -655,9 +639,7 @@ async def test_get_vehicle_status_viewer_can_access(
     viewer_client: AsyncClient, test_vehicle: Vehicle, test_event: "Event"
 ):
     """Test that viewers can access vehicle status."""
-    response = await viewer_client.get(
-        f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}"
-    )
+    response = await viewer_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
     assert response.status_code == 200
 
 
@@ -672,9 +654,7 @@ async def test_vehicle_status_response_structure(
     editor_client: AsyncClient, test_vehicle: Vehicle, test_event: "Event"
 ):
     """Test that vehicle status response contains all expected fields."""
-    response = await editor_client.get(
-        f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}"
-    )
+    response = await editor_client.get(f"/api/vehicles/{test_vehicle.id}/status?event_id={test_event.id}")
     assert response.status_code == 200
     data = response.json()
 

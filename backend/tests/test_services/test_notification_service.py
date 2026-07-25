@@ -28,7 +28,6 @@ from app.models import (
     Notification,
     Personnel,
     Setting,
-    StatusTransition,
     User,
 )
 from app.schemas import NotificationSettings
@@ -46,7 +45,6 @@ from app.services.notification_service import (
     get_notification_settings,
     save_notification_settings,
 )
-
 
 # ============================================
 # Fixtures
@@ -240,7 +238,11 @@ class TestCheckTimeBasedAlerts:
 
     @pytest.mark.asyncio
     async def test_no_alerts_for_recent_incident(
-        self, db_session: AsyncSession, notif_event: Event, notif_incident: Incident, default_settings: NotificationSettings
+        self,
+        db_session: AsyncSession,
+        notif_event: Event,
+        notif_incident: Incident,
+        default_settings: NotificationSettings,
     ):
         """Test no alerts for recently created incidents."""
         notifications = await _check_time_based_alerts(
@@ -596,9 +598,7 @@ class TestCheckDataQualityAlerts:
     """Tests for _check_data_quality_alerts function."""
 
     @pytest.mark.asyncio
-    async def test_missing_location_alert(
-        self, db_session: AsyncSession, notif_event: Event, notif_user: User
-    ):
+    async def test_missing_location_alert(self, db_session: AsyncSession, notif_event: Event, notif_user: User):
         """Test alert for incident without geocoded location in disponiert status."""
         # Create incident in disponiert status without location
         incident = Incident(
@@ -660,9 +660,7 @@ class TestDeduplicateAndSave:
     """Tests for _deduplicate_and_save function."""
 
     @pytest.mark.asyncio
-    async def test_saves_new_notification(
-        self, db_session: AsyncSession, notif_event: Event, notif_incident: Incident
-    ):
+    async def test_saves_new_notification(self, db_session: AsyncSession, notif_event: Event, notif_incident: Incident):
         """Test new notifications are saved."""
         notification = Notification(
             type="time_overdue",
@@ -792,9 +790,7 @@ class TestDeduplicateAndSave:
         assert "Depot" in saved[0].message
 
     @pytest.mark.asyncio
-    async def test_same_location_is_suppressed(
-        self, db_session: AsyncSession, notif_event: Event, notif_user: User
-    ):
+    async def test_same_location_is_suppressed(self, db_session: AsyncSession, notif_event: Event, notif_user: User):
         """Test that dismissed notification for same location IS suppressed."""
         # Create and dismiss a notification for "Depot"
         dismissed_depot = Notification(
@@ -859,9 +855,7 @@ class TestDismissNotification:
         assert result.dismissed_by == notif_user.id
 
     @pytest.mark.asyncio
-    async def test_dismiss_nonexistent_notification(
-        self, db_session: AsyncSession, notif_user: User
-    ):
+    async def test_dismiss_nonexistent_notification(self, db_session: AsyncSession, notif_user: User):
         """Test dismissing non-existent notification returns None."""
         fake_id = uuid4()
         result = await dismiss_notification(db_session, fake_id, notif_user.id)
@@ -945,9 +939,7 @@ class TestEvaluateNotifications:
         assert notifications == []
 
     @pytest.mark.asyncio
-    async def test_calls_all_alert_checks_when_enabled(
-        self, db_session: AsyncSession, notif_event: Event
-    ):
+    async def test_calls_all_alert_checks_when_enabled(self, db_session: AsyncSession, notif_event: Event):
         """Test all alert checks are called when enabled."""
         with (
             patch("app.services.notification_service._check_time_based_alerts") as mock_time,
@@ -970,9 +962,7 @@ class TestEvaluateNotifications:
             mock_event.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_respects_disabled_alert_types(
-        self, db_session: AsyncSession, notif_event: Event
-    ):
+    async def test_respects_disabled_alert_types(self, db_session: AsyncSession, notif_event: Event):
         """Test disabled alert types are not checked."""
         # Save settings with all alerts disabled
         disabled_settings = NotificationSettings(
@@ -1077,9 +1067,7 @@ class TestNotificationEdgeCases:
     """Tests for edge cases in notification service."""
 
     @pytest.mark.asyncio
-    async def test_notification_with_null_incident_id(
-        self, db_session: AsyncSession, notif_event: Event
-    ):
+    async def test_notification_with_null_incident_id(self, db_session: AsyncSession, notif_event: Event):
         """Test notification without incident_id (event-level notification)."""
         notification = Notification(
             type="no_personnel",
@@ -1189,7 +1177,7 @@ class TestAutoResolution:
         settings = NotificationSettings(material_depletion_threshold={"Depot": 2})
 
         # First evaluation should create the notification
-        from app.services.notification_service import _check_resource_alerts, _auto_resolve_stale_notifications
+        from app.services.notification_service import _check_resource_alerts
 
         notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
         assert any("Depot" in n.message for n in notifications)

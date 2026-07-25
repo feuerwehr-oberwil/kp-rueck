@@ -68,14 +68,8 @@ async def receive_divera_webhook(
     if webhook_secret:
         import secrets as _secrets
 
-        provided_secret = (
-            request.query_params.get("secret", "")
-            if request
-            else ""
-        ) or (
-            request.headers.get("X-Webhook-Secret", "")
-            if request
-            else ""
+        provided_secret = (request.query_params.get("secret", "") if request else "") or (
+            request.headers.get("X-Webhook-Secret", "") if request else ""
         )
         if not provided_secret or not _secrets.compare_digest(provided_secret, webhook_secret):
             logger.warning("Divera webhook rejected: invalid or missing secret")
@@ -568,12 +562,8 @@ async def send_incident_alarm(
     # the incident's assigned vehicles (drivers are event-scoped special functions,
     # not personnel assignments).
     assignments = await assignments_crud.get_incident_assignments(db, incident_id)
-    assigned_personnel_ids = {
-        a.resource_id for a in assignments if a.resource_type == "personnel"
-    }
-    assigned_vehicle_ids = {
-        a.resource_id for a in assignments if a.resource_type == "vehicle"
-    }
+    assigned_personnel_ids = {a.resource_id for a in assignments if a.resource_type == "personnel"}
+    assigned_vehicle_ids = {a.resource_id for a in assignments if a.resource_type == "vehicle"}
     if assigned_vehicle_ids:
         functions = await special_functions_crud.get_event_special_functions(db, incident.event_id)
         for fn in functions:
@@ -582,9 +572,7 @@ async def send_incident_alarm(
 
     # Provider-side ids come from the neutral identity table; the deprecated
     # personnel.divera_user_id column is a read fallback for one release.
-    identity_map = await identities_crud.get_identity_map(
-        db, provider.slug, list(request_data.personnel_ids)
-    )
+    identity_map = await identities_crud.get_identity_map(db, provider.slug, list(request_data.personnel_ids))
 
     sent: list[schemas.DiveraAlarmRecipient] = []
     skipped: list[schemas.DiveraAlarmRecipient] = []

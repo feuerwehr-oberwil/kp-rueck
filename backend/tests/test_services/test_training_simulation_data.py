@@ -31,9 +31,10 @@ class TestResolveSummaryPool:
         assert _resolve_summary_pool("elementarereignis", "Wasser im Keller", None) == "elementar_water"
 
     def test_elementar_water_from_description_only(self):
-        assert _resolve_summary_pool(
-            "elementarereignis", "Pumpeinsatz MFH", "Hochwasser im UG, ca. 30cm"
-        ) == "elementar_water"
+        assert (
+            _resolve_summary_pool("elementarereignis", "Pumpeinsatz MFH", "Hochwasser im UG, ca. 30cm")
+            == "elementar_water"
+        )
 
     def test_elementar_tree_from_title(self):
         assert _resolve_summary_pool("elementarereignis", "Baum auf Strasse", None) == "elementar_tree"
@@ -48,131 +49,158 @@ class TestResolveSummaryPool:
     # --- brandbekaempfung subcategories ---
 
     def test_brand_wohnung(self):
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "Wohnungsbrand", "Brand, Wohnung 2. OG. Starker Rauch."
-        ) == "brand_wohnung"
+        assert (
+            _resolve_summary_pool("brandbekaempfung", "Wohnungsbrand", "Brand, Wohnung 2. OG. Starker Rauch.")
+            == "brand_wohnung"
+        )
 
     def test_brand_kueche(self):
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "Küchenbrand", "Brand klein, Küche Fettbrand."
-        ) == "brand_kueche"
+        assert (
+            _resolve_summary_pool("brandbekaempfung", "Küchenbrand", "Brand klein, Küche Fettbrand.") == "brand_kueche"
+        )
 
     def test_brand_fahrzeug_from_title(self):
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "Fahrzeugbrand", "Fahrzeugbrand auf Parkplatz."
-        ) == "brand_fahrzeug"
+        assert (
+            _resolve_summary_pool("brandbekaempfung", "Fahrzeugbrand", "Fahrzeugbrand auf Parkplatz.")
+            == "brand_fahrzeug"
+        )
 
     def test_brand_fahrzeug_tiefgarage(self):
         # "Brand Tiefgarage" should map to fahrzeug, not werkstatt
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "Brand Tiefgarage", "Rauch aus Tiefgarage, vermutlich Fahrzeugbrand."
-        ) == "brand_fahrzeug"
+        assert (
+            _resolve_summary_pool(
+                "brandbekaempfung", "Brand Tiefgarage", "Rauch aus Tiefgarage, vermutlich Fahrzeugbrand."
+            )
+            == "brand_fahrzeug"
+        )
 
     def test_brand_dachstock(self):
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "Brand Dachstock", "Brand, Dachstock MFH. Flammen durch Dach sichtbar."
-        ) == "brand_dachstock"
+        assert (
+            _resolve_summary_pool(
+                "brandbekaempfung", "Brand Dachstock", "Brand, Dachstock MFH. Flammen durch Dach sichtbar."
+            )
+            == "brand_dachstock"
+        )
 
     def test_brand_ebike(self):
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "E-Bike Brand Keller", "Brand, E-Bike-Akku im Veloraum."
-        ) == "brand_ebike"
+        assert (
+            _resolve_summary_pool("brandbekaempfung", "E-Bike Brand Keller", "Brand, E-Bike-Akku im Veloraum.")
+            == "brand_ebike"
+        )
 
     def test_brand_abfall(self):
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "Brand Abfallcontainer", "Brand klein, Abfallcontainer unter Vordach."
-        ) == "brand_abfall"
+        assert (
+            _resolve_summary_pool(
+                "brandbekaempfung", "Brand Abfallcontainer", "Brand klein, Abfallcontainer unter Vordach."
+            )
+            == "brand_abfall"
+        )
 
     def test_brand_werkstatt(self):
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "Brand Werkstatt", "Brand, Schreinerei. Starke Flammen, viel Holz."
-        ) == "brand_werkstatt"
+        assert (
+            _resolve_summary_pool(
+                "brandbekaempfung", "Brand Werkstatt", "Brand, Schreinerei. Starke Flammen, viel Holz."
+            )
+            == "brand_werkstatt"
+        )
 
     def test_brand_generic_fallback(self):
         # No keyword hit → base brand pool
-        assert _resolve_summary_pool(
-            "brandbekaempfung", "Brand", "Starke Rauchentwicklung."
-        ) == "brandbekaempfung"
+        assert _resolve_summary_pool("brandbekaempfung", "Brand", "Starke Rauchentwicklung.") == "brandbekaempfung"
 
     # --- bma subcategories ---
 
     def test_bma_schule(self):
-        assert _resolve_summary_pool(
-            "bma_unechte_alarme", "BMA Schulhaus", "BMA, Schulhaus. Evakuation läuft."
-        ) == "bma_schule"
+        assert (
+            _resolve_summary_pool("bma_unechte_alarme", "BMA Schulhaus", "BMA, Schulhaus. Evakuation läuft.")
+            == "bma_schule"
+        )
 
     def test_bma_pflegeheim(self):
-        assert _resolve_summary_pool(
-            "bma_unechte_alarme", "BMA Altersheim", "BMA, Pflegeheim. Melder 2. Stock Ost."
-        ) == "bma_pflegeheim"
+        assert (
+            _resolve_summary_pool("bma_unechte_alarme", "BMA Altersheim", "BMA, Pflegeheim. Melder 2. Stock Ost.")
+            == "bma_pflegeheim"
+        )
 
     def test_bma_gewerbe(self):
-        assert _resolve_summary_pool(
-            "bma_unechte_alarme", "BMA Gewerbe", "BMA, Industriebetrieb."
-        ) == "bma_gewerbe"
+        assert _resolve_summary_pool("bma_unechte_alarme", "BMA Gewerbe", "BMA, Industriebetrieb.") == "bma_gewerbe"
 
     def test_bma_oeffentlich(self):
-        assert _resolve_summary_pool(
-            "bma_unechte_alarme", "BMA Einkaufszentrum", "BMA, Einkaufszentrum. Melder Küche Food Court."
-        ) == "bma_oeffentlich"
+        assert (
+            _resolve_summary_pool(
+                "bma_unechte_alarme", "BMA Einkaufszentrum", "BMA, Einkaufszentrum. Melder Küche Food Court."
+            )
+            == "bma_oeffentlich"
+        )
 
     # --- strassenrettung subcategories ---
 
     def test_personenrettung_lift(self):
-        assert _resolve_summary_pool(
-            "strassenrettung", "Person in Lift", "Person in Lift eingeschlossen, 4. OG."
-        ) == "personenrettung_lift"
+        assert (
+            _resolve_summary_pool("strassenrettung", "Person in Lift", "Person in Lift eingeschlossen, 4. OG.")
+            == "personenrettung_lift"
+        )
 
     def test_personenrettung_vu(self):
-        assert _resolve_summary_pool(
-            "strassenrettung", "Verkehrsunfall eingeklemmt", "VU, 2 PKW. Eine Person eingeklemmt."
-        ) == "personenrettung_vu"
+        assert (
+            _resolve_summary_pool(
+                "strassenrettung", "Verkehrsunfall eingeklemmt", "VU, 2 PKW. Eine Person eingeklemmt."
+            )
+            == "personenrettung_vu"
+        )
 
     def test_personenrettung_absturz(self):
-        assert _resolve_summary_pool(
-            "strassenrettung", "Absturz Baugerüst", "Person ab Gerüst gestürzt, ca. 3m."
-        ) == "personenrettung_absturz"
+        assert (
+            _resolve_summary_pool("strassenrettung", "Absturz Baugerüst", "Person ab Gerüst gestürzt, ca. 3m.")
+            == "personenrettung_absturz"
+        )
 
     # --- oelwehr subcategories ---
 
     def test_oel_keller(self):
-        assert _resolve_summary_pool(
-            "oelwehr", "Heizöl im Keller", "Ölwehr, Heizöltank leckt. Ca. 50 Liter im Keller."
-        ) == "oel_keller"
+        assert (
+            _resolve_summary_pool("oelwehr", "Heizöl im Keller", "Ölwehr, Heizöltank leckt. Ca. 50 Liter im Keller.")
+            == "oel_keller"
+        )
 
     def test_oel_strasse(self):
-        assert _resolve_summary_pool(
-            "oelwehr", "Ölspur Hauptstrasse", "Ölspur auf Fahrbahn. Ca. 100m lang."
-        ) == "oel_strasse"
+        assert (
+            _resolve_summary_pool("oelwehr", "Ölspur Hauptstrasse", "Ölspur auf Fahrbahn. Ca. 100m lang.")
+            == "oel_strasse"
+        )
 
     def test_oel_strasse_kreisel(self):
-        assert _resolve_summary_pool(
-            "oelwehr", "Ölspur Kreisel", "Ölspur im Kreisel, LKW verliert Hydrauliköl."
-        ) == "oel_strasse"
+        assert (
+            _resolve_summary_pool("oelwehr", "Ölspur Kreisel", "Ölspur im Kreisel, LKW verliert Hydrauliköl.")
+            == "oel_strasse"
+        )
 
     # --- technische_hilfeleistung subcategories ---
 
     def test_tech_dach(self):
-        assert _resolve_summary_pool(
-            "technische_hilfeleistung", "Dach abgedeckt", "Dachziegel lose."
-        ) == "tech_dach"
+        assert _resolve_summary_pool("technische_hilfeleistung", "Dach abgedeckt", "Dachziegel lose.") == "tech_dach"
 
     def test_tech_tor_lift(self):
-        assert _resolve_summary_pool(
-            "technische_hilfeleistung", "Tiefgaragentor klemmt", "Tiefgaragentor blockiert."
-        ) == "tech_tor_lift"
+        assert (
+            _resolve_summary_pool("technische_hilfeleistung", "Tiefgaragentor klemmt", "Tiefgaragentor blockiert.")
+            == "tech_tor_lift"
+        )
 
     def test_tech_versorgung(self):
-        assert _resolve_summary_pool(
-            "technische_hilfeleistung", "Bagger reisst Wasserleitung", "Bagger hat Wasserleitung erwischt."
-        ) == "tech_versorgung"
+        assert (
+            _resolve_summary_pool(
+                "technische_hilfeleistung", "Bagger reisst Wasserleitung", "Bagger hat Wasserleitung erwischt."
+            )
+            == "tech_versorgung"
+        )
 
     # --- diverse_einsaetze ---
 
     def test_diverse_wespen(self):
-        assert _resolve_summary_pool(
-            "diverse_einsaetze", "Wespennest am Schulhaus", "Wespennest beim Eingang Schule."
-        ) == "div_wespen"
+        assert (
+            _resolve_summary_pool("diverse_einsaetze", "Wespennest am Schulhaus", "Wespennest beim Eingang Schule.")
+            == "div_wespen"
+        )
 
     def test_diverse_no_longer_falls_back_to_elementar(self):
         # Wildcard diverse case (no specific subcategory) — used to fall back to
@@ -268,11 +296,9 @@ class TestGenerateRekoReportData:
         # 60% relevant baseline for diverse — over 200 samples the average
         # should sit well below the 90% baseline of other types.
         relevant = sum(
-            1
-            for _ in range(200)
-            if generate_reko_report_data("diverse_einsaetze", title="Türöffnung")["is_relevant"]
+            1 for _ in range(200) if generate_reko_report_data("diverse_einsaetze", title="Türöffnung")["is_relevant"]
         )
-        assert relevant < 160, f"expected < 80% relevant, got {relevant/200:.0%}"
+        assert relevant < 160, f"expected < 80% relevant, got {relevant / 200:.0%}"
 
 
 class TestTemplateClassificationConsistency:
@@ -357,21 +383,30 @@ class TestRekoConsistency:
     @staticmethod
     def _dangers(value=False):
         return {
-            "fire": value, "fire_danger": value, "explosion": value,
-            "collapse": value, "chemical": value, "electrical": value, "other_notes": None,
+            "fire": value,
+            "fire_danger": value,
+            "explosion": value,
+            "collapse": value,
+            "chemical": value,
+            "electrical": value,
+            "other_notes": None,
         }
 
     @staticmethod
     def _effort(personnel, hours):
         return {
-            "personnel_count": personnel, "vehicles_needed": [],
-            "equipment_needed": [], "estimated_duration_hours": hours,
+            "personnel_count": personnel,
+            "vehicles_needed": [],
+            "equipment_needed": [],
+            "estimated_duration_hours": hours,
         }
 
     def test_asserted_danger_forced_on(self):
         dangers, _ = _reconcile_with_summary(
             "Dachstuhl in Vollbrand, Sparren durchgebrannt. Einsturzgefahr.",
-            "brand_dachstock", self._dangers(False), self._effort(4, 2),
+            "brand_dachstock",
+            self._dangers(False),
+            self._effort(4, 2),
         )
         assert dangers["collapse"] is True
         assert dangers["fire_danger"] is True
@@ -381,23 +416,27 @@ class TestRekoConsistency:
         # on a non-brand type.
         dangers, _ = _reconcile_with_summary(
             "Nachbar meldet Flammen — vor Ort nichts, Fehlalarm.",
-            "bma_unechte_alarme", self._dangers(False), self._effort(2, 1),
+            "bma_unechte_alarme",
+            self._dangers(False),
+            self._effort(2, 1),
         )
         assert dangers["fire_danger"] is False
 
     def test_harmless_clears_all_dangers(self):
         dangers, _ = _reconcile_with_summary(
             "BMA hat angesprochen. Kein Rauch, Täuschungsalarm.",
-            "bma_unechte_alarme", self._dangers(True), self._effort(4, 2),
+            "bma_unechte_alarme",
+            self._dangers(True),
+            self._effort(4, 2),
         )
-        assert not any(
-            dangers[k] for k in ("fire", "fire_danger", "explosion", "collapse", "chemical", "electrical")
-        )
+        assert not any(dangers[k] for k in ("fire", "fire_danger", "explosion", "collapse", "chemical", "electrical"))
 
     def test_small_effort_floors_personnel(self):
         _, effort = _reconcile_with_summary(
             "Keller trocken bei Ankunft. Kontrolle genügt.",
-            "elementar_water", self._dangers(False), self._effort(8, 4),
+            "elementar_water",
+            self._dangers(False),
+            self._effort(8, 4),
         )
         assert effort["personnel_count"] == 2  # elementar_water profile min
         assert effort["estimated_duration_hours"] == 1
@@ -405,7 +444,9 @@ class TestRekoConsistency:
     def test_large_effort_raises_personnel(self):
         _, effort = _reconcile_with_summary(
             "Vollbrand, Verstärkung und DLK nötig, Aussenangriff.",
-            "brandbekaempfung", self._dangers(False), self._effort(3, 2),
+            "brandbekaempfung",
+            self._dangers(False),
+            self._effort(3, 2),
         )
         assert effort["personnel_count"] == 8  # brandbekaempfung profile max
 

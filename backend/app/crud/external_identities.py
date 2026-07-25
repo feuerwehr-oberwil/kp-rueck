@@ -48,9 +48,7 @@ async def set_identity(
     return identity
 
 
-async def get_identity_map(
-    db: AsyncSession, provider: str, personnel_ids: list[UUID] | None = None
-) -> dict[UUID, str]:
+async def get_identity_map(db: AsyncSession, provider: str, personnel_ids: list[UUID] | None = None) -> dict[UUID, str]:
     """Map personnel_id -> external_id at a provider (optionally restricted)."""
     query = select(
         models.PersonnelExternalIdentity.personnel_id,

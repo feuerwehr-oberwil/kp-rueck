@@ -5,6 +5,7 @@ Revises: 2565181f99b1
 Create Date: 2026-01-22 10:20:10.402972
 
 """
+
 from collections.abc import Sequence
 
 from alembic import op
@@ -29,9 +30,7 @@ def upgrade() -> None:
     # Drop old constraint and create new one
     op.drop_constraint("valid_personnel_availability", "personnel", type_="check")
     op.create_check_constraint(
-        "valid_personnel_availability",
-        "personnel",
-        "availability IN ('available', 'unavailable')"
+        "valid_personnel_availability", "personnel", "availability IN ('available', 'unavailable')"
     )
 
     # === VEHICLES: Map old values to new ===
@@ -43,11 +42,7 @@ def upgrade() -> None:
 
     # Drop old constraint and create new one
     op.drop_constraint("valid_vehicle_status", "vehicles", type_="check")
-    op.create_check_constraint(
-        "valid_vehicle_status",
-        "vehicles",
-        "status IN ('available', 'unavailable')"
-    )
+    op.create_check_constraint("valid_vehicle_status", "vehicles", "status IN ('available', 'unavailable')")
 
     # === MATERIALS: Map old values to new ===
     # 'assigned' -> 'available' (assignment is tracked via incident_assignments table)
@@ -58,11 +53,7 @@ def upgrade() -> None:
 
     # Drop old constraint and create new one
     op.drop_constraint("valid_material_status", "materials", type_="check")
-    op.create_check_constraint(
-        "valid_material_status",
-        "materials",
-        "status IN ('available', 'unavailable')"
-    )
+    op.create_check_constraint("valid_material_status", "materials", "status IN ('available', 'unavailable')")
 
 
 def downgrade() -> None:
@@ -74,23 +65,17 @@ def downgrade() -> None:
     # Personnel
     op.drop_constraint("valid_personnel_availability", "personnel", type_="check")
     op.create_check_constraint(
-        "valid_personnel_availability",
-        "personnel",
-        "availability IN ('available', 'assigned', 'unavailable')"
+        "valid_personnel_availability", "personnel", "availability IN ('available', 'assigned', 'unavailable')"
     )
 
     # Vehicles
     op.drop_constraint("valid_vehicle_status", "vehicles", type_="check")
     op.create_check_constraint(
-        "valid_vehicle_status",
-        "vehicles",
-        "status IN ('available', 'assigned', 'planned', 'maintenance')"
+        "valid_vehicle_status", "vehicles", "status IN ('available', 'assigned', 'planned', 'maintenance')"
     )
 
     # Materials
     op.drop_constraint("valid_material_status", "materials", type_="check")
     op.create_check_constraint(
-        "valid_material_status",
-        "materials",
-        "status IN ('available', 'assigned', 'planned', 'maintenance')"
+        "valid_material_status", "materials", "status IN ('available', 'assigned', 'planned', 'maintenance')"
     )

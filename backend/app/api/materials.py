@@ -132,9 +132,7 @@ async def list_material_groups(
     db: AsyncSession = Depends(get_db),
 ):
     """List all material groups with their materials."""
-    result = await db.execute(
-        select(MaterialGroup).order_by(MaterialGroup.location_sort_order, MaterialGroup.name)
-    )
+    result = await db.execute(select(MaterialGroup).order_by(MaterialGroup.location_sort_order, MaterialGroup.name))
     groups = result.scalars().all()
     # Eagerly load materials for each group
     for group in groups:
@@ -160,11 +158,7 @@ async def create_material_group(
 
     # Assign materials to group
     if group.material_ids:
-        await db.execute(
-            update(Material)
-            .where(Material.id.in_(group.material_ids))
-            .values(group_id=db_group.id)
-        )
+        await db.execute(update(Material).where(Material.id.in_(group.material_ids)).values(group_id=db_group.id))
 
     await db.commit()
     await db.refresh(db_group, ["materials"])
@@ -191,17 +185,11 @@ async def update_material_group(
     # Update group membership if material_ids provided
     if group_update.material_ids is not None:
         # Remove all current members
-        await db.execute(
-            update(Material)
-            .where(Material.group_id == group_id)
-            .values(group_id=None)
-        )
+        await db.execute(update(Material).where(Material.group_id == group_id).values(group_id=None))
         # Add new members
         if group_update.material_ids:
             await db.execute(
-                update(Material)
-                .where(Material.id.in_(group_update.material_ids))
-                .values(group_id=group_id)
+                update(Material).where(Material.id.in_(group_update.material_ids)).values(group_id=group_id)
             )
 
     await db.commit()
@@ -222,11 +210,7 @@ async def delete_material_group(
         raise HTTPException(status_code=404, detail="Material group not found")
 
     # Unlink all materials first
-    await db.execute(
-        update(Material)
-        .where(Material.group_id == group_id)
-        .values(group_id=None)
-    )
+    await db.execute(update(Material).where(Material.group_id == group_id).values(group_id=None))
 
     await db.delete(db_group)
     try:

@@ -259,9 +259,7 @@ async def test_submit_reko_report_updates_existing(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_draft_save_cannot_unsubmit_report(
-    client: AsyncClient, test_incident: Incident, valid_token: str
-):
+async def test_draft_save_cannot_unsubmit_report(client: AsyncClient, test_incident: Incident, valid_token: str):
     """Regression: a stray draft-save (auto-save with is_draft=true in the body)
     landing after submission must not flip a submitted report back to draft."""
     report_data = {
@@ -286,9 +284,7 @@ async def test_draft_save_cannot_unsubmit_report(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_update_with_is_draft_true_cannot_unsubmit(
-    editor_client: AsyncClient, test_reko_report: RekoReport
-):
+async def test_update_with_is_draft_true_cannot_unsubmit(editor_client: AsyncClient, test_reko_report: RekoReport):
     """Regression: PATCH with is_draft=true in the body must not un-submit."""
     response = await editor_client.patch(f"/api/reko/{test_reko_report.id}?submit=true", json={})
     assert response.status_code == 200
@@ -352,9 +348,7 @@ async def test_get_report_not_found(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_get_incident_reports(
-    editor_client: AsyncClient, test_incident: Incident, test_reko_report: RekoReport
-):
+async def test_get_incident_reports(editor_client: AsyncClient, test_incident: Incident, test_reko_report: RekoReport):
     """Test getting all reports for an incident."""
     response = await editor_client.get(f"/api/reko/incident/{test_incident.id}/reports")
     assert response.status_code == 200
@@ -519,9 +513,7 @@ async def test_generate_reko_link_viewer_forbidden(
     db_session.add(viewer)
     await db_session.commit()
 
-    login = await client.post(
-        "/api/auth/login", data={"username": "reko_viewer", "password": "testpassword1234"}
-    )
+    login = await client.post("/api/auth/login", data={"username": "reko_viewer", "password": "testpassword1234"})
     assert login.status_code == 200
 
     response = await client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
@@ -530,9 +522,7 @@ async def test_generate_reko_link_viewer_forbidden(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_generate_reko_link_with_dashboard_token(
-    client: AsyncClient, test_event: Event, test_incident: Incident
-):
+async def test_generate_reko_link_with_dashboard_token(client: AsyncClient, test_event: Event, test_incident: Incident):
     """The event-scoped reko-dashboard token authorizes link generation —
     the dashboard runs on field phones without a login."""
     from app.services.tokens import generate_reko_dashboard_token
@@ -893,9 +883,7 @@ async def test_submit_reko_report_with_personnel(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_submit_reko_report_with_is_relevant_false(
-    client: AsyncClient, test_incident: Incident
-):
+async def test_submit_reko_report_with_is_relevant_false(client: AsyncClient, test_incident: Incident):
     """Test submitting report with is_relevant=False."""
     token = generate_form_token(str(test_incident.id), "reko")
 
@@ -1039,9 +1027,7 @@ async def test_delete_photo_updates_report(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_serve_photo_success(
-    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
-):
+async def test_serve_photo_success(editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession):
     """Test successfully serving a photo file."""
     import tempfile
     from pathlib import Path
@@ -1065,9 +1051,7 @@ async def test_serve_photo_success(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_serve_photo_logs_access(
-    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
-):
+async def test_serve_photo_logs_access(editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession):
     """Test that serving a photo creates an audit log entry."""
     import tempfile
     from pathlib import Path
@@ -1105,9 +1089,7 @@ async def test_serve_photo_logs_access(
 @pytest.mark.api
 async def test_generate_link_custom_form_type(editor_client: AsyncClient, test_incident: Incident):
     """Test generating link with custom form type."""
-    response = await editor_client.post(
-        f"/api/reko/generate-link?incident_id={test_incident.id}&form_type=custom"
-    )
+    response = await editor_client.post(f"/api/reko/generate-link?incident_id={test_incident.id}&form_type=custom")
     assert response.status_code == 200
     data = response.json()
     assert "token" in data

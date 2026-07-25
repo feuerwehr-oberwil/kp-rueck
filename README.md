@@ -1,27 +1,19 @@
 # KP Rück
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://kp-rueck-demo.up.railway.app/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)](https://fastapi.tiangolo.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
-[![Python](https://img.shields.io/badge/Python-3.12+-blue)](https://www.python.org/)
+[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-rueck.ch)
 
 **Tactical operations board for the rear command post (KP Rück).** KP Rück replaces the
 physical magnet board used to track personnel, vehicles, materials, and incidents during an
-operation — a shared Kanban board, an incident map, resource assignments, and a defensible
+operation – a shared Kanban board, an incident map, resource assignments, and a defensible
 record, all live across every connected device.
 
 One operator runs it from the command post on a tablet or large screen; viewers follow along
-read-only. KP Rück owns its own incident state, map, audit trail, and exports — integrations
+read-only. KP Rück owns its own incident state, map, audit trail, and exports – integrations
 (Divera, Traccar, a thermal printer) add data but are not required to operate it.
 
 Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/) and designed
 to be adaptable for any fire department.
-
-> **Note:** This entire project was vibe coded — an experiment in how far you can take
-> AI-assisted development and how much you can trust the result in a real-world operational
-> setting.
 
 | Operations Board | Interactive Map |
 |:---:|:---:|
@@ -29,7 +21,7 @@ to be adaptable for any fire department.
 
 ## Try the demo
 
-**[Try the live demo](https://kp-rueck-demo.up.railway.app/)** — no account needed, just pick a
+**[Try the live demo](https://demo.kp-rueck.ch)** – no account needed, just pick a
 role and go. The demo seeds a realistic board and resets on a schedule; each visitor gets an
 isolated training sandbox.
 
@@ -38,14 +30,14 @@ isolated training sandbox.
 KP Rück grew out of a Swiss Milizfeuerwehr command post. It is built around **one station, one
 event, one operator at the board**, not scaled down from a dispatch center.
 
-- **Replaces the magnet board.** The same spatial mental model — columns for status, cards for
-  incidents, magnets for crew and vehicles — but live, shared, and self-documenting.
+- **Replaces the magnet board.** The same spatial mental model – columns for status, cards for
+  incidents, magnets for crew and vehicles – but live, shared, and self-documenting.
 - **Made for the command post.** Dense, calm, dark-mode-first, keyboard-fast on a desktop and
   touch-ready on a tablet. Status and priority read at a glance.
 - **Provider-neutral intake.** Any dispatch or alarm system can open incidents through one
   generic webhook; Divera, a phone form, and a QR walk-in slip are adapters on top of it.
 - **Training that mirrors reality.** A full training mode with auto-generated incidents and
-  simulated GPS drives runs on the same database, filtered by a flag — never mixed with live
+  simulated GPS drives runs on the same database, filtered by a flag – never mixed with live
   work.
 - **Keeps working when the network doesn't.** Offline map tiles, a paper Lageblatt fallback,
   automatic thermal snapshots, and a documented outage SOP.
@@ -96,18 +88,43 @@ is auto-seeded on first run; admin credentials are printed to the terminal.
 > [just](https://github.com/casey/just) for the shorthand commands. For local development
 > without Docker, see [backend/README.md](backend/README.md).
 
+## Self-host
+
+Runs on any Docker host, from **published images** – no build toolchain on the server:
+
+```bash
+cp .env.example .env          # POSTGRES_PASSWORD, SECRET_KEY, AUTH_SECRET_KEY, ADMIN_SEED_PASSWORD
+docker compose up -d          # pulls ghcr.io/feuerwehr-oberwil/kp-rueck-*, migrates on boot
+```
+
+Everything is served through one origin (Caddy in front of frontend, backend and tileserver),
+with automatic HTTPS when you set `DOMAIN`. Updating is
+`docker compose pull && docker compose up -d`; pin a version with `KP_RUECK_TAG` in `.env` and
+follow the [releases](https://github.com/feuerwehr-oberwil/kp-rueck/releases) –
+[CHANGELOG.md](CHANGELOG.md) explains what a MAJOR/MINOR/PATCH bump means for a deployment.
+All four images (backend, frontend, tileserver, print-agent) are released **together** under one
+version: a station runs the set, not a mix.
+
+**Every published image has already run a real fire station.** Feuerwehr Oberwil's production
+deployment and the public demo both track `main` continuously; a version tag is a label on a
+commit that has been carrying live operations. Releases exist for *other* stations, not for us.
+
+Setting up a station for the first time? Follow **[docs/SETUP.md](docs/SETUP.md)**, which walks
+the whole path in order. **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** is the full self-hosting
+reference behind it, and **[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed-PaaS route.
+
 ## Architecture & key decisions
 
 A Next.js frontend talks to a single FastAPI service that owns the database, the photo store,
-and every outbound integration — one deployment per station. Full diagrams and rationale live in
+and every outbound integration – one deployment per station. Full diagrams and rationale live in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ```mermaid
 flowchart TB
-  subgraph CLIENT["Browser — command post & mobile"]
+  subgraph CLIENT["Browser – command post & mobile"]
     UI["Kanban board · Map · Reko<br/>Next.js 15 + React 19"]
   end
-  subgraph DEP["Deployment — one per station (single-tenant)"]
+  subgraph DEP["Deployment – one per station (single-tenant)"]
     API["FastAPI<br/>REST + Socket.IO · auth · audit · exports"]
     DB[("PostgreSQL")]
     FILES[("Photo storage")]
@@ -132,10 +149,14 @@ flowchart TB
 **Deliberate tradeoffs:**
 
 - **Single-tenant:** one station per deployment keeps ownership and isolation simple.
+- **Accounts, not PINs:** the command post has a desk, a network, and named operators, so login
+  is username + password (JWT access/refresh, per-username lockout on failures) with optional
+  Microsoft Entra ID sign-in. Its sibling KP Front deliberately does the opposite – see
+  [Related project](#related-project).
 - **Training vs. live:** the same database, separated by a `training_flag`, so drills use the
   real UI without polluting live data.
 - **Provider-neutral integrations:** alarm intake and outbound alerting (Ausalarmierung) sit
-  behind provider seams — adding a service is a module, not a rewrite — and every integration
+  behind provider seams – adding a service is a module, not a rewrite – and every integration
   reports through `GET /api/integrations`. Personnel sync and vehicle GPS currently have one
   provider each (Divera, Traccar); they follow the same pattern and can be generalised if a
   station needs a different one.
@@ -146,21 +167,38 @@ flowchart TB
 ## Integrations
 
 Every external service is proxied by the backend (the browser never calls a third party) and is
-**optional** — the app runs fully without any of them. Which providers are active is reported at
+**optional** – the app runs fully without any of them. Which providers are active is reported at
 `GET /api/integrations`, so the UI adapts instead of hard-coding vendors. Secrets are
 environment-only; the database stores selection and behaviour, never credentials.
 
 | Connector | Direction | Works with today | Adding another |
 |-----------|-----------|------------------|----------------|
-| **Alarm intake** | in | **Any** dispatch system via the open `POST /api/alarms` webhook; a native [Divera 24/7](https://www.divera247.com/) adapter; a token-gated phone/walk-in form | Already open — POST the documented JSON, no code needed. See [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) |
+| **Alarm intake** | in | **Any** dispatch system via the open `POST /api/alarms` webhook; a native [Divera 24/7](https://www.divera247.com/) adapter; a token-gated phone/walk-in form | Already open – POST the documented JSON, no code needed. See [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) |
 | **Outbound alerting** (Ausalarmierung) | out | Divera 24/7 | Implement one `AlarmProvider` adapter in `backend/app/services/alerting/` |
 | **Personnel roster sync** | in | Divera 24/7 | A Divera-specific convenience; synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
-| **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific — no abstraction yet. It can be generalised the same way as the alarm connectors if a station uses a different tracker |
+| **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors if a station uses a different tracker |
+| **Sign-in** | in | Local accounts; optional Microsoft Entra ID (OAuth) | Entra-specific today. A generic OIDC adapter would cover Google Workspace, Keycloak, Authentik and Zitadel from the same code path |
 | **Printing** | out | Any network/CUPS printer via a pull-based agent (reference agent: ESC/POS thermal) | Point a custom agent at the four print endpoints. See [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) |
 
-New connectors are welcome contributions — the alarm and alerting seams are the model to copy.
+New connectors are welcome contributions – the alarm and alerting seams are the model to copy.
 
-## Project Structure
+## Known limitations
+
+- **German only.** The next-intl layer is in place, but `de.json` is the only catalogue, so a
+  non-German-speaking station has no UI today.
+- **The board needs a network.** Offline coverage means map tiles, the paper Lageblatt, and
+  automatic thermal snapshots – not offline editing. When the connection goes, you go to paper;
+  see [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md).
+- **Vehicle GPS is Traccar-specific.** Alarm intake and outbound alerting sit behind provider
+  seams; GPS does not yet.
+- **Sign-in with an external identity provider is Microsoft-only.** There is no generic OIDC
+  path, so a station on Google Workspace or Keycloak uses local accounts.
+- **One station per deployment.** Running two stations means running two deployments; there is
+  no tenant switch, by design.
+
+See [GitHub issues](https://github.com/feuerwehr-oberwil/kp-rueck/issues) for current work.
+
+## Repository layout
 
 ```text
 kp-rueck/
@@ -180,30 +218,13 @@ kp-rueck/
 └── justfile                  # Task runner (run `just` for all commands)
 ```
 
-## Deployment
-
-Runs on any Docker host, from **published images** – no build toolchain on the server:
-
-```bash
-cp .env.example .env          # POSTGRES_PASSWORD, SECRET_KEY, AUTH_SECRET_KEY, ADMIN_SEED_PASSWORD
-docker compose up -d          # pulls ghcr.io/feuerwehr-oberwil/kp-rueck-*, migrates on boot
-```
-
-Everything is served through one origin (Caddy in front of frontend, backend and tileserver),
-with automatic HTTPS when you set `DOMAIN`. Updating is
-`docker compose pull && docker compose up -d`; pin a version with `KP_RUECK_TAG` in `.env` and
-follow the [releases](https://github.com/feuerwehr-oberwil/kp-rueck/releases) –
-[CHANGELOG.md](CHANGELOG.md) explains what a MAJOR/MINOR/PATCH bump means for a deployment.
-
-See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full self-hosting guide, or
-**[docs/RAILWAY.md](docs/RAILWAY.md)** for the managed-PaaS route.
-
 ## Documentation
 
 Start with the [documentation index](docs/README.md). Highlights:
 
 | Document | Description |
 |----------|-------------|
+| [docs/SETUP.md](docs/SETUP.md) | **Start here** for a new station: the ordered path from an empty host to a board you can run an event on |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and deployment diagrams |
 | [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) | Provider-neutral alarm webhook and integration registry |
 | [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide |
@@ -215,30 +236,38 @@ Start with the [documentation index](docs/README.md). Highlights:
 
 ## Related project
 
-KP Rück runs the **rear** command post — the resource board. If you're looking for **frontline**
-Einsatzführung — a shared Lagekarte, tactical symbols, Atemschutz (SCBA) tracking, and object
-plans — see its companion **[KP Front](https://github.com/feuerwehr-oberwil/kp-front)**
-([live demo](https://kp-front-demo.up.railway.app/); open-sourcing soon).
+KP Rück runs the **rear** command post – the resource board. If you're looking for **frontline**
+Einsatzführung – a shared Lagekarte, tactical symbols, Atemschutz (SCBA) tracking, and object
+plans – see its companion **[KP Front](https://github.com/feuerwehr-oberwil/kp-front)**
+([live demo](https://demo.kp-front.ch)).
 
 The two grew out of the same brigade and share a design language, but they are **completely
-independent** codebases and deployments — neither requires the other. They can *optionally* hand
+independent** codebases and deployments – neither requires the other. They can *optionally* hand
 alarms to each other through the same generic `POST /api/alarms` webhook, and nothing more.
+
+Their sign-in models differ on purpose. KP Rück runs at a desk with a network, so it uses named
+accounts and can defer to an identity provider. KP Front runs on a tablet at the Einsatzort,
+where an identity-provider round-trip would be a network dependency on the one path that has to
+work at 3am in a cellar with no signal – so it keeps a local PIN.
 
 ## Contributing
 
 Contributions are welcome: bug fixes, integrations, translations, or ideas. See
 **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
 
+Need help, or want to know what you can expect from a one-maintainer project before you rely on
+it? **[SUPPORT.md](SUPPORT.md)** says so plainly.
+
 ## License
 
-[AGPL-3.0-or-later](LICENSE) — free to use, modify, and deploy. Modified versions served over a
+[AGPL-3.0-or-later](LICENSE) – free to use, modify, and deploy. Modified versions served over a
 network must share their source under the same license.
 
 Copyright © 2026 Bastian Eichenberger.
 
 ## Acknowledgments
 
-- **[Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)** — original development and
+- **[Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)** – original development and
   real-world testing
 - [shadcn/ui](https://ui.shadcn.com/), [OpenStreetMap](https://www.openstreetmap.org/),
   [TileServer GL](https://github.com/maptiler/tileserver-gl),

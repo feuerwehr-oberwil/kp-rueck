@@ -217,9 +217,7 @@ async def create_incident(
     # ~21 per sandbox, so a global cap would make manual creation impossible).
     if settings.demo_mode:
         count_result = await db.execute(
-            select(sa_func.count())
-            .select_from(models.Incident)
-            .where(models.Incident.event_id == incident.event_id)
+            select(sa_func.count()).select_from(models.Incident).where(models.Incident.event_id == incident.event_id)
         )
         event_incidents = count_result.scalar() or 0
         if event_incidents >= 50:

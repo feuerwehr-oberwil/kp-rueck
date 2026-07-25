@@ -58,8 +58,13 @@ def test_drive_progress_is_monotonic_and_decelerates():
 
     # Cruise at the requested speed early on, slower inside the decel zone.
     assert speeds[0] == pytest.approx(40.0, abs=1.0)
-    remaining_at = lambda s: d.total_m - _haversine_m(  # noqa: E731
-        START[0], START[1], *d.position_at(t0 + timedelta(seconds=s))[:2]
+    remaining_at = (
+        lambda s: (
+            d.total_m
+            - _haversine_m(  # noqa: E731
+                START[0], START[1], *d.position_at(t0 + timedelta(seconds=s))[:2]
+            )
+        )
     )
     for secs in range(0, 120, 5):
         if 0 < remaining_at(secs) < DECEL_ZONE_M / 2:

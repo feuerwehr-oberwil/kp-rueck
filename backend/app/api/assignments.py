@@ -115,9 +115,7 @@ async def update_assignment(
     # instead of a full board reload. The sender re-applies its own optimistic
     # value idempotently, so there is no flicker.
     response = schemas.AssignmentResponse.model_validate(assignment)
-    background_tasks.add_task(
-        broadcast_assignment_update, response.model_dump(mode="json"), "driver_stay"
-    )
+    background_tasks.add_task(broadcast_assignment_update, response.model_dump(mode="json"), "driver_stay")
     return response
 
 

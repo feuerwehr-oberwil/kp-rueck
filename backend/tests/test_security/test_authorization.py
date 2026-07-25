@@ -527,7 +527,7 @@ async def test_logout_invalidates_session(editor_client: AsyncClient, test_event
     # Create new client without cookies
     async with AsyncClient(
         transport=ASGITransport(app=editor_client._transport.app),  # type: ignore
-        base_url="http://test"
+        base_url="http://test",
     ) as new_client:
         # Try to access protected endpoint
         response = await new_client.get(f"/api/incidents/?event_id={test_event.id}")

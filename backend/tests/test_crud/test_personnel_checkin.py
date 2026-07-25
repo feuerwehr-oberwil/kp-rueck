@@ -6,7 +6,6 @@ Tests cover:
 - check_out_personnel: Check out personnel from an event
 """
 
-from datetime import datetime
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -24,7 +23,6 @@ from app.models import (
     Personnel,
     User,
 )
-
 
 # ============================================
 # Fixtures

@@ -8,8 +8,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuditLog
-from app.models import User
+from app.models import AuditLog, User
 
 
 @pytest_asyncio.fixture
@@ -65,9 +64,7 @@ class TestAuditLogQuery:
     """Test audit log query endpoint."""
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_no_filters(
-        self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]
-    ):
+    async def test_query_audit_log_no_filters(self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]):
         """Verify default query returns entries ordered by timestamp desc."""
         response = await editor_client.get("/api/audit")
         assert response.status_code == 200
@@ -201,9 +198,7 @@ class TestResourceHistory:
     """Test resource history endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_resource_history(
-        self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]
-    ):
+    async def test_get_resource_history(self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]):
         """Get complete history for a specific resource."""
         resource_id = test_audit_entries[0].resource_id
         resource_type = test_audit_entries[0].resource_type

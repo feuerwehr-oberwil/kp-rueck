@@ -135,11 +135,7 @@ async def get_reko_personnel_for_event(
         if personnel:
             ever_assigned = assigned_incidents.get(personnel.id, set())
             done_ids = {i for i in ever_assigned if i in completed_incident_ids}
-            open_ids = {
-                i
-                for i in active_incidents.get(personnel.id, set())
-                if i not in completed_incident_ids
-            }
+            open_ids = {i for i in active_incidents.get(personnel.id, set()) if i not in completed_incident_ids}
             last = last_assigned_incident.get(personnel.id)
             result.append(
                 {
@@ -409,9 +405,7 @@ async def get_available_reko_personnel_for_incident(
         open_distances = [
             _haversine_m(target_lat, target_lng, a["location_lat"], a["location_lng"])
             for a in person["open_assignments"]
-            if a["location_lat"] is not None
-            and a["location_lng"] is not None
-            and a["incident_id"] != incident_id
+            if a["location_lat"] is not None and a["location_lng"] is not None and a["incident_id"] != incident_id
         ]
         if open_distances:
             person["distance_m"] = min(open_distances)
@@ -424,9 +418,7 @@ async def get_available_reko_personnel_for_incident(
             and last["location_lng"] is not None
             and last["incident_id"] != incident_id
         ):
-            person["distance_m"] = _haversine_m(
-                target_lat, target_lng, last["location_lat"], last["location_lng"]
-            )
+            person["distance_m"] = _haversine_m(target_lat, target_lng, last["location_lat"], last["location_lng"])
             person["distance_source"] = "last"
 
     # Least open work first, then closest, then name — the operator sees the

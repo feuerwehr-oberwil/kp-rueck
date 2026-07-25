@@ -115,18 +115,14 @@ async def test_create_group(editor_client: AsyncClient, test_event: Event):
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_create_group_event_not_found(editor_client: AsyncClient):
-    response = await editor_client.post(
-        "/api/incident-groups/", json={"name": "Ghost", "event_id": str(uuid4())}
-    )
+    response = await editor_client.post("/api/incident-groups/", json={"name": "Ghost", "event_id": str(uuid4())})
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_create_group_empty_name_rejected(editor_client: AsyncClient, test_event: Event):
-    response = await editor_client.post(
-        "/api/incident-groups/", json={"name": "   ", "event_id": str(test_event.id)}
-    )
+    response = await editor_client.post("/api/incident-groups/", json={"name": "   ", "event_id": str(test_event.id)})
     assert response.status_code == 422
 
 
@@ -326,9 +322,7 @@ async def test_assign_list_unassign_group_resource(
     assert [a["resource_id"] for a in groups.json()[0]["assignments"]] == [str(test_vehicle.id)]
 
     # Release it again.
-    unassign = await editor_client.post(
-        f"/api/incident-groups/{group['id']}/unassign/{created['id']}"
-    )
+    unassign = await editor_client.post(f"/api/incident-groups/{group['id']}/unassign/{created['id']}")
     assert unassign.status_code == 204
     listing2 = await editor_client.get(f"/api/incident-groups/{group['id']}/assignments")
     assert listing2.json() == []
@@ -470,16 +464,12 @@ async def test_update_incident_rejects_cross_event_and_deleted_group(
     editor_client: AsyncClient, test_event: Event, second_event: Event, test_incident: Incident
 ):
     foreign = await _create_group(editor_client, second_event)
-    cross = await editor_client.patch(
-        f"/api/incidents/{test_incident.id}", json={"group_id": foreign["id"]}
-    )
+    cross = await editor_client.patch(f"/api/incidents/{test_incident.id}", json={"group_id": foreign["id"]})
     assert cross.status_code == 400
 
     deleted = await _create_group(editor_client, test_event, name="Deleted")
     await editor_client.delete(f"/api/incident-groups/{deleted['id']}")
-    gone = await editor_client.patch(
-        f"/api/incidents/{test_incident.id}", json={"group_id": deleted["id"]}
-    )
+    gone = await editor_client.patch(f"/api/incidents/{test_incident.id}", json={"group_id": deleted["id"]})
     assert gone.status_code == 400
 
 
@@ -489,9 +479,7 @@ async def test_incident_group_membership_change_is_audited(
     editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident
 ):
     group = await _create_group(editor_client, test_event)
-    response = await editor_client.patch(
-        f"/api/incidents/{test_incident.id}", json={"group_id": group["id"]}
-    )
+    response = await editor_client.patch(f"/api/incidents/{test_incident.id}", json={"group_id": group["id"]})
     assert response.status_code == 200
 
     audit = await db_session.scalar(
@@ -518,10 +506,10 @@ async def test_final_stop_release_broadcasts_group_refresh(
     )
 
     with patch("app.api.incidents.broadcast_group_update", new_callable=AsyncMock) as broadcast:
-            response = await editor_client.post(
-                f"/api/incidents/{test_incident.id}/status",
-                json={"from_status": "eingegangen", "to_status": "abschluss"},
-            )
+        response = await editor_client.post(
+            f"/api/incidents/{test_incident.id}/status",
+            json={"from_status": "eingegangen", "to_status": "abschluss"},
+        )
 
     assert response.status_code == 200
     broadcast.assert_awaited_once()
@@ -642,7 +630,5 @@ async def test_sync_version_changes_on_group_assignment_assign_and_unassign(
     )
     after_assign = await version()
     assert after_assign != before
-    await editor_client.post(
-        f"/api/incident-groups/{group['id']}/unassign/{assigned.json()['id']}"
-    )
+    await editor_client.post(f"/api/incident-groups/{group['id']}/unassign/{assigned.json()['id']}")
     assert await version() != after_assign

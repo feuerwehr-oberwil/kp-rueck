@@ -2,6 +2,40 @@
 
 Thank you for your interest in contributing! This project started as a tool for a Swiss fire department but is designed to be adaptable for fire departments and emergency services worldwide.
 
+## How this codebase was built
+
+Worth knowing before you read it: KP Rück was **vibe coded** – an experiment in how far
+AI-assisted development can be taken, and how much you can trust the result in a real-world
+operational setting. It has been carrying live operations at Feuerwehr Oberwil since then, and
+the guard rails are the ones you'd expect from that bet rather than from a hand-written
+codebase: a CI gate that has to be green before `main` moves, migrations as the only schema
+truth, an append-only audit log, and a documented paper fallback for when the software is wrong.
+
+Practically, this means patterns are consistent to a fault and worth following rather than
+fighting, and that test coverage is the thing most worth adding.
+
+## Sign your commits (DCO)
+
+Every commit needs a `Signed-off-by` line. Add it automatically with `-s`:
+
+```bash
+git commit -s -m "fix: …"     # appends: Signed-off-by: Your Name <you@example.com>
+```
+
+That line is your statement that you wrote the patch, or otherwise have the right to submit it
+under this project's licence – the [Developer Certificate of Origin
+1.1](https://developercertificate.org/). Nothing is signed away and no copyright is transferred:
+you keep the rights to your work, and it stays under AGPL-3.0-or-later like the rest of the
+codebase.
+
+We use the DCO rather than a Contributor Licence Agreement on purpose. A CLA would let the
+maintainer relicense contributed code – for a closed hosted tier, say – and this project's
+promise to the fire departments running it is that **what we operate is what you can operate**.
+Shared copyright is what keeps that promise enforceable rather than voluntary.
+
+Forgot the sign-off? `git commit --amend -s` for the last commit, or
+`git rebase --signoff <base>` for a series, then force-push the branch.
+
 ## Getting Started
 
 1. Fork the repository
@@ -83,10 +117,11 @@ person who wrote the diff.
 ## Areas for Contribution
 
 ### High Impact
-- **Translations / i18n** — the UI is currently German-only
-- **Alerting integrations** — connect to platforms like Alamos, BORS, or other regional systems
-- **CAD integration** — connect to Computer-Aided Dispatch systems
-- **PDF report generation** — export incidents, board snapshots, or statistics as PDF
+- **Translations / i18n** – the next-intl layer is in place, but `de.json` is the only
+  catalogue, so any second language is largely a translation job rather than a plumbing one
+- **Alerting integrations** – connect to platforms like Alamos, BORS, or other regional systems
+- **CAD integration** – connect to Computer-Aided Dispatch systems
+- **PDF report generation** – export incidents, board snapshots, or statistics as PDF
 
 ### Good First Issues
 - UI improvements and accessibility
@@ -96,11 +131,12 @@ person who wrote the diff.
 - Documentation improvements (screenshots, tutorials)
 
 ### Advanced
-- WebSocket support for real-time updates (replacing polling)
+- A **generic OIDC** sign-in adapter – external identity is Microsoft Entra-only today, so
+  Google Workspace, Keycloak, Authentik and Zitadel are out of reach for one code path
+- Generalising **vehicle GPS** behind a provider seam, the way alarm intake already is
 - Progressive Web App (PWA) support
 - Mobile app (React Native)
 - Analytics / statistics dashboard
-- Multi-language support infrastructure
 
 ## Testing
 

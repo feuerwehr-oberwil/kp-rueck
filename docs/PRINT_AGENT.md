@@ -2,7 +2,7 @@
 
 The print agent connects the KP Rueck dashboard to a printer on the local network. It runs locally (e.g. on a Raspberry Pi) and polls the backend for pending print jobs.
 
-> **The backend print queue is transport-neutral.** Jobs are stored as structured JSON — the backend knows nothing about ESC/POS, paper widths, or any printer brand. The bundled agent (`print-agent/`) is the *reference* implementation for a 58 mm ESC/POS thermal printer, but any department can point their own agent at the same four endpoints and render the jobs however they like (a CUPS/A4 laser printer, a PDF spooler, a second printer). See [Writing your own agent](#writing-your-own-agent) below. This mirrors the alarm connectors ([docs/ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)): the core stays vendor-neutral, the device-specific part lives at the edge.
+> **The backend print queue is transport-neutral.** Jobs are stored as structured JSON – the backend knows nothing about ESC/POS, paper widths, or any printer brand. The bundled agent (`print-agent/`) is the *reference* implementation for a 58 mm ESC/POS thermal printer, but any department can point their own agent at the same four endpoints and render the jobs however they like (a CUPS/A4 laser printer, a PDF spooler, a second printer). See [Writing your own agent](#writing-your-own-agent) below. This mirrors the alarm connectors ([docs/ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)): the core stays vendor-neutral, the device-specific part lives at the edge.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ To minimize unnecessary requests (emergencies are rare), the agent uses two poll
 
 | Mode | Interval | Condition |
 |---|---|---|
-| **Idle** | 60s | Default — no recent print activity |
+| **Idle** | 60s | Default – no recent print activity |
 | **Active** | 5s | After a job is printed, stays active for 15 minutes |
 
 This means ~60 requests/hour when idle (instead of ~1800 at a fixed 2s interval), while still responding quickly during active operations. The agent automatically switches back to idle after 15 minutes without a print job.
@@ -71,11 +71,11 @@ These four endpoints are the entire contract between the backend and any agent:
 
 **Authentication:** the agent endpoints authenticate with the `X-Agent-Token` header, matched against the backend's `PRINT_AGENT_TOKEN` environment variable. They are **fail-closed**: with the variable unset the four endpoints answer `403` for everyone, so a deployment that never configures printing has no print surface at all. Setting the token is the opt-in – on a LAN install too, not just a cloud-hosted one.
 
-**Reliability:** every poll doubles as a heartbeat (the backend shows the agent online for ~30 s after the last one). Jobs stuck in `printing` for over 120 s are re-offered, and failed jobs are retried up to 3 times — so an agent may crash and restart at any time without losing jobs.
+**Reliability:** every poll doubles as a heartbeat (the backend shows the agent online for ~30 s after the last one). Jobs stuck in `printing` for over 120 s are re-offered, and failed jobs are retried up to 3 times – so an agent may crash and restart at any time without losing jobs.
 
 ## Writing your own agent
 
-Because the queue is just JSON, a custom agent is a small poll loop against the four endpoints above — no dependency on the reference code:
+Because the queue is just JSON, a custom agent is a small poll loop against the four endpoints above – no dependency on the reference code:
 
 ```python
 while True:
@@ -90,7 +90,7 @@ while True:
     sleep(5 if jobs else 60)
 ```
 
-Render each `job_type` however your hardware needs — the reference agent (`print-agent/agent.py`) uses python-escpos for a 58 mm thermal printer; a CUPS-based agent would hand the same payload to `lp` for an A4 laser printer instead.
+Render each `job_type` however your hardware needs – the reference agent (`print-agent/agent.py`) uses python-escpos for a 58 mm thermal printer; a CUPS-based agent would hand the same payload to `lp` for an A4 laser printer instead.
 
 ## Local Development
 
@@ -150,7 +150,7 @@ sudo apt install -y libjpeg-dev zlib1g-dev libfreetype6-dev \
 ### 3. Copy print-agent files
 
 ```bash
-# From your dev machine — copy only the agent files
+# From your dev machine – copy only the agent files
 ssh <user>@<raspberry-ip> "mkdir -p ~/print-agent"
 scp print-agent/*.py print-agent/pyproject.toml <user>@<raspberry-ip>:~/print-agent/
 ```

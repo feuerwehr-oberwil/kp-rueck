@@ -23,9 +23,7 @@ class AuditLogEntry(BaseModel):
     user_agent: str | None = None
 
     @field_serializer("ip_address")
-    def serialize_ip_address(
-        self, ip_address: str | IPv4Address | IPv6Address | None, _info
-    ) -> str | None:
+    def serialize_ip_address(self, ip_address: str | IPv4Address | IPv6Address | None, _info) -> str | None:
         """Convert IPv4Address/IPv6Address to string."""
         if ip_address is None:
             return None

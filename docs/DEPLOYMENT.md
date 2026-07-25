@@ -33,7 +33,7 @@ git checkout v0.1.0
 cp .env.example .env
 #    Required: POSTGRES_PASSWORD, SECRET_KEY, AUTH_SECRET_KEY, ADMIN_SEED_PASSWORD
 #      SECRET_KEY / AUTH_SECRET_KEY: openssl rand -hex 32  (KEEP THEM STABLE)
-#      ADMIN_SEED_PASSWORD: at least 12 characters — this is your first login
+#      ADMIN_SEED_PASSWORD: at least 12 characters – this is your first login
 #    For HTTPS: set DOMAIN to a hostname whose A/AAAA record points here, and
 #    PUBLIC_URL to https://<that domain>.
 

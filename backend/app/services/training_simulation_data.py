@@ -424,14 +424,41 @@ _DEFAULT_POWER_SUPPLY_WEIGHTS = {"available": 0.35, "unavailable": 0.25, "emerge
 # word also appears, because classification is title-first + score-based below.
 _ELEMENTAR_KEYWORDS: dict[str, list[str]] = {
     "elementar_water": [
-        "wasser", "keller", "überflut", "überschwemm", "schwemm", "kanal",
-        "rückstau", "pumpen", "feucht", "waschmaschine", "waschküche", "pool",
-        "garage", "liftschacht", "hochwasser", "rohrbruch", "abfluss", "grundwasser",
+        "wasser",
+        "keller",
+        "überflut",
+        "überschwemm",
+        "schwemm",
+        "kanal",
+        "rückstau",
+        "pumpen",
+        "feucht",
+        "waschmaschine",
+        "waschküche",
+        "pool",
+        "garage",
+        "liftschacht",
+        "hochwasser",
+        "rohrbruch",
+        "abfluss",
+        "grundwasser",
     ],
     "elementar_tree": ["baum", "ast", "äste", "wurzel", "eiche", "tanne", "geäst"],
     "elementar_storm": [
-        "dach", "ziegel", "abgedeckt", "fassade", "fenster", "gerüst", "werbetafel",
-        "trampolin", "store", "markise", "sturm", "wind", "fensterladen", "vordach",
+        "dach",
+        "ziegel",
+        "abgedeckt",
+        "fassade",
+        "fenster",
+        "gerüst",
+        "werbetafel",
+        "trampolin",
+        "store",
+        "markise",
+        "sturm",
+        "wind",
+        "fensterladen",
+        "vordach",
     ],
 }
 
@@ -471,7 +498,10 @@ _TYPE_SUBCATEGORY_KEYWORDS: dict[str, list[tuple[str, list[str]]]] = {
         ("brand_ebike", ["e-bike", "ebike", "akku", "veloraum", "pedelec", "lithium"]),
         # "dach" alone would match "Vordach" / "Vordächli" — keep keywords specific
         ("brand_dachstock", ["dachstock", "dachstuhl", "kamin"]),
-        ("brand_werkstatt", ["werkstatt", "schreinerei", "industrie", "gewerbe", "gartenhütte", "gartenhuette", "lagerhalle", "halle"]),
+        (
+            "brand_werkstatt",
+            ["werkstatt", "schreinerei", "industrie", "gewerbe", "gartenhütte", "gartenhuette", "lagerhalle", "halle"],
+        ),
         ("brand_abfall", ["abfall", "container", "müll", "muell", "briefkasten", "sperrgut"]),
         ("brand_wohnung", ["wohnung", "wohnungs", "schlafzimmer", "kerze", "vorhang", "schwelbrand"]),
     ],
@@ -483,8 +513,25 @@ _TYPE_SUBCATEGORY_KEYWORDS: dict[str, list[tuple[str, list[str]]]] = {
     ],
     "strassenrettung": [
         ("personenrettung_lift", ["lift", "aufzug"]),
-        ("personenrettung_vu", ["vu", "verkehrsunfall", "auffahr", "kollision", "frontalkollision", "blechschaden", "pkw", "fahrzeug", "motorrad", "töff"]),
-        ("personenrettung_absturz", ["absturz", "gerüst", "geruest", "sturz", "gestürzt", "gestuerzt", "schacht", "fall"]),
+        (
+            "personenrettung_vu",
+            [
+                "vu",
+                "verkehrsunfall",
+                "auffahr",
+                "kollision",
+                "frontalkollision",
+                "blechschaden",
+                "pkw",
+                "fahrzeug",
+                "motorrad",
+                "töff",
+            ],
+        ),
+        (
+            "personenrettung_absturz",
+            ["absturz", "gerüst", "geruest", "sturz", "gestürzt", "gestuerzt", "schacht", "fall"],
+        ),
         ("personenrettung_tier", ["katze", "hund", "tier"]),
     ],
     "oelwehr": [
@@ -578,9 +625,7 @@ def generate_dangers(incident_type: str | None = None) -> dict:
 
 def generate_effort(incident_type: str | None = None) -> dict:
     """Generate effort estimation scaled to incident type."""
-    min_p, max_p, min_h, max_h = _EFFORT_PROFILES.get(
-        incident_type or "", (2, 6, 0.5, 2.0)
-    )
+    min_p, max_p, min_h, max_h = _EFFORT_PROFILES.get(incident_type or "", (2, 6, 0.5, 2.0))
 
     return {
         "personnel_count": random.randint(min_p, max_p),
@@ -653,7 +698,17 @@ def vary_dispatch_numbers(text: str) -> str:
 # must be on, so the badges never contradict the prose. fire_danger is gated to
 # brand types by the caller (a "kein Brand" false alarm shouldn't light it up).
 _DANGER_ASSERT_KW: dict[str, list[str]] = {
-    "collapse": ["einsturz", "sparren", "durchgebrannt", "wackelt", "instabil", "umgeknickt", "gibt nach", "absturz", "droht herab"],
+    "collapse": [
+        "einsturz",
+        "sparren",
+        "durchgebrannt",
+        "wackelt",
+        "instabil",
+        "umgeknickt",
+        "gibt nach",
+        "absturz",
+        "droht herab",
+    ],
     "explosion": ["explos", "gasflasche", "spraydose", "gasleitung", "gasriecher"],
     "chemical": ["chlor", "chemi", "reizgas", "ätzend", "aetzend", "gefahrgut", "säure", "reiniger", "gefahrstoff"],
     "electrical": ["strom", "elektr", "trafo", "steckdose", "leitung"],
@@ -661,14 +716,39 @@ _DANGER_ASSERT_KW: dict[str, list[str]] = {
 }
 # Summary keywords that mean "nothing going on" — force all dangers off.
 _HARMLESS_KW = [
-    "täuschungsalarm", "fehlalarm", "harmlos", "entwarnung", "keine gefahr",
-    "kein brand", "kein fw-einsatz", "alles unter kontrolle", "nichts vorgefunden",
+    "täuschungsalarm",
+    "fehlalarm",
+    "harmlos",
+    "entwarnung",
+    "keine gefahr",
+    "kein brand",
+    "kein fw-einsatz",
+    "alles unter kontrolle",
+    "nichts vorgefunden",
     "kein einsatz",
 ]
 # Effort cues: shrink to the profile floor / grow to the ceiling so the numbers
 # agree with the prose ("kleines Aufgebot" shouldn't sit next to 8 Pers.).
-_SMALL_EFFORT_KW = ["kontrolle genügt", "eine pumpe reicht", "kleines aufgebot", "kein mehraufwand", "selbst gelöscht", "bereits gelöscht", "genügt"]
-_LARGE_EFFORT_KW = ["verstärkung", "zusätzliches material", "zusätzliche pumpe", "mehrere pumpen", "dlk", "aussenangriff", "nachforder", "läuft nach", "grossaufgebot"]
+_SMALL_EFFORT_KW = [
+    "kontrolle genügt",
+    "eine pumpe reicht",
+    "kleines aufgebot",
+    "kein mehraufwand",
+    "selbst gelöscht",
+    "bereits gelöscht",
+    "genügt",
+]
+_LARGE_EFFORT_KW = [
+    "verstärkung",
+    "zusätzliches material",
+    "zusätzliche pumpe",
+    "mehrere pumpen",
+    "dlk",
+    "aussenangriff",
+    "nachforder",
+    "läuft nach",
+    "grossaufgebot",
+]
 
 
 def _reconcile_with_summary(
@@ -733,7 +813,9 @@ def _dispatch_linked_summary(resolved_type: str | None, description: str | None)
         cm = _extract_qty(description, "cm")
         if cm:
             return _linked_summary(
-                cm, "cm", _NICE_CM,
+                cm,
+                "cm",
+                _NICE_CM,
                 "Bewohner hat übertrieben, Kontrolle genügt.",
                 "Mehrere Pumpen nötig, Wasser läuft nach.",
                 "Heizung/Elektrik betroffen, Pumpeinsatz nötig.",
@@ -742,7 +824,9 @@ def _dispatch_linked_summary(resolved_type: str | None, description: str | None)
         liters = _extract_qty(description, "Liter")
         if liters:
             return _linked_summary(
-                liters, " Liter", _NICE_LITER,
+                liters,
+                " Liter",
+                _NICE_LITER,
                 "Kleinmenge, Bindemittel genügt.",
                 "Grössere Menge, Fachberater Chemie und Entsorgung nötig.",
                 "Öllache bestätigt, Bindemittel und Entsorgung nötig.",
@@ -803,14 +887,48 @@ def generate_reko_report_data(
 # the non-critical stuff (water, fallen tree, stuck lift, wasp nest); for a real
 # fire they call the official dispatch, so the intake path stays non-critical.
 _INTAKE_CALLER_FIRST_NAMES = [
-    "Maria", "Peter", "Anna", "Thomas", "Ursula", "Daniel", "Brigitte", "Markus",
-    "Ruth", "Stefan", "Esther", "Andreas", "Claudia", "Martin", "Sandra", "Beat",
-    "Nadia", "Reto", "Heidi", "Patrick",
+    "Maria",
+    "Peter",
+    "Anna",
+    "Thomas",
+    "Ursula",
+    "Daniel",
+    "Brigitte",
+    "Markus",
+    "Ruth",
+    "Stefan",
+    "Esther",
+    "Andreas",
+    "Claudia",
+    "Martin",
+    "Sandra",
+    "Beat",
+    "Nadia",
+    "Reto",
+    "Heidi",
+    "Patrick",
 ]
 _INTAKE_CALLER_LAST_NAMES = [
-    "Keller", "Meier", "Müller", "Schmid", "Huber", "Steiner", "Brunner", "Frei",
-    "Gerber", "Widmer", "Baumann", "Graf", "Wyss", "Roth", "Suter", "Kuhn",
-    "Bachmann", "Hofer", "Lüthi", "Marti",
+    "Keller",
+    "Meier",
+    "Müller",
+    "Schmid",
+    "Huber",
+    "Steiner",
+    "Brunner",
+    "Frei",
+    "Gerber",
+    "Widmer",
+    "Baumann",
+    "Graf",
+    "Wyss",
+    "Roth",
+    "Suter",
+    "Kuhn",
+    "Bachmann",
+    "Hofer",
+    "Lüthi",
+    "Marti",
 ]
 # Non-critical, citizen-perspective context lines appended to the description.
 _INTAKE_CALLER_CONTEXTS = [

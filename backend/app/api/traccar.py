@@ -119,9 +119,7 @@ async def get_vehicle_trails(
         trails: list[VehicleTrailResponse] = []
         for device in devices:
             try:
-                positions = await traccar_client.get_position_history(
-                    device.id, from_time, now
-                )
+                positions = await traccar_client.get_position_history(device.id, from_time, now)
                 if not positions:
                     continue
 

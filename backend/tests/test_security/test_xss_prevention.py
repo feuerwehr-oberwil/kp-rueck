@@ -52,9 +52,7 @@ async def test_event(db_session: AsyncSession) -> Event:
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_incident_title_xss_stored_safely(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_incident_title_xss_stored_safely(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that XSS payloads in incident title are stored as literal text."""
     incident_data = {
         "event_id": str(test_event.id),
@@ -81,9 +79,7 @@ async def test_incident_title_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_incident_description_xss_stored_safely(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_incident_description_xss_stored_safely(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that XSS payloads in incident description are stored as literal text."""
     incident_data = {
         "event_id": str(test_event.id),
@@ -104,9 +100,7 @@ async def test_incident_description_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_incident_location_xss_stored_safely(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_incident_location_xss_stored_safely(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that XSS payloads in incident location are stored as literal text."""
     incident_data = {
         "event_id": str(test_event.id),
@@ -127,9 +121,7 @@ async def test_incident_location_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_incident_contact_xss_stored_safely(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_incident_contact_xss_stored_safely(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that XSS payloads in incident contact are stored as literal text."""
     incident_data = {
         "event_id": str(test_event.id),
@@ -150,9 +142,7 @@ async def test_incident_contact_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_incident_internal_notes_xss_stored_safely(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_incident_internal_notes_xss_stored_safely(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that XSS payloads in incident internal notes are stored as literal text."""
     incident_data = {
         "event_id": str(test_event.id),
@@ -178,9 +168,7 @@ async def test_incident_internal_notes_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_personnel_name_xss_stored_safely(
-    editor_client: AsyncClient, payload: str
-):
+async def test_personnel_name_xss_stored_safely(editor_client: AsyncClient, payload: str):
     """Test that XSS payloads in personnel name are stored as literal text."""
     personnel_data = {
         "name": payload,
@@ -200,9 +188,7 @@ async def test_personnel_name_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_personnel_role_xss_stored_safely(
-    editor_client: AsyncClient, payload: str
-):
+async def test_personnel_role_xss_stored_safely(editor_client: AsyncClient, payload: str):
     """Test that XSS payloads in personnel role are stored as literal text."""
     personnel_data = {
         "name": "XSS Test Person",
@@ -226,11 +212,10 @@ async def test_personnel_role_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_vehicle_name_xss_stored_safely(
-    editor_client: AsyncClient, payload: str
-):
+async def test_vehicle_name_xss_stored_safely(editor_client: AsyncClient, payload: str):
     """Test that XSS payloads in vehicle name are stored as literal text."""
     import uuid
+
     unique_call_sign = f"XSSNameTest-{uuid.uuid4().hex[:8]}"
     vehicle_data = {
         "name": payload,
@@ -251,11 +236,10 @@ async def test_vehicle_name_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_vehicle_type_xss_stored_safely(
-    editor_client: AsyncClient, payload: str
-):
+async def test_vehicle_type_xss_stored_safely(editor_client: AsyncClient, payload: str):
     """Test that XSS payloads in vehicle type are stored as literal text."""
     import uuid
+
     unique_call_sign = f"XSSTypeTest-{uuid.uuid4().hex[:8]}"
     vehicle_data = {
         "name": "XSS Test Vehicle",
@@ -281,9 +265,7 @@ async def test_vehicle_type_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_material_name_xss_stored_safely(
-    editor_client: AsyncClient, payload: str
-):
+async def test_material_name_xss_stored_safely(editor_client: AsyncClient, payload: str):
     """Test that XSS payloads in material name are stored as literal text."""
     material_data = {
         "name": payload,
@@ -303,9 +285,7 @@ async def test_material_name_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_material_description_xss_stored_safely(
-    editor_client: AsyncClient, payload: str
-):
+async def test_material_description_xss_stored_safely(editor_client: AsyncClient, payload: str):
     """Test that XSS payloads in material description are stored as literal text."""
     material_data = {
         "name": "XSS Test Material",
@@ -333,9 +313,7 @@ async def test_material_description_xss_stored_safely(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_event_name_xss_stored_safely(
-    editor_client: AsyncClient, payload: str
-):
+async def test_event_name_xss_stored_safely(editor_client: AsyncClient, payload: str):
     """Test that XSS payloads in event name are stored as literal text."""
     event_data = {
         "name": payload,
@@ -357,9 +335,7 @@ async def test_event_name_xss_stored_safely(
 
 @pytest.mark.asyncio
 @pytest.mark.security
-async def test_json_response_content_type(
-    editor_client: AsyncClient, test_event: Event
-):
+async def test_json_response_content_type(editor_client: AsyncClient, test_event: Event):
     """Test that API responses have correct Content-Type header."""
     response = await editor_client.get(f"/api/incidents/?event_id={test_event.id}")
 
@@ -370,9 +346,7 @@ async def test_json_response_content_type(
 
 @pytest.mark.asyncio
 @pytest.mark.security
-async def test_no_script_execution_in_json(
-    editor_client: AsyncClient, test_event: Event
-):
+async def test_no_script_execution_in_json(editor_client: AsyncClient, test_event: Event):
     """Test that XSS payloads in JSON responses don't execute."""
     # Create incident with XSS payload
     incident_data = {
@@ -406,9 +380,7 @@ async def test_no_script_execution_in_json(
 @pytest.mark.asyncio
 @pytest.mark.security
 @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-async def test_update_incident_xss_stored_safely(
-    editor_client: AsyncClient, test_event: Event, payload: str
-):
+async def test_update_incident_xss_stored_safely(editor_client: AsyncClient, test_event: Event, payload: str):
     """Test that XSS payloads in update operations are stored safely."""
     # Create a clean incident first
     incident_data = {
@@ -423,9 +395,7 @@ async def test_update_incident_xss_stored_safely(
 
     # Update with XSS payload
     update_data = {"title": payload}
-    update_response = await editor_client.patch(
-        f"/api/incidents/{incident_id}", json=update_data
-    )
+    update_response = await editor_client.patch(f"/api/incidents/{incident_id}", json=update_data)
 
     assert update_response.status_code in [200, 422]
 
@@ -441,9 +411,7 @@ async def test_update_incident_xss_stored_safely(
 
 @pytest.mark.asyncio
 @pytest.mark.security
-async def test_unicode_special_characters(
-    editor_client: AsyncClient, test_event: Event
-):
+async def test_unicode_special_characters(editor_client: AsyncClient, test_event: Event):
     """Test that unicode and special characters are handled correctly."""
     # Note: Null bytes (0x00) are rejected by PostgreSQL, so we don't test them
     special_chars = [
@@ -473,9 +441,7 @@ async def test_unicode_special_characters(
 
 @pytest.mark.asyncio
 @pytest.mark.security
-async def test_html_entities_preserved(
-    editor_client: AsyncClient, test_event: Event
-):
+async def test_html_entities_preserved(editor_client: AsyncClient, test_event: Event):
     """Test that HTML entities are preserved as literal text."""
     html_entities = [
         "&lt;script&gt;alert(1)&lt;/script&gt;",

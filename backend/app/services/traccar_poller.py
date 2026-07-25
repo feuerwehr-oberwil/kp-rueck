@@ -48,7 +48,9 @@ class TraccarPoller:
         self._should_poll = True
         self._positions_task = asyncio.create_task(self._poll_positions())
         self._trails_task = asyncio.create_task(self._poll_trails())
-        logger.info("Started Traccar polling (positions: %ds, trails: %ds)", POSITIONS_INTERVAL_SECONDS, TRAILS_INTERVAL_SECONDS)
+        logger.info(
+            "Started Traccar polling (positions: %ds, trails: %ds)", POSITIONS_INTERVAL_SECONDS, TRAILS_INTERVAL_SECONDS
+        )
 
     async def stop_polling(self):
         """Stop polling."""
