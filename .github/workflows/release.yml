@@ -70,7 +70,9 @@ jobs:
       - name: Extract the release notes
         run: python3 scripts/changelog_section.py "${{ steps.v.outputs.version }}" > RELEASE_NOTES.md
 
-      - name: Set up QEMU (arm64 emulation for the print agent)
+      # All four images build for arm64, so an ARM host (Hetzner CAX, Oracle Ampere, a Pi)
+      # can run the whole stack, not just the print agent next to the printer.
+      - name: Set up QEMU (arm64 emulation)
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Buildx
@@ -111,7 +113,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           cache-from: type=gha,scope=backend
           tags: ${{ steps.tags.outputs.backend }}
@@ -130,7 +132,10 @@ jobs:
         with:
           context: ./frontend
           target: runner
-          platforms: linux/amd64
+          # Built for both arches rather than pinning the builder to $BUILDPLATFORM: the
+          # Next standalone bundle can carry native binaries, so the safe thing is to let
+          # each architecture build its own. It is the slowest step in the release.
+          platforms: linux/amd64,linux/arm64
           push: true
           cache-from: type=gha,scope=frontend
           tags: ${{ steps.tags.outputs.frontend }}
@@ -146,7 +151,8 @@ jobs:
         with:
           context: .
           file: ./tileserver/Dockerfile
-          platforms: linux/amd64
+          # maptiler/tileserver-gl publishes an arm64 manifest, so this is a real build.
+          platforms: linux/amd64,linux/arm64
           push: true
           cache-from: type=gha,scope=tileserver
           tags: ${{ steps.tags.outputs.tileserver }}
@@ -157,8 +163,6 @@ jobs:
             org.opencontainers.image.licenses=AGPL-3.0-or-later
             org.opencontainers.image.description=KP Rück tileserver – offline map tiles
 
-      # arm64 as well: the print agent is the one component that runs on a Raspberry Pi at
-      # the command post, next to the thermal printer.
       - name: Push print-agent image
         uses: docker/build-push-action@v6
         with:
