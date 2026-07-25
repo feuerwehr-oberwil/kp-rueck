@@ -2,6 +2,18 @@
 
 Thank you for your interest in contributing! This project started as a tool for a Swiss fire department but is designed to be adaptable for fire departments and emergency services worldwide.
 
+## How this codebase was built
+
+Worth knowing before you read it: KP Rück was **vibe coded** – an experiment in how far
+AI-assisted development can be taken, and how much you can trust the result in a real-world
+operational setting. It has been carrying live operations at Feuerwehr Oberwil since then, and
+the guard rails are the ones you'd expect from that bet rather than from a hand-written
+codebase: a CI gate that has to be green before `main` moves, migrations as the only schema
+truth, an append-only audit log, and a documented paper fallback for when the software is wrong.
+
+Practically, this means patterns are consistent to a fault and worth following rather than
+fighting, and that test coverage is the thing most worth adding.
+
 ## Getting Started
 
 1. Fork the repository
