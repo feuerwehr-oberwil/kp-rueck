@@ -38,10 +38,14 @@ describe('wsClient reconnect behaviour', () => {
     fakeSocket.connected = false
     fakeSocket.on.mockClear()
     fakeSocket.emit.mockClear()
+    fakeSocket.disconnect.mockClear()
   })
 
   afterEach(() => {
-    wsClient.disconnect()
+    // forceDisconnect, not disconnect: wsClient is a refcounted module
+    // singleton, so a balanced release would leave state leaking between tests
+    // whenever a case connects more than once.
+    wsClient.forceDisconnect()
     vi.useRealTimers()
   })
 
@@ -78,6 +82,44 @@ describe('wsClient reconnect behaviour', () => {
     expect(callback).toHaveBeenCalledTimes(1)
 
     unsubscribe()
+  })
+
+  it('keeps the socket alive until the last consumer disconnects', () => {
+    // Regression: wsClient is a singleton shared by OperationsProvider (root
+    // layout) and page-level consumers like /check-in. An unbalanced
+    // disconnect() from the page killed realtime for the whole app until a
+    // reload — polling masked it, so nothing surfaced on screen.
+    wsClient.connect() // OperationsProvider
+    fakeSocket.connected = true
+    fire('connect')
+
+    wsClient.connect() // /check-in mounts onto the live socket
+
+    wsClient.disconnect() // /check-in unmounts
+    expect(fakeSocket.disconnect).not.toHaveBeenCalled()
+    expect(wsClient.getStatus()).toBe('connected')
+
+    wsClient.disconnect() // provider tears down
+    expect(fakeSocket.disconnect).toHaveBeenCalled()
+    expect(wsClient.getStatus()).toBe('disconnected')
+  })
+
+  it('re-dials a socket that gave up, without moving the refcount', () => {
+    // socket.io stops retrying after maxReconnectAttempts and latches at
+    // 'error'. reconnect() backs the "Neu verbinden" banner action.
+    wsClient.connect()
+    fakeSocket.connected = true
+    fire('connect')
+
+    fakeSocket.connected = false
+    wsClient.reconnect()
+    fakeSocket.connected = true
+    fire('connect')
+    expect(wsClient.getStatus()).toBe('connected')
+
+    // Still exactly one consumer, so a single disconnect must close it.
+    wsClient.disconnect()
+    expect(wsClient.getStatus()).toBe('disconnected')
   })
 
   it('rejoins the operations room on every reconnect', () => {
