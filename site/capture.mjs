@@ -23,7 +23,7 @@ const { chromium } = await import('@playwright/test')
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
 
-const DEFAULT_BASE = 'https://kp-rueck-demo.up.railway.app'
+const DEFAULT_BASE = 'https://demo.kp-rueck.ch'
 const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform wie bei KP Front
 // Die öffentlichen Formulare sind für das Handy gebaut; enger Ausschnitt, gleiches Verhältnis.
 const FORM_VIEWPORT = { width: 900, height: 562 }
