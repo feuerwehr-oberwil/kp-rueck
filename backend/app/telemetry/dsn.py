@@ -45,11 +45,7 @@ from dataclasses import dataclass
 # project level rather than the host level means one project's quota or spike protection can
 # never silence the other.
 #
-# NOTE: until the ingest host is actually deployed this is the documented placeholder shape
-# and NOT a live key. `parse_dsn` rejects it, so the forwarder stays a no-op and no instance
-# can dribble events at a hostname that doesn't exist yet. Replacing it is a one-line change
-# once the ingest is up (deploy/ingest/ in the kp-front repository).
-UPSTREAM_DSN = "https://PLACEHOLDER_PUBLIC_KEY@ingest.kp-front.ch/2"
+UPSTREAM_DSN = "https://6f40acd674264708b1703906287026bd@ingest.kp-front.ch/2"
 
 _PLACEHOLDER = "PLACEHOLDER_PUBLIC_KEY"
 

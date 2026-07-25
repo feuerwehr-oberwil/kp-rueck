@@ -80,10 +80,14 @@ You do not have to take any of the above on faith:
 
 ## Where it goes
 
-To a GlitchTip instance run by the maintainer — the same host KP Front reports to, but a
-separate project. GlitchTip is an open-source, Sentry-compatible error tracker; it runs on a
-host that is network-isolated from anything else of ours. Its configuration (rate limits, IP
-stripping, retention) is checked in at
+To `ingest.kp-front.ch`, a GlitchTip instance run by the maintainer — the same host KP Front
+reports to, but a separate project, so one app's quota can never silence the other. GlitchTip
+is an open-source, Sentry-compatible error tracker.
+
+It runs in its own Railway project, with its own database, sharing nothing with the KP Rück or
+KP Front deployments. The honest limit of that: same provider, same account, so this is
+project-level isolation rather than host-level. Its configuration (rate limits, IP stripping,
+retention) is checked in at
 [`deploy/ingest/`](https://github.com/feuerwehr-oberwil/kp-front/tree/main/deploy/ingest) in the
 KP Front repository.
 
@@ -114,8 +118,13 @@ are swept after 14 days (yours to change).
 
 Your server's IP address is visible to our ingest host, the same way it is visible to any server
 you make a request to. We do not put it in the payload, the reverse proxy in front of the ingest
-strips the forwarding headers, and its access log does not record remote addresses. We cannot
-prove those last two to you from inside this repository, which is exactly why
+strips `X-Forwarded-For` and friends before the request reaches GlitchTip, and its access log is
+configured to drop the remote address. That configuration is checked in — read
+[`deploy/ingest/railway/Caddyfile`](https://github.com/feuerwehr-oberwil/kp-front/blob/main/deploy/ingest/railway/Caddyfile)
+in the KP Front repository rather than believing this paragraph.
+
+What you *cannot* verify from here is that the running instance matches the checked-in config,
+or what the hosting platform logs at its own edge. That is exactly why
 `KP_TELEMETRY_ENABLED=0` exists and why the default is off. If your threat model includes the
 maintainer's own infrastructure, do not switch this on — that is a legitimate position and the
 app is fully functional without it.
