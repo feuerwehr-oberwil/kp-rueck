@@ -20,6 +20,23 @@ version – a station runs the set, not a mix.
 
 ## [Unreleased]
 
+### Security
+- **The print-agent endpoints are fail-closed.** They used to accept *any* request when
+  `PRINT_AGENT_TOKEN` was unset – on the assumption that the agent only ever reaches the backend
+  across a trusted LAN. The same image also runs on a public host, where "unset" quietly meant
+  anyone could read the printer config, list pending jobs, claim them, and mark them done. The
+  four agent endpoints now answer `403` with no token configured, matching how alarm intake has
+  always behaved. `.env.example` already described this behaviour; the code now matches it.
+
+  > **Operator action** if you print: set `PRINT_AGENT_TOKEN` on the backend *and* `AGENT_TOKEN`
+  > on the agent, then restart both. Printing stops until you do – including on a LAN-only
+  > install, where the token was previously optional. Deployments that don't print need nothing.
+
+### Added
+- **arm64 images.** All four images build for `linux/arm64` as well as `linux/amd64`, so an ARM
+  host (Hetzner CAX, Oracle Ampere, a Raspberry Pi) can run the whole stack – previously only the
+  print agent could.
+
 ### Fixed
 - **The app can no longer get stuck in a state only a browser reset would clear.** A sweep for
   crashes and dead ends turned up several, all of which needed something no screen offered:
