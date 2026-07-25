@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react"
 import { useEvent } from "@/lib/contexts/event-context"
+import { randomId } from "@/lib/utils/validation"
 
 // ── Message types ──────────────────────────────────────────────
 
@@ -26,10 +27,7 @@ export type SyncListener = (message: SyncMessage) => void
 
 // ── Unique window ID (stable for the lifetime of the tab) ──────
 
-const WINDOW_ID =
-  typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2)
+const WINDOW_ID = randomId()
 
 // ── Hook ───────────────────────────────────────────────────────
 
