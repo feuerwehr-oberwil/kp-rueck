@@ -56,6 +56,42 @@ Ohne konfiguriertes oder mit falschem Secret antwortet der Endpunkt mit `403`.
   Einsatz an das aktive Ereignis angehängt wurde (Auto-Anhängen im Ereignis
   aktiviert; Übungs-Ereignisse erhalten nie automatische Alarme).
 
+## Stabilität der Schnittstelle
+
+Worauf sich ein sendendes System verlassen kann:
+
+- **Nur additiv.** Neue optionale Felder können dazukommen; bestehende werden innerhalb einer
+  Hauptversion nicht entfernt, umbenannt oder verschärft. Unbekannte Felder im Payload werden
+  **ignoriert** – zusätzliche Schlüssel zu senden ist also gefahrlos und vorwärtskompatibel.
+- **Eine brechende Änderung an diesem Endpunkt ist ein MAJOR-Release**, mit Migrationshinweis
+  im [`CHANGELOG.md`](../CHANGELOG.md). Sie passiert nie in einem Patch.
+- **Die Idempotenz gehört zum Vertrag**, nicht zur Implementierung: dieselbe
+  `(source, source_id)`-Kombination erneut zu senden ist immer sicher.
+
+## Beide anbinden: KP Rück und KP Front
+
+KP Front hat einen Endpunkt mit demselben Namen und derselben Idee – aber die beiden sind
+**unabhängige Implementierungen, keine gemeinsame Spezifikation**. Sie sind für verschiedene
+Aufgaben gebaut, und ihre Payloads sind auseinandergelaufen. Wer *einen* Sender für beide
+schreibt, bleibt in dieser gemeinsamen Teilmenge:
+
+| Feld | Portabel | Hinweis |
+| --- | --- | --- |
+| `title` | ✅ bei beiden Pflicht | – |
+| `source` | ✅ | Höchstens 16 Zeichen und nach `^[a-z0-9][a-z0-9_-]*$` – KP Front ist strenger |
+| `source_id` | ✅ **immer mitsenden** | Bei KP Front **Pflicht**, hier optional |
+| `text`, `address` | ✅ | – |
+| `lat` + `lng` | ✅ | WGS84, nur beide zusammen |
+| `number` | nur KP Rück | Wird von KP Front ignoriert |
+| `type`, `priority`, `started_at` | nur KP Front | Werden hier ignoriert |
+
+Reservierte `source`-Slugs beider Seiten meiden: `divera`, `manual`, `migrated`, `operator`,
+`intake`, `training`.
+
+**Keinen gemeinsamen Parser für die Antwort schreiben.** KP Rück antwortet mit
+`{"status": …, "created": …, "emergency_id": …, "auto_attached_incident_id": …}`, KP Front mit
+`{"incident_id": …, "created": …}`. Nur `created` bedeutet auf beiden Seiten dasselbe.
+
 ## Beispiel
 
 ```bash
