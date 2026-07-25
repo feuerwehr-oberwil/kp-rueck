@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -41,12 +42,12 @@ class Delta(BaseModel):
     Incidents reference users via created_by, so users must exist on both systems independently.
     """
 
-    events: list[dict] = []
-    incidents: list[dict] = []
-    personnel: list[dict] = []
-    vehicles: list[dict] = []
-    materials: list[dict] = []
-    settings: list[dict] = []
+    events: list[dict[str, Any]] = []
+    incidents: list[dict[str, Any]] = []
+    personnel: list[dict[str, Any]] = []
+    vehicles: list[dict[str, Any]] = []
+    materials: list[dict[str, Any]] = []
+    settings: list[dict[str, Any]] = []
     total_records: int = 0
 
 
@@ -71,5 +72,5 @@ class SyncLogResponse(BaseModel):
     started_at: datetime
     completed_at: datetime | None = None
     status: SyncStatus
-    records_synced: dict | None = None
-    errors: dict | None = None
+    records_synced: dict[str, Any] | None = None
+    errors: dict[str, Any] | None = None

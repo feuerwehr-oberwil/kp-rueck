@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -29,7 +30,7 @@ class PrintJobCreate(BaseModel):
     """Schema for creating a print job (internal use)."""
 
     job_type: PrintJobType
-    payload: dict
+    payload: dict[str, Any]
     incident_id: UUID | None = None
     event_id: UUID | None = None
 
@@ -49,7 +50,7 @@ class PrintJobResponse(BaseModel):
     id: UUID
     job_type: PrintJobType
     status: PrintJobStatus
-    payload: dict
+    payload: dict[str, Any]
     incident_id: UUID | None = None
     event_id: UUID | None = None
     created_at: datetime
