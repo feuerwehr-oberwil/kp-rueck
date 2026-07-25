@@ -62,9 +62,9 @@ async def receive_divera_webhook(
     5. Returns 200 OK to Divera
     """
     # Validate webhook secret
-    from ..services.settings import get_setting
+    from ..services.settings import get_alarm_webhook_secret
 
-    webhook_secret = await get_setting(db, "alarm_webhook_secret")
+    webhook_secret = await get_alarm_webhook_secret(db)
     if webhook_secret:
         import secrets as _secrets
 
