@@ -56,14 +56,25 @@ export function NavbarSyncIndicator() {
     }
   }
 
+  // date-fns throws a RangeError on an invalid Date, so every formatted
+  // timestamp goes through here. Matches the guard sync-status-card already
+  // uses. (This component is currently unmounted — see the note by the
+  // default export — but the crash-safety must not depend on that.)
+  const formatLastSync = (value: string | null | undefined) => {
+    if (!value) return t('common.never')
+    try {
+      return formatDistanceToNow(new Date(value), { addSuffix: true, locale: getDateFnsLocale() })
+    } catch {
+      return t('common.never')
+    }
+  }
+
   const getTooltipText = () => {
     if (isLoading) return t('navbar.loadingStatus')
     if (error) return t('navbar.error', { error })
     if (!status) return t('navbar.noStatus')
 
-    const lastSync = status.last_sync
-      ? formatDistanceToNow(new Date(status.last_sync), { addSuffix: true, locale: getDateFnsLocale() })
-      : t('common.never')
+    const lastSync = formatLastSync(status.last_sync)
 
     if (!status.railway_healthy) {
       return t('navbar.offlineLastSync', { lastSync })
@@ -89,9 +100,7 @@ export function NavbarSyncIndicator() {
       {getStatusDot()}
       {getDirectionIcon()}
       <span className="text-sm text-muted-foreground hidden md:inline">
-        {status?.last_sync
-          ? formatDistanceToNow(new Date(status.last_sync), { addSuffix: true, locale: getDateFnsLocale() })
-          : t('common.never')}
+        {formatLastSync(status?.last_sync)}
       </span>
     </Link>
   )

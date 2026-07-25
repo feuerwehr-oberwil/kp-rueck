@@ -26,6 +26,7 @@ import {
   DEFAULT_WHATSAPP_MESSAGE_2,
 } from '@/lib/checklist-tasks'
 import { cn, copyToClipboard } from '@/lib/utils'
+import { isBooleanRecord, readJson, writeJson } from '@/lib/utils/safe-storage'
 
 interface EventSetupChecklistProps {
   eventId: string
@@ -221,18 +222,15 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
   // Load tick/un-tick overrides from localStorage
   useEffect(() => {
     if (!eventId) return
-    try {
-      const stored = localStorage.getItem(checklistOverridesKey(eventId))
-      setOverrides(stored ? JSON.parse(stored) : {})
-    } catch {
-      setOverrides({})
-    }
+    setOverrides(readJson(checklistOverridesKey(eventId), isBooleanRecord, {}))
   }, [eventId])
 
   const toggleTask = (task: ChecklistTaskState) => {
     const next = { ...overrides, [task.id]: !isTaskComplete(task, overrides) }
     setOverrides(next)
-    localStorage.setItem(checklistOverridesKey(eventId), JSON.stringify(next))
+    // Guarded: an unguarded setItem throws once localStorage is full, and this
+    // runs in a click handler where the throw escapes React entirely.
+    writeJson(checklistOverridesKey(eventId), next)
   }
 
   // Derived progress (effective completion = override ?? auto-detected)
