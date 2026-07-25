@@ -28,6 +28,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from ..config import settings
+
 
 def get_client_identifier(request: Request) -> str:
     """
@@ -62,8 +64,19 @@ limiter = Limiter(
 class RateLimits:
     """Rate limit configurations."""
 
-    # Authentication - strict to prevent brute force
-    LOGIN = "3/minute"
+    # Authentication.
+    #
+    # LOGIN is deliberately NOT the brute-force control. It keys on client IP
+    # and counts every attempt, successful ones included — and a command post
+    # NATs every tablet and wall display behind one public IP, so a tight
+    # value here locked out the whole crew whenever a few people signed in
+    # within the same minute, with no recovery but waiting.
+    #
+    # Brute force is handled by auth/login_throttle.py, which keys on
+    # (IP, username) and counts only FAILURES. This ceiling just blunts
+    # username spraying from a single host, so it sits well above legitimate
+    # command-post traffic. Tune via LOGIN_RATE_LIMIT_PER_IP.
+    LOGIN = settings.login_rate_limit_per_ip
     REGISTER = "3/minute"
     PASSWORD_RESET = "3/minute"
 

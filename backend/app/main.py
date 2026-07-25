@@ -53,6 +53,7 @@ from .api.training import router as training_router
 from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
+from .auth.login_throttle import login_throttle
 from .auth.token_blocklist import token_blocklist
 from .background import (
     start_audit_cleanup_scheduler,
@@ -192,6 +193,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Token blocklist cleanup task failed to start: {e}")
 
+    # Start login throttle cleanup task
+    logger.info("Starting login throttle cleanup...")
+    try:
+        await login_throttle.start_cleanup_task()
+    except Exception as e:
+        logger.warning(f"Login throttle cleanup task failed to start: {e}")
+
     # Start demo reset scheduler if in demo mode
     if settings.demo_mode:
         logger.info("Starting demo reset scheduler...")
@@ -272,6 +280,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             stop_demo_reset_scheduler()
         except Exception as e:
             logger.warning(f"Demo reset scheduler shutdown failed: {e}")
+
+    # Shutdown: Stop login throttle cleanup
+    logger.info("Stopping login throttle cleanup...")
+    try:
+        await login_throttle.stop_cleanup_task()
+    except Exception as e:
+        logger.warning(f"Login throttle cleanup shutdown failed: {e}")
 
     # Shutdown: Stop token blocklist cleanup
     logger.info("Stopping token blocklist cleanup...")
