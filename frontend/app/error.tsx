@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { reportClientError } from '@/lib/report-error'
 import Link from 'next/link'
 
 export default function Error({
@@ -17,6 +18,9 @@ export default function Error({
   useEffect(() => {
     // Log the error to console for debugging
     console.error('Application error:', error)
+    // ...and to the station's own server log, where the person running the deployment will
+    // actually see it. A console message on someone else's tablet helps nobody.
+    reportClientError(error, { kind: 'render' })
   }, [error])
 
   return (
