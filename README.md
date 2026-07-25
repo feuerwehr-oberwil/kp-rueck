@@ -255,6 +255,9 @@ work at 3am in a cellar with no signal – so it keeps a local PIN.
 Contributions are welcome: bug fixes, integrations, translations, or ideas. See
 **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
 
+Need help, or want to know what you can expect from a one-maintainer project before you rely on
+it? **[SUPPORT.md](SUPPORT.md)** says so plainly.
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE) – free to use, modify, and deploy. Modified versions served over a

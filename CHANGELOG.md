@@ -14,7 +14,15 @@ library, so the number answers one question: *how much attention does this updat
 | **PATCH** | Fixes only. Always safe to take. |
 
 All four images (backend, frontend, tileserver, print-agent) are released **together** under one
-version – a station runs the set, not a mix.
+version – a station runs the set, not a mix. Prod and the demo deploy continuously from `main`,
+so every published image has already been carrying live operations at Feuerwehr Oberwil before
+it was tagged.
+
+**Why still 0.x?** Because exactly one fire station runs this in production, and a 1.0 claims
+more than that. It becomes **1.0 when a second station is running it in the field** – not when
+the feature list feels complete. Until then, read 0.x as *"not yet proven anywhere but
+Oberwil"*, **not** as *"we may break things without warning"*: the table above holds today and
+will keep holding.
 
 `0.1.0` is the initial published release; the running history before it is in the git log.
 
