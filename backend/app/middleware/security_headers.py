@@ -4,19 +4,14 @@ Uses pure ASGI middleware (not BaseHTTPMiddleware) to avoid
 TaskGroup/ExceptionGroup crashes when stacked with other middlewares.
 """
 
-import os
-
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from app.environment import is_production_environment
 
 
 def _is_production() -> bool:
-    """Check if we're running in production (Railway)."""
-    railway_indicators = [
-        "RAILWAY_ENVIRONMENT",
-        "RAILWAY_PROJECT_ID",
-        "RAILWAY_SERVICE_ID",
-    ]
-    return any(os.getenv(indicator) is not None for indicator in railway_indicators)
+    """Check if we're running in production (see app.environment)."""
+    return is_production_environment()
 
 
 class SecurityHeadersMiddleware:

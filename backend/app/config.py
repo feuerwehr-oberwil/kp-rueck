@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # API
     api_v1_prefix: str = "/api"
     project_name: str = "KP Rück API"
-    version: str = "1.0.0"
+    version: str = "0.1.0"
     description: str = "API for firefighting operations dashboard"
 
     # Uvicorn
@@ -59,10 +59,11 @@ class Settings(BaseSettings):
         In development: Auto-generates secure random key if not set.
         In production: Requires explicit strong key via env var.
         """
-        import os
         import secrets
 
-        is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None
+        from app.environment import is_production_environment
+
+        is_production = is_production_environment()
 
         # If no key provided
         if not v:
@@ -179,10 +180,10 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
-        """Check if we're in production mode (Railway)."""
-        import os
+        """Check if we're serving a real deployment (see app.environment)."""
+        from app.environment import is_production_environment
 
-        return os.getenv("RAILWAY_ENVIRONMENT") is not None
+        return is_production_environment()
 
     @property
     def is_testing(self) -> bool:

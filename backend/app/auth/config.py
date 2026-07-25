@@ -1,29 +1,21 @@
 """Authentication configuration and security settings."""
 
 import logging
-import os
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
+
+from app.environment import is_production_environment
 
 logger = logging.getLogger(__name__)
 
 
 def _is_production_environment() -> bool:
     """
-    Detect production environment using multiple Railway indicators.
-
-    Security: Use multiple checks to reduce risk of accidentally
-    enabling auth bypass due to missing environment variables.
+    Detect a real deployment: an explicit ENVIRONMENT=production (self-host) or any
+    Railway indicator. See app.environment for why both.
     """
-    railway_indicators = [
-        "RAILWAY_ENVIRONMENT",
-        "RAILWAY_PROJECT_ID",
-        "RAILWAY_SERVICE_ID",
-        "RAILWAY_STATIC_URL",
-        "RAILWAY_PUBLIC_DOMAIN",
-    ]
-    return any(os.getenv(indicator) is not None for indicator in railway_indicators)
+    return is_production_environment()
 
 
 class AuthSettings(BaseSettings):

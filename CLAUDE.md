@@ -212,6 +212,11 @@ API_V1_PREFIX=/api
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
+`NEXT_PUBLIC_*` is inlined at BUILD time, so it is a development convenience only — published
+images are built without it. At runtime the server-side proxy route reads `API_URL`, and the
+browser falls back to same-origin paths (`/backend-api`, `/tiles`); see `frontend/lib/env.ts`.
+A deployment `.env` for the compose stack is documented in `.env.example` / `docs/DEPLOYMENT.md`.
+
 ## Deployment
 
 **Railway (Production):**
@@ -220,9 +225,26 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - Backend uses `start.sh` script for initialization
 - Frontend uses production Next.js build
 
-**Docker Compose (Local):**
-- `docker-compose.yml`: Production mode
-- `docker-compose.dev.yml`: Development with hot reload and volume mounts
+**Docker Compose (self-hosting):**
+- `docker-compose.yml`: the PRODUCTION stack. Pulls published GHCR images
+  (`kp-rueck-{backend,frontend,tileserver,print-agent}`, pinned by `KP_RUECK_TAG`) and puts
+  Caddy in front as a single origin: `/socket.io` + `/api` → backend, `/tiles` → tileserver,
+  everything else → frontend. Sets `ENVIRONMENT=production`, which is what turns on mandatory
+  secrets, no auth bypass, and no sample data (`backend/app/environment.py` – production is NOT
+  Railway-only any more). Building from source is the commented-out path on each service.
+- `docker-compose.dev.yml`: development with hot reload and volume mounts (`just dev`).
+- See `docs/DEPLOYMENT.md`.
+
+**Releases are for other stations, not for us.** A `v*` tag exists so a self-hoster can pull a
+known set of images; the number answers *what does this update cost the operator* – PATCH =
+fixes, MINOR = features + automatic migrations, MAJOR = operator action required (table at the
+top of `CHANGELOG.md`). Cutting one: `just changelog` (git-cliff draft) → curate into
+`[Unreleased]` → `just release X.Y.Z` (bumps all four packages; a pytest fails if they drift) →
+`just release-tag X.Y.Z` → `git push --follow-tags`, which runs the CI gate and publishes the
+four images plus a GitHub Release whose body is the committed CHANGELOG section. **The frontend
+image is built WITHOUT `NEXT_PUBLIC_API_URL` on purpose** – baking a URL in would tie the image
+to one station; the browser calls `/backend-api` on its own origin and Next forwards to the
+runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
 
 ## Offline Map Tiles
 

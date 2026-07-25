@@ -77,7 +77,9 @@ services:
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      # 127.0.0.1, not localhost: Next binds IPv4 only (HOSTNAME=0.0.0.0) while `localhost`
+      # resolves to ::1 first inside the image, so the probe would always be refused.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000"]
       interval: 30s
       timeout: 10s
       retries: 3

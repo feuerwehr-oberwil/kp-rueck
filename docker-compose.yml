@@ -1,72 +1,137 @@
+# Self-hosting KP Rück on a VPS: Postgres + backend + frontend + tileserver behind one origin.
+# This is the PRODUCTION stack (published images, no source needed). For hot-reload development
+# use docker-compose.dev.yml — `just dev`.
+#
+#   cp .env.example .env    # fill in the required secrets
+#   docker compose up -d    # pulls the published images, migrates + seeds on boot
+#
+# Updating:  docker compose pull && docker compose up -d
+# Pinning:   set KP_RUECK_TAG=0.1.0 in .env (default: latest). Rollback = pin the older tag.
+#
+# Everything is served through Caddy on ONE origin, which is what makes the published frontend
+# image generic: the browser talks only to its own host, and Caddy fans out to the backend
+# (/socket.io for the live board, /api for the direct API) and the tileserver (/tiles).
+# Set DOMAIN in .env for automatic HTTPS, or leave it empty to serve plain HTTP on HTTP_PORT
+# for a trusted LAN.
+#
+# To build from source instead (contributors, or a patched fork), see the note on each service.
+
+name: kp-rueck
+
+# Cap container logs so a long-lived station VPS can't slowly fill its disk.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: kprueck-db
+    restart: unless-stopped
+    logging: *default-logging
     environment:
-      POSTGRES_USER: kprueck
-      POSTGRES_PASSWORD: kprueck
-      POSTGRES_DB: kprueck
-    ports:
-      - "5433:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-kprueck}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-kprueck}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kprueck"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kprueck} -d ${POSTGRES_DB:-kprueck}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-    networks:
-      - kprueck-network
+      retries: 10
+    networks: [kprueck]
+    # No published ports: reachable only inside the compose network.
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: kprueck-backend
-    volumes:
-      - ./backend:/app
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@postgres:5432/kprueck
-      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-backend:${KP_RUECK_TAG:-latest}
+    # Build from source instead: comment out `image:` and uncomment
+    # build: { context: ./backend, dockerfile: Dockerfile }
+    restart: unless-stopped
+    logging: *default-logging
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    networks:
-      - kprueck-network
+    environment:
+      # Declares this a real deployment: mandatory secrets (no per-restart SECRET_KEY),
+      # no auth bypass, no sample incidents seeded onto the board. See app/environment.py.
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-kprueck}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-kprueck}
+      # Signs sessions/tokens — mandatory in production, and must stay STABLE.
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env (openssl rand -hex 32)}
+      # Signs JWTs — keep it STABLE (changing it logs everyone out).
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?set AUTH_SECRET_KEY in .env (openssl rand -hex 32)}
+      # Same origin for everything, so the only allowed origin is the deployment's own URL.
+      CORS_ORIGINS: ${PUBLIC_URL:-http://localhost:8080}
+      # Must live under /mnt/data: entrypoint.sh chowns exactly that path to the non-root
+      # app user, and a fresh named volume is otherwise created root-owned.
+      PHOTOS_DIR: /mnt/data/photos
+      # Admin account seeded on first boot (≥12 chars, required in production) — rotate
+      # after the first login. The shared editor login is dev-only and never seeded here.
+      ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:?set ADMIN_SEED_PASSWORD in .env (≥12 chars)}
+      # Read-only account, also required in production: seeding refuses to fall back to a
+      # default viewer login on an internet-facing deployment.
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD:?set VIEWER_PASSWORD in .env (≥12 chars)}
+      # Optional integrations — leave blank to disable. See .env.example.
+      DIVERA_ACCESS_KEY: ${DIVERA_ACCESS_KEY:-}
+      TRACCAR_URL: ${TRACCAR_URL:-}
+      TRACCAR_EMAIL: ${TRACCAR_EMAIL:-}
+      TRACCAR_PASSWORD: ${TRACCAR_PASSWORD:-}
+      # Shared secret for the pull-based thermal print agent (fail-closed when empty).
+      PRINT_AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_REDIRECT_URI: ${MICROSOFT_REDIRECT_URI:-}
+    volumes:
+      - photos:/mnt/data/photos
+    healthcheck:
+      # The backend image ships no curl; probe with the interpreter instead.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s   # migrations + seed run before the first healthy response
+    networks: [kprueck]
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: ${FRONTEND_TARGET:-runner}
-    container_name: kprueck-frontend
-    ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-frontend:${KP_RUECK_TAG:-latest}
+    # Build from source instead: comment out `image:` and uncomment
+    # build: { context: ./frontend, dockerfile: Dockerfile, target: runner }
+    restart: unless-stopped
+    logging: *default-logging
     depends_on:
-      - backend
-    networks:
-      - kprueck-network
+      backend:
+        condition: service_healthy
+    environment:
+      # RUNTIME api target for the Next.js /backend-api proxy route. The published image is
+      # built WITHOUT NEXT_PUBLIC_API_URL on purpose — baking a URL in would tie the image to
+      # one station. The browser calls /backend-api on its own origin and Next forwards here.
+      API_URL: http://backend:8000
+      NODE_ENV: production
+    healthcheck:
+      # 127.0.0.1, not localhost: Next binds IPv4 only (HOSTNAME=0.0.0.0) while `localhost`
+      # resolves to ::1 first inside the image, so the probe would always be refused.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks: [kprueck]
 
   tileserver:
-    build:
-      context: .
-      dockerfile: ./tileserver/Dockerfile
-    container_name: kprueck-tileserver
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver:${KP_RUECK_TAG:-latest}
+    # Build from source instead: comment out `image:` and uncomment
+    # build: { context: ., dockerfile: ./tileserver/Dockerfile }
     restart: unless-stopped
-    ports:
-      - "8080:8080"
-    volumes:
-      - tileserver-data:/data
+    logging: *default-logging
     environment:
       - TILESERVER_PORT=8080
-    networks:
-      - kprueck-network
-    # Automatically creates minimal tiles on first run
-    # For full-resolution tiles: make tiles-download
+    volumes:
+      # Bootstrap tiles are generated on first run; drop real MBTiles in here for full
+      # offline coverage (see docs/OFFLINE_MAPS.md).
+      - tiles:/data
     healthcheck:
       # The tileserver image ships neither wget nor curl; probe via node.
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
@@ -74,11 +139,56 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    networks: [kprueck]
+
+  # The single origin. With DOMAIN set it fetches a certificate automatically; without one it
+  # serves plain HTTP on HTTP_PORT for a trusted LAN.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      frontend:
+        condition: service_healthy
+    environment:
+      # Empty DOMAIN → Caddy binds :80 inside the container (plain HTTP, no cert).
+      DOMAIN: ${DOMAIN:-:80}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+      - "443:443"
+    networks: [kprueck]
+
+  # Thermal printer agent for the command post. Opt-in: it needs to reach a printer on the
+  # local LAN, so it runs on the host network and only starts with the `printing` profile:
+  #   docker compose --profile printing up -d
+  print-agent:
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-print-agent:${KP_RUECK_TAG:-latest}
+    # Build from source instead: comment out `image:` and uncomment
+    # build: { context: ./print-agent, dockerfile: Dockerfile }
+    restart: unless-stopped
+    logging: *default-logging
+    profiles: ["printing"]
+    network_mode: "host"
+    environment:
+      # On the host network the stack isn't reachable by service name — point this at the
+      # deployment's public URL (or http://localhost:<HTTP_PORT> on the same host).
+      BACKEND_URL: ${PRINT_AGENT_BACKEND_URL:-http://localhost:8080}
+      PRINT_AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-}
+      POLL_INTERVAL: ${POLL_INTERVAL:-2}
+      DRY_RUN: ${DRY_RUN:-false}
+      LOG_LEVEL: INFO
 
 networks:
-  kprueck-network:
+  kprueck:
     driver: bridge
 
 volumes:
-  postgres_data:
-  tileserver-data:
+  pgdata:
+  photos:
+  tiles:
+  caddy_data:
+  caddy_config:

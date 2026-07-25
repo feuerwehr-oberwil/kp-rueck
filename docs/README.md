@@ -13,6 +13,7 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 | --- | --- | --- |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 🟢 | System overview: how the Next.js frontend, FastAPI service, PostgreSQL, and external integrations fit together, plus the sync/audit model. |
 | [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) | 🟢 | Provider-neutral alarm intake: the generic `POST /api/alarms` webhook (auth, idempotency, auto-attach, fail-closed), the Divera adapter and phone/walk-in form, and the `GET /api/integrations` capability registry. |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | 🟢 | Self-hosting guide: the docker-compose stack built from published GHCR images, the single-origin Caddy layout, `KP_RUECK_TAG` version pinning, updating/rollback, and backups. |
 | [`RAILWAY.md`](RAILWAY.md) | 🟢 | Deployment guide: Railway service layout, environment variables, secrets, and the `start.sh` boot/migration flow. Works on any Docker host. |
 | [`OFFLINE_MAPS.md`](OFFLINE_MAPS.md) | 🟢 | Offline map tiles for Basel-Landschaft: TileServer GL setup, MBTiles, and the auto / online / offline fallback modes. |
 | [`PRINT_AGENT.md`](PRINT_AGENT.md) | 🟢 | The print agent and the transport-neutral job queue: dispatch slips, board snapshots, QR walk-in slips, the four agent endpoints, and how to write a custom agent for any printer. |

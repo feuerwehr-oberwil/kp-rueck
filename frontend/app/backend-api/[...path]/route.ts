@@ -93,8 +93,15 @@ async function proxyRequest(request: NextRequest) {
     while ([301, 302, 307, 308].includes(response.status) && redirectCount < 3) {
       let location = response.headers.get('location')
       if (!location) break
-      // Ensure HTTPS (backend behind Railway proxy may emit http:// URLs)
-      location = location.replace(/^http:\/\//, 'https://')
+      // Match the redirect to the scheme we actually reached the backend with. Railway's
+      // edge terminates TLS, so its backend emits http:// Location headers for a request
+      // that arrived over https — but forcing https unconditionally breaks a self-hosted
+      // stack, where the backend is plain HTTP on the compose network and the upgraded URL
+      // means a TLS handshake against a cleartext port (ERR_SSL_WRONG_VERSION_NUMBER).
+      // FastAPI's trailing-slash redirect makes this the common path, not an edge case.
+      if (targetUrl.startsWith('https://')) {
+        location = location.replace(/^http:\/\//, 'https://')
+      }
       debug(`[API Proxy] Following ${response.status} redirect to: ${location}`)
       response = await fetch(location, {
         method: request.method,
