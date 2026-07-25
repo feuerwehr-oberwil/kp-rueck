@@ -109,8 +109,9 @@ version: a station runs the set, not a mix.
 deployment and the public demo both track `main` continuously; a version tag is a label on a
 commit that has been carrying live operations. Releases exist for *other* stations, not for us.
 
-See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full self-hosting guide, or
-**[docs/RAILWAY.md](docs/RAILWAY.md)** for the managed-PaaS route.
+Setting up a station for the first time? Follow **[docs/SETUP.md](docs/SETUP.md)**, which walks
+the whole path in order. **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** is the full self-hosting
+reference behind it, and **[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed-PaaS route.
 
 ## Architecture & key decisions
 
@@ -223,6 +224,7 @@ Start with the [documentation index](docs/README.md). Highlights:
 
 | Document | Description |
 |----------|-------------|
+| [docs/SETUP.md](docs/SETUP.md) | **Start here** for a new station: the ordered path from an empty host to a board you can run an event on |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and deployment diagrams |
 | [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) | Provider-neutral alarm webhook and integration registry |
 | [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide |

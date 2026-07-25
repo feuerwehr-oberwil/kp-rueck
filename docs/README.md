@@ -11,6 +11,7 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 
 | Doc | Status | What it is |
 | --- | --- | --- |
+| [`SETUP.md`](SETUP.md) | 🟢 | **Start here for a new station.** The ordered path from an empty Docker host to a board you can run an event on: boot, take over the seeded accounts, bulk-load resources, offline tiles, integrations, backups — plus the gotchas that catch people and a pre-field checklist. Links to the reference docs below rather than repeating them. |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 🟢 | System overview: how the Next.js frontend, FastAPI service, PostgreSQL, and external integrations fit together, plus the sync/audit model. |
 | [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) | 🟢 | Provider-neutral alarm intake: the generic `POST /api/alarms` webhook (auth, idempotency, auto-attach, fail-closed), the Divera adapter and phone/walk-in form, and the `GET /api/integrations` capability registry. |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | 🟢 | Self-hosting guide: the docker-compose stack built from published GHCR images, the single-origin Caddy layout, `KP_RUECK_TAG` version pinning, updating/rollback, and backups. |
