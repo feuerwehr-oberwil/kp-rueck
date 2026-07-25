@@ -27,6 +27,30 @@ export function getApiUrl(): string {
 }
 
 /**
+ * Base URL of the offline tile server.
+ *
+ * Local development talks to the tileserver container directly on :8080. A deployed stack
+ * puts it behind the same origin as the app (the reverse proxy routes /tiles/* to the
+ * tileserver), so the browser needs no second host — and no CSP exception, since 'self'
+ * already covers it.
+ */
+export function getTileBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_TILE_URL
+  if (envUrl) {
+    return envUrl
+  }
+
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return '/tiles'
+    }
+  }
+
+  return 'http://localhost:8080'
+}
+
+/**
  * Get the direct backend URL for WebSocket connections.
  *
  * WebSocket connections cannot go through the Next.js API proxy (/backend-api)
