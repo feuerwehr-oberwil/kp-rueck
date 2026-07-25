@@ -1,7 +1,7 @@
 """Reko (reconnaissance) report + dashboard schemas."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -79,7 +79,7 @@ class RekoReportResponse(RekoReportBase):
 
     @field_validator("photos_json", mode="before")
     @classmethod
-    def ensure_photos_list(cls, v):
+    def ensure_photos_list(cls, v: Any) -> Any:
         """Convert None to empty list for photos_json."""
         if v is None:
             return []

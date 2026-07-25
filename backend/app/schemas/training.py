@@ -3,6 +3,7 @@
 import re
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
@@ -12,11 +13,11 @@ from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, m
 class ExcelImportPreview(BaseModel):
     """Preview of Excel import data."""
 
-    personnel_preview: list[dict]
+    personnel_preview: list[dict[str, Any]]
     personnel_total: int
-    vehicles_preview: list[dict]
+    vehicles_preview: list[dict[str, Any]]
     vehicles_total: int
-    materials_preview: list[dict]
+    materials_preview: list[dict[str, Any]]
     materials_total: int
 
 
@@ -77,7 +78,7 @@ class ManualDispatchRequest(BaseModel):
     address: str | None = None
 
     @model_validator(mode="after")
-    def exactly_one_location_source(self):
+    def exactly_one_location_source(self) -> "ManualDispatchRequest":
         has_seeded = self.location_id is not None
         has_pin = self.latitude is not None and self.longitude is not None and bool(self.address)
         if has_seeded and has_pin:
@@ -164,7 +165,7 @@ class TrainingLocationBase(BaseModel):
         return v
 
     @field_serializer("latitude", "longitude")
-    def serialize_decimal(self, value):
+    def serialize_decimal(self, value: Decimal | None) -> str | None:
         """Convert Decimal to string for JSON serialization."""
         if value is None:
             return None

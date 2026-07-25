@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import bcrypt
 from jose import JWTError, jwt
@@ -56,7 +57,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """
     Create a JWT access token.
 
@@ -92,11 +93,11 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         }
     )
 
-    encoded_jwt = jwt.encode(to_encode, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
+    encoded_jwt: str = jwt.encode(to_encode, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
     return encoded_jwt
 
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict[str, Any]) -> str:
     """
     Create a JWT refresh token (longer expiration).
 
@@ -119,11 +120,11 @@ def create_refresh_token(data: dict) -> str:
         }
     )
 
-    encoded_jwt = jwt.encode(to_encode, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
+    encoded_jwt: str = jwt.encode(to_encode, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
     return encoded_jwt
 
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str) -> dict[str, Any]:
     """
     Decode and validate a JWT token.
 
@@ -137,7 +138,7 @@ def decode_token(token: str) -> dict:
         JWTError: If token is invalid, expired, or malformed
     """
     try:
-        payload = jwt.decode(token, auth_settings.SECRET_KEY, algorithms=[auth_settings.ALGORITHM])
+        payload: dict[str, Any] = jwt.decode(token, auth_settings.SECRET_KEY, algorithms=[auth_settings.ALGORITHM])
         return payload
     except JWTError as e:
         raise JWTError(f"Token validation failed: {str(e)}")

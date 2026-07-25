@@ -26,7 +26,7 @@ class TokenBlocklist:
     def __init__(self) -> None:
         self._revoked: dict[str, datetime] = {}  # jti -> original token expiry
         self._lock = asyncio.Lock()
-        self._cleanup_task: asyncio.Task | None = None
+        self._cleanup_task: asyncio.Task[None] | None = None
         self._cleanup_interval = 3600  # Clean up every hour
 
     async def start_cleanup_task(self) -> None:

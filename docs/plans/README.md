@@ -36,6 +36,13 @@ made – do not re-litigate), implementation steps, and a test plan.
 | 4 | 12 | [Aufträge: multi-stop group routing (Flächenlage batching)](12-auftrag-multi-stop-routing.md) | Backend + frontend + map | Group several incidents into an ordered route for one squad; Plan 13 reservations must cover Auftrag-owned material | – |
 | 5 | 06 | [i18n (German + French)](06-i18n.md) | Frontend | Cross-cutting; do **last** so it absorbs strings from 09/11/12/13 in one pass | 09, 11, 12, 13 |
 
+### Engineering debt (no deadline, pick up between features)
+
+| # | Plan | Why here |
+|---|------|----------|
+| 14 | [Typing debt: widen the blocking mypy subset](14-typing-debt.md) | mypy blocks on `auth`/`middleware`/`schemas`/`services/alerting` and is advisory for the rest (~705 findings). Progress = moving one package into the blocking list, at zero. Three patterns explain most of the tree – read those before starting. |
+| 15 | [Make the E2E suite fast enough for CI](15-e2e-in-ci.md) | ~300 Playwright specs are off in CI (`if: false`, ~25 min, flaky). Goal is a blocking `@smoke` subset under five minutes plus a nightly full run – **not** the whole suite on every PR. Until then the suite is a local step before releases. |
+
 ## Shared conventions (apply to every plan)
 
 - **Dev workflow:** never run `pnpm build` while the dev server is running – use

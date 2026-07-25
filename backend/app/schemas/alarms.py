@@ -7,6 +7,7 @@ same pool and share the same auto-attach and inference logic.
 """
 
 import re
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -45,7 +46,7 @@ class AlarmIn(BaseModel):
 
     @field_validator("title", "text", "address", "source_id", "number", mode="before")
     @classmethod
-    def strip_strings(cls, v):
+    def strip_strings(cls, v: Any) -> Any:
         if isinstance(v, str):
             v = v.strip()
         return v or None

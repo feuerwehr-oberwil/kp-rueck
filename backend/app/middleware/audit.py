@@ -7,6 +7,7 @@ TaskGroup/ExceptionGroup crashes when stacked with other middlewares.
 import asyncio
 import logging
 import time
+from typing import TYPE_CHECKING
 
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -14,16 +15,21 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from ..database import audit_session_maker
 from ..services.audit import log_action
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from ..models.user import User
+
 logger = logging.getLogger(__name__)
 
 
 async def _log_api_request(
-    user,
+    user: "User | None",
     path: str,
     method: str,
     duration_ms: float,
-    test_db_session=None,
-):
+    test_db_session: "AsyncSession | None" = None,
+) -> None:
     """Background task to log API request to audit log using separate connection pool."""
     # In test mode with injected session, use that session directly (no commit needed)
     if test_db_session is not None:
