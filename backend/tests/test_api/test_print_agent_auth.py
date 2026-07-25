@@ -100,31 +100,42 @@ class TestAgentEndpointsWithToken:
 
 
 class TestAgentEndpointsWithoutToken:
-    """When PRINT_AGENT_TOKEN is unset, behavior is unchanged (LAN-only installs)."""
+    """When PRINT_AGENT_TOKEN is unset, the agent endpoints are OFF, not open.
+
+    These four are the whole print queue: read the printer config, list pending jobs,
+    claim one, mark it done. Open, they let anyone drain or forge a station's slips —
+    so an unset token has to mean disabled, never unauthenticated.
+    """
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_config_open(self, client: AsyncClient, agent_token_unset):
+    async def test_config_closed(self, client: AsyncClient, agent_token_unset):
         response = await client.get("/api/print/config/")
-        assert response.status_code == 200
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_pending_open(self, client: AsyncClient, agent_token_unset):
+    async def test_pending_closed(self, client: AsyncClient, agent_token_unset):
         response = await client.get("/api/print/jobs/pending/")
-        assert response.status_code == 200
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_claim_and_complete_open(self, client: AsyncClient, agent_token_unset, pending_job):
+    async def test_claim_and_complete_closed(self, client: AsyncClient, agent_token_unset, pending_job):
         response = await client.patch(f"/api/print/jobs/{pending_job.id}/claim/")
-        assert response.status_code == 200
+        assert response.status_code == 403
 
         response = await client.patch(
             f"/api/print/jobs/{pending_job.id}/complete/",
             json={"status": "completed", "error_message": None},
         )
-        assert response.status_code == 200
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_token_does_not_help_when_none_is_configured(self, client: AsyncClient, agent_token_unset):
+        response = await client.get("/api/print/config/", headers={"X-Agent-Token": AGENT_TOKEN})
+        assert response.status_code == 403
 
 
 class TestUserFacingPrintEndpoints:

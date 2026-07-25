@@ -123,8 +123,9 @@ are live, and the UI adapts rather than hard-coding vendors.
 - **Traccar** – vehicle GPS with status automation and distance labels on the map.
 - **Microsoft Entra ID** – set the four `MICROSOFT_*` values for SSO. This is the only external
   identity provider today; without it, local accounts are the path.
-- **Thermal printer** – `PRINT_AGENT_TOKEN` plus the `printing` compose profile. The agent runs
-  on the host network, so `PRINT_AGENT_BACKEND_URL` cannot use a service name. See
+- **Thermal printer** – `PRINT_AGENT_TOKEN` plus the `printing` compose profile. The token is
+  required, not optional: the agent endpoints are fail-closed and answer `403` without it. The
+  agent runs on the host network, so `PRINT_AGENT_BACKEND_URL` cannot use a service name. See
   [`PRINT_AGENT.md`](PRINT_AGENT.md).
 
 ## 6. Backups and version pinning

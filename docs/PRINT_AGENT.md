@@ -69,7 +69,7 @@ These four endpoints are the entire contract between the backend and any agent:
 | `/api/print/jobs/{id}/claim/` | PATCH | Claim a job (status → printing) |
 | `/api/print/jobs/{id}/complete/` | PATCH | Report job completion or failure |
 
-**Authentication:** the agent endpoints authenticate with the `X-Agent-Token` header, matched against the backend's `PRINT_AGENT_TOKEN` environment variable. When the variable is unset the endpoints are open – intended only for isolated LAN installs; **always set it for a cloud-hosted backend.**
+**Authentication:** the agent endpoints authenticate with the `X-Agent-Token` header, matched against the backend's `PRINT_AGENT_TOKEN` environment variable. They are **fail-closed**: with the variable unset the four endpoints answer `403` for everyone, so a deployment that never configures printing has no print surface at all. Setting the token is the opt-in – on a LAN install too, not just a cloud-hosted one.
 
 **Reliability:** every poll doubles as a heartbeat (the backend shows the agent online for ~30 s after the last one). Jobs stuck in `printing` for over 120 s are re-offered, and failed jobs are retried up to 3 times – so an agent may crash and restart at any time without losing jobs.
 
