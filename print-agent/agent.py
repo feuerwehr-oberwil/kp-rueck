@@ -16,7 +16,8 @@ Environment Variables:
     DRY_RUN: Set to "true" to simulate printing without a real printer
     LOG_LEVEL: Logging level (default: INFO)
     AGENT_TOKEN: Shared token sent as X-Agent-Token header (must match the
-        backend's PRINT_AGENT_TOKEN; leave empty for LAN-only installs)
+        backend's PRINT_AGENT_TOKEN; required – the backend's agent endpoints
+        are fail-closed and answer 403 when no token is configured)
 
 Usage:
     python agent.py

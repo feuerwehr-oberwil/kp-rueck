@@ -35,11 +35,17 @@ router = APIRouter(prefix="/print", tags=["print"])
 async def require_print_agent(x_agent_token: str = Header(default="")) -> None:
     """Authenticate the print agent via a shared token.
 
-    If PRINT_AGENT_TOKEN is unset, all requests are allowed (backwards
-    compatible for LAN-only installs where security is network isolation).
+    Fail CLOSED: with no PRINT_AGENT_TOKEN configured these endpoints are off, not open.
+    They used to be open on the assumption that the agent only ever reaches the backend
+    across a trusted LAN — but the same image also runs on a public host, where "unset"
+    silently meant "anyone can drain the print queue". Setting the token is the
+    deployment's opt-in to the agent, exactly like ALARM_WEBHOOK_SECRET is for intake.
     """
     if not app_settings.print_agent_token:
-        return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Print-Agent deaktiviert (PRINT_AGENT_TOKEN nicht gesetzt)",
+        )
     if not secrets.compare_digest(x_agent_token, app_settings.print_agent_token):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid agent token")
 
@@ -291,7 +297,7 @@ async def get_printer_config(
     Get printer configuration for the print agent.
 
     Authenticated via the shared agent token (X-Agent-Token) when
-    PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
+    PRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).
     """
     _touch_agent_heartbeat()
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
@@ -489,7 +495,7 @@ async def get_pending_jobs(
     Get pending print jobs for the print agent.
 
     Authenticated via the shared agent token (X-Agent-Token) when
-    PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
+    PRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).
     """
     _touch_agent_heartbeat()
     # Reaper: bring back jobs stuck in 'printing' (agent died mid-print) or
@@ -529,7 +535,7 @@ async def claim_print_job(
     Claim a print job (mark as printing).
 
     Authenticated via the shared agent token (X-Agent-Token) when
-    PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
+    PRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).
     """
     _touch_agent_heartbeat()
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
@@ -562,7 +568,7 @@ async def complete_print_job(
     Complete a print job (mark as completed or failed).
 
     Authenticated via the shared agent token (X-Agent-Token) when
-    PRINT_AGENT_TOKEN is configured; open otherwise (LAN-only installs).
+    PRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).
     """
     _touch_agent_heartbeat()
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
