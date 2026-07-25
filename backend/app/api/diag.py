@@ -74,9 +74,7 @@ async def _queued_last_hour(db: AsyncSession) -> int:
     return int(
         (
             await db.execute(
-                select(func.count())
-                .select_from(TelemetryOutbox)
-                .where(TelemetryOutbox.created_at >= since)
+                select(func.count()).select_from(TelemetryOutbox).where(TelemetryOutbox.created_at >= since)
             )
         ).scalar()
         or 0
@@ -84,9 +82,7 @@ async def _queued_last_hour(db: AsyncSession) -> int:
 
 
 @router.post("/client-error", status_code=204)
-async def report_client_error(
-    payload: ClientError, request: Request, db: AsyncSession = Depends(get_db)
-) -> None:
+async def report_client_error(payload: ClientError, request: Request, db: AsyncSession = Depends(get_db)) -> None:
     """Log a client-reported error at WARNING (visible without DEBUG). Never raises."""
     ua = request.headers.get("user-agent", "?")[:300]
     try:
@@ -145,9 +141,7 @@ async def submit_problem_report(
     A preview the sender writes is a promise; one the receiver echoes back is a check.
     """
     if not consent_mod.env_allows_outbound():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="outbound-disabled"
-        )
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="outbound-disabled")
     try:
         install_id = await consent_mod.get_install_id(db, mint=True)
         event = build_event(
@@ -161,18 +155,14 @@ async def submit_problem_report(
                 locale=payload.locale,
                 online=payload.online,
             ),
-            report=scrub.build_report(
-                message=payload.message, trouble_kind=None, trouble_at=None
-            ),
+            report=scrub.build_report(message=payload.message, trouble_kind=None, trouble_at=None),
         )
         await outbox.enqueue(db, channel="report", payload=event)
         await db.commit()
     except Exception:  # noqa: BLE001
         await db.rollback()
         logger.exception("problem report could not be queued")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="queue-failed"
-        ) from None
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="queue-failed") from None
     return {"queued": True, "sent": event}
 
 
@@ -192,11 +182,7 @@ async def telemetry_status(current_user: CurrentAdmin, db: AsyncSession = Depend
     JSON without opening psql.
     """
     rows = list(
-        (
-            await db.execute(
-                select(TelemetryOutbox).order_by(TelemetryOutbox.created_at.desc()).limit(10)
-            )
-        )
+        (await db.execute(select(TelemetryOutbox).order_by(TelemetryOutbox.created_at.desc()).limit(10)))
         .scalars()
         .all()
     )
@@ -227,9 +213,7 @@ async def telemetry_status(current_user: CurrentAdmin, db: AsyncSession = Depend
 
 
 @router.put("/telemetry/consent")
-async def update_consent(
-    body: ConsentUpdate, current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)
-) -> dict:
+async def update_consent(body: ConsentUpdate, current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
     """Turn the background channel on or off. Off also discards whatever is still queued."""
     try:
         value = await consent_mod.set_consent(db, body.consent)
@@ -243,9 +227,7 @@ async def update_consent(
 
 
 @router.post("/telemetry/install-id")
-async def rotate_install_id(
-    current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)
-) -> dict:
+async def rotate_install_id(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
     """Mint a fresh install id, cutting the link to everything sent so far."""
     new_id = await consent_mod.regenerate_install_id(db)
     await db.commit()

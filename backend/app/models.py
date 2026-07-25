@@ -1008,9 +1008,7 @@ class TelemetryOutbox(Base):
     # 'error' (background, needs consent) | 'report' (manual, the send button is the consent)
     channel: Mapped[str] = mapped_column(String(16), nullable=False)
     payload_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     # NULL = still queued. Set once the ingest has 200'd; rows are swept after a few days.
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=sa_text("0"))

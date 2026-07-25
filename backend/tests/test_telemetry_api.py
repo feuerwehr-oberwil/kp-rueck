@@ -134,18 +134,17 @@ async def test_consent_is_admin_only(client, editor_client):
     # 401/403 either way — what matters is that a kiosk-level login cannot flip it. Consent
     # is a deployment decision, and the Feuerwehr is the controller, not the logged-in user.
     assert (await client.get("/api/diag/telemetry")).status_code in (401, 403)
-    assert (
-        await editor_client.put("/api/diag/telemetry/consent", json={"consent": "errors"})
-    ).status_code in (401, 403)
+    assert (await editor_client.put("/api/diag/telemetry/consent", json={"consent": "errors"})).status_code in (
+        401,
+        403,
+    )
 
 
 async def test_the_generic_settings_endpoint_cannot_reach_the_consent_key(editor_client):
     # app/api/settings.py only accepts keys in DEFAULT_SETTINGS. telemetry.consent is
     # deliberately absent from that list, which is what stops an editor from routing around
     # the admin gate above. If someone ever adds it there, this fails.
-    r = await editor_client.patch(
-        f"/api/settings/{consent_mod.CONSENT_KEY}", json={"value": "errors"}
-    )
+    r = await editor_client.patch(f"/api/settings/{consent_mod.CONSENT_KEY}", json={"value": "errors"})
     assert r.status_code == 404
 
 
@@ -163,9 +162,7 @@ async def test_report_is_queued_without_any_admin_opt_in(editor_client, db_sessi
     # Pressing send IS the consent — the background switch is irrelevant here, and this is
     # the difference the whole design rests on.
     assert await consent_mod.get_consent(db_session) == consent_mod.CONSENT_OFF
-    r = await editor_client.post(
-        "/api/diag/report", json={"message": "Nach dem Verschieben war die Karte weg"}
-    )
+    r = await editor_client.post("/api/diag/report", json={"message": "Nach dem Verschieben war die Karte weg"})
     assert r.status_code == 202
     rows = await _queued(db_session)
     assert len(rows) == 1 and rows[0].channel == "report"
@@ -308,9 +305,7 @@ async def test_offline_keeps_the_row_queued(client, db_session, fake_http):
     assert row.sent_at is None and row.attempts == 1 and row.last_error == "OSError"
 
 
-async def test_consent_revoked_between_queue_and_flush_sends_nothing(
-    client, editor_client, db_session, fake_http
-):
+async def test_consent_revoked_between_queue_and_flush_sends_nothing(client, editor_client, db_session, fake_http):
     # The race the design has to survive: an admin switches off while a payload is queued.
     from app.telemetry.forwarder import flush
 
