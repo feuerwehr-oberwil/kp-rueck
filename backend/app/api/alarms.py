@@ -5,11 +5,11 @@ pool with a single HTTP call — no vendor SDK, no Divera account. Delivered
 alarms behave exactly like Divera alarms: they land in the pool, auto-attach
 to the active event when enabled, and are broadcast to all connected clients.
 
-Authentication uses the same shared secret as the Divera webhook
-(``alarm_webhook_secret`` setting), passed as ``?secret=`` or via the
-``X-Webhook-Secret`` header. Unlike the Divera adapter (which stays permissive
-for backward compatibility), this endpoint fails closed: no configured secret
-means no access.
+Authentication uses the same shared secret as the Divera webhook — the
+``ALARM_WEBHOOK_SECRET`` env var, else the ``alarm_webhook_secret`` setting —
+passed as ``?secret=`` or via the ``X-Webhook-Secret`` header. Unlike the Divera
+adapter (which stays permissive for backward compatibility), this endpoint fails
+closed: no configured secret means no access.
 
 See docs/ALARM-INTEGRATIONS.md for the integration guide.
 """
@@ -28,7 +28,7 @@ from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..schemas.alarms import RESERVED_ALARM_SOURCES
 from ..services.divera_intake import broadcast_emergency_received, try_auto_attach
-from ..services.settings import get_setting
+from ..services.settings import get_alarm_webhook_secret
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ router = APIRouter(prefix="/alarms", tags=["alarms"])
 
 async def _check_webhook_secret(db: AsyncSession, request: Request) -> None:
     """Validate the shared webhook secret; fail closed when none is configured."""
-    webhook_secret = await get_setting(db, "alarm_webhook_secret")
+    webhook_secret = await get_alarm_webhook_secret(db)
     if not webhook_secret:
         logger.warning("Generic alarm rejected: no alarm_webhook_secret configured")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
