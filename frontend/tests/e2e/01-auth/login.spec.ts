@@ -5,9 +5,21 @@ import { test, expect } from '../../fixtures/auth.fixture';
  * Tests login functionality and session management
  */
 
+// Same defaults as the auth fixture. Hardcoding 'admin' here meant the spec
+// authenticated as a different user than the fixture did, so it failed
+// wherever the seeded account differs (CI, and any dev DB seeded via
+// TEST_USERNAME).
+const USERNAME = process.env.TEST_USERNAME || 'admin';
+const PASSWORD = process.env.TEST_PASSWORD || 'changeme123';
+
 test.describe('Authentication', () => {
   test('should display login page with all required elements', async ({ page, loginPage }) => {
     await loginPage.goto();
+
+    // With Microsoft auth configured the credential form starts collapsed
+    // behind a "Mit Passwort anmelden" toggle, so it has to be revealed
+    // before the inputs exist. No-op when the toggle isn't rendered.
+    await loginPage.revealPasswordForm();
 
     // Verify page elements
     await expect(loginPage.usernameInput).toBeVisible();
@@ -21,14 +33,15 @@ test.describe('Authentication', () => {
   test('should login with valid credentials', async ({ page, loginPage }) => {
     await loginPage.goto();
 
-    // Login
-    await loginPage.login('admin', 'changeme123');
+    // Login (reveals the password form itself)
+    await loginPage.login(USERNAME, PASSWORD);
 
-    // Wait for redirect to events page
     await loginPage.waitForLoginSuccess();
 
-    // Verify we're on the events page
-    await expect(page).toHaveURL(/\/events/);
+    // Assert we left /login rather than pinning a landing route: the app
+    // sends you to /events or to /, depending on the selectedEvent cookie.
+    // That is exactly the contract waitForLoginSuccess documents.
+    await expect(page).not.toHaveURL(/\/login/);
   });
 
   test('should show error for invalid credentials', async ({ page, loginPage }) => {
@@ -40,16 +53,18 @@ test.describe('Authentication', () => {
     // Wait a bit for the error to appear
     await page.waitForTimeout(1000);
 
-    // Verify error message is shown
+    // Verify error message is shown. Repeated runs can trip the per-username
+    // failure throttle, which surfaces in the same place as a wrong password.
     await expect(loginPage.errorMessage).toBeVisible();
   });
 
   test('should disable login button while loading', async ({ page, loginPage }) => {
     await loginPage.goto();
+    await loginPage.revealPasswordForm();
 
     // Fill in credentials
-    await loginPage.usernameInput.fill('admin');
-    await loginPage.passwordInput.fill('changeme123');
+    await loginPage.usernameInput.fill(USERNAME);
+    await loginPage.passwordInput.fill(PASSWORD);
 
     // Click login
     await loginPage.loginButton.click();
@@ -59,12 +74,14 @@ test.describe('Authentication', () => {
     // This might not always be visible due to speed, so we just check for it
     const isVisible = await loadingText.isVisible().catch(() => false);
 
-    // Either it was visible or the login completed successfully
-    expect(isVisible || await page.url().includes('/events')).toBeTruthy();
+    // Either it was visible or the login completed and we left /login.
+    expect(isVisible || !page.url().includes('/login')).toBeTruthy();
   });
 
   test('should require both username and password', async ({ page, loginPage }) => {
     await loginPage.goto();
+    // The submit button only exists inside the credential form.
+    await loginPage.revealPasswordForm();
 
     // Try to submit without filling
     await loginPage.loginButton.click();
@@ -77,13 +94,16 @@ test.describe('Authentication', () => {
 
 test.describe('Authenticated Session', () => {
   test('should persist session after page reload', async ({ authenticatedPage }) => {
-    // authenticatedPage is already logged in
+    // authenticatedPage only injects the session cookies — it does not
+    // navigate, so the page starts blank and must be pointed somewhere
+    // before any URL can be asserted.
+    await authenticatedPage.goto('/events');
     await expect(authenticatedPage).toHaveURL(/\/events/);
 
     // Reload the page
     await authenticatedPage.reload();
 
-    // Should still be authenticated
+    // Should still be authenticated, i.e. not bounced to the login page
     await expect(authenticatedPage).toHaveURL(/\/events/);
   });
 
