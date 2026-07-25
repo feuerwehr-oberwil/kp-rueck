@@ -982,3 +982,38 @@ class DiveraEmergency(Base):
     def __repr__(self):
         status = "attached" if self.attached_to_event_id else "unattached"
         return f"<DiveraEmergency {self.source}:{self.source_id} ({status})>"
+
+
+# ============================================
+# TELEMETRY (opt-in — see app/telemetry/)
+# ============================================
+
+
+class TelemetryOutbox(Base):
+    """One already-sanitised payload waiting to go upstream.
+
+    A queue rather than a direct POST, for three reasons that all come from where this app
+    runs: the instance may be offline, the ingest may be down, and — the one that actually
+    decides it — the operator has to be able to SEE what is queued before and after it goes.
+    A fire-and-forget POST is unauditable by construction; a table is `SELECT`able by the
+    deployer with psql, which is the strongest transparency claim available.
+
+    ``payload_json`` is the finished event, post-scrub. Nothing is sanitised on the way OUT
+    of this table, so what a deployer reads here is byte-for-byte what left the building.
+    """
+
+    __tablename__ = "telemetry_outbox"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    # 'error' (background, needs consent) | 'report' (manual, the send button is the consent)
+    channel: Mapped[str] = mapped_column(String(16), nullable=False)
+    payload_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # NULL = still queued. Set once the ingest has 200'd; rows are swept after a few days.
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=sa_text("0"))
+    # Why the last attempt failed, for the admin screen. Never the response body — an error
+    # from someone else's server is not something we want to store verbatim.
+    last_error: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    __table_args__ = (Index("ix_telemetry_outbox_pending", "sent_at", "created_at"),)

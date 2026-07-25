@@ -232,6 +232,7 @@ Start with the [documentation index](docs/README.md). Highlights:
 | [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md) | Offline map tiles setup |
 | [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md) | Outage / paper-fallback standard operating procedure |
 | [backend/README.md](backend/README.md) | Backend API and configuration reference |
+| [PRIVACY.md](PRIVACY.md) | What this app does and does not send anywhere — nothing, until a station switches it on |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 
 ## Related project

@@ -1,10 +1,21 @@
+import { readFileSync } from 'node:fs'
+
 import createNextIntlPlugin from 'next-intl/plugin'
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
 
 /** @type {import('next').NextConfig} */
+// The version a problem report is filed against. Read from package.json rather than
+// hard-coded so it cannot drift from the release the image was built as — a bug report
+// naming the wrong version is worse than one naming none.
+const appVersion = JSON.parse(readFileSync('./package.json', 'utf8')).version
+
 const nextConfig = {
   reactStrictMode: true,
+
+  env: {
+    NEXT_PUBLIC_APP_VERSION: appVersion,
+  },
   output: 'standalone',
 
   // Disable ESLint during build (we run it separately in CI)

@@ -34,3 +34,17 @@ def stop_audit_cleanup_scheduler():
     from .audit_cleanup import stop_audit_cleanup_scheduler as _stop
 
     _stop()
+
+
+def start_telemetry_scheduler():
+    """Start the telemetry flush scheduler (lazy import to avoid circular deps)."""
+    from .telemetry_flush import start_telemetry_scheduler as _start
+
+    _start()
+
+
+def stop_telemetry_scheduler():
+    """Stop the telemetry flush scheduler (lazy import to avoid circular deps)."""
+    from .telemetry_flush import stop_telemetry_scheduler as _stop
+
+    _stop()

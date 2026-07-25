@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
+import { reportClientError } from '@/lib/report-error'
 import {
   isDisplayRoute,
   readRetryAttempts,
@@ -60,6 +61,11 @@ export default function GlobalError({
 
   useEffect(() => {
     console.error('Global application error:', error)
+    // Same reasoning as app/error.tsx, and more important here: a throw from the root layout
+    // is the class of crash an unattended wall display dies on, where nobody is watching a
+    // console at all. report-error pulls in nothing but lib/env, so it stays safe to call
+    // from a boundary that must not depend on the providers that just failed.
+    reportClientError(error, { kind: 'render' })
   }, [error])
 
   useEffect(() => {

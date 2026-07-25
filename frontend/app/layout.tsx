@@ -19,6 +19,7 @@ import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { VehicleConflictPrompt } from '@/components/vehicle-conflict-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
+import { ErrorReporter } from '@/components/error-reporter'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
 
 const geistSans = Geist({
@@ -58,6 +59,10 @@ export default async function RootLayout({
     <html lang={locale} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <TopLoadingBar />
+        {/* Catches what escapes the React tree (rejected promises, listeners) and posts
+            it to this station's OWN server log. Opt-in forwarding is a separate decision
+            made server-side — see lib/report-error.ts. */}
+        <ErrorReporter />
         <NextIntlClientProvider locale={locale} messages={messages}>
         <ThemeProvider
           attribute="class"
