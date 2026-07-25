@@ -23,8 +23,12 @@ def test_auth_settings_defaults():
     assert settings.MIN_PASSWORD_LENGTH == 12  # Increased for better security
     assert settings.MAX_PASSWORD_LENGTH == 72  # Bcrypt limitation
 
-    # Cookie Security
-    assert settings.COOKIE_SECURE is False  # False for local dev
+    # Cookie Security. The raw field is a tri-state: None = "decide from the environment",
+    # so that an explicit false can opt a plain-HTTP LAN deployment out of Secure cookies
+    # without a blank .env value silently doing the same. The effective policy is the
+    # cookie_secure property.
+    assert settings.COOKIE_SECURE is None
+    assert settings.cookie_secure is False  # plain HTTP in local dev
     assert settings.COOKIE_HTTPONLY is True
     assert settings.COOKIE_SAMESITE == "lax"  # Default field value
 
@@ -156,11 +160,12 @@ def test_production_cookie_secure_recommendation(monkeypatch):
 
 
 def test_development_cookie_secure():
-    """Test COOKIE_SECURE is False for local development."""
+    """Cookies are not Secure in local development (no HTTPS)."""
     settings = AuthSettings()
 
-    # Default should be False for local dev (no HTTPS)
-    assert settings.COOKIE_SECURE is False
+    # Unconfigured, and the environment says development → plain cookies.
+    assert settings.COOKIE_SECURE is None
+    assert settings.cookie_secure is False
 
 
 # ============================================

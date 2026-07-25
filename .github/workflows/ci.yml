@@ -462,6 +462,15 @@ jobs:
           grep -qi "<html" /tmp/index.html || { echo "frontend did not render"; exit 1; }
           # Offline tiles reachable on the same origin.
           curl -fsS http://localhost:8080/tiles/health
+          # Log in as the seeded admin and reuse the cookie: proves auth, the DB, first-boot
+          # seeding and the cookie flags all work through the single origin — the path every
+          # operator takes, and the one a broken deployment fails at.
+          admin_pw=$(grep '^ADMIN_SEED_PASSWORD=' .env | cut -d= -f2)
+          code=$(curl -s -o /dev/null -w '%{http_code}' -c /tmp/cookies.txt \
+            -X POST http://localhost:8080/api/auth/login \
+            -d "username=admin&password=${admin_pw}")
+          test "$code" = "200" || { echo "login failed: HTTP $code"; exit 1; }
+          curl -fsS -b /tmp/cookies.txt http://localhost:8080/api/auth/me > /dev/null
           echo "stack smoke OK"
 
       - name: Container logs (on failure)
