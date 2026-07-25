@@ -33,6 +33,15 @@ services:
     command: ./start-dev.sh
     volumes:
       - ./backend:/app
+      # Keep .venv OUT of the bind mount. Host and container need different
+      # interpreter paths, so sharing one venv means whoever ran last wins:
+      # a host `uv run` (ruff, pytest, `just db migrate`) recreated ~80
+      # packages under the container's feet, and a container-side `uv run`
+      # left the host with Linux binaries. Either way the mass file change
+      # floods watchfiles and uvicorn's reloader kills its worker without
+      # respawning — backend goes to `health 000` until a manual restart.
+      # An anonymous volume gives the container its own venv and ends it.
+      - /app/.venv
     ports:
       - "8000:8000"
     environment:
