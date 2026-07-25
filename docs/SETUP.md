@@ -1,4 +1,4 @@
-# SETUP — from nothing to a board your command post can run on
+# SETUP – from nothing to a board your command post can run on
 
 This is the **ordered path**, written for someone setting KP Rück up for their own fire station
 for the first time. It links to the reference docs rather than repeating them:
@@ -34,7 +34,7 @@ Several stations means several deployments, not one instance with a switch.
 ```bash
 git clone https://github.com/feuerwehr-oberwil/kp-rueck.git
 cd kp-rueck
-git checkout v0.1.0          # a tagged release, not main — see §6
+git checkout v0.1.0          # a tagged release, not main – see §6
 cp .env.example .env
 ```
 
@@ -42,19 +42,19 @@ Fill in the five required values. All of them matter and none has a safe default
 
 ```bash
 POSTGRES_PASSWORD=…          # any strong value
-SECRET_KEY=…                 # openssl rand -hex 32  — KEEP STABLE
-AUTH_SECRET_KEY=…            # openssl rand -hex 32  — KEEP STABLE, signs logins
-ADMIN_SEED_PASSWORD=…        # ≥12 chars — this is your first login
-VIEWER_PASSWORD=…            # ≥12 chars — the read-only account for wall displays and guests
+SECRET_KEY=…                 # openssl rand -hex 32  – KEEP STABLE
+AUTH_SECRET_KEY=…            # openssl rand -hex 32  – KEEP STABLE, signs logins
+ADMIN_SEED_PASSWORD=…        # ≥12 chars – this is your first login
+VIEWER_PASSWORD=…            # ≥12 chars – the read-only account for wall displays and guests
 ```
 
 Then the networking, which is where first-time setups usually go wrong:
 
 ```bash
 DOMAIN=kp.example.ch                 # empty = plain HTTP on HTTP_PORT
-PUBLIC_URL=https://kp.example.ch     # MUST match how browsers actually reach it — this is the
+PUBLIC_URL=https://kp.example.ch     # MUST match how browsers actually reach it – this is the
                                      # allowed CORS origin. On a LAN: http://<host>:<HTTP_PORT>
-AUTH_COOKIE_SECURE=                  # set to false ONLY if you serve plain HTTP — see §7
+AUTH_COOKIE_SECURE=                  # set to false ONLY if you serve plain HTTP – see §7
 ```
 
 Start it:

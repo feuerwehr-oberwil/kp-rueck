@@ -9,7 +9,7 @@ Status tracking for post-testing-session feedback implementation.
 - [x] 1.4 Reko danger flags → auto-bump priority low → medium
 
 ## Phase 2: Kanban Board Restructure ✅
-- [x] 2.1 New status `reko_done` (between reko and disponiert) — model, schema, types, migration
+- [x] 2.1 New status `reko_done` (between reko and disponiert) – model, schema, types, migration
 - [x] 2.2 Auto-transition reko → reko_done on reko form submit
 - [x] 2.3 "Reko abgeschlossen" column UI on kanban board
 - [x] 2.4 Collapsible "Abgeschlossen" column (collapsed by default, drop works collapsed, localStorage persist)
@@ -21,7 +21,7 @@ Status tracking for post-testing-session feedback implementation.
 - [x] 3.3 Reko notification cleanup (danger flags, personnel count, duration, consistent format)
 
 ## Phase 4: Reko & Detail Display Polish ✅
-- [x] 4.3 Selected incident indicator — prominent ring/outline on active card
+- [x] 4.3 Selected incident indicator – prominent ring/outline on active card
 
 ## Phase 5: Small Fixes & Features ✅
 - [x] 5.1 Persist Meldungen toggle (localStorage)

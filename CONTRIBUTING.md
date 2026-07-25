@@ -117,11 +117,11 @@ person who wrote the diff.
 ## Areas for Contribution
 
 ### High Impact
-- **Translations / i18n** — the next-intl layer is in place, but `de.json` is the only
+- **Translations / i18n** – the next-intl layer is in place, but `de.json` is the only
   catalogue, so any second language is largely a translation job rather than a plumbing one
-- **Alerting integrations** — connect to platforms like Alamos, BORS, or other regional systems
-- **CAD integration** — connect to Computer-Aided Dispatch systems
-- **PDF report generation** — export incidents, board snapshots, or statistics as PDF
+- **Alerting integrations** – connect to platforms like Alamos, BORS, or other regional systems
+- **CAD integration** – connect to Computer-Aided Dispatch systems
+- **PDF report generation** – export incidents, board snapshots, or statistics as PDF
 
 ### Good First Issues
 - UI improvements and accessibility

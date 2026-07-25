@@ -1,4 +1,4 @@
-# Training Photo Pool — Attribution
+# Training Photo Pool – Attribution
 
 Scene photos for simulated training Reko reports, curated from
 [Wikimedia Commons](https://commons.wikimedia.org/) via

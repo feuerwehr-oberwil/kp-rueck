@@ -121,10 +121,10 @@ and every outbound integration – one deployment per station. Full diagrams and
 
 ```mermaid
 flowchart TB
-  subgraph CLIENT["Browser — command post & mobile"]
+  subgraph CLIENT["Browser – command post & mobile"]
     UI["Kanban board · Map · Reko<br/>Next.js 15 + React 19"]
   end
-  subgraph DEP["Deployment — one per station (single-tenant)"]
+  subgraph DEP["Deployment – one per station (single-tenant)"]
     API["FastAPI<br/>REST + Socket.IO · auth · audit · exports"]
     DB[("PostgreSQL")]
     FILES[("Photo storage")]

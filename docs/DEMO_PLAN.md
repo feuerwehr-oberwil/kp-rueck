@@ -116,7 +116,7 @@ Separate Railway project, completely isolated from production.
 **Goal**: Backend behaves normally but with demo-specific constraints.
 
 1. **Config**: Add `DEMO_MODE=true` env var, checked via `settings.demo_mode` property
-2. **Demo seed script**: `app/seed_demo.py` — creates the pre-loaded scenario (anonymized names, realistic data)
+2. **Demo seed script**: `app/seed_demo.py` – creates the pre-loaded scenario (anonymized names, realistic data)
 3. **Reset scheduler**: Background task that runs every 2 hours:
    - Truncate all tables (except users)
    - Re-run demo seed
@@ -128,17 +128,17 @@ Separate Railway project, completely isolated from production.
 7. **Disable sensitive endpoints**: Block user creation/deletion, password changes in demo mode
 
 **Files to modify**:
-- `backend/app/config.py` — add `demo_mode: bool = False`
-- `backend/app/seed_demo.py` — new file, demo-specific seed data
-- `backend/app/background.py` — add reset scheduler
-- `backend/app/api/health.py` — add `/api/demo/status` endpoint
+- `backend/app/config.py` – add `demo_mode: bool = False`
+- `backend/app/seed_demo.py` – new file, demo-specific seed data
+- `backend/app/background.py` – add reset scheduler
+- `backend/app/api/health.py` – add `/api/demo/status` endpoint
 
 ### Phase 2: Frontend Demo Mode
 
 **Goal**: UI shows demo context and streamlines login.
 
 1. **Demo banner**: Sticky top banner showing reset countdown (`DemoBanner` component)
-   - Yellow background, "Demo-Modus — wird in X Minuten zurückgesetzt"
+   - Yellow background, "Demo-Modus – wird in X Minuten zurückgesetzt"
    - Dismiss-able but reappears after page reload
 2. **Login page**: Pre-fill credentials, show "Demo-Modus" badge
    - Two big buttons: "Als Editor einloggen" / "Als Betrachter einloggen"
@@ -146,9 +146,9 @@ Separate Railway project, completely isolated from production.
 4. **Feature disabled hints**: Where printer/Divera/GPS settings appear, show info text explaining they're not available in demo
 
 **Files to modify**:
-- `frontend/components/demo-banner.tsx` — new component
-- `frontend/app/login/page.tsx` — demo mode login UI
-- `frontend/lib/api-client.ts` — add `getDemoStatus()` method
+- `frontend/components/demo-banner.tsx` – new component
+- `frontend/app/login/page.tsx` – demo mode login UI
+- `frontend/lib/api-client.ts` – add `getDemoStatus()` method
 
 ### Phase 3: Demo Seed Data
 

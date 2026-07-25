@@ -1,44 +1,44 @@
-# Implementation Plans — Hardening & Features
+# Implementation Plans – Hardening & Features
 
 Context: KP Rück was featured in "118" (Swiss firefighting newspaper); the public
 demo instance (Railway, `DEMO_MODE=true`) sees traffic spikes. The pre-publication
-reliability work is **shipped** — what remains are post-launch features and polish.
+reliability work is **shipped** – what remains are post-launch features and polish.
 
 Each plan is self-contained and written so it can be implemented independently by a
 single agent/developer without re-reading this README. Read the **whole plan**
 before starting; each contains exact file references, design decisions (already
-made — do not re-litigate), implementation steps, and a test plan.
+made – do not re-litigate), implementation steps, and a test plan.
 
-## Shipped (plan files removed — work is in git + committed)
+## Shipped (plan files removed – work is in git + committed)
 
-- **Audit log retention** — `backend/app/background/audit_cleanup.py`
-- **Global exception handler + request IDs** — `backend/app/middleware/request_id.py`
-- **Endpoint hardening** (demo-reset admin-gate, `PRINT_AGENT_TOKEN`, WS room auth) —
+- **Audit log retention** – `backend/app/background/audit_cleanup.py`
+- **Global exception handler + request IDs** – `backend/app/middleware/request_id.py`
+- **Endpoint hardening** (demo-reset admin-gate, `PRINT_AGENT_TOKEN`, WS room auth) –
   `print_agent_token` / `ws_require_auth` in `config.py`
-- **Per-session demo sandbox events** — `POST /api/demo/sandbox` (`api/health.py`)
-- **GPS status automation** (Rule A silent arrival, Rule B confirm-release) —
+- **Per-session demo sandbox events** – `POST /api/demo/sandbox` (`api/health.py`)
+- **GPS status automation** (Rule A silent arrival, Rule B confirm-release) –
   `backend/app/services/gps_automation.py`
-- **Undo incident deletion** — `POST /api/incidents/{id}/restore` + "Rückgängig" toast
-- **PDF after-action report + unified export** — `services/pdf_report_service.py`,
+- **Undo incident deletion** – `POST /api/incidents/{id}/restore` + "Rückgängig" toast
+- **PDF after-action report + unified export** – `services/pdf_report_service.py`,
   `GET /api/exports/events/{id}/report`, events-page + UserMenu export menus
-- **Onboarding (plan 05) — resolved, no welcome card.** The welcome card was
+- **Onboarding (plan 05) – resolved, no welcome card.** The welcome card was
   dropped (added nothing for daily operators). Shortcut discoverability is the
-  existing **⌘K command palette** (also opens with `?`) — no separate legend. The
+  existing **⌘K command palette** (also opens with `?`) – no separate legend. The
   409 conflict copy was already softened ("Von anderer Person geändert").
 
 ## Remaining plans, priority order
 
 | Order | # | Plan | Scope | Why here | Depends on |
 |-------|---|------|-------|----------|------------|
-| 1 | 09 | [Emergency plans integration (generic provider, SchlüHü first)](09-emergency-plans-integration.md) | Backend + frontend | Largest (~500 LOC), high field value, external dependency — a proper feature effort | — |
-| 2 | 13 | [Reko material requests and guided allocation](13-reko-material-requests.md) | Backend + frontend + training + migration | Large operational feature: structured Reko demand, normalized material kinds/capabilities, exact KP allocation, per-event exclusivity, and curated training profiles | — |
+| 1 | 09 | [Emergency plans integration (generic provider, SchlüHü first)](09-emergency-plans-integration.md) | Backend + frontend | Largest (~500 LOC), high field value, external dependency – a proper feature effort | – |
+| 2 | 13 | [Reko material requests and guided allocation](13-reko-material-requests.md) | Backend + frontend + training + migration | Large operational feature: structured Reko demand, normalized material kinds/capabilities, exact KP allocation, per-event exclusivity, and curated training profiles | – |
 | 3 | 11 | [Material depletion thresholds: co-located & dual-dimension](11-resource-alarm-linking.md) | Backend + frontend | Dual-dimension material thresholds; adapt to Plan 13's normalized kind/type model instead of creating a competing managed-string identity | 13 phase 1 |
-| 4 | 12 | [Aufträge: multi-stop group routing (Flächenlage batching)](12-auftrag-multi-stop-routing.md) | Backend + frontend + map | Group several incidents into an ordered route for one squad; Plan 13 reservations must cover Auftrag-owned material | — |
+| 4 | 12 | [Aufträge: multi-stop group routing (Flächenlage batching)](12-auftrag-multi-stop-routing.md) | Backend + frontend + map | Group several incidents into an ordered route for one squad; Plan 13 reservations must cover Auftrag-owned material | – |
 | 5 | 06 | [i18n (German + French)](06-i18n.md) | Frontend | Cross-cutting; do **last** so it absorbs strings from 09/11/12/13 in one pass | 09, 11, 12, 13 |
 
 ## Shared conventions (apply to every plan)
 
-- **Dev workflow:** never run `pnpm build` while the dev server is running — use
+- **Dev workflow:** never run `pnpm build` while the dev server is running – use
   `pnpm lint` and `pnpm exec tsc --noEmit` for frontend verification instead.
 - **Backend checks:** `cd backend && uv run pytest` and `uv run ruff check . && uv run ruff format .`
   must pass before a plan is considered done.
@@ -47,7 +47,7 @@ made — do not re-litigate), implementation steps, and a test plan.
 - **Migrations:** schema changes go through Alembic: `just db new "message"`, then
   `just db migrate`. Production runs `alembic upgrade head` on boot via `start.sh`.
 - **UI language:** all user-facing copy is **German** (Swiss German conventions:
-  "ss" instead of "ß", e.g. "Schliessen" not "Schließen") — until plan 06 lands.
+  "ss" instead of "ß", e.g. "Schliessen" not "Schließen") – until plan 06 lands.
 - **Toasts:** use `import { toast } from "sonner"` (see
   `frontend/components/notifications/notification-toasts.tsx:92-96` for the
   action-button pattern).

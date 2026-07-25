@@ -25,7 +25,7 @@ version – a station runs the set, not a mix.
   crashes and dead ends turned up several, all of which needed something no screen offered:
   - A corrupt value in browser storage crashed the app on **every** load. The read happened in a
     provider above every error boundary, so it produced an untranslated "Application error" with
-    no way out — and because the bad value was saved, reloading (or restarting the browser)
+    no way out – and because the bad value was saved, reloading (or restarting the browser)
     reproduced it. There is now a last-resort error screen with a **"Lokale Daten zurücksetzen"**
     action, and all storage reads validate what they find instead of trusting it.
   - On an installation served over plain **HTTP from a LAN address**, creating an Auftrag or
@@ -39,7 +39,7 @@ version – a station runs the set, not a mix.
     It now has a **"Neu verbinden"** button; previously the sole cure was a page reload.
 - **Wall displays recover on their own.** An error on an unattended `/display/*` screen used to
   leave a dead page with a button nobody was there to press. Displays now reload themselves after
-  15s, then 30s, then 60s — backing off so a broken deploy can't turn every screen in the station
+  15s, then 30s, then 60s – backing off so a broken deploy can't turn every screen in the station
   into a retry loop against the backend. Applies to crashes in the page and in the app shell.
 - **A shared command-post IP no longer locks out the crew.** Login was capped at 3 attempts per
   minute per IP and counted *successful* logins, so a few operators signing in together from
@@ -130,7 +130,7 @@ something another station can pin.
   Railway, and that was baked into paths that looked platform-neutral. Found by building the
   images and booting the stack end to end:
   - The API proxy forced every redirect target to `https://` (a Railway-edge workaround), so
-    against a plain-HTTP backend it attempted TLS on a cleartext port — and since the proxy
+    against a plain-HTTP backend it attempted TLS on a cleartext port – and since the proxy
     appends a trailing slash, FastAPI's redirect made that the common path: `/backend-api/*`
     returned 502 for everything.
   - The live board never connected: the WebSocket URL applied Railway's

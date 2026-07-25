@@ -1,17 +1,17 @@
-# Provider-neutrale Alarmierung — Testprotokoll A–Z
+# Provider-neutrale Alarmierung – Testprotokoll A–Z
 
-> **Nicht eingecheckt** — Arbeitsdokument zum Verifizieren der kompletten
+> **Nicht eingecheckt** – Arbeitsdokument zum Verifizieren der kompletten
 > provider-neutralen Umstellung (Stufe 1 + 2): generischer Webhook, neutrales
 > Datenmodell, Provider-Protokoll für die Ausalarmierung, Capability-Registry,
 > neutrale UI. Doku: `docs/ALARM-INTEGRATIONS.md`, `docs/PRINT_AGENT.md`.
 
 **Wichtig:** Alle Schritte ausser dem klar markierten, optionalen Schritt **H4**
-sind rein lokal/eingehend — es wird **kein echter DIVERA-Alarm ausgelöst**.
+sind rein lokal/eingehend – es wird **kein echter DIVERA-Alarm ausgelöst**.
 
 **Automatisch bereits verifiziert** (muss nicht wiederholt werden):
 Backend-Suite **1683 Tests** grün (davon 33 neu: Webhook, Dedupe, Provenance,
 Identitäten-Auflösung, Capability-Endpoint), Migrations-Drift-Test grün
-(hat während der Entwicklung einen echten Migrations-Fehler gefangen —
+(hat während der Entwicklung einen echten Migrations-Fehler gefangen –
 inzwischen behoben), Frontend: tsc + eslint + 154 Vitest grün, End-to-End
 gegen den Dev-Stack (Webhook → Pool → Dedupe → 403; `/api/integrations`).
 
@@ -32,7 +32,7 @@ gegen den Dev-Stack (Webhook → Pool → Dedupe → 403; `/api/integrations`).
    ```
    ☐
 
-## A. Generischer Webhook — Grundfunktion
+## A. Generischer Webhook – Grundfunktion
 
 - [ ] **A1:** Alarm senden →
   ```bash
@@ -71,7 +71,7 @@ gegen den Dev-Stack (Webhook → Pool → Dedupe → 403; `/api/integrations`).
   Person Testalarm"}` senden → Antwort mit `auto_attached_incident_id`. ☐
 - [ ] **D2:** Board: Einsatz in **Eingegangen**, Typ **Strassenrettung**,
   Priorität **hoch** (abgeleitet). ☐
-- [ ] **D3 — Provenance:** `curl -s $BASE/api/incidents/<id>` (oder DB):
+- [ ] **D3 – Provenance:** `curl -s $BASE/api/incidents/<id>` (oder DB):
   `"source":"testsystem"`, `"source_ref":"TEST-AUTO-1"`. ☐
 - [ ] **D4:** Auto-Anhängen nur bei Übungsereignis aktiv → neuer Alarm bleibt
   im Pool (`auto_attached_incident_id: null`). ☐
@@ -105,24 +105,24 @@ gegen den Dev-Stack (Webhook → Pool → Dedupe → 403; `/api/integrations`).
 
 ## H. Ausalarmierung über das Provider-Protokoll
 
-- [ ] **H1 — Gating:** Ausalarmierung in den Einstellungen **deaktivieren** →
+- [ ] **H1 – Gating:** Ausalarmierung in den Einstellungen **deaktivieren** →
   «Aufgebot senden» im Disponieren-Dialog verschwindet bzw. Senden liefert 403. ☐
-- [ ] **H2 — Übungs-Simulation (kein externer Call):** In einem
+- [ ] **H2 – Übungs-Simulation (kein externer Call):** In einem
   **Übungs**ereignis einen Einsatz disponieren → «Aufgebot senden» → Ergebnis
   «Übung: Alarm simuliert». Empfängerliste zeigt verknüpfte/nicht verknüpfte
   Personen korrekt. ☐
-- [ ] **H3 — Identitäten:** Nach einem Member-Sync (oder manuellem Insert):
+- [ ] **H3 – Identitäten:** Nach einem Member-Sync (oder manuellem Insert):
   ```bash
   docker exec kprueck-db-dev psql -U kprueck -d kprueck \
     -c "SELECT provider, count(*) FROM personnel_external_identities GROUP BY provider"
   ```
   → `divera`-Zeilen vorhanden; Empfänger-Auflösung nutzt diese Tabelle
   (Personen ohne Legacy-`divera_user_id`, aber mit Identitäts-Zeile, sind
-  alarmierbar — automatisiert getestet). ☐
-- [ ] **H4 — OPTIONAL, echter Versand (erst wenn gewollt!):** Im echten
+  alarmierbar – automatisiert getestet). ☐
+- [ ] **H4 – OPTIONAL, echter Versand (erst wenn gewollt!):** Im echten
   Ereignis mit aktivierter Ausalarmierung ein Aufgebot an **eine** Testperson
   senden → Push kommt an, `foreign_id` = `kprueck-<incident-id>`. **Löst einen
-  echten DIVERA-Alarm aus — bewusst entscheiden.** ☐
+  echten DIVERA-Alarm aus – bewusst entscheiden.** ☐
 
 ## I. Capability-Registry
 
@@ -143,7 +143,7 @@ gegen den Dev-Stack (Webhook → Pool → Dedupe → 403; `/api/integrations`).
   bisher; Anhängen nur an Übungen. ☐
 - [ ] **J3:** DIVERA-Verbindungsstatus/Polling-Anzeige unverändert;
   Member-Sync-Vorschau funktioniert. ☐
-- [ ] **J4:** Drucksystem unverändert (Einsatzzettel/Board-Druck) — von dieser
+- [ ] **J4:** Drucksystem unverändert (Einsatzzettel/Board-Druck) – von dieser
   Umstellung nicht berührt; bei Gelegenheit ein Testdruck. ☐
 
 ## K. Aufräumen
@@ -154,6 +154,6 @@ gegen den Dev-Stack (Webhook → Pool → Dedupe → 403; `/api/integrations`).
 ---
 
 **Bei Abweichungen:** `docker logs kprueck-backend-dev --tail 50` (prod: Railway
-Logs) — der Webhook loggt Ablehnungen («Generic alarm rejected») und Annahmen
+Logs) – der Webhook loggt Ablehnungen («Generic alarm rejected») und Annahmen
 («New alarm received via generic webhook»); die Ausalarmierung loggt den
 Provider-Slug.

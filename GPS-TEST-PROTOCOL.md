@@ -1,6 +1,6 @@
-# GPS-Statusautomatik — Testprotokoll
+# GPS-Statusautomatik – Testprotokoll
 
-> **Nicht eingecheckt** — Arbeitsdokument zum Verifizieren von Setup & Funktion.
+> **Nicht eingecheckt** – Arbeitsdokument zum Verifizieren von Setup & Funktion.
 > Stand: Branch `feat/board-improvements` @ `9f78182`, deployed auf `main`.
 
 Alles ist **opt-in** (Standard: aus). Ohne Konfiguration + Aktivierung passiert nichts.
@@ -22,7 +22,7 @@ bestätigende Messungen **3**, Aktualität **60 s**, Geschwindigkeitsgrenze **5 
    **Test:** Stimmt für jedes der 5 Fahrzeuge ein gleichnamiges Traccar-Gerät? ☐
 
 2. **Tracker sendet frische Positionen.** Die Teltonika-Tracker senden nur bei
-   **10–30 V** (Zündung/Bordnetz) — auf USB-Strom **nicht**. Ein abgestelltes,
+   **10–30 V** (Zündung/Bordnetz) – auf USB-Strom **nicht**. Ein abgestelltes,
    stromloses Fahrzeug meldet keine frischen Fixes → die Automatik ignoriert
    veraltete Fixes (Aktualität 60 s) und löst **nicht** aus. Für alle Tests muss
    das Testfahrzeug **eingeschaltet** sein und aktuell reporten.
@@ -51,7 +51,7 @@ bestätigende Messungen **3**, Aktualität **60 s**, Geschwindigkeitsgrenze **5 
 
 ---
 
-## B. Regel A — Ankunft (Standard: **mit Rückfrage**)
+## B. Regel A – Ankunft (Standard: **mit Rückfrage**)
 
 **Kontrollierter Test ohne Fahrt:** Testfahrzeug eingeschaltet (reportet), aber
 stehend. Aktuelle Fahrzeugposition aus der Karte ablesen. Test-Einsatz **an genau
@@ -70,15 +70,15 @@ Einsatz nach **Disponiert** schieben.
        erneutes Aufpoppen jede Minute (One-Shot pro Disponiert-Phase).
 
 > Schneller iterieren: „Bestätigende Messungen" temporär auf **2** und „Aktualität"
-> auf **30** stellen — danach wieder auf 3 / 60 zurücksetzen.
+> auf **30** stellen – danach wieder auf 3 / 60 zurücksetzen.
 
 ---
 
-## C. Regel A — Silent (gefährlicher Opt-in)
+## C. Regel A – Silent (gefährlicher Opt-in)
 
 1. [ ] GPS: unter Ankunft **„Automatisch ohne Rückfrage" an** → gelbe Warnung erscheint.
 2. [ ] Test wie B wiederholen (Einsatz erneut auf Disponiert).
-3. [ ] **Erwartung:** **kein** Dialog — Status springt **automatisch** auf **Einsatz**.
+3. [ ] **Erwartung:** **kein** Dialog – Status springt **automatisch** auf **Einsatz**.
 4. [ ] **Protokoll prüfen:** Einstellungen → Audit-Protokoll bzw. Excel-Export
        (Einstellungen → GPS… nein: Import/Export → Einsatz-Protokoll) → die
        Statusänderung ist als Akteur **„GPS-Automatik"** vermerkt.
@@ -87,18 +87,18 @@ Einsatz nach **Disponiert** schieben.
 
 ---
 
-## D. Regel B — Magazin-Rückkehr (immer **mit Rückfrage**)
+## D. Regel B – Magazin-Rückkehr (immer **mit Rückfrage**)
 
 **Kontrollierter Test:** Magazin-Koordinaten in den GPS-Einstellungen = aktuelle
 Position eines eingeschalteten, im/beim Magazin stehenden Fahrzeugs (oder echtes
 Magazin, Fahrzeug dort eingeschaltet). Fahrzeug einem (beliebigen) Einsatz zuweisen.
 
 1. [ ] GPS: Hauptschalter **an**. **Magazin: Freigabe vorschlagen** ist **standardmässig an**
-       (nur Rückfrage, daher sicherer Standard) — prüfen, dass der Schalter an ist.
+       (nur Rückfrage, daher sicherer Standard) – prüfen, dass der Schalter an ist.
 2. [ ] Magazin-Koordinaten gesetzt, Fahrzeug einem Einsatz zugewiesen, Fahrzeug
        reportet frisch aus dem Magazinradius.
 3. [ ] **~1–2 Min warten.**
-4. [ ] **Erwartung:** Dialog **„Fahrzeug zurück im Magazin — freigeben?"**.
+4. [ ] **Erwartung:** Dialog **„Fahrzeug zurück im Magazin – freigeben?"**.
 5. [ ] **„… freigeben"** → die Fahrzeugzuweisung wird aufgehoben (Fahrzeug verschwindet
        vom Einsatz). Der Einsatz wird **nicht** geschlossen.
 6. [ ] **„Nicht freigeben"** (Wiederholung) → nichts ändert sich, kein Dauer-Popup.
@@ -135,7 +135,7 @@ Magazin, Fahrzeug dort eingeschaltet). Fahrzeug einem (beliebigen) Einsatz zuwei
 | `gps.automation_enabled` | Hauptschalter | `false` |
 | `gps.rule_arrival_enabled` | Ankunft (Regel A) an | `false` |
 | `gps.rule_arrival_silent` | Ankunft ohne Rückfrage (gefährlich) | `false` |
-| `gps.rule_return_enabled` | Magazin-Rückkehr (Regel B) an | `true` (Standard an — nur Rückfrage) |
+| `gps.rule_return_enabled` | Magazin-Rückkehr (Regel B) an | `true` (Standard an – nur Rückfrage) |
 | `gps.station_lat` / `gps.station_lng` | Magazin-Koordinaten | leer |
 | `gps.station_radius_meters` | Magazinradius | `100` |
 | `geofence_radius_meters` | Ankunftsradius | `200` |
