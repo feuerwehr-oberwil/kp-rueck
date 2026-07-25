@@ -33,9 +33,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   userRef.current = user;
 
   useEffect(() => {
-    // Check authentication status on mount
+    // Check authentication status on mount. The catch matters: without it a
+    // rejection here is an unhandled promise rejection, and this provider sits
+    // in the root layout above every error boundary. Treat any failure as
+    // "not signed in" — ProtectedRoute then probes the backend and shows
+    // either the login page or the server-unreachable screen.
     getCurrentUser()
       .then(setUser)
+      .catch((error) => {
+        console.warn('[Auth] Session probe failed, treating as signed out:', error);
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []); // Only run once on mount
 

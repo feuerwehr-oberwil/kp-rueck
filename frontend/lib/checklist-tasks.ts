@@ -3,6 +3,7 @@ import { apiClient } from '@/lib/api-client'
 import { getTileBaseUrl } from '@/lib/env'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { LAGEBLATT_AUTODOWNLOAD_KEY } from '@/components/settings/fallback-settings'
+import { isBooleanRecord, readJson } from '@/lib/utils/safe-storage'
 
 export interface ChecklistAction {
   label: string
@@ -342,14 +343,9 @@ export async function summarizeEventChecklist(
     onOpenFallbackSettings: noop,
   })
 
-  let overrides: Record<string, boolean> = {}
-  try {
-    if (typeof window !== 'undefined') {
-      overrides = JSON.parse(localStorage.getItem(checklistOverridesKey(eventId)) || '{}')
-    }
-  } catch {
-    overrides = {}
-  }
+  // Shares the validation used by the checklist component's reader, so a value
+  // of the wrong shape can't crash one caller while the other shrugs it off.
+  const overrides = readJson(checklistOverridesKey(eventId), isBooleanRecord, {})
 
   const completedCount = tasks.filter((t) => isTaskComplete(t, overrides)).length
   return {

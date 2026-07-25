@@ -6,37 +6,53 @@ import { toast, Toaster } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import type { Notification } from '@/lib/types/notification'
+import { isStringArray, readJson, removeItem, writeJson } from '@/lib/utils/safe-storage'
+
+const TOAST_DATA_KEY = 'shownToastData'
+const LEGACY_TOAST_IDS_KEY = 'shownToastIds'
+
+interface ShownToast {
+  id: string
+  timestamp: number
+}
+
+// Validating the SHAPE, not just that it parsed. A value written by an older
+// build (or truncated by a full quota) can be perfectly valid JSON of the
+// wrong type — `{}` here would sail through JSON.parse and then throw on the
+// first `.filter`. This component renders in the root layout, above every
+// error.tsx boundary, so that throw would white-screen the whole app on every
+// load until the operator cleared site data.
+function isShownToastArray(value: unknown): value is ShownToast[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item): item is ShownToast =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as ShownToast).id === 'string' &&
+        typeof (item as ShownToast).timestamp === 'number'
+    )
+  )
+}
 
 // Helper to get stored toast IDs with timestamps
-function getStoredToastData(): { id: string; timestamp: number }[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const data = localStorage.getItem('shownToastData')
-    if (data) {
-      return JSON.parse(data)
-    }
+function getStoredToastData(): ShownToast[] {
+  const stored = readJson(TOAST_DATA_KEY, isShownToastArray, null)
+  if (stored) return stored
 
-    // Migration: Check for old format
-    const oldData = localStorage.getItem('shownToastIds')
-    if (oldData) {
-      try {
-        const oldIds = JSON.parse(oldData)
-        const migratedData = oldIds.map((id: string) => ({
-          id,
-          timestamp: Date.now() - 12 * 60 * 60 * 1000 // Set to 12 hours ago
-        }))
-        localStorage.setItem('shownToastData', JSON.stringify(migratedData))
-        localStorage.removeItem('shownToastIds') // Clean up old format
-        return migratedData
-      } catch {
-        // If migration fails, just return empty
-      }
-    }
-
-    return []
-  } catch {
-    return []
+  // Migration: check for the old id-only format
+  const oldIds = readJson(LEGACY_TOAST_IDS_KEY, isStringArray, null)
+  if (oldIds) {
+    const migrated = oldIds.map((id) => ({
+      id,
+      timestamp: Date.now() - 12 * 60 * 60 * 1000, // Set to 12 hours ago
+    }))
+    writeJson(TOAST_DATA_KEY, migrated)
+    removeItem(LEGACY_TOAST_IDS_KEY) // Clean up old format
+    return migrated
   }
+
+  return []
 }
 
 // Helper to clean up old toast IDs (older than 24 hours)
@@ -47,9 +63,9 @@ function cleanupOldToastIds(): Set<string> {
   const storedData = getStoredToastData()
   const validData = storedData.filter(item => now - item.timestamp < oneDayMs)
 
-  if (typeof window !== 'undefined' && validData.length !== storedData.length) {
+  if (validData.length !== storedData.length) {
     // Some items were cleaned up, update localStorage
-    localStorage.setItem('shownToastData', JSON.stringify(validData))
+    writeJson(TOAST_DATA_KEY, validData)
   }
 
   return new Set(validData.map(item => item.id))
@@ -63,9 +79,13 @@ export function NotificationToasts() {
   const tCommon = useTranslations('kanban.common')
   const tToasts = useTranslations('notifications.toasts')
 
-  // Initialize with previously shown notification IDs from localStorage
-  // Clean up IDs older than 24 hours on component mount
-  const shownToastIds = useRef<Set<string>>(cleanupOldToastIds())
+  // Initialize with previously shown notification IDs from localStorage,
+  // dropping IDs older than 24 hours. Lazily assigned because a `useRef(expr)`
+  // argument is evaluated on EVERY render — passing the call directly re-read,
+  // re-parsed and sometimes re-WROTE localStorage synchronously on each render
+  // of this root-layout component.
+  const shownToastIds = useRef<Set<string>>(null!)
+  shownToastIds.current ??= cleanupOldToastIds()
 
   // Mobile is a viewing-first surface (mainly used to spawn training incidents),
   // so it should stay quiet: suppress non-critical toasts app-wide while small.
@@ -100,15 +120,15 @@ export function NotificationToasts() {
     newNotifications.forEach((notification) => {
       shownToastIds.current.add(notification.id)
 
-      // Persist to localStorage with timestamp to prevent re-showing on page reload
-      if (typeof window !== 'undefined') {
-        const storedData = getStoredToastData()
-        storedData.push({
-          id: notification.id,
-          timestamp: Date.now()
-        })
-        localStorage.setItem('shownToastData', JSON.stringify(storedData))
-      }
+      // Persist to localStorage with timestamp to prevent re-showing on page
+      // reload. Best-effort: if the write fails (quota), the worst case is
+      // this toast showing once more after a reload.
+      const storedData = getStoredToastData()
+      storedData.push({
+        id: notification.id,
+        timestamp: Date.now()
+      })
+      writeJson(TOAST_DATA_KEY, storedData)
 
       const toastOptions = {
         id: notification.id,
