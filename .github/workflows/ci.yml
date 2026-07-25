@@ -3,15 +3,23 @@ name: CI
 # CI strategy – keep this comment truthful, it is the only place the split is written down.
 #
 # BLOCKING (a red one of these must stop a merge; these are the checks required on main):
-#   backend-lint, backend-test, frontend-lint, frontend-typecheck, frontend-unit-tests,
-#   frontend-build, images
+#   backend-lint, backend-test, backend-security, print-agent, frontend-lint,
+#   frontend-typecheck, frontend-unit-tests, frontend-build, images
+#   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
 #
-# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-25,
-# so nobody has to guess how far off "make it blocking" is:
-#   backend-typecheck  mypy    – 757 errors in 87 files. A real project, not a cleanup.
-#   backend-security   bandit  – 52 findings (45 high-confidence). Needs triage before it can
-#                                gate anything; most are expected patterns in test/dev paths.
-# Both stay advisory deliberately: a check that is always red teaches people to ignore red.
+# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-26:
+#   backend-typecheck  mypy, second step – ~705 errors in 78 files across the packages NOT in
+#                      the blocking subset. A real project, not a cleanup: docs/plans/14-typing-debt.md.
+#                      Progress = moving one package into the blocking step, at zero.
+#   codecov upload   – never worth failing a build over.
+#
+# bandit used to be here too, at "52 findings". That number was misleading: with the `-ll -ii`
+# threshold the run reported exactly ONE medium finding (B104, which does not apply to a
+# containerised service). It was reviewed, annotated at the line, and the gate is now blocking.
+# The rest sit below the threshold and were never reported.
+#
+# The rule behind the split: a check that is always red teaches people to ignore red. Either a
+# gate is at zero and blocks, or it is honestly labelled a report.
 #
 # DISABLED:
 #   e2e – `if: false`. Playwright runs locally (`just test`), not in CI. It is kept here so it
@@ -495,9 +503,9 @@ jobs:
       - name: Build print-agent image
         uses: docker/build-push-action@v7
         with:
-          context: ./print-agent
+          context: ./tools/print-agent
           load: true
-          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-print-agent:ci
+          tags: ghcr.io/feuerwehr-oberwil/kp-print-agent:ci
           cache-from: type=gha,scope=print-agent
           cache-to: type=gha,mode=max,scope=print-agent
 
