@@ -392,6 +392,7 @@ jobs:
             echo "SECRET_KEY=$(openssl rand -hex 32)"
             echo "AUTH_SECRET_KEY=$(openssl rand -hex 32)"
             echo "ADMIN_SEED_PASSWORD=$(openssl rand -hex 16)"
+            echo "VIEWER_PASSWORD=$(openssl rand -hex 16)"
             echo "HTTP_PORT=8080"
             echo "PUBLIC_URL=http://localhost:8080"
             # compose pulls ghcr.io/…:${KP_RUECK_TAG:-latest}; point it at the images built
