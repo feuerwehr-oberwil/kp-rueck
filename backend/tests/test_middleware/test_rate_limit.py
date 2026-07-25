@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.config import settings
 from app.middleware.rate_limit import RateLimits, get_client_identifier, rate_limit_exceeded_handler
 
 
@@ -45,9 +46,26 @@ class TestGetClientIdentifier:
 class TestRateLimits:
     """Tests for rate limit configuration."""
 
-    def test_login_limit_is_strict(self):
-        """Login should have strict limits to prevent brute force."""
-        assert "3/minute" == RateLimits.LOGIN
+    def test_login_limit_tolerates_a_shared_command_post_ip(self):
+        """The per-IP login ceiling must NOT be the brute-force control.
+
+        It keys on client IP and counts every attempt, successful ones
+        included — and a command post NATs every tablet and wall display
+        behind one public IP. A strict value here (it was 3/minute) locked out
+        the whole crew as soon as a few people signed in within the same
+        minute. Brute force is handled per-username, on FAILURES only, by
+        app.auth.login_throttle; this ceiling only blunts username spraying.
+        """
+        limit, _, window = RateLimits.LOGIN.partition("/")
+        assert window == "minute"
+        # Comfortably above a crew signing in together, still far below a
+        # useful online guessing rate.
+        assert 10 <= int(limit) <= 60
+
+    def test_brute_force_protection_is_per_username_and_failure_only(self):
+        """The property the old strict per-IP limit was standing in for."""
+        assert settings.login_max_failed_attempts <= 10
+        assert settings.login_failed_lockout_seconds >= 60
 
     def test_export_limit_is_moderate(self):
         """Export should have moderate limits due to resource intensity."""
