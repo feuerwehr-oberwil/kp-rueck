@@ -94,8 +94,10 @@ class TrainingLocationBase(BaseModel):
 
     street: str
     house_number: str
-    postal_code: str = "4104"
-    city: str = "Oberwil"
+    # Required, not defaulted: a training location that quietly claims to be in
+    # one particular town is wrong for every station but that one.
+    postal_code: str
+    city: str
     building_type: str | None = None
     latitude: str | Decimal | None = None
     longitude: str | Decimal | None = None

@@ -116,70 +116,45 @@ function truncateDisplayName(displayName: string): string {
 }
 
 interface SearchOptions {
-  /** Home city name to prioritize results near (optional) */
-  homeCity?: string
+  /**
+   * Station center as [lon, lat] — results are biased towards it and sorted by
+   * distance from it. Comes from the firestation_latitude/firestation_longitude
+   * settings, so every station biases towards its own area.
+   */
+  stationCenter?: [number, number]
   /** Custom viewbox to prioritize [minLon, minLat, maxLon, maxLat] */
   viewbox?: [number, number, number, number]
+  /**
+   * ISO 3166-1 alpha-2 codes Nominatim restricts to, comma-separated. Defaults
+   * to Switzerland because that is where the stations running this are; a
+   * deployment across the border overrides it rather than patching this file.
+   */
+  countryCodes?: string
 }
 
-// Default viewbox for Basel-Landschaft region
-const DEFAULT_VIEWBOX = '7.4,47.3,7.8,47.7'
+const DEFAULT_COUNTRY_CODES = 'ch'
 
-// Known cities in Basel-Landschaft with approximate centers
-// Used to bias search results when home_city setting is set
-const KNOWN_CITIES: Record<string, [number, number]> = {
-  'oberwil': [7.555, 47.515],
-  'binningen': [7.570, 47.540],
-  'allschwil': [7.535, 47.550],
-  'reinach': [7.595, 47.495],
-  'muttenz': [7.645, 47.530],
-  'pratteln': [7.695, 47.520],
-  'liestal': [7.735, 47.485],
-  'birsfelden': [7.625, 47.555],
-  'therwil': [7.555, 47.495],
-  'bottmingen': [7.575, 47.520],
-  'arlesheim': [7.620, 47.495],
-  'münchenstein': [7.610, 47.515],
-  'aesch': [7.595, 47.470],
-  'ettingen': [7.545, 47.480],
-  'pfeffingen': [7.580, 47.460],
-  'basel': [7.590, 47.560],
-}
+/** Half-width of the search bias box around the station, in degrees (~5 km). */
+const VIEWBOX_DELTA = 0.05
 
 /**
- * Create a viewbox centered on a city for search prioritization
- * Returns a string in format "minLon,minLat,maxLon,maxLat"
+ * Create a viewbox around the station center for search prioritization.
+ * Returns a string in format "minLon,minLat,maxLon,maxLat".
+ *
+ * This used to be a lookup table of the sixteen municipalities around one
+ * station, which meant every other station fell through to a hardcoded Basel
+ * region box. The configured coordinates are the station, whoever it is.
  */
-function getViewboxForCity(cityName: string): string {
-  const normalizedName = cityName.toLowerCase().trim()
-
-  // Look for exact or partial match
-  for (const [city, coords] of Object.entries(KNOWN_CITIES)) {
-    if (normalizedName.includes(city) || city.includes(normalizedName)) {
-      const [lon, lat] = coords
-      // Create a ~10km viewbox around the city center
-      const delta = 0.05 // ~5km in each direction
-      return `${lon - delta},${lat - delta},${lon + delta},${lat + delta}`
-    }
-  }
-
-  // Unknown city, use default Basel region
-  return DEFAULT_VIEWBOX
-}
-
-/**
- * Get center coordinates for a known city
- * Returns [lon, lat] or null if city not found
- */
-function getCityCenterCoords(cityName: string): [number, number] | null {
-  const normalizedName = cityName.toLowerCase().trim()
-
-  for (const [city, coords] of Object.entries(KNOWN_CITIES)) {
-    if (normalizedName.includes(city) || city.includes(normalizedName)) {
-      return coords
-    }
-  }
-  return null
+function getViewboxForCenter([lon, lat]: [number, number]): string {
+  // Rounded: the subtraction leaves float noise (47.373000000000005), and ~10 cm
+  // of precision is already far finer than a search-bias box needs.
+  const round = (n: number) => Number(n.toFixed(6))
+  return [
+    round(lon - VIEWBOX_DELTA),
+    round(lat - VIEWBOX_DELTA),
+    round(lon + VIEWBOX_DELTA),
+    round(lat + VIEWBOX_DELTA),
+  ].join(',')
 }
 
 /**
@@ -208,12 +183,14 @@ export async function searchAddress(query: string, options?: SearchOptions): Pro
     return []
   }
 
-  // Determine viewbox based on options
-  let viewbox = DEFAULT_VIEWBOX
+  // Determine viewbox based on options. With no station coordinates configured
+  // there is nothing honest to bias towards, so the search stays unweighted
+  // rather than pulling every station's results towards one region.
+  let viewbox: string | null = null
   if (options?.viewbox) {
     viewbox = options.viewbox.join(',')
-  } else if (options?.homeCity) {
-    viewbox = getViewboxForCity(options.homeCity)
+  } else if (options?.stationCenter) {
+    viewbox = getViewboxForCenter(options.stationCenter)
   }
 
   try {
@@ -222,10 +199,12 @@ export async function searchAddress(query: string, options?: SearchOptions): Pro
       format: 'json',
       addressdetails: '1',
       limit: '10',
-      countrycodes: 'ch', // Limit to Switzerland
-      viewbox,
-      bounded: '0', // Don't strictly limit to viewbox, but prioritize it
+      countrycodes: options?.countryCodes || DEFAULT_COUNTRY_CODES,
     })
+    if (viewbox) {
+      params.set('viewbox', viewbox)
+      params.set('bounded', '0') // Don't strictly limit to viewbox, but prioritize it
+    }
 
     const response = await fetch(`${NOMINATIM_BASE_URL}/search?${params}`, {
       headers: {
@@ -248,17 +227,14 @@ export async function searchAddress(query: string, options?: SearchOptions): Pro
       formattedAddress: formatNaturalAddress(result),
     }))
 
-    // Sort results by proximity to home city if specified
-    if (options?.homeCity) {
-      const centerCoords = getCityCenterCoords(options.homeCity)
-      if (centerCoords) {
-        const [centerLon, centerLat] = centerCoords
-        searchResults = searchResults.sort((a, b) => {
-          const distA = calculateDistance(a.lat, a.lon, centerLat, centerLon)
-          const distB = calculateDistance(b.lat, b.lon, centerLat, centerLon)
-          return distA - distB
-        })
-      }
+    // Sort results by proximity to the station, when we know where it is
+    if (options?.stationCenter) {
+      const [centerLon, centerLat] = options.stationCenter
+      searchResults = searchResults.sort((a, b) => {
+        const distA = calculateDistance(a.lat, a.lon, centerLat, centerLon)
+        const distB = calculateDistance(b.lat, b.lon, centerLat, centerLon)
+        return distA - distB
+      })
     }
 
     return searchResults
