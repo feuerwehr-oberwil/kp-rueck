@@ -19,6 +19,12 @@ on:
   schedule:
     - cron: "42 2 * * *" # 02:42 UTC, nightly
   workflow_dispatch: # so you can ask for a run before a release
+    inputs:
+      grep:
+        description: "Only run specs matching this (Playwright --grep). Empty = the full suite."
+        required: false
+        default: ""
+
 
 permissions:
   contents: read
@@ -90,6 +96,16 @@ jobs:
 
       # Dev seed on purpose: the specs need the fixture board (vehicles, personnel,
       # materials) that a production seed deliberately omits.
+      # The seed writes rows; it does not create the schema. This service container is a bare
+      # postgres, so without the migrations the first INSERT dies on `relation "users" does not
+      # exist` — which is exactly what this job did on every run since it was written. Same
+      # omission as the e2e-smoke job in ci.yml; fixed there first, then found here.
+      - name: Run migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+
       - name: Seed database
         working-directory: backend
         run: uv run python -m app.seed
@@ -107,14 +123,24 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           CORS_ORIGINS: http://localhost:3000
 
-      - name: Run the full E2E suite
+      # The filter goes through the environment, never interpolated into the shell line: a
+      # `${{ inputs.* }}` expanded inside `run:` is a script-injection hole, and this input is
+      # attacker-controllable by anyone who can dispatch the workflow.
+      - name: Run the E2E suite
         working-directory: frontend
-        run: pnpm test:e2e
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
           TEST_USERNAME: admin
           TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
           CI: true
+          GREP: ${{ inputs.grep }}
+        run: |
+          if [ -n "$GREP" ]; then
+            echo "Filtered run: --grep $GREP"
+            pnpm exec playwright test --grep "$GREP"
+          else
+            pnpm test:e2e
+          fi
 
       - name: Upload test results
         uses: actions/upload-artifact@v7
