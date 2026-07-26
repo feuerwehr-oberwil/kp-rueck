@@ -4,7 +4,7 @@ This guide explains the offline map tiles functionality in KP Rück. The system 
 
 ## Overview
 
-The system uses a self-hosted [TileServer GL](https://github.com/maptiler/tileserver-gl) instance to serve map tiles locally. By default, it ships configured for the Basel-Landschaft region (Switzerland), but you can easily replace the tiles with **any region** using free OpenStreetMap data.
+The system uses a self-hosted [TileServer GL](https://github.com/maptiler/tileserver-gl) instance to serve map tiles locally. The defaults cover the Basel-Landschaft region (Switzerland) because that is where the first station running KP Rück sits — **any region** works, from free OpenStreetMap data, without touching the code. See [Using Custom Regions](#using-custom-regions).
 
 **Zoom Levels**: 0-17 (building-level detail)
 **Tile Format**: MBTiles (single-file SQLite database)
@@ -33,7 +33,7 @@ That's it! The system will:
 For complete offline operation with full-resolution tiles:
 
 ```bash
-# Download full offline tiles (default: Basel-Landschaft region)
+# Download full offline tiles (defaults to the Basel-Landschaft region)
 just tiles-download
 
 # Restart tile server to load new tiles
@@ -84,7 +84,7 @@ On first startup, the system creates a minimal but valid MBTiles file:
 The `just tiles-download` command downloads and generates complete tiles:
 - **Source**: Geofabrik OSM extracts (100% free, legal)
 - **Tool**: Planetiler (runs in Docker, no local installation needed)
-- **Coverage**: Basel-Landschaft region, zoom 0-17
+- **Coverage**: whatever `TILES_BOUNDS` covers (default: Basel-Landschaft), zoom 0-17
 - **Size**: ~12 MB MBTiles (vector tiles, very efficient!)
 - **Data**: Complete street-level detail for offline use
 - **Update frequency**: Every 3-6 months recommended
@@ -287,7 +287,7 @@ Add additional MBTiles files for other regions:
 
 3. Restart tile server: `just tiles-restart`
 
-**Note**: Frontend currently only uses `basel-landschaft` data source.
+**Note**: The frontend uses a single data source, the one named by `TILES_NAME`.
 
 ### Performance Tuning
 
@@ -318,7 +318,7 @@ volumes:
 | 0-17        | Basel-Landschaft | ~1-2 GB |
 | 0-17        | All Switzerland  | ~10-15 GB |
 
-**Recommendation**: Use zoom 0-17 for Basel-Landschaft (~1-2 GB) for best balance of detail and storage.
+**Recommendation**: Use zoom 0-17 for a single canton or district (~1-2 GB) for the best balance of detail and storage.
 
 ## Backup and Disaster Recovery
 
@@ -351,7 +351,7 @@ docker cp kprueck-tileserver:/data/basel-landschaft.mbtiles "$BACKUP_DIR/tiles.m
 
 The `scripts/init-tileserver.sh` script runs on container startup and:
 
-1. **Checks for existing tiles**: If `basel-landschaft.mbtiles` exists, skips creation
+1. **Checks for existing tiles**: If `${TILES_NAME}.mbtiles` exists, skips creation
 2. **Creates minimal MBTiles**: Uses sqlite3 to create valid MBTiles schema:
    - `metadata` table with required fields (name, type, version, format, bounds, etc.)
    - `tiles` table with proper schema (zoom_level, tile_column, tile_row, tile_data)
@@ -368,9 +368,9 @@ The `scripts/init-tileserver.sh` script runs on container startup and:
 ### Upgrade to Full Offline
 
 When you run `just tiles-download`:
-1. Downloads Switzerland OSM extract from Geofabrik (~500 MB)
+1. Downloads the OSM extract from Geofabrik (`TILES_PBF_URL`, ~500 MB for Switzerland)
 2. Runs Planetiler in Docker to convert OSM → MBTiles
-3. Generates vector tiles for Basel-Landschaft region (zoom 0-17)
+3. Generates vector tiles for the configured bounds (`TILES_BOUNDS`, zoom 0-17)
 4. Copies MBTiles to tile server container (~12 MB final size)
 5. Restarts tile server, which auto-creates `basic-preview` style
 6. TileServer GL renders vector tiles as raster PNGs on-the-fly
@@ -410,40 +410,59 @@ For most use cases, online OpenStreetMap tiles are sufficient.
 
 ## Using Custom Regions
 
-The default tile download covers Basel-Landschaft (Switzerland). To use tiles for **your region**:
+The defaults cover Basel-Landschaft, because that is where the first station running KP Rück
+sits. **Your region is configuration, not a code change** — set four environment variables and
+run the same script. (Earlier versions of this page told you to edit `scripts/download-tiles.sh`
+and named variables the script never had. Sorry.)
 
-### Step 1: Find Your Region on Geofabrik
+### Step 1: Find your extract on Geofabrik
 
-Browse [download.geofabrik.de](https://download.geofabrik.de/) and find the smallest extract that covers your area. For example:
-- Germany/Bavaria: `https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf`
+Browse [download.geofabrik.de](https://download.geofabrik.de/) and take the **smallest** extract
+that covers your area — a smaller extract means a much faster conversion. For example:
+
+- Germany / Upper Bavaria: `https://download.geofabrik.de/europe/germany/bayern/oberbayern-latest.osm.pbf`
 - Austria: `https://download.geofabrik.de/europe/austria-latest.osm.pbf`
-- France/Alsace: `https://download.geofabrik.de/europe/france/alsace-latest.osm.pbf`
+- France / Alsace: `https://download.geofabrik.de/europe/france/alsace-latest.osm.pbf`
 
-### Step 2: Modify the Download Script
+### Step 2: Find your bounding box
 
-Edit `scripts/download-tiles.sh` and update the variables:
+[boundingbox.klokantech.com](https://boundingbox.klokantech.com/) — draw a box around your
+operational area and copy the **CSV** output (`minLon,minLat,maxLon,maxLat`). Be generous at the
+edges; an incident just outside the box has no offline map.
 
-```bash
-# Change the download URL to your region
-OSM_URL="https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf"
-
-# Update the bounding box (lon-min, lat-min, lon-max, lat-max)
-BBOX="10.0,47.0,13.5,50.5"
-
-# Update the output filename
-MBTILES_NAME="your-region.mbtiles"
-```
-
-### Step 3: Update TileServer Config
-
-If you change the MBTiles filename, also update `scripts/init-tileserver.sh` to reference your new filename instead of `basel-landschaft.mbtiles`.
-
-### Step 4: Generate and Install
+### Step 3: Generate and install
 
 ```bash
-just tiles-download
+TILES_REGION="Oberbayern" \
+TILES_BOUNDS=11.0,47.7,12.3,48.4 \
+TILES_AREA=oberbayern \
+TILES_PBF_URL=https://download.geofabrik.de/europe/germany/bayern/oberbayern-latest.osm.pbf \
+  just tiles-download
+
 just tiles-restart
 ```
+
+| Variable | What it does |
+| --- | --- |
+| `TILES_REGION` | Label shown in the script's output and in `just tiles-status`. Cosmetic. |
+| `TILES_BOUNDS` | The area actually rendered, `minLon,minLat,maxLon,maxLat`. This is the one that matters. |
+| `TILES_AREA` | planetiler's area name for the auxiliary data it fetches. Keep it consistent with the extract. |
+| `TILES_PBF_URL` | The Geofabrik extract from step 1. |
+
+Put them in your shell profile or a small wrapper script so a later tile refresh reproduces the
+same coverage — nothing on the server remembers what you passed.
+
+### The filename is a separate decision
+
+`TILES_NAME` (default `basel-landschaft`) is the name of the `.mbtiles` file on the tileserver
+volume, not part of the geography above. Three places must agree on it:
+`scripts/download-tiles.sh`, `scripts/install-tiles.sh`, and `scripts/init-tileserver.sh` — all
+three read the same variable, and the tileserver container needs it in its environment too.
+
+**An existing deployment should leave it alone.** Its tiles are already on the volume under the
+default name, and renaming means the init script finds nothing and quietly writes a bootstrap
+file instead — a map that looks like it works and has no tiles in it. Only worth setting on a
+fresh stack, if you would rather the file said what it holds.
 
 ### Size Estimates by Region
 

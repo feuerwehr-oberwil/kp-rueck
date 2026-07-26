@@ -124,8 +124,9 @@ tiles-status:
         echo -e "\033[1;32m✓ Tile server container is running\033[0m"
         if curl -s http://localhost:8080/health > /dev/null 2>&1; then
             echo -e "\033[1;32m✓ Tile server is responding (http://localhost:8080)\033[0m"
-            if curl -s http://localhost:8080/data/basel-landschaft.json > /dev/null 2>&1; then
-                echo -e "\033[1;32m✓ Basel-Landschaft tiles are loaded\033[0m"
+            TILES_NAME="${TILES_NAME:-basel-landschaft}"
+            if curl -s "http://localhost:8080/data/${TILES_NAME}.json" > /dev/null 2>&1; then
+                echo -e "\033[1;32m✓ Offline tiles are loaded (${TILES_NAME})\033[0m"
                 echo ""
                 echo "Tile endpoints:"
                 echo "  - UI: http://localhost:8080"
