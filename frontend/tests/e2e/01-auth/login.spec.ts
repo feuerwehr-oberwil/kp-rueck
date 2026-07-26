@@ -13,7 +13,7 @@ const USERNAME = process.env.TEST_USERNAME || 'admin';
 const PASSWORD = process.env.TEST_PASSWORD || 'changeme123';
 
 test.describe('Authentication', () => {
-  test('should display login page with all required elements', async ({ page, loginPage }) => {
+  test('should display login page with all required elements', { tag: '@smoke' }, async ({ page, loginPage }) => {
     await loginPage.goto();
 
     // With Microsoft auth configured the credential form starts collapsed
@@ -30,7 +30,7 @@ test.describe('Authentication', () => {
     await expect(page.locator('text=KP Rück')).toBeVisible();
   });
 
-  test('should login with valid credentials', async ({ page, loginPage }) => {
+  test('should login with valid credentials', { tag: '@smoke' }, async ({ page, loginPage }) => {
     await loginPage.goto();
 
     // Login (reveals the password form itself)

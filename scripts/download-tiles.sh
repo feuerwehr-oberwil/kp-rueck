@@ -1,21 +1,58 @@
 #!/bin/bash
 set -e
 
-# Download and setup offline map tiles for Basel-Landschaft region
+# Download and generate offline map tiles for YOUR station's area.
+#
 # Usage: ./scripts/download-tiles.sh
+#
+# The defaults below cover Basel-Landschaft, because that is where the first
+# station running KP Rück sits. A station anywhere else overrides them with
+# environment variables rather than editing this file — the geography is
+# configuration, not source:
+#
+#   TILES_REGION   Human-readable label, used only in the output.
+#   TILES_BOUNDS   minLon,minLat,maxLon,maxLat — the area actually rendered.
+#                  Find yours at https://boundingbox.klokantech.com/ (CSV format).
+#   TILES_AREA     planetiler's area name for the auxiliary data it fetches;
+#                  keep it consistent with the extract below.
+#   TILES_PBF_URL  Any Geofabrik extract: https://download.geofabrik.de/
+#
+# Example — a station in Upper Bavaria:
+#
+#   TILES_REGION="Oberbayern" \
+#   TILES_BOUNDS=11.0,47.7,12.3,48.4 \
+#   TILES_AREA=oberbayern \
+#   TILES_PBF_URL=https://download.geofabrik.de/europe/germany/bayern/oberbayern-latest.osm.pbf \
+#     ./scripts/download-tiles.sh
+#
+# TILES_NAME is deliberately NOT part of that list. It is the filename the
+# tileserver looks for, so changing it means changing it in the container too
+# (scripts/init-tileserver.sh reads the same variable) — and an existing
+# deployment already has tiles on its volume under the default name. Leave it
+# alone unless you are setting up a new stack and want the file to say what it
+# holds; then set it in both places.
 
-TILES_FILE="basel-landschaft.mbtiles"
-CONTAINER_NAME="kprueck-tileserver-dev"
-# Using Geofabrik free OSM data - updated daily
-DOWNLOAD_URL="https://download.geofabrik.de/europe/switzerland-latest.osm.pbf"
-OSM_FILE="switzerland-latest.osm.pbf"
+TILES_REGION="${TILES_REGION:-Basel-Landschaft}"
+TILES_BOUNDS="${TILES_BOUNDS:-7.4,47.4,7.9,47.7}"
+TILES_AREA="${TILES_AREA:-switzerland}"
+TILES_PBF_URL="${TILES_PBF_URL:-https://download.geofabrik.de/europe/switzerland-latest.osm.pbf}"
+TILES_NAME="${TILES_NAME:-basel-landschaft}"
+
+TILES_FILE="${TILES_NAME}.mbtiles"
+CONTAINER_NAME="${TILES_CONTAINER:-kprueck-tileserver-dev}"
+DOWNLOAD_URL="$TILES_PBF_URL"
+OSM_FILE="$(basename "$TILES_PBF_URL")"
 
 echo "═══════════════════════════════════════════════"
 echo " KP Rück - Offline Map Tiles Setup"
 echo "═══════════════════════════════════════════════"
 echo ""
 echo "This script will download FREE OpenStreetMap data from Geofabrik"
-echo "and generate offline map tiles for the Basel-Landschaft region."
+echo "and generate offline map tiles for: $TILES_REGION"
+echo "Bounds: $TILES_BOUNDS"
+echo ""
+echo "Not your area? Set TILES_REGION / TILES_BOUNDS / TILES_AREA / TILES_PBF_URL"
+echo "— see the header of this script, or docs/OFFLINE_MAPS.md."
 echo ""
 echo "Source: Geofabrik (https://geofabrik.de) - 100% Free & Legal"
 echo "Expected download size: ~500 MB OSM data"
@@ -34,7 +71,7 @@ echo "✓ Docker found"
 # Check if tile server container exists
 if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "⚠️  Warning: Tile server container not found."
-    echo "   Please run 'make dev' first to start all services."
+    echo "   Please run 'just dev' first to start all services."
     exit 1
 fi
 echo "✓ Tile server container found"
@@ -87,7 +124,7 @@ echo "✓ OSM data downloaded successfully"
 echo ""
 
 # Generate MBTiles from OSM data using planetiler in Docker
-echo "[4/7] Generating MBTiles for Basel-Landschaft region..."
+echo "[4/7] Generating MBTiles for $TILES_REGION..."
 echo "Using planetiler (Docker-based, no local installation needed)"
 echo "This may take 5-15 minutes depending on your system..."
 echo ""
@@ -97,8 +134,8 @@ docker run --rm \
   -v "$TEMP_DIR:/data" \
   ghcr.io/onthegomap/planetiler:latest \
   --download \
-  --area=switzerland \
-  --bounds=7.4,47.4,7.9,47.7 \
+  --area="$TILES_AREA" \
+  --bounds="$TILES_BOUNDS" \
   --output=/data/"$TILES_FILE" \
   --osm-path=/data/"$OSM_FILE" \
   --nodemap-type=array \
@@ -112,7 +149,7 @@ docker run --rm \
     echo "3. Corrupted download"
     echo ""
     echo "You can try downloading pre-generated tiles manually."
-    echo "See OFFLINE_MAPS.md for alternative methods."
+    echo "See docs/OFFLINE_MAPS.md for alternative methods."
     echo ""
     rm -rf "$TEMP_DIR"
     exit 1
@@ -175,7 +212,7 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
     if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
         echo "⚠️  Warning: Tile server didn't respond within 30 seconds"
-        echo "   It may still be starting up. Check with: make tiles-status"
+        echo "   It may still be starting up. Check with: just tiles-status"
         break
     fi
     sleep 1
@@ -189,7 +226,7 @@ echo "✅ Offline map tiles installed successfully!"
 echo "═══════════════════════════════════════════════"
 echo ""
 echo "Tile size: $SIZE_DISPLAY"
-echo "Coverage: Basel-Landschaft region (zoom 0-17)"
+echo "Coverage: $TILES_REGION ($TILES_BOUNDS, zoom 0-17)"
 echo ""
 echo "Next steps:"
 echo "1. Open http://localhost:8080 to view tile server"
@@ -199,6 +236,6 @@ echo ""
 echo "Data source: OpenStreetMap via Geofabrik (100% free)"
 echo "Update frequency: Daily updates available from Geofabrik"
 echo ""
-echo "For troubleshooting, run: make tiles-status"
-echo "For documentation, see: OFFLINE_MAPS.md"
+echo "For troubleshooting, run: just tiles-status"
+echo "For documentation, see: docs/OFFLINE_MAPS.md"
 echo ""

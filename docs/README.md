@@ -16,12 +16,19 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 | [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) | 🟢 | Provider-neutral alarm intake: the generic `POST /api/alarms` webhook (auth, idempotency, auto-attach, fail-closed), the Divera adapter and phone/walk-in form, and the `GET /api/integrations` capability registry. |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | 🟢 | Self-hosting guide: the docker-compose stack built from published GHCR images, the single-origin Caddy layout, `KP_RUECK_TAG` version pinning, updating/rollback, and backups. |
 | [`RUNNING-BOTH.md`](RUNNING-BOTH.md) | 🟢 | For stations running KP Front *and* KP Rück on one host: the three places two independent stacks collide – host ports (only one can own 443), `PUBLIC_URL` meaning something different in each, and per-deployment alarm secrets with non-interchangeable payloads. |
-| [`RAILWAY.md`](RAILWAY.md) | 🟢 | Deployment guide: Railway service layout, environment variables, secrets, and the `start.sh` boot/migration flow. Works on any Docker host. |
+| [`RAILWAY.md`](RAILWAY.md) | 🟡 | Railway service layout, environment variables, secrets, and the `start.sh` boot/migration flow. **Legacy:** the runtime no longer assumes Railway and [`DEPLOYMENT.md`](DEPLOYMENT.md) is the reference path. Kept for deployments already on Railway. |
 | [`OFFLINE_MAPS.md`](OFFLINE_MAPS.md) | 🟢 | Offline map tiles for Basel-Landschaft: TileServer GL setup, MBTiles, and the auto / online / offline fallback modes. |
 | [`PRINT_AGENT.md`](PRINT_AGENT.md) | 🟢 | The print agent and the transport-neutral job queue: dispatch slips, board snapshots, QR walk-in slips, the four agent endpoints, and how to write a custom agent for any printer. |
 | [`PHOTO_STORAGE.md`](PHOTO_STORAGE.md) | 🟢 | How Reko photos are stored on the persistent volume, served, and pooled for training scenarios. |
 | [`AUSFALL_SOP.md`](AUSFALL_SOP.md) | 🟢 | Outage / paper-fallback standard operating procedure: Lageblatt PDF, automatic thermal snapshots, and what to do when the network or backend is down. |
+| [`openapi.json`](openapi.json) | 🟢 | The committed OpenAPI contract — every route, request and response shape, readable without booting the stack. Regenerate with `just openapi`; a pytest fails when it drifts from the code. |
 | [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) | 🟡 | Reference table map. Alembic migrations are the source of truth – regenerate if this drifts. |
+
+## Open checklist
+
+| Doc | Status | What it is |
+| --- | --- | --- |
+| [`VERIFICATION.md`](VERIFICATION.md) | 🟡 | **Temporary.** What still has to be run against a real environment for the 0.2.0 batch — the Postgres-backed tests, the Node 24 image build, the WebSocket-auth and audit-retention behaviour changes (each with a rollback), and the E2E work that must happen before the smoke job becomes a required check. Delete it once it is ticked. |
 
 ## Planning ([`plans/`](plans/))
 

@@ -29,10 +29,16 @@ _shutting_down: bool = False
 
 
 def get_effective_retention_days() -> int:
-    """Retention in days, capped in demo mode (explicit smaller override still wins)."""
+    """Retention in days. 0 or less means keep everything and never sweep.
+
+    Demo mode always caps, including over "keep everything": a public demo resets on a
+    schedule and its audit trail is noise, not a record anyone has to produce later.
+    """
     retention_days = settings.audit_retention_days
     if settings.demo_mode:
-        retention_days = min(retention_days, DEMO_MAX_RETENTION_DAYS)
+        if retention_days <= 0:
+            return DEMO_MAX_RETENTION_DAYS
+        return min(retention_days, DEMO_MAX_RETENTION_DAYS)
     return retention_days
 
 
@@ -49,8 +55,13 @@ async def cleanup_old_audit_logs(session_maker: Any = None) -> int:
         logger.debug("Audit cleanup skipped: shutdown in progress")
         return 0
 
+    retention_days = get_effective_retention_days()
+    if retention_days <= 0:
+        logger.debug("Audit cleanup skipped: retention disabled (AUDIT_RETENTION_DAYS=0)")
+        return 0
+
     maker = session_maker or async_session_maker
-    cutoff = datetime.now(UTC) - timedelta(days=get_effective_retention_days())
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
     total_deleted = 0
 
     try:
@@ -76,10 +87,13 @@ def start_audit_cleanup_scheduler() -> None:
     """Start the audit cleanup scheduler."""
     global scheduler
 
+    retention_days = get_effective_retention_days()
+    if retention_days <= 0:
+        logger.info("Audit retention disabled (AUDIT_RETENTION_DAYS=0) - keeping the full audit trail")
+        return
+
     interval_hours = settings.audit_cleanup_interval_hours
-    logger.info(
-        f"Starting audit cleanup scheduler (interval: {interval_hours}h, retention: {get_effective_retention_days()}d)"
-    )
+    logger.info(f"Starting audit cleanup scheduler (interval: {interval_hours}h, retention: {retention_days}d)")
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(

@@ -901,12 +901,15 @@ EMERGENCY_TEMPLATES = [
 print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
 
-def get_training_area_bounds() -> dict:
-    """Get the training area bounds.
+# Everything from here to FALLBACK_TRAINING_LOCATIONS is a DEV AND DEMO FIXTURE for
+# Oberwil BL, the station this was built at. It is not a template a second station
+# is expected to fork: production seeds no training locations at all (see
+# seed_training_data's seed_locations argument), and a station adds its own from the
+# training surface or drops ad-hoc pins on its own map.
 
-    CUSTOMIZE: Replace with coordinates for your geographic area.
-    Use https://boundingbox.klokantech.com/ to find bounds for your area.
-    """
+
+def get_training_area_bounds() -> dict:
+    """Bounding box the dev/demo reverse-geocoder draws random points from."""
     return {
         "min_lat": 47.508,
         "max_lat": 47.522,
@@ -916,22 +919,19 @@ def get_training_area_bounds() -> dict:
 
 
 def get_training_city_info() -> tuple[str, str]:
-    """Get city and postal code for training locations.
+    """City and postal code stamped on generated dev/demo training locations.
 
-    Matches the training bounding box (Oberwil BL) and the configured Heimatort,
-    so generated addresses collapse to just the street in the UI/report.
+    Matches the bounding box above and the demo Heimatort, so generated addresses
+    collapse to just the street in the UI/report.
     """
     return ("Oberwil", "4104")
 
 
-# Geographic bounding box for training location generation
-# CUSTOMIZE: Replace with coordinates for your geographic area
-# Use https://boundingbox.klokantech.com/ to find bounds for your area
 TRAINING_AREA_BOUNDS = get_training_area_bounds()
 
-# Deterministic production/demo fallback. These addresses and coordinates are
-# verified OpenStreetMap entries inside Oberwil BL; no network access is needed
-# while a deployment starts.
+# Deterministic dev/demo fallback. These addresses and coordinates are verified
+# OpenStreetMap entries inside Oberwil BL; no network access is needed while a
+# development or demo deployment starts.
 FALLBACK_TRAINING_LOCATIONS = [
     ("Mühlemattstrasse", "18", "commercial", 47.5098844, 7.5546250),
     ("Hauptstrasse", "41", "commercial", 47.5139457, 7.5561373),
@@ -1071,13 +1071,22 @@ async def fetch_real_addresses_reverse_geocode(target_count: int = 50) -> list[t
         return addresses
 
 
-async def seed_training_data(skip_geocoding: bool = False):
+async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool = True):
     """
     Seed emergency templates and training locations.
 
     Args:
-        skip_geocoding: If True, use fallback to Oberwil center instead of reverse geocoding.
-                       Useful for production deployments to avoid slow OSM API calls.
+        skip_geocoding: If True, use the bundled fallback list instead of reverse
+                       geocoding. Avoids slow, rate-limited OSM API calls at boot.
+        seed_locations: If False, seed only the emergency templates and leave the
+                       training locations alone. Production passes False: the
+                       fallback list is a set of real streets in one specific town,
+                       and pre-loading it into another station's deployment puts
+                       addresses on their training board that do not exist in their
+                       area. Training mode does not need them — a training incident
+                       takes either a seeded TrainingLocation or an ad-hoc map pin
+                       (see services/training.py), so a station drops pins on its
+                       own map or adds locations as it goes.
     """
     async with async_session_maker() as session:
         print("=" * 60)
@@ -1108,6 +1117,10 @@ async def seed_training_data(skip_geocoding: bool = False):
                 updated += 1
         await session.commit()
         print(f"✅ Emergency templates synced: {inserted} new, {updated} updated")
+
+        if not seed_locations:
+            print("⏭️  Training locations not seeded — add your own, or drop pins on the map.")
+            return
 
         # Training locations: only seed when none exist — reverse geocoding is
         # slow and rate-limited, so it must never re-run on every deploy.

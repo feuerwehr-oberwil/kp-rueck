@@ -1,6 +1,6 @@
 [project]
 name = "kp-print-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "One print agent for KP Front (PDF/CUPS) and KP Rück (ESC/POS thermal)"
 requires-python = ">=3.9"
 
