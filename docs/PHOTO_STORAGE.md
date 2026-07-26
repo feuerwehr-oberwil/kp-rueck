@@ -100,8 +100,11 @@ All tests should pass with 99% code coverage for `photo_storage.py`.
 
 3. **Upload a test photo:**
    ```bash
+   # The token comes from the generate-link response above.
+   REKO_TOKEN=...
+
    curl -X POST http://localhost:8000/api/reko/YOUR_INCIDENT_UUID/photos \
-     -H "X-Reko-Token: YOUR_TOKEN" \
+     -H "X-Reko-Token: $REKO_TOKEN" \
      -F "file=@/path/to/test-image.jpg"
    ```
 

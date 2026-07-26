@@ -3,15 +3,22 @@ name: CI
 # CI strategy – keep this comment truthful, it is the only place the split is written down.
 #
 # BLOCKING (a red one of these must stop a merge; these are the checks required on main):
-#   backend-lint, backend-test, frontend-lint, frontend-typecheck, frontend-unit-tests,
-#   frontend-build, images
+#   secrets, backend-lint, backend-security, backend-test, frontend-lint, frontend-typecheck,
+#   frontend-unit-tests, frontend-build, images
 #
-# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-25,
+# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-26,
 # so nobody has to guess how far off "make it blocking" is:
-#   backend-typecheck  mypy    – 757 errors in 87 files. A real project, not a cleanup.
-#   backend-security   bandit  – 52 findings (45 high-confidence). Needs triage before it can
-#                                gate anything; most are expected patterns in test/dev paths.
-# Both stay advisory deliberately: a check that is always red teaches people to ignore red.
+#   backend-typecheck  mypy – ~690 errors outside the blocking subset (app/auth, app/middleware,
+#                             app/schemas, app/services/alerting are at zero and gate). Moving a
+#                             package into the blocking list is the unit of progress; see
+#                             docs/plans/14-typing-debt.md.
+# It stays advisory deliberately: a check that is always red teaches people to ignore red.
+# bandit used to be on this list and is now blocking — its one outstanding finding was reviewed
+# and annotated, so the scan is clean and a NEW medium-or-worse finding has to be dealt with.
+#
+# NOT A MERGE GATE, but not optional either:
+#   codeql.yml – cross-file taint tracking, reports into the Security tab on a weekly schedule
+#                and per PR. A new alert is work, not something to click past.
 #
 # DISABLED:
 #   e2e – `if: false`. Playwright runs locally (`just test`), not in CI. It is kept here so it
@@ -34,6 +41,26 @@ env:
   PNPM_VERSION: "9"
 
 jobs:
+  # ============================================
+  # Secrets
+  # ============================================
+  secrets:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # CLI via container (not gitleaks-action, which needs a license key for org repos).
+      # Scans exactly the TRACKED tree at HEAD (git archive), so a contributor's local .env
+      # and node_modules never enter the picture. Deliberate test values carry inline
+      # `gitleaks:allow` comments — the CI .env in the images job is generated at runtime
+      # with openssl, so there is nothing to allow there.
+      - name: Scan tracked tree for secrets
+        run: |
+          mkdir -p /tmp/scan
+          git archive HEAD | tar -x -C /tmp/scan
+          docker run --rm -v /tmp/scan:/repo zricethezav/gitleaks:latest \
+            detect --source /repo --no-git --redact --exit-code 1
+
   # ============================================
   # Backend Quality Checks
   # ============================================
