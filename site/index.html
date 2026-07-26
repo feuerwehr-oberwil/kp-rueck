@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>KP Rück – Einsatzboard für den Kommandoposten</title>
-<meta name="description" content="KP Rück ersetzt die Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, quelloffen und selbst gehostet.">
+<meta name="description" content="KP Rück ersetzt die Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, Open Source und auf eigenem Server betrieben.">
 <link rel="stylesheet" href="landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -90,11 +90,11 @@
         </div>
         <div class="stage">
           <p class="stage-n">Stufe 2</p>
-          <h3>Eine zweite Instanz im Magazin</h3>
-          <p>KP Rück lässt sich zusätzlich lokal betreiben. Der eingebaute Abgleich hält
-            Ereignisse, Einsätze, Personal, Fahrzeuge, Material und Einstellungen zwischen Cloud
-            und lokaler Datenbank auf Stand. Die Karte kommt aus dem eigenen Kachelserver, der
-            Drucker hängt ohnehin im LAN.</p>
+          <h3>Ein zweites KP Rück im Magazin</h3>
+          <p>KP Rück lässt sich zusätzlich auf einem Rechner im Magazin betreiben. Die
+            eingebaute Synchronisation hält Ereignisse, Einsätze, Personal, Fahrzeuge, Material
+            und Einstellungen zwischen Cloud und lokaler Datenbank auf Stand. Die Karte kommt
+            vom eigenen Server im Magazin, der Drucker hängt ohnehin im lokalen Netz.</p>
         </div>
         <div class="stage">
           <p class="stage-n">Stufe 3</p>
@@ -105,8 +105,8 @@
         </div>
       </div>
       <p class="stage-note">Ehrlich dazu: Stufe 2 hält die Daten bereit, sie schaltet nicht von
-        selber um – wer sie als Ausfallsicherung nutzt, übt den Wechsel vorher. Die Ausfall-SOP
-        dazu liegt im Repo, nicht nur im Kopf.</p>
+        selber um – wer sie als Ausfallsicherung nutzt, übt den Wechsel vorher. Die Checkliste
+        für den Ausfall liegt dem Projekt schriftlich bei, nicht nur im Kopf.</p>
     </div>
   </section>
 
@@ -123,7 +123,7 @@
         <div class="body">
           <p class="tag">Alarmeingang</p>
           <h3>Die Meldungen kommen rein.</h3>
-          <p>Über das Meldeformular, per Telefon oder über den offenen Webhook aus dem
+          <p>Über das Meldeformular, per Telefon oder direkt aus dem
             Alarmierungssystem (z.&nbsp;B. Divera). Der Operator übernimmt mit einem Klick –
             aus der Meldung wird ein Einsatz auf dem Board.</p>
         </div>
@@ -133,7 +133,7 @@
         <div class="body">
           <p class="tag">Disposition</p>
           <h3>Mannschaft und Fahrzeuge sind zugeteilt.</h3>
-          <p>Personal, Fahrzeuge und Material per Zug auf den Einsatz – wer schon anderswo
+          <p>Personal, Fahrzeuge und Material auf den Einsatz ziehen – wer schon anderswo
             eingeteilt ist, wird gemeldet, bevor es zur Doppelzuteilung kommt. Wer eintrifft,
             meldet sich per QR-Check-in selber an.</p>
         </div>
@@ -250,20 +250,20 @@
       <div class="fgroup">
         <h3>Board &amp; Disposition</h3>
         <ul class="flist">
-          <li><strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Zug von links nach rechts</li>
+          <li><strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-drop von links nach rechts</li>
           <li>Personal, Fahrzeuge und Material zuteilen, mit Warnung bei Doppelbelegung</li>
           <li>Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar</li>
           <li>Aufträge: mehrere Einsätze als geordnete Route an einen Trupp</li>
           <li>QR-Check-in für alle, die im Magazin eintreffen</li>
           <li>Beamer-Ansicht für die Wand im KP</li>
-          <li>Befehlspalette und Tastaturkürzel für die schnelle Hand</li>
+          <li>Tastaturkürzel und Schnellbefehle für die schnelle Hand</li>
         </ul>
       </div>
       <div class="fgroup">
         <h3>Alarm &amp; Meldungen</h3>
         <ul class="flist">
-          <li><strong>Offener Webhook</strong> – jedes Dispositionssystem kann Einsätze eröffnen</li>
-          <li>Adapter für Divera 24/7 <span class="opt">optional</span></li>
+          <li><strong>Offene Schnittstelle</strong> – jedes Alarmierungssystem kann Einsätze eröffnen</li>
+          <li>Anbindung an Divera 24/7 <span class="opt">optional</span></li>
           <li>Meldeformular per Link oder QR für Telefon und Laufkundschaft</li>
           <li>Eingang im Pool, Übernahme mit einem Klick</li>
           <li>Ausalarmierung der Mannschaft aus dem Board heraus <span class="opt">optional</span></li>
@@ -277,17 +277,17 @@
           <li>Fahrzeugpositionen per GPS <span class="opt">optional</span></li>
           <li>Statusvorschlag, sobald ein Fahrzeug am Einsatzort eintrifft</li>
           <li>Zuweisungen als Linie: welches Fahrzeug gehört zu welchem Einsatz</li>
-          <li>Kartenkacheln auch aus dem eigenen Server im Magazin</li>
+          <li>Karte funktioniert auch ohne Internet – vom eigenen Server im Magazin</li>
         </ul>
       </div>
       <div class="fgroup">
         <h3>Nachher &amp; Betrieb</h3>
         <ul class="flist">
           <li><strong>Einsatzbericht als PDF</strong> mit Einsatztagebuch und Reaktionszeiten</li>
-          <li>Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird</li>
+          <li>Einsatzprotokoll, das nur ergänzt und nie überschrieben wird</li>
           <li>Import und Export als Excel</li>
-          <li>Übungsmodus mit Generator und simulierten Fahrten, sauber vom Ernstfall getrennt</li>
-          <li>Thermodruck im Magazin über einen eigenen Druck-Agenten <span class="opt">optional</span></li>
+          <li>Übungsmodus mit automatisch erzeugten Einsätzen und simulierten Fahrten, sauber vom Ernstfall getrennt</li>
+          <li>Thermodruck im Magazin <span class="opt">optional</span></li>
           <li>Rollen: bearbeiten oder nur mitlesen, dunkle Oberfläche fürs abgedunkelte KP</li>
           <li>Eine Instanz pro Feuerwehr, mit eigener Mannschaft und eigenem Fuhrpark</li>
         </ul>
@@ -299,9 +299,9 @@
     <div class="sec-head">
       <p class="eyebrow">Open Source · AGPL</p>
       <h2>Eure Feuerwehr, eure Daten.</h2>
-      <p>Eine Instanz pro Feuerwehr, <strong>keine Lizenz pro Gerät</strong>, kein
-        Vendor-Lock-in. Selbst gehostet im Magazin oder in der Cloud – ihr entscheidet, wo die
-        Einsatzdaten liegen. Der ganze Code steht auf
+      <p>Jede Feuerwehr betreibt ihr eigenes KP Rück – <strong>keine Lizenz pro Gerät</strong>,
+        keine Abhängigkeit von einem Anbieter. Es läuft auf eurem Rechner im Magazin oder in
+        der Cloud – ihr entscheidet, wo die Einsatzdaten liegen. Der ganze Code steht auf
         <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>,
         und wer etwas anders braucht, kann es selber bauen oder bauen lassen.</p>
     </div>
@@ -364,7 +364,7 @@
 <footer>
   <div class="wrap">
     <p class="foot-origin">KP Rück kommt aus der <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a> und ist dort im Einsatz.
-      Jede Feuerwehr betreibt ihre eigene Instanz mit eigener Mannschaft, eigenen Fahrzeugen und eigenen Daten.</p>
+      Jede Feuerwehr betreibt ihr eigenes KP Rück mit eigener Mannschaft, eigenen Fahrzeugen und eigenen Daten.</p>
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
