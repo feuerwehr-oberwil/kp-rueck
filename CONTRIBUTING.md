@@ -156,6 +156,7 @@ pnpm test:watch     # Vitest watch mode
 pnpm test:e2e       # Run all E2E tests (Playwright)
 pnpm test:e2e:ui    # Interactive Playwright UI mode
 pnpm test:e2e:headed # Run E2E tests with visible browser
+pnpm screenshots    # Re-capture the help-page screenshots (a tool, not a test)
 ```
 
 Or via just:
