@@ -141,4 +141,4 @@ def decode_token(token: str) -> dict[str, Any]:
         payload: dict[str, Any] = jwt.decode(token, auth_settings.SECRET_KEY, algorithms=[auth_settings.ALGORITHM])
         return payload
     except JWTError as e:
-        raise JWTError(f"Token validation failed: {str(e)}")
+        raise JWTError(f"Token validation failed: {e!s}") from e

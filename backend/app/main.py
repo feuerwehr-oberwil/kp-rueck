@@ -157,8 +157,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("Default settings initialized")
         except Exception as e:
             logger.warning(f"Default settings initialization failed: {e}")
-        finally:
-            break  # Only need one session
+        break  # Only need one session (outside `finally`: there it would swallow errors)
 
     # Seed database if requested
     if os.getenv("SEED_DATABASE", "").lower() == "true":

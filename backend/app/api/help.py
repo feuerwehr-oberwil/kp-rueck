@@ -102,8 +102,7 @@ async def export_help_pdf(current_user: CurrentUser):
             if not md_file.exists():
                 continue
 
-            with open(md_file, encoding="utf-8") as f:
-                md_content = f.read()
+            md_content = md_file.read_text(encoding="utf-8")
 
             # Convert markdown to HTML
             markdown.markdown(md_content, extensions=["tables", "fenced_code"])
@@ -128,7 +127,7 @@ async def export_help_pdf(current_user: CurrentUser):
                 elif line.startswith("### "):
                     elements.append(Paragraph(line[4:], styles["Heading4"]))
                 # Lists
-                elif line.startswith("- ") or line.startswith("* "):
+                elif line.startswith(("- ", "* ")):
                     elements.append(Paragraph(f"• {line[2:]}", styles["Normal"]))
                 # Numbered lists
                 elif len(line) > 2 and line[0].isdigit() and line[1:3] == ". ":
@@ -144,9 +143,11 @@ async def export_help_pdf(current_user: CurrentUser):
                 else:
                     # Skip image references for now
                     if not line.startswith("!["):
-                        try:
+                        try:  # noqa: SIM105
                             elements.append(Paragraph(line, styles["Normal"]))
-                        except Exception:
+                        # S110/SIM105 suppressed: one unrenderable line must not sink the PDF,
+                        # and contextlib.suppress here would hide which call is the fragile one.
+                        except Exception:  # noqa: S110
                             # Skip problematic lines (e.g., malformed XML/HTML entities)
                             pass
 
@@ -164,7 +165,7 @@ async def export_help_pdf(current_user: CurrentUser):
         )
 
     except Exception as e:
-        return {"error": f"Failed to generate PDF: {str(e)}"}
+        return {"error": f"Failed to generate PDF: {e!s}"}
 
 
 @router.get("/topics")

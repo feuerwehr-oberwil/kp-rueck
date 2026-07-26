@@ -70,7 +70,7 @@ async def preview_excel_import(
         # openpyxl parsing off the event loop (audit H4)
         parsed_data = await asyncio.to_thread(validate_and_parse_excel, file_bytes)
     except ExcelImportError:
-        raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden")
+        raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden") from None
 
     # Return preview (first 10 rows of each type)
     return {
@@ -124,7 +124,7 @@ async def execute_excel_import(
         # openpyxl parsing off the event loop (audit H4)
         parsed_data = await asyncio.to_thread(validate_and_parse_excel, file_bytes)
     except ExcelImportError:
-        raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden")
+        raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden") from None
 
     # Execute import
     counts = await import_data(db, parsed_data, mode, str(current_user.id))
@@ -242,4 +242,4 @@ async def seed_training_templates(
         }
     except Exception as e:
         logger.error("Failed to seed training data: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=ErrorMessages.PROCESSING_FAILED)
+        raise HTTPException(status_code=500, detail=ErrorMessages.PROCESSING_FAILED) from e

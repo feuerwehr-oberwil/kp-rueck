@@ -36,32 +36,32 @@ async def trigger_sync_background():
         from ..services.sync_service import create_sync_service
 
         # Get a new database session for background task
+        # One session, then out. The `break` used to sit in a `finally:`, which silently
+        # discarded anything raised above it — so a failing sync never reached the handler
+        # below and "Background sync failed" was never logged. The inner try/finally had no
+        # other purpose, so it is gone entirely.
         async for db in get_db():
-            try:
-                # Check Railway URL from database settings
-                railway_url = await get_setting_value(db, "railway_database_url", "")
-                if not railway_url:
-                    logger.debug("Background sync skipped: No Railway database URL configured")
-                    return
+            # Check Railway URL from database settings
+            railway_url = await get_setting_value(db, "railway_database_url", "")
+            if not railway_url:
+                logger.debug("Background sync skipped: No Railway database URL configured")
+                return
 
-                sync_service = await create_sync_service(db)
+            sync_service = await create_sync_service(db)
 
-                # Check Railway health
-                railway_healthy = await sync_service.check_railway_health()
-                if not railway_healthy:
-                    logger.debug("Background sync skipped: Railway unreachable")
-                    return
+            # Check Railway health
+            railway_healthy = await sync_service.check_railway_health()
+            if not railway_healthy:
+                logger.debug("Background sync skipped: Railway unreachable")
+                return
 
-                # Push local changes to Railway (event-based)
-                result = await sync_service.sync_to_railway()
-                if result.success:
-                    logger.info(
-                        "Event-based sync to Railway successful: %d records", sum(result.records_synced.values())
-                    )
-                else:
-                    logger.warning("Event-based sync to Railway failed: %s", result.errors)
-            finally:
-                break
+            # Push local changes to Railway (event-based)
+            result = await sync_service.sync_to_railway()
+            if result.success:
+                logger.info("Event-based sync to Railway successful: %d records", sum(result.records_synced.values()))
+            else:
+                logger.warning("Event-based sync to Railway failed: %s", result.errors)
+            break
     except Exception as e:
         # Log error but don't fail the incident creation
         logger.error("Background sync failed: %s", e)
@@ -234,7 +234,7 @@ async def create_incident(
             request=request,
         )
     except crud.InvalidIncidentGroupError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     # Trigger immediate sync in background (event-based sync)
     background_tasks.add_task(trigger_sync_background)
@@ -273,10 +273,10 @@ async def update_incident(
             expected_updated_at=expected_updated_at,
         )
     except crud.InvalidIncidentGroupError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ValueError as e:
         logger.warning("Incident update conflict for %s: %s", incident_id, e)
-        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT)
+        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from e
 
     if not incident:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
@@ -555,13 +555,13 @@ async def restore_incident(
             request=request,
         )
     except ValueError:
-        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT)
+        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from None
     except IntegrityError:
         # Defensive: restore_incident appends route stops at the end to avoid a
         # group_position collision, but guard against any other unique-constraint
         # race so the undo returns a clean 409 rather than a 500.
         await db.rollback()
-        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT)
+        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from None
 
     if not incident:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
@@ -613,11 +613,11 @@ async def transfer_assignments(
         msg = str(e)
         low = msg.lower()
         if "not found" in low or "nicht gefunden" in low:
-            raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
+            raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
         elif "bereits zugewiesen" in low or "already assigned" in low or "conflict" in low:
-            raise HTTPException(status_code=409, detail=msg)
+            raise HTTPException(status_code=409, detail=msg) from e
         else:
-            raise HTTPException(status_code=400, detail=msg)
+            raise HTTPException(status_code=400, detail=msg) from e
 
     # Get event_id for WebSocket broadcast
     incident_result = await db.execute(select(crud.Incident).where(crud.Incident.id == incident_id))

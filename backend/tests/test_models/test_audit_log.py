@@ -107,7 +107,7 @@ class TestAuditLogModel:
     async def test_audit_log_query_by_user(self, db_session: AsyncSession, test_user: User):
         """Test querying audit logs by user."""
         # Create multiple logs
-        for i in range(3):
+        for _i in range(3):
             log = AuditLog(
                 id=uuid4(),
                 user_id=test_user.id,

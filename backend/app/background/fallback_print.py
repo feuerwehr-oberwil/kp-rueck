@@ -9,6 +9,7 @@ of thermal paper. Automatic jobs carry ``payload["auto"] = true``.
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -77,10 +78,8 @@ class FallbackPrintTask:
         self.running = False
         if self.task:
             self.task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.task
-            except asyncio.CancelledError:
-                pass
         logger.info("Fallback auto-print task stopped")
 
     async def _monitor_loop(self):
@@ -91,7 +90,7 @@ class FallbackPrintTask:
                         await self._check_and_print(db)
                     finally:
                         await db.close()
-                        break
+                    break  # outside `finally` — there it would swallow the error above
             except Exception as e:
                 logger.error("Error in fallback auto-print monitor: %s", e)
 

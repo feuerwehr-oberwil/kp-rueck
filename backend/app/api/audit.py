@@ -57,7 +57,7 @@ async def query_audit_log(
                 normalized_start = parts[0] + "+" + parts[1]
             start_dt = datetime.fromisoformat(normalized_start)
         except ValueError:
-            raise HTTPException(status_code=422, detail=f"Invalid start_date format: {start_date}")
+            raise HTTPException(status_code=422, detail=f"Invalid start_date format: {start_date}") from None
 
     if end_date:
         try:
@@ -68,7 +68,7 @@ async def query_audit_log(
                 normalized_end = parts[0] + "+" + parts[1]
             end_dt = datetime.fromisoformat(normalized_end)
         except ValueError:
-            raise HTTPException(status_code=422, detail=f"Invalid end_date format: {end_date}")
+            raise HTTPException(status_code=422, detail=f"Invalid end_date format: {end_date}") from None
 
     query = select(AuditLog).order_by(AuditLog.timestamp.desc())
 

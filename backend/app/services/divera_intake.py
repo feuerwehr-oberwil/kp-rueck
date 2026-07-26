@@ -204,7 +204,7 @@ async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -
         try:
             await db.rollback()
             await db.refresh(emergency)
-        except Exception:
+        except Exception:  # noqa: S110 — already on the error path; a failed rollback changes nothing
             pass
         return None
 

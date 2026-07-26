@@ -54,8 +54,6 @@ audit_session_maker = async_sessionmaker(
 class Base(DeclarativeBase):
     """Base class for all models."""
 
-    pass
-
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for getting async database session."""

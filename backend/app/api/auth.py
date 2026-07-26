@@ -178,7 +178,7 @@ async def refresh_token(
         user_id = uuid.UUID(payload.get("sub"))
 
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Refresh-Token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Refresh-Token") from None
 
     # Load user
     result = await db.execute(select(User).where(User.id == user_id))
@@ -234,7 +234,7 @@ async def logout(
     # Try to get current user for logging purposes (but don't require it)
     current_user = None
     if access_token:
-        try:
+        try:  # noqa: SIM105 — the comment below is the point; suppress() would hide it
             current_user = await get_current_user(request=request, access_token=access_token, db=db)
         except HTTPException:
             # If token is invalid/expired, that's fine - just clear cookies
@@ -360,13 +360,13 @@ async def microsoft_login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Microsoft-Anmeldung fehlgeschlagen: Code-Austausch ungültig",
-        )
+        ) from e
     except Exception as e:
         logger.error("Microsoft token exchange error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Verbindung zu Microsoft fehlgeschlagen",
-        )
+        ) from e
 
     # 2. Validate & decode ID token
     try:
@@ -376,7 +376,7 @@ async def microsoft_login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Microsoft-Token ungültig",
-        )
+        ) from e
 
     # 3. Extract identity
     email = claims.get("preferred_username", "").lower().strip()

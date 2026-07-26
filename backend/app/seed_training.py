@@ -1007,7 +1007,7 @@ async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None
                     "latitude": actual_lat,
                     "longitude": actual_lon,
                 }
-    except Exception:
+    except Exception:  # noqa: S110 — geocoding a seed address is best-effort; None is handled
         pass
 
     return None

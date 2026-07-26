@@ -90,7 +90,7 @@ class IncidentBase(BaseModel):
                     raise ValueError("Latitude must be between -90 and 90 degrees")
             except (ValueError, TypeError) as e:
                 if "Latitude must be between" not in str(e):
-                    raise ValueError("Invalid latitude value")
+                    raise ValueError("Invalid latitude value") from e
                 raise
         return v
 
@@ -105,7 +105,7 @@ class IncidentBase(BaseModel):
                     raise ValueError("Longitude must be between -180 and 180 degrees")
             except (ValueError, TypeError) as e:
                 if "Longitude must be between" not in str(e):
-                    raise ValueError("Invalid longitude value")
+                    raise ValueError("Invalid longitude value") from e
                 raise
         return v
 

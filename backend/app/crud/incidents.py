@@ -138,9 +138,10 @@ async def get_incidents(
         if not row.is_draft:
             incidents_with_completed_reko.add(row.incident_id)
         # Keep the earliest arrived_at for each incident
-        if row.arrived_at:
-            if row.incident_id not in reko_arrived_at_map or row.arrived_at < reko_arrived_at_map[row.incident_id]:
-                reko_arrived_at_map[row.incident_id] = row.arrived_at
+        if row.arrived_at and (
+            row.incident_id not in reko_arrived_at_map or row.arrived_at < reko_arrived_at_map[row.incident_id]
+        ):
+            reko_arrived_at_map[row.incident_id] = row.arrived_at
 
     # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
     for incident in incidents:

@@ -206,7 +206,7 @@ async def get_event_incident_counts_batch(db: AsyncSession, event_ids: list[uuid
     result = await db.execute(query)
 
     # Create map with default count of 0 for events with no incidents
-    counts_map = {event_id: 0 for event_id in event_ids}
+    counts_map = dict.fromkeys(event_ids, 0)
     for row in result:
         counts_map[row.event_id] = row.count
 

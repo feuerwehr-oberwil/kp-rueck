@@ -94,8 +94,7 @@ async def scheduled_sync():
 
         except Exception as e:
             logger.error(f"Sync error: {e}")
-        finally:
-            break  # Only use one session
+        break  # Only use one session (outside `finally`: there it would swallow errors)
 
 
 def start_sync_scheduler():
