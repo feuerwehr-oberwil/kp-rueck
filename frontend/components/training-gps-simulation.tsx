@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { Satellite, Play, Square, Home, Gauge } from 'lucide-react';
+import { Satellite, Play, Square, Home, Gauge, Lock } from 'lucide-react';
 import { useGpsSimSpeed, GPS_SIM_SPEED_MIN, GPS_SIM_SPEED_MAX } from '@/lib/hooks/use-gps-sim-speed';
 import { formatEta, liveDrive } from '@/lib/gps-sim';
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils';
@@ -43,6 +43,9 @@ export function TrainingGpsSimulation() {
   // Global tempo, shared with the Nächste-Aktionen console (persisted).
   const [speedKmh, setSpeedKmh] = useGpsSimSpeed();
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  // The backend refuses simulated drives in demo mode. Ask up front so the
+  // rows render disabled with a reason instead of failing on click.
+  const [demoLocked, setDemoLocked] = useState(false);
 
   const refreshDrives = useCallback(async () => {
     try {
@@ -55,6 +58,7 @@ export function TrainingGpsSimulation() {
 
   useEffect(() => {
     apiClient.getVehicles().then(setVehicles).catch(() => setVehicles([]));
+    apiClient.getDemoStatus().then((status) => setDemoLocked(!!status?.demo)).catch(() => {});
     refreshDrives();
     // Live status via WS, plus a light poll so drive states stay fresh.
     const unsubscribe = wsClient.on('gps_sim_status', () => refreshDrives());
@@ -237,6 +241,12 @@ export function TrainingGpsSimulation() {
             {t('speed', { speed: Math.round(speedKmh) })}
           </span>
         </div>
+        {demoLocked && (
+          <p className="flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3.5 w-3.5 flex-shrink-0" />
+            {t('lockedDemo')}
+          </p>
+        )}
         {vehicles.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t('noVehicles')}</p>
         ) : (
@@ -292,6 +302,7 @@ export function TrainingGpsSimulation() {
                     <Select
                       value={targetFor(vehicle.id)}
                       onValueChange={(v) => setTargets((prev) => ({ ...prev, [vehicle.id]: v }))}
+                      disabled={demoLocked}
                     >
                       <SelectTrigger className="h-8 flex-1 text-xs">
                         <SelectValue placeholder={t('targetPlaceholder')} />
@@ -312,9 +323,10 @@ export function TrainingGpsSimulation() {
                     </Select>
                     <Button
                       onClick={() => handleStart(vehicle)}
-                      disabled={busy || !targetFor(vehicle.id)}
+                      disabled={busy || demoLocked || !targetFor(vehicle.id)}
                       size="sm"
                       className="flex-shrink-0"
+                      title={demoLocked ? t('lockedDemo') : undefined}
                     >
                       <Play className="mr-1.5 h-3.5 w-3.5" />
                       {t('startDrive')}
