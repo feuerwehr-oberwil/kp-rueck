@@ -6,6 +6,7 @@ columns. The deprecated ``personnel.divera_user_id`` column is dual-written
 elsewhere for one compatibility release.
 """
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -19,7 +20,7 @@ async def set_identity(
     personnel_id: UUID,
     provider: str,
     external_id: str,
-    metadata: dict | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> models.PersonnelExternalIdentity:
     """Create or update a person's identity at a provider (upsert, commits)."""
     existing = (
@@ -57,5 +58,5 @@ async def get_identity_map(db: AsyncSession, provider: str, personnel_ids: list[
     if personnel_ids is not None:
         query = query.where(models.PersonnelExternalIdentity.personnel_id.in_(personnel_ids))
 
-    rows = (await db.execute(query)).all()
+    rows = (await db.execute(query)).tuples().all()
     return dict(rows)

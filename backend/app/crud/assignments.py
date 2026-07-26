@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import Request
 from sqlalchemy import and_, select
@@ -171,28 +172,25 @@ async def unassign_resource(
     return True
 
 
-async def update_resource_status(db: AsyncSession, resource_type: str, resource_id: uuid.UUID, new_status: str):
+async def update_resource_status(db: AsyncSession, resource_type: str, resource_id: uuid.UUID, new_status: str) -> None:
     """Update resource availability/status field."""
     if resource_type == "personnel":
-        result = await db.execute(select(Personnel).where(Personnel.id == resource_id))
-        resource = result.scalar_one_or_none()
-        if resource:
-            resource.availability = new_status
-            resource.updated_at = datetime.utcnow()
+        person = (await db.execute(select(Personnel).where(Personnel.id == resource_id))).scalar_one_or_none()
+        if person:
+            person.availability = new_status
+            person.updated_at = datetime.utcnow()
 
     elif resource_type == "vehicle":
-        result = await db.execute(select(Vehicle).where(Vehicle.id == resource_id))
-        resource = result.scalar_one_or_none()
-        if resource:
-            resource.status = new_status
-            resource.updated_at = datetime.utcnow()
+        vehicle = (await db.execute(select(Vehicle).where(Vehicle.id == resource_id))).scalar_one_or_none()
+        if vehicle:
+            vehicle.status = new_status
+            vehicle.updated_at = datetime.utcnow()
 
     elif resource_type == "material":
-        result = await db.execute(select(Material).where(Material.id == resource_id))
-        resource = result.scalar_one_or_none()
-        if resource:
-            resource.status = new_status
-            resource.updated_at = datetime.utcnow()
+        material = (await db.execute(select(Material).where(Material.id == resource_id))).scalar_one_or_none()
+        if material:
+            material.status = new_status
+            material.updated_at = datetime.utcnow()
 
 
 async def get_incident_assignments(db: AsyncSession, incident_id: uuid.UUID) -> list[IncidentAssignment]:
@@ -253,7 +251,7 @@ async def get_assignments_by_event(
     assignments = result.scalars().all()
 
     # Group by incident_id
-    assignments_by_incident = {}
+    assignments_by_incident: dict[uuid.UUID, list[schemas.AssignmentResponse]] = {}
     for assignment in assignments:
         if assignment.incident_id not in assignments_by_incident:
             assignments_by_incident[assignment.incident_id] = []
@@ -288,7 +286,7 @@ async def auto_release_incident_resources(
     current_user: User,
     request: Request,
     exclude_materials: bool = True,
-):
+) -> None:
     """
     Automatically release resources when incident completed.
 
@@ -317,7 +315,7 @@ _RESOURCE_TYPE_LABELS = {"personnel": "Person", "vehicle": "Fahrzeug", "material
 
 async def _resolve_resource_label(db: AsyncSession, resource_type: str, resource_id: uuid.UUID) -> str:
     """Human-readable 'Typ Name' for a resource, for user-facing error messages."""
-    model = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}.get(resource_type)
+    model: type[Any] | None = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}.get(resource_type)
     type_label = _RESOURCE_TYPE_LABELS.get(resource_type, resource_type)
     if model is None:
         return f"{type_label} {resource_id}"
@@ -332,7 +330,7 @@ async def transfer_assignments(
     target_incident_id: uuid.UUID,
     current_user: User,
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """
     Transfer all active assignments from source incident to target incident.
 

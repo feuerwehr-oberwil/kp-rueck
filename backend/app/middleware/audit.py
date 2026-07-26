@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Strong references to in-flight audit tasks; see the create_task call below.
-_inflight_audit_tasks: set[asyncio.Task] = set()
+_inflight_audit_tasks: set[asyncio.Task[None]] = set()
 
 
 async def _log_api_request(

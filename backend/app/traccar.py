@@ -1,6 +1,7 @@
 """Traccar GPS tracking integration service."""
 
 from datetime import datetime
+from typing import Any
 
 import httpx
 from pydantic import BaseModel
@@ -35,7 +36,7 @@ class TraccarPosition(BaseModel):
     serverTime: datetime
     fixTime: datetime
     address: str | None = None
-    attributes: dict | None = None
+    attributes: dict[str, Any] | None = None
 
 
 class VehiclePosition(BaseModel):
@@ -56,7 +57,7 @@ class VehiclePosition(BaseModel):
 class TraccarClient:
     """Client for Traccar API using basic authentication."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = settings.traccar_url.rstrip("/") if settings.traccar_url else ""
         self.email = settings.traccar_email
         self.password = settings.traccar_password

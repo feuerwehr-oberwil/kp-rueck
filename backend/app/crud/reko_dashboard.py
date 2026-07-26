@@ -3,6 +3,7 @@
 import math
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +24,7 @@ def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> int:
 async def get_reko_personnel_for_event(
     db: AsyncSession,
     event_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Get all personnel with Reko function assigned for an event.
 
@@ -163,7 +164,7 @@ async def get_reko_assignments_for_personnel(
     db: AsyncSession,
     event_id: uuid.UUID,
     personnel_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Get all incident assignments for a Reko personnel, including previously submitted.
 
@@ -337,7 +338,7 @@ async def unassign_reko_personnel_from_incident(
 async def get_available_reko_personnel_for_incident(
     db: AsyncSession,
     incident_id: uuid.UUID,
-) -> tuple[list[dict], uuid.UUID | None]:
+) -> tuple[list[dict[str, Any]], uuid.UUID | None]:
     """
     Get available Reko personnel for assignment to an incident.
 

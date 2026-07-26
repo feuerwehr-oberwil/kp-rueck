@@ -20,10 +20,10 @@ last_interval_minutes: int | None = None
 # Flag to prevent new syncs during shutdown
 _shutting_down: bool = False
 # Track current sync task for graceful cancellation
-_current_sync_task: asyncio.Task | None = None
+_current_sync_task: asyncio.Task[None] | None = None
 
 
-async def scheduled_sync():
+async def scheduled_sync() -> None:
     """
     Run periodic bidirectional sync: Railway ↔ Local.
 
@@ -97,7 +97,7 @@ async def scheduled_sync():
         break  # Only use one session (outside `finally`: there it would swallow errors)
 
 
-def start_sync_scheduler():
+def start_sync_scheduler() -> None:
     """
     Start the background sync scheduler.
 
@@ -127,7 +127,7 @@ def start_sync_scheduler():
     logger.info(f"Sync scheduler started (syncing every {settings.sync_interval_minutes} minutes)")
 
 
-def stop_sync_scheduler(timeout_seconds: int = 10):
+def stop_sync_scheduler(timeout_seconds: int = 10) -> None:
     """
     Stop the background sync scheduler gracefully.
 
