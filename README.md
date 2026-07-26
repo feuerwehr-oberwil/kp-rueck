@@ -227,7 +227,7 @@ Start with the [documentation index](docs/README.md). Highlights:
 | [docs/SETUP.md](docs/SETUP.md) | **Start here** for a new station: the ordered path from an empty host to a board you can run an event on |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and deployment diagrams |
 | [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) | Provider-neutral alarm webhook and integration registry |
-| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide |
+| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide (legacy; self-hosting is the reference path) |
 | [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) | Thermal printer and print agent |
 | [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md) | Offline map tiles setup |
 | [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md) | Outage / paper-fallback standard operating procedure |
