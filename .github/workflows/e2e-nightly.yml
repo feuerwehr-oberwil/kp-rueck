@@ -90,6 +90,16 @@ jobs:
 
       # Dev seed on purpose: the specs need the fixture board (vehicles, personnel,
       # materials) that a production seed deliberately omits.
+      # The seed writes rows; it does not create the schema. This service container is a bare
+      # postgres, so without the migrations the first INSERT dies on `relation "users" does not
+      # exist` — which is exactly what this job did on every run since it was written. Same
+      # omission as the e2e-smoke job in ci.yml; fixed there first, then found here.
+      - name: Run migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+
       - name: Seed database
         working-directory: backend
         run: uv run python -m app.seed
