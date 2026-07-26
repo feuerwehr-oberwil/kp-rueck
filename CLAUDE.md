@@ -297,6 +297,12 @@ open http://localhost:8080
 - **State management**: Centralized in React Context with API sync
 - **Real-time updates via WebSockets** (Socket.IO server in `backend/app/websocket_manager.py`, client in `frontend/lib/websocket-client.ts`). Polling remains as a fallback path. Originally polling-only in MVP; WebSockets were added in commit `b67360d` for live driver/assignment updates.
 - **Training vs Live**: Same database, filtered by `training_flag` on incidents
+- **i18n**: German is canonical (`messages/de.json`); `fr`/`it` are deep-partial overlays
+  merged over German (`lib/i18n-messages.ts`) – missing keys fall back to the German string.
+  The language picker in Settings only offers locales whose overlay contains translations
+  (`AVAILABLE_LOCALES`), so empty stubs stay invisible. Locale is per-device via the
+  `NEXT_LOCALE` cookie. Backend output (API error details, PDFs, exports, thermal print)
+  is German-only for now.
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
 
 ## Important Files & Documentation

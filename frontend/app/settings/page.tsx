@@ -75,6 +75,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslations } from 'next-intl';
+import { AVAILABLE_LOCALES, LOCALE_NAMES, getActiveLocale, setActiveLocale, type SupportedLocale } from '@/lib/i18n-messages';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
@@ -563,6 +564,38 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Language — per-device (NEXT_LOCALE cookie), like the theme above. The row
+                  only renders once a second locale has real translations; while fr/it are
+                  empty stubs, German-only stations never see it. */}
+              {mounted && AVAILABLE_LOCALES.length > 1 && (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <Label className="font-medium">{t('page.general.language')}</Label>
+                    <p className="text-xs text-muted-foreground">{t('page.general.languageHint')}</p>
+                  </div>
+                  <div className="w-56 flex-shrink-0">
+                    <Select
+                      value={getActiveLocale()}
+                      onValueChange={(value) => {
+                        setActiveLocale(value as SupportedLocale)
+                        // Full reload: server components and out-of-React translators
+                        // (toasts, api-client errors) read the cookie at load time.
+                        window.location.reload()
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AVAILABLE_LOCALES.map((locale) => (
+                          <SelectItem key={locale} value={locale}>{LOCALE_NAMES[locale]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               {/* Other Settings */}
               {loading ? (
