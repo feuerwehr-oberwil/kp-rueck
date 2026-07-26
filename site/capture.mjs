@@ -7,7 +7,7 @@
  *   node site/capture.mjs --only board,karte    # nur einzelne Shots
  *
  * Fährt eine echte Instanz mit Playwright an, meldet sich als Editor an, schaltet
- * auf das dunkle Board-Theme, blendet Demo-Chrome (Willkommensdialog, DEMO-Banderole,
+ * auf das helle Board-Theme, blendet Demo-Chrome (Willkommensdialog, DEMO-Banderole,
  * Toasts) aus und legt die Bilder in site/shots/ ab. Die Bildnamen sind der Vertrag
  * mit site/index.html – wer hier umbenennt, muss dort mitziehen.
  *
@@ -122,6 +122,12 @@ const shots = [
     },
   },
   { name: 'display', path: '/display/board', settle: 4000, note: 'Beamer-Ansicht im KP' },
+  {
+    name: 'status',
+    path: '/display/status',
+    settle: 4000,
+    note: 'Statusübersicht: Einsätze nach Status, daneben Personal und Material mit Zuordnung',
+  },
   { name: 'training', path: '/training', settle: 2500 },
 ]
 
@@ -167,15 +173,15 @@ const run = async () => {
     deviceScaleFactor: 1,
     locale: 'de-CH',
     timezoneId: 'Europe/Zurich',
-    colorScheme: 'dark',
+    colorScheme: 'light',
     reducedMotion: 'reduce',
   })
 
-  // Dunkles Board-Theme erzwingen und den Willkommensdialog der Demo als
-  // "gesehen" markieren, bevor React startet.
+  // Helles Board-Theme erzwingen (passend zur hellen Landingpage) und den
+  // Willkommensdialog der Demo als "gesehen" markieren, bevor React startet.
   await ctx.addInitScript(() => {
     try {
-      localStorage.setItem('theme', 'dark')
+      localStorage.setItem('theme', 'light')
       localStorage.setItem('kp-rueck.demo-welcome.v1', '1')
     } catch { /* private mode */ }
   })

@@ -23,7 +23,7 @@ node site/build.mjs                              # danach die Ein-Datei-Variante
 ```
 
 `capture.mjs` fährt eine laufende Instanz mit Playwright an (aus `frontend/node_modules`, keine
-zusätzliche Abhängigkeit), meldet sich in der Demo als Editor an, erzwingt das dunkle
+zusätzliche Abhängigkeit), meldet sich in der Demo als Editor an, erzwingt das helle
 Board-Theme, überspringt den Willkommensdialog, blendet DEMO-Banderole und Toasts aus und
 schiesst jede Ansicht in 1500 × 937. Gegen eine nicht-öffentliche Instanz laufen
 `KP_RUECK_USER` / `KP_RUECK_PASS`. Neue Bilder kommen als neuer Eintrag in die `shots`-Liste im
