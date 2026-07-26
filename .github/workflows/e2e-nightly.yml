@@ -19,6 +19,12 @@ on:
   schedule:
     - cron: "42 2 * * *" # 02:42 UTC, nightly
   workflow_dispatch: # so you can ask for a run before a release
+    inputs:
+      grep:
+        description: "Only run specs matching this (Playwright --grep). Empty = the full suite."
+        required: false
+        default: ""
+
 
 permissions:
   contents: read
@@ -117,9 +123,20 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           CORS_ORIGINS: http://localhost:3000
 
-      - name: Run the full E2E suite
+      # The filter goes through the environment, never interpolated into the shell line: a
+      # `${{ inputs.* }}` expanded inside `run:` is a script-injection hole, and this input is
+      # attacker-controllable by anyone who can dispatch the workflow.
+      - name: Run the E2E suite
         working-directory: frontend
-        run: pnpm test:e2e
+        env:
+          GREP: ${{ inputs.grep }}
+        run: |
+          if [ -n "$GREP" ]; then
+            echo "Filtered run: --grep $GREP"
+            pnpm exec playwright test --grep "$GREP"
+          else
+            pnpm test:e2e
+          fi
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
           TEST_USERNAME: admin

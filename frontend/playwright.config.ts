@@ -12,7 +12,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: 'html',
+  // In CI the html report is written but never printed, so a run that is killed (the nightly
+  // hit its 60-minute cap once) produced NO record of which specs had passed — the artifact
+  // upload finds nothing either. `list` streams one line per spec as it finishes, so a
+  // truncated run still tells you exactly how far it got; `github` turns failures into
+  // annotations on the run. Locally the html report on its own is the nicer experience.
+  reporter: process.env.CI
+    ? [['list'], ['github'], ['html', { open: 'never' }]]
+    : 'html',
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
