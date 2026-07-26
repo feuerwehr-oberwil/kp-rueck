@@ -24,6 +24,12 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 | [`openapi.json`](openapi.json) | 🟢 | The committed OpenAPI contract — every route, request and response shape, readable without booting the stack. Regenerate with `just openapi`; a pytest fails when it drifts from the code. |
 | [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) | 🟡 | Reference table map. Alembic migrations are the source of truth – regenerate if this drifts. |
 
+## Open checklist
+
+| Doc | Status | What it is |
+| --- | --- | --- |
+| [`VERIFICATION.md`](VERIFICATION.md) | 🟡 | **Temporary.** What still has to be run against a real environment for the 0.2.0 batch — the Postgres-backed tests, the Node 24 image build, the WebSocket-auth and audit-retention behaviour changes (each with a rollback), and the E2E work that must happen before the smoke job becomes a required check. Delete it once it is ticked. |
+
 ## Planning ([`plans/`](plans/))
 
 | Doc | Status | What it is |

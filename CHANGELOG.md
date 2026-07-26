@@ -31,6 +31,31 @@ will keep holding.
 ## [0.2.0] – 2026-07-26
 
 ### Security
+- **Live updates now require a login.** The Socket.IO connection accepted anyone: only the
+  admin room was role-gated, so anything able to reach `/socket.io` could join the operations
+  room and receive live incident broadcasts — addresses, crew assignments — without
+  authenticating. The strict-mode flag existed but shipped off ("Phase 1"). It is now on.
+
+  The CORS origin whitelist was never the control here, which is the part worth internalising:
+  CORS is enforced by browsers, and a script that omits `Origin` is not a browser.
+
+  > **No action for a normal deployment.** Nothing legitimate connects anonymously — the app
+  > sends its session cookie, the `/display/*` screens require a login, and the public
+  > share-link board polls over HTTP rather than using the socket. If some client of yours
+  > genuinely cannot log in, set `WS_REQUIRE_AUTH=false`; the board falls back to ~5s polling
+  > rather than going blank.
+- **Four security-relevant settings are documented for the first time.** A control nobody can
+  find is not a control. `SSO_EDITOR_ALLOWLIST` (without it, *every* Entra ID sign-in is a
+  viewer — any tenant member can reach the login, so editor is an explicit grant),
+  `WS_REQUIRE_AUTH`, `MASTER_TOKEN` (bypasses login entirely for scripted configuration; empty
+  by default, and not attributed to a user in the audit trail if you enable it), and the
+  `LOGIN_*` throttle knobs the previous release already advertised as tunable. All now in
+  [`.env.example`](.env.example), [`SECURITY.md`](SECURITY.md) and
+  [`docs/SETUP.md`](docs/SETUP.md).
+- **The security scanner was skipping a file.** Bandit is a blocking CI gate, but it ran on
+  Python 3.11 against a 3.12 codebase, could not parse `app/crud/base.py`, and silently
+  excluded it — noted in output that is easy to scroll past. Pinned to the project's Python; it
+  now reports `Files skipped (0)`.
 - **The print-agent endpoints are fail-closed.** They used to accept *any* request when
   `PRINT_AGENT_TOKEN` was unset – on the assumption that the agent only ever reaches the backend
   across a trusted LAN. The same image also runs on a public host, where "unset" quietly meant
@@ -99,6 +124,22 @@ will keep holding.
   each. `.env.example` links to it.
 
 ### Changed
+- **The audit log is no longer deleted after 90 days.** `AUDIT_RETENTION_DAYS` now defaults to
+  `0`, meaning keep everything. It defaulted to 90 and a background job swept silently, which
+  sat badly next to this project's own claim of "defensible records" and an "append-only audit
+  log": a deployment older than three months had already lost the trail for its earliest
+  operations, and nothing anywhere said so. With retention off the sweeper does not start at
+  all. A public demo still caps at 7 days.
+
+  > **Check this if you have been running 0.1.x.** Anything older than 90 days is already gone
+  > — worth knowing *before* somebody asks you for it. And if you were relying on the sweep to
+  > bound table growth, set `AUDIT_RETENTION_DAYS=90` back explicitly. `docs/SETUP.md` §6 has
+  > the reasoning.
+- **Node 24 instead of Node 20.** The frontend image was built on a runtime that reached
+  end-of-life on 2026-04-30, so any Node vulnerability disclosed after that date was one nobody
+  would ever patch for it. Node 24 is supported to 2028-04-30. Dependabot now watches base
+  images too — that gap existed because npm, pip and GitHub Actions were watched and the one
+  dependency a station actually *runs* was not.
 - **A fresh production deployment now starts with an empty board.** It used to be seeded with a
   fictional station: five vehicles (Omega 1–5), 57 firefighters, a full material catalogue, and
   thirteen training locations on real streets in one specific Swiss municipality. Sample
@@ -146,10 +187,6 @@ will keep holding.
   `postal_code` defaulted to `4104` and `city` to `Oberwil` at the database level. Every writer
   already supplies both, so the defaults could only ever fire as a wrong answer. Existing rows
   are untouched.
-- **The security scanner was silently skipping a file.** Bandit is a blocking gate, but it ran on
-  Python 3.11 while the code targets 3.12, so it could not parse `app/crud/base.py` and simply
-  excluded it — reported in its output, easy to scroll past. Pinned to the project's Python; it
-  now reports `Files skipped (0)`.
 - **Two stacks on one host no longer fight over port 443.** Caddy had it hard-coded, and KP
   Front's Caddy wants it too – so the second stack simply failed to start. The HTTPS host port is
   now `HTTPS_PORT`, matching the existing `HTTP_PORT`. Note it must be moved even when an outer
