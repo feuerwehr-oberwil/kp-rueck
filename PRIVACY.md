@@ -10,6 +10,9 @@ send something to the maintainer. Both are off or manual by default. If you neve
 nothing about your installation ever reaches us — you can verify that with `tcpdump`, and
 several of the tests in this repository exist to prove it stays true.
 
+Separately, and unrelated to any installation, the project's public website has a contact form.
+That is a website, not the app — see [The project website](#the-project-website) at the end.
+
 ## The short version
 
 | | Problem melden | Automatische Fehlerberichte |
@@ -128,6 +131,29 @@ or what the hosting platform logs at its own edge. That is exactly why
 `KP_TELEMETRY_ENABLED=0` exists and why the default is off. If your threat model includes the
 maintainer's own infrastructure, do not switch this on — that is a legitimate position and the
 app is fully functional without it.
+
+## The project website
+
+`kp-rueck.ch` is the project's landing page. It is **not** part of the software and has nothing
+to do with your installation: it is a handful of static files on GitHub Pages, and nothing on it
+talks to any station's server.
+
+It carries one contact form (name, e-mail, message). Submitting it sends those three fields to
+**staticforms.dev**, which forwards them to the maintainer by e-mail. Static hosting cannot
+accept a form post, so a third party does that step. The service therefore processes what you
+type, plus the usual request metadata a web server sees (including your IP address); its own
+terms and retention apply, and we have no agreement with it beyond an ordinary account.
+
+Three things follow, and they are the point of this section:
+
+- **Using the form is entirely optional.** `bastian@eichenbergers.ch` reaches the same person
+  without a third party in between. The form exists because a `mailto:` link does nothing on a
+  duty phone with no mail client configured — not because we prefer it.
+- **It is a website visitor's data, never a station's.** No incident data, roster, audit trail or
+  anything from a running instance is involved. A deployed KP Rück never contacts this service.
+- **Self-hosters are unaffected.** The landing page is not shipped in any of the published images
+  and is not served by the app. If you host this software, none of the above applies to your
+  deployment.
 
 ## Legal
 
