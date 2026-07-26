@@ -1310,6 +1310,8 @@
         "themeLight": "Hell",
         "themeDark": "Dunkel",
         "themeSystem": "System",
+        "language": "Sprache",
+        "languageHint": "Sprache der Oberfläche auf diesem Gerät",
         "selectPlaceholder": "Wählen...",
         "editorsOnlyNote": "Nur Bearbeiter können Einstellungen ändern.",
         "configs": {
