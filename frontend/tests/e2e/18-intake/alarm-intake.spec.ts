@@ -13,7 +13,7 @@ import { test, expect } from '../../fixtures/auth.fixture';
 
 const BACKEND = 'http://localhost:8000';
 
-test.describe('Alarm Intake - public token form', () => {
+test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
   test('editor link lets a walk-in submit an intake-flagged alarm', async ({ authenticatedPage }) => {
     // 1. Create an event and generate the alarm link via the authenticated API.
     const eventRes = await authenticatedPage.request.post(`${BACKEND}/api/events/`, {
