@@ -24,8 +24,14 @@ name: CI
 # gate is at zero and blocks, or it is honestly labelled a report.
 #
 # NOT A MERGE GATE, but not optional either:
-#   codeql.yml – cross-file taint tracking, reports into the Security tab on a weekly schedule
-#                and per PR. A new alert is work, not something to click past.
+#   CodeQL – cross-file taint tracking, reporting into the Security tab per PR and weekly.
+#            It runs from GitHub's DEFAULT setup (repo settings → Code security), not from a
+#            workflow file in this repo, and it covers five languages there: actions,
+#            javascript, javascript-typescript, python, typescript.
+#            Do NOT add a `codeql.yml`: with default setup enabled, GitHub rejects the SARIF
+#            an advanced workflow uploads, so the job fails while the real analysis passes
+#            beside it. (kp-front is the other way round — default setup is off there, so it
+#            needs its workflow file. Same coverage, different mechanism.)
 #
 # RUNS, BUT NOT YET A REQUIRED CHECK:
 #   e2e-smoke – eight @smoke-tagged Playwright specs on the core path. It used to be `if: false`
