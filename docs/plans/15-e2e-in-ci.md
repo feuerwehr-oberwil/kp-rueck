@@ -82,6 +82,36 @@ fixed or quarantined the same day**, never left red. One tolerated flake and the
 decorative again – the same failure mode this repository just cleared out of its mypy and
 bandit steps.
 
+## Specs deleted because they tested UI that does not exist
+
+Two spec files were removed rather than repaired, both found while making `@smoke` green. The
+distinction that decided it: a red test is a bug report, but a test for a feature the app does
+not have is not a safety net at all — it is a claim of coverage that was never true.
+
+**`05-quick-incident/` (18 tests).** Quick mode is gone from the app: neither `Schnell` nor
+`Schnellerfassung`, `Alle Details` nor the expected `Zack, fertig!` toast appears anywhere in
+`app/` or `components/`, checked across every UI string including `messages/de.json`.
+
+**`07-protected-buttons/` (12 tests + 10 skipped stubs).** This one is worth reading twice,
+because the component still exists: `components/auth/protected-button.tsx` is written, complete
+with lock icon and viewer tooltip — and **imported by nothing**. Grep the tree: outside its own
+file, `ProtectedButton` appears nowhere, and the only `lucide-lock` in the frontend is inside it.
+So no button in the app is permission-gated, 9 of the 12 tests drove the removed `Schnell`
+button, and the 3 that did not asserted "no lock icon is visible" — which passes trivially when
+no lock icon can exist anywhere. The one assertion with real content (create-event submit is
+disabled on an empty name) was already covered verbatim by
+`02-events/event-creation.spec.ts › should not allow creating event with empty name`.
+
+The 10 `test.skip` blocks were comment-only stubs describing viewer behaviour that was never
+implemented — decoration, in the sense this document uses the word about the nightly.
+
+**What is actually open here, and it is not a test task:** the viewer role exists (seeded
+accounts, `VIEWER_PASSWORD` in both CI workflows) but nothing in the UI is gated on it.
+`protected-button.tsx` is either scaffolding waiting to be wired up or dead code to delete —
+that is a product decision, so it was left in place rather than removed as part of a test
+cleanup. Whoever decides it should write the viewer tests in the same change; the credentials
+to do so already exist in CI.
+
 ## Definition of done
 
 - [x] `if: false` gone from `ci.yml`, and the note in `CONTRIBUTING.md` updated to match.
