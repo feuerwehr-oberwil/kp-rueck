@@ -30,6 +30,18 @@ def reset_scheduler_state():
 
 
 @pytest.fixture
+def pruning_enabled(monkeypatch):
+    """Turn retention on for tests about pruning.
+
+    The default is 0 (keep everything) — the audit log is a record, not a cache — so a
+    test that wants rows deleted has to say so. Tests that assert the *default* behaviour
+    deliberately do not use this fixture.
+    """
+    monkeypatch.setattr(audit_cleanup.settings, "audit_retention_days", 90)
+    monkeypatch.setattr(audit_cleanup.settings, "demo_mode", False)
+
+
+@pytest.fixture
 def session_maker(db_session):
     """Session factory yielding the test's savepoint-bound session.
 
@@ -67,7 +79,7 @@ async def _remaining_of(db_session, rows: list[AuditLog]) -> set:
 
 class TestCleanupOldAuditLogs:
     @pytest.mark.asyncio
-    async def test_deletes_old_keeps_recent(self, db_session, session_maker):
+    async def test_deletes_old_keeps_recent(self, db_session, session_maker, pruning_enabled):
         old_rows = [_audit_row(timedelta(days=100)) for _ in range(3)]
         recent_rows = [_audit_row(timedelta(seconds=0)) for _ in range(2)]
         db_session.add_all(old_rows + recent_rows)
@@ -93,7 +105,7 @@ class TestCleanupOldAuditLogs:
         assert await _remaining_of(db_session, [survivor, goner]) == {survivor.id}
 
     @pytest.mark.asyncio
-    async def test_batching_deletes_all_rows(self, db_session, session_maker, monkeypatch):
+    async def test_batching_deletes_all_rows(self, db_session, session_maker, monkeypatch, pruning_enabled):
         monkeypatch.setattr(audit_cleanup, "BATCH_SIZE", 2)
         rows = [_audit_row(timedelta(days=100)) for _ in range(5)]
         db_session.add_all(rows)
@@ -129,11 +141,55 @@ class TestCleanupOldAuditLogs:
         assert deleted == 1
 
     @pytest.mark.asyncio
-    async def test_empty_table_returns_zero(self, session_maker):
+    async def test_retention_off_by_default_keeps_everything(self, db_session, session_maker, monkeypatch):
+        """The default is a record, not a cache.
+
+        This used to default to 90 days, so a deployment older than three months had
+        already lost the audit trail for its earliest operations — silently, while the
+        README advertised an append-only, defensible record.
+        """
+        monkeypatch.setattr(audit_cleanup.settings, "demo_mode", False)
+        ancient = [_audit_row(timedelta(days=3650)) for _ in range(3)]
+        db_session.add_all(ancient)
+        await db_session.commit()
+
+        deleted = await cleanup_old_audit_logs(session_maker=session_maker)
+
+        assert deleted == 0
+        assert await _remaining_of(db_session, ancient) == {row.id for row in ancient}
+
+    @pytest.mark.asyncio
+    async def test_negative_retention_also_means_keep_everything(self, db_session, session_maker, monkeypatch):
+        """A fat-fingered -1 must not be read as "delete rows from the future"."""
+        monkeypatch.setattr(audit_cleanup.settings, "audit_retention_days", -1)
+        monkeypatch.setattr(audit_cleanup.settings, "demo_mode", False)
+        row = _audit_row(timedelta(days=3650))
+        db_session.add(row)
+        await db_session.commit()
+
+        assert await cleanup_old_audit_logs(session_maker=session_maker) == 0
+        assert await _remaining_of(db_session, [row]) == {row.id}
+
+    @pytest.mark.asyncio
+    async def test_demo_mode_caps_even_when_retention_is_unlimited(self, db_session, session_maker, monkeypatch):
+        """The public demo must not accumulate a trail just because the default changed."""
+        monkeypatch.setattr(audit_cleanup.settings, "audit_retention_days", 0)
+        monkeypatch.setattr(audit_cleanup.settings, "demo_mode", True)
+        row = _audit_row(timedelta(days=10))
+        db_session.add(row)
+        await db_session.commit()
+
+        deleted = await cleanup_old_audit_logs(session_maker=session_maker)
+
+        assert deleted >= 1
+        assert await _remaining_of(db_session, [row]) == set()
+
+    @pytest.mark.asyncio
+    async def test_empty_table_returns_zero(self, session_maker, pruning_enabled):
         assert await cleanup_old_audit_logs(session_maker=session_maker) == 0
 
     @pytest.mark.asyncio
-    async def test_skipped_during_shutdown(self, db_session, session_maker):
+    async def test_skipped_during_shutdown(self, db_session, session_maker, pruning_enabled):
         audit_cleanup._shutting_down = True
         row = _audit_row(timedelta(days=100))
         db_session.add(row)
@@ -154,8 +210,17 @@ class TestCleanupOldAuditLogs:
 
 
 class TestSchedulerLifecycle:
+    async def test_scheduler_does_not_start_when_retention_is_off(self, monkeypatch):
+        """No sweep job at all — not a job that runs and deletes nothing."""
+        monkeypatch.setattr(audit_cleanup.settings, "audit_retention_days", 0)
+        monkeypatch.setattr(audit_cleanup.settings, "demo_mode", False)
+
+        start_audit_cleanup_scheduler()
+
+        assert audit_cleanup.scheduler is None
+
     @pytest.mark.asyncio
-    async def test_start_then_stop(self):
+    async def test_start_then_stop(self, pruning_enabled):
         start_audit_cleanup_scheduler()
         assert audit_cleanup.scheduler is not None
         assert audit_cleanup.scheduler.running

@@ -582,6 +582,22 @@ class TestGetRoleFromEnviron:
 class TestWsRequireAuth:
     """Tests for the strict-mode connect rejection flag."""
 
+    def test_strict_mode_is_the_default(self):
+        """The security property, not the mechanism.
+
+        Both branches below were already tested — what was missing was a test of which one
+        a real deployment gets. It shipped as False ("Phase 1"), so anything that could
+        reach /socket.io could join the operations room and receive live incident
+        broadcasts without logging in. The CORS whitelist does not cover this: CORS is
+        enforced by browsers, and a script that omits Origin is not a browser.
+
+        Flipping this back to False must be a deliberate, argued change — not a default
+        that drifts.
+        """
+        from app.config import Settings
+
+        assert Settings().ws_require_auth is True
+
     @pytest.mark.asyncio
     async def test_rejects_unauthenticated_when_strict(self, monkeypatch):
         from app.websocket_manager import connect as connect_handler

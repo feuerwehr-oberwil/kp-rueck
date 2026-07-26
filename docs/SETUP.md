@@ -164,16 +164,39 @@ are live, and the UI adapts rather than hard-coding vendors.
 - **Traccar** – vehicle GPS with status automation and distance labels on the map.
 - **Microsoft Entra ID** – set the four `MICROSOFT_*` values for SSO. This is the only external
   identity provider today; without it, local accounts are the path.
+
+  **Also set `SSO_EDITOR_ALLOWLIST`,** or nobody who signs in with Microsoft can change
+  anything. *Any* member of your tenant can reach the login, so write access is an explicit
+  grant rather than something membership confers: comma-separated e-mail addresses get
+  `role=editor` on first login, everyone else is provisioned as a viewer.
+
+  ```bash
+  SSO_EDITOR_ALLOWLIST=hans.muster@example.ch,anna.beispiel@example.ch
+  ```
 - **Thermal printer** – `PRINT_AGENT_TOKEN` plus the `printing` compose profile. The token is
   required, not optional: the agent endpoints are fail-closed and answer `403` without it. The
   agent runs on the host network, so `PRINT_AGENT_BACKEND_URL` cannot use a service name. See
   [`PRINT_AGENT.md`](PRINT_AGENT.md).
 
-## 6. Backups and version pinning
+## 6. Backups, retention and version pinning
 
 Follow [`DEPLOYMENT.md` §6](DEPLOYMENT.md) for the database and photo-store backup, and **do one
 restore into a fresh stack before you go live**. An operational record is only provably
 recoverable once you have actually recovered it.
+
+**Decide your audit retention now, not after an incident.** The audit log is what backs an
+after-action report months later. `AUDIT_RETENTION_DAYS` defaults to `0`, which means keep
+everything — the right default for a record, and the reason it is not a number we picked for
+you. If your canton or your own policy says to prune, set the number of days:
+
+```bash
+AUDIT_RETENTION_DAYS=0      # keep everything (default)
+AUDIT_RETENTION_DAYS=3650   # e.g. a ten-year policy
+```
+
+> Versions before 0.2 defaulted to **90 days** and swept silently. If you have been running one
+> of those, the trail for anything older than 90 days is already gone — worth knowing before
+> someone asks you for it.
 
 Pin your version while you are here. `KP_RUECK_TAG=0.2.0` follows nothing, `0.2` follows patch
 fixes, `latest` follows everything. A station that updates deliberately wants one of the first
