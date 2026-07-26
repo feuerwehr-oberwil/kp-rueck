@@ -3,6 +3,7 @@
 import logging
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import Request
 from sqlalchemy import and_, func, select
@@ -110,7 +111,7 @@ async def get_incidents(
     assignments_result = await db.execute(assignments_query)
 
     # Group assignments by incident_id
-    vehicles_by_incident = {}
+    vehicles_by_incident: dict[uuid.UUID, list[Any]] = {}
     for assignment, vehicle in assignments_result.all():
         if assignment.incident_id not in vehicles_by_incident:
             vehicles_by_incident[assignment.incident_id] = []
@@ -133,7 +134,7 @@ async def get_incidents(
     )
     reko_result = await db.execute(reko_query)
     incidents_with_completed_reko = set()
-    reko_arrived_at_map = {}
+    reko_arrived_at_map: dict[uuid.UUID, datetime] = {}
     for row in reko_result:
         if not row.is_draft:
             incidents_with_completed_reko.add(row.incident_id)

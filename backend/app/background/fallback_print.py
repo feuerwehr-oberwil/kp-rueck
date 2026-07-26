@@ -11,6 +11,7 @@ of thermal paper. Automatic jobs carry ``payload["auto"] = true``.
 import asyncio
 import contextlib
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 TICK_SECONDS = 60
 
 
-async def _last_auto_job(db: AsyncSession, event_id) -> PrintJob | None:
+async def _last_auto_job(db: AsyncSession, event_id: uuid.UUID) -> PrintJob | None:
     result = await db.execute(
         select(PrintJob)
         .where(
@@ -40,7 +41,7 @@ async def _last_auto_job(db: AsyncSession, event_id) -> PrintJob | None:
     return result.scalars().first()
 
 
-async def _board_changed_since(db: AsyncSession, event_id, since: datetime) -> bool:
+async def _board_changed_since(db: AsyncSession, event_id: uuid.UUID, since: datetime) -> bool:
     """True if any incident or assignment of the event changed after ``since``."""
     incident_changed = await db.execute(
         select(func.count()).select_from(Incident).where(Incident.event_id == event_id, Incident.updated_at > since)
@@ -63,18 +64,18 @@ async def _board_changed_since(db: AsyncSession, event_id, since: datetime) -> b
 class FallbackPrintTask:
     """Queues periodic board-snapshot print jobs while the fallback toggle is on."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.running = False
-        self.task: asyncio.Task | None = None
+        self.task: asyncio.Task[None] | None = None
 
-    async def start(self):
+    async def start(self) -> None:
         if self.running:
             return
         self.running = True
         self.task = asyncio.create_task(self._monitor_loop())
         logger.info("Fallback auto-print task started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         self.running = False
         if self.task:
             self.task.cancel()
@@ -82,7 +83,7 @@ class FallbackPrintTask:
                 await self.task
         logger.info("Fallback auto-print task stopped")
 
-    async def _monitor_loop(self):
+    async def _monitor_loop(self) -> None:
         while self.running:
             try:
                 async for db in get_db():
@@ -96,7 +97,7 @@ class FallbackPrintTask:
 
             await asyncio.sleep(TICK_SECONDS)
 
-    async def _check_and_print(self, db: AsyncSession):
+    async def _check_and_print(self, db: AsyncSession) -> None:
         enabled = await settings_service.get_setting_value(db, "fallback.auto_print_enabled", "false")
         if enabled.lower() != "true":
             return

@@ -1,6 +1,7 @@
 """Background scheduler for periodic audit log cleanup."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
@@ -11,6 +12,8 @@ from app.config import settings
 from app.database import async_session_maker
 from app.logging_config import get_logger
 from app.models import AuditLog
+
+from ..database import execute_dml
 
 logger = get_logger(__name__)
 
@@ -33,7 +36,7 @@ def get_effective_retention_days() -> int:
     return retention_days
 
 
-async def cleanup_old_audit_logs(session_maker=None) -> int:
+async def cleanup_old_audit_logs(session_maker: Any = None) -> int:
     """Delete audit_log rows older than the retention window.
 
     Deletes in batches of BATCH_SIZE, committing per batch. Never raises
@@ -54,7 +57,7 @@ async def cleanup_old_audit_logs(session_maker=None) -> int:
         async with maker() as session:
             while True:
                 subquery = select(AuditLog.id).where(AuditLog.timestamp < cutoff).limit(BATCH_SIZE)
-                result = await session.execute(delete(AuditLog).where(AuditLog.id.in_(subquery)))
+                result = await execute_dml(session, delete(AuditLog).where(AuditLog.id.in_(subquery)))
                 await session.commit()
 
                 deleted = result.rowcount or 0
@@ -69,7 +72,7 @@ async def cleanup_old_audit_logs(session_maker=None) -> int:
     return total_deleted
 
 
-def start_audit_cleanup_scheduler():
+def start_audit_cleanup_scheduler() -> None:
     """Start the audit cleanup scheduler."""
     global scheduler
 
@@ -98,7 +101,7 @@ def start_audit_cleanup_scheduler():
     scheduler.start()
 
 
-def stop_audit_cleanup_scheduler():
+def stop_audit_cleanup_scheduler() -> None:
     """Stop the audit cleanup scheduler."""
     global scheduler, _shutting_down
 

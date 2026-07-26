@@ -14,6 +14,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
+from ..database import execute_dml
 from ..models import Incident, IncidentGroup, IncidentGroupAssignment, User
 from ..services.audit import log_action
 from . import events as events_crud
@@ -198,7 +199,7 @@ async def soft_delete_group(
         assignment.unassigned_at = group.deleted_at
 
     # Null out group_id on member incidents so they remain on the board.
-    detach_result = await db.execute(update(Incident).where(Incident.group_id == group_id).values(group_id=None))
+    detach_result = await execute_dml(db, update(Incident).where(Incident.group_id == group_id).values(group_id=None))
     detached = detach_result.rowcount or 0
 
     await log_action(
@@ -291,12 +292,12 @@ async def reorder_group_stops(
     updated = 0
     positioned_ids: set[uuid.UUID] = set()
     for index, incident_id in enumerate(ordered_ids):
-        incident = incidents_by_id.get(incident_id)
-        if incident is None:
+        ordered_incident = incidents_by_id.get(incident_id)
+        if ordered_incident is None:
             continue
         positioned_ids.add(incident_id)
-        if incident.group_position != index:
-            incident.group_position = index
+        if ordered_incident.group_position != index:
+            ordered_incident.group_position = index
         updated += 1
 
     next_position = len(ordered_ids)

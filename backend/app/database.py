@@ -1,7 +1,10 @@
 """Async database configuration."""
 
 from collections.abc import AsyncGenerator
+from typing import Any, cast
 
+from sqlalchemy import Delete, Update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -66,3 +69,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+
+
+async def execute_dml(db: AsyncSession, stmt: Delete | Update) -> CursorResult[Any]:
+    """`db.execute()` for UPDATE/DELETE, typed so `.rowcount` is actually visible.
+
+    SQLAlchemy types `AsyncSession.execute()` as returning `Result[Any]`, which has no
+    `rowcount` — that lives on `CursorResult`, which is what a DML statement really returns.
+    One cast here beats the same cast at every sweep and requeue call site. Mirrors kp-front.
+    """
+    return cast("CursorResult[Any]", await db.execute(stmt))

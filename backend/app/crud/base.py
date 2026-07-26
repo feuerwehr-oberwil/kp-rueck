@@ -1,6 +1,6 @@
 """Generic base CRUD operations."""
 
-from typing import Any, TypeVar
+from typing import Any, Protocol, TypeVar
 from uuid import UUID
 
 from fastapi import Request
@@ -12,20 +12,38 @@ from ..database import Base
 from ..models import User
 from ..services.audit import calculate_changes, log_action
 
+
+class ModelProtocol(Protocol):
+    """What CRUDBase actually requires of a model.
+
+    Every model it operates on has a UUID primary key called `id`, and the audit log reads
+    `__tablename__`/`__name__` off the class. `Base` (DeclarativeBase) declares none of
+    those, so binding the type variable to `Base` alone made every `self.model.id` an
+    attribute error — 20-odd findings that all described the same missing statement of an
+    always-implicit requirement. Stating it here fixes them at the source rather than with
+    an ignore per call site.
+    """
+
+    id: Any
+    __tablename__: str
+
+    def __init__(self, **kwargs: Any) -> None: ...
+
+
 # Type variables for generics
 ModelType = TypeVar("ModelType", bound=Base)
 CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
 UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 
 
-class CRUDBase[ModelType: Base, CreateSchemaType: BaseModel, UpdateSchemaType: BaseModel]:
+class CRUDBase[ModelType: ModelProtocol, CreateSchemaType: BaseModel, UpdateSchemaType: BaseModel]:
     """Base class for CRUD operations.
 
     Provides common database operations for all models.
     Reduces code duplication across CRUD modules.
     """
 
-    def __init__(self, model: type[ModelType]):
+    def __init__(self, model: type[ModelType]) -> None:
         """Initialize CRUD base with model class.
 
         Args:
