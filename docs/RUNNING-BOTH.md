@@ -12,6 +12,11 @@ variable names that mean different things**, and **alarm intake secrets**.
 
 If you run only one of the two, you can ignore this entire page.
 
+> **This is the canonical copy, and it is linked from the kp-front repository** (its README,
+> its docs index, and its `.env.example`) rather than duplicated there — a second copy would
+> drift, and half-right instructions about a silent port collision are worse than none. Edit it
+> here; there is nothing to keep in step on the other side.
+
 ---
 
 ## 1. Ports: only one stack can own 443
