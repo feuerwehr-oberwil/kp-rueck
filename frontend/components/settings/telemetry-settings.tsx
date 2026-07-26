@@ -18,8 +18,9 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Check, RefreshCw, Send, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Check, Copy, RefreshCw, Send, ShieldCheck } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -49,6 +50,37 @@ interface TelemetryStatus {
   recent: OutboxRow[]
 }
 
+/** The server's cap on `message` (backend/app/api/diag.py · ProblemReport).
+ *
+ *  Mirrored in the textarea: past the cap the POST 422s, and a 422 lands in the generic failure
+ *  branch, which tells the operator they are «vermutlich offline» — a wrong diagnosis handed to
+ *  the one reporter engaged enough to write four thousand characters. */
+const MAX_MESSAGE = 4000
+
+interface ReportEnv {
+  build: string
+  locale: string
+  userAgent: string
+  viewport: string
+  online: boolean
+}
+
+/** Snapshot of everything the report carries besides the operator's own words.
+ *
+ *  Read once on mount rather than at send time, so the block shown above the button cannot
+ *  drift from the payload that actually leaves — a preview is only worth something if it is
+ *  the same object. In an effect rather than during render because this component is
+ *  server-rendered first, where `navigator` and `window` do not exist. */
+function readEnv(): ReportEnv {
+  return {
+    build: process.env.NEXT_PUBLIC_APP_VERSION ?? 'unknown',
+    locale: navigator.language,
+    userAgent: navigator.userAgent,
+    viewport: `${window.innerWidth}×${window.innerHeight}`,
+    online: navigator.onLine,
+  }
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${getApiUrl()}${path}`, {
     ...init,
@@ -69,6 +101,20 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
   const [message, setMessage] = useState('')
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'disabled' | 'failed'>('idle')
   const [echoed, setEchoed] = useState<string | null>(null)
+  const [env, setEnv] = useState<ReportEnv | null>(null)
+
+  useEffect(() => { setEnv(readEnv()) }, [])
+
+  // The block the operator reads before deciding, assembled from the snapshot above.
+  const techBlock = env
+    ? [
+        `${t('techVersion')} ${env.build}`,
+        `${t('techLocale')} ${env.locale}`,
+        `${t('techDevice')} ${env.userAgent}`,
+        `${t('techViewport')} ${env.viewport}`,
+        `${t('techNetwork')} ${env.online ? t('techOnline') : t('techOffline')}`,
+      ].join('\n')
+    : ''
 
   const loadStatus = useCallback(async () => {
     if (!isAdmin) return
@@ -84,19 +130,32 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
     void loadStatus()
   }, [loadStatus])
 
+  /** The clipboard route: needs no server at all, which is the whole point of offering it when
+   *  the direct one has just failed or the deployer has switched outbound off. */
+  const copyReport = async () => {
+    try {
+      await navigator.clipboard.writeText(`${message.trim() || '—'}\n\n--\n${techBlock}\n`)
+      toast.success(t('copied'))
+    } catch {
+      toast.error(t('copyFailed'))
+    }
+  }
+
   const send = async () => {
+    if (!env) return
     setSendState('sending')
     try {
       const res = await fetch(`${getApiUrl()}/api/diag/report`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        // Exactly the snapshot rendered above — the preview and the payload are one object.
         body: JSON.stringify({
           message,
-          build: process.env.NEXT_PUBLIC_APP_VERSION ?? 'unknown',
-          locale: typeof navigator !== 'undefined' ? navigator.language : undefined,
-          viewport: typeof window !== 'undefined' ? `${window.innerWidth}×${window.innerHeight}` : undefined,
-          online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+          build: env.build,
+          locale: env.locale,
+          viewport: env.viewport,
+          online: env.online,
         }),
       })
       // 503 is the deployer having switched outbound off — a configuration, not a fault.
@@ -166,7 +225,10 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
               {t('sentTitle')}
             </p>
             <p className="text-sm text-muted-foreground">{t('sentBody')}</p>
-            <details className="rounded-md border bg-muted/40 p-3" open>
+            {/* Collapsed, unlike the block before the send: this screen answers «ist es
+                angekommen», and opening with a wall of JSON buries that answer under something
+                the operator has already had their chance to read. */}
+            <details className="rounded-md border bg-muted/40 p-3">
               <summary className="cursor-pointer text-sm font-medium">{t('sentWhat')}</summary>
               <pre className="mt-2 max-h-72 overflow-auto whitespace-pre text-xs">{echoed}</pre>
               <p className="mt-2 text-xs text-muted-foreground">{t('sentEcho')}</p>
@@ -183,25 +245,49 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
                 id="telemetry-message"
                 rows={4}
                 value={message}
+                maxLength={MAX_MESSAGE}
                 placeholder={t('reportPlaceholder')}
                 onChange={(e) => setMessage(e.target.value)}
               />
+              {/* Only in the last tenth before the cap, digits only — no copy key, correct in
+                  every locale. Without it the ceiling is invisible until the server rejects. */}
+              {message.length > MAX_MESSAGE * 0.9 && (
+                <p className="text-right text-xs tabular-nums text-muted-foreground">
+                  {message.length}/{MAX_MESSAGE}
+                </p>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">{t('reportWhat')}</p>
+            {/* The payload, verbatim and open, not a sentence describing it. «Das wird
+                mitgeschickt» is a claim until it can be read at the moment the decision is
+                made — and reading it is the consent this channel runs on. */}
+            <details className="rounded-md border bg-muted/40 p-3" open>
+              <summary className="cursor-pointer text-sm font-medium">{t('techTitle')}</summary>
+              <pre className="mt-2 max-h-72 overflow-auto text-xs whitespace-pre-wrap break-all">{techBlock}</pre>
+              <p className="mt-2 text-xs text-muted-foreground">{t('reportWhat')}</p>
+            </details>
             {(sendState === 'failed' || sendState === 'disabled') && (
               <p className="flex items-start gap-2 text-sm text-amber-600" role="status">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 {sendState === 'disabled' ? t('sendDisabled') : t('sendFailed')}
               </p>
             )}
-            <Button
-              onClick={() => void send()}
-              disabled={sendState === 'sending' || message.trim().length === 0}
-              className="gap-2"
-            >
-              <Send className="h-4 w-4" />
-              {sendState === 'sending' ? t('sending') : t('send')}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={() => void send()}
+                disabled={sendState === 'sending' || message.trim().length === 0 || !env}
+                className="gap-2"
+              >
+                <Send className="h-4 w-4" />
+                {sendState === 'sending' ? t('sending') : t('send')}
+              </Button>
+              {/* Quieter, and never disabled: when the direct route has just failed or the
+                  deployer has switched outbound off, this is the only way out — and a form
+                  that can fail with no alternative is a dead end, not a form. */}
+              <Button variant="ghost" size="sm" className="gap-2" onClick={() => void copyReport()}>
+                <Copy className="h-3.5 w-3.5" />
+                {t('copy')}
+              </Button>
+            </div>
           </>
         )}
       </Card>
