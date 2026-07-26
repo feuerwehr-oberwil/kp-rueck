@@ -129,6 +129,10 @@ jobs:
       - name: Run the E2E suite
         working-directory: frontend
         env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          TEST_USERNAME: admin
+          TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
+          CI: true
           GREP: ${{ inputs.grep }}
         run: |
           if [ -n "$GREP" ]; then
@@ -137,11 +141,6 @@ jobs:
           else
             pnpm test:e2e
           fi
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000
-          TEST_USERNAME: admin
-          TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
-          CI: true
 
       - name: Upload test results
         uses: actions/upload-artifact@v7
