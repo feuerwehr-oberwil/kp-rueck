@@ -41,8 +41,11 @@ export class MainPage extends BasePage {
 
     // Incident Creation Elements
     this.newIncidentButton = page.locator('button:has-text("Neuer Einsatz")');
-    // Scope to the open dialog — the board also renders closed Radix popovers with role="dialog".
-    this.incidentModal = page.locator('[role="dialog"][data-state="open"]');
+    // Radix gives BOTH dialogs and popovers `role="dialog"`, and a combobox popover inside the
+    // modal is open at the same time as the modal — so `[role="dialog"][data-state="open"]`
+    // matched two elements and every use died on a strict-mode violation. `data-slot` is what
+    // actually distinguishes them: dialog-content vs popover-content.
+    this.incidentModal = page.locator('[role="dialog"][data-slot="dialog-content"][data-state="open"]');
 
     // Role Badge Elements
     this.roleBadge = page.locator('[class*="badge"]').filter({
