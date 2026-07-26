@@ -115,12 +115,47 @@ export class MainPage extends BasePage {
    */
   async createIncident(location: string, notes?: string) {
     await this.openIncidentModal();
-    await this.modalLocationInput.fill(location);
+    await this.setLocation(location);
     if (notes) {
       await this.modalNotesInput.fill(notes);
     }
     await this.modalCreateButton.click();
     await this.waitForToast();
+  }
+
+  /**
+   * Enter the address in the modal's LocationInput.
+   *
+   * Typing is NOT enough: LocationInput is a combobox, and its search box only holds a local
+   * query. The value reaches the form — and so enables the create button, which is disabled
+   * on `!formData.location` — only when the address is *committed*, either by picking a
+   * geocoder result or via the "«…» übernehmen" freetext option that appears when the
+   * geocoder returns nothing. Filling the box and clicking Create just timed out on a
+   * permanently disabled button.
+   *
+   * Both paths are handled because CI's network to the geocoder is not something a test
+   * should depend on: whichever of the two appears first is taken.
+   */
+  async setLocation(address: string) {
+    await this.modalLocationInput.fill(address);
+
+    // Options live in the combobox popover — which Radix also gives role="dialog", hence the
+    // data-slot discriminator. Every button in it is an option: either a geocoded result row
+    // or the "«…» übernehmen" freetext fallback shown when the geocoder returns nothing.
+    // Clicking any of them commits the address; which one appears depends on whether CI could
+    // reach the geocoder, so this does not assume either way.
+    const popover = this.page.locator(
+      '[role="dialog"][data-slot="popover-content"][data-state="open"]'
+    );
+    const options = popover.getByRole('button');
+    await options.first().waitFor({ state: 'visible', timeout: 15000 });
+
+    const freetext = popover.getByRole('button', { name: /übernehmen/ });
+    if ((await freetext.count()) > 0) {
+      await freetext.first().click();
+    } else {
+      await options.first().click();
+    }
   }
 
   /**
