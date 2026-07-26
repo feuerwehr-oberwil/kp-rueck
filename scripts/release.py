@@ -79,6 +79,22 @@ def relock() -> None:
             print(f"  {project}/uv.lock{'':<14} re-locked")
 
 
+def regenerate_openapi() -> None:
+    """The committed spec stamps the version, so a bump drifts it — and the drift test in
+    backend/tests/test_openapi_committed.py would fail the release's own CI run. Regenerate
+    here rather than leaving it as a step to remember."""
+    if not shutil.which("uv"):
+        print("  docs/openapi.json            SKIPPED (uv not on PATH – run `just openapi` yourself)")
+        return
+    subprocess.run(
+        ["uv", "run", "python", "-m", "app.dump_openapi", "../docs/openapi.json"],
+        cwd=ROOT / "backend",
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    print("  docs/openapi.json            regenerated")
+
+
 def bump_changelog(version: str, previous: str) -> None:
     text = CHANGELOG.read_text()
 
@@ -132,6 +148,7 @@ def main() -> None:
 
     bump_files(version, previous)
     relock()
+    regenerate_openapi()
     bump_changelog(version, previous)
 
     print(

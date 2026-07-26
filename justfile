@@ -102,6 +102,15 @@ db cmd="start" *args:
     esac
 
 # ============================================
+# API contract
+# ============================================
+
+# Regenerate the committed OpenAPI spec. Run this in the same change that adds or renames
+# a route — a pytest fails when docs/openapi.json drifts from the code.
+openapi:
+    cd backend && uv run python -m app.dump_openapi ../docs/openapi.json
+
+# ============================================
 # Offline Maps
 # ============================================
 
@@ -268,7 +277,7 @@ release version:
 # Commit the bump and tag it. Stages ONLY the release files.
 # Then: git push --follow-tags  → CI gate → four GHCR images + GitHub Release.
 release-tag version:
-    git add frontend/package.json backend/pyproject.toml backend/uv.lock backend/app/config.py print-agent/pyproject.toml print-agent/uv.lock CHANGELOG.md
+    git add frontend/package.json backend/pyproject.toml backend/uv.lock backend/app/config.py print-agent/pyproject.toml print-agent/uv.lock docs/openapi.json CHANGELOG.md
     git commit -m "chore(release): v{{version}}"
     git tag -a v{{version}} -m "v{{version}}"
     @echo "\033[1;32m✓ Tagged v{{version}}. Push with: git push --follow-tags\033[0m"

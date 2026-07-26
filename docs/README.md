@@ -21,6 +21,7 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 | [`PRINT_AGENT.md`](PRINT_AGENT.md) | 🟢 | The print agent and the transport-neutral job queue: dispatch slips, board snapshots, QR walk-in slips, the four agent endpoints, and how to write a custom agent for any printer. |
 | [`PHOTO_STORAGE.md`](PHOTO_STORAGE.md) | 🟢 | How Reko photos are stored on the persistent volume, served, and pooled for training scenarios. |
 | [`AUSFALL_SOP.md`](AUSFALL_SOP.md) | 🟢 | Outage / paper-fallback standard operating procedure: Lageblatt PDF, automatic thermal snapshots, and what to do when the network or backend is down. |
+| [`openapi.json`](openapi.json) | 🟢 | The committed OpenAPI contract — every route, request and response shape, readable without booting the stack. Regenerate with `just openapi`; a pytest fails when it drifts from the code. |
 | [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) | 🟡 | Reference table map. Alembic migrations are the source of truth – regenerate if this drifts. |
 
 ## Planning ([`plans/`](plans/))
