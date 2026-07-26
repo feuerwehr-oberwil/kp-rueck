@@ -28,6 +28,8 @@ will keep holding.
 
 ## [Unreleased]
 
+## [0.2.0] – 2026-07-26
+
 ### Security
 - **The print-agent endpoints are fail-closed.** They used to accept *any* request when
   `PRINT_AGENT_TOKEN` was unset – on the assumption that the agent only ever reaches the backend
@@ -41,6 +43,36 @@ will keep holding.
   > install, where the token was previously optional. Deployments that don't print need nothing.
 
 ### Added
+- **Offline map tiles work for your region, not just ours.** The tile pipeline was wired to one
+  Swiss canton: the download URL, the bounding box and the region label were all literals in
+  `scripts/download-tiles.sh`, so a station anywhere else could not follow the documented
+  `just tiles-download` at all — it had to fork the script. Four environment variables now drive
+  it, and `docs/OFFLINE_MAPS.md` explains how to find your own values:
+
+  ```bash
+  TILES_REGION="Oberbayern" \
+  TILES_BOUNDS=11.0,47.7,12.3,48.4 \
+  TILES_AREA=oberbayern \
+  TILES_PBF_URL=https://download.geofabrik.de/europe/germany/bayern/oberbayern-latest.osm.pbf \
+    just tiles-download
+  ```
+
+  > **No action required.** The defaults are the previous values, so an existing deployment
+  > behaves exactly as before. `TILES_NAME` (the file on the tileserver volume) is deliberately
+  > separate and should be left alone on a deployment that already has tiles — renaming it makes
+  > the init script write an empty bootstrap file instead of finding them, which looks like a
+  > working map with nothing in it.
+- **`docs/openapi.json` is committed** — the full API contract (158 routes, request and response
+  shapes) readable without booting the stack. Anyone writing an adapter for a dispatch system
+  against `POST /api/alarms`, or a print agent against the job queue, previously had to stand up
+  Postgres and the backend just to see a payload. `just openapi` regenerates it, and a test fails
+  if it drifts from the code.
+- **More of the gate that stands behind a published image.** Secret scanning (gitleaks) and
+  CodeQL static analysis now run here as they already did for KP Front, and CI runs a small
+  Playwright subset on every pull request — logging in, creating an event and an incident, and
+  alarm intake — where before it ran no click-through at all. The full suite runs nightly. None
+  of this changes the software; it changes how much a release has been checked before it reaches
+  you.
 - **arm64 images.** All four images build for `linux/arm64` as well as `linux/amd64`, so an ARM
   host (Hetzner CAX, Oracle Ampere, a Raspberry Pi) can run the whole stack – previously only the
   print agent could.
@@ -67,6 +99,33 @@ will keep holding.
   each. `.env.example` links to it.
 
 ### Changed
+- **A fresh production deployment now starts with an empty board.** It used to be seeded with a
+  fictional station: five vehicles (Omega 1–5), 57 firefighters, a full material catalogue, and
+  thirteen training locations on real streets in one specific Swiss municipality. Sample
+  *incidents* were already withheld from production; the resources they referred to were not. So
+  the first act of setting KP Rück up for your own station was deleting somebody else's data off
+  the board — and a restored backup put it back. Accounts and settings are still seeded; the
+  station's own resources come in through the Excel import (`docs/SETUP.md` §3).
+
+  > **No action for an existing deployment** — seeding only runs on a database with no users, so
+  > yours has long since skipped it and your data is untouched. This changes what a *new* install
+  > and a *restore into a fresh stack* look like. Note the restore drill in `docs/SETUP.md` §6
+  > now starts from a genuinely empty board, which is the point.
+  >
+  > A `just dev` machine still comes up with the sample board. It is a development fixture, and
+  > it is no longer something a real deployment inherits.
+- **Address search biases towards your station, not towards Basel-Landschaft.** It matched the
+  `home_city` setting against a hardcoded list of sixteen municipalities and fell back to a fixed
+  Basel-region box for anything unrecognised — so every station outside that list had its address
+  lookups quietly weighted towards a region it is nowhere near. The bias now comes from the
+  `firestation_latitude` / `firestation_longitude` settings you already configure, and with no
+  coordinates set the search stays unweighted rather than pointing somewhere wrong. Nominatim's
+  country restriction is still Switzerland by default and can be overridden with a
+  `geocoder_country_codes` setting, so a deployment across the border is a setting rather than a
+  patch.
+
+  > **Worth checking** if your address search has felt off: set the station's coordinates in the
+  > settings surface.
 - **`PUBLIC_URL` is now `CORS_ORIGINS`.** The variable was always passed to the backend as
   `CORS_ORIGINS`; the old name collided with KP Front's `PUBLIC_URL`, which means something else
   there (the base for absolute links in outbound webhooks). Copying one `.env` into the other
@@ -77,6 +136,20 @@ will keep holding.
   > when you next touch the file.
 
 ### Fixed
+- **`docs/SETUP.md` no longer teaches a configuration that does not exist.** The page a new
+  station reads first still used `PUBLIC_URL` (renamed `CORS_ORIGINS` in this release), still
+  said the alarm webhook secret could only be read out of the database, and still told you to
+  check out and pin `v0.1.0` — the release whose print-agent endpoints accept any request when no
+  token is set. It also promised a resource import without mentioning that the board now starts
+  empty, so "empty" would have read as "broken".
+- **The `training_locations` table no longer defaults new rows into one municipality.**
+  `postal_code` defaulted to `4104` and `city` to `Oberwil` at the database level. Every writer
+  already supplies both, so the defaults could only ever fire as a wrong answer. Existing rows
+  are untouched.
+- **The security scanner was silently skipping a file.** Bandit is a blocking gate, but it ran on
+  Python 3.11 while the code targets 3.12, so it could not parse `app/crud/base.py` and simply
+  excluded it — reported in its output, easy to scroll past. Pinned to the project's Python; it
+  now reports `Files skipped (0)`.
 - **Two stacks on one host no longer fight over port 443.** Caddy had it hard-coded, and KP
   Front's Caddy wants it too – so the second stack simply failed to start. The HTTPS host port is
   now `HTTPS_PORT`, matching the existing `HTTP_PORT`. Note it must be moved even when an outer
@@ -224,5 +297,6 @@ something another station can pin.
 
 _For the full running history before the first release, see the git log._
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.1.0

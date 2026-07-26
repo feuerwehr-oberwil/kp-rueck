@@ -149,15 +149,18 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ env.PYTHON_VERSION }}
 
+      # Pinned to the project's Python. Bandit installed with uv's default interpreter ran
+      # on 3.11, could not parse 3.12 syntax, and SKIPPED app/crud/base.py entirely — a
+      # blocking security gate quietly not looking at a file. It reports "Files skipped (0)".
       - name: Install bandit
-        run: uv tool install bandit
+        run: uv tool install --python ${{ env.PYTHON_VERSION }} bandit
 
       # Blocking. It was advisory while one finding was outstanding; that finding was reviewed
       # (B104 in config.py — does not apply to a containerised service) and annotated, so the
       # scan is clean and a NEW medium-or-worse finding must now be dealt with rather than
       # scrolled past. Annotate a false positive at the line with `# nosec BXXX` and a reason.
       - name: Security scan with Bandit
-        run: uv tool run bandit -r app -ll -ii -x app/tests
+        run: uv tool run --python ${{ env.PYTHON_VERSION }} bandit -r app -ll -ii -x app/tests
 
   backend-test:
     name: Backend Tests
