@@ -164,13 +164,22 @@ just test            # Run all E2E tests
 just test-ui         # Interactive UI mode
 ```
 
-> **The E2E suite does not run in CI – running it locally is your job.** ~300 Playwright tests
-> take about 25 minutes, too slow to sit in front of every pull request, so the job in
-> `.github/workflows/ci.yml` is switched off (`if: false`). Nothing else covers a full
-> click-through, so **run `pnpm test:e2e` locally before a release and after any change to
-> auth, the board, or alarm intake.** It needs the backend and frontend up (`just dev`).
+> **CI runs eight of the ~300 E2E specs. The rest is your job.**
 >
-> Making the suite fast enough to bring back into CI is [plan 15](docs/plans/15-e2e-in-ci.md).
+> The `@smoke` subset – log in, land on the board, create an event, select it, create an
+> incident, alarm intake in and out – runs on every pull request. The full suite takes about 25
+> minutes and is flaky enough that gating merges on it taught people to click through red, so it
+> runs nightly instead (`.github/workflows/e2e-nightly.yml`, failures open an issue).
+>
+> That leaves a real gap on every path outside those eight specs, so **run `pnpm test:e2e`
+> locally before a release and after any change to auth, the board, or alarm intake.** It needs
+> the backend and frontend up (`just dev`).
+>
+> Adding to the subset: tag a spec `{ tag: '@smoke' }` once you are confident it does not flake,
+> and keep the whole subset under five minutes. If a `@smoke` spec starts flaking, fix it or
+> untag it the same day – one tolerated flake and the gate is decorative again.
+> [Plan 15](docs/plans/15-e2e-in-ci.md) has the remaining work: nobody has yet measured which
+> specs are actually the slow ones and which are actually the flaky ones.
 
 ## Project Architecture
 
