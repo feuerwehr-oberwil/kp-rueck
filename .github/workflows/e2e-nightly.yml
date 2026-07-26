@@ -26,7 +26,7 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"   # Active LTS; 20 went EOL 2026-04-30. Match frontend/Dockerfile.
   PNPM_VERSION: "9"
   # Same throwaway fixture password as ci.yml — seeds a database that dies with the job.
   E2E_PASSWORD: "e2e-ci-password-not-a-secret" # gitleaks:allow

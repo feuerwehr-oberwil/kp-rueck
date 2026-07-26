@@ -39,7 +39,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"   # Active LTS; 20 went EOL 2026-04-30. Match frontend/Dockerfile.
   PNPM_VERSION: "9"
   # Seeds the throwaway E2E database and is what the specs log in with. Not a secret — the
   # database and the container both die with the job — but it must be >= 12 chars, and the
