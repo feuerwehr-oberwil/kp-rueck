@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # would make the container unreachable from the proxy — the service would simply not work.
     # What is actually exposed to the host is decided by `ports:` in docker-compose.yml, and the
     # backend publishes none. nosec B104: the finding does not apply to a containerised service.
-    host: str = "0.0.0.0"  # nosec B104
+    host: str = "0.0.0.0"  # noqa: S104 — the container network is the boundary, not the process  # nosec B104
     port: int = 8000
     reload: bool = False  # Set to False in production
 

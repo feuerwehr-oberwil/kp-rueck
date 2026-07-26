@@ -53,7 +53,7 @@ async def _viewer_vehicle_positions() -> list[dict]:
             }
             for p in positions
         ]
-    except Exception as e:  # noqa: BLE001 - GPS is optional for the display
+    except Exception as e:  # GPS is optional for the display
         logger.warning("Viewer GPS positions unavailable: %s", e)
         return []
 

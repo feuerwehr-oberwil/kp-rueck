@@ -108,7 +108,7 @@ async def get_setting(db: AsyncSession, key: str) -> str | None:
     return setting.value if setting else None
 
 
-async def get_setting_value(db: AsyncSession, key: str, default: str = None) -> str:
+async def get_setting_value(db: AsyncSession, key: str, default: str | None = None) -> str:
     """Get setting value with fallback to default."""
     value = await get_setting(db, key)
     if value is None:

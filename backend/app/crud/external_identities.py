@@ -58,4 +58,4 @@ async def get_identity_map(db: AsyncSession, provider: str, personnel_ids: list[
         query = query.where(models.PersonnelExternalIdentity.personnel_id.in_(personnel_ids))
 
     rows = (await db.execute(query)).all()
-    return {personnel_id: external_id for personnel_id, external_id in rows}
+    return dict(rows)

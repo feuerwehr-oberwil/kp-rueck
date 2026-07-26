@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Strong references to in-flight audit tasks; see the create_task call below.
+_inflight_audit_tasks: set[asyncio.Task] = set()
+
 
 async def _log_api_request(
     user: "User | None",
@@ -125,7 +128,9 @@ class AuditMiddleware:
                 )
             else:
                 # Production: fire-and-forget
-                asyncio.create_task(
+                # Strong reference until it finishes: asyncio keeps only a weak one, so an
+                # unreferenced task can be collected mid-flight and the audit entry is lost.
+                task = asyncio.create_task(
                     _log_api_request(
                         user=user,
                         path=request.url.path,
@@ -134,3 +139,5 @@ class AuditMiddleware:
                         test_db_session=None,
                     )
                 )
+                _inflight_audit_tasks.add(task)
+                task.add_done_callback(_inflight_audit_tasks.discard)

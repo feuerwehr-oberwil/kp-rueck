@@ -124,9 +124,11 @@ async def receive_alarm(
                 emergency_id=existing.id,
                 auto_attached_incident_id=existing.created_incident_id,
             )
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Alarm already exists")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Alarm already exists") from None
     except HTTPException:
         raise
     except Exception:
         logger.exception("Error processing generic alarm")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing alarm")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing alarm"
+        ) from None

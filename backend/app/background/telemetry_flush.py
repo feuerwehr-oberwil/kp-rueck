@@ -32,7 +32,7 @@ async def flush_outbox(session_maker=None) -> int:
             await sweep(db)
             await db.commit()
             return sent
-        except Exception:  # noqa: BLE001 — a diagnostics job must never wedge the scheduler
+        except Exception:  # a diagnostics job must never wedge the scheduler
             await db.rollback()
             logger.exception("Telemetry flush failed")
             return 0

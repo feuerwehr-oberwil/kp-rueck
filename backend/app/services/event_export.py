@@ -235,7 +235,7 @@ def _create_incidents_excel(event: Event, incidents_data: list[dict]) -> io.Byte
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
-            except Exception:
+            except Exception:  # noqa: S110 — one unmeasurable cell just doesn't widen the column
                 pass
         adjusted_width = min(max_length + 2, 50)
         ws.column_dimensions[column_letter].width = adjusted_width

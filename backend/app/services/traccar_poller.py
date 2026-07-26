@@ -6,6 +6,7 @@ Only runs when WebSocket clients are connected.
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -58,10 +59,8 @@ class TraccarPoller:
         for task in (self._positions_task, self._trails_task):
             if task and not task.done():
                 task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
         self._positions_task = None
         self._trails_task = None
         logger.info("Stopped Traccar polling")

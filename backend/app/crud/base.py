@@ -135,14 +135,11 @@ class CRUDBase[ModelType: Base, CreateSchemaType: BaseModel, UpdateSchemaType: B
             Updated model instance
         """
         # Get update data as dict
-        if isinstance(obj_in, dict):
-            update_data = obj_in
-        else:
-            update_data = obj_in.model_dump(exclude_unset=True)
+        update_data = obj_in if isinstance(obj_in, dict) else obj_in.model_dump(exclude_unset=True)
 
         # Capture before state for audit
         before_state = {}
-        for field in update_data.keys():
+        for field in update_data:
             if hasattr(db_obj, field):
                 before_state[field] = getattr(db_obj, field)
 
@@ -153,7 +150,7 @@ class CRUDBase[ModelType: Base, CreateSchemaType: BaseModel, UpdateSchemaType: B
 
         # Capture after state for audit
         after_state = {}
-        for field in update_data.keys():
+        for field in update_data:
             if hasattr(db_obj, field):
                 after_state[field] = getattr(db_obj, field)
 

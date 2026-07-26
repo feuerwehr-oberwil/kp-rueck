@@ -41,7 +41,7 @@ def test_deployment_honours_an_explicit_opt_out(monkeypatch):
 def test_opting_out_is_logged(monkeypatch, caplog):
     monkeypatch.setenv("ENVIRONMENT", "production")
     with caplog.at_level("WARNING"):
-        _settings(COOKIE_SECURE=False).cookie_secure
+        _ = _settings(COOKIE_SECURE=False).cookie_secure  # evaluated for the warning it logs
     assert "plain HTTP" in caplog.text
 
 

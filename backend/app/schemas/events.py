@@ -20,8 +20,6 @@ class EventBase(BaseModel):
 class EventCreate(EventBase):
     """Schema for creating a new event."""
 
-    pass
-
 
 class EventUpdate(BaseModel):
     """Schema for updating an event."""

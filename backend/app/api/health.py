@@ -56,7 +56,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed",
-        )
+        ) from None
 
 
 @router.get("/health/detailed")
@@ -99,7 +99,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
         ws_status = {
             "status": "healthy",
             "connections": ws_manager.get_connection_count(),
-            "rooms": {room: ws_manager.get_room_count(room) for room in ws_manager.active_connections.keys()},
+            "rooms": {room: ws_manager.get_room_count(room) for room in ws_manager.active_connections},
         }
         health_status["components"]["websocket"] = ws_status
     except Exception as e:
@@ -251,4 +251,4 @@ async def demo_reset(request: Request, current_user: CurrentAdmin):
         return {"status": "reset_complete"}
     except Exception as e:
         logger.error(f"Demo reset failed: {e}")
-        raise HTTPException(status_code=500, detail="Reset failed")
+        raise HTTPException(status_code=500, detail="Reset failed") from e

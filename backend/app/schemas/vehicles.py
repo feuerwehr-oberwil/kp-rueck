@@ -53,8 +53,6 @@ class VehicleBase(BaseModel):
 class VehicleCreate(VehicleBase):
     """Schema for creating vehicle."""
 
-    pass
-
 
 class VehicleUpdate(BaseModel):
     """Schema for updating vehicle."""

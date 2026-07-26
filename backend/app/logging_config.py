@@ -4,6 +4,7 @@ import json
 import logging
 import sys
 from datetime import UTC, datetime
+from typing import ClassVar
 
 
 class RequestIdFilter(logging.Filter):
@@ -45,7 +46,7 @@ class JSONFormatter(logging.Formatter):
 class ConsoleFormatter(logging.Formatter):
     """Pretty formatter for local development."""
 
-    COLORS = {
+    COLORS: ClassVar[dict[str, str]] = {
         "DEBUG": "\033[36m",  # Cyan
         "INFO": "\033[32m",  # Green
         "WARNING": "\033[33m",  # Yellow

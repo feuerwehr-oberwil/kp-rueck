@@ -50,10 +50,10 @@ async def assign_resource(
     except LookupError as e:
         # Not warn-worthy: a stale id from a client that missed a delete is routine.
         logger.info("Assignment target missing for incident %s: %s", incident_id, e)
-        raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
+        raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
     except ValueError as e:
         logger.warning("Assignment conflict for incident %s: %s", incident_id, e)
-        raise HTTPException(status_code=409, detail=ErrorMessages.RESOURCE_ALREADY_ASSIGNED)
+        raise HTTPException(status_code=409, detail=ErrorMessages.RESOURCE_ALREADY_ASSIGNED) from e
 
     # Convert SQLAlchemy model to Pydantic for response
     assignment_response = schemas.AssignmentResponse.model_validate(result)

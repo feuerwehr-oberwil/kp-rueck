@@ -109,7 +109,7 @@ async def check_in(
         )
     except ValueError as e:
         logger.warning("Personnel check-in failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
     if not person:
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)

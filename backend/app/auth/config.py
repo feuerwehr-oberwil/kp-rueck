@@ -25,7 +25,8 @@ class AuthSettings(BaseSettings):
     BYPASS_AUTH_DEV: bool = False  # Set to True to disable authentication in development
 
     # JWT Configuration
-    SECRET_KEY: str = "CHANGE_THIS_IN_PRODUCTION_USE_OPENSSL_RAND"  # openssl rand -hex 32
+    # S105 suppressed: the placeholder IS the point — validation rejects it in production.
+    SECRET_KEY: str = "CHANGE_THIS_IN_PRODUCTION_USE_OPENSSL_RAND"  # noqa: S105  (openssl rand -hex 32)
     ALGORITHM: str = "HS256"  # Use RS256 for distributed systems
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours for emergency operations (availability > security)
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Longer-lived refresh token

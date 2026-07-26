@@ -11,6 +11,7 @@ Two intake modes (``training_autogen_mode``):
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -57,10 +58,8 @@ class TrainingAutoGenTask:
         self.running = False
         if self.task:
             self.task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.task
-            except asyncio.CancelledError:
-                pass
         logger.info("Training auto-generation task stopped")
 
     async def _monitor_loop(self):
@@ -72,7 +71,7 @@ class TrainingAutoGenTask:
                         await self._check_and_run(db)
                     finally:
                         await db.close()
-                        break
+                    break  # outside `finally` — there it would swallow the error above
             except Exception as e:
                 logger.error("Error in training auto-gen monitor: %s", e)
 
@@ -139,11 +138,8 @@ class TrainingAutoGenTask:
 
         # Calculate if we're in boost period
         event_age_minutes = (datetime.now(UTC) - event.created_at).total_seconds() / 60
-        if event_age_minutes < boost_duration_min:
-            # Apply boost multiplier (shorter interval)
-            actual_interval_min = interval_min / boost_mult
-        else:
-            actual_interval_min = interval_min
+        # Inside the boost window the interval is divided by the multiplier (fires sooner).
+        actual_interval_min = interval_min / boost_mult if event_age_minutes < boost_duration_min else interval_min
 
         # Time since the last generated alarm — board incidents and simulated
         # pool alarms both count, so switching modes doesn't double-fire.

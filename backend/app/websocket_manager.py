@@ -1,6 +1,7 @@
 """WebSocket manager for real-time updates."""
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -128,10 +129,8 @@ class WebSocketManager:
         """Stop the background cleanup task."""
         if self._cleanup_task and not self._cleanup_task.done():
             self._cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
             logger.info("Stopped WebSocket stale session cleanup task")
 
     async def _cleanup_stale_sessions(self):
@@ -197,7 +196,7 @@ class WebSocketManager:
         """Handle WebSocket disconnection."""
         logger.info(f"Client {sid} disconnected")
         # Remove from all rooms
-        for room, sids in self.active_connections.items():
+        for _room, sids in self.active_connections.items():
             sids.discard(sid)
         # Remove session info
         self.user_sessions.pop(sid, None)
@@ -221,11 +220,10 @@ class WebSocketManager:
         if not self._divera_poller.is_configured:
             return
 
-        if self.get_connection_count() == 1 and not self._divera_poller.is_polling:
-            # First user connected, start polling
-            if _on_divera_poll_alarm:
-                await self._divera_poller.start_polling(_on_divera_poll_alarm)
-                logger.info("Started Divera polling (user connected)")
+        # First user connected, start polling
+        if self.get_connection_count() == 1 and not self._divera_poller.is_polling and _on_divera_poll_alarm:
+            await self._divera_poller.start_polling(_on_divera_poll_alarm)
+            logger.info("Started Divera polling (user connected)")
 
     async def _maybe_stop_divera_polling(self):
         """Stop Divera polling if no users are connected."""
@@ -288,7 +286,7 @@ class WebSocketManager:
             return True
         return False
 
-    async def broadcast_update(self, event: str, data: Any, room: str = None):
+    async def broadcast_update(self, event: str, data: Any, room: str | None = None):
         """Broadcast an update to all connected clients or specific room."""
         try:
             if room:

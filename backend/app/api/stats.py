@@ -94,14 +94,11 @@ async def get_event_stats(
             models.Incident.deleted_at.is_(None),
         )
     )
-    assigned_personnel_ids = set(row[0] for row in assigned_result.all())
+    assigned_personnel_ids = {row[0] for row in assigned_result.all()}
 
     # Count checked-in personnel who are assigned to incidents
     assigned_count = sum(1 for p in personnel if p.id in assigned_personnel_ids)
-    if total_personnel > 0:
-        utilization = (assigned_count / total_personnel) * 100
-    else:
-        utilization = 0.0
+    utilization = assigned_count / total_personnel * 100 if total_personnel > 0 else 0.0
 
     return schemas.EventStats(
         status_counts=status_counts,

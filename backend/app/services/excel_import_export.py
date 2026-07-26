@@ -44,8 +44,6 @@ PERSONNEL_STATUSES = ["available", "unavailable"]
 class ExcelImportError(Exception):
     """Excel import validation error."""
 
-    pass
-
 
 def generate_empty_template() -> BytesIO:
     """Generate empty Excel template with example rows."""
@@ -104,7 +102,7 @@ def validate_and_parse_excel(
     try:
         wb = openpyxl.load_workbook(BytesIO(file_bytes))
     except Exception as e:
-        raise ExcelImportError(f"Invalid Excel file: {str(e)}")
+        raise ExcelImportError(f"Invalid Excel file: {e!s}") from e
 
     result = {"personnel": [], "vehicles": [], "materials": []}
 
@@ -121,7 +119,7 @@ def validate_and_parse_excel(
             if all(cell is None for cell in row):
                 continue  # Skip empty rows
 
-            row_data = dict(zip(expected_headers, row))
+            row_data = dict(zip(expected_headers, row, strict=False))
 
             # Validate required fields
             if not row_data.get("name"):
@@ -153,7 +151,7 @@ def validate_and_parse_excel(
             if all(cell is None for cell in row):
                 continue
 
-            row_data = dict(zip(expected_headers, row))
+            row_data = dict(zip(expected_headers, row, strict=False))
 
             # Validate required fields
             required = ["name", "type", "display_order", "status", "radio_call_sign"]
@@ -171,7 +169,7 @@ def validate_and_parse_excel(
             try:
                 row_data["display_order"] = int(row_data["display_order"])
             except (ValueError, TypeError):
-                raise ExcelImportError(f"Vehicles row {row_idx}: display_order must be an integer")
+                raise ExcelImportError(f"Vehicles row {row_idx}: display_order must be an integer") from None
 
             result["vehicles"].append(row_data)
 
@@ -188,7 +186,7 @@ def validate_and_parse_excel(
             if all(cell is None for cell in row):
                 continue
 
-            row_data = dict(zip(expected_headers, row))
+            row_data = dict(zip(expected_headers, row, strict=False))
 
             # Validate required fields
             required = ["name", "type", "location"]

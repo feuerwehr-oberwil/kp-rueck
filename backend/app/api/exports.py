@@ -126,13 +126,15 @@ async def export_event_audit(
         )
 
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden") from None
 
     except Exception as e:
         # Log error with full details
         logger.error("Audit export generation failed for event %s: %s", event_id, e, exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED
+        ) from e
 
 
 @router.get("/events/{event_id}/report")
@@ -208,12 +210,14 @@ async def export_event_report(
         )
 
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden") from None
 
     except Exception as e:
         logger.error("Report export generation failed for event %s: %s", event_id, e, exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED
+        ) from e
 
 
 @router.get("/events/{event_id}/lageblatt")
@@ -258,4 +262,6 @@ async def export_event_lageblatt(
     except Exception as e:
         logger.error("Lageblatt generation failed for event %s: %s", event_id, e, exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED
+        ) from e

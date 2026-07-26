@@ -47,8 +47,6 @@ class EmergencyTemplateBase(BaseModel):
 class EmergencyTemplateCreate(EmergencyTemplateBase):
     """Schema for creating emergency template."""
 
-    pass
-
 
 class EmergencyTemplateResponse(EmergencyTemplateBase):
     """Schema for emergency template response."""
@@ -145,7 +143,7 @@ class TrainingLocationBase(BaseModel):
                     raise ValueError("Latitude should be within Basel-Landschaft area (47.3 to 47.6)")
             except (ValueError, TypeError) as e:
                 if "Latitude should be" not in str(e):
-                    raise ValueError("Invalid latitude value")
+                    raise ValueError("Invalid latitude value") from e
                 raise
         return v
 
@@ -160,7 +158,7 @@ class TrainingLocationBase(BaseModel):
                     raise ValueError("Longitude should be within Basel-Landschaft area (7.3 to 7.9)")
             except (ValueError, TypeError) as e:
                 if "Longitude should be" not in str(e):
-                    raise ValueError("Invalid longitude value")
+                    raise ValueError("Invalid longitude value") from e
                 raise
         return v
 

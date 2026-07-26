@@ -109,7 +109,7 @@ class TestStatusTransitionModel:
     async def test_status_transition_index(self, db_session: AsyncSession, test_incident: Incident, test_user: User):
         """Test that timestamp index exists for efficient queries."""
         # Create transitions
-        for i in range(5):
+        for _i in range(5):
             transition = StatusTransition(
                 id=uuid4(),
                 incident_id=test_incident.id,
