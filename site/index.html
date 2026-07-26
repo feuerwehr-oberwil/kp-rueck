@@ -4,11 +4,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>KP Rück – Einsatzboard für den Kommandoposten</title>
-<meta name="description" content="KP Rück ersetzt die Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, Open Source und auf eigenem Server betrieben.">
+<meta name="description" content="KP Rück ersetzt die Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, quelloffen und selbst gehostet.">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Crect x='5.5' y='7' width='6.5' height='5.2' rx='1.5' fill='%23e8392b'/%3E%3Crect x='5.5' y='14' width='6.5' height='5.2' rx='1.5' fill='%23e7edf4'/%3E%3Crect x='5.5' y='21' width='6.5' height='4' rx='1.5' fill='%23c4cedb' opacity='.5'/%3E%3Crect x='13.5' y='7' width='6.5' height='5.2' rx='1.5' fill='%23ffffff'/%3E%3Crect x='13.5' y='14' width='6.5' height='4' rx='1.5' fill='%23c4cedb' opacity='.5'/%3E%3Crect x='21.5' y='7' width='6.5' height='5.2' rx='1.5' fill='%23d8e1ec'/%3E%3Crect x='21.5' y='14' width='6.5' height='4' rx='1.5' fill='%23c4cedb' opacity='.5'/%3E%3C/svg%3E">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KP Rück – Einsatzboard für den Kommandoposten">
-<meta property="og:description" content="Ersetzt die Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten.">
+<meta property="og:description" content="Ersetzt die Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, quelloffen und selbst gehostet.">
 <meta property="og:url" content="https://kp-rueck.ch/">
 <meta property="og:image" content="https://kp-rueck.ch/shots/board.jpg">
 <meta property="og:image:width" content="1500">
@@ -69,7 +69,7 @@
     <h1>Das Einsatzboard für den Kommandoposten.</h1>
     <p class="lede">KP Rück ersetzt die Magnettafel im rückwärtigen KP:
       <strong>Einsätze, Personal, Fahrzeuge und Material</strong> auf einem Board –
-      live auf jedem Gerät im Raum, und der Code ist offen.</p>
+      live auf jedem Gerät im Raum.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo öffnen</a>
       <span class="cta-note">Ohne Konto – Rolle wählen und loslegen</span>
@@ -88,35 +88,32 @@
       <p class="eyebrow">Der Massstab</p>
       <blockquote>«Wenn das Netz weg ist, führt <em>Papier</em>.»</blockquote>
       <p class="expl">Ein Board, das beim Stromausfall schwarz wird, ist keine
-        Führungsunterlage. Darum ist der Rückweg gestuft gebaut – <strong>jede Stufe funktioniert
-        ohne die darüber</strong>.</p>
+        Führungsunterlage. Darum ist eine mehrstufige Redundanz gebaut – <strong>jede Stufe
+        funktioniert ohne die darüber</strong>.</p>
       <div class="stages">
         <div class="stage">
           <p class="stage-n">Stufe 1</p>
-          <h3>Mehrere Geräte am selben Stand</h3>
-          <p>Tablet, Beamer-Anzeige und Handy hängen live am gleichen Board. Fällt ein Gerät aus
-            oder friert ein, macht das nächste weiter – es gibt nichts zu retten und nichts
+          <h3>Mehrere Geräte auf demselben Stand</h3>
+          <p>Tablets, Beamer-Anzeigen und Handys hängen live am gleichen Board. Fällt ein Gerät
+            aus oder friert ein, macht ein anderes weiter – es gibt nichts zu retten und nichts
             nachzutragen.</p>
         </div>
         <div class="stage">
           <p class="stage-n">Stufe 2</p>
-          <h3>Ein zweites KP Rück im Magazin</h3>
-          <p>KP Rück lässt sich zusätzlich auf einem Rechner im Magazin betreiben. Die
-            eingebaute Synchronisation hält Ereignisse, Einsätze, Personal, Fahrzeuge, Material
-            und Einstellungen zwischen Cloud und lokaler Datenbank auf Stand. Die Karte kommt
-            vom eigenen Server im Magazin, der Drucker hängt ohnehin im lokalen Netz.</p>
+          <h3>Eine zweite Instanz im Magazin</h3>
+          <p>KP Rück lässt sich zusätzlich lokal betreiben. Der eingebaute Abgleich hält
+            Ereignisse, Einsätze, Personal, Fahrzeuge, Material und Einstellungen zwischen Cloud
+            und lokaler Datenbank auf Stand. Die Karte kommt aus dem eigenen Kartenserver, der
+            Drucker hängt ohnehin im LAN.</p>
         </div>
         <div class="stage">
           <p class="stage-n">Stufe 3</p>
           <h3>Papier führt</h3>
           <p>Der Boardstand geht alle paar Minuten auf den Thermodrucker, das Lageblatt auf
             Knopfdruck. Fällt alles aus, wird das letzte Blatt zum Board; beim Wiederanlauf
-            überträgt <strong>eine</strong> Person die Papierzeilen zurück.</p>
+            überträgt <strong>eine</strong> Person das manuell Gemachte zurück.</p>
         </div>
       </div>
-      <p class="stage-note">Ehrlich dazu: Stufe 2 hält die Daten bereit, sie schaltet nicht von
-        selber um – wer sie als Ausfallsicherung nutzt, übt den Wechsel vorher. Die Checkliste
-        für den Ausfall liegt dem Projekt schriftlich bei, nicht nur im Kopf.</p>
     </div>
   </section>
 
@@ -133,8 +130,8 @@
         <div class="body">
           <p class="tag">Alarmeingang</p>
           <h3>Die Meldungen kommen rein.</h3>
-          <p>Über das Meldeformular, per Telefon oder direkt aus dem
-            Alarmierungssystem (z.&nbsp;B. Divera). Der Operator übernimmt mit einem Klick –
+          <p>Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem
+            Alarmierungssystem (z.&nbsp;B. Divera). Der AdFU übernimmt mit einem Klick –
             aus der Meldung wird ein Einsatz auf dem Board.</p>
         </div>
       </article>
@@ -143,7 +140,7 @@
         <div class="body">
           <p class="tag">Disposition</p>
           <h3>Mannschaft und Fahrzeuge sind zugeteilt.</h3>
-          <p>Personal, Fahrzeuge und Material auf den Einsatz ziehen – wer schon anderswo
+          <p>Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz – wer schon anderswo
             eingeteilt ist, wird gemeldet, bevor es zur Doppelzuteilung kommt. Wer eintrifft,
             meldet sich per QR-Check-in selber an.</p>
         </div>
@@ -153,7 +150,7 @@
         <div class="body">
           <p class="tag">Karte</p>
           <h3>Wer ist wo.</h3>
-          <p>Alle Einsätze auf einer Karte, dazu die Fahrzeuge mit GPS-Position. Trifft ein
+          <p>Alle Einsätze auf einer Karte, dazu die Fahrzeuge optional mit GPS-Position. Trifft ein
             Fahrzeug am Einsatzort ein, schlägt das Board den Statuswechsel gleich selber vor.</p>
         </div>
       </article>
@@ -162,7 +159,7 @@
         <div class="body">
           <p class="tag">Reko</p>
           <h3>Die Reko meldet zurück.</h3>
-          <p>Der Rekotrupp füllt das Formular am eigenen Handy aus – mit Fotos. Die Meldung hängt
+          <p>Die Reko füllt das Formular am eigenen Handy aus – inkl. Fotos. Die Meldung hängt
             am richtigen Einsatz, statt im Gruppenchat unterzugehen.</p>
         </div>
       </article>
@@ -192,7 +189,7 @@
     <div class="sec-head">
       <p class="eyebrow">Aus der Demo</p>
       <h2>So sieht das aus.</h2>
-      <p>Alle Bilder sind aus der öffentlichen Demo aufgenommen – keine Montagen. Klick auf
+      <p>Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klick auf
         «Demo öffnen», und du stehst an demselben Board.</p>
     </div>
     <div class="shots-grid">
@@ -200,14 +197,14 @@
         <img src="shots/display.jpg" alt="Beamer-Ansicht: alle Einsatzphasen nebeneinander auf einem Bildschirm" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Beamer-Ansicht</div>
-          <div class="cap-s">Für die Wand im KP: alle Phasen nebeneinander – im dunklen Nachtmodus</div>
+          <div class="cap-s">Für die Wand im abgedunkelten KP: alle Phasen nebeneinander, ohne Bedienelemente</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/status.jpg" alt="Statusübersicht: Einsätze nach Status, daneben Personal und Material mit Zuordnung" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/status.jpg" alt="Status-Ansicht: Fahrzeuge, Einsätze, Personal und Material nebeneinander, je mit Verfügbarkeit und Zuteilung" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
-          <div class="cap-t">Statusübersicht</div>
-          <div class="cap-s">Einsätze, Personal und Material mit Zuordnung – der ganze Stand auf einen Blick</div>
+          <div class="cap-t">Status</div>
+          <div class="cap-s">Fahrzeuge, Einsätze, Personal und Material – wer ist frei, wer ist wo</div>
         </figcaption>
       </figure>
       <figure class="shot">
@@ -260,28 +257,27 @@
       <p class="eyebrow">Funktionsumfang</p>
       <h2>Was alles drin ist.</h2>
       <p>Gewachsen an echten Ereignissen und Übungen der Feuerwehr Oberwil BL, nicht an einer
-        Featureliste. Alles, was von
-        aussen dazukommt – Alarmierung, GPS, Drucker – ist <strong>optional</strong>: KP Rück
-        läuft vollständig ohne.</p>
+        Featureliste. Alles, was von aussen dazukommt – Alarmierung, GPS, Drucker – ist
+        <strong>optional</strong>: KP Rück läuft auch vollständig ohne.</p>
     </div>
     <div class="feature-cols">
       <div class="fgroup">
         <h3>Board &amp; Disposition</h3>
         <ul class="flist">
-          <li><strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-drop von links nach rechts</li>
+          <li><strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-Drop von links nach rechts</li>
           <li>Personal, Fahrzeuge und Material zuteilen, mit Warnung bei Doppelbelegung</li>
           <li>Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar</li>
           <li>Aufträge: mehrere Einsätze als geordnete Route an einen Trupp</li>
           <li>QR-Check-in für alle, die im Magazin eintreffen</li>
           <li>Beamer-Ansicht für die Wand im KP</li>
-          <li>Tastaturkürzel und Schnellbefehle für die schnelle Hand</li>
+          <li>Befehlspalette und Tastaturkürzel für die schnelle Hand</li>
         </ul>
       </div>
       <div class="fgroup">
         <h3>Alarm &amp; Meldungen</h3>
         <ul class="flist">
-          <li><strong>Offene Schnittstelle</strong> – jedes Alarmierungssystem kann Einsätze eröffnen</li>
-          <li>Anbindung an Divera 24/7 <span class="opt">optional</span></li>
+          <li><strong>Offene Schnittstelle</strong> – jedes Dispositionssystem kann Einsätze eröffnen</li>
+          <li>Adapter für Divera 24/7 <span class="opt">optional</span></li>
           <li>Meldeformular per Link oder QR für Telefon und Laufkundschaft</li>
           <li>Eingang im Pool, Übernahme mit einem Klick</li>
           <li>Ausalarmierung der Mannschaft aus dem Board heraus <span class="opt">optional</span></li>
@@ -295,19 +291,19 @@
           <li>Fahrzeugpositionen per GPS <span class="opt">optional</span></li>
           <li>Statusvorschlag, sobald ein Fahrzeug am Einsatzort eintrifft</li>
           <li>Zuweisungen als Linie: welches Fahrzeug gehört zu welchem Einsatz</li>
-          <li>Karte funktioniert auch ohne Internet – vom eigenen Server im Magazin</li>
+          <li>Kartenkacheln auch aus dem eigenen Server im Magazin</li>
         </ul>
       </div>
       <div class="fgroup">
         <h3>Nachher &amp; Betrieb</h3>
         <ul class="flist">
           <li><strong>Einsatzbericht als PDF</strong> mit Einsatztagebuch und Reaktionszeiten</li>
-          <li>Einsatzprotokoll, das nur ergänzt und nie überschrieben wird</li>
+          <li>Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird</li>
           <li>Import und Export als Excel</li>
-          <li>Übungsmodus mit automatisch erzeugten Einsätzen und simulierten Fahrten, sauber vom Ernstfall getrennt</li>
-          <li>Thermodruck im Magazin <span class="opt">optional</span></li>
+          <li>Übungsmodus mit Generator und simulierten Fahrten, sauber vom Ernstfall getrennt</li>
+          <li>Thermodruck im Magazin über einen eigenen Druck-Agenten <span class="opt">optional</span></li>
           <li>Rollen: bearbeiten oder nur mitlesen, dunkle Oberfläche fürs abgedunkelte KP</li>
-          <li>Eine Instanz pro Feuerwehr, mit eigener Mannschaft und eigenem Fuhrpark</li>
+          <li>Ein eigenes KP Rück pro Feuerwehr, mit eigener Mannschaft und eigenem Fuhrpark</li>
         </ul>
       </div>
     </div>
@@ -336,8 +332,8 @@
       <div class="faq-item">
         <h3>Wem gehören die Daten?</h3>
         <p>Euch. Jede Feuerwehr betreibt ihr eigenes KP Rück – auf dem eigenen Rechner im
-          Magazin oder in der Cloud. Ihr entscheidet, wo die Einsatzdaten liegen; nichts geht
-          an einen Hersteller oder an Dritte.</p>
+          Magazin oder in der Cloud. Ihr entscheidet, wo Einsatzdaten, Mannschaft und Fuhrpark
+          liegen; nichts geht an einen Hersteller oder an Dritte.</p>
       </div>
       <div class="faq-item">
         <h3>Was kostet das?</h3>
@@ -349,19 +345,22 @@
         <h3>Was braucht es für den Betrieb?</h3>
         <p>Jemanden, der einen Server aufsetzen kann – in der Feuerwehr, in der Gemeinde oder
           eine befreundete IT. Danach läuft das System weitgehend von selber, und Updates sind
-          ein Handgriff.</p>
+          ein Handgriff. Wer die zweite Stufe im Magazin will, stellt zusätzlich einen Rechner
+          hin – der Abgleich ist eingebaut.</p>
       </div>
       <div class="faq-item">
         <h3>Können wir es an unsere Abläufe anpassen?</h3>
-        <p>Ja. Mannschaft, Fahrzeuge und Material sind frei einstellbar. Und weil der ganze
-          Code auf <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>
+        <p>Ja. Einsatzarten, Prioritäten, Mannschaft, Fuhrpark und Materiallisten sind frei
+          einstellbar, Import und Export laufen über Excel. Und weil der ganze Code auf
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>
           steht, lässt sich alles Übrige bauen – selber oder in Auftrag.</p>
       </div>
       <div class="faq-item">
         <h3>Wie fangen wir an?</h3>
         <p>Mit der <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>,
-          ohne Anmeldung. Danach bei einer Übung mitlaufen lassen – der Übungsmodus ist sauber
-          vom Ernstfall getrennt. Und wenn es passt: melde dich, wir helfen beim Aufsetzen.</p>
+          ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der
+          Übungsmodus ist sauber vom Ernstfall getrennt. Und wenn es passt: melde dich, wir
+          helfen beim Aufsetzen.</p>
       </div>
     </div>
   </section>
@@ -393,14 +392,33 @@
           </span>
           <svg class="way-go"><use href="#i-arrow"/></svg>
         </a>
-        <a class="way" href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch?subject=KP%20R%C3%BCck">
+        <form class="way way-form" action="https://api.staticforms.dev/submit" method="POST">
           <span class="way-ico"><svg class="ico"><use href="#i-mail"/></svg></span>
-          <span class="way-body">
+          <div class="way-body">
             <span class="way-t">Direkt schreiben</span>
             <span class="way-s">Ohne GitHub-Konto, oder wenn etwas nicht öffentlich stehen soll – auch für «wir würden das gerne bei uns ausprobieren».</span>
-          </span>
-          <svg class="way-go"><use href="#i-arrow"/></svg>
-        </a>
+            <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
+            <input type="hidden" name="subject" value="KP Rück – Landingpage">
+            <p class="hp"><label>Dieses Feld bitte leer lassen
+              <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
+            <div class="f-fields">
+              <div class="f-row">
+                <label class="f-lab" for="f-name">Name</label>
+                <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Wer schreibt?">
+              </div>
+              <div class="f-row">
+                <label class="f-lab" for="f-mail">E-Mail</label>
+                <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="Damit wir antworten können">
+              </div>
+              <div class="f-row">
+                <label class="f-lab" for="f-msg">Nachricht</label>
+                <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="Worum geht es?"></textarea>
+              </div>
+            </div>
+            <button class="btn btn-primary f-send" type="submit">Nachricht senden</button>
+            <p class="f-note" role="status" hidden></p>
+          </div>
+        </form>
       </div>
     </div>
   </section>
@@ -415,7 +433,7 @@
       <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
       <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-front.ch">KP Front</a>
-      <a href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch">Kontakt</a>
+      <a href="#kontakt">Kontakt</a>
     </div>
   </div>
 </footer>
@@ -437,4 +455,95 @@
       else io.observe(el);
     });
   }
+
+  // Kontaktformular. Ohne JS bleibt es ein gewöhnlicher POST – der Absender
+  // landet dann auf der Bestätigungsseite des Dienstes. Mit JS senden wir im
+  // Hintergrund und bleiben auf der Seite. Der Honigtopf ist für Menschen
+  // unsichtbar: ist er ausgefüllt, war es ein Bot, und wir brechen still ab.
+  (function () {
+    var form = document.querySelector('.way-form');
+    if (!form || !window.fetch || !window.FormData) return;
+    var fields = form.querySelector('.f-fields');
+    var note = form.querySelector('.f-note');
+    var send = form.querySelector('.f-send');
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var hp = form.querySelector('input[name="website"]');
+      if (hp && hp.value) return;
+
+      send.disabled = true;
+      note.hidden = false;
+      note.className = 'f-note';
+      note.textContent = 'Wird gesendet …';
+
+      fetch(form.action, { method: 'POST', body: new FormData(form) })
+        .then(function (r) {
+          if (!r.ok) throw new Error(String(r.status));
+          fields.hidden = true;
+          send.hidden = true;
+          note.className = 'f-note ok';
+          note.textContent = 'Danke – die Nachricht ist da. Wir melden uns.';
+        })
+        .catch(function () {
+          send.disabled = false;
+          note.className = 'f-note err';
+          note.textContent = 'Das hat nicht geklappt. Schreib bitte direkt an '
+            + 'bastian.eichenberger@feuerwehr-oberwil.ch.';
+        });
+    });
+  })();
+
+  // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
+  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
+  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  (function () {
+    var shots = [].slice.call(document.querySelectorAll('.shot'));
+    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+
+    var dlg = document.createElement('dialog');
+    dlg.className = 'lb';
+    dlg.innerHTML =
+      '<button class="lb-x" type="button" aria-label="Schliessen">×</button>' +
+      '<button class="lb-nav lb-prev" type="button" aria-label="Vorheriges Bild">‹</button>' +
+      '<button class="lb-nav lb-next" type="button" aria-label="Nächstes Bild">›</button>' +
+      '<figure class="lb-fig"><img alt=""><figcaption></figcaption></figure>';
+    document.body.appendChild(dlg);
+
+    var img = dlg.querySelector('.lb-fig img');
+    var cap = dlg.querySelector('.lb-fig figcaption');
+    var idx = 0;
+
+    var show = function (i) {
+      idx = (i + shots.length) % shots.length;
+      var s = shots[idx];
+      var src = s.querySelector('img');
+      img.src = src.src;
+      img.alt = src.alt;
+      cap.innerHTML = '<b>' + s.querySelector('.cap-t').textContent + '</b> – '
+        + s.querySelector('.cap-s').textContent;
+    };
+
+    shots.forEach(function (s, i) {
+      var im = s.querySelector('img');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'shot-zoom';
+      btn.setAttribute('aria-label', 'Vergrössern: ' + s.querySelector('.cap-t').textContent);
+      im.parentNode.insertBefore(btn, im);
+      btn.appendChild(im);
+      btn.addEventListener('click', function () { show(i); dlg.showModal(); });
+    });
+
+    dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    // Klick auf den Hintergrund schliesst, ein Klick aufs Bild nicht.
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+    // Escape erledigt <dialog> selber; hier nur das Blättern.
+    dlg.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+    });
+  })();
 </script>
