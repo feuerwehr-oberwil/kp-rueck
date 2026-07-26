@@ -15,14 +15,10 @@ export class MainPage extends BasePage {
   readonly emptyStateHeading: Locator;
   readonly createEventButton: Locator;
   readonly viewEventsButton: Locator;
-  readonly quickStartGuide: Locator;
 
-  // Quick Incident Creation Elements
-  readonly quickAddButton: Locator;
+  // Incident Creation Elements
   readonly newIncidentButton: Locator;
   readonly incidentModal: Locator;
-  readonly quickModeToggle: Locator;
-  readonly fullModeToggle: Locator;
 
   // Role Badge Elements
   readonly roleBadge: Locator;
@@ -42,15 +38,11 @@ export class MainPage extends BasePage {
     this.emptyStateHeading = page.locator('h1:has-text("Noch kein Ereignis ausgewählt?")');
     this.createEventButton = page.locator('button:has-text("Neues Ereignis erstellen")');
     this.viewEventsButton = page.locator('button:has-text("Ereignisse anzeigen")');
-    this.quickStartGuide = page.locator('text=Erste Schritte').locator('..');
 
-    // Quick Incident Creation Elements
-    this.quickAddButton = page.locator('button:has-text("Schnell")');
+    // Incident Creation Elements
     this.newIncidentButton = page.locator('button:has-text("Neuer Einsatz")');
     // Scope to the open dialog — the board also renders closed Radix popovers with role="dialog".
     this.incidentModal = page.locator('[role="dialog"][data-state="open"]');
-    this.quickModeToggle = page.locator('button:has-text("Alle Details")');
-    this.fullModeToggle = page.locator('button:has-text("Schnellmodus")');
 
     // Role Badge Elements
     this.roleBadge = page.locator('[class*="badge"]').filter({
@@ -96,75 +88,30 @@ export class MainPage extends BasePage {
   }
 
   /**
-   * Get quick start step by index (1-4)
+   * Open the incident creation modal.
    */
-  getQuickStartStep(index: number): Locator {
-    return this.page.locator(`text=${index}.`).locator('..');
-  }
-
-  /**
-   * Open quick incident creation modal
-   */
-  async openQuickIncidentModal() {
-    await this.quickAddButton.click();
-    await this.incidentModal.waitFor({ state: 'visible', timeout: 5000 });
-  }
-
-  /**
-   * Open full incident creation modal
-   */
-  async openFullIncidentModal() {
+  async openIncidentModal() {
     await this.newIncidentButton.click();
     await this.incidentModal.waitFor({ state: 'visible', timeout: 5000 });
   }
 
   /**
-   * Check if modal is in quick mode
+   * Check the incident modal is open (title = "Neuer Einsatz").
    */
-  async isModalInQuickMode(): Promise<boolean> {
-    const title = this.incidentModal.locator('h2:has-text("Schnellerfassung")');
-    return await title.isVisible().catch(() => false);
-  }
-
-  /**
-   * Check if modal is in full mode
-   */
-  async isModalInFullMode(): Promise<boolean> {
+  async isIncidentModalOpen(): Promise<boolean> {
     const title = this.incidentModal.locator('h2:has-text("Neuer Einsatz")');
     return await title.isVisible().catch(() => false);
   }
 
   /**
-   * Toggle from quick mode to full mode
+   * Create an incident through the "Neuer Einsatz" modal.
+   *
+   * Was `createFullIncident`, next to a `createQuickIncident` that clicked a "Schnell" button.
+   * That quick-mode UI no longer exists anywhere in the app, so there is no longer a "full" to
+   * distinguish from — one modal, one method. Callers of the old quick helper now come here.
    */
-  async toggleToFullMode() {
-    await this.quickModeToggle.click();
-    await this.page.waitForTimeout(300);
-  }
-
-  /**
-   * Toggle from full mode to quick mode
-   */
-  async toggleToQuickMode() {
-    await this.fullModeToggle.click();
-    await this.page.waitForTimeout(300);
-  }
-
-  /**
-   * Create incident in quick mode
-   */
-  async createQuickIncident(location: string) {
-    await this.openQuickIncidentModal();
-    await this.modalLocationInput.fill(location);
-    await this.modalCreateButton.click();
-    await this.waitForToast();
-  }
-
-  /**
-   * Create incident in full mode
-   */
-  async createFullIncident(location: string, notes?: string) {
-    await this.openFullIncidentModal();
+  async createIncident(location: string, notes?: string) {
+    await this.openIncidentModal();
     await this.modalLocationInput.fill(location);
     if (notes) {
       await this.modalNotesInput.fill(notes);

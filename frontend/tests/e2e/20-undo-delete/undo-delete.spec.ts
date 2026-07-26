@@ -21,7 +21,7 @@ async function setupIncident(page: import('@playwright/test').Page, tag: string)
 
   const mainPage = new MainPage(page);
   // The tag lives in the street name so it survives home-city display formatting.
-  await mainPage.createFullIncident(`${tag}strasse 1, Basel`);
+  await mainPage.createIncident(`${tag}strasse 1, Basel`);
   await page.waitForTimeout(500);
   const card = page.locator('[data-testid="incident-card"]').filter({ hasText: tag }).first();
   await expect(card).toBeVisible({ timeout: 8000 });
