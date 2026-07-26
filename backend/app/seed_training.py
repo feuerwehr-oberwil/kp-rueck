@@ -1071,13 +1071,22 @@ async def fetch_real_addresses_reverse_geocode(target_count: int = 50) -> list[t
         return addresses
 
 
-async def seed_training_data(skip_geocoding: bool = False):
+async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool = True):
     """
     Seed emergency templates and training locations.
 
     Args:
-        skip_geocoding: If True, use fallback to Oberwil center instead of reverse geocoding.
-                       Useful for production deployments to avoid slow OSM API calls.
+        skip_geocoding: If True, use the bundled fallback list instead of reverse
+                       geocoding. Avoids slow, rate-limited OSM API calls at boot.
+        seed_locations: If False, seed only the emergency templates and leave the
+                       training locations alone. Production passes False: the
+                       fallback list is a set of real streets in one specific town,
+                       and pre-loading it into another station's deployment puts
+                       addresses on their training board that do not exist in their
+                       area. Training mode does not need them — a training incident
+                       takes either a seeded TrainingLocation or an ad-hoc map pin
+                       (see services/training.py), so a station drops pins on its
+                       own map or adds locations as it goes.
     """
     async with async_session_maker() as session:
         print("=" * 60)
@@ -1108,6 +1117,10 @@ async def seed_training_data(skip_geocoding: bool = False):
                 updated += 1
         await session.commit()
         print(f"✅ Emergency templates synced: {inserted} new, {updated} updated")
+
+        if not seed_locations:
+            print("⏭️  Training locations not seeded — add your own, or drop pins on the map.")
+            return
 
         # Training locations: only seed when none exist — reverse geocoding is
         # slow and rate-limited, so it must never re-run on every deploy.
