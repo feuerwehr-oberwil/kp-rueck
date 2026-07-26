@@ -190,7 +190,9 @@ Materials: `/api/materials` (GET, POST, PUT)
 Alarm intake: `/api/alarms` (POST) – provider-neutral webhook, any dispatch system; Divera adapter at `/api/divera/webhook`
 Integrations: `/api/integrations` (GET) – capability registry (which provider is configured per domain)
 
-Full docs: http://localhost:8000/docs (Swagger UI)
+Full docs: [`docs/openapi.json`](docs/openapi.json) — the committed contract, regenerated
+with `just openapi` (a pytest fails when it drifts). Live Swagger UI while the backend
+runs: http://localhost:8000/docs
 
 **Integration seams** (provider-neutral, see `docs/ALARM-INTEGRATIONS.md`):
 - Inbound alarms funnel through `services/divera_intake.py` (shared inference/auto-attach); the pool table carries `source`/`source_id` provenance, incidents carry `source`/`source_ref`.
