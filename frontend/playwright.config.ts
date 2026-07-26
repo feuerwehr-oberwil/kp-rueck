@@ -2,6 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  // capture-help-screenshots.spec.ts is a documentation tool, not a test: it drives the app
+  // and writes PNGs into public/help/images/. It lives under testDir, so it was running as
+  // 14 "tests" in every `pnpm test:e2e` — and, once the suite went nightly, in CI, where it
+  // regenerated screenshots nobody would ever collect. Run it deliberately:
+  //   pnpm screenshots
+  testIgnore: ['**/capture-help-screenshots.spec.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
