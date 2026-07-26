@@ -400,6 +400,213 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
     )
 
 
+async def _seed_sample_resources(db) -> tuple[list, list, list]:
+    """Seed a fictional station's vehicles, personnel and materials -
+    development fixtures only.
+
+    Never run in production, for the same reason as the sample operations
+    below: a fleet, a roster and a material catalogue are operational DATA,
+    not scaffolding. On a fresh or restored production DB these would put
+    another station's five vehicles and 57 firefighters on the board, and
+    the first act of setting up would be deleting them. A production
+    deployment starts empty and fills up through the Excel import
+    (docs/SETUP.md section 3).
+    """
+    # ============================================
+    # 3. SEED VEHICLES
+    # ============================================
+    print("Creating vehicles...")
+    vehicles_data = [
+        {
+            "name": "TLF",
+            "type": "TLF",
+            "display_order": 1,
+            "status": "available",
+            "radio_call_sign": "Omega 1",
+        },
+        {
+            "name": "Pio",
+            "type": "RW",
+            "display_order": 2,
+            "status": "available",
+            "radio_call_sign": "Omega 2",
+        },
+        {
+            "name": "Mowa",
+            "type": "MTW",
+            "display_order": 3,
+            "status": "available",
+            "radio_call_sign": "Omega 3",
+        },
+        {
+            "name": "Trawa",
+            "type": "MTW",
+            "display_order": 4,
+            "status": "available",
+            "radio_call_sign": "Omega 4",
+        },
+        {
+            "name": "Mawa",
+            "type": "MTW",
+            "display_order": 5,
+            "status": "available",
+            "radio_call_sign": "Omega 5",
+        },
+    ]
+
+    vehicles = []
+    for vehicle_data in vehicles_data:
+        vehicle = models.Vehicle(id=uuid4(), **vehicle_data)
+        db.add(vehicle)
+        vehicles.append(vehicle)
+
+    # ============================================
+    # 4. SEED PERSONNEL
+    # ============================================
+    print("Creating personnel...")
+
+    # Generic personnel (common Swiss surnames)
+    personnel_data = [
+        # Offiziere (Officers)
+        {"name": "Müller Hans", "role": "Offizier", "availability": "available", "tags": ["F"]},
+        {"name": "Schneider Peter", "role": "Offizier", "availability": "available", "tags": ["F", "Hö"]},
+        {"name": "Weber Martin", "role": "Offizier", "availability": "available", "tags": ["F", "Fw"]},
+        {"name": "Fischer Thomas", "role": "Offizier", "availability": "available", "tags": []},
+        {"name": "Meyer Stefan", "role": "Offizier", "availability": "available", "tags": ["F"]},
+        {"name": "Wagner Klaus", "role": "Offizier", "availability": "available", "tags": ["F", "Hö"]},
+        {"name": "Becker Andreas", "role": "Offizier", "availability": "available", "tags": ["F", "Fw"]},
+        # Wachtmeister (Sergeants)
+        {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Koch René", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Baumann Michael", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
+        {"name": "Keller Marco", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
+        {"name": "Gerber Sandro", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Frei Dominik", "role": "Wachtmeister", "availability": "available", "tags": []},
+        {"name": "Huber Stefan", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
+        {"name": "Schmid Tizian", "role": "Wachtmeister", "availability": "available", "tags": []},
+        # Korporal (Corporals)
+        {"name": "Steiner Lukas", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
+        {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
+        {"name": "Roth Til", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Lang Dimitri", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Kaufmann Alain", "role": "Korporal", "availability": "available", "tags": ["F"]},
+        {"name": "Moser Florian", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
+        {"name": "Berger Maja", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Widmer Nico", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Vogel Simon", "role": "Korporal", "availability": "available", "tags": []},
+        {"name": "Egger Olivier", "role": "Korporal", "availability": "available", "tags": ["F"]},
+        # Mannschaft (Firefighters)
+        {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Wyss Fabio", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Künzli Klara", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Schwarz Jan", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
+        {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Christen Sandro", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
+        {"name": "Leuenberger Luca", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Suter Raoul", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Kunz Gabor", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Ammann Manuel", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Burri Alessandro", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Wenger Luzia", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Bühler Rico", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Aebischer Yannick", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Arnold Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Aebi Lionel", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Bachmann Simon", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Bühlmann Carina", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Buri Marysol", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Gasser Julia", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Hofer Max", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Hess Silvan", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Imhof Sebastiaan", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Iten Alexandre", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Jost Melissa", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Kaiser Sandra", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Käser Koray", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Kessler Paolo", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "König Sina", "role": "Mannschaft", "availability": "available", "tags": []},
+        {"name": "Lehmann Bastian", "role": "Mannschaft", "availability": "available", "tags": []},
+    ]
+
+    personnel = []
+    for person_data in personnel_data:
+        person = models.Personnel(id=uuid4(), **person_data)
+        db.add(person)
+        personnel.append(person)
+
+    # ============================================
+    # 5. SEED MATERIALS
+    # ============================================
+    print("Creating materials...")
+    materials_data = [
+        # Tauchpumpen
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+        {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
+        {"name": "Tauchpumpe S-Kl.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
+        {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Container", "status": "available"},
+        {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
+        {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
+        # Wassersauger
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "Pio", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "Modul", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+        {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+        {"name": "Wassersauger Kl.", "type": "Wassersauger", "location": "Bühne", "status": "available"},
+        # Sägen
+        {"name": "Motorsäge Gr.", "type": "Sägen", "location": "Pio", "status": "available"},
+        {"name": "Motorsäge Kl.", "type": "Sägen", "location": "Pio", "status": "available"},
+        {"name": "Rettsäge", "type": "Sägen", "location": "Pio", "status": "available"},
+        {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
+        {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
+        {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
+        # Generatoren
+        {"name": "Generator", "type": "Generatoren", "location": "TLF", "status": "available"},
+        {"name": "Generator", "type": "Generatoren", "location": "MoWa", "status": "available"},
+        {"name": "Generator", "type": "Generatoren", "location": "Bühne", "status": "available"},
+        # Spannungsprüfer
+        {"name": "Spannungsprüfer", "type": "Elektrowerkzeug", "location": "MoWa", "status": "available"},
+    ]
+
+    # Anhänger (Trailers) - separate category
+    trailers_data = [
+        {"name": "MS-Zivil", "type": "Anhänger", "location": "Depot", "status": "available"},
+        {"name": "MS-Porsche", "type": "Anhänger", "location": "Depot", "status": "available"},
+        {"name": "Anhänger-Zivil", "type": "Anhänger", "location": "Depot", "status": "available"},
+    ]
+
+    materials = []
+    for material_data in materials_data:
+        material = models.Material(id=uuid4(), **material_data)
+        db.add(material)
+        materials.append(material)
+
+    # Add trailers to materials
+    for trailer_data in trailers_data:
+        trailer = models.Material(id=uuid4(), **trailer_data)
+        db.add(trailer)
+        materials.append(trailer)
+
+    return vehicles, personnel, materials
+
+
 async def seed_database() -> None:
     """Seed the database with initial data.
 
@@ -536,204 +743,18 @@ async def seed_database() -> None:
                 f"  - Settings: {settings_created} new, {len(default_settings_data) - settings_created} already exist"
             )
 
-            # ============================================
-            # 3. SEED VEHICLES
-            # ============================================
-            print("Creating vehicles...")
-            vehicles_data = [
-                {
-                    "name": "TLF",
-                    "type": "TLF",
-                    "display_order": 1,
-                    "status": "available",
-                    "radio_call_sign": "Omega 1",
-                },
-                {
-                    "name": "Pio",
-                    "type": "RW",
-                    "display_order": 2,
-                    "status": "available",
-                    "radio_call_sign": "Omega 2",
-                },
-                {
-                    "name": "Mowa",
-                    "type": "MTW",
-                    "display_order": 3,
-                    "status": "available",
-                    "radio_call_sign": "Omega 3",
-                },
-                {
-                    "name": "Trawa",
-                    "type": "MTW",
-                    "display_order": 4,
-                    "status": "available",
-                    "radio_call_sign": "Omega 4",
-                },
-                {
-                    "name": "Mawa",
-                    "type": "MTW",
-                    "display_order": 5,
-                    "status": "available",
-                    "radio_call_sign": "Omega 5",
-                },
-            ]
-
-            vehicles = []
-            for vehicle_data in vehicles_data:
-                vehicle = models.Vehicle(id=uuid4(), **vehicle_data)
-                db.add(vehicle)
-                vehicles.append(vehicle)
-
-            # ============================================
-            # 4. SEED PERSONNEL
-            # ============================================
-            print("Creating personnel...")
-
-            # Generic personnel (common Swiss surnames)
-            personnel_data = [
-                # Offiziere (Officers)
-                {"name": "Müller Hans", "role": "Offizier", "availability": "available", "tags": ["F"]},
-                {"name": "Schneider Peter", "role": "Offizier", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Weber Martin", "role": "Offizier", "availability": "available", "tags": ["F", "Fw"]},
-                {"name": "Fischer Thomas", "role": "Offizier", "availability": "available", "tags": []},
-                {"name": "Meyer Stefan", "role": "Offizier", "availability": "available", "tags": ["F"]},
-                {"name": "Wagner Klaus", "role": "Offizier", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Becker Andreas", "role": "Offizier", "availability": "available", "tags": ["F", "Fw"]},
-                # Wachtmeister (Sergeants)
-                {"name": "Hoffmann Lisa", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Schmidt Daniel", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Koch René", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Baumann Michael", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Fw"]},
-                {"name": "Keller Marco", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Brunner Sarah", "role": "Wachtmeister", "availability": "available", "tags": ["F", "Hö"]},
-                {"name": "Gerber Sandro", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Frei Dominik", "role": "Wachtmeister", "availability": "available", "tags": []},
-                {"name": "Huber Stefan", "role": "Wachtmeister", "availability": "available", "tags": ["F"]},
-                {"name": "Schmid Tizian", "role": "Wachtmeister", "availability": "available", "tags": []},
-                # Korporal (Corporals)
-                {"name": "Steiner Lukas", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Meier Andrea", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                {"name": "Graf Sven", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
-                {"name": "Roth Til", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Lang Dimitri", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Kaufmann Alain", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                {"name": "Moser Florian", "role": "Korporal", "availability": "available", "tags": ["Hö"]},
-                {"name": "Berger Maja", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Widmer Nico", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Vogel Simon", "role": "Korporal", "availability": "available", "tags": []},
-                {"name": "Egger Olivier", "role": "Korporal", "availability": "available", "tags": ["F"]},
-                # Mannschaft (Firefighters)
-                {"name": "Zimmermann Fabian", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Wyss Fabio", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Künzli Klara", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Studer Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Schwarz Jan", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
-                {"name": "Hartmann Mischa", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Christen Sandro", "role": "Mannschaft", "availability": "available", "tags": ["Fw"]},
-                {"name": "Leuenberger Luca", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Suter Raoul", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Kunz Gabor", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Ammann Manuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Burri Alessandro", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Wenger Luzia", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Bühler Rico", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Aebischer Yannick", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Arnold Samuel", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Aebi Lionel", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Bachmann Simon", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Bühlmann Carina", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Buri Marysol", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Gasser Julia", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Hofer Max", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Hess Silvan", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Imhof Sebastiaan", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Iten Alexandre", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Jost Melissa", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Kaiser Sandra", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Käser Koray", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Kessler Paolo", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "König Sina", "role": "Mannschaft", "availability": "available", "tags": []},
-                {"name": "Lehmann Bastian", "role": "Mannschaft", "availability": "available", "tags": []},
-            ]
-
-            personnel = []
-            for person_data in personnel_data:
-                person = models.Personnel(id=uuid4(), **person_data)
-                db.add(person)
-                personnel.append(person)
-
-            # ============================================
-            # 5. SEED MATERIALS
-            # ============================================
-            print("Creating materials...")
-            materials_data = [
-                # Tauchpumpen
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Pio", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
-                {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "MoWa", "status": "available"},
-                {"name": "Tauchpumpe S-Kl.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
-                {"name": "Tauchpumpe S-Gr.", "type": "Tauchpumpen", "location": "Modul", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Container", "status": "available"},
-                {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
-                {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "Bühne", "status": "available"},
-                # Wassersauger
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "Pio", "status": "available"},
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "Modul", "status": "available"},
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "MoWa", "status": "available"},
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
-                {"name": "Wassersauger", "type": "Wassersauger", "location": "Bühne", "status": "available"},
-                {"name": "Wassersauger Kl.", "type": "Wassersauger", "location": "Bühne", "status": "available"},
-                # Sägen
-                {"name": "Motorsäge Gr.", "type": "Sägen", "location": "Pio", "status": "available"},
-                {"name": "Motorsäge Kl.", "type": "Sägen", "location": "Pio", "status": "available"},
-                {"name": "Rettsäge", "type": "Sägen", "location": "Pio", "status": "available"},
-                {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
-                {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
-                {"name": "Motorsäge", "type": "Sägen", "location": "Bühne", "status": "available"},
-                # Generatoren
-                {"name": "Generator", "type": "Generatoren", "location": "TLF", "status": "available"},
-                {"name": "Generator", "type": "Generatoren", "location": "MoWa", "status": "available"},
-                {"name": "Generator", "type": "Generatoren", "location": "Bühne", "status": "available"},
-                # Spannungsprüfer
-                {"name": "Spannungsprüfer", "type": "Elektrowerkzeug", "location": "MoWa", "status": "available"},
-            ]
-
-            # Anhänger (Trailers) - separate category
-            trailers_data = [
-                {"name": "MS-Zivil", "type": "Anhänger", "location": "Depot", "status": "available"},
-                {"name": "MS-Porsche", "type": "Anhänger", "location": "Depot", "status": "available"},
-                {"name": "Anhänger-Zivil", "type": "Anhänger", "location": "Depot", "status": "available"},
-            ]
-
-            materials = []
-            for material_data in materials_data:
-                material = models.Material(id=uuid4(), **material_data)
-                db.add(material)
-                materials.append(material)
-
-            # Add trailers to materials
-            for trailer_data in trailers_data:
-                trailer = models.Material(id=uuid4(), **trailer_data)
-                db.add(trailer)
-                materials.append(trailer)
-
-            # Sample events/incidents are dev-only fixtures. On a fresh or
-            # restored production DB they would appear as REAL operations on
-            # the board - skip them there (audit point 15).
+            # Everything below this line is a dev fixture. On a fresh or
+            # restored production DB the sample events/incidents would appear
+            # as REAL operations on the board (audit point 15), and the fleet,
+            # roster and materials would be another station's - see
+            # _seed_sample_resources. A production board starts empty.
+            vehicles: list = []
+            personnel: list = []
+            materials: list = []
             if is_production_environment():
-                print("Production environment - skipping sample events/incidents.")
+                print("Production environment - skipping sample resources and operations.")
             else:
+                vehicles, personnel, materials = await _seed_sample_resources(db)
                 await _seed_sample_operations(db, admin_user, vehicles, personnel, materials)
 
             # ============================================
@@ -753,9 +774,12 @@ async def seed_database() -> None:
                 print("  - Created shared editor account: editor / [EDITOR_PASSWORD, default 'editor']")
             print("  - Created read-only viewer account: viewer / [VIEWER_PASSWORD, default 'viewer']")
             print(f"  - Created {settings_created} default settings")
-            print(f"  - Created {len(vehicles)} vehicles")
-            print(f"  - Created {len(personnel)} personnel")
-            print(f"  - Created {len(materials)} materials")
+            if is_production:
+                print("  - No vehicles, personnel or materials: import your own (docs/SETUP.md section 3)")
+            else:
+                print(f"  - Created {len(vehicles)} vehicles")
+                print(f"  - Created {len(personnel)} personnel")
+                print(f"  - Created {len(materials)} materials")
 
         except Exception as e:
             print(f"❌ Error seeding database: {e}")
@@ -767,10 +791,11 @@ async def seed_database() -> None:
     print("SEEDING TRAINING DATA")
     print("=" * 60)
     try:
-        # Skip geocoding in production (Railway) to avoid slow startup
-        # Use environment-based detection for production
+        # Production gets the emergency templates (generic scaffolding) but no
+        # training locations: the bundled fallback list is real streets in one
+        # specific town, and geocoding at boot is slow and rate-limited.
         is_production = is_production_environment()
-        await seed_training_data(skip_geocoding=is_production)
+        await seed_training_data(skip_geocoding=is_production, seed_locations=not is_production)
         print("✅ Training data seeded successfully!")
     except Exception as e:
         print(f"⚠️  Warning: Training data seeding failed: {e}")

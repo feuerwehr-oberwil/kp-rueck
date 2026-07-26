@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # API
     api_v1_prefix: str = "/api"
     project_name: str = "KP Rück API"
-    version: str = "0.1.0"
+    version: str = "0.2.0"
     description: str = "API for firefighting operations dashboard"
 
     # Uvicorn
@@ -127,7 +127,12 @@ class Settings(BaseSettings):
     demo_reset_hours: int = 2  # How often to reset demo data (hours)
 
     # Audit Log Retention
-    audit_retention_days: int = 90  # Delete audit_log rows older than this (capped at 7 in demo mode)
+    # 0 = keep everything, and that is the default. The audit log is what the README calls a
+    # defensible record; deleting it on a timer nobody was told about is the opposite of that.
+    # It used to default to 90 days, so a deployment more than three months old had already
+    # lost the trail for its earliest operations without anything saying so.
+    # Set a positive number of days to prune (demo mode caps at 7 regardless).
+    audit_retention_days: int = 0
     audit_cleanup_interval_hours: int = 24  # How often the cleanup job runs (hours)
 
     # Login throttling
@@ -165,7 +170,19 @@ class Settings(BaseSettings):
     print_agent_token: str = ""
 
     # WebSocket
-    ws_require_auth: bool = False  # Reject WebSocket connects without a valid JWT (strict mode, off for now)
+    # Reject connects that carry no valid access_token cookie. Default ON.
+    #
+    # It defaulted to False through "Phase 1", which meant anything that could reach
+    # /socket.io could join the operations room and receive live incident broadcasts —
+    # addresses, crew assignments — without logging in. Only the admin room was role-gated,
+    # and the Socket.IO CORS whitelist is not a control here: CORS is enforced by browsers,
+    # and a script that omits or spoofs Origin is not a browser.
+    #
+    # Nothing legitimate connects anonymously: the client sends withCredentials, the
+    # /display/* pages gate on isAuthenticated, and the public share-link board polls over
+    # HTTP instead of using the socket. If some client of yours genuinely cannot log in, set
+    # WS_REQUIRE_AUTH=false — the board degrades to ~5s polling rather than going blank.
+    ws_require_auth: bool = True
 
     # Photo Storage
     photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)

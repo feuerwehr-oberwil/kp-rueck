@@ -46,14 +46,29 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   attacker still faces a lockout. Tunable via `LOGIN_MAX_FAILED_ATTEMPTS`,
   `LOGIN_FAILED_LOCKOUT_SECONDS`, `LOGIN_FAILED_WINDOW_SECONDS` and `LOGIN_RATE_LIMIT_PER_IP`.
 - **Roles:** `admin`, `editor` (full CRUD) and `viewer` (read-only), enforced in the database by
-  a check constraint.
+  a check constraint. Under Entra ID sign-in, editor is an **explicit grant** via
+  `SSO_EDITOR_ALLOWLIST` – any tenant member can reach the login, so membership alone provisions
+  a viewer and nothing more.
+- **Live updates require a login.** The Socket.IO connection is rejected without a valid session
+  cookie (`WS_REQUIRE_AUTH`, default on since 0.2; it defaulted **off** before that, so anything
+  able to reach `/socket.io` could subscribe to live incident broadcasts). The CORS origin
+  whitelist is not the control here – CORS is enforced by browsers, and a script that omits
+  `Origin` is not a browser. Turning it off degrades the board to ~5s polling rather than
+  breaking it.
+- **A bypass token exists and is off.** `MASTER_TOKEN` allows API access without a login, for
+  scripted configuration. Empty by default, which disables it. If you set it, treat it as a
+  password equivalent: it is not scoped to a user and does not attribute actions to one in the
+  audit trail.
 - **Single-tenant:** one deployment = one station. Everything is served through one origin
-  (Caddy in front of frontend, backend and tileserver); `PUBLIC_URL` is the single allowed CORS
-  origin. The backend is also the only component that reaches external services (Divera,
+  (Caddy in front of frontend, backend and tileserver); `CORS_ORIGINS` is the single allowed
+  CORS origin. The backend is also the only component that reaches external services (Divera,
   Traccar), so the browser never talks to a third party.
 - **Fail-closed integrations:** the generic alarm webhook and the print-agent endpoints reject
-  everything until their shared secret is set. The alarm webhook secret is generated into the
-  database on first boot, not read from the environment.
+  everything until their shared secret is set. The alarm webhook secret can be set in the
+  environment (which wins) or, left blank, is generated into the database on first boot.
+- **The audit trail is kept, not expired.** `AUDIT_RETENTION_DAYS` defaults to `0` – keep
+  everything. Before 0.2 it defaulted to 90 days and swept silently, so a deployment older than
+  three months had already lost the trail for its earliest operations.
 - **Secrets in env only:** `SECRET_KEY`, `AUTH_SECRET_KEY`, `POSTGRES_PASSWORD` and integration
   credentials live in environment variables and **never** in the repo. The database stores
   integration *selection and behaviour*, never credentials. Self-hosters **must set strong,

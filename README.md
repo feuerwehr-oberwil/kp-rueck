@@ -160,7 +160,9 @@ flowchart TB
   reports through `GET /api/integrations`. Personnel sync and vehicle GPS currently have one
   provider each (Divera, Traccar); they follow the same pattern and can be generalised if a
   station needs a different one.
-- **Append-only audit:** operational history is corrected with new events, not rewritten.
+- **Append-only audit:** operational history is corrected with new events, not rewritten, and
+  **nothing expires unless you ask it to** – `AUDIT_RETENTION_DAYS` defaults to `0`, meaning keep
+  everything. Set a positive number of days if your retention policy says to prune.
 - **Alembic is the only schema truth:** migrations run on boot; the app never creates tables
   implicitly.
 
@@ -227,7 +229,7 @@ Start with the [documentation index](docs/README.md). Highlights:
 | [docs/SETUP.md](docs/SETUP.md) | **Start here** for a new station: the ordered path from an empty host to a board you can run an event on |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and deployment diagrams |
 | [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) | Provider-neutral alarm webhook and integration registry |
-| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide |
+| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide (legacy; self-hosting is the reference path) |
 | [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) | Thermal printer and print agent |
 | [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md) | Offline map tiles setup |
 | [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md) | Outage / paper-fallback standard operating procedure |

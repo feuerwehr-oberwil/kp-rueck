@@ -97,9 +97,9 @@ cd frontend && pnpm exec playwright test --headed  # Visible browser
 - **Frontend**: Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS 4
 - **Backend**: FastAPI (async Python) + SQLAlchemy 2.0 (async ORM)
 - **Database**: PostgreSQL 16
-- **Map Tiles**: TileServer GL (self-hosted offline tiles for Basel-Landschaft)
+- **Map Tiles**: TileServer GL (self-hosted offline tiles; region set by `TILES_BOUNDS`, default Basel-Landschaft)
 - **Package Managers**: pnpm (frontend), uv (backend)
-- **Deployment**: Docker containers via Railway
+- **Deployment**: Docker Compose from published GHCR images (Railway still works; it is no longer the reference path)
 - **Local Development**: Docker Compose with hot reload
 
 **Application Purpose:**
@@ -190,7 +190,9 @@ Materials: `/api/materials` (GET, POST, PUT)
 Alarm intake: `/api/alarms` (POST) – provider-neutral webhook, any dispatch system; Divera adapter at `/api/divera/webhook`
 Integrations: `/api/integrations` (GET) – capability registry (which provider is configured per domain)
 
-Full docs: http://localhost:8000/docs (Swagger UI)
+Full docs: [`docs/openapi.json`](docs/openapi.json) — the committed contract, regenerated
+with `just openapi` (a pytest fails when it drifts). Live Swagger UI while the backend
+runs: http://localhost:8000/docs
 
 **Integration seams** (provider-neutral, see `docs/ALARM-INTEGRATIONS.md`):
 - Inbound alarms funnel through `services/divera_intake.py` (shared inference/auto-attach); the pool table carries `source`/`source_id` provenance, incidents carry `source`/`source_ref`.
@@ -219,19 +221,14 @@ A deployment `.env` for the compose stack is documented in `.env.example` / `doc
 
 ## Deployment
 
-**Railway (Production):**
-- Three services: PostgreSQL, Backend, Frontend
-- See `docs/RAILWAY.md` for deployment guide
-- Backend uses `start.sh` script for initialization
-- Frontend uses production Next.js build
-
-**Docker Compose (self-hosting):**
+**Docker Compose (the production path):**
 - `docker-compose.yml`: the PRODUCTION stack. Pulls published GHCR images
   (`kp-rueck-{backend,frontend,tileserver,print-agent}`, pinned by `KP_RUECK_TAG`) and puts
   Caddy in front as a single origin: `/socket.io` + `/api` → backend, `/tiles` → tileserver,
   everything else → frontend. Sets `ENVIRONMENT=production`, which is what turns on mandatory
-  secrets, no auth bypass, and no sample data (`backend/app/environment.py` – production is NOT
-  Railway-only any more). Building from source is the commented-out path on each service.
+  secrets, no auth bypass, and no sample data at all — not just no sample incidents, but no fleet,
+  roster, materials or training locations either (`backend/app/environment.py`,
+  `backend/app/seed.py`; production is NOT Railway-only any more). Building from source is the commented-out path on each service.
 - `docker-compose.dev.yml`: development with hot reload and volume mounts (`just dev`).
 - See `docs/DEPLOYMENT.md`.
 
@@ -248,11 +245,11 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
 
 ## Offline Map Tiles
 
-The system includes optional offline map tile support for Basel-Landschaft region to enable map functionality when internet connectivity is unavailable.
+The system includes optional offline map tile support so the map keeps working when internet connectivity is unavailable. The defaults cover Basel-Landschaft; any region works via environment variables.
 
 **Architecture:**
 - **Tile Server**: TileServer GL running on port 8080
-- **Coverage**: Basel-Landschaft region, zoom levels 0-17
+- **Coverage**: whatever `TILES_BOUNDS` covers (default Basel-Landschaft), zoom levels 0-17
 - **Storage**: MBTiles format (~1-2 GB), stored in Docker volume
 - **Behavior**:
   - **Auto mode** (default): Try online OSM tiles first, fall back to offline on failure
@@ -261,7 +258,10 @@ The system includes optional offline map tile support for Basel-Landschaft regio
 
 **Setup:**
 ```bash
-# Download and install tiles (~12 MB, takes 5-15 minutes)
+# Download and install tiles (~12 MB, takes 5-15 minutes).
+# Region is configuration, not code: TILES_REGION / TILES_BOUNDS / TILES_AREA /
+# TILES_PBF_URL, defaulting to Basel-Landschaft. TILES_NAME (the on-disk filename)
+# is shared by all three tile scripts — don't rename it on an existing volume.
 just tiles-download
 
 # Check status
@@ -306,7 +306,10 @@ open http://localhost:8080
 - `docs/README.md` - Documentation index (start here for all docs)
 - `docs/ARCHITECTURE.md` - System architecture and technical design
 - `docs/ALARM-INTEGRATIONS.md` - Provider-neutral alarm webhook + integration registry
-- `docs/RAILWAY.md` - Railway deployment guide
+- `docs/DEPLOYMENT.md` - Self-hosting guide (the reference deployment path)
+- `docs/SETUP.md` - Ordered first-time setup for a new station
+- `docs/RUNNING-BOTH.md` - Running KP Front and KP Rück on one host
+- `docs/RAILWAY.md` - Railway deployment guide (legacy; the runtime was de-Railway'd)
 - `docs/OFFLINE_MAPS.md` - Offline map tiles setup and troubleshooting guide
 - `justfile` - Quick reference for common commands (run `just` to see all)
 - `backend/README.md` - Backend-specific setup and API docs

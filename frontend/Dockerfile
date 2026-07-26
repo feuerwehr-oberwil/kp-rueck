@@ -1,4 +1,9 @@
-FROM node:20-alpine AS base
+# Node 24 = Active LTS (security support to 2028-04-30). Node 20 went end-of-life on
+# 2026-04-30 and this image sat on it for three months — a published image a fire station
+# runs, on a runtime nobody was patching any more. Keep this in step with NODE_VERSION in
+# .github/workflows/*.yml and the engines field in package.json; dependabot's docker
+# ecosystem now proposes the bumps so it cannot drift silently again.
+FROM node:24-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate

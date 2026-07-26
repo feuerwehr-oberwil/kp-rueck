@@ -4,8 +4,13 @@ set -e
 # Install pre-downloaded tiles to TileServer
 # Usage: ./scripts/install-tiles.sh <path-to-mbtiles-file>
 
-CONTAINER_NAME="kprueck-tileserver-dev"
-TILES_FILE="basel-landschaft.mbtiles"
+# TILES_NAME is the filename the tileserver looks for; keep it in step with
+# scripts/download-tiles.sh and scripts/init-tileserver.sh. Your source file can
+# be called anything — it is renamed to this on the way into the volume.
+TILES_NAME="${TILES_NAME:-basel-landschaft}"
+
+CONTAINER_NAME="${TILES_CONTAINER:-kprueck-tileserver-dev}"
+TILES_FILE="${TILES_NAME}.mbtiles"
 
 echo "═══════════════════════════════════════════════"
 echo " KP Rück - Install Offline Map Tiles"
@@ -49,7 +54,7 @@ fi
 # Check if tile server container exists
 if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "❌ Error: Tile server container not found."
-    echo "   Please run 'make dev' first to start all services."
+    echo "   Please run 'just dev' first to start all services."
     exit 1
 fi
 
@@ -77,7 +82,7 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
     if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
         echo "⚠️  Warning: Tile server didn't respond within 30 seconds"
-        echo "   It may still be starting up. Check with: make tiles-status"
+        echo "   It may still be starting up. Check with: just tiles-status"
         break
     fi
     sleep 1
@@ -94,5 +99,5 @@ echo "1. Open http://localhost:8080 to verify tiles are loaded"
 echo "2. Go to Settings → Map Mode and select 'Offline'"
 echo "3. Navigate to Map view to test offline tiles"
 echo ""
-echo "To check status: make tiles-status"
+echo "To check status: just tiles-status"
 echo ""
