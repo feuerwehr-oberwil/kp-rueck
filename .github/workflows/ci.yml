@@ -3,20 +3,42 @@ name: CI
 # CI strategy – keep this comment truthful, it is the only place the split is written down.
 #
 # BLOCKING (a red one of these must stop a merge; these are the checks required on main):
-#   backend-lint, backend-test, frontend-lint, frontend-typecheck, frontend-unit-tests,
-#   frontend-build, images
+#   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
+#   frontend-typecheck, frontend-unit-tests, frontend-build, images
+#   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
 #
-# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-25,
-# so nobody has to guess how far off "make it blocking" is:
-#   backend-typecheck  mypy    – 757 errors in 87 files. A real project, not a cleanup.
-#   backend-security   bandit  – 52 findings (45 high-confidence). Needs triage before it can
-#                                gate anything; most are expected patterns in test/dev paths.
-# Both stay advisory deliberately: a check that is always red teaches people to ignore red.
+# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-26:
+#   backend-typecheck  mypy, second step – 526 errors in 59 files across the packages NOT in
+#                      the blocking subset (was 711 in 79 before app/crud, app/background,
+#                      websocket_manager.py, models.py and traccar.py were cleared and moved
+#                      into the blocking step). Still a project, not a cleanup:
+#                      docs/plans/14-typing-debt.md. Progress = moving one more package in, at zero.
+#   codecov upload   – never worth failing a build over.
 #
-# DISABLED:
-#   e2e – `if: false`. Playwright runs locally (`just test`), not in CI. It is kept here so it
-#         can be switched back on, and it is NOT in the required-checks list on main, because a
-#         permanently skipped required check blocks every pull request.
+# bandit used to be here too, at "52 findings". That number was misleading: with the `-ll -ii`
+# threshold the run reported exactly ONE medium finding (B104, which does not apply to a
+# containerised service). It was reviewed, annotated at the line, and the gate is now blocking.
+# The rest sit below the threshold and were never reported.
+#
+# The rule behind the split: a check that is always red teaches people to ignore red. Either a
+# gate is at zero and blocks, or it is honestly labelled a report.
+#
+# NOT A MERGE GATE, but not optional either:
+#   CodeQL – cross-file taint tracking, reporting into the Security tab per PR and weekly.
+#            It runs from GitHub's DEFAULT setup (repo settings → Code security), not from a
+#            workflow file in this repo, and it covers five languages there: actions,
+#            javascript, javascript-typescript, python, typescript.
+#            Do NOT add a `codeql.yml`: with default setup enabled, GitHub rejects the SARIF
+#            an advanced workflow uploads, so the job fails while the real analysis passes
+#            beside it. (kp-front is the other way round — default setup is off there, so it
+#            needs its workflow file. Same coverage, different mechanism.)
+#
+# RUNS, BUT NOT YET A REQUIRED CHECK:
+#   e2e-smoke – eight @smoke-tagged Playwright specs on the core path. It used to be `if: false`
+#         and covered nothing. It is deliberately NOT in the required-checks list on main until
+#         it has proved stable across a handful of real runs; see the comment on the job. The
+#         full ~300-spec suite is a human step (`cd frontend && pnpm test:e2e`) plus the nightly
+#         schedule in e2e-nightly.yml.
 #
 # Coverage: min 35% (target: 50% → 70%).
 
@@ -30,10 +52,34 @@ on:
 
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"   # Active LTS; 20 went EOL 2026-04-30. Match frontend/Dockerfile.
   PNPM_VERSION: "9"
+  # Seeds the throwaway E2E database and is what the specs log in with. Not a secret — the
+  # database and the container both die with the job — but it must be >= 12 chars, and the
+  # seed step and the specs must read the SAME value or every spec fails at the login screen.
+  E2E_PASSWORD: "e2e-ci-password-not-a-secret"  # gitleaks:allow
 
 jobs:
+  # ============================================
+  # Secrets
+  # ============================================
+  secrets:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # CLI via container (not gitleaks-action, which needs a license key for org repos).
+      # Scans exactly the TRACKED tree at HEAD (git archive), so a contributor's local .env
+      # and node_modules never enter the picture. Deliberate test values carry inline
+      # `gitleaks:allow` comments — the CI .env in the images job is generated at runtime
+      # with openssl, so there is nothing to allow there.
+      - name: Scan tracked tree for secrets
+        run: |
+          mkdir -p /tmp/scan
+          git archive HEAD | tar -x -C /tmp/scan
+          docker run --rm -v /tmp/scan:/repo zricethezav/gitleaks:latest \
+            detect --source /repo --no-git --redact --exit-code 1
+
   # ============================================
   # Backend Quality Checks
   # ============================================
@@ -86,17 +132,45 @@ jobs:
         run: uv sync --dev
 
       # Blocking for the modules that are clean, advisory for the rest. Splitting it this way
-      # is the point: one gate over the whole tree could only ever be advisory (there are
-      # ~690 findings left, see docs/plans/14-typing-debt.md), and an advisory gate is one
-      # nobody reads. These paths are at zero and must stay there.
+      # is the point: one gate over the whole tree could only ever be advisory (526 findings
+      # left, see docs/plans/14-typing-debt.md), and an advisory gate is one nobody reads.
+      # These paths are at zero and must stay there.
       - name: Type check with mypy (blocking subset)
-        run: uv run mypy app/auth app/middleware app/schemas app/services/alerting --ignore-missing-imports
+        run: >-
+          uv run mypy
+          app/auth app/middleware app/schemas app/services/alerting
+          app/crud app/background app/websocket_manager.py app/models.py app/traccar.py
+          --ignore-missing-imports
 
       # The rest, as a report. Moving a package out of here and into the step above is the
       # unit of progress — don't widen the blocking list without getting it to zero first.
       - name: Type check with mypy (rest, advisory)
         run: uv run mypy app --ignore-missing-imports
         continue-on-error: true
+
+  # The print agent is not part of the backend: it runs on a box in the station, speaks to
+  # BOTH KP Front and KP Rück, and its core is deliberately dependency-free. So it gets its
+  # own job with a plain Python — which is also what proves the bare-Pi install path, since
+  # the run would fail here if anything in the core started needing a package.
+  print-agent:
+    name: Print Agent
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/print-agent
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Tests (stub backends + fake lp/lpstat, no printer needed)
+        run: |
+          python -m pip install --quiet pytest
+          python -m pytest -q
 
   backend-security:
     name: Backend Security Scan
@@ -116,15 +190,18 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ env.PYTHON_VERSION }}
 
+      # Pinned to the project's Python. Bandit installed with uv's default interpreter ran
+      # on 3.11, could not parse 3.12 syntax, and SKIPPED app/crud/base.py entirely — a
+      # blocking security gate quietly not looking at a file. It reports "Files skipped (0)".
       - name: Install bandit
-        run: uv tool install bandit
+        run: uv tool install --python ${{ env.PYTHON_VERSION }} bandit
 
       # Blocking. It was advisory while one finding was outstanding; that finding was reviewed
       # (B104 in config.py — does not apply to a containerised service) and annotated, so the
       # scan is clean and a NEW medium-or-worse finding must now be dealt with rather than
       # scrolled past. Annotate a false positive at the line with `# nosec BXXX` and a reason.
       - name: Security scan with Bandit
-        run: uv tool run bandit -r app -ll -ii -x app/tests
+        run: uv tool run --python ${{ env.PYTHON_VERSION }} bandit -r app -ll -ii -x app/tests
 
   backend-test:
     name: Backend Tests
@@ -301,23 +378,30 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
   # ============================================
-  # E2E Tests — DELIBERATELY OFF, not broken. ~300 Playwright specs at ~25 min per run, and
-  # flaky enough that a red result had stopped carrying information. Gating merges on a suite
-  # nobody trusts is worse than not gating: it teaches people to click through the failure.
+  # E2E — the @smoke subset only (docs/plans/15-e2e-in-ci.md, phases 2 and 3).
   #
-  # The consequence is that CI does NOT cover a full click-through, so running the suite is a
-  # human step: `cd frontend && pnpm test:e2e` (needs `just dev`) before a release, and after
-  # touching auth, the board or alarm intake. CONTRIBUTING.md says the same in the place a
-  # contributor will look. Note kp-front DOES run Playwright blocking — no parity between repos.
+  # The full suite is ~300 specs at ~25 minutes and flaky enough that a red result had stopped
+  # carrying information, so it stayed switched off entirely and CI covered no click-through at
+  # all. This runs the eight specs on the paths where a break is both plausible and expensive:
+  # log in, land on the board, create an event, select it, create an incident, and alarm intake
+  # in and out. Tag more with `{ tag: '@smoke' }` as they prove stable.
   #
-  # Bringing it back = docs/plans/15-e2e-in-ci.md: measure what is actually slow and actually
-  # flaky, tag a <25-spec @smoke subset that runs blocking in under five minutes, full suite
-  # nightly. Deleting `if: false` without that work just re-creates the ignored red job.
+  # NOT YET IN THE REQUIRED-CHECKS LIST on main, on purpose. Phase 1 of the plan — run it
+  # repeatedly against an unchanged tree and see which specs flake — has not been done, and
+  # promoting an unmeasured suite to a merge gate is how you get a red job people learn to click
+  # through. Let it run on a few PRs first; when it has been green across runs it did not
+  # deserve to be, add "E2E (@smoke)" to branch protection. Until then a red result here is
+  # information, not a blocker.
+  #
+  # The full suite stays a human step before a release and after touching auth, the board or
+  # alarm intake: `cd frontend && pnpm test:e2e` (needs `just dev`). e2e-nightly.yml runs it on
+  # a schedule.
   # ============================================
-  e2e-tests:
-    name: E2E Tests
+  e2e-smoke:
+    name: E2E (@smoke)
     runs-on: ubuntu-latest
-    if: false  # Disabled - run locally
+    # The whole point is a fast signal; if it is not fast it is not doing its job.
+    timeout-minutes: 15
     needs: [backend-test, frontend-build]
 
     services:
@@ -371,11 +455,28 @@ jobs:
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
 
+      # ADMIN_SEED_PASSWORD has to be set and has to match what the specs log in with.
+      # Without it the seed mints a RANDOM development password, and every spec fails at the
+      # login screen — one of the reasons this job could not simply be switched back on.
+      # No ENVIRONMENT=production here on purpose: the specs need the dev fixture board
+      # (vehicles, personnel, materials), which a production seed deliberately omits.
+      # The seed writes rows; it does not create the schema. This service container is a bare
+      # postgres, so without the migrations the very first INSERT dies on `relation "users"
+      # does not exist`. The other jobs never needed this — pytest builds its own schema and
+      # the images job migrates inside the container — which is why the gap only shows here.
+      - name: Run migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+
       - name: Seed database
         working-directory: backend
         run: uv run python -m app.seed
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+          ADMIN_SEED_PASSWORD: ${{ env.E2E_PASSWORD }}
+          VIEWER_PASSWORD: ${{ env.E2E_PASSWORD }}
 
       - name: Start backend server
         working-directory: backend
@@ -386,10 +487,12 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           CORS_ORIGINS: http://localhost:3000
 
-      - name: Run E2E tests
+      - name: Run E2E tests (@smoke)
         working-directory: frontend
-        run: pnpm test:e2e
+        run: pnpm exec playwright test --grep @smoke
         env:
+          TEST_USERNAME: admin
+          TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
           NEXT_PUBLIC_API_URL: http://localhost:8000
           CI: true
 
@@ -471,9 +574,9 @@ jobs:
       - name: Build print-agent image
         uses: docker/build-push-action@v7
         with:
-          context: ./print-agent
+          context: ./tools/print-agent
           load: true
-          tags: ghcr.io/feuerwehr-oberwil/kp-rueck-print-agent:ci
+          tags: ghcr.io/feuerwehr-oberwil/kp-print-agent:ci
           cache-from: type=gha,scope=print-agent
           cache-to: type=gha,mode=max,scope=print-agent
 

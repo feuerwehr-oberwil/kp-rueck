@@ -55,9 +55,7 @@ def _is_relevant(diff) -> bool:
     # Batched diffs (e.g. modify_type) come as lists; inspect the first entry.
     entry = diff[0] if isinstance(diff, list) else diff
     # alembic's own bookkeeping table isn't in Base.metadata by design.
-    if entry[0] == "remove_table" and entry[1].name == "alembic_version":
-        return False
-    return True
+    return not (entry[0] == "remove_table" and entry[1].name == "alembic_version")
 
 
 # Intentionally a SYNC test: alembic's async env.py calls asyncio.run(),

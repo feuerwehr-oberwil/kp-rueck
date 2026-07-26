@@ -2,7 +2,11 @@
 
 The print agent connects the KP Rueck dashboard to a printer on the local network. It runs locally (e.g. on a Raspberry Pi) and polls the backend for pending print jobs.
 
-> **The backend print queue is transport-neutral.** Jobs are stored as structured JSON – the backend knows nothing about ESC/POS, paper widths, or any printer brand. The bundled agent (`print-agent/`) is the *reference* implementation for a 58 mm ESC/POS thermal printer, but any department can point their own agent at the same four endpoints and render the jobs however they like (a CUPS/A4 laser printer, a PDF spooler, a second printer). See [Writing your own agent](#writing-your-own-agent) below. This mirrors the alarm connectors ([docs/ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)): the core stays vendor-neutral, the device-specific part lives at the edge.
+> **One agent, both systems.** The agent lives at [`tools/print-agent/`](../tools/print-agent/) and speaks **both** KP Rück's protocol (structured JSON → ESC/POS thermal) and KP Front's (opaque PDF → CUPS/A4 laser). A station running both systems runs **one** service with a `backends` list, not two agents on the same box. Everything on this page describes the KP Rück half; see [`tools/print-agent/README.md`](../tools/print-agent/README.md) for the configuration file, the KP Front half, and the dependency budget.
+>
+> It is published under the neutral name `ghcr.io/feuerwehr-oberwil/kp-print-agent` — it is not a KP Rück component, it just lives in this repository. The old `kp-rueck-print-agent` name is still published for one release so existing compose files keep working.
+
+> **The backend print queue is transport-neutral.** Jobs are stored as structured JSON – the backend knows nothing about ESC/POS, paper widths, or any printer brand. The bundled agent is the *reference* implementation for a 58 mm ESC/POS thermal printer, but any department can point their own agent at the same four endpoints and render the jobs however they like (a CUPS/A4 laser printer, a PDF spooler, a second printer). See [Writing your own agent](#writing-your-own-agent) below. This mirrors the alarm connectors ([docs/ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)): the core stays vendor-neutral, the device-specific part lives at the edge.
 
 ## Architecture
 
@@ -90,7 +94,7 @@ while True:
     sleep(5 if jobs else 60)
 ```
 
-Render each `job_type` however your hardware needs – the reference agent (`print-agent/agent.py`) uses python-escpos for a 58 mm thermal printer; a CUPS-based agent would hand the same payload to `lp` for an A4 laser printer instead.
+Render each `job_type` however your hardware needs – the reference agent (`tools/print-agent/`) uses python-escpos for a 58 mm thermal printer; a CUPS-based agent would hand the same payload to `lp` for an A4 laser printer instead.
 
 ## Local Development
 
@@ -152,7 +156,7 @@ sudo apt install -y libjpeg-dev zlib1g-dev libfreetype6-dev \
 ```bash
 # From your dev machine – copy only the agent files
 ssh <user>@<raspberry-ip> "mkdir -p ~/print-agent"
-scp print-agent/*.py print-agent/pyproject.toml <user>@<raspberry-ip>:~/print-agent/
+scp -r tools/print-agent/ <user>@<raspberry-ip>:~/print-agent/
 ```
 
 ### 4. Install dependencies & test
@@ -160,8 +164,8 @@ scp print-agent/*.py print-agent/pyproject.toml <user>@<raspberry-ip>:~/print-ag
 ```bash
 cd ~/print-agent
 uv python install 3.12   # if system Python is too old
-uv sync --python 3.12
-BACKEND_URL=https://your-backend.example.com DRY_RUN=true uv run python agent.py
+uv sync --python 3.12 --extra escpos   # the ESC/POS output is the only part needing packages
+BACKEND_URL=https://your-backend.example.com AGENT_TOKEN=<PRINT_AGENT_TOKEN> DRY_RUN=true uv run python agent.py once
 ```
 
 ### 5. Create systemd service
@@ -214,7 +218,7 @@ Both are outbound connections only. No port forwarding or firewall changes neede
 
 ```bash
 # From your dev machine
-scp print-agent/*.py print-agent/pyproject.toml <user>@<raspberry-ip>:~/print-agent/
+scp -r tools/print-agent/ <user>@<raspberry-ip>:~/print-agent/
 ssh <user>@<raspberry-ip> "sudo systemctl restart kp-print-agent"
 ```
 

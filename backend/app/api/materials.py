@@ -219,4 +219,4 @@ async def delete_material_group(
         # Something still references this group (unexpected — members were just
         # unlinked). Roll back and return a clear conflict instead of a raw 500.
         await db.rollback()
-        raise HTTPException(status_code=409, detail="Material group is still in use")
+        raise HTTPException(status_code=409, detail="Material group is still in use") from None

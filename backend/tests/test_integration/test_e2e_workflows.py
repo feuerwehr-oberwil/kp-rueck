@@ -52,7 +52,7 @@ async def resources(db_session: AsyncSession) -> dict:
     # Create materials
     materials_list = []
     material_types = [("Stromerzeuger", "Generator"), ("Tauchpumpe", "Pumpe"), ("Motorsäge", "Werkzeug")]
-    for i, (name, mtype) in enumerate(material_types):
+    for name, mtype in material_types:
         material = Material(
             id=uuid4(),
             name=name,
@@ -247,7 +247,7 @@ async def test_incident_status_history_tracking(editor_client: AsyncClient, db_s
     assert len(history) == 3
 
     # History should be in chronological order
-    for i, (from_s, to_s, notes) in enumerate(transitions):
+    for i, (from_s, to_s, _notes) in enumerate(transitions):
         assert history[i]["from_status"] == from_s
         assert history[i]["to_status"] == to_s
         # Notes may or may not be returned depending on API
@@ -517,7 +517,7 @@ async def test_multiple_incidents_in_event(editor_client: AsyncClient, db_sessio
 
     # Progress each to different status
     statuses = ["eingegangen", "reko", "disponiert", "einsatz", "einsatz_beendet"]
-    for i, (incident_id, target_status) in enumerate(zip(incident_ids, statuses)):
+    for incident_id, target_status in zip(incident_ids, statuses, strict=False):
         if target_status != "eingegangen":
             # Get current status
             response = await editor_client.get(f"/api/incidents/{incident_id}")

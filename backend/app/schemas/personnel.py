@@ -53,8 +53,6 @@ class PersonnelBase(BaseModel):
 class PersonnelCreate(PersonnelBase):
     """Schema for creating personnel."""
 
-    pass
-
 
 class PersonnelUpdate(BaseModel):
     """Schema for updating personnel."""

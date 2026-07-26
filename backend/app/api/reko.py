@@ -108,7 +108,7 @@ async def get_reko_form(
         return response_data
     except ValueError as e:
         logger.warning("Reko form validation failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
 
 @router.post("/", response_model=schemas.RekoReportResponse)
@@ -219,7 +219,7 @@ async def update_report(
         return response_data
     except ValueError as e:
         logger.warning("Reko report update failed: %s", e)
-        raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
+        raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND) from e
 
 
 @router.get("/{report_id}", response_model=schemas.RekoReportResponse)
@@ -361,7 +361,7 @@ async def mark_reko_arrived(
         return response_data
     except ValueError as e:
         logger.warning("Mark reko arrived failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
 
 @router.post("/generate-link")
@@ -512,7 +512,7 @@ async def upload_photo(
 
     # Update report with new photo
     current_photos = report.photos_json if report.photos_json else []
-    report.photos_json = current_photos + [filename]
+    report.photos_json = [*current_photos, filename]
     await db.commit()
 
     return {"filename": filename}

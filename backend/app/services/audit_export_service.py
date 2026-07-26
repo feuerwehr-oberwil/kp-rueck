@@ -579,10 +579,7 @@ def _add_reko_reports_sheet(
         ws.cell(row=row_num, column=3, value=incident.title if incident else "")
 
         # is_relevant can be None (not yet determined), True, or False
-        if reko.is_relevant is None:
-            relevant_str = ""
-        else:
-            relevant_str = "Ja" if reko.is_relevant else "Nein"
+        relevant_str = "" if reko.is_relevant is None else "Ja" if reko.is_relevant else "Nein"
         ws.cell(row=row_num, column=4, value=relevant_str)
 
         ws.cell(row=row_num, column=5, value=reko.summary_text or "")

@@ -4,11 +4,12 @@
 
 ## Where things stand
 
-`mypy app --ignore-missing-imports` reports **~705 errors in 78 files**. CI runs mypy twice
-(`.github/workflows/ci.yml`, job `backend-typecheck`):
+`mypy app --ignore-missing-imports` reports **526 errors in 59 files** (was ~705). CI runs
+mypy twice (`.github/workflows/ci.yml`, job `backend-typecheck`):
 
 - **Blocking**, at zero and must stay there:
-  `app/auth`, `app/middleware`, `app/schemas`, `app/services/alerting`
+  `app/auth`, `app/middleware`, `app/schemas`, `app/services/alerting`,
+  `app/crud`, `app/background`, `app/websocket_manager.py`, `app/models.py`, `app/traccar.py`
 - **Advisory** (`continue-on-error: true`): the whole tree, as a report
 
 The split exists because one gate over everything could only ever be advisory, and an advisory
@@ -23,35 +24,31 @@ package-wide `# type: ignore` to make it fit.
 
 | Package | Errors | Character |
 | --- | ---: | --- |
-| `app/api` | 288 | Mostly missing annotations on route handlers |
-| `app/services` | 182 | Mixed: annotations plus genuine `arg-type` mismatches |
-| `app/websocket_manager` | 61 | Generics (`dict`, `set` without parameters) |
-| `app/crud` | 55 | Two recurring library-typing patterns, see below |
-| `app/background` | 36 | `asyncio.Task` without a parameter, annotations |
-| `app/seed_training`, `app/seed_demo`, `app/seed` | 33 | Seed scripts, lowest value |
-| `app/main` | 17 | Startup/shutdown callables, one real Starlette signature mismatch |
-| `app/models` | 16 | SQLAlchemy declarative attributes |
+| `app/api` | 318 | Mostly missing annotations on route handlers |
+| `app/services` | 203 | Mixed: annotations plus genuine `arg-type` mismatches |
+| `app/seed_training`, `app/seed_demo`, `app/seed` | 41 | Seed scripts, lowest value |
 | `app/telemetry` | 14 | **Deliberately excluded – see below** |
-| `app/traccar` | 3 | Small, easy win |
+| `app/main` | 6 | Startup/shutdown callables, one real Starlette signature mismatch |
 
-By error code, the tree is dominated by annotation debt rather than defects:
-`no-untyped-def` 330, `type-arg` 155, `attr-defined` 88, `no-untyped-call` 50, `arg-type` 48.
+By error code the remainder is still dominated by annotation debt rather than defects:
+`no-untyped-def` 253, `type-arg` 97, `attr-defined` 51, `arg-type` 47.
 
 ## Three patterns account for most of it
 
 Recognising these first will save re-deriving them per file:
 
 1. **One `result` variable reused across differently-shaped `select()`s.** mypy pins the type
-   from the first assignment, so every later use reports nonsense – e.g. in
-   `app/crud/print_jobs.py`, `"UUID" has no attribute "name"` and
-   `Argument 2 … has incompatible type "PrintJob"; expected "Incident"`. **Nothing is wrong at
-   runtime.** Fix by giving each query its own variable. Worth doing early: these messages look
-   exactly like a real defect would, so they train the reader to dismiss the real one.
-2. **SQLAlchemy generic gaps.** `Result[Any]` has no `rowcount` (it lives on `CursorResult`),
-   and `ModelType`/`type[Base]` has no `id` in the generic CRUD base. Needs a `Protocol` with an
-   `id` attribute as the `TypeVar` bound, not an ignore per call site.
+   from the first assignment, so every later use reports nonsense – `"UUID" has no attribute
+   `"name"`, `"Personnel" has no attribute "status"`. **Nothing is wrong at runtime.** Fix by
+   giving each query its own variable. Worth doing early: these messages look exactly like a
+   real defect would, so they train the reader to dismiss the real one. (All occurrences in
+   `app/crud` are cleared; expect the same shape in `app/api` and `app/services`.)
+2. **SQLAlchemy generic gaps.** Both are now solved centrally, so reuse the solutions rather
+   than re-deriving them: `Result[Any]` has no `rowcount` (that lives on `CursorResult`) →
+   `app.database.execute_dml()`; `type[Base]` has no `id` → `ModelProtocol` in
+   `app/crud/base.py`, used as the `TypeVar` bound. Neither needs an ignore per call site.
 3. **Bare `dict` / `list` / `set` / `asyncio.Task`.** Purely mechanical: add the parameters.
-   This is `type-arg`, 155 of them, and the cheapest volume to clear.
+   This is `type-arg`, 97 left, and the cheapest volume to clear.
 
 ## `app/telemetry` is excluded on purpose
 
@@ -68,11 +65,31 @@ files are being changed for a real reason anyway.
 
 ## Suggested order
 
-1. `app/traccar` (3) and `app/background` (36) – small, self-contained, prove the workflow.
-2. `app/crud` (55) – fixes pattern 1 and 2 once, which also removes noise from `api`/`services`.
-3. `app/websocket_manager` (61) and `app/models` (16) – mechanical.
-4. `app/api` (288) – large but repetitive; can be done per router.
-5. `app/services` (182) – last, because it contains the genuine mismatches worth thinking about.
+1. ~~`app/traccar` and `app/background`~~ – **done**, both blocking.
+2. ~~`app/crud`~~ – **done**, blocking. Fixed patterns 1 and 2 once, which also removed a
+   chunk of the noise that used to show up in `api`/`services`.
+3. ~~`app/websocket_manager` and `app/models`~~ – **done**, both blocking.
+4. `app/api` (318) – large but repetitive; can be done per router.
+5. `app/services` (203) – last, because it contains the genuine mismatches worth thinking about.
 6. Seed scripts – or never; they run once, by hand, and a failure is loud and immediate.
 
 After each step: move that path into the blocking mypy step in `ci.yml`, in the same change.
+
+## What the first four steps actually turned up
+
+Worth recording, because it calibrates what to expect from the rest: of ~184 findings cleared,
+**two were real defects and one was dead code**. The rest were annotation debt or mypy
+describing a variable-reuse artefact.
+
+- `except Exception: pass` in `photo_storage` wrapped the `HTTPException` that the MIME check
+  raises to reject a file — `HTTPException` **is** an `Exception`, so nothing was ever rejected
+  there. (Found via ruff's `S110`, in the same pass.)
+- The audit middleware's fire-and-forget `create_task` kept no strong reference, so an audit
+  entry could be lost to garbage collection mid-flight.
+- `func.count(...).label("count")` collides with `tuple.count` on a `Row`. **Verified at runtime
+  that SQLAlchemy resolves the label correctly** — this one was NOT a bug, but the label was
+  renamed to `incident_count` because no checker can model it and the shadow misleads a reader.
+
+Pattern 1 (reused variable) was by far the biggest source of scary-looking-but-harmless
+findings: `result`, `resource`, `incident`, `report` and `layers` each held two different
+shapes in one function.

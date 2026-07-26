@@ -131,7 +131,7 @@ test.describe('Quick Mode Functionality', () => {
     await expect(modal.locator('text=Nur Standort eingeben - Rest wird automatisch ausgefüllt')).toBeVisible();
   });
 
-  test('can create incident in quick mode', async ({ authenticatedPage }) => {
+  test('can create incident in quick mode', { tag: '@smoke' }, async ({ authenticatedPage }) => {
     // Open quick mode
     const quickButton = authenticatedPage.locator('button:has-text("Schnell")');
     await quickButton.click();

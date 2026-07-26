@@ -109,10 +109,10 @@ async def receive_divera_webhook(
 
     except IntegrityError as e:
         logger.error(f"Database integrity error: {e}")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Emergency already exists")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Emergency already exists") from e
     except Exception as e:
         logger.error(f"Error processing Divera webhook: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing webhook")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing webhook") from e
 
 
 @router.get("/emergencies", response_model=schemas.DiveraEmergencyListResponse)
@@ -247,7 +247,7 @@ async def attach_emergency_to_event(
         )
     except ValueError as e:
         logger.warning("Failed to attach emergency %s to event: %s", emergency_id, e)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST) from e
 
     # Convert to response schema
     incident_response = await incident_display.incident_with_display(db, incident)
@@ -330,7 +330,7 @@ async def bulk_attach_emergencies(
 
         except Exception as e:
             logger.error(f"Error attaching emergency {emergency_id}: {e}")
-            errors.append(f"Emergency {emergency_id}: {str(e)}")
+            errors.append(f"Emergency {emergency_id}: {e!s}")
 
     if errors:
         logger.warning(f"Bulk attach completed with errors: {errors}")
@@ -365,7 +365,7 @@ async def archive_divera_emergency(
         logger.info(f"Divera emergency {emergency_id} archived by {current_user.username}")
     except ValueError as e:
         logger.warning("Failed to archive emergency %s: %s", emergency_id, e)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.NOT_FOUND) from e
 
 
 @router.get("/personnel-sync/preview", response_model=schemas.DiveraSyncPreview)
@@ -400,7 +400,7 @@ async def get_personnel_sync_preview(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to fetch members from Divera: {e}",
-        )
+        ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
     preview = build_sync_preview(divera_members, existing)
@@ -446,7 +446,7 @@ async def execute_personnel_sync(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to fetch members from Divera: {e}",
-        )
+        ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
     preview = build_sync_preview(divera_members, existing)
@@ -678,7 +678,7 @@ async def send_incident_alarm(
         )
     except alerting.AlarmSendError as e:
         logger.error("%s alarm failed for incident %s: %s", provider.slug, incident_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
     await log_action(
         db=db,
@@ -730,7 +730,7 @@ async def list_divera_members(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to fetch members from Divera: {e}",
-        )
+        ) from e
     members.sort(key=lambda m: m["name"].lower())
     return [schemas.DiveraMemberPreview(**m) for m in members]
 
@@ -777,7 +777,7 @@ async def send_test_alarm(
         )
     except divera_alarm.DiveraAlarmError as e:
         logger.error("Divera test alarm failed: %s", e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
     await log_action(
         db=db,

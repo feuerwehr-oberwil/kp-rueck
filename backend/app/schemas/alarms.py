@@ -15,7 +15,13 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 # Slugs owned by built-in ingest paths; generic senders must pick their own.
 # "operator"/"intake" are incident sources (dashboard / public phone form),
 # "divera" is the vendor adapter, "training" is the exercise generator.
-RESERVED_ALARM_SOURCES = {"divera", "operator", "intake", "training", "manual"}
+#
+# This is the UNION with KP Front's list — "migrated" is Front's, kept here so a station
+# running both can feed one dispatch system into both apps without discovering on the second
+# integration that a slug accepted by one is rejected by the other. Reserving a name this app
+# doesn't use costs nothing; it was never a valid external sender name anyway.
+# Keep in sync with kp-front's app/schemas.py. See docs/RUNNING-BOTH.md.
+RESERVED_ALARM_SOURCES = {"divera", "intake", "manual", "migrated", "operator", "training"}
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 

@@ -63,7 +63,7 @@ class PrintJobResponse(BaseModel):
 class PrintAssignmentRequest(BaseModel):
     """Request to print an assignment slip."""
 
-    pass  # No body needed, incident_id comes from URL
+    # No body needed, incident_id comes from URL
 
 
 class PrintBoardRequest(BaseModel):

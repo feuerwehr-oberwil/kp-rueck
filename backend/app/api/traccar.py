@@ -81,7 +81,7 @@ async def get_vehicle_positions() -> list[VehiclePositionResponse]:
         raise HTTPException(
             status_code=502,
             detail="GPS-Tracking-Service momentan nicht erreichbar",
-        )
+        ) from e
 
 
 class TrailPointResponse(BaseModel):
@@ -147,4 +147,4 @@ async def get_vehicle_trails(
         return trails
     except Exception as e:
         logger.error("Failed to fetch vehicle trails: %s", e)
-        raise HTTPException(status_code=502, detail="GPS-Tracking-Service momentan nicht erreichbar")
+        raise HTTPException(status_code=502, detail="GPS-Tracking-Service momentan nicht erreichbar") from e

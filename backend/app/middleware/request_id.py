@@ -50,7 +50,7 @@ class RequestIDMiddleware:
             if message["type"] == "http.response.start":
                 message = {
                     **message,
-                    "headers": list(message.get("headers", [])) + [(b"x-request-id", rid.encode("latin-1"))],
+                    "headers": [*list(message.get("headers", [])), (b"x-request-id", rid.encode("latin-1"))],
                 }
             await send(message)
 

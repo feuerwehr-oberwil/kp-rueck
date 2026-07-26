@@ -199,16 +199,16 @@ async def get_event_incident_counts_batch(db: AsyncSession, event_ids: list[uuid
         return {}
 
     query = (
-        select(Incident.event_id, func.count(Incident.id).label("count"))
+        select(Incident.event_id, func.count(Incident.id).label("incident_count"))
         .where(Incident.event_id.in_(event_ids))
         .group_by(Incident.event_id)
     )
     result = await db.execute(query)
 
     # Create map with default count of 0 for events with no incidents
-    counts_map = {event_id: 0 for event_id in event_ids}
+    counts_map: dict[uuid.UUID, int] = dict.fromkeys(event_ids, 0)
     for row in result:
-        counts_map[row.event_id] = row.count
+        counts_map[row.event_id] = row.incident_count
 
     return counts_map
 

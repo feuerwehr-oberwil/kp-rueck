@@ -1,6 +1,6 @@
 {
   "name": "kp-rueck-frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "scripts": {
@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "screenshots": "playwright test --config=playwright.screenshots.config.ts"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.8.1",
@@ -107,7 +108,7 @@
     "vitest": "^4.1.10"
   },
   "engines": {
-    "node": ">=20.15.0",
+    "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
   },
   "pnpm": {

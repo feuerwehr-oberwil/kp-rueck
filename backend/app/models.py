@@ -1,7 +1,7 @@
 """Database models for KP Rück system."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -102,7 +102,7 @@ class Personnel(Base):
     role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     role_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     availability: Mapped[str] = mapped_column(String(20), nullable=False)
-    tags: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+    tags: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True, default=list)
 
     # DEPRECATED dual-write: superseded by PersonnelExternalIdentity
     # (provider="divera"). Kept in sync for one compatibility release, then
@@ -152,7 +152,7 @@ class PersonnelExternalIdentity(Base):
     )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     external_id: Mapped[str] = mapped_column(Text, nullable=False)
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
@@ -244,7 +244,7 @@ class Event(Base):
         "EventAttendance", back_populates="event", cascade="all, delete-orphan"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Event {self.name} (training={self.training_flag})>"
 
 
@@ -326,6 +326,27 @@ class Incident(Base):
     """Incident (Einsatz) - Individual emergency card on kanban board."""
 
     __tablename__ = "incidents"
+
+    # Transient, NOT columns: the list/board queries attach these to each row so one batched
+    # query answers what would otherwise be N per-incident lookups, and the API layer reads them
+    # straight off the object. They were only ever set ad-hoc (and read back with
+    # `getattr(..., default)`); declaring them here gives them names and types without changing
+    # behaviour. None of them is persisted.
+    #
+    # `__allow_unmapped__` is required for exactly this: without it the declarative scan rejects
+    # any annotated attribute that is not `Mapped[...]`. Every real column below uses `Mapped[]`,
+    # so nothing about the mapping changes — this only permits the five plain attributes here.
+    __allow_unmapped__ = True
+
+    # Annotations WITHOUT defaults on purpose: this declares the type without creating a
+    # class-level object, so the attribute still simply does not exist until something sets it
+    # — exactly today's behaviour, and the readers that need to cope with that already use
+    # `getattr(..., default)`. A shared `= []` default would be a classic cross-instance leak.
+    group_resources_released: bool
+    status_changed_at: datetime | None
+    assigned_vehicles: list[Any]
+    has_completed_reko: bool
+    reko_arrived_at: datetime | None
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
@@ -487,7 +508,7 @@ class IncidentGroup(Base):
 
     __table_args__ = (Index("idx_incident_groups_event_position", "event_id", "position"),)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<IncidentGroup {self.name}>"
 
 
@@ -614,10 +635,10 @@ class RekoReport(Base):
 
     # Form fields
     is_relevant: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    dangers_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    effort_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    dangers_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    effort_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     power_supply: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    photos_json: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    photos_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
     summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     additional_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -678,7 +699,7 @@ class AuditLog(Base):
     action_type: Mapped[str] = mapped_column(String(50), nullable=False)
     resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
     resource_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
-    changes_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    changes_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -708,8 +729,8 @@ class SyncLog(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
-    records_synced: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    errors: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    records_synced: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    errors: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         CheckConstraint("sync_direction IN ('from_railway', 'to_railway')", name="valid_sync_direction"),
@@ -822,7 +843,7 @@ class EmergencyTemplate(Base):
         Index("ix_emergency_templates_is_active", "is_active"),
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<EmergencyTemplate {self.title_pattern} ({self.category})>"
 
 
@@ -836,8 +857,10 @@ class TrainingLocation(Base):
     # Address components
     street: Mapped[str] = mapped_column(String(255), nullable=False)
     house_number: Mapped[str] = mapped_column(String(20), nullable=False)
-    postal_code: Mapped[str] = mapped_column(String(10), nullable=False, default="4104")
-    city: Mapped[str] = mapped_column(String(100), nullable=False, default="Oberwil")
+    # No default town: a row that silently lands in someone else's municipality
+    # is worse than one the caller has to name. Every writer supplies both.
+    postal_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
 
     # Building type (optional, for realism)
     building_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -854,7 +877,7 @@ class TrainingLocation(Base):
     def get_full_address(self) -> str:
         return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<TrainingLocation {self.get_full_address()}>"
 
 
@@ -876,7 +899,7 @@ class PrintJob(Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     job_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'assignment', 'board', 'test', or 'qr_code'
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
     # Optional link to incident (for assignment slips)
     # NOTE: indexed via the explicitly named idx_* entries in __table_args__
@@ -940,7 +963,7 @@ class DiveraEmergency(Base):
     # Note: priority is inferred from title/text when creating incidents, not stored
 
     # Store raw Divera payload for reference
-    raw_payload_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    raw_payload_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     # Timestamps
     received_at: Mapped[datetime] = mapped_column(
@@ -979,7 +1002,7 @@ class DiveraEmergency(Base):
         ),
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         status = "attached" if self.attached_to_event_id else "unattached"
         return f"<DiveraEmergency {self.source}:{self.source_id} ({status})>"
 
@@ -1007,7 +1030,7 @@ class TelemetryOutbox(Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     # 'error' (background, needs consent) | 'report' (manual, the send button is the consent)
     channel: Mapped[str] = mapped_column(String(16), nullable=False)
-    payload_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     # NULL = still queued. Set once the ingest has 200'd; rows are swept after a few days.
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

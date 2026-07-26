@@ -18,6 +18,7 @@ at the target with speed 0. Positions are a pure function of elapsed time, so th
 """
 
 import asyncio
+import contextlib
 import logging
 import math
 import uuid
@@ -223,10 +224,8 @@ class GpsSimulation:
                 logger.info("GPS simulation: %s expired after 30min", drive.vehicle_name)
         if expired:
             # Fire-and-forget status update; overlay() runs inside async contexts.
-            try:
+            with contextlib.suppress(RuntimeError):
                 asyncio.get_running_loop().create_task(self._broadcast_status())
-            except RuntimeError:
-                pass
 
         if not self._drives:
             return positions

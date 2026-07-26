@@ -19,7 +19,7 @@ from app.config import settings
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 FRONTEND_PKG = ROOT / "frontend" / "package.json"
 BACKEND_PYPROJECT = ROOT / "backend" / "pyproject.toml"
-AGENT_PYPROJECT = ROOT / "print-agent" / "pyproject.toml"
+AGENT_PYPROJECT = ROOT / "tools" / "print-agent" / "pyproject.toml"
 
 pytestmark = pytest.mark.skipif(not FRONTEND_PKG.exists(), reason="repo root not available (running from the image)")
 

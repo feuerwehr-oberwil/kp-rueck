@@ -1,6 +1,6 @@
 [project]
 name = "kprueck-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "FastAPI backend for KP Rück firefighting operations dashboard"
 license = "AGPL-3.0"
 requires-python = ">=3.12"
@@ -50,17 +50,96 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+# Beyond the style core, these were picked for signal: ASYNC catches blocking I/O in async
+# handlers, B the classic footguns (B904 exception chaining above all), S the flake8-bandit
+# subset, SIM/C4/PIE/LOG the cheap correctness wins.
+#
+# Deliberately NOT selected, with the numbers, so the next person doesn't re-derive them:
+#   TRY  – 182 hits, 128 of them TRY003 ("no long messages in raise"). This codebase raises
+#          German operator-facing messages on purpose; that IS the design.
+#   PTH  – 7 hits, pure os.path-vs-pathlib style.
+#   BLE  – 93 hits in app/. Unlike kp-front (which was already annotating them, so enabling
+#          the rule revived 51 existing directives and left 7 to write), nothing here has
+#          been triaged. Turning it on now would mean 93 rubber-stamp `# noqa` comments,
+#          which is the same failure as an always-red gate: it teaches people that the
+#          marker means nothing. Worth doing as its own reviewed pass — the 8 directives
+#          already in the tree became plain comments so no orphaned markers are left behind.
+select = ["E", "F", "I", "N", "W", "UP", "B", "ASYNC", "SIM", "C4", "PIE", "LOG", "S", "RUF"]
 # UP042: the schema enums are `class X(str, Enum)`. StrEnum would be the modern form, but it
 # changes what `str(X.member)` returns ("value" instead of "X.member"), and those enums are
 # serialised into API responses. Deliberate deferral, not an oversight.
-ignore = ["E501", "UP042"]
+ignore = [
+    "E501",
+    "UP042",
+    # RUF001/2/3 flag "ambiguous" unicode. Every hit here is deliberate German typography —
+    # en dashes, ›angle quotes‹, non-breaking spaces. No lookalike attack surface in
+    # server-side prose constants.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # ASYNC240 wants trio.Path/anyio.Path for os.path calls; those are µs-cheap stats and
+    # this app uses neither library directly. ASYNC230 (reading a whole file on the loop)
+    # stays on — that one really does stall the server.
+    "ASYNC240",
+]
+
+# FastAPI's dependency-injection idiom is a function call in an argument default
+# (`user=Depends(get_user)`) — exactly what B008 flags. Without this the rule reports 137
+# findings, none of them real, and B as a family becomes unusable. Mirrors kp-front.
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests bind throwaway values, patch in mock classes named like classes, and annotate fixtures
 # with string forward-refs whose real import happens inside the function body. All deliberate
 # in test code; none of it would pass in `app/`.
-"tests/**" = ["F821", "N806", "F841", "E731", "F811"]
+"tests/**" = [
+    "F821",
+    "N806",
+    "F841",
+    "E731",
+    "F811",
+    # Test code legitimately does what app code must not: assert (S101 — the whole point),
+    # hardcode throwaway credentials (S105/S106), seed deterministic randomness (S311),
+    # build stubs with mutable class attrs (RUF012), assert a bare exception type (B017),
+    # and read fixture files inside an async test (ASYNC230 — there is no other request to
+    # starve, the test IS the only thing running).
+    "S101",
+    "S105",
+    "S106",
+    "S311",
+    "RUF012",
+    "B017",
+    "ASYNC230",
+    "BLE001",
+    # A SQL-injection test builds injection strings on purpose (S608), and a polling test
+    # sleeps in a loop on purpose (ASYNC110) — both are the thing under test.
+    "S608",
+    "ASYNC110",
+]
+# Alembic revisions are generated one-shot scripts: the f-string DDL interpolates literal
+# table names the migration itself defines (not input, so S608 cannot apply), and a
+# best-effort `except: pass` around an idempotency probe is the normal shape for a migration
+# that must be re-runnable. Rewriting generated files by hand only invites merge pain.
+"alembic/versions/**" = ["S608", "S110", "SIM105", "I001", "W291", "E402"]
+# The vendored telemetry modules are byte-identical with kp-front and pinned by checksum
+# (tests/test_telemetry_vendored.py). kp-front DOES select BLE, so its copies carry
+# `# noqa: BLE001`; here those directives look unused. Stripping them would break the
+# identity the checksum protects, so RUF100 is off for these four files specifically.
+"app/telemetry/scrub.py" = ["RUF100"]
+"app/telemetry/envelope.py" = ["RUF100"]
+"app/telemetry/outbox.py" = ["RUF100"]
+"app/telemetry/forwarder.py" = ["RUF100"]
 # E402: Module import not at top - intentional for logging setup before imports
 "app/main.py" = ["E402"]
 # E402: Secondary routers defined after primary router in same file
@@ -71,6 +150,14 @@ ignore = ["E501", "UP042"]
 # N806: BATCH_SIZE is a constant, uppercase is intentional
 "app/services/sync_service.py" = ["N806"]
 "app/seed.py" = ["N806"]
+# S311: the training/simulation code invents plausible exercise data — random names, jittered
+# GPS tracks, sample photos. `random` is the right tool; nothing here guards anything. (Where
+# this project does need unpredictability — tokens, passwords — it uses `secrets`.)
+"app/services/training.py" = ["S311"]
+"app/services/training_simulation_data.py" = ["S311"]
+"app/services/training_photos.py" = ["S311"]
+"app/api/training.py" = ["S311"]
+"app/seed_training.py" = ["S311"]
 
 [tool.mypy]
 python_version = "3.12"

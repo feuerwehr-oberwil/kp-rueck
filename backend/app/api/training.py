@@ -181,7 +181,8 @@ async def manual_dispatch(
         incident = await generator.dispatch_specific(event_id, template, location=location)
     else:
         # Ad-hoc map pin path — validator guarantees these fields are set.
-        assert request.latitude is not None and request.longitude is not None and request.address
+        # S101 suppressed: narrows the Optionals for the call below; the validator guarantees it.
+        assert request.latitude is not None and request.longitude is not None and request.address  # noqa: S101
         incident = await generator.dispatch_specific(
             event_id,
             template,
@@ -235,7 +236,7 @@ async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], wind
     """Check `people` in one by one at random offsets across the window."""
     offsets = sorted(random.uniform(window_seconds * 0.05, window_seconds) for _ in people)
     elapsed = 0.0
-    for (person_id, name), offset in zip(people, offsets):
+    for (person_id, name), offset in zip(people, offsets, strict=False):
         await asyncio.sleep(max(0.0, offset - elapsed))
         elapsed = offset
         try:
@@ -793,7 +794,7 @@ async def start_gps_simulation(
             raise HTTPException(
                 status_code=400,
                 detail="Magazin-Koordinaten fehlen (Einstellungen → GPS)",
-            )
+            ) from None
         target_label = "Magazin"
 
     # Start position: current simulated position > (for returns) the assigned

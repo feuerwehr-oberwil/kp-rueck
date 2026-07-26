@@ -111,10 +111,10 @@ async def get_current_user(
 
     except JWTError:
         logger.debug("JWT decoding failed")
-        raise credentials_exception
+        raise credentials_exception from None
     except ValueError:  # Invalid UUID
         logger.debug("Invalid user ID format in token")
-        raise credentials_exception
+        raise credentials_exception from None
 
     # Load user from database
     result = await db.execute(select(User).where(User.id == user_id))

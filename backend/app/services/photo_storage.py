@@ -62,23 +62,25 @@ class PhotoStorageService:
 
         # Check actual file content using magic bytes if available
         if HAS_MAGIC:
+            # Only the magic call is guarded. It used to be the whole block, including the
+            # raise — and since HTTPException IS an Exception, the `except` swallowed the
+            # very rejection this check exists to make: no file was ever turned away here.
             try:
                 mime = magic.from_buffer(content, mime=True)
-                allowed_mimes = {
-                    "image/jpeg",
-                    "image/jpg",
-                    "image/png",
-                    "image/webp",
-                    "application/octet-stream",  # Some browsers send this for images
-                }
+            except Exception:  # libmagic missing/unhappy → fall back to the PIL check below
+                mime = None
 
-                if mime and mime not in allowed_mimes:
-                    raise HTTPException(
-                        status_code=400, detail=f"Invalid file type detected: {mime}. Only image files are allowed."
-                    )
-            except Exception:
-                # Fall back to PIL validation if magic fails
-                pass
+            allowed_mimes = {
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+                "image/webp",
+                "application/octet-stream",  # Some browsers send this for images
+            }
+            if mime and mime not in allowed_mimes:
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid file type detected: {mime}. Only image files are allowed."
+                )
 
         # Validate PIL can open the file (don't use verify() — it's overly strict
         # and rejects images that PIL can otherwise process fine, e.g. some HEIC
@@ -87,7 +89,7 @@ class PhotoStorageService:
             img = Image.open(io.BytesIO(content))
             img.load()  # Force decode to confirm it's a real image
         except Exception:
-            raise HTTPException(status_code=400, detail="Invalid or corrupted image file")
+            raise HTTPException(status_code=400, detail="Invalid or corrupted image file") from None
 
     def _sanitize_filename(self, filename: str) -> str:
         """
@@ -107,7 +109,6 @@ class PhotoStorageService:
         """
         # TODO: Integrate with virus scanning service in production
         # Example: pyclamd.scan_stream(content)
-        pass
 
     def _compress_image(self, image: Image.Image) -> bytes:
         """
@@ -204,7 +205,7 @@ class PhotoStorageService:
             compressed_data = self._compress_image(image)
         except Exception as e:
             logger.warning("Failed to process image: %s", e)
-            raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_FILE)
+            raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_FILE) from e
 
         with open(file_path, "wb") as f:
             f.write(compressed_data)
@@ -245,7 +246,7 @@ class PhotoStorageService:
                 raise HTTPException(status_code=400, detail="Path traversal detected")
         except ValueError:
             # is_relative_to() raises ValueError if paths are on different drives
-            raise HTTPException(status_code=400, detail="Invalid path")
+            raise HTTPException(status_code=400, detail="Invalid path") from None
 
         return file_path if file_path.exists() else None
 

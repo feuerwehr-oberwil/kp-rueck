@@ -85,7 +85,7 @@ async def _queued_last_hour(db: AsyncSession) -> int:
 async def report_client_error(payload: ClientError, request: Request, db: AsyncSession = Depends(get_db)) -> None:
     """Log a client-reported error at WARNING (visible without DEBUG). Never raises."""
     ua = request.headers.get("user-agent", "?")[:300]
-    try:
+    try:  # noqa: SIM105 — suppress() would hide which call is the fragile one
         logger.warning(
             "client-error kind=%s build=%s path=%s ua=%s :: %s%s",
             payload.kind,
@@ -95,7 +95,7 @@ async def report_client_error(payload: ClientError, request: Request, db: AsyncS
             payload.message,
             f"\n{payload.stack}" if payload.stack else "",
         )
-    except Exception:  # noqa: BLE001 — a diagnostics sink must never raise
+    except Exception:  # noqa: S110 — a diagnostics sink must never raise
         pass
 
     try:
@@ -123,7 +123,7 @@ async def report_client_error(payload: ClientError, request: Request, db: AsyncS
         )
         await outbox.enqueue(db, channel="error", payload=event)
         await db.commit()
-    except Exception:  # noqa: BLE001 — telemetry must never break the sink it hangs off
+    except Exception:  # telemetry must never break the sink it hangs off
         await db.rollback()
         logger.debug("telemetry: could not queue client error", exc_info=True)
 
@@ -159,7 +159,7 @@ async def submit_problem_report(
         )
         await outbox.enqueue(db, channel="report", payload=event)
         await db.commit()
-    except Exception:  # noqa: BLE001
+    except Exception:
         await db.rollback()
         logger.exception("problem report could not be queued")
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="queue-failed") from None

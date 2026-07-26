@@ -38,7 +38,7 @@ def get_next_reset_time() -> datetime | None:
     return _next_reset_time
 
 
-async def _truncate_all_tables():
+async def _truncate_all_tables() -> None:
     """Truncate all application tables (preserve alembic_version)."""
     # Tables to preserve
     preserve = {"alembic_version"}
@@ -55,7 +55,7 @@ async def _truncate_all_tables():
             logger.info(f"Truncated {len(tables)} tables")
 
 
-def _clear_photos():
+def _clear_photos() -> None:
     """Clear the photos directory contents (keep the directory itself for volume mounts)."""
     import os
 
@@ -70,7 +70,7 @@ def _clear_photos():
         logger.info(f"Cleared photos directory: {photos_dir}")
 
 
-async def scheduled_demo_reset():
+async def scheduled_demo_reset() -> None:
     """Perform a scheduled demo reset: truncate data, re-seed, broadcast."""
     global _next_reset_time
 
@@ -110,7 +110,7 @@ async def scheduled_demo_reset():
         logger.error(f"Demo reset failed: {e}")
 
 
-def start_demo_reset_scheduler():
+def start_demo_reset_scheduler() -> None:
     """Start the demo reset scheduler."""
     global scheduler, _next_reset_time
 
@@ -131,7 +131,7 @@ def start_demo_reset_scheduler():
     scheduler.start()
 
 
-def stop_demo_reset_scheduler():
+def stop_demo_reset_scheduler() -> None:
     """Stop the demo reset scheduler."""
     global scheduler, _shutting_down
 

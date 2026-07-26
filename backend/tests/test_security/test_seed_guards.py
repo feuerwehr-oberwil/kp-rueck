@@ -26,12 +26,12 @@ class TestSharedAccountPassword:
 
     def test_production_requires_env_var(self, production_env, monkeypatch):
         monkeypatch.delenv("EDITOR_PASSWORD", raising=False)
-        with pytest.raises(ValueError, match="EDITOR_PASSWORD .* required in production"):
+        with pytest.raises(ValueError, match=r"EDITOR_PASSWORD .* required in production"):
             get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
 
     def test_production_requires_viewer_password_too(self, production_env, monkeypatch):
         monkeypatch.delenv("VIEWER_PASSWORD", raising=False)
-        with pytest.raises(ValueError, match="VIEWER_PASSWORD .* required in production"):
+        with pytest.raises(ValueError, match=r"VIEWER_PASSWORD .* required in production"):
             get_shared_account_password("VIEWER_PASSWORD", dev_default="viewer")
 
     def test_short_password_rejected_everywhere(self, dev_env, monkeypatch):
@@ -47,7 +47,7 @@ class TestSharedAccountPassword:
 class TestAdminPassword:
     def test_production_requires_env_var(self, production_env, monkeypatch):
         monkeypatch.delenv("ADMIN_SEED_PASSWORD", raising=False)
-        with pytest.raises(ValueError, match="ADMIN_SEED_PASSWORD .* required in production"):
+        with pytest.raises(ValueError, match=r"ADMIN_SEED_PASSWORD .* required in production"):
             get_admin_password()
 
     def test_dev_generates_random_password(self, dev_env, monkeypatch):

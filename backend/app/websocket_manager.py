@@ -1,6 +1,7 @@
 """WebSocket manager for real-time updates."""
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -17,7 +18,7 @@ from .config import settings
 logger = logging.getLogger(__name__)
 
 # Callback for handling polled alarms - set by main.py during startup
-_on_divera_poll_alarm: Callable | None = None
+_on_divera_poll_alarm: Callable[..., Any] | None = None
 
 # Session timeout constants
 STALE_SESSION_TIMEOUT_SECONDS = 300  # 5 minutes without activity
@@ -27,7 +28,7 @@ CLEANUP_INTERVAL_SECONDS = 60  # Run cleanup every minute
 ADMIN_ROOM_ROLES = ("admin", "editor")
 
 
-def get_role_from_environ(environ: dict) -> str | None:
+def get_role_from_environ(environ: dict[str, Any]) -> str | None:
     """Extract the user role from the JWT access_token cookie.
 
     Returns None for missing/invalid/expired tokens — never raises.
@@ -108,33 +109,33 @@ sio = socketio.AsyncServer(
 class WebSocketManager:
     """Manages WebSocket connections and broadcasts."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.active_connections: dict[str, set[str]] = {
             "operations": set(),  # Users subscribed to operations updates
             "admin": set(),  # Admin users for system-wide updates
         }
         self.user_sessions: dict[str, dict[str, Any]] = {}  # sid -> user info
-        self._cleanup_task: asyncio.Task | None = None
-        self._divera_poller = None  # Lazy import to avoid circular dependencies
-        self._traccar_poller = None  # Lazy import to avoid circular dependencies
+        self._cleanup_task: asyncio.Task[None] | None = None
+        # Any, not the real class: the whole point of the lazy import below is that this
+        # module must not import the pollers at definition time (circular dependency).
+        self._divera_poller: Any = None
+        self._traccar_poller: Any = None
 
-    async def start_cleanup_task(self):
+    async def start_cleanup_task(self) -> None:
         """Start the background stale session cleanup task."""
         if self._cleanup_task is None or self._cleanup_task.done():
             self._cleanup_task = asyncio.create_task(self._cleanup_stale_sessions())
             logger.info("Started WebSocket stale session cleanup task")
 
-    async def stop_cleanup_task(self):
+    async def stop_cleanup_task(self) -> None:
         """Stop the background cleanup task."""
         if self._cleanup_task and not self._cleanup_task.done():
             self._cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
             logger.info("Stopped WebSocket stale session cleanup task")
 
-    async def _cleanup_stale_sessions(self):
+    async def _cleanup_stale_sessions(self) -> None:
         """Background task to clean up stale sessions periodically."""
         while True:
             try:
@@ -145,7 +146,7 @@ class WebSocketManager:
             except Exception as e:
                 logger.error(f"Error in stale session cleanup: {e}")
 
-    async def _remove_stale_sessions(self):
+    async def _remove_stale_sessions(self) -> None:
         """Remove sessions that haven't had activity within the timeout period."""
         current_time = time.time()
         stale_sids = []
@@ -167,12 +168,12 @@ class WebSocketManager:
         if stale_sids:
             logger.info(f"Cleaned up {len(stale_sids)} stale sessions")
 
-    def update_activity(self, sid: str):
+    def update_activity(self, sid: str) -> None:
         """Update the last activity timestamp for a session."""
         if sid in self.user_sessions:
             self.user_sessions[sid]["last_activity"] = time.time()
 
-    async def connect(self, sid: str, environ: dict):
+    async def connect(self, sid: str, environ: dict[str, Any]) -> None:
         """Handle new WebSocket connection."""
         role = get_role_from_environ(environ)
         if role is None:
@@ -193,11 +194,11 @@ class WebSocketManager:
         await self._maybe_start_divera_polling()
         await self._maybe_start_traccar_polling()
 
-    async def disconnect(self, sid: str):
+    async def disconnect(self, sid: str) -> None:
         """Handle WebSocket disconnection."""
         logger.info(f"Client {sid} disconnected")
         # Remove from all rooms
-        for room, sids in self.active_connections.items():
+        for _room, sids in self.active_connections.items():
             sids.discard(sid)
         # Remove session info
         self.user_sessions.pop(sid, None)
@@ -206,7 +207,7 @@ class WebSocketManager:
         await self._maybe_stop_divera_polling()
         await self._maybe_stop_traccar_polling()
 
-    async def _maybe_start_divera_polling(self):
+    async def _maybe_start_divera_polling(self) -> None:
         """Start Divera polling if users are connected and polling is configured."""
         if self._divera_poller is None:
             # Lazy import to avoid circular dependencies
@@ -221,13 +222,12 @@ class WebSocketManager:
         if not self._divera_poller.is_configured:
             return
 
-        if self.get_connection_count() == 1 and not self._divera_poller.is_polling:
-            # First user connected, start polling
-            if _on_divera_poll_alarm:
-                await self._divera_poller.start_polling(_on_divera_poll_alarm)
-                logger.info("Started Divera polling (user connected)")
+        # First user connected, start polling
+        if self.get_connection_count() == 1 and not self._divera_poller.is_polling and _on_divera_poll_alarm:
+            await self._divera_poller.start_polling(_on_divera_poll_alarm)
+            logger.info("Started Divera polling (user connected)")
 
-    async def _maybe_stop_divera_polling(self):
+    async def _maybe_stop_divera_polling(self) -> None:
         """Stop Divera polling if no users are connected."""
         if self._divera_poller is None or not self._divera_poller.is_polling:
             return
@@ -237,7 +237,7 @@ class WebSocketManager:
             await self._divera_poller.stop_polling()
             logger.info("Stopped Divera polling (no users connected)")
 
-    async def _maybe_start_traccar_polling(self):
+    async def _maybe_start_traccar_polling(self) -> None:
         """Start Traccar polling if users are connected and Traccar is configured."""
         if self._traccar_poller is None:
             try:
@@ -254,7 +254,7 @@ class WebSocketManager:
         if self.get_connection_count() == 1 and not self._traccar_poller.is_polling:
             await self._traccar_poller.start_polling()
 
-    async def _maybe_stop_traccar_polling(self):
+    async def _maybe_stop_traccar_polling(self) -> None:
         """Stop Traccar polling if no users are connected."""
         if self._traccar_poller is None or not self._traccar_poller.is_polling:
             return
@@ -263,7 +263,7 @@ class WebSocketManager:
             await self._traccar_poller.stop_polling()
             logger.info("Stopped Traccar polling (no users connected)")
 
-    async def join_room(self, sid: str, room: str):
+    async def join_room(self, sid: str, room: str) -> bool:
         """Add a client to a room for targeted updates."""
         if room not in self.active_connections:
             return False
@@ -278,7 +278,7 @@ class WebSocketManager:
         logger.info(f"Client {sid} joined room {room}")
         return True
 
-    async def leave_room(self, sid: str, room: str):
+    async def leave_room(self, sid: str, room: str) -> bool:
         """Remove a client from a room."""
         if room in self.active_connections:
             self.active_connections[room].discard(sid)
@@ -288,7 +288,7 @@ class WebSocketManager:
             return True
         return False
 
-    async def broadcast_update(self, event: str, data: Any, room: str = None):
+    async def broadcast_update(self, event: str, data: Any, room: str | None = None) -> None:
         """Broadcast an update to all connected clients or specific room."""
         try:
             if room:
@@ -300,7 +300,7 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"Error broadcasting {event}: {e}")
 
-    async def send_to_client(self, sid: str, event: str, data: Any):
+    async def send_to_client(self, sid: str, event: str, data: Any) -> None:
         """Send a message to a specific client."""
         try:
             await sio.emit(event, data, to=sid)
@@ -321,9 +321,12 @@ class WebSocketManager:
 ws_manager = WebSocketManager()
 
 
-# Socket.IO event handlers
-@sio.event
-async def connect(sid, environ):
+# Socket.IO event handlers.
+# `@sio.event` carries no annotations in python-socketio, so under strict mode it makes
+# every handler it wraps "untyped" — the handlers below are annotated; the gap is the
+# library's. Drop these ignores if python-socketio ever ships type information.
+@sio.event  # type: ignore[untyped-decorator]
+async def connect(sid: str, environ: dict[str, Any]) -> bool | None:
     """Handle client connection."""
     if settings.ws_require_auth and get_role_from_environ(environ) is None:
         logger.info(
@@ -335,14 +338,14 @@ async def connect(sid, environ):
     return True
 
 
-@sio.event
-async def disconnect(sid):
+@sio.event  # type: ignore[untyped-decorator]
+async def disconnect(sid: str) -> None:
     """Handle client disconnection."""
     await ws_manager.disconnect(sid)
 
 
-@sio.event
-async def join(sid, data):
+@sio.event  # type: ignore[untyped-decorator]
+async def join(sid: str, data: dict[str, Any]) -> None:
     """Handle room join requests."""
     room = data.get("room")
     if room:
@@ -354,8 +357,8 @@ async def join(sid, data):
             await sio.emit("error", {"message": f"Invalid room: {room}"}, to=sid)
 
 
-@sio.event
-async def leave(sid, data):
+@sio.event  # type: ignore[untyped-decorator]
+async def leave(sid: str, data: dict[str, Any]) -> None:
     """Handle room leave requests."""
     room = data.get("room")
     if room:
@@ -365,15 +368,15 @@ async def leave(sid, data):
             await sio.emit("left", {"room": room}, to=sid)
 
 
-@sio.event
-async def ping(sid):
+@sio.event  # type: ignore[untyped-decorator]
+async def ping(sid: str) -> None:
     """Handle ping requests for connection keep-alive."""
     ws_manager.update_activity(sid)  # Refresh activity on ping
     await sio.emit("pong", {"timestamp": time.time()}, to=sid)
 
 
 # Broadcast functions for CRUD operations
-async def broadcast_incident_update(incident_data: dict, action: str = "update"):
+async def broadcast_incident_update(incident_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast incident updates to all clients in operations room."""
     await ws_manager.broadcast_update(
         "incident_update",
@@ -385,7 +388,7 @@ async def broadcast_incident_update(incident_data: dict, action: str = "update")
     )
 
 
-async def broadcast_group_update(group_data: dict, action: str = "update"):
+async def broadcast_group_update(group_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast Auftrag (incident group) updates to all clients in operations room.
 
     Membership/stop changes additionally ride the existing incident_update path
@@ -394,56 +397,56 @@ async def broadcast_group_update(group_data: dict, action: str = "update"):
     await ws_manager.broadcast_update("group_update", {"action": action, "data": group_data}, room="operations")
 
 
-async def broadcast_personnel_update(personnel_data: dict, action: str = "update"):
+async def broadcast_personnel_update(personnel_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast personnel updates to all clients in operations room."""
     await ws_manager.broadcast_update("personnel_update", {"action": action, "data": personnel_data}, room="operations")
 
 
-async def broadcast_vehicle_update(vehicle_data: dict, action: str = "update"):
+async def broadcast_vehicle_update(vehicle_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast vehicle updates to all clients in operations room."""
     await ws_manager.broadcast_update("vehicle_update", {"action": action, "data": vehicle_data}, room="operations")
 
 
-async def broadcast_material_update(material_data: dict, action: str = "update"):
+async def broadcast_material_update(material_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast material updates to all clients in operations room."""
     await ws_manager.broadcast_update("material_update", {"action": action, "data": material_data}, room="operations")
 
 
-async def broadcast_assignment_update(assignment_data: dict, action: str = "update"):
+async def broadcast_assignment_update(assignment_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast assignment updates to all clients in operations room."""
     await ws_manager.broadcast_update(
         "assignment_update", {"action": action, "data": assignment_data}, room="operations"
     )
 
 
-async def broadcast_notification_update(notification_data: dict, action: str = "create"):
+async def broadcast_notification_update(notification_data: dict[str, Any], action: str = "create") -> None:
     """Broadcast notification updates to all clients in operations room."""
     await ws_manager.broadcast_update(
         "notification_update", {"action": action, "data": notification_data}, room="operations"
     )
 
 
-async def broadcast_special_function_update(data: dict, action: str = "update"):
+async def broadcast_special_function_update(data: dict[str, Any], action: str = "update") -> None:
     """Broadcast special function updates (driver assignments etc.) to all clients in operations room."""
     await ws_manager.broadcast_update("special_function_update", {"action": action, "data": data}, room="operations")
 
 
-async def broadcast_reko_update(reko_data: dict, action: str = "update"):
+async def broadcast_reko_update(reko_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast reko report updates to all clients in operations room."""
     await ws_manager.broadcast_update("reko_update", {"action": action, "data": reko_data}, room="operations")
 
 
-async def broadcast_vehicle_positions(positions_data: list[dict]):
+async def broadcast_vehicle_positions(positions_data: list[dict[str, Any]]) -> None:
     """Broadcast GPS position updates to all clients in operations room."""
     await ws_manager.broadcast_update("vehicle_positions_update", {"data": positions_data}, room="operations")
 
 
-async def broadcast_vehicle_trails(trails_data: list[dict]):
+async def broadcast_vehicle_trails(trails_data: list[dict[str, Any]]) -> None:
     """Broadcast GPS trail updates to all clients in operations room."""
     await ws_manager.broadcast_update("vehicle_trails_update", {"data": trails_data}, room="operations")
 
 
-async def broadcast_system_message(message: str, level: str = "info"):
+async def broadcast_system_message(message: str, level: str = "info") -> None:
     """Broadcast system messages to all connected clients."""
     await ws_manager.broadcast_update(
         "system_message",
@@ -455,7 +458,7 @@ async def broadcast_system_message(message: str, level: str = "info"):
     )
 
 
-async def broadcast_message(data: dict, room: str = "operations"):
+async def broadcast_message(data: dict[str, Any], room: str = "operations") -> None:
     """
     Generic broadcast function for custom messages.
 
@@ -467,7 +470,7 @@ async def broadcast_message(data: dict, room: str = "operations"):
     await ws_manager.broadcast_update(message_type, data, room=room)
 
 
-def set_divera_poll_callback(callback: Callable):
+def set_divera_poll_callback(callback: Callable[..., Any]) -> None:
     """
     Set the callback for processing polled Divera alarms.
 
@@ -486,7 +489,7 @@ def set_divera_poll_callback(callback: Callable):
     logger.info("Divera poll callback configured")
 
 
-def get_divera_poller_stats() -> dict | None:
+def get_divera_poller_stats() -> dict[str, Any] | None:
     """Get Divera poller statistics, or None if not available."""
     try:
         from .services.divera_poller import divera_poller

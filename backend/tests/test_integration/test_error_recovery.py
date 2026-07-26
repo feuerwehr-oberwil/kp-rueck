@@ -253,12 +253,11 @@ async def test_unassign_non_existent_assignment(editor_client: AsyncClient, test
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-@pytest.mark.xfail(reason="API currently raises IntegrityError instead of 404 - needs fix")
 async def test_assignment_to_non_existent_incident(editor_client: AsyncClient, test_personnel: Personnel):
     """Test assigning resource to non-existent incident.
 
-    Expected: 404 Not Found
-    Current: Raises IntegrityError (FK violation) - bug
+    Used to raise an IntegrityError on the INSERT (a foreign-key violation surfacing as a 500)
+    for what is plainly a stale incident id. Now checked up front.
     """
     fake_incident_id = uuid4()
     response = await editor_client.post(
@@ -273,17 +272,21 @@ async def test_assignment_to_non_existent_incident(editor_client: AsyncClient, t
 async def test_assignment_with_non_existent_resource(editor_client: AsyncClient, test_incident: Incident):
     """Test assigning non-existent resource to incident.
 
-    Note: API currently allows assigning non-existent resources (returns 200).
-    This creates orphaned assignment records. Consider adding validation.
+    Used to return 200 and store the assignment anyway, leaving an orphan row that points at
+    no personnel record — a resource on the board that nobody can find, and no error to
+    explain it. Now a 404, matching what the sibling endpoints answer for a missing target.
     """
     fake_resource_id = uuid4()
     response = await editor_client.post(
         f"/api/incidents/{test_incident.id}/assign",
         json={"resource_type": "personnel", "resource_id": str(fake_resource_id)},
     )
-    # Current behavior: API allows this (no resource existence validation)
-    # Future improvement: Should return 404 or 422
-    assert response.status_code == 200  # Document current behavior
+    assert response.status_code == 404
+
+    # And nothing was written: the point of the fix is the absence of the row, not the code.
+    listed = await editor_client.get(f"/api/incidents/{test_incident.id}/assignments")
+    assert listed.status_code == 200
+    assert all(a["resource_id"] != str(fake_resource_id) for a in listed.json())
 
 
 # ============================================

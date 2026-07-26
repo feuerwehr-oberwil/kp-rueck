@@ -209,6 +209,6 @@ async def delete_event(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     except ValueError as e:
         logger.warning("Event deletion failed for %s: %s", event_id, e)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST) from e
 
     return None

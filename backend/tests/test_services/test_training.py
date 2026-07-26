@@ -11,6 +11,7 @@ Tests cover:
 """
 
 import io
+import random
 import re
 import uuid
 from pathlib import Path
@@ -615,6 +616,14 @@ class TestModuleFunctions:
         training_settings: list[Setting],
     ):
         """Test that module function loads settings from database."""
+        # Seeded on purpose. The generator draws from the configured 80/20 weights, so ten
+        # draws land below five "normal" roughly once every 150 runs — and this assertion had
+        # already gone red in CI while passing locally. A weighted draw is exactly the thing
+        # you must pin in a test: the point here is that the WEIGHTS get loaded, not that the
+        # RNG behaves, and a gate that fails 1-in-150 for no reason teaches people to re-run
+        # rather than read.
+        random.seed(20260726)
+
         # Settings have 80/20 normal/critical weight
         # Generate several incidents, most should be normal
         incidents = await generate_training_emergency(db_session, training_event.id, count=10)

@@ -102,7 +102,7 @@ def test_custom_secret_key_from_env(monkeypatch):
     monkeypatch.setenv("AUTH_SECRET_KEY", custom_key)
 
     settings = AuthSettings()
-    assert settings.SECRET_KEY == custom_key
+    assert custom_key == settings.SECRET_KEY
 
 
 def test_custom_token_expiration_from_env(monkeypatch):
