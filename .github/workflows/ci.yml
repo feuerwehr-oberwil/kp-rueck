@@ -460,6 +460,16 @@ jobs:
       # login screen — one of the reasons this job could not simply be switched back on.
       # No ENVIRONMENT=production here on purpose: the specs need the dev fixture board
       # (vehicles, personnel, materials), which a production seed deliberately omits.
+      # The seed writes rows; it does not create the schema. This service container is a bare
+      # postgres, so without the migrations the very first INSERT dies on `relation "users"
+      # does not exist`. The other jobs never needed this — pytest builds its own schema and
+      # the images job migrates inside the container — which is why the gap only shows here.
+      - name: Run migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+
       - name: Seed database
         working-directory: backend
         run: uv run python -m app.seed
