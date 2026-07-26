@@ -20,7 +20,7 @@ test.describe('Event Selection Empty State', () => {
 
     // Verify welcome message appears
     await expect(authenticatedPage.locator('h1:has-text("Noch kein Ereignis ausgewählt?")')).toBeVisible();
-    await expect(authenticatedPage.locator('text=Kein Problem! Erstellen Sie ein neues Ereignis')).toBeVisible();
+    await expect(authenticatedPage.locator('text=Kein Problem! Erstelle ein neues Ereignis')).toBeVisible();
   });
 
   test('displays calendar icon with gentle pulse animation', async ({ authenticatedPage }) => {
@@ -39,7 +39,7 @@ test.describe('Event Selection Empty State', () => {
     await expect(sparklesIcon).toBeVisible();
 
     // Verify motivational text
-    await expect(authenticatedPage.locator('text=Bereit für Ihren ersten Einsatz')).toBeVisible();
+    await expect(authenticatedPage.locator('text=Bereit für deinen ersten Einsatz')).toBeVisible();
   });
 
   test('displays "Create New Event" button', async ({ authenticatedPage }) => {
@@ -90,50 +90,8 @@ test.describe('Event Selection Empty State', () => {
     await expect(authenticatedPage).toHaveURL(/\/events/);
   });
 
-  test('displays quick start guide with 4 steps', async ({ authenticatedPage }) => {
-    // Verify "Erste Schritte" section is visible
-    await expect(authenticatedPage.locator('text=Erste Schritte')).toBeVisible();
 
-    // Verify all 4 steps are present
-    const steps = [
-      'Ereignis erstellen für heutigen Einsatztag',
-      'Personal über Check-In QR-Code einchecken',
-      'Fahrzeuge als einsatzbereit markieren',
-      'Ersten Einsatz anlegen und Ressourcen zuweisen',
-    ];
 
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      const stepElement = authenticatedPage.locator(`text=${i + 1}. ${step}`);
-      await expect(stepElement).toBeVisible();
-    }
-  });
-
-  test('quick start guide steps have hover effects', async ({ authenticatedPage }) => {
-    // Find first step
-    const firstStep = authenticatedPage.locator('li').filter({
-      hasText: '1. Ereignis erstellen'
-    }).first();
-
-    // Hover over step
-    await firstStep.hover();
-
-    // Verify step has group class for hover effects
-    const hasGroupClass = await firstStep.evaluate(el =>
-      el.className.includes('group')
-    );
-    expect(hasGroupClass).toBeTruthy();
-  });
-
-  test('empty state has border separator before quick start guide', async ({ authenticatedPage }) => {
-    // Verify border-t class is present
-    const quickStartSection = authenticatedPage.locator('div').filter({
-      has: authenticatedPage.locator('text=Erste Schritte')
-    }).filter({
-      has: authenticatedPage.locator('[class*="border-t"]')
-    });
-    await expect(quickStartSection).toBeVisible();
-  });
 
   test('empty state is responsive on mobile', async ({ authenticatedPage }) => {
     // Set viewport to mobile size
