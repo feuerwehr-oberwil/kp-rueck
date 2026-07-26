@@ -69,7 +69,8 @@ export function LocationInput({
   const [coordinateError, setCoordinateError] = useState<string | null>(null)
   const [coordinateWarning, setCoordinateWarning] = useState<string | null>(null)
   const [parseSuccess, setParseSuccess] = useState<string | null>(null)
-  const [homeCity, setHomeCity] = useState<string | null>(null)
+  const [stationCenter, setStationCenter] = useState<[number, number] | null>(null)
+  const [countryCodes, setCountryCodes] = useState<string | null>(null)
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -78,19 +79,27 @@ export function LocationInput({
   const geocodeInputsRef = useRef({ address, latitude, longitude, onCoordinatesChange })
   geocodeInputsRef.current = { address, latitude, longitude, onCoordinatesChange }
 
-  // Fetch home_city setting on mount to prioritize search results
+  // Fetch the station's own coordinates on mount to prioritize search results
+  // near it. Previously this read home_city and matched it against a hardcoded
+  // list of sixteen municipalities, so a station outside that list got results
+  // biased towards a region it is nowhere near.
   useEffect(() => {
-    async function fetchHomeCity() {
+    async function fetchStationLocation() {
       try {
         const settings = await apiClient.getAllSettings()
-        if (settings['home_city']) {
-          setHomeCity(settings['home_city'])
+        const lat = parseFloat(settings['firestation_latitude'] ?? '')
+        const lon = parseFloat(settings['firestation_longitude'] ?? '')
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          setStationCenter([lon, lat])
+        }
+        if (settings['geocoder_country_codes']) {
+          setCountryCodes(settings['geocoder_country_codes'])
         }
       } catch (error) {
-        console.error('Failed to fetch home_city setting:', error)
+        console.error('Failed to fetch station location settings:', error)
       }
     }
-    fetchHomeCity()
+    fetchStationLocation()
   }, [])
 
   // Only render map picker on client side
@@ -154,9 +163,10 @@ export function LocationInput({
 
     setIsSearching(true)
     searchTimeoutRef.current = setTimeout(async () => {
-      // Pass home city to prioritize results near it
+      // Pass the station's coordinates to prioritize results near it
       const results = await searchAddress(addressSearchQuery, {
-        homeCity: homeCity || undefined
+        stationCenter: stationCenter || undefined,
+        countryCodes: countryCodes || undefined,
       })
       setAddressResults(results)
       setIsSearching(false)
@@ -167,7 +177,7 @@ export function LocationInput({
         clearTimeout(searchTimeoutRef.current)
       }
     }
-  }, [addressSearchQuery, homeCity])
+  }, [addressSearchQuery, stationCenter, countryCodes])
 
   // Geocode address when it changes (if no coordinates set yet)
   useEffect(() => {

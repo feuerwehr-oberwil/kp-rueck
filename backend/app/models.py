@@ -836,8 +836,10 @@ class TrainingLocation(Base):
     # Address components
     street: Mapped[str] = mapped_column(String(255), nullable=False)
     house_number: Mapped[str] = mapped_column(String(20), nullable=False)
-    postal_code: Mapped[str] = mapped_column(String(10), nullable=False, default="4104")
-    city: Mapped[str] = mapped_column(String(100), nullable=False, default="Oberwil")
+    # No default town: a row that silently lands in someone else's municipality
+    # is worse than one the caller has to name. Every writer supplies both.
+    postal_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
 
     # Building type (optional, for realism)
     building_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
