@@ -12,6 +12,11 @@ variable names that mean different things**, and **alarm intake secrets**.
 
 If you run only one of the two, you can ignore this entire page.
 
+> **This is the canonical copy, and it is linked from the kp-front repository** (its README,
+> its docs index, and its `.env.example`) rather than duplicated there — a second copy would
+> drift, and half-right instructions about a silent port collision are worse than none. Edit it
+> here; there is nothing to keep in step on the other side.
+
 ---
 
 ## 1. Ports: only one stack can own 443
@@ -120,7 +125,7 @@ accepts, the other may reject:
 
 Configure your dispatch system with **one webhook per system**, each against its own URL, secret
 and payload. Do not point one webhook at both and expect parity. Each system's intake is
-documented in its own `docs/ALARM-INTEGRATIONS.md`.
+documented in its own `docs/ALARM-INTEGRATIONS.md` (in each repository).
 
 ---
 
@@ -137,12 +142,50 @@ Worth stating, so you don't go looking for problems that aren't there:
   the *same* Divera access key; that is a Divera account detail, not a collision.)
 - **Login.** KP Front authenticates with a station PIN, KP Rück with accounts (and optionally
   Entra SSO). Different models on purpose; there is no shared session.
-- **Printing.** If you print from both, see [`PRINT_AGENT.md`](PRINT_AGENT.md) – one agent can
-  serve both, but it is configured per backend.
+- **Printing.** There is **one** agent for both systems, so this is not duplicated work either.
+  Give it a `backends` list with one entry per system and run a single service; it speaks each
+  system's protocol and drives each kind of printer. See
+  [kp-rueck `tools/print-agent/`](https://github.com/feuerwehr-oberwil/kp-rueck/tree/main/tools/print-agent).
+
+  > ⚠️ If you are migrating from the two separate agents, **stop the old ones first**. Two
+  > agents polling one queue both claim jobs, and each job then prints once, from whichever
+  > asked first — prints that "sometimes don't arrive" while both logs look healthy.
 
 ---
 
-## 5. Checklist
+## 5. The environment-variable mapping
+
+The two projects grew separately and name some identical concepts differently. These are **not**
+collisions — nothing breaks — but if you keep both `.env` files open you will reach for the
+wrong name. Only `PUBLIC_URL` (§2) was actually dangerous, and that one is fixed; the rest is a
+translation table.
+
+| Concept | KP Front | KP Rück |
+| --- | --- | --- |
+| Signing secret | `SECRET_KEY` | `AUTH_SECRET_KEY` signs logins, `SECRET_KEY` is the app secret |
+| Secure-cookie override | `COOKIE_SECURE` | `AUTH_COOKIE_SECURE` |
+| Host HTTP port | `APP_PORT` (the app publishes it) | `HTTP_PORT` (Caddy publishes it) |
+| Host HTTPS port | fixed `443`, only with `--profile tls` | `HTTPS_PORT` |
+| Allowed CORS origin | *not configurable — same origin* | `CORS_ORIGINS` |
+| Base for outbound webhook links | `PUBLIC_URL` | *not applicable* |
+| Print-agent shared secret | `PRINT_AGENT_SECRET` | `PRINT_AGENT_TOKEN` |
+| First login | `SEED_DATABASE` seeds a PIN user | `ADMIN_SEED_PASSWORD` + `VIEWER_PASSWORD` |
+| Image tag pin | `KP_FRONT_TAG` | `KP_RUECK_TAG` |
+
+**Identical in both, and safe to reuse the same value:** `POSTGRES_PASSWORD`, `POSTGRES_USER`,
+`POSTGRES_DB` (per stack, but the same names), `DOMAIN`, `DIVERA_ACCESS_KEY`, `TRACCAR_URL`,
+`TRACCAR_EMAIL`, `TRACCAR_PASSWORD`, `KP_TELEMETRY_ENABLED`, `KP_TELEMETRY_DSN`.
+
+One Divera access key in both is fine and expected — they poll the same account. It does **not**
+make the two systems share anything: each keeps its own roster copy, and there is no bridge
+between them (they already agree on person identity because both derive it from the same Divera
+`pull/all` keys).
+
+`ALARM_WEBHOOK_SECRET` has the same name in both and must hold **different** values — see §3.
+
+---
+
+## 6. Checklist
 
 Before you start the second stack:
 
@@ -155,3 +198,7 @@ Before you start the second stack:
 - [ ] `docker compose up -d` on the second stack, then confirm the **first** one is still
       answering. A port collision shows up as a container that won't start; a CORS mistake only
       shows up in the browser.
+
+---
+
+*This file is deliberately identical in both repositories ([kp-front](https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/RUNNING-BOTH.md), [kp-rueck](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md)) — a station hits these problems before it knows which repository to look in. Change one, copy it to the other.*

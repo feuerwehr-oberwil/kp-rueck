@@ -3,15 +3,18 @@
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import and_, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from ..database import execute_dml
 from ..models import (
     EventSpecialFunction,
     Incident,
+    IncidentAssignment,
     IncidentGroupAssignment,
     Material,
     Personnel,
@@ -48,25 +51,27 @@ async def requeue_lost_jobs(db: AsyncSession) -> int:
     now = datetime.now(UTC)
     requeued = 0
 
-    stale_result = await db.execute(
+    stale_result = await execute_dml(
+        db,
         sa_update(PrintJob)
         .where(
             PrintJob.status == "printing",
             PrintJob.claimed_at < now - timedelta(seconds=STALE_PRINTING_TIMEOUT_SECONDS),
             PrintJob.retry_count < MAX_PRINT_ATTEMPTS,
         )
-        .values(status="pending", claimed_at=None, retry_count=PrintJob.retry_count + 1)
+        .values(status="pending", claimed_at=None, retry_count=PrintJob.retry_count + 1),
     )
     requeued += stale_result.rowcount or 0
 
-    failed_result = await db.execute(
+    failed_result = await execute_dml(
+        db,
         sa_update(PrintJob)
         .where(
             PrintJob.status == "failed",
             PrintJob.completed_at < now - timedelta(seconds=FAILED_RETRY_DELAY_SECONDS),
             PrintJob.retry_count < MAX_PRINT_ATTEMPTS,
         )
-        .values(status="pending", claimed_at=None, completed_at=None)
+        .values(status="pending", claimed_at=None, completed_at=None),
     )
     requeued += failed_result.rowcount or 0
 
@@ -109,10 +114,10 @@ async def queue_assignment_print(
         return None
 
     # Get incident with assignments
-    result = await db.execute(
+    incident_result = await db.execute(
         select(Incident).options(selectinload(Incident.assignments)).where(Incident.id == incident_id)
     )
-    incident = result.scalar_one_or_none()
+    incident = incident_result.scalar_one_or_none()
 
     if not incident:
         raise ValueError(f"Incident {incident_id} not found")
@@ -136,7 +141,7 @@ async def queue_assignment_print(
     return job
 
 
-async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict:
+async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict[str, Any]:
     """Build the payload for an assignment slip print job.
 
     Shared between auto-print (on dispatch) and manual print (API endpoint).
@@ -145,7 +150,7 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
     """
     # Route resources cover every stop. A direct incident assignment wins when
     # the same resource exists at both levels (notably for driver_stay).
-    effective = {}
+    effective: dict[tuple[str, uuid.UUID], IncidentAssignment | IncidentGroupAssignment] = {}
     if incident.group_id is not None:
         group_result = await db.execute(
             select(IncidentGroupAssignment).where(
@@ -199,16 +204,16 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
     # Fetch personnel (excluding Reko-tagged personnel from crew list)
     crew = []
     if personnel_ids:
-        result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
-        for p in result.scalars().all():
+        personnel_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
+        for p in personnel_result.scalars().all():
             if p.id not in reko_personnel_ids:
                 crew.append({"name": p.name, "role": p.role})
 
     # Fetch vehicles with driver info
     vehicles = []
     if vehicle_ids:
-        result = await db.execute(select(Vehicle).where(Vehicle.id.in_(vehicle_ids)))
-        for v in result.scalars().all():
+        vehicle_result = await db.execute(select(Vehicle).where(Vehicle.id.in_(vehicle_ids)))
+        for v in vehicle_result.scalars().all():
             assignment = vehicle_assignment_map.get(v.id)
             vehicles.append(
                 {
@@ -223,8 +228,8 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
     # Fetch materials
     materials = []
     if material_ids:
-        result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
-        for m in result.scalars().all():
+        material_result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
+        for m in material_result.scalars().all():
             materials.append({"name": m.name, "type": m.type})
 
     # Fetch most-recent submitted Reko report so crews get tactical context on the slip

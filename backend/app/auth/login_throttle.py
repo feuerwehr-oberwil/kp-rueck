@@ -25,6 +25,7 @@ multi-replica backend would need Redis, and the failure would be permissive
 """
 
 import asyncio
+import contextlib
 import logging
 import time
 from dataclasses import dataclass, field
@@ -66,10 +67,8 @@ class LoginThrottle:
         """Stop the background pruning task."""
         if self._cleanup_task and not self._cleanup_task.done():
             self._cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
         self._cleanup_task = None
 
     async def _cleanup_loop(self) -> None:

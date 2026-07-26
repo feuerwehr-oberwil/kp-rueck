@@ -35,7 +35,7 @@ VERSION_FILES = [
     ("frontend/package.json", r'"version":\s*"[^"]+"', '"version": "{v}"'),
     ("backend/pyproject.toml", r'(?m)^version = "[^"]+"', 'version = "{v}"'),
     ("backend/app/config.py", r'(?m)^(\s*version: str = )"[^"]+"', r'\g<1>"{v}"'),
-    ("print-agent/pyproject.toml", r'(?m)^version = "[^"]+"', 'version = "{v}"'),
+    ("tools/print-agent/pyproject.toml", r'(?m)^version = "[^"]+"', 'version = "{v}"'),
 ]
 
 # The tileserver image has no version file of its own – it is a thin wrapper around an
@@ -73,10 +73,26 @@ def relock() -> None:
     if not shutil.which("uv"):
         print("  uv.lock                      SKIPPED (uv not on PATH – run `uv lock` yourself)")
         return
-    for project in ("backend", "print-agent"):
+    for project in ("backend", "tools/print-agent"):
         if (ROOT / project / "uv.lock").exists():
             subprocess.run(["uv", "lock", "--quiet"], cwd=ROOT / project, check=True)
             print(f"  {project}/uv.lock{'':<14} re-locked")
+
+
+def regenerate_openapi() -> None:
+    """The committed spec stamps the version, so a bump drifts it — and the drift test in
+    backend/tests/test_openapi_committed.py would fail the release's own CI run. Regenerate
+    here rather than leaving it as a step to remember."""
+    if not shutil.which("uv"):
+        print("  docs/openapi.json            SKIPPED (uv not on PATH – run `just openapi` yourself)")
+        return
+    subprocess.run(
+        ["uv", "run", "python", "-m", "app.dump_openapi", "../docs/openapi.json"],
+        cwd=ROOT / "backend",
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    print("  docs/openapi.json            regenerated")
 
 
 def bump_changelog(version: str, previous: str) -> None:
@@ -132,6 +148,7 @@ def main() -> None:
 
     bump_files(version, previous)
     relock()
+    regenerate_openapi()
     bump_changelog(version, previous)
 
     print(

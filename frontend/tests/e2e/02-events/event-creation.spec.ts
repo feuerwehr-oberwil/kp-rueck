@@ -14,7 +14,7 @@ test.describe('Event Creation', () => {
     await eventsPage.goto();
   });
 
-  test('should display events page with header and new event button', async ({ authenticatedPage }) => {
+  test('should display events page with header and new event button', { tag: '@smoke' }, async ({ authenticatedPage }) => {
     // Verify page title
     await expect(authenticatedPage.locator('h1:has-text("Ereignisse")')).toBeVisible();
 
@@ -35,7 +35,7 @@ test.describe('Event Creation', () => {
     await expect(eventsPage.trainingModeButton).toBeVisible();
   });
 
-  test('should create new event with custom name', async () => {
+  test('should create new event with custom name', { tag: '@smoke' }, async () => {
     const eventName = `Test Event ${Date.now()}`;
 
     await eventsPage.clickNewEvent();
@@ -139,7 +139,7 @@ test.describe('Event Management', () => {
     await expect(card.locator('text=/Letzte Aktivität:/i')).toBeVisible();
   });
 
-  test('should select an event', async () => {
+  test('should select an event', { tag: '@smoke' }, async () => {
     await eventsPage.selectEvent(testEventName);
 
     // Should redirect to main page

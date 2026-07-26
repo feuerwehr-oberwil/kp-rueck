@@ -9,6 +9,8 @@ first env check without touching the database. Registering it always (rather tha
 env flag) means an admin who switches consent on does not have to restart anything.
 """
 
+from typing import Any
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -23,7 +25,7 @@ logger = get_logger(__name__)
 scheduler: AsyncIOScheduler | None = None
 
 
-async def flush_outbox(session_maker=None) -> int:
+async def flush_outbox(session_maker: Any = None) -> int:
     """Deliver what is queued and sweep what has expired. Never raises."""
     maker = session_maker or async_session_maker
     async with maker() as db:
@@ -32,7 +34,7 @@ async def flush_outbox(session_maker=None) -> int:
             await sweep(db)
             await db.commit()
             return sent
-        except Exception:  # noqa: BLE001 — a diagnostics job must never wedge the scheduler
+        except Exception:  # a diagnostics job must never wedge the scheduler
             await db.rollback()
             logger.exception("Telemetry flush failed")
             return 0

@@ -28,7 +28,34 @@ will keep holding.
 
 ## [Unreleased]
 
+## [0.2.0] – 2026-07-26
+
 ### Security
+- **Live updates now require a login.** The Socket.IO connection accepted anyone: only the
+  admin room was role-gated, so anything able to reach `/socket.io` could join the operations
+  room and receive live incident broadcasts — addresses, crew assignments — without
+  authenticating. The strict-mode flag existed but shipped off ("Phase 1"). It is now on.
+
+  The CORS origin whitelist was never the control here, which is the part worth internalising:
+  CORS is enforced by browsers, and a script that omits `Origin` is not a browser.
+
+  > **No action for a normal deployment.** Nothing legitimate connects anonymously — the app
+  > sends its session cookie, the `/display/*` screens require a login, and the public
+  > share-link board polls over HTTP rather than using the socket. If some client of yours
+  > genuinely cannot log in, set `WS_REQUIRE_AUTH=false`; the board falls back to ~5s polling
+  > rather than going blank.
+- **Four security-relevant settings are documented for the first time.** A control nobody can
+  find is not a control. `SSO_EDITOR_ALLOWLIST` (without it, *every* Entra ID sign-in is a
+  viewer — any tenant member can reach the login, so editor is an explicit grant),
+  `WS_REQUIRE_AUTH`, `MASTER_TOKEN` (bypasses login entirely for scripted configuration; empty
+  by default, and not attributed to a user in the audit trail if you enable it), and the
+  `LOGIN_*` throttle knobs the previous release already advertised as tunable. All now in
+  [`.env.example`](.env.example), [`SECURITY.md`](SECURITY.md) and
+  [`docs/SETUP.md`](docs/SETUP.md).
+- **The security scanner was skipping a file.** Bandit is a blocking CI gate, but it ran on
+  Python 3.11 against a 3.12 codebase, could not parse `app/crud/base.py`, and silently
+  excluded it — noted in output that is easy to scroll past. Pinned to the project's Python; it
+  now reports `Files skipped (0)`.
 - **The print-agent endpoints are fail-closed.** They used to accept *any* request when
   `PRINT_AGENT_TOKEN` was unset – on the assumption that the agent only ever reaches the backend
   across a trusted LAN. The same image also runs on a public host, where "unset" quietly meant
@@ -41,6 +68,36 @@ will keep holding.
   > install, where the token was previously optional. Deployments that don't print need nothing.
 
 ### Added
+- **Offline map tiles work for your region, not just ours.** The tile pipeline was wired to one
+  Swiss canton: the download URL, the bounding box and the region label were all literals in
+  `scripts/download-tiles.sh`, so a station anywhere else could not follow the documented
+  `just tiles-download` at all — it had to fork the script. Four environment variables now drive
+  it, and `docs/OFFLINE_MAPS.md` explains how to find your own values:
+
+  ```bash
+  TILES_REGION="Oberbayern" \
+  TILES_BOUNDS=11.0,47.7,12.3,48.4 \
+  TILES_AREA=oberbayern \
+  TILES_PBF_URL=https://download.geofabrik.de/europe/germany/bayern/oberbayern-latest.osm.pbf \
+    just tiles-download
+  ```
+
+  > **No action required.** The defaults are the previous values, so an existing deployment
+  > behaves exactly as before. `TILES_NAME` (the file on the tileserver volume) is deliberately
+  > separate and should be left alone on a deployment that already has tiles — renaming it makes
+  > the init script write an empty bootstrap file instead of finding them, which looks like a
+  > working map with nothing in it.
+- **`docs/openapi.json` is committed** — the full API contract (158 routes, request and response
+  shapes) readable without booting the stack. Anyone writing an adapter for a dispatch system
+  against `POST /api/alarms`, or a print agent against the job queue, previously had to stand up
+  Postgres and the backend just to see a payload. `just openapi` regenerates it, and a test fails
+  if it drifts from the code.
+- **More of the gate that stands behind a published image.** Secret scanning (gitleaks) and
+  CodeQL static analysis now run here as they already did for KP Front, and CI runs a small
+  Playwright subset on every pull request — logging in, creating an event and an incident, and
+  alarm intake — where before it ran no click-through at all. The full suite runs nightly. None
+  of this changes the software; it changes how much a release has been checked before it reaches
+  you.
 - **arm64 images.** All four images build for `linux/arm64` as well as `linux/amd64`, so an ARM
   host (Hetzner CAX, Oracle Ampere, a Raspberry Pi) can run the whole stack – previously only the
   print agent could.
@@ -63,10 +120,70 @@ will keep holding.
   > test in both repositories – a rule tightened in one app and not the other would mean one of
   > them quietly forwards what the other removes.
 - **[`docs/RUNNING-BOTH.md`](docs/RUNNING-BOTH.md)** for stations running KP Front *and* KP Rück
-  on one host: the three places two otherwise-independent stacks collide, and the traps around
-  each. `.env.example` links to it.
+  on one host: the three places two otherwise-independent stacks collide, the traps around each,
+  and a mapping table for the variables the two projects name differently. `.env.example` links
+  to it, and the file is kept identical in both repositories.
+- **One print agent for both systems.** A station running both used to need two agents on the
+  same box — two services, two secrets, two install methods, two log streams — to reach the same
+  printer room. The agent now lives at [`tools/print-agent/`](tools/print-agent/) and speaks
+  **both** protocols: KP Rück's (structured JSON → ESC/POS thermal) and KP Front's (opaque PDF →
+  CUPS/A4 laser). Give it a `backends` list and run one service.
+
+  Neither backend changed and neither wire protocol changed. The core is stdlib-only, so the
+  bare-Pi install with no venv keeps working; `python-escpos`/`pillow` are now an optional extra
+  needed only for the thermal output.
+
+  > **No action required.** The environment variables the previous agent used are read exactly
+  > as before, so an existing `--profile printing` deployment keeps working untouched. The image
+  > is published under the neutral name `ghcr.io/feuerwehr-oberwil/kp-print-agent`; the old
+  > `kp-rueck-print-agent` name is **also** published this release, so nothing breaks on update.
+  > Migrating from two agents to one: **stop the old ones first** — two agents polling one queue
+  > both claim jobs, and each job then prints once, from whichever asked first.
 
 ### Changed
+- **The audit log is no longer deleted after 90 days.** `AUDIT_RETENTION_DAYS` now defaults to
+  `0`, meaning keep everything. It defaulted to 90 and a background job swept silently, which
+  sat badly next to this project's own claim of "defensible records" and an "append-only audit
+  log": a deployment older than three months had already lost the trail for its earliest
+  operations, and nothing anywhere said so. With retention off the sweeper does not start at
+  all. A public demo still caps at 7 days.
+
+  > **Check this if you have been running 0.1.x.** Anything older than 90 days is already gone
+  > — worth knowing *before* somebody asks you for it. And if you were relying on the sweep to
+  > bound table growth, set `AUDIT_RETENTION_DAYS=90` back explicitly. `docs/SETUP.md` §6 has
+  > the reasoning.
+- **Node 24 instead of Node 20.** The frontend image was built on a runtime that reached
+  end-of-life on 2026-04-30, so any Node vulnerability disclosed after that date was one nobody
+  would ever patch for it. Node 24 is supported to 2028-04-30. Dependabot now watches base
+  images too — that gap existed because npm, pip and GitHub Actions were watched and the one
+  dependency a station actually *runs* was not.
+- **A fresh production deployment now starts with an empty board.** It used to be seeded with a
+  fictional station: five vehicles (Omega 1–5), 57 firefighters, a full material catalogue, and
+  thirteen training locations on real streets in one specific Swiss municipality. Sample
+  *incidents* were already withheld from production; the resources they referred to were not. So
+  the first act of setting KP Rück up for your own station was deleting somebody else's data off
+  the board — and a restored backup put it back. Accounts and settings are still seeded; the
+  station's own resources come in through the Excel import (`docs/SETUP.md` §3).
+
+  > **No action for an existing deployment** — seeding only runs on a database with no users, so
+  > yours has long since skipped it and your data is untouched. This changes what a *new* install
+  > and a *restore into a fresh stack* look like. Note the restore drill in `docs/SETUP.md` §6
+  > now starts from a genuinely empty board, which is the point.
+  >
+  > A `just dev` machine still comes up with the sample board. It is a development fixture, and
+  > it is no longer something a real deployment inherits.
+- **Address search biases towards your station, not towards Basel-Landschaft.** It matched the
+  `home_city` setting against a hardcoded list of sixteen municipalities and fell back to a fixed
+  Basel-region box for anything unrecognised — so every station outside that list had its address
+  lookups quietly weighted towards a region it is nowhere near. The bias now comes from the
+  `firestation_latitude` / `firestation_longitude` settings you already configure, and with no
+  coordinates set the search stays unweighted rather than pointing somewhere wrong. Nominatim's
+  country restriction is still Switzerland by default and can be overridden with a
+  `geocoder_country_codes` setting, so a deployment across the border is a setting rather than a
+  patch.
+
+  > **Worth checking** if your address search has felt off: set the station's coordinates in the
+  > settings surface.
 - **`PUBLIC_URL` is now `CORS_ORIGINS`.** The variable was always passed to the backend as
   `CORS_ORIGINS`; the old name collided with KP Front's `PUBLIC_URL`, which means something else
   there (the base for absolute links in outbound webhooks). Copying one `.env` into the other
@@ -77,6 +194,16 @@ will keep holding.
   > when you next touch the file.
 
 ### Fixed
+- **`docs/SETUP.md` no longer teaches a configuration that does not exist.** The page a new
+  station reads first still used `PUBLIC_URL` (renamed `CORS_ORIGINS` in this release), still
+  said the alarm webhook secret could only be read out of the database, and still told you to
+  check out and pin `v0.1.0` — the release whose print-agent endpoints accept any request when no
+  token is set. It also promised a resource import without mentioning that the board now starts
+  empty, so "empty" would have read as "broken".
+- **The `training_locations` table no longer defaults new rows into one municipality.**
+  `postal_code` defaulted to `4104` and `city` to `Oberwil` at the database level. Every writer
+  already supplies both, so the defaults could only ever fire as a wrong answer. Existing rows
+  are untouched.
 - **Two stacks on one host no longer fight over port 443.** Caddy had it hard-coded, and KP
   Front's Caddy wants it too – so the second stack simply failed to start. The HTTPS host port is
   now `HTTPS_PORT`, matching the existing `HTTP_PORT`. Note it must be moved even when an outer
@@ -84,11 +211,21 @@ will keep holding.
   Front's, it is deliberately *not* behind a compose profile, since nothing else here publishes a
   port at all. It is also not a way to run a second automatic-HTTPS setup – certificate issuance
   needs port 80 or 443 reachable from outside.
+- **Assigning to a missing incident no longer 500s, and a missing resource no longer creates an
+  orphan.** `POST /api/incidents/{id}/assign` with an incident id that no longer exists died on a
+  foreign-key violation — a 500 for what is plainly a stale id. Worse, the *resource* was never
+  checked at all: assigning a personnel id that does not exist returned 200 and stored the
+  assignment anyway, leaving a row pointing at nothing and no error to explain it. Both are now
+  404, matching the neighbouring endpoints.
 - **The alarm webhook secret can be set from `.env`.** It could previously only be read back out
   of the database after first boot
   (`SELECT value FROM settings WHERE key = 'alarm_webhook_secret';`) – the one setup step that
   could not be scripted. `ALARM_WEBHOOK_SECRET` now wins over the stored value, so a deployment
   can be provisioned entirely from the file. Left blank, the previous behaviour is unchanged.
+- **The generic alarm intake reserves the same `source` slugs as KP Front.** Both now reject the
+  union of the two lists, so a station feeding one dispatch system into both apps can't pick a
+  name that one accepts and the other rejects — a trap that only surfaced on the second
+  integration.
 - Dependency updates across the frontend, and the GitHub Actions used by CI.
 - **The app can no longer get stuck in a state only a browser reset would clear.** A sweep for
   crashes and dead ends turned up several, all of which needed something no screen offered:
@@ -224,5 +361,6 @@ something another station can pin.
 
 _For the full running history before the first release, see the git log._
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.1.0

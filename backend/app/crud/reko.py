@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,8 +43,8 @@ async def get_or_create_reko_report(
         raise ValueError("Invalid token")
 
     # Check if incident exists
-    result = await db.execute(select(Incident).where(Incident.id == incident_id))
-    if not result.scalar_one_or_none():
+    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    if not incident_result.scalar_one_or_none():
         raise ValueError("Incident not found")
 
     # Try to find existing report with this token
@@ -238,7 +239,7 @@ async def mark_reko_arrived(
     return report
 
 
-async def get_reko_summaries_by_event(db: AsyncSession, event_id: uuid.UUID) -> dict[uuid.UUID, dict]:
+async def get_reko_summaries_by_event(db: AsyncSession, event_id: uuid.UUID) -> dict[uuid.UUID, dict[str, Any]]:
     """
     Get reko summaries for all incidents in an event (bulk load).
 

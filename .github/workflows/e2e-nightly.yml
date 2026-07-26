@@ -1,0 +1,168 @@
+name: E2E (full suite, nightly)
+
+# The whole ~300-spec Playwright suite, on a schedule rather than per pull request.
+#
+# ci.yml runs only the eight @smoke specs, because the full suite takes ~25 minutes and is
+# flaky enough that gating merges on it taught people to click through red. That trade leaves a
+# gap: everything outside @smoke is only covered when somebody remembers to run it locally.
+# This closes the gap without putting the flake back in front of a merge.
+#
+# It is worth exactly as much as the attention it gets. A nightly nobody reads is the same
+# failure in a new costume — so a failure opens an issue rather than only turning a square red
+# on a page nobody visits. If you find yourself ignoring those issues, the honest move is to
+# delete this workflow, not to keep it as decoration.
+#
+# The path to fewer of them: fix or quarantine a flaky spec the same day, and move specs into
+# @smoke as they earn it. See docs/plans/15-e2e-in-ci.md, phase 4.
+
+on:
+  schedule:
+    - cron: "42 2 * * *" # 02:42 UTC, nightly
+  workflow_dispatch: # so you can ask for a run before a release
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "24"   # Active LTS; 20 went EOL 2026-04-30. Match frontend/Dockerfile.
+  PNPM_VERSION: "9"
+  # Same throwaway fixture password as ci.yml — seeds a database that dies with the job.
+  E2E_PASSWORD: "e2e-ci-password-not-a-secret" # gitleaks:allow
+
+jobs:
+  full-suite:
+    name: E2E (full suite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kprueck
+          POSTGRES_PASSWORD: kprueck
+          POSTGRES_DB: kprueck
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: "latest"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Python
+        working-directory: backend
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Dev seed on purpose: the specs need the fixture board (vehicles, personnel,
+      # materials) that a production seed deliberately omits.
+      - name: Seed database
+        working-directory: backend
+        run: uv run python -m app.seed
+        env:
+          DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+          ADMIN_SEED_PASSWORD: ${{ env.E2E_PASSWORD }}
+          VIEWER_PASSWORD: ${{ env.E2E_PASSWORD }}
+
+      - name: Start backend server
+        working-directory: backend
+        run: |
+          uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+        env:
+          DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+          CORS_ORIGINS: http://localhost:3000
+
+      - name: Run the full E2E suite
+        working-directory: frontend
+        run: pnpm test:e2e
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          TEST_USERNAME: admin
+          TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
+          CI: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-nightly
+          path: frontend/playwright-report/
+          retention-days: 14
+
+      # A red square on a page nobody opens is not a signal. One open issue, updated rather
+      # than duplicated, is.
+      - name: Open or update an issue on failure
+        if: failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const title = 'Nightly E2E suite is failing'
+            const body = [
+              `The nightly full Playwright suite failed on \`${context.sha.slice(0, 8)}\`.`,
+              '',
+              `[Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) —`,
+              'the `playwright-report-nightly` artifact has the traces and screenshots.',
+              '',
+              'This does not block merges: only the eight `@smoke` specs run per pull request.',
+              'Fix the spec or quarantine it — a flaky nightly left red is how the whole suite',
+              'ended up switched off the first time. See `docs/plans/15-e2e-in-ci.md`.',
+            ].join('\n')
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'nightly-e2e',
+            })
+
+            if (open.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open[0].number,
+                body,
+              })
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['nightly-e2e'],
+              })
+            }

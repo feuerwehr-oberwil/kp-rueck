@@ -21,7 +21,7 @@ from app.services.sync_service import SyncService, create_sync_service
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
-_REDACTED_PASSWORD = "********"
+_REDACTED_PASSWORD = "********"  # noqa: S105 — the mask itself, not a credential
 
 
 def _redact_database_url(url: str) -> str:
@@ -393,7 +393,7 @@ async def get_delta_for_table(
             since_dt = datetime.fromisoformat(updated_since)
             query = query.where(model_class.updated_at > since_dt)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid timestamp format")
+            raise HTTPException(status_code=400, detail="Invalid timestamp format") from None
 
     # Execute query
     result = await db.execute(query)

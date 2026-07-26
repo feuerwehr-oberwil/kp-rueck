@@ -6,6 +6,7 @@ connected via WebSocket to avoid unnecessary API load.
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -80,10 +81,8 @@ class DiveraPoller:
 
         if self._polling_task:
             self._polling_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._polling_task
-            except asyncio.CancelledError:
-                pass
             self._polling_task = None
 
         if self._http_client:

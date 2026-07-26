@@ -54,8 +54,6 @@ class RekoReportCreate(RekoReportBase):
 class RekoReportUpdate(RekoReportBase):
     """Schema for updating Reko report."""
 
-    pass
-
 
 class RekoReportResponse(RekoReportBase):
     """Full Reko report schema with database fields."""

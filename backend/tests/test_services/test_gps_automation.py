@@ -203,7 +203,7 @@ async def test_arrival_confirm_default_prompts_without_advancing(
     _bc, bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
 ):
     """Default (silent=false): arrival emits a confirm prompt and does NOT change status."""
-    vehicle, _assignment = assigned_vehicle
+    _vehicle, _assignment = assigned_vehicle
     await _enable_arrival(db_session, silent=False)
     clock = _Clock(datetime.now(UTC))
 
@@ -374,7 +374,7 @@ async def test_sparse_parked_fixes_still_fire(
     every ~30-100s. With freshness decoupled from dwell, ticks that re-see the SAME
     still-fresh fix must neither reset the counter nor double-count, and two fixes 90s
     apart must satisfy count=2/dwell=40."""
-    vehicle, assignment = assigned_vehicle
+    _vehicle, _assignment = assigned_vehicle
     await _set(db_session, "gps.automation_enabled", "true")
     await _set(db_session, "gps.rule_return_enabled", "true")
     await _set(db_session, "gps.station_lat", str(STATION_LAT))
@@ -426,7 +426,7 @@ async def test_return_skips_completed_incident(
 async def test_return_emits_prompt_not_release(
     bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
 ):
-    vehicle, assignment = assigned_vehicle
+    _vehicle, assignment = assigned_vehicle
     await _enable_return(db_session)
     clock = _Clock(datetime.now(UTC))
 

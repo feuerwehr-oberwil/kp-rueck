@@ -9,6 +9,7 @@ row on the same Auftrag is rejected.
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import Request
 from sqlalchemy import and_, func, select
@@ -46,7 +47,7 @@ async def assign_group_resource(
     Raises:
         ValueError: If the resource is already actively assigned to this Auftrag.
     """
-    model_by_type = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}
+    model_by_type: dict[str, type[Any]] = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}
     resource_model = model_by_type[resource_type]
     if await db.scalar(select(resource_model.id).where(resource_model.id == resource_id)) is None:
         exists_as_other_type = False

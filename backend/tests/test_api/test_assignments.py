@@ -228,18 +228,17 @@ async def test_assign_invalid_resource_type(editor_client: AsyncClient, test_inc
 async def test_assign_nonexistent_resource(editor_client: AsyncClient, test_incident: Incident):
     """Test assigning a resource that doesn't exist.
 
-    Note: Currently the API doesn't verify resource existence before assignment.
-    This creates an assignment record pointing to a non-existent resource.
-    TODO: Consider adding resource existence check.
+    The API used to trust the caller here and store the assignment anyway, which left an
+    orphan row pointing at no personnel record — something the board would show as a resource
+    nobody could find. It now checks, and answers 404 like the other endpoints do for a
+    missing target.
     """
     assignment_data = {
         "resource_type": "personnel",
         "resource_id": str(uuid4()),
     }
     response = await editor_client.post(f"/api/incidents/{test_incident.id}/assign", json=assignment_data)
-    # Current behavior: Creates assignment even if resource doesn't exist
-    # This is arguably valid - the API trusts the caller
-    assert response.status_code in [200, 409]
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

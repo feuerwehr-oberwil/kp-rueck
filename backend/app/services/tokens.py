@@ -124,10 +124,7 @@ def validate_form_token(token: str, incident_id: str, form_type: str = "reko") -
             return False
 
         # Verify form_type matches
-        if payload.get("form_type") != form_type:
-            return False
-
-        return True
+        return payload.get("form_type") == form_type
 
     except jwt.ExpiredSignatureError:
         # Token has expired

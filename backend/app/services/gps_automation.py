@@ -637,7 +637,9 @@ async def _watch_unassigned_returns(
             _state.unassigned_away.add(vehicle.id)
             _state.unassigned_returns.pop(vehicle.id, None)
         elif _return_fix_confirms(vp, cfg, now):
-            if _advance_debounce(_state.unassigned_returns, vehicle.id, vp.last_update, cfg):
+            # Kept nested: the `else` comment below belongs to the INNER test, and flattening
+            # would attach it to the combined condition and change what it documents.
+            if _advance_debounce(_state.unassigned_returns, vehicle.id, vp.last_update, cfg):  # noqa: SIM102
                 if vehicle.id in _state.unassigned_away:
                     _state.unassigned_away.discard(vehicle.id)
                     await _fire_unassigned_return_notification(db, vehicle)

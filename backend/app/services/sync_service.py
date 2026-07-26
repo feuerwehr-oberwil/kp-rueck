@@ -1,6 +1,7 @@
 """Bidirectional sync service for Railway ↔ Local synchronization."""
 
 from datetime import UTC, datetime
+from typing import ClassVar
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -19,7 +20,7 @@ class SyncService:
     # Syncable tables and their models
     # NOTE: Users are NOT synced - they are authentication records managed per environment
     # Incidents reference users via created_by, so users must exist on both systems independently
-    SYNCABLE_MODELS = {
+    SYNCABLE_MODELS: ClassVar[dict[str, type]] = {
         "events": Event,
         "incidents": Incident,
         "personnel": Personnel,
@@ -488,7 +489,7 @@ class SyncService:
 
                         except Exception as e:
                             logger.error(f"Error pushing record {record_id} to {table_name}: {e}")
-                            errors.append(f"Error pushing record {record_id} to {table_name}: {str(e)}")
+                            errors.append(f"Error pushing record {record_id} to {table_name}: {e!s}")
 
                     pushed_counts[table_name] = count
 
@@ -496,7 +497,7 @@ class SyncService:
                 try:
                     await railway_session.commit()
                 except Exception as e:
-                    errors.append(f"Error committing to Railway database: {str(e)}")
+                    errors.append(f"Error committing to Railway database: {e!s}")
 
             # Update sync log
             completed_at = datetime.now(UTC)

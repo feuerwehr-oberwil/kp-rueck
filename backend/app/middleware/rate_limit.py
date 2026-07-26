@@ -78,7 +78,7 @@ class RateLimits:
     # command-post traffic. Tune via LOGIN_RATE_LIMIT_PER_IP.
     LOGIN = settings.login_rate_limit_per_ip
     REGISTER = "3/minute"
-    PASSWORD_RESET = "3/minute"
+    PASSWORD_RESET = "3/minute"  # noqa: S105 — a rate limit, not a secret
 
     # General API - moderate limits
     DEFAULT = "100/minute"
@@ -167,10 +167,7 @@ class RateLimitHeadersMiddleware:
                 if not has_rate_limit:
                     message = {
                         **message,
-                        "headers": list(message.get("headers", []))
-                        + [
-                            (b"x-ratelimit-policy", b"100/minute"),
-                        ],
+                        "headers": [*list(message.get("headers", [])), (b"x-ratelimit-policy", b"100/minute")],
                     }
             await send(message)
 

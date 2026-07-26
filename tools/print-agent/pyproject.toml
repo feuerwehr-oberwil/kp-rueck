@@ -1,0 +1,25 @@
+[project]
+name = "kp-print-agent"
+version = "0.2.0"
+description = "One print agent for KP Front (PDF/CUPS) and KP Rück (ESC/POS thermal)"
+requires-python = ">=3.9"
+
+# NO required dependencies, deliberately. The core — HTTP, both protocol drivers and the
+# CUPS output — is stdlib only, so the agent installs on a bare Raspberry Pi with no venv
+# and no Docker. That is the install path stations actually use for the A4 relay.
+dependencies = []
+
+[project.optional-dependencies]
+# Only needed for `output: escpos` (the 58 mm thermal printer). Imported lazily, so an agent
+# without these installed still runs fine for CUPS backends and reports a clear error if a
+# thermal job ever reaches it.
+escpos = [
+    "python-escpos>=3.1",
+    "pillow>=12.2.0",
+]
+
+[project.scripts]
+kp-print-agent = "agent:main"
+
+[tool.uv]
+package = false

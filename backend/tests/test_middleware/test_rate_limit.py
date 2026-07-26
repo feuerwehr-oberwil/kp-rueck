@@ -9,7 +9,7 @@ from app.middleware.rate_limit import RateLimits, get_client_identifier, rate_li
 class MockRequest:
     """Mock request object for testing."""
 
-    def __init__(self, headers: dict = None, client_host: str = "127.0.0.1"):
+    def __init__(self, headers: dict | None = None, client_host: str = "127.0.0.1"):
         self.headers = headers or {}
         self.client = type("Client", (), {"host": client_host})()
         self.scope = {"client": (client_host, 12345)}
@@ -69,11 +69,11 @@ class TestRateLimits:
 
     def test_export_limit_is_moderate(self):
         """Export should have moderate limits due to resource intensity."""
-        assert "10/minute" == RateLimits.EXPORT
+        assert RateLimits.EXPORT == "10/minute"
 
     def test_default_limit_is_reasonable(self):
         """Default limit should allow normal usage."""
-        assert "100/minute" == RateLimits.DEFAULT
+        assert RateLimits.DEFAULT == "100/minute"
 
 
 @pytest.mark.unit

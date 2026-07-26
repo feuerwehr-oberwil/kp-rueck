@@ -159,7 +159,7 @@ async def add_stops(
         attached = await crud.add_stops_to_group(db, group_id, body.incident_ids, current_user, request)
     except ValueError as e:
         logger.warning("Add stops rejected for Auftrag %s: %s", group_id, e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     if attached is None:
         raise HTTPException(status_code=404, detail="Auftrag not found")
@@ -224,12 +224,12 @@ async def assign_group_resource(
             request=request,
         )
     except ga_crud.ResourceNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ga_crud.ResourceTypeMismatchError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except ValueError as e:
         logger.warning("Group assignment conflict for Auftrag %s: %s", group_id, e)
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
     response = schemas.GroupAssignmentResponse.model_validate(result)
 

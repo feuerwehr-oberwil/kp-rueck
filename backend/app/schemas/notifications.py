@@ -50,7 +50,7 @@ class NotificationResponse(BaseModel):
 class NotificationDismiss(BaseModel):
     """Schema for dismissing a notification."""
 
-    pass  # No body needed, user comes from auth
+    # No body needed, user comes from auth
 
 
 class NotificationSettings(BaseModel):

@@ -231,22 +231,20 @@ class TestSeedDemoEventContent:
 
         # A large part of the roster is checked in, and every personnel that is
         # actively assigned (incident or Auftrag) must be among the checked-in.
-        checked_in_ids = {
-            row
-            for row in (
+        checked_in_ids = set(
+            (
                 await db_session.execute(
                     select(EventAttendance.personnel_id).where(
                         EventAttendance.event_id == seeded_event.id, EventAttendance.checked_in
                     )
                 )
             ).scalars()
-        }
+        )
         assert len(checked_in_ids) >= 12
 
         incident_ids = [i.id for i in incidents]
-        active_assigned_ids = {
-            row
-            for row in (
+        active_assigned_ids = set(
+            (
                 await db_session.execute(
                     select(IncidentAssignment.resource_id).where(
                         IncidentAssignment.incident_id.in_(incident_ids),
@@ -255,7 +253,7 @@ class TestSeedDemoEventContent:
                     )
                 )
             ).scalars()
-        }
+        )
         active_assigned_ids |= {a.resource_id for a in group_assignments if a.resource_type == "personnel"}
         assert active_assigned_ids <= checked_in_ids
 

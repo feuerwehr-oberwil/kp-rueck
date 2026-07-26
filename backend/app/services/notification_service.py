@@ -256,7 +256,7 @@ async def _check_resource_alerts(
             .where(IncidentAssignment.resource_id.in_(checked_in_personnel_ids))
             .distinct()
         )
-        assigned_personnel_ids = set(r[0] for r in assigned_result.all())
+        assigned_personnel_ids = {r[0] for r in assigned_result.all()}
         available_count = len(checked_in_personnel_ids) - len(assigned_personnel_ids)
 
         if available_count == 0:
@@ -460,7 +460,7 @@ async def _check_geofence_alerts(
         )
         assignments = result.all()
 
-        for assignment, incident, vehicle in assignments:
+        for _assignment, incident, vehicle in assignments:
             vp = position_by_name.get(vehicle.name.lower())
             if vp is None:
                 continue
@@ -614,19 +614,11 @@ async def _auto_resolve_stale_notifications(
     for notification in active_notifications:
         # For material depletion notifications, check if the message is still in the current set
         # If not, the condition has been resolved (materials back above threshold)
-        if notification.type == "no_materials":
-            if notification.message not in current_messages:
-                notifications_to_resolve.append(notification)
-
-        # For personnel fatigue, check if still in current notifications
-        elif notification.type == "personnel_fatigue":
-            if notification.message not in current_messages:
-                notifications_to_resolve.append(notification)
-
-        # For no_personnel alerts, check if still in current
-        elif notification.type == "no_personnel":
-            if notification.message not in current_messages:
-                notifications_to_resolve.append(notification)
+        if (
+            notification.type in ("no_materials", "personnel_fatigue", "no_personnel")
+            and notification.message not in current_messages
+        ):
+            notifications_to_resolve.append(notification)
 
     # Auto-dismiss resolved notifications
     if notifications_to_resolve:
@@ -802,10 +794,7 @@ async def create_reko_arrived_notification(
     """
     # Use address as primary identifier, fall back to title
     location = incident_address or incident_title
-    if arrived_by_name:
-        message = f"Reko vor Ort: {arrived_by_name} bei {location}"
-    else:
-        message = f"Reko vor Ort: {location}"
+    message = f"Reko vor Ort: {arrived_by_name} bei {location}" if arrived_by_name else f"Reko vor Ort: {location}"
 
     notification = Notification(
         type="reko_arrived",

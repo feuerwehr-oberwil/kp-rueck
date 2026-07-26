@@ -7,6 +7,7 @@ For distributed deployments, consider Redis or database storage.
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -39,10 +40,8 @@ class TokenBlocklist:
         """Stop the background cleanup task."""
         if self._cleanup_task:
             self._cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
             self._cleanup_task = None
             logger.info("Token blocklist cleanup task stopped")
 

@@ -64,8 +64,6 @@ class MaterialBase(BaseModel):
 class MaterialCreate(MaterialBase):
     """Schema for creating material."""
 
-    pass
-
 
 class MaterialUpdate(BaseModel):
     """Schema for updating material."""

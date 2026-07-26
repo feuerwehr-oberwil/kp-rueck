@@ -283,7 +283,7 @@ async def test_alarm_without_source_id_always_creates(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.parametrize("reserved", ["divera", "operator", "intake", "training", "manual"])
+@pytest.mark.parametrize("reserved", ["divera", "operator", "intake", "training", "manual", "migrated"])
 async def test_alarm_rejects_reserved_sources(client: AsyncClient, webhook_secret: str, reserved: str):
     response = await _post(client, alarm_payload(source=reserved))
     assert response.status_code == 422

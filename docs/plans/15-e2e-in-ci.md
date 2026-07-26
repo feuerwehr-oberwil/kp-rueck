@@ -1,24 +1,38 @@
 # 15 – Make the E2E suite fast enough for CI
 
-**Status:** open, no deadline. The suite works; it is too slow and too flaky to gate on.
+**Status:** phases 2 and 3 shipped; **phase 1 was skipped and still owes work**, phase 4 is
+ongoing.
+
+What exists now: eight `@smoke`-tagged specs run per pull request (`e2e-smoke` in `ci.yml`), and
+the full suite runs nightly (`e2e-nightly.yml`, a failure opens an issue). The subset is **not**
+in the required-checks list on main yet — see phase 1.
+
+What is still open, and it is the part this plan opened with: **nobody has measured which specs
+are actually slow and which are actually flaky.** The eight were chosen by reading them, not by
+running them repeatedly, so "no known flake among them" is an assumption. Until it has been
+tested, the job reports rather than blocks.
 
 ## Where things stand
 
-`frontend/tests/e2e/` holds roughly **300 Playwright tests**. The CI job exists but is disabled:
+`frontend/tests/e2e/` holds roughly **300 Playwright tests**. Eight of them carry a `@smoke`
+tag and run per pull request; the rest run nightly.
 
-```yaml
-# .github/workflows/ci.yml
-e2e-tests:
-  if: false  # Disabled - run locally
-```
+The job was `if: false` until 2026-07-26 for an honest reason – ~25 minutes per run, and flaky
+enough that a red result stopped meaning anything. The cost of that was total: CI covered no
+click-through at all. Switching on a subset buys back the paths where a break is both plausible
+and expensive without putting the flake in front of a merge.
 
-The reason in the workflow comment is honest – ~25 minutes per run, and flaky enough that a red
-result stopped meaning anything. Until this plan lands, the suite is a **local** tool and
-`CONTRIBUTING.md` says so: run it before a release and after touching auth, the board, or alarm
-intake. Nothing else in CI covers a full click-through.
+Two things were found while wiring it up, both worth knowing:
 
-Worth knowing: **kp-front runs Playwright as a blocking CI job.** The two repositories are not
-at parity here, so don't infer one repo's coverage from the other.
+- The old disabled job **never set `ADMIN_SEED_PASSWORD`**, so the seed minted a random
+  development password and every spec would have failed at the login screen. It could not have
+  been un-disabled as it stood.
+- The `@smoke` set deliberately excludes `login.spec.ts`'s invalid-credentials test: the spec
+  itself documents that repeated runs trip the per-username failure throttle, which surfaces
+  identically to a wrong password. That is a guaranteed flake in a gate.
+
+Worth knowing: **kp-front runs its full Playwright smoke as a blocking CI job.** The two
+repositories are still not at parity here, so don't infer one repo's coverage from the other.
 
 ## Goal
 
@@ -27,9 +41,10 @@ suite on a schedule. Not "the whole suite, faster" – that is a bigger job with
 
 ## Plan
 
-### Phase 1 – find out what is actually slow and what is actually flaky
+### Phase 1 – find out what is actually slow and what is actually flaky — **STILL OPEN**
 
-Do this before changing anything; the assumption that it is evenly slow is untested.
+This was meant to come first and did not. It is now the only thing between the smoke job and
+being a required check, so it is the next piece of work, not an optional refinement.
 
 - Run with `--reporter=json` and sort by duration. Expect a small number of specs to dominate.
 - Run the suite ~5× against an unchanged tree and record which specs fail intermittently. A
@@ -39,7 +54,7 @@ Do this before changing anything; the assumption that it is evenly slow is untes
   tests sharing one database and racing, and the Socket.IO connection settling after assertions
   already ran.
 
-### Phase 2 – tag a smoke subset
+### Phase 2 – tag a smoke subset — **DONE**
 
 Pick the paths where a break is both plausible and expensive, and tag them
 `@smoke` (`test.describe('…', { tag: '@smoke' })`):
@@ -52,7 +67,7 @@ Pick the paths where a break is both plausible and expensive, and tag them
 
 Target: **under 25 specs**, no known flake among them.
 
-### Phase 3 – wire it up
+### Phase 3 – wire it up — **DONE**, except for the branch-protection switch
 
 - PR job: `pnpm exec playwright test --grep @smoke`, **blocking**, replacing `if: false`.
 - Scheduled job: full suite nightly (`on: schedule`), non-blocking, reporting to wherever a
@@ -69,6 +84,11 @@ bandit steps.
 
 ## Definition of done
 
-- Smoke subset blocking on PRs, wall-clock under five minutes.
-- Full suite scheduled, with a route for the result to reach a person.
-- `if: false` gone from `ci.yml`, and the note in `CONTRIBUTING.md` updated to match.
+- [x] `if: false` gone from `ci.yml`, and the note in `CONTRIBUTING.md` updated to match.
+- [x] Full suite scheduled, with a route for the result to reach a person (nightly → an issue).
+- [x] Smoke subset runs on PRs.
+- [ ] **Phase 1 done**: durations measured, ~5 repeat runs recorded, every intermittent spec in
+      the subset fixed or untagged.
+- [ ] Wall-clock for the subset measured and confirmed under five minutes.
+- [ ] `E2E (@smoke)` added to the required checks on `main` — the last step, and only after the
+      two above.
