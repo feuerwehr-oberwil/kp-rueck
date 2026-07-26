@@ -8,7 +8,7 @@ const mockVehicles = [
   { id: "v-tlf", name: "TLF", type: "TLF", display_order: 1, status: "available", radio_call_sign: "", created_at: "", updated_at: "" },
 ];
 
-const mockState = vi.hoisted(() => ({ drives: [] as unknown[] }));
+const mockState = vi.hoisted(() => ({ drives: [] as unknown[], demo: null as unknown }));
 const startGpsSimulation = vi.hoisted(() => vi.fn(async () => ({})));
 
 vi.mock("@/lib/contexts/event-context", () => ({
@@ -24,6 +24,7 @@ vi.mock("@/lib/api-client", () => ({
   apiClient: {
     getVehicles: async () => mockVehicles,
     getGpsSimulations: async () => mockState.drives,
+    getDemoStatus: async () => mockState.demo,
     startGpsSimulation,
     stopGpsSimulation: vi.fn(async () => ({ stopped: 1 })),
     setGpsSimulationSpeed: vi.fn(async () => ({})),
@@ -35,6 +36,7 @@ import { TrainingGpsSimulation } from "@/components/training-gps-simulation";
 
 beforeEach(() => {
   mockState.drives = [];
+  mockState.demo = null;
   startGpsSimulation.mockClear();
 });
 
@@ -81,6 +83,28 @@ describe("TrainingGpsSimulation drive rows", () => {
     expect(startGpsSimulation).toHaveBeenCalledWith(
       expect.objectContaining({ vehicle_id: "v-pio", target: "magazin" })
     );
+  });
+
+  it("demo mode disables the start buttons and says why", async () => {
+    mockState.demo = { demo: true };
+    renderWithIntl(<TrainingGpsSimulation />);
+    await waitFor(() => expect(screen.getByText(/Im Demo-Modus nicht verfügbar/)).toBeInTheDocument());
+    for (const btn of screen.getAllByRole("button", { name: /Fahrt starten/ })) {
+      expect(btn).toBeDisabled();
+    }
+    // The target picker is locked too, so the row can't be armed at all.
+    for (const trigger of screen.getAllByRole("combobox")) {
+      expect(trigger).toBeDisabled();
+    }
+  });
+
+  it("outside demo mode the rows stay usable", async () => {
+    renderWithIntl(<TrainingGpsSimulation />);
+    await waitFor(() => expect(screen.getByText("TLF")).toBeInTheDocument());
+    expect(screen.queryByText(/Im Demo-Modus nicht verfügbar/)).not.toBeInTheDocument();
+    for (const trigger of screen.getAllByRole("combobox")) {
+      expect(trigger).not.toBeDisabled();
+    }
   });
 
   it("vehicles are sorted by display_order (TLF before Pio)", async () => {

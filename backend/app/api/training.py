@@ -9,7 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor, CurrentUser
@@ -751,25 +751,9 @@ async def start_gps_simulation(
     if not vehicle:
         raise HTTPException(status_code=404, detail="Fahrzeug nicht gefunden")
 
-    # Safety rail: simulated positions are global, so refuse while any live
-    # (non-training) event has open incidents — never paint fake positions
-    # into a real operation.
-    live_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(Incident)
-            .join(Event, Incident.event_id == Event.id)
-            .where(Event.training_flag.is_(False))
-            .where(Event.archived_at.is_(None))
-            .where(Incident.deleted_at.is_(None))
-            .where(Incident.status != "abschluss")
-        )
-    ).scalar_one()
-    if live_count:
-        raise HTTPException(
-            status_code=409,
-            detail="GPS-Simulation gesperrt: Ein Ernstfall-Ereignis hat aktive Einsätze.",
-        )
+    # Drives to a training incident are always allowed — an open Ernstfall
+    # event elsewhere does not lock the Übungssteuerung. The only target-side
+    # rail is below: you can only drive to incidents of a training event.
 
     # Resolve the target
     if request.target == "incident":
