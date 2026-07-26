@@ -27,7 +27,7 @@ test.describe('Resource Status Badges - Visual Display', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     // Create a quick incident
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -104,7 +104,7 @@ test.describe('Resource Status Badges - Plus Button', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -201,7 +201,7 @@ test.describe('Resource Status Badges - Assigned State', () => {
 
   test('assigned resources show checkmark icon', async ({ authenticatedPage }) => {
     // Create incident
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     // Find the incident
@@ -226,7 +226,7 @@ test.describe('Resource Status Badges - Assigned State', () => {
 
   test('count updates when resource is assigned', async ({ authenticatedPage }) => {
     // Create incident
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -266,7 +266,7 @@ test.describe('Resource Status Badges - Color Coding', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -327,7 +327,7 @@ test.describe('Resource Status Badges - Responsive Layout', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -352,7 +352,7 @@ test.describe('Resource Status Badges - Responsive Layout', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -381,7 +381,7 @@ test.describe('Resource Status Badges - Accessibility', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -443,9 +443,9 @@ test.describe('Resource Status Badges - Multiple Incidents', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     // Create multiple incidents
-    await mainPage.createQuickIncident(`Location A ${Date.now()}`);
+    await mainPage.createIncident(`Location A ${Date.now()}`);
     await authenticatedPage.waitForTimeout(500);
-    await mainPage.createQuickIncident(`Location B ${Date.now()}`);
+    await mainPage.createIncident(`Location B ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 

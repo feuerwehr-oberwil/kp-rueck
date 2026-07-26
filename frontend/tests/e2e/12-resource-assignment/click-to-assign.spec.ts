@@ -26,7 +26,7 @@ test.describe('Resource Assignment Dialog - Opening', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     // Create a quick incident
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -112,7 +112,7 @@ test.describe('Resource Assignment Dialog - Content', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -208,7 +208,7 @@ test.describe('Resource Assignment Dialog - Search Functionality', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -338,7 +338,7 @@ test.describe('Resource Assignment Dialog - Resource List', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -444,7 +444,7 @@ test.describe('Resource Assignment Dialog - Assignment Actions', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -584,7 +584,7 @@ test.describe('Resource Assignment Dialog - Visual Feedback', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -672,7 +672,7 @@ test.describe('Resource Assignment Dialog - Scrollable List', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -725,7 +725,7 @@ test.describe('Resource Assignment Dialog - Mobile', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -756,7 +756,7 @@ test.describe('Resource Assignment Dialog - Mobile', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -798,7 +798,7 @@ test.describe('Resource Assignment Dialog - Keyboard Navigation', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Location ${Date.now()}`);
+    await mainPage.createIncident(`Test Location ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
