@@ -26,7 +26,7 @@ test.describe('Drag-Drop Visual Affordances - Cursor States', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     // Create test incidents
-    await mainPage.createQuickIncident(`Test Incident ${Date.now()}`);
+    await mainPage.createIncident(`Test Incident ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -87,7 +87,7 @@ test.describe('Drag-Drop Visual Affordances - Drop Zones', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Incident ${Date.now()}`);
+    await mainPage.createIncident(`Test Incident ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -138,7 +138,7 @@ test.describe('Drag-Drop Visual Affordances - Hover States', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Incident ${Date.now()}`);
+    await mainPage.createIncident(`Test Incident ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -184,9 +184,9 @@ test.describe('Drag-Drop Visual Affordances - Drop Indicators', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     // Create multiple incidents for reordering
-    await mainPage.createQuickIncident(`First Incident ${Date.now()}`);
+    await mainPage.createIncident(`First Incident ${Date.now()}`);
     await authenticatedPage.waitForTimeout(500);
-    await mainPage.createQuickIncident(`Second Incident ${Date.now()}`);
+    await mainPage.createIncident(`Second Incident ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -232,7 +232,7 @@ test.describe('Drag-Drop Visual Affordances - Accessibility', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Test Incident ${Date.now()}`);
+    await mainPage.createIncident(`Test Incident ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -285,7 +285,7 @@ test.describe('Drag-Drop Visual Affordances - Mobile', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Mobile Test ${Date.now()}`);
+    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -338,7 +338,7 @@ test.describe('Drag-Drop Visual Affordances - Animation', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Animation Test ${Date.now()}`);
+    await mainPage.createIncident(`Animation Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -357,7 +357,7 @@ test.describe('Drag-Drop Visual Affordances - Animation', () => {
     const initialCount = await authenticatedPage.locator('[data-testid="incident-card"]').count();
 
     // Create new incident
-    await mainPage.createQuickIncident(`New Incident ${Date.now()}`);
+    await mainPage.createIncident(`New Incident ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const newCount = await authenticatedPage.locator('[data-testid="incident-card"]').count();
@@ -382,7 +382,7 @@ test.describe('Drag-Drop Visual Affordances - Visual Feedback', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Feedback Test ${Date.now()}`);
+    await mainPage.createIncident(`Feedback Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 

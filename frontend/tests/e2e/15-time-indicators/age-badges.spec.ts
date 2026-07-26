@@ -25,7 +25,7 @@ test.describe('Time-Based Indicators - Display and Formatting', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Time Test ${Date.now()}`);
+    await mainPage.createIncident(`Time Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -106,7 +106,7 @@ test.describe('Time-Based Indicators - Time Formatting', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Format Test ${Date.now()}`);
+    await mainPage.createIncident(`Format Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -159,7 +159,7 @@ test.describe('Time-Based Indicators - Visual Styling', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Style Test ${Date.now()}`);
+    await mainPage.createIncident(`Style Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -241,7 +241,7 @@ test.describe('Time-Based Indicators - Layout and Position', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Layout Test ${Date.now()}`);
+    await mainPage.createIncident(`Layout Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -312,7 +312,7 @@ test.describe('Time-Based Indicators - Responsiveness', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Mobile Test ${Date.now()}`);
+    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -336,7 +336,7 @@ test.describe('Time-Based Indicators - Responsiveness', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Mobile Test ${Date.now()}`);
+    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -368,7 +368,7 @@ test.describe('Time-Based Indicators - Responsiveness', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Mobile Test ${Date.now()}`);
+    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -404,7 +404,7 @@ test.describe('Time-Based Indicators - Accessibility', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`A11y Test ${Date.now()}`);
+    await mainPage.createIncident(`A11y Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -453,11 +453,11 @@ test.describe('Time-Based Indicators - Multiple Incidents', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     // Create multiple incidents
-    await mainPage.createQuickIncident(`First ${Date.now()}`);
+    await mainPage.createIncident(`First ${Date.now()}`);
     await authenticatedPage.waitForTimeout(500);
-    await mainPage.createQuickIncident(`Second ${Date.now()}`);
+    await mainPage.createIncident(`Second ${Date.now()}`);
     await authenticatedPage.waitForTimeout(500);
-    await mainPage.createQuickIncident(`Third ${Date.now()}`);
+    await mainPage.createIncident(`Third ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -515,7 +515,7 @@ test.describe('Time-Based Indicators - Dark Mode', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Dark Test ${Date.now()}`);
+    await mainPage.createIncident(`Dark Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 

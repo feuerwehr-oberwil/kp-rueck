@@ -27,7 +27,7 @@ test.describe('Sprint 3 Integration - All Features Together', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Integration ${Date.now()}`);
+    await mainPage.createIncident(`Integration ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -128,7 +128,7 @@ test.describe('Sprint 3 Integration - Visual Hierarchy', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Hierarchy ${Date.now()}`);
+    await mainPage.createIncident(`Hierarchy ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -193,7 +193,7 @@ test.describe('Sprint 3 Integration - Color Harmony', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Color ${Date.now()}`);
+    await mainPage.createIncident(`Color ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -261,7 +261,7 @@ test.describe('Sprint 3 Integration - Mobile Experience', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Mobile ${Date.now()}`);
+    await mainPage.createIncident(`Mobile ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -296,7 +296,7 @@ test.describe('Sprint 3 Integration - Mobile Experience', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Mobile ${Date.now()}`);
+    await mainPage.createIncident(`Mobile ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -328,7 +328,7 @@ test.describe('Sprint 3 Integration - Mobile Experience', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Small ${Date.now()}`);
+    await mainPage.createIncident(`Small ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -373,7 +373,7 @@ test.describe('Sprint 3 Integration - Performance', () => {
     const createPromises = [];
     for (let i = 0; i < 5; i++) {
       createPromises.push(
-        mainPage.createQuickIncident(`Performance ${i} ${Date.now()}`)
+        mainPage.createIncident(`Performance ${i} ${Date.now()}`)
           .then(() => authenticatedPage.waitForTimeout(500))
       );
     }
@@ -403,7 +403,7 @@ test.describe('Sprint 3 Integration - Performance', () => {
   });
 
   test('Sprint 3 animations dont cause layout thrashing', async ({ authenticatedPage }) => {
-    await mainPage.createQuickIncident(`Animation ${Date.now()}`);
+    await mainPage.createIncident(`Animation ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -442,7 +442,7 @@ test.describe('Sprint 3 Integration - Accessibility', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`A11y ${Date.now()}`);
+    await mainPage.createIncident(`A11y ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -516,7 +516,7 @@ test.describe('Sprint 3 Integration - Real-World Scenarios', () => {
   });
 
   test('operator can quickly identify incident priority and age', async ({ authenticatedPage }) => {
-    await mainPage.createQuickIncident(`Emergency ${Date.now()}`);
+    await mainPage.createIncident(`Emergency ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -537,11 +537,11 @@ test.describe('Sprint 3 Integration - Real-World Scenarios', () => {
 
   test('Sprint 3 features support rapid incident triage', async ({ authenticatedPage }) => {
     // Create multiple incidents
-    await mainPage.createQuickIncident(`Incident A ${Date.now()}`);
+    await mainPage.createIncident(`Incident A ${Date.now()}`);
     await authenticatedPage.waitForTimeout(500);
-    await mainPage.createQuickIncident(`Incident B ${Date.now()}`);
+    await mainPage.createIncident(`Incident B ${Date.now()}`);
     await authenticatedPage.waitForTimeout(500);
-    await mainPage.createQuickIncident(`Incident C ${Date.now()}`);
+    await mainPage.createIncident(`Incident C ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidents = authenticatedPage.locator('[data-testid="incident-card"]');
@@ -562,7 +562,7 @@ test.describe('Sprint 3 Integration - Real-World Scenarios', () => {
   });
 
   test('Sprint 3 features enhance situational awareness', async ({ authenticatedPage }) => {
-    await mainPage.createQuickIncident(`Situation ${Date.now()}`);
+    await mainPage.createIncident(`Situation ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();

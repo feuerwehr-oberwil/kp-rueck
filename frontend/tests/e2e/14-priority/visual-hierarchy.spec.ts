@@ -25,7 +25,7 @@ test.describe('Priority Visual Hierarchy - Priority Indicators', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Priority Test ${Date.now()}`);
+    await mainPage.createIncident(`Priority Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -112,7 +112,7 @@ test.describe('Priority Visual Hierarchy - Icon Variants', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Icon Test ${Date.now()}`);
+    await mainPage.createIncident(`Icon Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -198,7 +198,7 @@ test.describe('Priority Visual Hierarchy - Color Consistency', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Color Test ${Date.now()}`);
+    await mainPage.createIncident(`Color Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -259,7 +259,7 @@ test.describe('Priority Visual Hierarchy - Layout and Placement', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Layout Test ${Date.now()}`);
+    await mainPage.createIncident(`Layout Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -322,7 +322,7 @@ test.describe('Priority Visual Hierarchy - Responsiveness', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Mobile Test ${Date.now()}`);
+    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -349,7 +349,7 @@ test.describe('Priority Visual Hierarchy - Responsiveness', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Mobile Test ${Date.now()}`);
+    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
@@ -384,7 +384,7 @@ test.describe('Priority Visual Hierarchy - Semantic Meaning', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Semantic Test ${Date.now()}`);
+    await mainPage.createIncident(`Semantic Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -440,11 +440,11 @@ test.describe('Priority Visual Hierarchy - Multiple Incidents', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     // Create multiple incidents
-    await mainPage.createQuickIncident(`First ${Date.now()}`);
+    await mainPage.createIncident(`First ${Date.now()}`);
     await authenticatedPage.waitForTimeout(500);
-    await mainPage.createQuickIncident(`Second ${Date.now()}`);
+    await mainPage.createIncident(`Second ${Date.now()}`);
     await authenticatedPage.waitForTimeout(500);
-    await mainPage.createQuickIncident(`Third ${Date.now()}`);
+    await mainPage.createIncident(`Third ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
@@ -504,7 +504,7 @@ test.describe('Priority Visual Hierarchy - Interaction States', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await authenticatedPage.waitForTimeout(1000);
 
-    await mainPage.createQuickIncident(`Interaction Test ${Date.now()}`);
+    await mainPage.createIncident(`Interaction Test ${Date.now()}`);
     await authenticatedPage.waitForTimeout(1000);
   });
 
