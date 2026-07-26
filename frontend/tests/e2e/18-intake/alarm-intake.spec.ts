@@ -35,8 +35,13 @@ test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
     await expect(authenticatedPage.getByText(event.name)).toBeVisible();
 
     // 3. Fill the essentials and submit.
+    // The field is labelled "Meldung" (intake.alarm.messageLabel) but its id is `title` and it
+    // populates the incident's title — which is what the assertions below check. The label this
+    // used to look for, "Titel / Einsatzbezeichnung", belongs to the Divera send dialog, so this
+    // never matched the intake form at all. Priority and type default, and the submit button
+    // only requires a non-empty message, so nothing else has to be filled.
     const alarmTitle = `Wohnungsbrand ${Date.now()}`;
-    await authenticatedPage.getByLabel('Titel / Einsatzbezeichnung *').fill(alarmTitle);
+    await authenticatedPage.getByLabel('Meldung *').fill(alarmTitle);
     await authenticatedPage.getByRole('button', { name: 'Alarm absenden' }).click();
 
     // 4. Confirmation screen with the "create another" affordance.
