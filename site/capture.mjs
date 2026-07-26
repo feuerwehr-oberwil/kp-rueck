@@ -121,7 +121,10 @@ const shots = [
       }
     },
   },
-  { name: 'display', path: '/display/board', settle: 4000, note: 'Beamer-Ansicht im KP' },
+  // Bewusst dunkel: das Board an der Wand im abgedunkelten KP. Der einzige
+  // dunkle Shot – er belegt die dunkle Oberfläche aus der Funktionsliste.
+  { name: 'display', path: '/display/board', settle: 4000, theme: 'dark', note: 'Beamer-Ansicht im KP' },
+  { name: 'status', path: '/display/status', settle: 4000, note: 'Beamer-Ansicht: Gesamtübersicht' },
   { name: 'training', path: '/training', settle: 2500 },
 ]
 
@@ -167,15 +170,16 @@ const run = async () => {
     deviceScaleFactor: 1,
     locale: 'de-CH',
     timezoneId: 'Europe/Zurich',
-    colorScheme: 'dark',
+    colorScheme: 'light',
     reducedMotion: 'reduce',
   })
 
-  // Dunkles Board-Theme erzwingen und den Willkommensdialog der Demo als
-  // "gesehen" markieren, bevor React startet.
+  // Standard ist hell: die Landingpage ist hell, dunkle Shots stechen darin als
+  // Fremdkörper heraus. Einzelne Shots dürfen per `theme: 'dark'` abweichen –
+  // die Beamer-Ansicht an der Wand im abgedunkelten KP ist genau dieser Fall.
+  // Den Willkommensdialog der Demo als "gesehen" markieren, bevor React startet.
   await ctx.addInitScript(() => {
     try {
-      localStorage.setItem('theme', 'dark')
       localStorage.setItem('kp-rueck.demo-welcome.v1', '1')
     } catch { /* private mode */ }
   })
@@ -193,6 +197,13 @@ const run = async () => {
   if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
 
   for (const shot of wanted) {
+    // Theme vor dem Laden setzen – next-themes liest den Wert beim Mount aus
+    // localStorage; danach ist es für einen Nachzügler zu spät.
+    const theme = shot.theme ?? 'light'
+    await page.evaluate((t) => {
+      try { localStorage.setItem('theme', t) } catch { /* private mode */ }
+    }, theme)
+    await page.emulateMedia({ colorScheme: theme })
     await page.setViewportSize(shot.viewport ?? VIEWPORT)
     await page.goto(base + shot.path, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle').catch(() => {})
