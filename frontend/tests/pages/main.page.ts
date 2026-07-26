@@ -120,7 +120,11 @@ export class MainPage extends BasePage {
       await this.modalNotesInput.fill(notes);
     }
     await this.modalCreateButton.click();
-    await this.waitForToast();
+
+    // NOT waitForToast(): new-emergency-modal.tsx raises a toast only for validation errors —
+    // a successful create shows none at all, so waiting for one always timed out. The modal
+    // closing is the real post-condition, and it is what the callers actually depend on.
+    await this.incidentModal.waitFor({ state: 'hidden', timeout: 15000 });
   }
 
   /**
