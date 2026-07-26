@@ -37,7 +37,8 @@ const arg = (name) => {
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
 
-/** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.). */
+/** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.).
+ *  `theme: 'dark'` übersteuert das helle Standard-Theme für einzelne Bilder. */
 const shots = [
   { name: 'board', path: '/', settle: 2500, note: 'Hero: Einsatzboard' },
   {
@@ -121,7 +122,14 @@ const shots = [
       }
     },
   },
-  { name: 'display', path: '/display/board', settle: 4000, note: 'Beamer-Ansicht im KP' },
+  {
+    name: 'display',
+    path: '/display/board',
+    settle: 4000,
+    // Bewusst dunkel: das eine Bild, das den Nachtmodus fürs abgedunkelte KP zeigt.
+    theme: 'dark',
+    note: 'Beamer-Ansicht im KP, im dunklen Nachtmodus',
+  },
   {
     name: 'status',
     path: '/display/status',
@@ -200,6 +208,10 @@ const run = async () => {
 
   for (const shot of wanted) {
     await page.setViewportSize(shot.viewport ?? VIEWPORT)
+    // Theme pro Shot: vor der Navigation setzen, damit React gleich richtig startet.
+    const theme = shot.theme ?? 'light'
+    await page.emulateMedia({ colorScheme: theme })
+    await page.evaluate((t) => localStorage.setItem('theme', t), theme)
     await page.goto(base + shot.path, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(shot.settle)
