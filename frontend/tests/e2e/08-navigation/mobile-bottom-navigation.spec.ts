@@ -238,7 +238,9 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
     // Verify secondary items are present
     await expect(sheet.locator('text=Einstellungen')).toBeVisible();
     await expect(sheet.locator('text=Statistiken')).toBeVisible();
-    await expect(sheet.locator('text=Divera Notfälle')).toBeVisible();
+    // Renamed: the entry is `nav.mobileBottomNav.diveraPool` = "Alarmeingang" (see
+    // mobile-bottom-navigation.tsx). "Divera Notfälle" has not been rendered for a while.
+    await expect(sheet.locator('text=Alarmeingang')).toBeVisible();
     await expect(sheet.locator('text=Hilfe & Dokumentation')).toBeVisible();
   });
 

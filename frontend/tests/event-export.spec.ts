@@ -151,7 +151,10 @@ test.describe('Event Export', () => {
       await exportButton.click();
 
       // Wait for success toast to appear
-      const successToast = page.locator('text=Export erfolgreich heruntergeladen');
+      // `settings.page.toasts.exportSuccess` — the toast says exactly "Export erfolgreich";
+      // the old, longer string could never match (Playwright's text= is a substring match,
+      // so a LONGER needle than the rendered text never hits).
+      const successToast = page.locator('text=Export erfolgreich');
       await expect(successToast).toBeVisible({ timeout: 5000 });
     });
 
