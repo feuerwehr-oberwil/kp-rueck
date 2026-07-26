@@ -7,7 +7,7 @@
  *   node site/capture.mjs --only board,karte    # nur einzelne Shots
  *
  * Fährt eine echte Instanz mit Playwright an, meldet sich als Editor an, schaltet
- * auf das helle Board-Theme, blendet Demo-Chrome (Willkommensdialog, DEMO-Banderole,
+ * auf das dunkle Board-Theme, blendet Demo-Chrome (Willkommensdialog, DEMO-Banderole,
  * Toasts) aus und legt die Bilder in site/shots/ ab. Die Bildnamen sind der Vertrag
  * mit site/index.html – wer hier umbenennt, muss dort mitziehen.
  *
@@ -37,8 +37,7 @@ const arg = (name) => {
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
 
-/** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.).
- *  `theme: 'dark'` übersteuert das helle Standard-Theme für einzelne Bilder. */
+/** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.). */
 const shots = [
   { name: 'board', path: '/', settle: 2500, note: 'Hero: Einsatzboard' },
   {
@@ -122,20 +121,10 @@ const shots = [
       }
     },
   },
-  {
-    name: 'display',
-    path: '/display/board',
-    settle: 4000,
-    // Bewusst dunkel: das eine Bild, das den Nachtmodus fürs abgedunkelte KP zeigt.
-    theme: 'dark',
-    note: 'Beamer-Ansicht im KP, im dunklen Nachtmodus',
-  },
-  {
-    name: 'status',
-    path: '/display/status',
-    settle: 4000,
-    note: 'Statusübersicht: Einsätze nach Status, daneben Personal und Material mit Zuordnung',
-  },
+  // Bewusst dunkel: das Board an der Wand im abgedunkelten KP. Der einzige
+  // dunkle Shot – er belegt die dunkle Oberfläche aus der Funktionsliste.
+  { name: 'display', path: '/display/board', settle: 4000, theme: 'dark', note: 'Beamer-Ansicht im KP' },
+  { name: 'status', path: '/display/status', settle: 4000, note: 'Beamer-Ansicht: Gesamtübersicht' },
   { name: 'training', path: '/training', settle: 2500 },
 ]
 
@@ -185,11 +174,12 @@ const run = async () => {
     reducedMotion: 'reduce',
   })
 
-  // Helles Board-Theme erzwingen (passend zur hellen Landingpage) und den
-  // Willkommensdialog der Demo als "gesehen" markieren, bevor React startet.
+  // Standard ist hell: die Landingpage ist hell, dunkle Shots stechen darin als
+  // Fremdkörper heraus. Einzelne Shots dürfen per `theme: 'dark'` abweichen –
+  // die Beamer-Ansicht an der Wand im abgedunkelten KP ist genau dieser Fall.
+  // Den Willkommensdialog der Demo als "gesehen" markieren, bevor React startet.
   await ctx.addInitScript(() => {
     try {
-      localStorage.setItem('theme', 'light')
       localStorage.setItem('kp-rueck.demo-welcome.v1', '1')
     } catch { /* private mode */ }
   })
@@ -207,11 +197,14 @@ const run = async () => {
   if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
 
   for (const shot of wanted) {
-    await page.setViewportSize(shot.viewport ?? VIEWPORT)
-    // Theme pro Shot: vor der Navigation setzen, damit React gleich richtig startet.
+    // Theme vor dem Laden setzen – next-themes liest den Wert beim Mount aus
+    // localStorage; danach ist es für einen Nachzügler zu spät.
     const theme = shot.theme ?? 'light'
+    await page.evaluate((t) => {
+      try { localStorage.setItem('theme', t) } catch { /* private mode */ }
+    }, theme)
     await page.emulateMedia({ colorScheme: theme })
-    await page.evaluate((t) => localStorage.setItem('theme', t), theme)
+    await page.setViewportSize(shot.viewport ?? VIEWPORT)
     await page.goto(base + shot.path, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(shot.settle)
