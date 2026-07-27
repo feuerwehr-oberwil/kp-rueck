@@ -19,7 +19,7 @@ import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
-import { Wifi, WifiOff, RefreshCw } from "lucide-react"
+import { Wifi, WifiOff, RefreshCw, Maximize } from "lucide-react"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -422,6 +422,46 @@ function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Inciden
   }, [trigger, map]) // Only trigger on explicit trigger change, not incidents
 
   return null
+}
+
+/**
+ * «Alle Einsätze einpassen» — the one map control that was missing.
+ *
+ * The map auto-fits ONCE on mount (see FitBounds) and then never again, so the moment a new
+ * incident comes in outside the current view, or somebody pans away, getting back to «show me
+ * everything» meant pinching around until it looked right. The fit itself already existed for
+ * the panel-resize path; it just had no button.
+ *
+ * Rendered inside MapContainer so it can reach the map, but positioned over it like the legend.
+ * Pointer events are stopped so pressing it never doubles as a map drag.
+ */
+function FitAllButton({ incidents }: { incidents: Incident[] }) {
+  const t = useTranslations('map')
+  const map = useMap()
+  const withCoords = incidents.filter((inc) => inc.location_lat !== null && inc.location_lng !== null)
+  if (withCoords.length === 0) return null
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        const bounds = L.latLngBounds(
+          withCoords.map((inc) => [inc.location_lat!, inc.location_lng!] as [number, number]),
+        )
+        // padding keeps a marker's label off the edge; maxZoom stops a single incident from
+        // slamming to street level, which loses all context
+        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 16, duration: 0.6 })
+      }}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      className="absolute left-3 top-[88px] z-[1000] flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card/95 shadow-md backdrop-blur-sm hover:bg-card"
+      title={t('fitAll')}
+      aria-label={t('fitAll')}
+    >
+      <Maximize className="h-4 w-4 text-foreground" aria-hidden="true" />
+    </button>
+  )
 }
 
 // Warning banner for incidents without valid coordinates
@@ -1053,6 +1093,7 @@ export default function MapView({
 
         {/* Reset zoom on trigger */}
         <ResetZoom trigger={resetZoomTrigger} incidents={mappableIncidents} />
+        <FitAllButton incidents={mappableIncidents} />
 
         {/* Track zoom so vehicle clusters can shrink at low zoom */}
         <ZoomWatcher onZoomChange={setMapZoom} />
