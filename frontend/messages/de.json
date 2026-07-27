@@ -760,7 +760,10 @@
       "viewList": "Liste",
       "viewMap": "Karte",
       "mapLoading": "Karte wird geladen …",
-      "mapEmpty": "Keine verorteten Einsätze auf der Karte."
+      "mapEmpty": "Keine verorteten Einsätze auf der Karte.",
+      "legendSelected": "rot = ausgewählt",
+      "legendOtherRoute": "farbig = schon in einem anderen Auftrag (wird verschoben)",
+      "legendUnassigned": "grau = in keinem Auftrag"
     },
     "auftragPicker": {
       "title": "An Auftrag verteilen",
