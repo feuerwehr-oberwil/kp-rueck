@@ -42,6 +42,10 @@ export interface RekoSummary {
   dangerTypes: string[]
   personnelCount: number | null
   estimatedDuration: number | null
+  /** What the Reko wrote — the sentence the form calls «Lagebeurteilung». */
+  summaryText: string | null
+  /** Photo filenames from the Reko form; resolve via `rekoPhotoUrl`. */
+  photos: string[]
 }
 
 export interface Operation {
@@ -512,6 +516,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               dangerTypes,
               personnelCount: summary.effort_json?.personnel_count ?? null,
               estimatedDuration: summary.effort_json?.estimated_duration_hours ?? null,
+              summaryText: summary.summary_text ?? null,
+              photos: summary.photos_json ?? [],
             }
           }
         })
@@ -724,6 +730,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
                 dangerTypes,
                 personnelCount: summary.effort_json?.personnel_count ?? null,
                 estimatedDuration: summary.effort_json?.estimated_duration_hours ?? null,
+                summaryText: summary.summary_text ?? null,
+                photos: summary.photos_json ?? [],
               }
             }
           })

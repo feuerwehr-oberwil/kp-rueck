@@ -279,6 +279,10 @@ async def get_reko_summaries_by_event(db: AsyncSession, event_id: uuid.UUID) -> 
             RekoReport.dangers_json,
             RekoReport.effort_json,
             RekoReport.summary_text,
+            # The photos ride along in the bulk load: they are the part of the
+            # Reko result a viewer screen most wants to see, and fetching them
+            # per incident would undo the point of this query.
+            RekoReport.photos_json,
             RekoReport.submitted_at,
             RekoReport.submitted_by_personnel_id,
         )
@@ -324,6 +328,7 @@ async def get_reko_summaries_by_event(db: AsyncSession, event_id: uuid.UUID) -> 
             "dangers_json": row.dangers_json,
             "effort_json": row.effort_json,
             "summary_text": row.summary_text,
+            "photos_json": row.photos_json or [],
             "submitted_at": row.submitted_at,
             "submitted_by_personnel_name": personnel_names.get(row.submitted_by_personnel_id)
             if row.submitted_by_personnel_id

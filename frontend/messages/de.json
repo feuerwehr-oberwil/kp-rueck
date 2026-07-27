@@ -2722,7 +2722,9 @@
       "contactPhone": "Telefon",
       "intakeBadge": "Telefon / Walk-in",
       "rekoHeading": "Reko",
-      "rekoOnSite": "vor Ort seit {time}"
+      "rekoOnSite": "vor Ort seit {time}",
+      "rekoPhotoAlt": "Reko-Bild {index}",
+      "rekoPhotoOpen": "Bild in voller Grösse öffnen"
     },
     "layout": {
       "pageMap": "Karte",

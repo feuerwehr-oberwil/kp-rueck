@@ -12,6 +12,7 @@ import { type IncidentGroup } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { telHref } from "@/lib/phone"
+import { rekoPhotoUrl } from "@/lib/reko-photos"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
 import {
@@ -380,7 +381,39 @@ export function IncidentDetailModal({
                     {t('board.durationHours', { hours: operation.rekoSummary.estimatedDuration })}
                   </p>
                 )}
+                {operation.rekoSummary.summaryText && (
+                  <p className="whitespace-pre-wrap">{operation.rekoSummary.summaryText}</p>
+                )}
               </div>
+              {/* The photos the Reko took on site. They existed all along but
+                  only ever inside the Reko form — the one place the command post
+                  does not look. A picture of the damage is the most useful part
+                  of a Reko result; it belongs where the result is read. */}
+              {operation.rekoSummary.photos.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 pt-1 sm:grid-cols-4">
+                  {operation.rekoSummary.photos.map((filename, index) => (
+                    <a
+                      key={filename}
+                      href={rekoPhotoUrl(operation.id, filename)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block aspect-square overflow-hidden rounded-md border border-border bg-muted transition-opacity hover:opacity-80"
+                      title={t('board.rekoPhotoOpen')}
+                    >
+                      {/* Plain <img>: the endpoint is behind the login and needs
+                          the session cookie, which next/image's optimiser
+                          (fetching server-side) does not carry. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={rekoPhotoUrl(operation.id, filename)}
+                        alt={t('board.rekoPhotoAlt', { index: index + 1 })}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

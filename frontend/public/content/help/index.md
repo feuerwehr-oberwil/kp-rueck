@@ -176,6 +176,8 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 5. Reko-Formular ausfüllen, Fotos hochladen
 6. Basierend auf Bericht: Disponieren oder Abschliessen
 
+**Wo das Reko-Ergebnis landet:** Im Einsatz-Detail – auch in den Anzeige-Ansichten unter `/display` – steht unter **Reko-Ergebnis** die Beurteilung, die Gefahren, der Personal- und Zeitbedarf, der Lagetext **und die hochgeladenen Fotos**. Ein Klick auf ein Bild öffnet es in voller Grösse. Die Bilder liegen hinter der Anmeldung; über einen Freigabelink ohne Login sind sie nicht sichtbar.
+
 **Reko-Status auf Karten:**
 - Kein Icon: Keine Reko-Aktivität
 - Fernglas (grau): Offizier vor Ort, prüft Lage ("vor Ort HH:MM" neben Name)
