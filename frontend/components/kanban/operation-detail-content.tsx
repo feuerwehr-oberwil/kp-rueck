@@ -19,6 +19,7 @@ import { type Operation, type Material, type OperationStatus } from "@/lib/conte
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
+import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -361,7 +362,7 @@ export function OperationDetailContent({
               <Label htmlFor="contact-phone" className="text-sm font-semibold text-muted-foreground">{t('common.contactPhone')}</Label>
               {operation.contactPhone.trim() && (
                 <a
-                  href={`tel:${operation.contactPhone.replace(/\s+/g, '')}`}
+                  href={telHref(operation.contactPhone) ?? undefined}
                   className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                 >
                   <Phone className="h-3 w-3" />
