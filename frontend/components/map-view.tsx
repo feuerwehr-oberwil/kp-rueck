@@ -12,7 +12,7 @@ import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incident
 import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
 import { GpsSimBanner } from "./gps-sim-banner"
-import type { ColorByDimension, ColorGroup } from "@/lib/kanban-utils"
+import { colorAccent, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
 import { OperationHoverCard } from "./map/operation-hover-card"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
@@ -865,6 +865,33 @@ export default function MapView({
     return new Map([...operationsById].filter(([id]) => visibleIds.has(id)))
   }, [operationsById, mappableIncidents])
 
+  // While the routes are drawn, a stop wears the colour of its Auftrag.
+  //
+  // The numbered pin on top already carries the route colour; without this the
+  // marker underneath it stayed the priority fill, so one incident showed two
+  // colours — and on /display/map, where routes are on by default and the
+  // colouring stays on «Priorität», every stop of every route read as the same
+  // static red. Only a fallback: an explicitly chosen «Färben nach» dimension
+  // supplies `markerAccents` and keeps precedence.
+  const routeAccents = useMemo(() => {
+    if (!showGroupRoutes || !groups || groups.length === 0) return undefined
+    const accents = new Map<string, string>()
+    for (const group of groups) {
+      const color = colorAccent(group.id, "auftrag", groups)
+      for (const stopId of group.stopIds) accents.set(stopId, color)
+    }
+    return accents
+  }, [showGroupRoutes, groups])
+  const effectiveMarkerAccents = markerAccents ?? routeAccents
+  // …and the legend says so, listing the routes by name. A legend that still
+  // reads «Priorität» while the markers carry route colours is worse than none.
+  const routeColorGroups = useMemo<ColorGroup[]>(() => {
+    if (!routeAccents || !groups) return []
+    return groups
+      .filter((group) => group.stopIds.length > 0)
+      .map((group) => ({ key: group.id, label: group.name, color: colorAccent(group.id, "auftrag", groups) }))
+  }, [routeAccents, groups])
+
   // Calculate center point (average of all incidents or firestation)
   const center: LatLngExpression = useMemo(() => {
     if (mappableIncidents.length > 0) {
@@ -968,7 +995,7 @@ export default function MapView({
             <Marker
               key={incident.id}
               position={[incident.location_lat!, incident.location_lng!]}
-              icon={createIncidentIcon(incident, isHighlighted, markerAccents?.get(incident.id) ?? null)}
+              icon={createIncidentIcon(incident, isHighlighted, effectiveMarkerAccents?.get(incident.id) ?? null)}
               eventHandlers={{
                 click: () => onMarkerClick?.(incident.id),
                 mouseover: () => setHoveredIncidentId(incident.id),
@@ -1109,8 +1136,8 @@ export default function MapView({
       {/* An empty position list means no GPS is set up (or nothing is reporting) — the vehicle
           and assignment-line sections then describe marks that cannot appear, so they go. */}
       <MapLegend
-        colorBy={colorBy}
-        colorGroups={colorGroups}
+        colorBy={routeAccents ? "auftrag" : colorBy}
+        colorGroups={routeAccents ? routeColorGroups : colorGroups}
         showVehicles={mappedVehiclePositions.length > 0}
         showAssignments={showAssignmentLines && mappedVehiclePositions.length > 0}
       />
