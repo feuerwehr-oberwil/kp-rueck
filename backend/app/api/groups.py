@@ -97,6 +97,29 @@ async def update_group(
     return response
 
 
+@router.post("/{group_id}/announce", response_model=schemas.IncidentGroupResponse)
+async def record_group_announcement(
+    group_id: uuid.UUID,
+    announcement: schemas.GroupAnnouncementRequest,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+):
+    """Record the Funkdurchsage that was just made for an Auftrag (editor only).
+
+    The next stop of the same Auftrag reads this back to decide between the full
+    announcement and the short «weiter mit Stop N» form. Broadcast so the second
+    device and the wall screen agree on what has already been read out.
+    """
+    group = await crud.record_announcement(db, group_id, announcement)
+    if not group:
+        raise HTTPException(status_code=404, detail="Auftrag not found")
+
+    response = await crud.build_group_response(db, group)
+    background_tasks.add_task(broadcast_group_update, response.model_dump(mode="json"), "update")
+    return response
+
+
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_group(
     group_id: uuid.UUID,

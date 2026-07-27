@@ -258,6 +258,20 @@ Daraus folgt:
 - **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte.
 - **Reihenfolge optimieren**: berechnet per Nächster-Nachbar-Heuristik eine kurze Reihenfolge ab einem Startpunkt (**Magazin**, **Fahrzeug-GPS** oder **erster Stop**). Der Vorschlag wird als Vorschau angezeigt – **Übernehmen** oder **Verwerfen**.
 
+### Funkdurchsage für einen Auftrag
+
+Ein Auftrag wird **einmal vergeben, nicht bei jedem Stop neu**. Die App erkennt selbst, welcher Fall vorliegt – es gibt keinen zusätzlichen Knopf, der Disponiert-Dialog bleibt der Auslöser, nur der Text unterscheidet sich:
+
+- **Der erste Stop, der auf «Disponiert» geht, ist die Auftragsvergabe.** Die Durchsage nennt den ganzen Auftrag: Mannschaft, Fahrzeuge und Material zuerst, danach die nummerierte Liste aller Stops.
+- **Jeder weitere Stop ist eine Fortsetzung** und wird nur noch kurz angesagt: «Auftrag ‹Sturmholz Oberwil› weiter mit Stop 3: Mühlemattstrasse 12.» Die Mannschaft wird nicht ein zweites Mal vorgelesen.
+- **Bekommt die Route zwischendurch Mannschaft, ein Fahrzeug oder Material dazu**, gibt es wieder die volle Durchsage – wer neu dabei ist, hat den Auftrag noch nie gehört.
+
+**Erledigte Stops fallen aus der Liste, behalten aber ihre Nummer.** Ist Stop 1 abgearbeitet, heisst es «2 Stops: 2. …, 3. …». So meint «Stop 3» über die ganze Lebensdauer des Auftrags dieselbe Adresse.
+
+**Besonderes** (Reko-Gefahren, Nachbarhilfe) steht gesammelt am Schluss, jeweils mit der Adresse dazu – nicht verstreut zwischen den Stops.
+
+**Durchsage wiederholen:** Funkverkehr geht verloren. In der Aufträge-Leiste hat jeder Auftrag den Knopf **Durchsage wiederholen** (im aufgeklappten Auftrag neben «Routen-Editor», ausserdem im ⋮-Menü und per Rechtsklick). Er zeigt die zuletzt gemachte Durchsage im selben Wortlaut noch einmal an – ohne einen Stop-Dialog wieder aufmachen zu müssen und ohne sie neu zu zählen.
+
 ### Auf der Karte anzeigen
 
 **Aufträge anzeigen** auf `/map` zeichnet alle Routen als farbige Linien mit nummerierten Stops. Dabei wird die Marker-Einfärbung automatisch auf **Färben nach: Auftrag** umgestellt, sodass jeder Einsatz die Farbe seiner Route trägt (Einsätze ohne Auftrag = «Kein Auftrag»).

@@ -171,6 +171,34 @@ async def update_group(
     return group
 
 
+async def record_announcement(
+    db: AsyncSession,
+    group_id: uuid.UUID,
+    announcement: schemas.GroupAnnouncementRequest,
+) -> IncidentGroup | None:
+    """Remember that a Funkdurchsage was made for this Auftrag.
+
+    Stores the resource fingerprint the client announced with, which stop it was
+    about and whether it was the full form, so the NEXT stop can decide between
+    the full announcement and the short «weiter mit Stop N» continuation.
+
+    Deliberately not audit-logged: this is a note about what was said on the
+    radio, written on every dispatch, not a change to the Auftrag itself.
+    """
+    group = await _get_group(db, group_id)
+    if group is None:
+        return None
+
+    group.last_announced_at = datetime.utcnow()
+    group.last_announced_fingerprint = announcement.fingerprint
+    group.last_announced_stop_id = announcement.stop_id
+    group.last_announced_full = announcement.full
+
+    await db.commit()
+    await db.refresh(group)
+    return group
+
+
 async def soft_delete_group(
     db: AsyncSession,
     group_id: uuid.UUID,

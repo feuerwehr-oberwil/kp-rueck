@@ -67,4 +67,16 @@ export interface IncidentGroup {
   /** Active resources owned by this route (raw ids; resolve via getGroupResources). */
   assignments: GroupAssignment[]
   progress: GroupProgress
+  /** The last Funkdurchsage made for this route — null until the first stop is
+   *  disponiert. Lives on the server so a reload, the second device and the wall
+   *  screen all agree on what has already been read out over the radio. */
+  lastAnnounced: {
+    at: Date
+    /** Opaque digest of the route's resources at that moment (compared, never parsed). */
+    fingerprint: string
+    /** The stop the announcement was about. */
+    stopId: string | null
+    /** True when it was the full announcement, false for the short continuation. */
+    full: boolean
+  } | null
 }

@@ -47,6 +47,21 @@ export interface ApiIncidentGroup {
   /** Active resources owned by this route. */
   assignments: ApiGroupAssignment[]
   progress: ApiGroupProgress
+  /** ISO timestamp of the last Funkdurchsage for this route (null = none yet). */
+  last_announced_at: string | null
+  /** Opaque digest of the route's resources at that moment — compared, never parsed. */
+  last_announced_fingerprint: string | null
+  /** Which stop that announcement was about (UUID). */
+  last_announced_stop_id: string | null
+  /** Whether it was the full announcement rather than the short continuation. */
+  last_announced_full: boolean
+}
+
+/** Body for recording a Funkdurchsage (see `ApiIncidentGroup.last_announced_*`). */
+export interface ApiGroupAnnouncement {
+  fingerprint: string
+  stop_id?: string | null
+  full?: boolean
 }
 
 export interface ApiIncidentGroupCreate {

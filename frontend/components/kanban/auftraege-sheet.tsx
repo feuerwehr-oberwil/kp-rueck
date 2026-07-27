@@ -28,6 +28,7 @@ import {
   Wand2,
   Check,
   Info,
+  Radio,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
@@ -68,6 +69,7 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
 import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
+import { AuftragRadioDialog } from "@/components/kanban/auftrag-radio-dialog"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import type { GroupResources } from "@/lib/types/groups"
 
@@ -127,6 +129,8 @@ interface AuftraegeSheetProps {
   onOpenRoutenEditor?: (groupId: string, focusIncidentId?: string) => void
   canEdit: boolean
   onSetStopStatus?: (incidentId: string, status: OperationStatus) => void
+  /** Radio call sign of the station, for «Durchsage wiederholen». */
+  funkrufname?: string
 }
 
 export function AuftraegeSheet({
@@ -139,6 +143,7 @@ export function AuftraegeSheet({
   onOpenRoutenEditor,
   canEdit,
   onSetStopStatus,
+  funkrufname = "Omega",
 }: AuftraegeSheetProps) {
   const t = useTranslations("kanban.auftraege")
   const isMobile = useIsMobile()
@@ -164,6 +169,7 @@ export function AuftraegeSheet({
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [radioGroupId, setRadioGroupId] = useState<string | null>(null)
 
   const rowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
 
@@ -356,6 +362,7 @@ export function AuftraegeSheet({
                 onCancelRename={() => setRenamingId(null)}
                 onChangeColor={(color) => updateGroup(group.id, { color })}
                 onRequestDelete={() => setDeleteId(group.id)}
+                onRepeatRadio={() => setRadioGroupId(group.id)}
                 onAddStop={() => onAddStop(group.id)}
                 onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
                 onAssignRouteResource={(resourceType) => onAssignRouteResource(resourceType, group.id)}
@@ -370,6 +377,13 @@ export function AuftraegeSheet({
           </div>
         </SheetContent>
       </Sheet>
+
+      <AuftragRadioDialog
+        open={!!radioGroupId}
+        onOpenChange={(o) => !o && setRadioGroupId(null)}
+        group={groups.find((g) => g.id === radioGroupId) ?? null}
+        funkrufname={funkrufname}
+      />
 
       <AlertDialog open={canEdit && !!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
@@ -408,6 +422,7 @@ interface AuftragCardProps {
   onCancelRename: () => void
   onChangeColor: (color: string) => void
   onRequestDelete: () => void
+  onRepeatRadio: () => void
   onAddStop: () => void
   onOpenRoutenEditor: (focusIncidentId?: string) => void
   onAssignRouteResource: (resourceType: "crew" | "vehicles" | "materials") => void
@@ -433,6 +448,7 @@ function AuftragCard({
   onCancelRename,
   onChangeColor,
   onRequestDelete,
+  onRepeatRadio,
   onAddStop,
   onOpenRoutenEditor,
   onAssignRouteResource,
@@ -620,6 +636,10 @@ function AuftragCard({
                     <Wand2 className="mr-2 h-4 w-4" />
                     {t("optimizeOrder")}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onRepeatRadio}>
+                    <Radio className="mr-2 h-4 w-4" />
+                    {t("repeatRadio")}
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
                     <Trash2 className="mr-2 h-4 w-4" />
                     {t("delete")}
@@ -642,6 +662,10 @@ function AuftragCard({
           <ContextMenuItem disabled={total < 2} onClick={() => void runOptimize("magazin")}>
             <Wand2 className="mr-2 h-4 w-4" />
             {t("optimizeOrder")}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={onRepeatRadio}>
+            <Radio className="mr-2 h-4 w-4" />
+            {t("repeatRadio")}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
@@ -678,6 +702,12 @@ function AuftragCard({
               label={t("stopsCount", { count: total })}
               action={
                 <div className="flex items-center gap-1">
+                  {/* Read-only repeat of the last Funkdurchsage — no canEdit gate,
+                      a viewer reading it back over the radio changes nothing. */}
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 px-2" onClick={onRepeatRadio}>
+                    <Radio className="h-3.5 w-3.5" />
+                    {t("repeatRadio")}
+                  </Button>
                   {/* A route only needs the editor once there's an actual route to
                       plan — hide it for 0/1 stop, where it's just a single pin. */}
                   {total >= 2 && (

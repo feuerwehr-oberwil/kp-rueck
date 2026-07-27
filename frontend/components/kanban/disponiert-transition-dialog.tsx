@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Copy, Check, Printer, X, Radio, Siren } from "lucide-react"
 import {
@@ -11,20 +11,21 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
-import { copyToClipboard, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { copyToClipboard } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { auftragRadio, routeDeployment, stopAddress } from "@/lib/auftrag-radio"
+import { deploymentSegments, incidentAnnouncement, stopSpecial } from "@/lib/radio-announcement"
+import { RadioQuote } from "@/components/kanban/radio-quote"
+import type { GroupResources } from "@/lib/types/groups"
 
-// Bold highlight for the variable parts of the Funkdurchsage quote.
-const highlight = (text: string) => (
-  <span className="font-semibold text-foreground">{text}</span>
-)
+const NO_ROUTE_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
 interface DisponiertTransitionDialogProps {
   open: boolean
@@ -50,23 +51,67 @@ export function DisponierTransitionDialog({
   onSendDivera,
 }: DisponiertTransitionDialogProps) {
   const t = useTranslations('kanban')
-  const { groups, getGroupResources } = useGroups()
+  const { groups, getGroupResources, recordAnnouncement } = useGroups()
+  const { operations } = useOperations()
   const { selectedEvent } = useEvent()
   // Driver names weren't reaching the message before (the prop was never passed),
   // so the WhatsApp "Fahrer:" line was always blank — load them here.
   const liveVehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
+  // The full-vs-short decision is frozen when the dialog opens, because opening
+  // it IS the announcement: it gets recorded on the server right away, and a
+  // re-render must not turn a full Auftragsdurchsage into the short form while
+  // the Einsatzleiter is still reading it out.
+  const [frozenFull, setFrozenFull] = useState<boolean | null>(null)
+  const announcedKeyRef = useRef<string | null>(null)
+
+  // A grouped incident carries no resources itself — the Auftrag (route) owns
+  // them. Resolve the route's resources + stop position so both the Funkdurchsage
+  // and the WhatsApp message reflect what's actually assigned.
+  const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const groupRes = auftrag ? getGroupResources(auftrag.id) : null
+  const addressPlaceholder = t('disponiert.addressPlaceholder')
+
+  const radio = useMemo(() => {
+    if (!operation || !auftrag || !groupRes) return null
+    return auftragRadio(t, {
+      group: auftrag,
+      operation,
+      resources: groupRes,
+      operations,
+      materials,
+      funkrufname,
+      fallbackAddress: addressPlaceholder,
+      forceFull: frozenFull ?? undefined,
+    })
+  }, [operation, auftrag, groupRes, operations, materials, funkrufname, addressPlaceholder, frozenFull, t])
+
+  // Record what was just read out, once per (Auftrag, stop) the dialog opens for.
+  // The ref keeps this to one write even though `radio` and `recordAnnouncement`
+  // get fresh identities on every group refresh.
+  useEffect(() => {
+    if (!open) {
+      announcedKeyRef.current = null
+      setFrozenFull(null)
+      return
+    }
+    if (!radio || !auftrag || !operation) return
+    const key = `${auftrag.id}:${operation.id}`
+    if (announcedKeyRef.current === key) return
+    announcedKeyRef.current = key
+    setFrozenFull(radio.full)
+    void recordAnnouncement(auftrag.id, {
+      fingerprint: radio.fingerprint,
+      stopId: operation.id,
+      full: radio.full,
+    })
+  }, [open, radio, auftrag, operation, recordAnnouncement])
 
   if (!operation) return null
 
   const effectiveVehicleDrivers = vehicleDrivers ?? liveVehicleDrivers
 
-  // A grouped incident carries no resources itself — the Auftrag (route) owns
-  // them. Resolve the route's resources + stop position so both the Funkdurchsage
-  // and the WhatsApp message reflect what's actually assigned.
-  const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  const groupRes = auftrag ? getGroupResources(auftrag.id) : null
   const stopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
   const auftragCtx = auftrag
     ? {
@@ -106,78 +151,26 @@ export function DisponierTransitionDialog({
 
   // Effective resources = the incident's own UNION the Auftrag's (empty on a
   // grouped stop, so the union is what's really assigned).
-  const effCrew = [...operation.crew, ...(groupRes?.personnel.map((p) => p.name) ?? [])]
-  const effVehicles = [...operation.vehicles, ...(groupRes?.vehicles.map((v) => v.name) ?? [])]
-  const effMaterials = [...operation.materials, ...(groupRes?.materials.map((m) => m.resourceId) ?? [])]
-  const effStay = new Map(operation.vehicleDriverStay ?? [])
-  for (const v of groupRes?.vehicles ?? []) {
-    if (v.driverStay !== undefined) effStay.set(v.name, v.driverStay)
-  }
+  const deployment = routeDeployment(operation, groupRes ?? NO_ROUTE_RESOURCES, materials)
+  const hasResources = deploymentSegments(t, deployment).length > 0
 
   // Home-town-free address for the dialog text and Funkdurchsage quote.
-  const location = (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity()))
-    || t('disponiert.addressPlaceholder')
-  const crewList = effCrew.length > 0
-    ? effCrew.join(", ")
-    : null
-  const isZuFuss = operation.zuFuss || false
-  const vehicleList = !isZuFuss && effVehicles.length > 0
-    ? effVehicles
-        .map(name => {
-          // Spell out whether each vehicle stays on scene or returns, so the
-          // radio call matches what WhatsApp/Divera already announce.
-          const stay = effStay.get(name)
-          if (stay === undefined) return name
-          return `${name} (${stay ? t('disponiert.staysOnSite') : t('disponiert.returns')})`
-        })
-        .join(", ")
-    : null
-  const materialNames = effMaterials.length > 0
-    ? effMaterials
-        .map(id => {
-          // Include the material's origin/depot, e.g. "Tauchpumpe Gr. (Pio)".
-          const m = materials.find(m => m.id === id)
-          if (!m) return null
-          return m.category ? `${m.name} (${m.category})` : m.name
-        })
-        .filter(Boolean)
-        .join(", ")
-    : null
+  const location = stopAddress(operation, addressPlaceholder)
 
-  // Reko dangers + Nachbarhilfe combine into one "Besonderes:" list.
-  const rekoDangers = operation.rekoSummary?.hasDangers && operation.rekoSummary.dangerTypes.length > 0
-    ? operation.rekoSummary.dangerTypes.join(", ")
-    : null
-  const nachbarhilfeText = operation.nachbarhilfe
-    ? operation.nachbarhilfeNote
-      ? t('disponiert.radioNachbarhilfeWithNote', { note: operation.nachbarhilfeNote })
-      : t('disponiert.radioNachbarhilfe')
-    : null
-  const specialList = [rekoDangers, nachbarhilfeText].filter(Boolean).join(", ") || null
-
-  // Deployment part of the quote ("…, es rücken aus …"). Null when nothing is
-  // assigned — the quote then ends after the location and a hint is shown below.
-  const hasResources = Boolean(crewList || vehicleList || materialNames)
-  // vehicleList is already null when zuFuss, so "und" only follows a real
-  // vehicle part; materials otherwise attach with "mit".
-  const materialConnector = vehicleList ? t('disponiert.radioAnd') : t('disponiert.radioWith')
-  const deployment = crewList ? (
-    <>
-      {t('disponiert.radioDeploySuffix')} {highlight(crewList)}
-      {isZuFuss ? <> {highlight(t('disponiert.radioZuFuss'))}</> : null}
-      {vehicleList ? <> {t('disponiert.radioWith')} {highlight(vehicleList)}</> : null}
-      {materialNames ? <> {materialConnector} {highlight(materialNames)}</> : null}
-    </>
-  ) : vehicleList ? (
-    <>
-      {t('disponiert.radioDeploySuffix')} {highlight(vehicleList)}
-      {materialNames ? <> {t('disponiert.radioWith')} {highlight(materialNames)}</> : null}
-    </>
-  ) : materialNames ? (
-    <>
-      {t('disponiert.radioMaterialOnly')} {highlight(materialNames)}
-    </>
-  ) : null
+  // A stop in an Auftrag announces the whole route the first time and only
+  // itself afterwards; a lone incident always announces itself.
+  const segments = radio
+    ? radio.segments
+    : incidentAnnouncement(t, {
+        funkrufname,
+        address: location,
+        deployment,
+        special: stopSpecial(t, {
+          dangerTypes: operation.rekoSummary?.hasDangers ? operation.rekoSummary.dangerTypes : [],
+          nachbarhilfe: operation.nachbarhilfe,
+          nachbarhilfeNote: operation.nachbarhilfeNote,
+        }),
+      })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -196,9 +189,7 @@ export function DisponierTransitionDialog({
               <Radio className="h-4 w-4 text-muted-foreground" />
               {t('disponiert.funkdurchsage')}
             </div>
-            <p className="text-sm text-muted-foreground italic leading-relaxed">
-              &quot;{t('disponiert.radioIntro', { funkrufname })} {highlight(location)}{deployment}.{specialList ? <> {t('disponiert.radioSpecial')} {highlight(specialList)}.</> : null}&quot;
-            </p>
+            <RadioQuote segments={segments} />
             {!hasResources && (
               <p className="text-xs text-muted-foreground">
                 {t('disponiert.noResourcesHint')}

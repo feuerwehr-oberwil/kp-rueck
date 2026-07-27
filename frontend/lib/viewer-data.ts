@@ -92,6 +92,8 @@ export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGr
     stopIds: group.stop_ids.map(String),
     assignments: [],
     progress: group.progress ?? { total: group.stop_ids.length, done: 0 },
+    // Viewers never make a Funkdurchsage, so the payload doesn't carry one.
+    lastAnnounced: null,
   }))
 }
 

@@ -4641,6 +4641,92 @@
         }
       }
     },
+    "/api/incident-groups/{group_id}/announce": {
+      "post": {
+        "tags": [
+          "incident-groups"
+        ],
+        "summary": "Record Group Announcement",
+        "description": "Record the Funkdurchsage that was just made for an Auftrag (editor only).\n\nThe next stop of the same Auftrag reads this back to decide between the full\nannouncement and the short «weiter mit Stop N» form. Broadcast so the second\ndevice and the wall screen agree on what has already been read out.",
+        "operationId": "record_group_announcement_api_incident_groups__group_id__announce_post",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupAnnouncementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentGroupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incident-groups/{group_id}/stops/reorder": {
       "post": {
         "tags": [
@@ -15975,6 +16061,37 @@
         "type": "object",
         "title": "GpsSimStopRequest"
       },
+      "GroupAnnouncementRequest": {
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "stop_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Id"
+          },
+          "full": {
+            "type": "boolean",
+            "title": "Full",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "fingerprint"
+        ],
+        "title": "GroupAnnouncementRequest",
+        "description": "Record that a Funkdurchsage was made for an Auftrag.\n\n``fingerprint`` is an opaque digest of the route's crew/vehicles/material as\nthe client saw them when it built the announcement — the server stores it and\nnever interprets it. The next stop compares its own digest against this one:\nequal means the short «weiter mit Stop N» form, different means the route\ngained resources and the full announcement is due again."
+      },
       "GroupAssignmentCreate": {
         "properties": {
           "resource_type": {
@@ -16432,6 +16549,46 @@
             "type": "array",
             "title": "Assignments",
             "default": []
+          },
+          "last_announced_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Announced At"
+          },
+          "last_announced_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Announced Fingerprint"
+          },
+          "last_announced_stop_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Announced Stop Id"
+          },
+          "last_announced_full": {
+            "type": "boolean",
+            "title": "Last Announced Full",
+            "default": false
           }
         },
         "type": "object",
