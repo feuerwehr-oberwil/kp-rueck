@@ -52,9 +52,18 @@ function LegendMarker({
 export function MapLegend({
   colorBy = "priority",
   colorGroups = [],
+  showVehicles = true,
+  showAssignments = true,
 }: {
   colorBy?: ColorByDimension
   colorGroups?: ColorGroup[]
+  /** false when no vehicle is reporting a position — a station without GPS should not be
+   *  taught to look for blue truck squares that can never appear. */
+  showVehicles?: boolean
+  /** false when the assignment lines are switched off, or when there are no vehicles to draw
+   *  them from. A legend entry for something that cannot be on screen is not documentation,
+   *  it is a promise the map does not keep. */
+  showAssignments?: boolean
 }) {
   const t = useTranslations('map')
   // For priority the markers use the built-in priority colours (static legend
@@ -145,7 +154,8 @@ export function MapLegend({
         </div>
       </div>
 
-      {/* Vehicle Legend */}
+      {/* Vehicle Legend — only when something actually reports a position */}
+      {showVehicles && (
       <div className="space-y-2 mt-4 pt-3 border-t border-border">
         <p className="text-xs font-semibold text-muted-foreground tracking-wide">
           {t('legend.vehiclesGps')}
@@ -165,7 +175,9 @@ export function MapLegend({
           </div>
         </div>
       </div>
-      {/* Assignment Lines Legend */}
+      )}
+      {/* Assignment Lines Legend — only when such a line can actually be drawn */}
+      {showAssignments && (
       <div className="space-y-2 mt-4 pt-3 border-t border-border">
         <p className="text-xs font-semibold text-muted-foreground tracking-wide">
           {t('legend.assignments')}
@@ -185,6 +197,7 @@ export function MapLegend({
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

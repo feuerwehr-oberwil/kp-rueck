@@ -1065,7 +1065,14 @@ export default function MapView({
       />
 
       {/* Map Legend */}
-      <MapLegend colorBy={colorBy} colorGroups={colorGroups} />
+      {/* An empty position list means no GPS is set up (or nothing is reporting) — the vehicle
+          and assignment-line sections then describe marks that cannot appear, so they go. */}
+      <MapLegend
+        colorBy={colorBy}
+        colorGroups={colorGroups}
+        showVehicles={mappedVehiclePositions.length > 0}
+        showAssignments={showAssignmentLines && mappedVehiclePositions.length > 0}
+      />
 
       {/* Simulated-drive indicator — map only, so exercises stay realistic elsewhere */}
       <GpsSimBanner />
