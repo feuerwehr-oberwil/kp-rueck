@@ -27,6 +27,25 @@ export function toResourceState(status: string | null | undefined): ResourceStat
   }
 }
 
+/**
+ * A person's availability as the board must READ it, not as the API happens to store it.
+ *
+ * A Reko is an Auftrag: that person is out looking at something and cannot be sent anywhere else.
+ * It is not an incident assignment though, so it never sets `status: "assigned"` — which left
+ * five people on Reko drawn emerald and counted in «7 verfügbar» while all five were out.
+ * The header number is the one thing a Kommandant reads off this board, so it has to mean what
+ * it says.
+ *
+ * Deliberately NOT folded into `toResourceState`: that one normalizes an API status string and is
+ * shared with vehicles and material, which have no Reko.
+ */
+export function personResourceState(
+  p: { status?: string | null; isReko?: boolean },
+): ResourceState {
+  const base = toResourceState(p.status)
+  return base === "available" && p.isReko ? "assigned" : base
+}
+
 /** Dot / swatch fill for a resource's availability. */
 export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
   available: "bg-emerald-500",
