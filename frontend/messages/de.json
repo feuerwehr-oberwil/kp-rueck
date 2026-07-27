@@ -700,6 +700,13 @@
       "repeatRadioCopy": "Text kopieren",
       "repeatRadioCopied": "Funkdurchsage kopiert"
     },
+    "closedStop": {
+      "title": "Einsatz ist abgeschlossen",
+      "titleMany": "{count} Einsätze sind abgeschlossen",
+      "description": "«{name}» ist abgeschlossen. Trotzdem als Stop hinzufügen?",
+      "descriptionMany": "Diese Einsätze sind abgeschlossen: {names}. Trotzdem als Stops hinzufügen?",
+      "confirm": "Trotzdem hinzufügen"
+    },
     "stopStatus": {
       "offen": "Offen",
       "disponiert": "Disponiert",

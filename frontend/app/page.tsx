@@ -28,6 +28,8 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { IncidentPickerDialog } from "@/components/kanban/incident-picker-dialog"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
+import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
+import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { QRCodeSVG } from 'qrcode.react'
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
 import { useNotifications } from "@/lib/contexts/notification-context"
@@ -109,6 +111,9 @@ export default function FireStationDashboard() {
     removeStop: removeStopFromGroup,
     occupiedResourceIds,
   } = useGroups()
+
+  // Attaching an already-closed incident as a stop is allowed, but never silent.
+  const closedStopGuard = useClosedStopGuard(operations)
 
   // Keep the top progress bar visible for the whole pre-ready window — auth
   // check, event resolution and the first data load — so there's never a blank
@@ -1023,7 +1028,11 @@ export default function FireStationDashboard() {
     // Aufträge (route) drop targets — see auftraege-sheet.tsx for the registered
     // drop-target data contract (`group-row` / `group-stop`).
     groups,
-    addStopsToGroup,
+    // Dragging a card onto an Auftrag goes through the same closed-incident
+    // confirmation as the stop picker — the drop is just another way to attach.
+    addStopsToGroup: (groupId, incidentIds) => {
+      closedStopGuard.guard(incidentIds, () => { void addStopsToGroup(groupId, incidentIds) })
+    },
     assignGroupResource: (groupId, resourceType, resourceId) => {
       if (resourceType === "vehicle") assignVehicleToGroupWithConflict(groupId, resourceId)
       else void assignGroupResource(groupId, resourceType, resourceId)
@@ -1337,10 +1346,13 @@ export default function FireStationDashboard() {
 
   // "+ Stop" — pick EXISTING event incidents to add to a route as stops. Picking
   // an incident already in another route MOVES it (addStops reassigns group_id).
-  const handleConfirmAddStops = async (incidentIds: string[]) => {
+  const handleConfirmAddStops = (incidentIds: string[]) => {
     if (!stopPickerGroupId || incidentIds.length === 0) return
-    const ok = await addStopsToGroup(stopPickerGroupId, incidentIds)
-    if (ok) toast.success(tDash('stopsAddedToast', { count: incidentIds.length }))
+    const groupId = stopPickerGroupId
+    closedStopGuard.guard(incidentIds, async () => {
+      const ok = await addStopsToGroup(groupId, incidentIds)
+      if (ok) toast.success(tDash('stopsAddedToast', { count: incidentIds.length }))
+    })
   }
 
   // "An Auftrag verteilen" — open the route picker for a single incident.
@@ -1348,13 +1360,16 @@ export default function FireStationDashboard() {
     setAuftragPickerIncidentId(operationId)
   }
 
-  const handleChooseAuftrag = async (groupId: string) => {
+  const handleChooseAuftrag = (groupId: string) => {
     if (!auftragPickerIncidentId) return
-    const ok = await addStopsToGroup(groupId, [auftragPickerIncidentId])
-    if (ok) {
-      const group = groups.find((g) => g.id === groupId)
-      toast.success(tDash('distributedToast', { name: group?.name ?? '' }))
-    }
+    const incidentId = auftragPickerIncidentId
+    closedStopGuard.guard([incidentId], async () => {
+      const ok = await addStopsToGroup(groupId, [incidentId])
+      if (ok) {
+        const group = groups.find((g) => g.id === groupId)
+        toast.success(tDash('distributedToast', { name: group?.name ?? '' }))
+      }
+    })
   }
 
   // "Aus Auftrag entfernen" — detach the incident from its current route (it
@@ -2399,6 +2414,13 @@ export default function FireStationDashboard() {
         onChoose={handleChooseAuftrag}
         onCreate={(name) => createGroup({ name })}
         onRemoveFromCurrent={handleRemoveFromAuftrag}
+      />
+
+      {/* «Dieser Einsatz ist abgeschlossen. Trotzdem als Stop hinzufügen?» */}
+      <ClosedStopDialog
+        prompt={closedStopGuard.prompt}
+        onProceed={closedStopGuard.proceed}
+        onCancel={closedStopGuard.dismiss}
       />
 
       {/* Delete Operation Confirmation Dialog */}
