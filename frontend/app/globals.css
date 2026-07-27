@@ -698,6 +698,21 @@
   }
 }
 
+/* Permanent incident labels. All tooltips share one Leaflet pane, so without a
+   z-index the DOM order decides which of two neighbouring labels wins — which
+   meant the one being pointed at could end up underneath. The hovered label
+   (which swells into the full detail card) always comes to the front. */
+.leaflet-tooltip.incident-label--hovered {
+  z-index: 1000;
+}
+
+/* A label that had to step down to clear a neighbour is no longer level with its
+   marker, so its arrow would point at empty map. Drop the arrow rather than let
+   it lie about which marker the address belongs to. */
+.leaflet-tooltip.incident-label--stepped::before {
+  display: none;
+}
+
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
 }
