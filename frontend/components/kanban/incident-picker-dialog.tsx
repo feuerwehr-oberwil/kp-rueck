@@ -55,7 +55,9 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
       map.setView(positions[0], 14)
       return
     }
-    map.fitBounds(L.latLngBounds(positions), { padding: [40, 40], maxZoom: 15 })
+    // Generous padding on purpose: a marker hard against the frame has nowhere
+    // to put its label, and the dialog's map clips at its border.
+    map.fitBounds(L.latLngBounds(positions), { padding: [64, 80], maxZoom: 15 })
   }, [map, positions])
   return null
 }
@@ -261,7 +263,11 @@ export function IncidentPickerDialog({
               icon={pinIcon(fill, { selected: isChecked, dashed: !!otherGroup && !isChecked })}
               eventHandlers={{ click: () => toggle(op.id) }}
             >
-              <Tooltip direction="top" offset={[0, -10]}>
+              {/* «auto» flips the label to the side of the marker that faces the
+                  middle of the map, so a pin near the frame labels inwards
+                  instead of writing over the border (the container clips, so an
+                  outward label was simply cut off). */}
+              <Tooltip direction="auto" offset={[0, 0]} className="stop-picker-label">
                 <div className="text-xs leading-tight">
                   {/* Match the stop-row hover: address primary, type secondary,
                       Meldung below. Type falls back to primary when no address. */}
@@ -351,17 +357,39 @@ export function IncidentPickerDialog({
         </div>
 
         {view === "map" ? (
-          // Explicit height (not flex-1/min-h): a Leaflet map needs a definite
-          // parent height or its `h-full` container collapses to 0 and renders
-          // blank. InvalidateSize re-measures after the dialog's open transition.
-          <div className="relative h-[440px] overflow-hidden rounded-lg border">
-            {locatedCandidates.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                <MapPin className="h-8 w-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">{t("mapEmpty")}</p>
+          // Same 440px body as the list view, split between map and legend, so
+          // toggling Liste ⇄ Karte still never resizes the dialog. The map keeps
+          // a definite height (flex-1 inside a fixed-height parent), which is
+          // what Leaflet needs to lay out at all.
+          <div className="flex h-[440px] flex-col gap-2">
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
+              {locatedCandidates.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                  <MapPin className="h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">{t("mapEmpty")}</p>
+                </div>
+              ) : (
+                mapNode
+              )}
+            </div>
+            {/* What the pin colours mean. Without it the map is a guessing game:
+                red and a route colour both say "belongs somewhere", grey says
+                "belongs nowhere", and nothing on screen said which was which. */}
+            {locatedCandidates.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-0.5 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ backgroundColor: "#ef4444" }} />
+                  {t("legendSelected")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full border border-dashed border-white" style={{ backgroundColor: "#10b981" }} />
+                  {t("legendOtherRoute")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ backgroundColor: "#64748b" }} />
+                  {t("legendUnassigned")}
+                </span>
               </div>
-            ) : (
-              mapNode
             )}
           </div>
         ) : (
