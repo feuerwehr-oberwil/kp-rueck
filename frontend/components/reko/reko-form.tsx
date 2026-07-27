@@ -14,6 +14,7 @@ import { AlertCircle, Send, Loader2, Binoculars, MapPin, Check } from 'lucide-re
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import PhotoUpload from './photo-upload'
+import { telHref } from '@/lib/phone'
 import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
 
 interface RekoFormData {
@@ -469,7 +470,7 @@ export default function RekoForm() {
           <div className="mt-2 pt-2 border-t border-border/50">
             <span className="text-sm text-muted-foreground">{t('contactLabel')}</span>
             <a
-              href={`tel:${incidentDetails.contact.replace(/\s/g, '')}`}
+              href={telHref(incidentDetails.contact) ?? undefined}
               className="text-sm font-medium text-primary hover:underline"
             >
               {incidentDetails.contact}

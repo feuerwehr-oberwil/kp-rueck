@@ -11,6 +11,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { type IncidentGroup } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
+import { telHref } from "@/lib/phone"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
 import {
@@ -207,8 +208,16 @@ export function IncidentDetailModal({
               </div>
               {operation.contact && <p className="text-sm">{operation.contact}</p>}
               {operation.contactPhone && (
-                <p className="text-sm font-mono">
-                  <span className="text-muted-foreground">{t('board.contactPhone')}:</span> {operation.contactPhone}
+                <p className="text-sm">
+                  <span className="text-muted-foreground">{t('board.contactPhone')}:</span>{" "}
+                  {/* A number you cannot dial or copy is a number you retype by hand at 3am.
+                      tel: also makes it selectable, which the mono <p> quietly was not. */}
+                  <a
+                    href={telHref(operation.contactPhone) ?? undefined}
+                    className="underline underline-offset-2 hover:text-primary"
+                  >
+                    {operation.contactPhone}
+                  </a>
                 </p>
               )}
             </div>
@@ -265,6 +274,13 @@ export function IncidentDetailModal({
             </div>
           )}
 
+          {/* Crew / Vehicles / Materials — only for an incident that owns its resources.
+              On a stop inside an Auftrag these are structurally empty (the route holds crew,
+              vehicles and material), so all three printed «(0) — nichts zugewiesen» directly
+              under an Auftrag block that had just listed the very same people. Not a missing
+              assignment, a duplicate heading. */}
+          {!auftrag && (
+          <>
           {/* Crew */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
@@ -332,6 +348,8 @@ export function IncidentDetailModal({
               <p className="text-sm text-muted-foreground/60 italic">{t('board.noMaterials')}</p>
             )}
           </div>
+          </>
+          )}
 
           {/* Reko Summary */}
           {operation.hasCompletedReko && operation.rekoSummary && (
