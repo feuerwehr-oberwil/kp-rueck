@@ -883,6 +883,61 @@ export default function MapView({
     return accents
   }, [showGroupRoutes, groups])
   const effectiveMarkerAccents = markerAccents ?? routeAccents
+  // Permanent labels all sit to the right of their marker at the same height, so
+  // two incidents a few metres apart print their addresses on top of each other —
+  // worst with the Aufträge layer on, where a numbered route pin lands on the
+  // same spot as the incident marker and doubles the clutter.
+  //
+  // Nothing is hidden: a colliding label is stepped DOWN until it clears the ones
+  // already placed. Dropping labels would be less work and less honest — at 3am
+  // the address you cannot see is the one you needed.
+  const labelOffsets = useMemo(() => {
+    const offsets = new Map<string, [number, number]>()
+    if (!showLabels) return offsets
+    const LABEL_HEIGHT = 22 // one line of the 11px label plus Leaflet's padding
+    const GAP = 2
+    const ANCHOR_X = 14 // the tooltip's own horizontal offset from the marker
+    const placed: { top: number; bottom: number; left: number; right: number }[] = []
+
+    // Project to absolute pixels at the current zoom: collisions are a screen
+    // phenomenon, so the same two incidents collide when zoomed out and don't
+    // when zoomed in. EPSG3857 is Leaflet's own CRS — no map instance needed.
+    const boxes = mappableIncidents
+      .map((incident) => {
+        const point = L.CRS.EPSG3857.latLngToPoint(
+          L.latLng(incident.location_lat!, incident.location_lng!),
+          mapZoom,
+        )
+        const text =
+          (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
+          || incident.title
+        // ~6.4px per character at 11px semibold, plus the box padding.
+        return { id: incident.id, x: point.x, y: point.y, width: Math.min(240, text.length * 6.4 + 34) }
+      })
+      // Top-down, west-to-east: a stable order, so the same map always resolves
+      // the same way instead of shuffling labels on every re-render.
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+
+    for (const box of boxes) {
+      const left = box.x + ANCHOR_X
+      const right = left + box.width
+      let top = box.y - LABEL_HEIGHT / 2
+      // Step past every label already placed. The guard bounds a pathological
+      // pile-up (a dozen incidents on one address) instead of looping forever.
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const hit = placed.find(
+          (other) => other.left < right && left < other.right && other.top < top + LABEL_HEIGHT && top < other.bottom,
+        )
+        if (!hit) break
+        top = hit.bottom + GAP
+      }
+      placed.push({ top, bottom: top + LABEL_HEIGHT, left, right })
+      const dy = Math.round(top + LABEL_HEIGHT / 2 - box.y)
+      if (dy !== 0) offsets.set(box.id, [ANCHOR_X, dy])
+    }
+    return offsets
+  }, [showLabels, mappableIncidents, mapZoom])
+
   // …and the legend says so, listing the routes by name. A legend that still
   // reads «Priorität» while the markers carry route colours is worse than none.
   const routeColorGroups = useMemo<ColorGroup[]>(() => {
@@ -996,6 +1051,9 @@ export default function MapView({
               key={incident.id}
               position={[incident.location_lat!, incident.location_lng!]}
               icon={createIncidentIcon(incident, isHighlighted, effectiveMarkerAccents?.get(incident.id) ?? null)}
+              // Two markers a few metres apart overlap; the one being pointed at
+              // (or selected) belongs on top, not wherever the DOM order put it.
+              zIndexOffset={hoveredIncidentId === incident.id ? 600 : isHighlighted ? 300 : 0}
               eventHandlers={{
                 click: () => onMarkerClick?.(incident.id),
                 mouseover: () => setHoveredIncidentId(incident.id),
@@ -1009,16 +1067,25 @@ export default function MapView({
                 // Token/display mode has no operations — labels stay short there.
                 const hoverOperation =
                   hoveredIncidentId === incident.id ? operationsById?.get(incident.id) : undefined
+                // A stepped-away label's arrow would point at empty map, and the
+                // hovered label — which swells into the detail card — has to come
+                // to the front instead of landing under a neighbour's address.
+                const offset = labelOffsets.get(incident.id) ?? [14, 0]
+                const labelClass = [
+                  "incident-label",
+                  offset[1] !== 0 ? "incident-label--stepped" : "",
+                  hoveredIncidentId === incident.id ? "incident-label--hovered" : "",
+                ].filter(Boolean).join(" ")
                 if (showLabels) {
                   return (
                     <Tooltip
                       direction="right"
-                      offset={[14, 0]}
+                      offset={offset}
                       permanent={true}
                       // Forward clicks to the marker so the label is as tappable
                       // as the dot (selection, Reko-Modus assignment, …).
                       interactive={true}
-                      className="incident-label"
+                      className={labelClass}
                     >
                       {hoverOperation ? (
                         <OperationHoverCard operation={hoverOperation} />
@@ -1036,7 +1103,7 @@ export default function MapView({
                 // Labels hidden: no permanent label, but hovering still reveals
                 // the detail card when we can resolve the operation.
                 return hoverOperation ? (
-                  <Tooltip direction="right" offset={[14, 0]} permanent={true} className="incident-label">
+                  <Tooltip direction="right" offset={[14, 0]} permanent={true} className="incident-label incident-label--hovered">
                     <OperationHoverCard operation={hoverOperation} />
                   </Tooltip>
                 ) : null
