@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
-import { RESOURCE_STATE_DOT_CLASSES, personResourceState } from "@/lib/resource-status"
+import { RESOURCE_STATE_DOT_CLASSES, materialResourceState, personResourceState } from "@/lib/resource-status"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { type Person } from "@/lib/contexts/personnel-context"
@@ -203,7 +203,8 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
   const deployed = vehicleStatus.filter((v) => v.assignedOperation).length
   // «im Einsatz» must agree with the dots beside the names: a Reko is an Auftrag.
   const assignedPersonnelCount = personnel.filter((p) => personResourceState(p) === "assigned").length
-  const assignedMaterialCount = materials.filter((m) => m.status === "assigned").length
+  // Verbrauchsmaterial never counts as gone — see materialResourceState.
+  const assignedMaterialCount = materials.filter((m) => materialResourceState(m) === "assigned").length
 
   return (
     <div className="h-full flex bg-background overflow-x-auto">
@@ -297,7 +298,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
         />
         <div className="flex-1 overflow-y-auto">
           {groupedMaterials.map(({ category, items }) => {
-            const catAssigned = items.filter((m) => m.status === "assigned").length
+            const catAssigned = items.filter((m) => materialResourceState(m) === "assigned").length
             return (
               <div key={category}>
                 <div className="px-3 xl:px-4 py-1.5 xl:py-2 bg-muted/40 border-b border-border flex items-center justify-between">
@@ -455,7 +456,8 @@ function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Ma
       )}
       onClick={clickable ? () => onOpenIncident(assignedTo!.operationId) : undefined}
     >
-      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[isAssigned ? "assigned" : "available"])} />
+      {/* Verbrauchsmaterial stays green even while assigned — it is stocked, not lent out */}
+      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[materialResourceState(m)])} />
       <span className="text-xs xl:text-sm truncate flex-1">{m.name}</span>
       {clickable ? (
         <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>

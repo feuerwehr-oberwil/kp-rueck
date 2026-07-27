@@ -46,6 +46,24 @@ export function personResourceState(
   return base === "available" && p.isReko ? "assigned" : base
 }
 
+/**
+ * A material's availability as the board must READ it.
+ *
+ * Consumables (Ölbindemittel, Schaummittel, Bindevlies …) are stocked, not lent out: handing some
+ * to an incident does not make the depot empty, and nobody waits for them to come back. They are
+ * flagged `consumable` in the Materialverwaltung, and the assignment picker has always let them
+ * be assigned regardless of status — only the Status-Tafel still painted them amber and counted
+ * them as gone, which reads as «wir haben kein Ölbindemittel mehr».
+ *
+ * Non-consumables are unchanged: one Tauchpumpe assigned is one Tauchpumpe away.
+ */
+export function materialResourceState(
+  m: { status?: string | null; consumable?: boolean },
+): ResourceState {
+  if (m.consumable) return "available"
+  return toResourceState(m.status)
+}
+
 /** Dot / swatch fill for a resource's availability. */
 export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
   available: "bg-emerald-500",
