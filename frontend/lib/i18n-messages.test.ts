@@ -49,7 +49,7 @@ describe('locale catalogues', () => {
 // stop the frontend equivalent from appearing, since a missing key is invisible until the
 // exact status/type happens to occur during an incident.
 describe('label coverage', () => {
-  const de = loadMessages('de') as Record<string, never>
+  const de = loadMessages('de') as unknown as Record<string, unknown>
 
   const at = (path: string): unknown =>
     path.split('.').reduce<unknown>((cur, part) => (

@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useSearchParams, usePathname } from "next/navigation"
+import { useAuth } from "@/lib/contexts/auth-context"
+import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -56,9 +57,24 @@ export default function DisplayLayout({
   const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
   const pathname = usePathname()
+  const router = useRouter()
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const token = searchParams.get("token")
   const isIndexPage = pathname === "/display"
   const isSubPage = !isIndexPage
+
+  // The display views exist for a wall screen behind a login, or for a share link behind a
+  // token. Reached with neither, they used to render a single line of text on an otherwise
+  // empty page — and on the demo the global welcome dialog then sat on top of it, promising
+  // things a read-only display cannot do. Send those visitors to the front door instead.
+  //
+  // Waits for `authLoading`: the session resolves asynchronously, and redirecting before it
+  // does would bounce somebody who IS logged in.
+  const mayView = !!token || isAuthenticated
+  useEffect(() => {
+    if (authLoading || mayView) return
+    router.replace("/")
+  }, [authLoading, mayView, router])
 
   // Clears the error-boundary retry backoff once this display has been up and
   // healthy for a while, so an unrelated fault hours later starts from the
@@ -224,7 +240,9 @@ export default function DisplayLayout({
       </header>
 
       <main className="flex-1 overflow-hidden">
-        {children}
+        {/* Nothing is rendered while the redirect above is in flight — a flash of the display
+            chrome would be the same wrong promise, just briefer. */}
+        {mayView || authLoading ? children : null}
       </main>
     </div>
   )
