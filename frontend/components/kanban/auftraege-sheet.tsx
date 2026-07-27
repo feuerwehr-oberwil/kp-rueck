@@ -88,6 +88,20 @@ function isToastTarget(target: EventTarget | null): boolean {
   return !!target.closest("[data-sonner-toast]") || !!target.closest("[data-sonner-toaster]")
 }
 
+// True when an event originates inside ANY dialog layered over this sheet.
+//
+// Both roles, deliberately. The sheet is non-modal on desktop, so every click inside a dialog
+// stacked on top of it arrives here as an "outside interaction". The guard used to look for
+// `[role="dialog"]` only — but a Radix AlertDialog renders `role="alertdialog"`, and the
+// confirm prompts that appear mid-assignment («Fahrzeug bereits im Einsatz» → «Mehrfach
+// zuweisen», the Sonderfunktion confirm for Mannschaft) are exactly those. Answering one of
+// them therefore dismissed the whole Aufträge-Slide-up, and only Material — which has no
+// conflict prompt — appeared to behave.
+function isDialogTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return !!target.closest('[role="dialog"], [role="alertdialog"]')
+}
+
 // Derived checklist state of a single stop, straight from its incident status.
 type StopState = "erledigt" | "laeuft" | "offen"
 
@@ -254,7 +268,7 @@ export function AuftraegeSheet({
             if (e.defaultPrevented) return
             if (isMobile) return
             const target = e.target as HTMLElement
-            if (target.closest("footer") || target.closest('[role="dialog"]')) {
+            if (target.closest("footer") || isDialogTarget(target)) {
               e.preventDefault()
             }
           }}
