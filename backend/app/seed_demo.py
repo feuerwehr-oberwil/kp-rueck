@@ -567,18 +567,23 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     # Auftrag: vehicle + crew + Motorsäge on the GROUP (route-owned, shared
     # across all stops). Each vehicle/person is actively assigned at most once.
     # ============================================
-    def assign(incident_title: str, resource_type: str, resource):
+    def assign(incident_title: str, resource_type: str, resource, *, driver_stay: bool = False):
+        # `driver_stay` = Fahrzeug und Fahrer bleiben vor Ort. Default False means "zurück",
+        # which is right for a vehicle that only delivers crew or material — but wrong for a
+        # TLF at a fire, which stays and supplies the water.
         return models.IncidentAssignment(
             id=uuid4(),
             incident_id=incidents[incident_title].id,
             resource_type=resource_type,
             resource_id=resource.id,
             assigned_by=editor_id,
+            driver_stay=driver_stay,
         )
 
     assignments = [
-        # Fire — TLF + three crew
-        assign("Brand Dachstock Einfamilienhaus", "vehicle", vehicle["TLF"]),
+        # Fire — TLF + three crew. The TLF STAYS: it is the water supply for the attack, so a
+        # demo that showed "TLF (zurück)" at a Dachstockbrand was teaching the wrong picture.
+        assign("Brand Dachstock Einfamilienhaus", "vehicle", vehicle["TLF"], driver_stay=True),
         assign("Brand Dachstock Einfamilienhaus", "personnel", person["Müller Hans"]),
         assign("Brand Dachstock Einfamilienhaus", "personnel", person["Hoffmann Lisa"]),
         assign("Brand Dachstock Einfamilienhaus", "personnel", person["Zimmermann Fabian"]),
