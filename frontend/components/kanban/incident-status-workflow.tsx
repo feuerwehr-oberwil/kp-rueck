@@ -38,6 +38,20 @@ function operationLabel(operation: Operation): string {
 }
 
 type ResourceType = "crew" | "vehicles" | "materials"
+
+/**
+ * Which missing resources actually BAR a dispatch, as opposed to being worth a reminder.
+ *
+ * Material is deliberately not one of them. Most incidents genuinely need none — a
+ * Brandbekämpfung with three people and a TLF is complete — so treating «Material (0)» as a
+ * blocker fired the gate on nearly every incident and pushed the Funkdurchsage behind the
+ * quietest button in the dialog. A gate that trips on the normal case does not teach care, it
+ * teaches clicking through gates.
+ *
+ * Crew and vehicles stay hard: you cannot send nobody, and you cannot drive without a vehicle
+ * unless the incident is marked «zu Fuss» (which getMissingResources already honours).
+ */
+const BLOCKING_RESOURCES: readonly ResourceType[] = ["crew", "vehicles"]
 type AssignmentReturn = { kind: "missing" | "returning"; operationId: string }
 
 interface UseIncidentStatusWorkflowOptions {
@@ -388,6 +402,8 @@ export function IncidentStatusWorkflowDialogs({
   const missingOperation = controller.missingResourcesOperation
   const missing = missingOperation ? controller.getMissingResources(missingOperation) : []
   const allFilled = missing.length === 0
+  // The checklist still LISTS everything that is missing; only these hold the dispatch back.
+  const blocking = missing.some((resource) => BLOCKING_RESOURCES.includes(resource))
   const missingTitleKey = allFilled
     ? "readyTitle"
     : missing.length === 1
@@ -468,8 +484,11 @@ export function IncidentStatusWorkflowDialogs({
                     </button>
                   ))}
                 </div>
-                <AlertDialogFooter className={allFilled ? undefined : "sm:justify-between"}>
-                  {!allFilled && (
+                {/* «Trotzdem disponieren» is the override for a REAL gate, so it only appears
+                    while one is closed. With just material outstanding the primary button is
+                    live and says «Fertig» — no override needed for the ordinary case. */}
+                <AlertDialogFooter className={blocking ? "sm:justify-between" : undefined}>
+                  {blocking && (
                     <Button variant="ghost" onClick={() => controller.openDisponiert(missingOperation.id)}>
                       {tMissing("dispatchAnyway")}
                     </Button>
@@ -478,7 +497,7 @@ export function IncidentStatusWorkflowDialogs({
                     <Button variant="outline" onClick={() => controller.cancelMissingResources()}>
                       {tCommon("cancel")}
                     </Button>
-                    <Button disabled={!allFilled} onClick={() => controller.openDisponiert(missingOperation.id)}>
+                    <Button disabled={blocking} onClick={() => controller.openDisponiert(missingOperation.id)}>
                       {tMissing("done")}
                     </Button>
                   </div>
