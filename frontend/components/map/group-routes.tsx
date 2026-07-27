@@ -5,9 +5,9 @@
  *
  * Presentational only: given a set of groups + an operation lookup, it draws, per
  * group with ≥2 located stops, a solid `<Polyline>` through the stops in
- * `groupPosition` order (coloured by `group.color`, deliberately distinct from the
- * animated red GPS ant-trail in `assignment-lines.tsx`) plus numbered sequence
- * markers on every located stop.
+ * `groupPosition` order (coloured by the route's own `colorAccent`, deliberately
+ * distinct from the animated red GPS ant-trail in `assignment-lines.tsx`) plus
+ * numbered sequence markers on every located stop.
  *
  * Reused by the Routen-Editor modal (Phase 2) and the `/map` page (Phase 3). Must
  * only ever be rendered as a child of a react-leaflet `<MapContainer>` on the
@@ -22,10 +22,9 @@ import type { IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { OperationHoverCard } from "./operation-hover-card"
-import { toStopMirrorStatus, type StopMirrorStatus } from "@/lib/kanban-utils"
+import { colorAccent, toStopMirrorStatus, type StopMirrorStatus } from "@/lib/kanban-utils"
 import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "@/lib/types/incidents"
 
-const DEFAULT_ROUTE_COLOR = "#6366f1" // indigo-500 fallback when a group has no colour
 const NEUTRAL_BORDER_COLOR = "#374151" // gray-700 — same neutral marker outline the incident markers use
 
 // Route stops mirror the four board columns; collapse each onto the incident
@@ -124,7 +123,13 @@ export function GroupRoutes({
 }: GroupRoutesProps) {
   const items = useMemo<RouteRenderItem[]>(() => {
     return groups.map((group) => {
-      const color = group.color ?? DEFAULT_ROUTE_COLOR
+      // One resolver for the whole app: `colorAccent` returns the route's own
+      // colour and, for a route that never got one, the same hashed hue the
+      // board chips, the marker colouring and the legend already show. The
+      // private indigo fallback that used to live here painted every colourless
+      // Auftrag the same, so two routes on one map were one colour on the line
+      // and two different ones everywhere else.
+      const color = colorAccent(group.id, "auftrag", groups)
       const dimmed = focusGroupId !== null && group.id !== focusGroupId
       // Sequence numbers follow the full stop order (including unlocated stops)
       // so the badges match the ordered list; only located stops get a marker.
