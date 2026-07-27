@@ -74,6 +74,10 @@ export interface Operation {
   groupPosition: number
   source?: string // Origin: "operator" (dashboard) or "intake" (public token form). Absent for locally-created ops.
   statusChangedAt: Date | null
+  /** When the incident reached Abschluss. Present ⇒ the incident is over and its DURATION must
+   *  stop growing (see getDurationBetween). Absent on a running incident and on the literal
+   *  Operation objects the wizards build before the API answers. */
+  completedAt?: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
   /** Set when the field crew reported the incident finished (training). Drives the
@@ -389,6 +393,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       groupPosition: incident.group_position ?? 0,
       source: incident.source || "operator",
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
+      completedAt: incident.completed_at ? new Date(incident.completed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
       fieldCompleteReportedAt: incident.field_complete_reported_at ? new Date(incident.field_complete_reported_at) : null,
@@ -1401,6 +1406,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           zuFuss: apiIncident.zu_fuss || false,
           source: apiIncident.source || "operator",
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
+          completedAt: apiIncident.completed_at ? new Date(apiIncident.completed_at) : null,
           hasCompletedReko: false,
           rekoArrivedAt: null,
           rekoSummary: null,

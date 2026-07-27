@@ -18,7 +18,7 @@ import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { getTimeSince, columns } from "@/lib/kanban-utils"
+import { getDurationBetween, columns } from "@/lib/kanban-utils"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -245,7 +245,7 @@ export function OperationDetailContent({
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
               <span className="text-muted-foreground/40">·</span>
-              <span>{t('detail.sinceAlarm', { time: getTimeSince(operation.dispatchTime) })}</span>
+              <span>{t('detail.sinceAlarm', { time: getDurationBetween(operation.dispatchTime, operation.completedAt) })}</span>
             </p>
             <IncidentTimelinePopover incidentId={operation.id} />
           </div>

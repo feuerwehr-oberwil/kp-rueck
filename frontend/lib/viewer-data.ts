@@ -65,6 +65,7 @@ export function viewerIncidentToOperation(a: ApiIncident): Operation {
     groupPosition: a.group_position ?? 0,
     source: a.source,
     statusChangedAt: a.status_changed_at ? new Date(a.status_changed_at) : null,
+    completedAt: a.completed_at ? new Date(a.completed_at) : null,
     hasCompletedReko: a.has_completed_reko,
     rekoArrivedAt: a.reko_arrived_at ? new Date(a.reko_arrived_at) : null,
     rekoSummary: null,
