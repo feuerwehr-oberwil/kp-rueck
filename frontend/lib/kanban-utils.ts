@@ -1,6 +1,7 @@
 import { type Operation, type OperationStatus } from "./contexts/operations-context"
 import { getIncidentTypeLabel } from "./incident-types"
 import { PRIORITY_COLORS, PRIORITY_LABELS } from "./priority"
+import { INCIDENT_TYPE_MARKER_COLORS } from "./map-colors"
 
 // Kanban column definitions
 // Colors use light mode defaults with dark: variants
@@ -72,6 +73,12 @@ export function colorAccent(
   groups?: ColorGroupSource[],
 ): string {
   if (dimension === "priority") return PRIORITY_ACCENTS[key] ?? "#64748b"
+  // Einsatzart has a MEANING, so it gets a table rather than the hashed fallback below. An
+  // unknown//custom type still hashes, so a station that adds one is not left colourless.
+  if (dimension === "type") {
+    const known = INCIDENT_TYPE_MARKER_COLORS[key]
+    if (known) return known
+  }
   // Aufträge use the route's own colour (matches the map polylines) so a route
   // reads the same across the board, list and markers; hashed hue is a fallback.
   if (dimension === "auftrag") {
