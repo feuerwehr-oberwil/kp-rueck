@@ -10,7 +10,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { type IncidentGroup } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { columns, getDurationBetween } from "@/lib/kanban-utils"
+import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
 import {
@@ -111,12 +111,16 @@ export function IncidentDetailModal({
               <span className="font-mono">
                 {operation.dispatchTime.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
               </span>
-              <span>·</span>
-              {/* Measured from the Alarmzeit printed immediately to the left — it used to
-                  count from the last status change instead, so «12:08 · 1h 12'» was two
-                  numbers with different origins standing next to each other. Stops at
-                  Abschluss so a closed incident keeps the duration it actually ran. */}
-              <span className="font-mono">{getDurationBetween(operation.dispatchTime, operation.completedAt)}</span>
+              {/* «wie lange schon in DIESEM Status» — the nag that points at things left
+                  standing. On a closed incident it has nothing left to nag about and would
+                  only keep growing overnight, so it is dropped entirely; the Verlauf carries
+                  the times that still matter. */}
+              {operation.status !== "complete" && (
+                <>
+                  <span>·</span>
+                  <span className="font-mono">{getTimeSince(operation.statusChangedAt || operation.dispatchTime)}</span>
+                </>
+              )}
             </div>
           </div>
 

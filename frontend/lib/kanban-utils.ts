@@ -166,23 +166,6 @@ export function ageChipClass(date: Date): string {
   return "text-muted-foreground"
 }
 
-/**
- * A DURATION that stops when the thing it measures is over.
- *
- * `getTimeSince` always measures to now, which is right for «wie lange steht das schon in diesem
- * Status» — that number is the nag and has to keep growing. It is wrong for the length of an
- * incident: a closed Einsatz that ran 58 minutes read «1h 12'» that afternoon and «19h 40'» the
- * next morning, so the one number a Rückblick actually wants was never readable.
- *
- * Pass the end instant as `until` (null while still running) and the clock stops there.
- */
-export function getDurationBetween(from: Date, until: Date | null | undefined): string {
-  if (!until) return getTimeSince(from)
-  const minutes = Math.max(0, Math.floor((until.getTime() - from.getTime()) / 1000 / 60))
-  if (minutes < 60) return `${minutes}'`
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}'`
-}
-
 // Helper function to format time since a given date
 export function getTimeSince(date: Date): string {
   // Clamp at 0: minor clock/timezone skew can put the timestamp slightly in the
