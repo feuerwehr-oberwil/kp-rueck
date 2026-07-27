@@ -5,7 +5,7 @@ import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
-import type { Operation } from '@/lib/contexts/operations-context'
+import type { Operation, RekoSummary } from '@/lib/contexts/operations-context'
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 
 /**
@@ -15,13 +15,7 @@ import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 export function useRekoNotifications(
   incidents: Array<{ id: string }>,
   onOpenIncidentModal?: (incidentId: string) => void,
-  onUpdateOperationReko?: (incidentId: string, rekoSummary: {
-    isRelevant: boolean
-    hasDangers: boolean
-    dangerTypes: string[]
-    personnelCount: number | null
-    estimatedDuration: number | null
-  }) => void
+  onUpdateOperationReko?: (incidentId: string, rekoSummary: RekoSummary) => void
 ) {
   const { selectedEvent } = useEvent()
   const { refetchNotifications } = useNotifications()
@@ -83,6 +77,8 @@ export function useRekoNotifications(
                 dangerTypes,
                 personnelCount: report.effort_json?.personnel_count ?? null,
                 estimatedDuration: report.effort_json?.estimated_duration_hours ?? null,
+                summaryText: report.summary_text ?? null,
+                photos: report.photos_json ?? [],
               })
             }
           })

@@ -67,6 +67,9 @@ export interface ApiRekoSummary {
   dangers_json: ApiDangersAssessment | null
   effort_json: ApiEffortEstimation | null
   summary_text: string | null
+  /** Filenames of the photos the Reko uploaded; served behind the login at
+   *  `/api/photos/{incident_id}/{filename}`. */
+  photos_json: string[]
   submitted_at: string | null
   submitted_by_personnel_name: string | null
 }

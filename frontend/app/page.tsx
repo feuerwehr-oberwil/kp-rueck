@@ -18,7 +18,7 @@ import { toast } from "sonner"
 import { QrShareSheet } from "@/components/kanban/qr-share-sheet"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus } from "@/lib/contexts/operations-context"
+import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
@@ -200,13 +200,7 @@ export default function FireStationDashboard() {
   }, [])
 
   // Update operation REKO summary when new report arrives
-  const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: {
-    isRelevant: boolean
-    hasDangers: boolean
-    dangerTypes: string[]
-    personnelCount: number | null
-    estimatedDuration: number | null
-  }) => {
+  const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: RekoSummary) => {
     setOperations(prev => prev.map(op => {
       if (op.id !== incidentId) return op
       const updates: Partial<Operation> = { hasCompletedReko: true, rekoSummary }

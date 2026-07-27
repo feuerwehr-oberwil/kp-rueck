@@ -96,8 +96,19 @@ class RekoSummary(BaseModel):
     dangers_json: DangersAssessment | None = None
     effort_json: EffortEstimation | None = None
     summary_text: str | None = None
+    # Filenames only — served through /api/photos/{incident_id}/{filename},
+    # which stays behind the login.
+    photos_json: list[str] = []
     submitted_at: datetime | None = None
     submitted_by_personnel_name: str | None = None
+
+    @field_validator("photos_json", mode="before")
+    @classmethod
+    def ensure_photos_list(cls, v: Any) -> Any:
+        """Convert None to empty list for photos_json."""
+        if v is None:
+            return []
+        return v
 
 
 class EventRekoSummariesResponse(BaseModel):

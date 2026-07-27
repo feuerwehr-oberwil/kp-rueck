@@ -19985,6 +19985,14 @@
             ],
             "title": "Summary Text"
           },
+          "photos_json": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photos Json",
+            "default": []
+          },
           "submitted_at": {
             "anyOf": [
               {
