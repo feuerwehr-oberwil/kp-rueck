@@ -9,6 +9,7 @@
  */
 
 import { type ApiViewerData, type ApiIncident } from "@/lib/api-client"
+import { personResourceState } from "@/lib/resource-status"
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { type Person, type PersonStatus } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
@@ -223,8 +224,9 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     incomingCount: byStatus["incoming"]?.length || 0,
     completedCount: byStatus["complete"]?.length || 0,
     personnelTotal: personnel.length,
-    personnelAssigned: personnel.filter((p) => p.status === "assigned").length,
-    personnelAvailable: personnel.filter((p) => p.status === "available").length,
+    // same rule as the live board: a Reko is an Auftrag, not availability
+    personnelAssigned: personnel.filter((p) => personResourceState(p) === "assigned").length,
+    personnelAvailable: personnel.filter((p) => personResourceState(p) === "available").length,
   }
 
   return { stats, vehicleStatus, operations, personnel, materials }

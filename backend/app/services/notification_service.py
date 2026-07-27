@@ -13,6 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
 
+# Same German status labels the printed Lageblatt and the PDF report use, so a warning in the
+# Warnungen panel names a status the way the rest of the app names it. Importing rather than
+# re-typing them: three copies of this map is how «Reko abgeschlossen» and «reko_done» ended up
+# on screen at the same time.
+from .pdf_report_service import STATUS_LABELS
+
 logger = logging.getLogger(__name__)
 
 NOTIFICATION_SETTINGS_KEY = "notification_settings"
@@ -192,7 +198,10 @@ async def _check_time_based_alerts(
                 Notification(
                     type="time_overdue",
                     severity="warning",
-                    message=f"{incident.location_address or incident.title}: {duration_str} im Status '{incident.status}'",
+                    message=(
+                        f"{incident.location_address or incident.title}: {duration_str} "
+                        f"im Status «{STATUS_LABELS.get(incident.status, incident.status)}»"
+                    ),
                     incident_id=incident.id,
                     event_id=event_id,
                 )

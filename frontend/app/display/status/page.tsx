@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
 import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
-import { RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
+import { RESOURCE_STATE_DOT_CLASSES, personResourceState } from "@/lib/resource-status"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { type Person } from "@/lib/contexts/personnel-context"
@@ -201,7 +201,8 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
   }, [materials])
 
   const deployed = vehicleStatus.filter((v) => v.assignedOperation).length
-  const assignedPersonnelCount = personnel.filter((p) => p.status === "assigned").length
+  // «im Einsatz» must agree with the dots beside the names: a Reko is an Auftrag.
+  const assignedPersonnelCount = personnel.filter((p) => personResourceState(p) === "assigned").length
   const assignedMaterialCount = materials.filter((m) => m.status === "assigned").length
 
   return (
@@ -418,7 +419,8 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
       )}
       onClick={clickable ? () => onOpenIncident(assignedTo!.operationId) : undefined}
     >
-      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[isAssigned ? "assigned" : "available"])} />
+      {/* Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned" */}
+      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[personResourceState(p)])} />
       <span className="text-xs xl:text-sm truncate flex-1">{p.name}</span>
       {/* Special-function markers — same icon language as the board roster. */}
       {p.isReko && (

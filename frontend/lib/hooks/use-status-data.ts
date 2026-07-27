@@ -6,6 +6,7 @@ import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useMaterials, type Material } from "@/lib/contexts/materials-context"
 import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
+import { personResourceState } from "@/lib/resource-status"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 
 export interface VehicleWithStatus {
@@ -112,8 +113,9 @@ export function useStatusData() {
       if (col) byStatus[col.id].push(op)
     })
 
-    const assigned = personnel.filter((p) => p.status === "assigned")
-    const available = personnel.filter((p) => p.status === "available")
+    // via personResourceState so somebody out on a Reko is not counted as free
+    const assigned = personnel.filter((p) => personResourceState(p) === "assigned")
+    const available = personnel.filter((p) => personResourceState(p) === "available")
     const activeOps = operations.filter((op) => op.status !== "complete")
 
     return {
