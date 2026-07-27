@@ -490,6 +490,25 @@ class IncidentGroup(Base):
     created_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # ── Last Funkdurchsage (radio announcement) ─────────────────────────────
+    # The first stop of an Auftrag that reaches «Disponiert» gets the FULL
+    # announcement (crew + vehicles + material + the numbered stop list); every
+    # later stop only gets the short "weiter mit Stop N" form — unless the route
+    # picked up crew/vehicles/material in the meantime, which makes it full
+    # again. Deciding that needs to know what was last announced, and it has to
+    # survive a reload and be the same on the second device and the wall screen,
+    # so it lives here rather than in a browser.
+    #
+    # `last_announced_fingerprint` is an opaque, stable digest of the route's
+    # resources at announcement time (built by the client) — compared for
+    # equality only, never parsed.
+    last_announced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_announced_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Which stop the last announcement was about, and whether it was the full
+    # form — together they let «Wiederholen» repeat what was actually said.
+    last_announced_stop_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+    last_announced_full: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+
     # Relationships
     creator: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by])
     # Member stops. The FK lives on incidents.group_id. viewonly + no cascade so

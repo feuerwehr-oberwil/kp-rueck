@@ -127,6 +127,11 @@ class IncidentGroupResponse(IncidentGroupBase):
     progress: GroupProgress = Field(default_factory=GroupProgress)
     # Route-level resource assignments (active only), shared across all stops.
     assignments: list[GroupAssignmentResponse] = []
+    # What was last read out over the radio for this Auftrag (see IncidentGroup).
+    last_announced_at: datetime | None = None
+    last_announced_fingerprint: str | None = None
+    last_announced_stop_id: UUID | None = None
+    last_announced_full: bool = False
 
 
 class IncidentGroupReorder(BaseModel):
@@ -146,3 +151,30 @@ class AddStopsRequest(BaseModel):
     """Attach existing incidents to an Auftrag as stops (appended to the end)."""
 
     incident_ids: list[UUID]
+
+
+class GroupAnnouncementRequest(BaseModel):
+    """Record that a Funkdurchsage was made for an Auftrag.
+
+    ``fingerprint`` is an opaque digest of the route's crew/vehicles/material as
+    the client saw them when it built the announcement — the server stores it and
+    never interprets it. The next stop compares its own digest against this one:
+    equal means the short «weiter mit Stop N» form, different means the route
+    gained resources and the full announcement is due again.
+    """
+
+    fingerprint: str
+    stop_id: UUID | None = None
+    full: bool = False
+
+    @field_validator("fingerprint")
+    @classmethod
+    def validate_fingerprint(cls, v: str) -> str:
+        """Keep the digest bounded — it is a digest, not a payload.
+
+        A rejected fingerprint only costs one extra full announcement, which is
+        the harmless direction, so a hard cap is safe here.
+        """
+        if len(v) > 2000:
+            raise ValueError("Fingerprint must be 2000 characters or less")
+        return v

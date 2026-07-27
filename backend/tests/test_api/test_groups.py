@@ -158,6 +158,73 @@ async def test_update_group_not_found(editor_client: AsyncClient):
 
 
 # ============================================
+# Funkdurchsage — what was last read out over the radio
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_group_starts_without_an_announcement(editor_client: AsyncClient, test_event: Event):
+    group = await _create_group(editor_client, test_event)
+    assert group["last_announced_at"] is None
+    assert group["last_announced_fingerprint"] is None
+    assert group["last_announced_full"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_announce_records_what_was_said(editor_client: AsyncClient, test_event: Event, test_incident: Incident):
+    group = await _create_group(editor_client, test_event)
+    response = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/announce",
+        json={"fingerprint": "p:a,b|v:pio|m:", "stop_id": str(test_incident.id), "full": True},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["last_announced_fingerprint"] == "p:a,b|v:pio|m:"
+    assert data["last_announced_stop_id"] == str(test_incident.id)
+    assert data["last_announced_full"] is True
+    assert data["last_announced_at"] is not None
+
+    # The record has to survive the reload — a second device and the wall screen
+    # read it back to decide between the full and the short announcement.
+    listed = await editor_client.get(f"/api/incident-groups/?event_id={test_event.id}")
+    assert listed.json()[0]["last_announced_fingerprint"] == "p:a,b|v:pio|m:"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_announce_overwrites_the_previous_one(editor_client: AsyncClient, test_event: Event):
+    group = await _create_group(editor_client, test_event)
+    await editor_client.post(
+        f"/api/incident-groups/{group['id']}/announce", json={"fingerprint": "p:a|v:|m:", "full": True}
+    )
+    response = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/announce", json={"fingerprint": "p:a,b|v:|m:", "full": False}
+    )
+    data = response.json()
+    assert data["last_announced_fingerprint"] == "p:a,b|v:|m:"
+    assert data["last_announced_full"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_announce_group_not_found(editor_client: AsyncClient):
+    response = await editor_client.post(f"/api/incident-groups/{uuid4()}/announce", json={"fingerprint": "x"})
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_announce_rejects_an_oversized_fingerprint(editor_client: AsyncClient, test_event: Event):
+    group = await _create_group(editor_client, test_event)
+    response = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/announce", json={"fingerprint": "x" * 2001}
+    )
+    assert response.status_code == 422
+
+
+# ============================================
 # Delete leaves stops on the board
 # ============================================
 
@@ -583,6 +650,7 @@ async def test_viewer_forbidden_on_mutations(viewer_client: AsyncClient, test_ev
             json={"resource_type": "vehicle", "resource_id": str(uuid4())},
         ),
         viewer_client.post(f"/api/incident-groups/{gid}/unassign/{uuid4()}"),
+        viewer_client.post(f"/api/incident-groups/{gid}/announce", json={"fingerprint": "x"}),
     ]
     for coro in calls:
         response = await coro

@@ -52,6 +52,7 @@ import {
   type ApiIncidentGroup,
   type ApiIncidentGroupCreate,
   type ApiIncidentGroupUpdate,
+  type ApiGroupAnnouncement,
   type ApiGroupAssignment,
   type ApiGroupAssignmentCreate,
   type ApiStatusTransition,
@@ -496,6 +497,15 @@ class ApiClient {
     return this.request<ApiIncidentGroup>(`/api/incident-groups/${groupId}/stops`, {
       method: 'POST',
       body: JSON.stringify({ incident_ids: incidentIds }),
+    })
+  }
+
+  /** Remember the Funkdurchsage just made for an Auftrag, so the next stop of the
+   *  same route gets the short continuation instead of the whole thing again. */
+  async recordGroupAnnouncement(groupId: string, data: ApiGroupAnnouncement): Promise<ApiIncidentGroup> {
+    return this.request<ApiIncidentGroup>(`/api/incident-groups/${groupId}/announce`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     })
   }
 

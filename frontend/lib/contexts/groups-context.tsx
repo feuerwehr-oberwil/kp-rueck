@@ -28,6 +28,16 @@ export type CreateGroupInput = Omit<ApiIncidentGroupCreate, "event_id">
 /** Partial PATCH payload for an Auftrag (name / color / notes). */
 export type UpdateGroupInput = ApiIncidentGroupUpdate
 
+/** What the client just read out over the radio for a route. */
+export interface AnnouncementInput {
+  /** Digest of the route's resources at that moment (see `radioFingerprint`). */
+  fingerprint: string
+  /** The stop the announcement was about. */
+  stopId: string | null
+  /** True for the full announcement, false for the short continuation. */
+  full: boolean
+}
+
 const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
 interface GroupsContextType {
@@ -38,6 +48,8 @@ interface GroupsContextType {
   refreshGroups: () => Promise<void>
   createGroup: (input: CreateGroupInput) => Promise<IncidentGroup | null>
   updateGroup: (id: string, input: UpdateGroupInput) => Promise<boolean>
+  /** Note the Funkdurchsage just made for a route (drives full vs. short next time). */
+  recordAnnouncement: (id: string, announcement: AnnouncementInput) => Promise<boolean>
   deleteGroup: (id: string) => Promise<boolean>
   reorderGroups: (orderedIds: string[]) => Promise<boolean>
   reorderGroupStops: (groupId: string, orderedIds: string[]) => Promise<boolean>
@@ -79,6 +91,17 @@ const apiGroupToGroup = (g: ApiIncidentGroup): IncidentGroup => ({
   stopIds: g.stop_ids.map(String),
   assignments: apiAssignmentsToClient(g),
   progress: { total: g.progress?.total ?? 0, done: g.progress?.done ?? 0 },
+  // Both the timestamp and the fingerprint have to be there for the record to
+  // mean anything — a half-written one would silently force the full
+  // announcement forever, which is exactly the bug this replaces.
+  lastAnnounced: g.last_announced_at && g.last_announced_fingerprint
+    ? {
+        at: new Date(g.last_announced_at),
+        fingerprint: g.last_announced_fingerprint,
+        stopId: g.last_announced_stop_id ? String(g.last_announced_stop_id) : null,
+        full: Boolean(g.last_announced_full),
+      }
+    : null,
 })
 
 // Poll cadence for the sync-version fallback (matches operations-context).
@@ -298,6 +321,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         stopIds: [],
         assignments: [],
         progress: { total: 0, done: 0 },
+        lastAnnounced: null,
       }
       setGroups((gs) => [...gs, optimistic])
 
@@ -345,6 +369,44 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       return false
     }
   }, [groups])
+
+  // Note what was just read out over the radio for a route. Optimistic and
+  // silent on failure: a lost note only means the next stop hears the full
+  // announcement once more, which is the safe direction — it must never put a
+  // toast in front of an Einsatzleiter who is mid-Funkspruch.
+  const recordAnnouncement = useCallback(
+    async (id: string, announcement: AnnouncementInput): Promise<boolean> => {
+      mutationEpochRef.current++
+
+      const previous = groups.find((g) => g.id === id)
+      if (!previous) return false
+
+      const optimistic = {
+        at: new Date(),
+        fingerprint: announcement.fingerprint,
+        stopId: announcement.stopId ?? null,
+        full: announcement.full,
+      }
+      setGroups((gs) => gs.map((g) => (g.id === id ? { ...g, lastAnnounced: optimistic } : g)))
+
+      try {
+        const updated = apiGroupToGroup(
+          await apiClient.recordGroupAnnouncement(id, {
+            fingerprint: announcement.fingerprint,
+            stop_id: announcement.stopId ?? null,
+            full: announcement.full,
+          }),
+        )
+        setGroups((gs) => gs.map((g) => (g.id === id ? updated : g)))
+        return true
+      } catch (error) {
+        console.error("Failed to record Funkdurchsage:", error)
+        setGroups((gs) => gs.map((g) => (g.id === id ? previous : g)))
+        return false
+      }
+    },
+    [groups],
+  )
 
   const deleteGroup = useCallback(async (id: string): Promise<boolean> => {
     mutationEpochRef.current++
@@ -609,6 +671,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         refreshGroups,
         createGroup,
         updateGroup,
+        recordAnnouncement,
         deleteGroup,
         reorderGroups,
         reorderGroupStops,

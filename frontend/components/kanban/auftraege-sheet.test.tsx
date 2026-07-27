@@ -21,6 +21,7 @@ const grp = (overrides: Partial<IncidentGroup> = {}): IncidentGroup => ({
   stopIds: [],
   assignments: [],
   progress: { total: 0, done: 0 },
+  lastAnnounced: null,
   ...overrides,
 })
 

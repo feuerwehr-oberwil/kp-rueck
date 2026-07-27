@@ -2354,6 +2354,7 @@ export default function FireStationDashboard() {
         }}
         canEdit={isEditor}
         onSetStopStatus={isEditor ? setRouteStopStatus : undefined}
+        funkrufname={funkrufname}
       />
 
       {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}

@@ -34,6 +34,10 @@ const apiGroup = (overrides: Partial<ApiIncidentGroup> = {}): ApiIncidentGroup =
   stop_ids: [],
   assignments: [],
   progress: { total: 0, done: 0 },
+  last_announced_at: null,
+  last_announced_fingerprint: null,
+  last_announced_stop_id: null,
+  last_announced_full: false,
   ...overrides,
 })
 
