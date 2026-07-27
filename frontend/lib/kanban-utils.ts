@@ -166,11 +166,27 @@ export function toStopMirrorStatus(op: Operation | undefined): StopMirrorStatus 
  * 120'+. Colour beats bolding 11px muted text — an incident sitting in a
  * status for two hours must be visible from across the room.
  */
-export function ageChipClass(date: Date): string {
+/** How long something has sat, as the three levels the board colours by.
+ *  One definition of the thresholds — the age chip and the collapsed-section
+ *  alarm dot must never disagree about when an incident is overdue. */
+export type AgeLevel = "normal" | "warn" | "alarm"
+
+export function ageLevel(date: Date): AgeLevel {
   const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000))
-  if (minutes >= 120) return "text-red-600 dark:text-red-400 font-medium"
-  if (minutes >= 60) return "text-amber-600 dark:text-amber-500 font-medium"
-  return "text-muted-foreground"
+  if (minutes >= 120) return "alarm"
+  if (minutes >= 60) return "warn"
+  return "normal"
+}
+
+export function ageChipClass(date: Date): string {
+  switch (ageLevel(date)) {
+    case "alarm":
+      return "text-red-600 dark:text-red-400 font-medium"
+    case "warn":
+      return "text-amber-600 dark:text-amber-500 font-medium"
+    default:
+      return "text-muted-foreground"
+  }
 }
 
 // Helper function to format time since a given date

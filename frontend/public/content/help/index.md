@@ -63,6 +63,14 @@ Kanban-Board ohne Bearbeitungsmöglichkeiten. Alle 6 Status-Spalten werden gleic
 ### Status (`/display/status`)
 Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch.
 
+### Abschnitte einklappen
+
+In den Anzeige-Ansichten lässt sich jeder Abschnitt zuklappen – Board-Spalten, Status-Gruppen, Funktionen beim Personal, Kategorien beim Material. Bei einer grösseren Feuerwehr scrollt man sonst nur.
+
+- **Standard ist offen.** Nichts versteckt sich vor jemandem, der gerade davortritt. Einzige Ausnahme: **ABGESCHLOSSEN** startet weiterhin eingeklappt – das ist erledigte Arbeit.
+- **Eine zugeklappte Kopfzeile zeigt weiter Anzahl und Zustand:** die Anzahl Einträge, bei Personal und Material zusätzlich wie viele davon frei sind, und einen roten Punkt, sobald ein Einsatz in diesem Abschnitt überfällig ist. Einklappen ist Verstecken – und um 3 Uhr darf sich nichts Wichtiges verstecken.
+- **Der Zustand wird pro Gerät gemerkt**, wie die übrigen Anzeige-Einstellungen. Der Wandschirm, das Tablet auf dem Tisch und der Laptop hinten stehen unterschiedlich weit weg; wie viel zugeklappt ist, gehört zum Bildschirm, nicht zum Einsatz.
+
 ### Cross-Window-Sync
 Alle Display-Ansichten synchronisieren sich mit dem Editor-Fenster: Wird auf dem Hauptbildschirm ein Einsatz ausgewählt, springt die Display-Karte zum entsprechenden Marker und das Display-Board hebt die Karte hervor – und umgekehrt.
 
