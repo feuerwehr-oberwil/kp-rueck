@@ -7,7 +7,9 @@ import { Loader2, Binoculars, Package2 } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
-import { columns, getTimeSince } from "@/lib/kanban-utils"
+import { ageLevel, columns, getTimeSince } from "@/lib/kanban-utils"
+import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
+import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
 import { RESOURCE_STATE_DOT_CLASSES, materialResourceState, personResourceState } from "@/lib/resource-status"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
@@ -21,6 +23,9 @@ import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { cn } from "@/lib/utils"
 
 const STATUS_ORDER = ["incoming", "ready", "rekoDone", "enroute", "active", "returning"]
+
+/** Per-device fold state for this display (see useCollapsedSections). */
+const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
 
 const STATUS_BORDER: Record<string, string> = {
   incoming: "border-l-slate-500",
@@ -116,6 +121,9 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
+  // Every section folds; all of them start open. A big station scrolls forever
+  // otherwise — but nothing folds itself away without someone deciding so.
+  const sections = useCollapsedSections(STATUS_COLLAPSE_KEY)
 
   // Resolve from live data each render so the dialog stays in sync while open
   // and closes itself when the incident disappears.
@@ -240,23 +248,24 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
             <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">{t('noActiveIncidents')}</div>
           ) : (
             incidentsByStatus.map(({ colDef, ops }) => (
-              <div key={colDef.id}>
-                <div className={cn("px-3 xl:px-4 py-1.5 xl:py-2 border-b border-border", colDef.color)}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] xl:text-xs font-bold text-foreground/70 uppercase tracking-wider">
-                      {tk(`columns.${colDef.id}`)}
-                    </span>
-                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-md bg-foreground/10 text-foreground text-[10px] xl:text-xs font-bold tabular-nums">
-                      {ops.length}
-                    </span>
-                  </div>
-                </div>
+              <CollapsibleSection
+                key={colDef.id}
+                label={tk(`columns.${colDef.id}`)}
+                count={ops.length}
+                // An incident stuck in this status past the board's own warning
+                // threshold keeps showing up on the folded header — a section
+                // that hides the overdue one is worse than no folding at all.
+                alarm={ops.some((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== "normal")}
+                collapsed={sections.isCollapsed(`status:${colDef.id}`)}
+                onToggle={() => sections.toggle(`status:${colDef.id}`)}
+                headerClassName={colDef.color}
+              >
                 <div className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
                   {ops.map((op) => (
                     <IncidentRow key={op.id} operation={op} onClick={() => setSelectedOperationId(op.id)} />
                   ))}
                 </div>
-              </div>
+              </CollapsibleSection>
             ))
           )}
         </div>
@@ -271,20 +280,35 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
           subtitle={t('availableDeployed', { available: stats.personnelAvailable, deployed: assignedPersonnelCount })}
         />
         <div className="flex-1 overflow-y-auto">
-          {groupedPersonnel.map(({ role, people }) => (
-            <div key={role}>
-              <div className="px-3 xl:px-4 py-1.5 xl:py-2 bg-muted/40 border-b border-border">
-                <span className="text-[10px] xl:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {role} ({people.length})
-                </span>
-              </div>
-              <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
-                {people.map((p) => (
-                  <PersonRow key={p.id} person={p} assignedTo={personAssignment.get(p.name)} onOpenIncident={setSelectedOperationId} />
-                ))}
-              </div>
-            </div>
-          ))}
+          {groupedPersonnel.map(({ role, people }) => {
+            const free = people.filter((p) => personResourceState(p) !== "assigned").length
+            return (
+              <CollapsibleSection
+                key={role}
+                label={role}
+                count={people.length}
+                // How many of this Funktion are still free has to survive the
+                // fold — «Maschinisten 6» tells nobody that all six are out.
+                badge={
+                  <span className={cn(
+                    "shrink-0 text-[10px] xl:text-xs tabular-nums",
+                    free === 0 ? "font-semibold text-amber-600 dark:text-amber-500" : "text-muted-foreground",
+                  )}>
+                    {t('freeOfTotal', { free, total: people.length })}
+                  </span>
+                }
+                collapsed={sections.isCollapsed(`role:${role}`)}
+                onToggle={() => sections.toggle(`role:${role}`)}
+                headerClassName="bg-muted/40"
+              >
+                <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
+                  {people.map((p) => (
+                    <PersonRow key={p.id} person={p} assignedTo={personAssignment.get(p.name)} onOpenIncident={setSelectedOperationId} />
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )
+          })}
         </div>
       </div>
 
@@ -298,19 +322,30 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
         />
         <div className="flex-1 overflow-y-auto">
           {groupedMaterials.map(({ category, items }) => {
-            const catAssigned = items.filter((m) => materialResourceState(m) === "assigned").length
+            const free = items.length - items.filter((m) => materialResourceState(m) === "assigned").length
             return (
-              <div key={category}>
-                <div className="px-3 xl:px-4 py-1.5 xl:py-2 bg-muted/40 border-b border-border flex items-center justify-between">
-                  <span className="text-[10px] xl:text-xs font-semibold text-muted-foreground uppercase tracking-wider">{category}</span>
-                  <span className="text-[10px] xl:text-xs text-muted-foreground tabular-nums">{items.length - catAssigned}/{items.length}</span>
-                </div>
+              <CollapsibleSection
+                key={category}
+                label={category}
+                count={items.length}
+                badge={
+                  <span className={cn(
+                    "shrink-0 text-[10px] xl:text-xs tabular-nums",
+                    free === 0 ? "font-semibold text-amber-600 dark:text-amber-500" : "text-muted-foreground",
+                  )}>
+                    {t('freeOfTotal', { free, total: items.length })}
+                  </span>
+                }
+                collapsed={sections.isCollapsed(`material:${category}`)}
+                onToggle={() => sections.toggle(`material:${category}`)}
+                headerClassName="bg-muted/40"
+              >
                 <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                   {items.map((m) => (
                     <MaterialRow key={m.id} material={m} assignedTo={materialAssignment.get(m.id)} onOpenIncident={setSelectedOperationId} />
                   ))}
                 </div>
-              </div>
+              </CollapsibleSection>
             )
           })}
           {materials.length === 0 && (

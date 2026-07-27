@@ -10,11 +10,15 @@ import { useOperations, type Operation } from "@/lib/contexts/operations-context
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
-import { columns, getTimeSince, ageChipClass } from "@/lib/kanban-utils"
+import { columns, getTimeSince, ageChipClass, ageLevel } from "@/lib/kanban-utils"
+import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { IncidentDetailModal, priorityVisuals } from "@/components/display/incident-detail-modal"
-import { Clock, Truck, Users, Siren, Package, ChevronRight, Waypoints } from "lucide-react"
+import { Clock, Truck, Users, Siren, Package, ChevronDown, ChevronRight, Waypoints } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+/** Per-device fold state for the viewer board (see useCollapsedSections). */
+const BOARD_COLLAPSE_KEY = "kp-display-board-collapsed"
 
 export default function DisplayBoardPage() {
   const t = useTranslations('display')
@@ -42,10 +46,12 @@ function BoardDisplay() {
   const { operations } = useOperations()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
-  // Collapsible columns (ABGESCHLOSSEN) start collapsed so the active columns reclaim
-  // the full board width. Click the thin bar to expand/collapse.
-  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(
-    () => new Set(columns.filter(c => c.collapsible).map(c => c.id))
+  // EVERY column folds now — a larger Feuerwehr otherwise just scrolls. All of
+  // them start open except ABGESCHLOSSEN, which is finished work by definition
+  // and whose width the live columns can use. Remembered per device.
+  const collapsedColumns = useCollapsedSections(
+    BOARD_COLLAPSE_KEY,
+    columns.filter((c) => c.collapsible).map((c) => c.id),
   )
 
   // Track status changes for flash animation
@@ -102,20 +108,15 @@ function BoardDisplay() {
     return grouped
   }, [operations])
 
-  const toggleColumn = (columnId: string) => {
-    setCollapsedColumns(prev => {
-      const next = new Set(prev)
-      if (next.has(columnId)) next.delete(columnId)
-      else next.add(columnId)
-      return next
-    })
-  }
-
   return (
     <div className="flex h-full gap-2 p-3 overflow-x-auto">
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
-        const isCollapsed = column.collapsible && collapsedColumns.has(column.id)
+        const isCollapsed = collapsedColumns.isCollapsed(column.id)
+        // Something in here has sat past the board's own warning threshold. It
+        // stays visible on the folded bar: a column that hides its overdue
+        // incident behind a title is exactly what folding must not do.
+        const hasAlarm = ops.some((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== "normal")
 
         // Collapsed: thin vertical toggle bar showing the count, reclaiming width.
         if (isCollapsed) {
@@ -123,7 +124,7 @@ function BoardDisplay() {
             <button
               key={column.id}
               type="button"
-              onClick={() => toggleColumn(column.id)}
+              onClick={() => collapsedColumns.toggle(column.id)}
               className={cn(
                 "flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5",
                 column.color
@@ -131,8 +132,9 @@ function BoardDisplay() {
               title={t('board.collapsedColumnTitle', { title: tk(`columns.${column.id}`), count: ops.length })}
             >
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                 {ops.length}
+                {hasAlarm && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" aria-hidden />}
               </span>
               <span className="text-xs font-bold uppercase tracking-tight text-foreground [writing-mode:vertical-rl]">
                 {tk(`columns.${column.id}`)}
@@ -143,21 +145,24 @@ function BoardDisplay() {
 
         return (
           <div key={column.id} className="flex flex-1 flex-col min-w-[280px] overflow-hidden">
-            <div
+            <button
+              type="button"
+              onClick={() => collapsedColumns.toggle(column.id)}
+              aria-expanded
               className={cn(
-                "mb-2 rounded-lg border border-border px-3 py-3",
+                "mb-2 w-full cursor-pointer rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-foreground/5",
                 column.color,
-                column.collapsible && "cursor-pointer"
               )}
-              onClick={column.collapsible ? () => toggleColumn(column.id) : undefined}
             >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold tracking-tight text-foreground uppercase">{tk(`columns.${column.id}`)}</h2>
+              <div className="flex items-center gap-2">
+                <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <h2 className="flex-1 truncate text-sm font-bold tracking-tight text-foreground uppercase">{tk(`columns.${column.id}`)}</h2>
+                {hasAlarm && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" aria-hidden />}
                 <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                   {ops.length}
                 </span>
               </div>
-            </div>
+            </button>
             <div className="flex-1 space-y-2 overflow-y-auto rounded-lg p-1">
               {ops.map((op) => (
                 <DisplayOperationCard

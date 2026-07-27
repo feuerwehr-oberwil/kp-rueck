@@ -6,7 +6,8 @@ import { apiClient, type ApiIncident, type ApiEvent, type ApiIncidentGroup, type
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, Phone, WifiOff } from 'lucide-react'
-import { columns, getTimeSince, ageChipClass } from '@/lib/kanban-utils'
+import { columns, getTimeSince, ageChipClass, ageLevel } from '@/lib/kanban-utils'
+import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
 import { type OperationStatus } from '@/lib/contexts/operations-context'
@@ -17,6 +18,9 @@ import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
 // post board but sourced from the public viewer-data endpoint, which returns
 // only the event + incidents (no resource contexts). Used by /display/board
 // when a ?token= is present.
+
+/** Per-device fold state for the share-link board (see useCollapsedSections). */
+const TOKEN_BOARD_COLLAPSE_KEY = 'kp-display-token-board-collapsed'
 
 function mapApiStatus(apiStatus: string): OperationStatus {
   const statusMap: Record<string, OperationStatus> = {
@@ -164,15 +168,69 @@ function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiInciden
   )
 }
 
-function TokenColumn({ column, incidents, groups, onIncidentClick }: { column: typeof columns[number]; incidents: ApiIncident[]; groups: ApiIncidentGroup[]; onIncidentClick: (incidentId: string) => void }) {
+/** Has anything in this column sat past the board's own warning threshold? */
+function columnHasAlarm(incidents: ApiIncident[]): boolean {
+  return incidents.some((incident) =>
+    ageLevel(new Date(incident.status_changed_at ?? incident.created_at)) !== 'normal',
+  )
+}
+
+function TokenColumn({ column, incidents, groups, onIncidentClick, collapsed, onToggle }: {
+  column: typeof columns[number]
+  incidents: ApiIncident[]
+  groups: ApiIncidentGroup[]
+  onIncidentClick: (incidentId: string) => void
+  collapsed?: boolean
+  onToggle?: () => void
+}) {
   const t = useTranslations('display.tokenBoard')
   const tk = useTranslations('kanban')
+  const hasAlarm = columnHasAlarm(incidents)
+
+  // Folded: a thin bar that still carries the count and the overdue mark, so a
+  // closed column never hides the thing that needed looking at.
+  if (collapsed && onToggle) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn('flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5', column.color)}
+        title={t('incidentCount', { count: incidents.length })}
+      >
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
+          {incidents.length}
+          {hasAlarm && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" aria-hidden />}
+        </span>
+        <span className="text-xs font-bold uppercase tracking-tight text-foreground [writing-mode:vertical-rl]">
+          {tk(`columns.${column.id}`)}
+        </span>
+      </button>
+    )
+  }
+
   return (
     <div className="flex min-w-[320px] max-w-[420px] flex-1 flex-col">
-      <div className={cn('mb-2 rounded-lg border border-border px-3 py-2', column.color)}>
-        <h2 className="text-balance text-sm font-semibold text-foreground">{tk(`columns.${column.id}`)}</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">{t('incidentCount', { count: incidents.length })}</p>
-      </div>
+      {onToggle ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded
+          className={cn('mb-2 w-full cursor-pointer rounded-lg border border-border px-3 py-2 text-left transition-colors hover:bg-foreground/5', column.color)}
+        >
+          <div className="flex items-center gap-2">
+            <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            <h2 className="flex-1 text-balance text-sm font-semibold text-foreground">{tk(`columns.${column.id}`)}</h2>
+            {hasAlarm && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" aria-hidden />}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5 pl-6">{t('incidentCount', { count: incidents.length })}</p>
+        </button>
+      ) : (
+        <div className={cn('mb-2 rounded-lg border border-border px-3 py-2', column.color)}>
+          <h2 className="text-balance text-sm font-semibold text-foreground">{tk(`columns.${column.id}`)}</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('incidentCount', { count: incidents.length })}</p>
+        </div>
+      )}
       <div className="flex-1 min-h-0 space-y-3 overflow-y-auto p-2 rounded-lg">
         {incidents.map((incident) => (
           <TokenIncidentCard key={incident.id} incident={incident} groups={groups} onClick={() => onIncidentClick(incident.id)} />
@@ -191,6 +249,9 @@ export function TokenBoard({ token }: { token: string }) {
   const [payload, setPayload] = useState<ApiViewerData | null>(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [showCompleted, setShowCompleted] = useState(false)
+  // Every column folds; all start open. ABGESCHLOSSEN keeps its own separate
+  // fold (`showCompleted`, closed by default) rather than gaining a second one.
+  const collapsedColumns = useCollapsedSections(TOKEN_BOARD_COLLAPSE_KEY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
@@ -307,7 +368,15 @@ export function TokenBoard({ token }: { token: string }) {
       <main className="flex-1 min-h-0 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
         <div className="flex h-full gap-3">
           {columns.filter((c) => !c.collapsible).map((column) => (
-            <TokenColumn key={column.id} column={column} incidents={incidentsByColumn[column.id] || []} groups={groups} onIncidentClick={setSelectedIncidentId} />
+            <TokenColumn
+              key={column.id}
+              column={column}
+              incidents={incidentsByColumn[column.id] || []}
+              groups={groups}
+              onIncidentClick={setSelectedIncidentId}
+              collapsed={collapsedColumns.isCollapsed(column.id)}
+              onToggle={() => collapsedColumns.toggle(column.id)}
+            />
           ))}
           {(() => {
             const completeCol = columns.find((c) => c.collapsible)
