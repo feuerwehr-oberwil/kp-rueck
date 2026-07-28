@@ -53,7 +53,7 @@ export function IncidentTimelinePopover({ incidentId }: IncidentTimelinePopoverP
           className="text-muted-foreground hover:text-foreground"
           aria-label={t('timeline.showAria')}
         >
-          <Info className="h-4 w-4" />
+          <Info className="size-3.5" />
         </Button>
       </PopoverTrigger>
       <PopoverContent

@@ -27,7 +27,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
 
   // Get column color for the card
   const column = columns.find(col => col.status.includes(operation.status))
-  const columnColor = column?.color || "bg-slate-200/80 dark:bg-zinc-800/50"
+  const columnColor = column?.color || "bg-muted"
 
   // Calculate time since status change
   const timeReference = operation.statusChangedAt || operation.dispatchTime
@@ -37,7 +37,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
       className={cn(
         "p-3 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
         columnColor,
-        priority === "high" ? "border-red-500/40 border-2 bg-red-500/[0.04] dark:bg-red-500/[0.06]" : "border-border/50"
+        priority === "high" ? "border-red-500/40 border-2 bg-red-500/[0.04] dark:bg-red-500/[0.06]" : "border-border"
       )}
       onClick={onClick}
     >

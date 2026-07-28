@@ -47,6 +47,25 @@ export function personResourceState(
 }
 
 /**
+ * Is this person tied up right now, as the sidebar card draws it?
+ *
+ * Wider than `personResourceState`: a Fahrer or Magaziner keeps
+ * `status: "available"` (a special function is not an incident assignment) but
+ * cannot be sent somewhere else, and the card has always drawn them amber.
+ * The "nur verfügbare" sidebar filter has to agree with that icon — a filtered
+ * list that still shows amber entries reads as broken.
+ *
+ * Deliberately separate from `personResourceState`, which feeds the
+ * «7 verfügbar» counters and the Status-Tafel; widening those is a numbers
+ * decision, not a filtering one.
+ */
+export function isPersonOccupied(
+  p: { status?: string | null; isReko?: boolean; isDriver?: boolean; isMagazin?: boolean },
+): boolean {
+  return p.status === "assigned" || !!p.isReko || !!p.isDriver || !!p.isMagazin
+}
+
+/**
  * A material's availability as the board must READ it.
  *
  * Consumables (Ölbindemittel, Schaummittel, Bindevlies …) are stocked, not lent out: handing some
@@ -70,6 +89,22 @@ export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
   assigned: "bg-amber-500",
   unavailable: "bg-muted-foreground/40",
   maintenance: "bg-muted-foreground/40",
+}
+
+/**
+ * Colour for a status *glyph* (the check / minus / infinity icon on a resource
+ * card), as opposed to a filled dot or a badge outline.
+ *
+ * Personnel and material cards sit in the same sidebar column, so their
+ * availability has to read identically: the material card used to draw its icon
+ * in flat `text-muted-foreground` while the person card next to it was already
+ * amber/emerald, which made material look stateless.
+ */
+export const RESOURCE_STATE_ICON_CLASSES: Record<ResourceState, string> = {
+  available: "text-emerald-600 dark:text-emerald-400",
+  assigned: "text-amber-600 dark:text-amber-400",
+  unavailable: "text-muted-foreground",
+  maintenance: "text-muted-foreground",
 }
 
 /** Outline-badge tint (text + border) for the same states. */

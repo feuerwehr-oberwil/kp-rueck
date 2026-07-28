@@ -195,7 +195,7 @@ export function PrintOptionsModal({ open, onOpenChange }: PrintOptionsModalProps
                 {options.includeMaterials && `, ${t("optionsModal.summaryMaterials", { count: materials.length })}`}
               </p>
               <Button size="sm" onClick={handlePrint} disabled={isLoading}>
-                <Printer className="h-3.5 w-3.5 mr-1.5" />
+                <Printer className="size-3.5" />
                 {t("common.print")}
               </Button>
             </div>

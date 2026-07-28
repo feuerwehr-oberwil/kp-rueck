@@ -7,7 +7,11 @@ function Card({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card"
       className={cn(
-        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm',
+        // 8px radius (= --radius) is the house surface, matching the ~124
+        // hand-built containers; 6px stays reserved for controls. No shadow:
+        // elevation is the signal for things that float (dialog, menu,
+        // tooltip), so a flat surface carries a full-strength border instead.
+        'bg-card text-card-foreground flex flex-col gap-6 rounded-lg border border-border py-6',
         className,
       )}
       {...props}

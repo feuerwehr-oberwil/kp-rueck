@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from 'lucide-react'
+import { Search, Plus, Clock, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -74,6 +74,88 @@ import {
   IncidentStatusWorkflowDialogs,
   useIncidentStatusWorkflow,
 } from "@/components/kanban/incident-status-workflow"
+import { cn } from "@/lib/utils"
+import type { LucideIcon } from "lucide-react"
+
+/**
+ * One footer-toolbar pill: icon + label, highlighted when the sheet/dialog it
+ * opens is active. Replaces ~8 hand-rolled, near-identical `<Button>` blocks
+ * that only differed in icon/label/state — each with its own template-literal
+ * className doing the same active/inactive ternary.
+ */
+function ToolbarToggle({
+  icon: Icon,
+  label,
+  active,
+  disabled,
+  title,
+  onActivate,
+}: {
+  icon: LucideIcon
+  label: string
+  active: boolean
+  disabled?: boolean
+  title?: string
+  onActivate: () => void
+}) {
+  return (
+    <Button
+      size="xs"
+      variant="ghost"
+      className={cn(
+        // Explicit px: these sit in a gap-less row, so the button's own padding
+        // is the only thing keeping one item's label off the next item's icon.
+        "px-2.5 transition-colors",
+        active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
+      )}
+      onPointerDown={(e) => {
+        e.stopPropagation()
+        onActivate()
+      }}
+      disabled={disabled}
+      title={title}
+    >
+      <Icon className="size-3.5" />
+      <span className="text-xs">{label}</span>
+    </Button>
+  )
+}
+
+/**
+ * Sidebar filter: show only what can be assigned right now.
+ *
+ * Icon-only and 32px square so it sits flush with the 32px search field. The
+ * check glyph is the same one the resource cards use for "verfügbar", so the
+ * button reads as "keep the green ones" rather than as a generic funnel.
+ */
+function AvailableOnlyToggle({
+  active,
+  onToggle,
+  label,
+}: {
+  active: boolean
+  onToggle: () => void
+  label: string
+}) {
+  return (
+    <Button
+      size="icon-xs"
+      variant={active ? "secondary" : "ghost"}
+      onClick={onToggle}
+      aria-pressed={active}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "flex-shrink-0 border",
+        active
+          ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <CircleCheck className="size-4" />
+    </Button>
+  )
+}
 
 export default function FireStationDashboard() {
   const {
@@ -218,6 +300,11 @@ export default function FireStationDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
+  // Sidebar "nur verfügbare" toggles. Per-list on purpose: crew and material are
+  // picked at different moments, so one shared switch would keep surprising the
+  // other list.
+  const [personnelAvailableOnly, setPersonnelAvailableOnly] = useState(false)
+  const [materialsAvailableOnly, setMaterialsAvailableOnly] = useState(false)
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   // Derive current operation from operations array to get real-time updates
@@ -1085,7 +1172,8 @@ export default function FireStationDashboard() {
     materials,
     effectivePersonnelQuery,
     effectiveMaterialQuery,
-    tRes('roleOther')
+    tRes('roleOther'),
+    { personnel: personnelAvailableOnly, materials: materialsAvailableOnly },
   )
 
   // Memoize filtered operations to avoid unnecessary recalculations on every render
@@ -1519,7 +1607,7 @@ export default function FireStationDashboard() {
                     >
                       <span className="truncate">{event.name}</span>
                       {event.training_flag && (
-                        <Badge variant="secondary" className="ml-auto text-[10px]">{tDash('training')}</Badge>
+                        <Badge variant="secondary" className="ml-auto text-2xs">{tDash('training')}</Badge>
                       )}
                     </DropdownMenuItem>
                   ))}
@@ -1600,8 +1688,8 @@ export default function FireStationDashboard() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               {/* Search */}
-              <div className="px-3 pt-3 pb-2">
-                <div className="relative">
+              <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     id="personnel-search-input"
@@ -1616,6 +1704,11 @@ export default function FireStationDashboard() {
                     </div>
                   )}
                 </div>
+                <AvailableOnlyToggle
+                  active={personnelAvailableOnly}
+                  onToggle={() => setPersonnelAvailableOnly((v) => !v)}
+                  label={personnelAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
+                />
               </div>
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
@@ -1641,20 +1734,28 @@ export default function FireStationDashboard() {
                           </p>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
+                            size="icon-xs"
                             onClick={copyCheckInUrlToClipboard}
                             title={tCommon('copyLink')}
                           >
                             {copied ? (
-                              <Check className="h-3 w-3 text-green-600" />
+                              <Check className="size-3.5 text-success" />
                             ) : (
-                              <Copy className="h-3 w-3" />
+                              <Copy className="size-3.5" />
                             )}
                           </Button>
                         </div>
                       </div>
                     ) : null}
+                  </div>
+                ) : personnelAvailableOnly && Object.keys(groupedPersonnel).length === 0 ? (
+                  /* Filter hides everything — say so, otherwise the sidebar just
+                     looks broken. */
+                  <div className="py-6 text-center animate-in fade-in duration-300">
+                    <p className="text-sm italic text-muted-foreground/60">{tDash('noneAvailableFiltered')}</p>
+                    <Button variant="link" size="xs" onClick={() => setPersonnelAvailableOnly(false)}>
+                      {tDash('showAll')}
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-4 animate-in fade-in duration-300">
@@ -1698,7 +1799,7 @@ export default function FireStationDashboard() {
           )}
 
           {/* Main Kanban Board */}
-          <main id="kanban-main" className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
+          <main id="kanban-main" className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-background">
             {!isLoaded ? null : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
@@ -1797,8 +1898,8 @@ export default function FireStationDashboard() {
                 <ChevronRight className="h-4 w-4" />
               </button>
               {/* Search */}
-              <div className="px-3 pt-3 pb-2">
-                <div className="relative">
+              <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     id="material-search-input"
@@ -1813,10 +1914,22 @@ export default function FireStationDashboard() {
                     </div>
                   )}
                 </div>
+                <AvailableOnlyToggle
+                  active={materialsAvailableOnly}
+                  onToggle={() => setMaterialsAvailableOnly((v) => !v)}
+                  label={materialsAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
+                />
               </div>
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
-                {!isLoaded ? null : (
+                {!isLoaded ? null : materialsAvailableOnly && Object.keys(groupedMaterials).length === 0 ? (
+                  <div className="py-6 text-center animate-in fade-in duration-300">
+                    <p className="text-sm italic text-muted-foreground/60">{tDash('noneAvailableFiltered')}</p>
+                    <Button variant="link" size="xs" onClick={() => setMaterialsAvailableOnly(false)}>
+                      {tDash('showAll')}
+                    </Button>
+                  </div>
+                ) : (
                   <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.entries(groupedMaterials).map(([category, items]) => {
                       // Separate grouped vs ungrouped materials
@@ -1896,7 +2009,7 @@ export default function FireStationDashboard() {
             {/* Left: Primary action */}
             <div className="flex items-center gap-3">
               <Button size="sm" className="gap-2 shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
-                <Plus className="h-4 w-4" />
+                <Plus className="size-3.5" />
                 {tCommon('newIncident')}
               </Button>
 
@@ -1905,7 +2018,7 @@ export default function FireStationDashboard() {
                 <Popover open={checklistPopoverOpen} onOpenChange={setChecklistPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline" className="gap-2">
-                      <ClipboardCheck className="h-4 w-4" />
+                      <ClipboardCheck className="size-3.5" />
                       {tDash('readiness')}
                       <Badge variant="secondary" className="h-5 px-1.5 text-xs font-medium tabular-nums">
                         {checklistProgress.completed}/{checklistProgress.total}
@@ -1932,152 +2045,80 @@ export default function FireStationDashboard() {
             {/* Center: Secondary actions grouped */}
             <div className="flex items-center gap-1">
               {/* QR/Access group */}
-              <div className="flex items-center">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                    qrDialogOpen
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
-                    generateCheckInQR()
-                  }}
-                >
-                  <QrCode className="h-3.5 w-3.5" />
-                  <span className="text-xs">{tDash('checkIn')}</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                    rekoQrDialogOpen
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
-                    generateRekoDashboardQR()
-                  }}
-                >
-                  <Search className="h-3.5 w-3.5" />
-                  <span className="text-xs">{tCommon('reko')}</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                    displaySheetOpen
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
-                    generateDisplayShare()
-                  }}
-                >
-                  <MonitorDown className="h-3.5 w-3.5" />
-                  <span className="text-xs">{tDash('display')}</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                    alarmQrDialogOpen
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
-                    generateAlarmQR()
-                  }}
-                >
-                  <Siren className="h-3.5 w-3.5" />
-                  <span className="text-xs">{tDash('alarm')}</span>
-                </Button>
+              <div className="flex items-center gap-0.5">
+                <ToolbarToggle
+                  icon={QrCode}
+                  label={tDash('checkIn')}
+                  active={qrDialogOpen}
+                  onActivate={generateCheckInQR}
+                />
+                <ToolbarToggle
+                  icon={Search}
+                  label={tCommon('reko')}
+                  active={rekoQrDialogOpen}
+                  onActivate={generateRekoDashboardQR}
+                />
+                <ToolbarToggle
+                  icon={MonitorDown}
+                  label={tDash('display')}
+                  active={displaySheetOpen}
+                  onActivate={generateDisplayShare}
+                />
+                <ToolbarToggle
+                  icon={Siren}
+                  label={tDash('alarm')}
+                  active={alarmQrDialogOpen}
+                  onActivate={generateAlarmQR}
+                />
               </div>
 
               <div className="h-4 w-px bg-border mx-1" />
 
               {/* Status/Tools group */}
-              <div className="flex items-center">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                    vehicleStatusSheetOpen
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
+              <div className="flex items-center gap-0.5">
+                <ToolbarToggle
+                  icon={Truck}
+                  label={tDash('vehicles')}
+                  active={vehicleStatusSheetOpen}
+                  disabled={!selectedEvent}
+                  onActivate={() => {
                     if (!selectedEvent) return
                     setActiveFooterSheet(vehicleStatusSheetOpen ? null : 'vehicles')
                   }}
+                />
+                <ToolbarToggle
+                  icon={Waypoints}
+                  label={tDash('auftraege')}
+                  active={auftraegeSheetOpen}
                   disabled={!selectedEvent}
-                >
-                  <Truck className="h-3.5 w-3.5" />
-                  <span className="text-xs">{tDash('vehicles')}</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                    auftraegeSheetOpen
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
+                  onActivate={() => {
                     if (!selectedEvent) return
                     if (!auftraegeSheetOpen) setAuftraegeFocusGroupId(null)
                     setActiveFooterSheet(auftraegeSheetOpen ? null : 'auftraege')
                   }}
+                />
+                <ToolbarToggle
+                  icon={Printer}
+                  label={tDash('print')}
+                  active={printModalOpen}
                   disabled={!selectedEvent}
-                >
-                  <Waypoints className="h-3.5 w-3.5" />
-                  <span className="text-xs">{tDash('auftraege')}</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                    printModalOpen
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation()
+                  onActivate={() => {
                     if (!selectedEvent) return
                     setActiveFooterSheet(printModalOpen ? null : 'print')
                   }}
-                  disabled={!selectedEvent}
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span className="text-xs">{tDash('print')}</span>
-                </Button>
+                />
                 {printerEnabled && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={`gap-1.5 h-8 px-2.5 transition-colors ${
-                      thermoSheetOpen
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    onPointerDown={(e) => {
-                      e.stopPropagation()
+                  <ToolbarToggle
+                    icon={Printer}
+                    label={tDash('thermo')}
+                    active={thermoSheetOpen}
+                    disabled={!selectedEvent}
+                    title={tDash('thermoTitle')}
+                    onActivate={() => {
                       if (!selectedEvent) return
                       setActiveFooterSheet(thermoSheetOpen ? null : 'thermo')
                     }}
-                    disabled={!selectedEvent}
-                    title={tDash('thermoTitle')}
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    <span className="text-xs">{tDash('thermo')}</span>
-                  </Button>
+                  />
                 )}
               </div>
 
@@ -2085,9 +2126,9 @@ export default function FireStationDashboard() {
                 <>
                   <div className="h-4 w-px bg-border mx-1" />
                   <Link href="/training">
-                    <Button size="sm" variant="ghost" className="gap-1.5 h-8 px-2.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span className="text-xs font-medium">{tDash('trainingControl')}</span>
+                    <Button size="xs" variant="ghost" className="text-warning-foreground hover:text-warning-foreground hover:bg-warning/10">
+                      <Sparkles className="size-3.5" />
+                      <span className="font-medium">{tDash('trainingControl')}</span>
                     </Button>
                   </Link>
                 </>
@@ -2115,7 +2156,7 @@ export default function FireStationDashboard() {
                 onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
                 className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
               >
-                <Kbd className="h-5 text-[10px] px-1.5">{cmdHint}</Kbd>
+                <Kbd className="h-5 text-2xs px-1.5">{cmdHint}</Kbd>
                 <span className="hidden lg:inline">{tDash('commands')}</span>
               </button>
             </div>

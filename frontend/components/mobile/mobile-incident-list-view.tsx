@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Search, Sparkles } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -190,7 +191,7 @@ export function MobileIncidentListView({
         {isLoading ? (
           <div className="space-y-3 mt-4">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-24 rounded-lg bg-muted/50 animate-pulse" />
+              <Skeleton key={i} className="h-24" />
             ))}
           </div>
         ) : filteredOperations.length === 0 ? (

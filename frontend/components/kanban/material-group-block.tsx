@@ -72,7 +72,7 @@ export function MaterialGroupBlock({
         <span className={cn(
           "text-xs font-medium tabular-nums px-1.5 py-0.5 rounded",
           allAvailable && "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-          someAssigned && !allAssigned && "text-yellow-600 dark:text-yellow-400 bg-yellow-500/10",
+          someAssigned && !allAssigned && "text-amber-600 dark:text-amber-400 bg-amber-500/10",
           allAssigned && "text-muted-foreground bg-muted"
         )}>
           {availableCount}/{totalCount}

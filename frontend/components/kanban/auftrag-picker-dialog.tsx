@@ -92,7 +92,7 @@ export function AuftragPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[80vh] sm:max-w-md flex-col gap-4">
+      <DialogContent className="flex modal-h-tall sm:max-w-md flex-col gap-4">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -155,8 +155,8 @@ export function AuftragPickerDialog({
           </div>
         ) : (
           <div className="space-y-2">
-            <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => setCreating(true)}>
-              <Plus className="h-3.5 w-3.5" />
+            <Button variant="outline" size="sm" className="w-full" onClick={() => setCreating(true)}>
+              <Plus className="size-3.5" />
               {t("newAuftrag")}
             </Button>
             {/* Already in a route → offer to detach it entirely. */}
@@ -164,10 +164,10 @@ export function AuftragPickerDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full gap-1.5 text-destructive hover:text-destructive"
+                className="w-full text-destructive hover:text-destructive"
                 onClick={removeFromCurrent}
               >
-                <Unlink className="h-3.5 w-3.5" />
+                <Unlink className="size-3.5" />
                 {t("removeFromAuftrag")}
               </Button>
             )}

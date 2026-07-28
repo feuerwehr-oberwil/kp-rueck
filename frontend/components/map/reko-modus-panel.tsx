@@ -74,7 +74,7 @@ export function RekoModusPanel({
           {t("title")}
         </h2>
         <Button variant="ghost" size="sm" onClick={onExit}>
-          <X className="h-4 w-4" />
+          <X className="size-3.5" />
           {t("exit")}
         </Button>
       </div>
@@ -87,7 +87,7 @@ export function RekoModusPanel({
             className="self-start mb-2 -ml-2"
             onClick={() => setMarkMode(false)}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-3.5" />
             {t("back")}
           </Button>
           <MarkExistingRekoPersonnel
@@ -98,7 +98,7 @@ export function RekoModusPanel({
         </>
       ) : (
         <>
-      <div className="flex items-start gap-2 rounded-md border border-border/50 bg-secondary/30 p-2.5 mb-3 text-xs text-muted-foreground">
+      <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 mb-3 text-xs text-muted-foreground">
         <MousePointerClick className="h-4 w-4 flex-shrink-0 mt-0.5" />
         <p>
           {selectedPerson
@@ -112,7 +112,7 @@ export function RekoModusPanel({
           <User className="h-10 w-10 text-muted-foreground/50 mb-2" />
           <p className="text-sm font-medium mb-1">{t("empty")}</p>
           <Button size="sm" className="my-3" onClick={() => setMarkMode(true)}>
-            <Plus className="h-4 w-4" />
+            <Plus className="size-3.5" />
             {t("addPerson")}
           </Button>
           <p className="text-xs text-muted-foreground">{t("emptyHint")}</p>
@@ -131,7 +131,7 @@ export function RekoModusPanel({
                   "w-full flex items-center justify-between gap-2 p-3 rounded-lg border transition-all text-left",
                   isSelected
                     ? "border-primary ring-2 ring-primary/20 bg-secondary/40"
-                    : "border-border/50 hover:border-primary/50 hover:bg-secondary/30"
+                    : "border-border hover:border-primary/50 hover:bg-secondary/30"
                 )}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -168,7 +168,7 @@ export function RekoModusPanel({
             className="w-full justify-start text-muted-foreground"
             onClick={() => setMarkMode(true)}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="size-3.5" />
             {t("addPerson")}
           </Button>
         </div>

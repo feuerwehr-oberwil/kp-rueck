@@ -113,7 +113,7 @@ export function ThermoOptionsSheet({ open, onOpenChange, onPrint, isPrinting }: 
 
           <div className="flex items-center justify-end mt-4 pt-3 border-t">
             <Button size="sm" onClick={handlePrint} disabled={isPrinting}>
-              <Printer className="h-3.5 w-3.5 mr-1.5" />
+              <Printer className="size-3.5" />
               {isPrinting ? t("thermoSheet.printing") : t("common.print")}
             </Button>
           </div>

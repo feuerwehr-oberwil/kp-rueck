@@ -6,6 +6,7 @@ import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { STATUS_LABELS } from "@/lib/types/incidents"
@@ -15,6 +16,7 @@ import { translateOutsideReact } from "@/lib/i18n-messages"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
+import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
@@ -69,7 +71,7 @@ function getVehicleStatusBadge(status: string): { variant: "default" | "secondar
   switch (status) {
     case "available":
       // Subtle, desaturated green - Refactoring UI: don't use bright colors for passive states
-      return { variant: "outline", label: translateOutsideReact('incidents.vehicleStatus.available'), color: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50" }
+      return { variant: "outline", label: translateOutsideReact('incidents.vehicleStatus.available'), color: RESOURCE_STATE_BADGE_CLASSES.available }
     case "unavailable":
       return { variant: "secondary", label: translateOutsideReact('incidents.vehicleStatus.unavailable'), color: "bg-muted text-muted-foreground border-border" }
     default:
@@ -280,7 +282,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     <FooterSheet
       open={open}
       onOpenChange={onOpenChange}
-      className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4", isMobile ? "max-h-[70vh]" : "max-h-[85vh]")}
+      className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4 modal-h-tall")}
       style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
       // both roles: a Radix AlertDialog is role="alertdialog", and the vehicle-conflict prompt
       // that can appear from here is one — see the note in auftraege-sheet.tsx
@@ -296,7 +298,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
             </div>
 
             <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={loading} className="flex-shrink-0">
-              <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+              <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
               {t('vehicleStatus.refresh')}
             </Button>
           </div>
@@ -306,13 +308,13 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
           {loading ? (
             <div className="space-y-1.5">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="border rounded-lg px-3 py-2.5 bg-card animate-pulse">
+                <div key={i} className="border rounded-lg px-3 py-2.5 bg-card">
                   <div className="flex items-center gap-3">
-                    <div className="h-4 w-24 bg-muted rounded" />
-                    <div className="h-3 w-20 bg-muted rounded" />
-                    <div className="h-3 w-28 bg-muted rounded" />
-                    <div className="h-3 flex-1 bg-muted rounded" />
-                    <div className="h-6 w-20 bg-muted rounded" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-3 flex-1" />
+                    <Skeleton className="h-6 w-20" />
                   </div>
                 </div>
               ))}
@@ -368,7 +370,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           </div>
                           <div className="flex items-center gap-1.5">
                             {!vehicle.incident_id && vehicle.status === "available" && (
-                              <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
+                              <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
                                 {t('vehicleStatus.available')}
                               </Badge>
                             )}
@@ -378,12 +380,12 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                               </Badge>
                             )}
                             {vehicle.incident_id && vehicle.incident_status && (
-                              <Badge className="text-xs bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50">
+                              <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
                                 {vehicle.incident_status in STATUS_LABELS ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
                               </Badge>
                             )}
                             {showDurationWarning && (
-                              <Badge className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50">
+                              <Badge className="text-xs bg-warning/10 text-warning-foreground border-warning/30">
                                 <AlertTriangle className="h-3 w-3 mr-1" />
                                 {t('vehicleStatus.longDuration')}
                               </Badge>
@@ -482,7 +484,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         {/* Status Badges */}
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           {!vehicle.incident_id && vehicle.status === "available" && (
-                            <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50">
+                            <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
                               {t('vehicleStatus.available')}
                             </Badge>
                           )}
@@ -492,12 +494,12 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             </Badge>
                           )}
                           {vehicle.incident_id && vehicle.incident_status && (
-                            <Badge className="text-xs bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50">
+                            <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
                               {vehicle.incident_status in STATUS_LABELS ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
                             </Badge>
                           )}
                           {showDurationWarning && (
-                            <Badge className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50">
+                            <Badge className="text-xs bg-warning/10 text-warning-foreground border-warning/30">
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               {t('vehicleStatus.longDuration')}
                             </Badge>

@@ -207,16 +207,16 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
                       />
                       <span className="flex-1 truncate">{r.person.name}</span>
                       {r.isDriverRow && (
-                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                        <Badge variant="outline" className="text-2xs text-muted-foreground">
                           {t("driverBadge")}
                         </Badge>
                       )}
                       {linked ? (
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge variant="secondary" className="text-2xs">
                           {t("linked")}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="gap-1 text-[10px] text-muted-foreground">
+                        <Badge variant="outline" className="gap-1 text-2xs text-muted-foreground">
                           <Link2Off className="h-3 w-3" />
                           {t("notLinked")}
                         </Badge>
@@ -230,7 +230,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
 
           {/* Message */}
           <div className="space-y-1.5">
-            <Label htmlFor="divera-title" className="text-xs tracking-wide text-muted-foreground">
+            <Label htmlFor="divera-title" className="text-sm font-semibold text-muted-foreground">
               {t("titleLabel")}
             </Label>
             <Input
@@ -242,10 +242,10 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="divera-text" className="text-xs tracking-wide text-muted-foreground">
+              <Label htmlFor="divera-text" className="text-sm font-semibold text-muted-foreground">
                 {t("textLabel")}
               </Label>
-              <span className={`text-[11px] ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}>
+              <span className={`text-2xs ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}>
                 {text.length > 1000 ? t("charCountTruncated", { count: text.length }) : t("charCount", { count: text.length })}
               </span>
             </div>
@@ -273,9 +273,9 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
             </Button>
             <Button onClick={handleSend} disabled={isSending || selectedLinkedCount === 0 || !templatesReady}>
               {isSending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <Siren className="mr-2 h-4 w-4" />
+                <Siren className="size-4" />
               )}
               {t("send", { count: selectedLinkedCount })}
             </Button>

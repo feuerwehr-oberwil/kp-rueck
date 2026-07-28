@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { Person, Material, PersonRole } from '@/lib/contexts/operations-context'
+import { isPersonOccupied, materialResourceState } from '@/lib/resource-status'
 
 /**
  * Shared hook for filtering and grouping personnel and materials
@@ -11,15 +12,24 @@ export function useResourceFiltering(
   personnelQuery: string,
   materialQuery?: string,
   /** Group label for personnel without a role (e.g. quick-added walk-ins). */
-  roleFallbackLabel: string = 'Andere'
+  roleFallbackLabel: string = 'Andere',
+  /** Sidebar toggles: drop everything that is currently tied up. Availability is
+   *  read exactly as the cards draw it — `isPersonOccupied` counts Fahrer/Reko/
+   *  Magazin as busy, consumables always count as available. */
+  availableOnly: { personnel?: boolean; materials?: boolean } = {},
 ) {
   const effectiveMaterialQuery = materialQuery ?? personnelQuery
+  const personnelAvailableOnly = !!availableOnly.personnel
+  const materialsAvailableOnly = !!availableOnly.materials
 
   const filteredPersonnel = useMemo(
     () => {
-      if (!personnelQuery) return personnel
+      const base = personnelAvailableOnly
+        ? personnel.filter((p) => !isPersonOccupied(p))
+        : personnel
+      if (!personnelQuery) return base
       const q = personnelQuery.toLowerCase()
-      return personnel.filter((p) =>
+      return base.filter((p) =>
         p.name.toLowerCase().includes(q) ||
         // role is null for quick-added people — don't crash the search
         (!!p.role && p.role.toLowerCase().includes(q)) ||
@@ -30,19 +40,22 @@ export function useResourceFiltering(
         (p.tags && p.tags.some(t => t.toLowerCase().includes(q)))
       )
     },
-    [personnel, personnelQuery]
+    [personnel, personnelQuery, personnelAvailableOnly]
   )
 
   const filteredMaterials = useMemo(
     () => {
-      if (!effectiveMaterialQuery) return materials
+      const base = materialsAvailableOnly
+        ? materials.filter((m) => materialResourceState(m) === 'available')
+        : materials
+      if (!effectiveMaterialQuery) return base
       const q = effectiveMaterialQuery.toLowerCase()
-      return materials.filter((m) =>
+      return base.filter((m) =>
         m.name.toLowerCase().includes(q) ||
         m.category.toLowerCase().includes(q)
       )
     },
-    [materials, effectiveMaterialQuery]
+    [materials, effectiveMaterialQuery, materialsAvailableOnly]
   )
 
   const groupedPersonnel = useMemo(

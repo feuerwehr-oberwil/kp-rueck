@@ -294,7 +294,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
           <DemoLock active={demoMode} className="space-y-4">
           <div className="flex justify-end">
             <Button onClick={handleOpenCreate}>
-              <PlusCircle className="mr-2 h-4 w-4" />
+              <PlusCircle className="size-4" />
               {t('materials.addButton')}
             </Button>
             <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
@@ -311,7 +311,9 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t('common.name')}</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-muted-foreground">
+                            {t('common.name')} <span className="text-destructive" aria-hidden="true">*</span>
+                          </FormLabel>
                           <FormControl>
                             <Input
                               {...field}
@@ -328,7 +330,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                       name="type"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t('common.type')}</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-muted-foreground">{t('common.type')}</FormLabel>
                           <div className="flex gap-2">
                             <FormControl>
                               <Input
@@ -371,7 +373,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                       name="location"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t('common.location')}</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-muted-foreground">{t('common.location')}</FormLabel>
                           <div className="flex gap-2">
                             <FormControl>
                               <Input
@@ -414,7 +416,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                       name="status"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t('common.status')}</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-muted-foreground">{t('common.status')}</FormLabel>
                           <Select value={field.value} onValueChange={field.onChange}>
                             <FormControl>
                               <SelectTrigger>
@@ -460,7 +462,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                         {t('common.cancel')}
                       </Button>
                       <Button type="submit" disabled={isSaving}>
-                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isSaving && <Loader2 className="size-4 animate-spin" />}
                         {editingMaterial ? t('common.update') : t('common.create')}
                       </Button>
                     </DialogFooter>
@@ -530,14 +532,15 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                       size="sm"
                       onClick={() => handleEdit(material)}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="size-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteClick(material)}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      <Trash2 className="size-3.5" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -679,7 +682,7 @@ function MaterialGroupSettings({
           {t('materials.groups.intro')}
         </p>
         <Button onClick={handleOpenCreate} size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" />
+          <PlusCircle className="size-3.5" />
           {t('materials.groups.createButton')}
         </Button>
       </div>
@@ -715,10 +718,15 @@ function MaterialGroupSettings({
                 </TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(group)}>
-                    <Edit className="h-4 w-4" />
+                    <Edit className="size-3.5" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setGroupToDelete(group); setDeleteDialogOpen(true); }}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setGroupToDelete(group); setDeleteDialogOpen(true); }}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
                   </Button>
                 </TableCell>
               </TableRow>
@@ -728,13 +736,15 @@ function MaterialGroupSettings({
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col" aria-describedby={undefined}>
+        <DialogContent className="max-w-lg modal-h-tall flex flex-col" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{editingGroup ? t('materials.groups.dialogEditTitle') : t('materials.groups.dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 flex-1 overflow-y-auto">
             <div className="space-y-1.5">
-              <Label htmlFor="group-name">{t('common.name')}</Label>
+              <Label htmlFor="group-name" className="text-sm font-semibold text-muted-foreground">
+                {t('common.name')} <span className="text-destructive" aria-hidden="true">*</span>
+              </Label>
               <Input
                 id="group-name"
                 value={groupName}
@@ -743,7 +753,7 @@ function MaterialGroupSettings({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="group-location">{t('common.location')}</Label>
+              <Label htmlFor="group-location" className="text-sm font-semibold text-muted-foreground">{t('common.location')}</Label>
               <Select
                 value={groupLocation}
                 onValueChange={(value) => setGroupLocation(value)}
@@ -759,7 +769,7 @@ function MaterialGroupSettings({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>{t('materials.groups.selectMaterials')}</Label>
+              <Label className="text-sm font-semibold text-muted-foreground">{t('materials.groups.selectMaterials')}</Label>
               <div className="mt-2 space-y-1 max-h-[250px] overflow-y-auto border rounded-md p-2">
                 {availableMaterials.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">{t('materials.groups.noAvailableMaterials')}</p>
@@ -786,7 +796,7 @@ function MaterialGroupSettings({
           <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={isSaving || !groupName.trim()}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <Loader2 className="size-4 animate-spin" />}
               {editingGroup ? t('common.update') : t('common.create')}
             </Button>
           </DialogFooter>

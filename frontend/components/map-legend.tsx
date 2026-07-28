@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { Truck, ChevronDown, Info } from "lucide-react"
-import { PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 
@@ -172,7 +172,7 @@ export function MapLegend({
             <span className="text-xs">{t('common.online')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gray-500 border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" role="img" aria-label={t('legend.vehicleOffline')}>
+            <div className="w-6 h-6 rounded border-2 border-white shadow-sm flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: MAP_COLORS.offline }} role="img" aria-label={t('legend.vehicleOffline')}>
               <Truck className="w-4 h-4 text-white" aria-hidden="true" />
             </div>
             <span className="text-xs">{t('common.offline')}</span>

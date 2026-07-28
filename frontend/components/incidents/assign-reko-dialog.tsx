@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search, User, Loader2, Binoculars, ArrowLeft, MapPin } from "lucide-react"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
@@ -50,13 +51,13 @@ export function MarkExistingRekoPersonnel({
     <div className={cn("flex flex-col", className ?? "h-[300px]")}>
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
+        <Input
           autoFocus
           type="text"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder={t('markSearchPlaceholder')}
-          className="w-full h-9 pl-9 pr-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="pl-9 pr-3"
         />
       </div>
       {candidates.length === 0 ? (
@@ -76,7 +77,7 @@ export function MarkExistingRekoPersonnel({
                 onClick={() => handleSelect(person)}
                 disabled={marking !== null}
                 className={cn(
-                  "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left hover:border-primary/50 hover:bg-secondary/30",
+                  "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left hover:border-primary/50 hover:bg-secondary/30",
                   marking === person.id && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -264,7 +265,7 @@ export function AssignRekoDialog({
                   {t('emptyTitle')}
                 </p>
                 <Button onClick={() => setMarkMode(true)} className="mb-3">
-                  <Binoculars className="h-4 w-4" />
+                  <Binoculars className="size-4" />
                   {t('markExisting')}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center max-w-xs">
@@ -287,7 +288,7 @@ export function AssignRekoDialog({
                         "w-full p-3 rounded-lg border transition-all text-left",
                         isCurrentlyAssigned
                           ? "border-success bg-success/10 cursor-default"
-                          : "border-border/50 hover:border-primary/50 hover:bg-secondary/30",
+                          : "border-border hover:border-primary/50 hover:bg-secondary/30",
                         assigning === person.personnel_id && "opacity-50 cursor-not-allowed"
                       )}
                     >
@@ -302,7 +303,7 @@ export function AssignRekoDialog({
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm truncate">{person.name}</p>
                               {isRecommended && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/50 text-primary flex-shrink-0">
+                                <Badge variant="outline" className="text-2xs px-1.5 py-0 border-primary/50 text-primary flex-shrink-0">
                                   {t('recommended')}
                                 </Badge>
                               )}
@@ -338,7 +339,7 @@ export function AssignRekoDialog({
                               </p>
                               {person.distance_m !== null && (
                                 <p
-                                  className="text-[11px] text-muted-foreground whitespace-nowrap"
+                                  className="text-2xs text-muted-foreground whitespace-nowrap"
                                   title={person.distance_source === 'last' ? t('distanceLastTooltip') : t('distanceOpenTooltip')}
                                 >
                                   ≈ {formatDistance(person.distance_m)}
@@ -359,7 +360,7 @@ export function AssignRekoDialog({
                             return (
                             <span
                               key={assignment.incident_id}
-                              className="inline-flex items-center gap-1 max-w-[180px] rounded bg-secondary/60 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                              className="inline-flex items-center gap-1 max-w-[180px] rounded bg-secondary/60 px-1.5 py-0.5 text-2xs text-muted-foreground"
                               title={chipLabel}
                             >
                               <MapPin className="h-3 w-3 flex-shrink-0" />
@@ -370,7 +371,7 @@ export function AssignRekoDialog({
                             )
                           })}
                           {openChips.length > 3 && (
-                            <span className="text-[11px] text-muted-foreground">
+                            <span className="text-2xs text-muted-foreground">
                               +{openChips.length - 3}
                             </span>
                           )}
@@ -388,7 +389,7 @@ export function AssignRekoDialog({
           <div className="flex justify-between pt-2">
             {markMode ? (
               <Button variant="ghost" onClick={() => setMarkMode(false)}>
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="size-4" />
                 {t('back')}
               </Button>
             ) : <span />}

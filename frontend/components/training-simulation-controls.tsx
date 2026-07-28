@@ -300,7 +300,7 @@ export function TrainingSimulationControls() {
                       key={op.id}
                       className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
                         due
-                          ? 'border-amber-400/70 bg-amber-50/60 dark:bg-amber-950/30'
+                          ? 'border-warning/70 bg-warning/10'
                           : anyRolling
                             ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/30'
                             : 'border-border'
@@ -349,7 +349,7 @@ export function TrainingSimulationControls() {
                             className="flex-shrink-0"
                             title={due && isPrimary ? t('recommendedAction') : undefined}
                           >
-                            <Icon className="mr-1.5 h-3.5 w-3.5" />
+                            <Icon className="size-3.5" />
                             {action.label}
                             {busy && <span className="ml-1.5 text-xs opacity-70">…</span>}
                           </Button>
@@ -365,7 +365,7 @@ export function TrainingSimulationControls() {
                             className="flex-shrink-0 px-2"
                             title={t('injectTitle')}
                           >
-                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                            <AlertTriangle className="size-3.5 text-amber-600" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -383,7 +383,7 @@ export function TrainingSimulationControls() {
                             onClick={() => handleInject(op, 'breakdown')}
                             disabled={op.vehicles.length === 0}
                           >
-                            <Wrench className="mr-2 h-4 w-4 text-zinc-500" />
+                            <Wrench className="mr-2 h-4 w-4 text-muted-foreground" />
                             {t('injectBreakdown')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -437,7 +437,7 @@ export function TrainingSimulationControls() {
               size="sm"
               className="flex-1"
             >
-              <Users className="mr-2 h-4 w-4" />
+              <Users className="size-3.5" />
               {isCheckingIn ? t('checkingIn') : t('checkin')}
             </Button>
           </div>

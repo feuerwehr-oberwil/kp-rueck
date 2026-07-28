@@ -150,15 +150,15 @@ export default function PrintableMap({ operations }: PrintableMapProps) {
       {/* Legend */}
       <div className="flex justify-center gap-4 mt-1 text-[10px]">
         <div className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-full bg-red-500 border border-white"></span>
+          <span className="inline-block w-3 h-3 rounded-full border border-white" style={{ backgroundColor: PRIORITY_MARKER_COLORS.high }}></span>
           <span>{t("legendHigh")}</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-full bg-yellow-500 border border-white"></span>
+          <span className="inline-block w-3 h-3 rounded-full border border-white" style={{ backgroundColor: PRIORITY_MARKER_COLORS.medium }}></span>
           <span>{t("legendMedium")}</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-full bg-green-500 border border-white"></span>
+          <span className="inline-block w-3 h-3 rounded-full border border-white" style={{ backgroundColor: PRIORITY_MARKER_COLORS.low }}></span>
           <span>{t("legendLow")}</span>
         </div>
       </div>

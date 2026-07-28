@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
+import { RESOURCE_STATE_ICON_CLASSES, isPersonOccupied } from "@/lib/resource-status"
 import { Car, Binoculars, Package2, Check, Minus, AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
@@ -89,10 +90,10 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
 
   const specialFunctionBadges = renderSpecialFunctionBadges()
   const isDoubleBooked = (assignmentCount ?? 0) > 1
-  // "Occupied" = on an incident (assigned) OR tied up in a special function.
-  // Drivers/reko stay draggable, so without this they read as free — surface it
-  // clearly (amber status icon + left accent) so nobody gets double-booked unseen.
-  const isOccupied = person.status === "assigned" || person.isReko || person.isDriver || person.isMagazin
+  // "Occupied" = on an incident OR tied up in a special function. Drivers/reko
+  // stay draggable, so without this they read as free. Shared with the sidebar's
+  // "nur verfügbare" filter so the filter and this icon can never disagree.
+  const isOccupied = isPersonOccupied(person)
 
   return (
     <PersonContextMenu
@@ -103,24 +104,26 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
         ref={ref}
         onClick={onClick}
         role={canDrag ? "button" : undefined}
+        title={person.name}
         aria-grabbed={isDragging}
         aria-label={canDrag ? `Drag ${person.name} to assign to incident` : undefined}
         className={cn(
-          "border border-border/50 bg-card/80 backdrop-blur-sm px-3 py-2 gap-0 transition-all hover:bg-muted/50 hover:border-border",
+          "group border border-border/50 bg-card/80 backdrop-blur-sm px-3 py-2 gap-0 transition-all hover:bg-muted/50 hover:border-border",
           canDrag && "draggable",
           isDragging && "dragging",
           isDragging && person.isDriver && "ring-2 ring-blue-500/50",
-          // Assigned reko personnel: subtle visual distinction but still draggable
-          // Use border and background colors instead of opacity for WCAG contrast compliance
-          canDrag && person.isReko && person.status === "assigned" && "bg-muted/30 border-border/30",
-          // Non-reko assigned personnel: clear visual indication they're not draggable
-          !canDrag && person.status === "assigned" && "cursor-not-allowed opacity-60",
+          // Every card keeps the SAME surface — same border, same fill. State is
+          // carried by the status icon (amber minus = in use, emerald check =
+          // available) and the badges, never by fading or tinting the card.
+          // Earlier variants used `opacity-60`, `bg-muted/30` and `border-border/30`
+          // for the assigned/reko cases; side by side in one column that read as
+          // "some cards have a border and some don't", which is worse than the
+          // small amount of information the tint carried.
+          !canDrag && person.status === "assigned" && "cursor-not-allowed",
           !canDrag && person.status !== "assigned" && "cursor-pointer",
-          // Double-booked: warn-colored border so operators see the conflict before tooltip
+          // Double-booked is the one exception: a genuine conflict the operator
+          // has to catch, so it still gets a ring.
           isDoubleBooked && "border-warning/70 ring-1 ring-warning/30",
-          // Occupied-but-still-draggable (drivers/reko): amber left accent so their
-          // busy state is visible at a glance, not just via a subtle badge.
-          isOccupied && canDrag && !isDoubleBooked && "border-l-2 border-l-amber-500/60",
         )}
       >
         <div className="flex flex-col gap-2">
@@ -130,7 +133,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
               <div
                 className={cn(
                   "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
-                  isOccupied ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
+                  RESOURCE_STATE_ICON_CLASSES[isOccupied ? "assigned" : "available"],
                 )}
                 aria-label={isOccupied ? t('common.inUse') : t('common.available')}
                 title={isOccupied ? t('common.inUse') : t('common.available')}
@@ -142,7 +145,13 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
                 )}
               </div>
 
-              <span className="font-medium text-sm text-foreground truncate">{person.name}</span>
+              {/* The sidebar is narrow enough that longer names truncate. On
+                  hover the name wraps to its full length instead of relying on
+                  the browser's title tooltip, which only appears after a second
+                  and is easy to miss while scanning. */}
+              <span className="font-medium text-sm text-foreground truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words">
+                {person.name}
+              </span>
             </div>
 
             {/* Tags */}
@@ -150,7 +159,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
               {isDoubleBooked && (
                 <Badge
                   variant="outline"
-                  className="text-xs font-medium px-1.5 py-0 gap-1 border-warning/60 text-warning"
+                  className="text-xs font-medium px-1.5 py-0 gap-1 border-warning/60 text-warning-foreground"
                   title={t('person.doubleBookedTooltip', { count: assignmentCount ?? 0 })}
                 >
                   <AlertTriangle className="h-3 w-3" />

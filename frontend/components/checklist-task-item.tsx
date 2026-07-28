@@ -20,7 +20,7 @@ const priorityConfig = {
   },
   recommended: {
     badgeVariant: 'secondary' as const,
-    borderClass: 'border-yellow-200 dark:border-yellow-800'
+    borderClass: 'border-warning/30'
   },
   optional: {
     badgeVariant: 'outline' as const,
@@ -88,7 +88,7 @@ export function ChecklistTaskItem({ task, onComplete }: ChecklistTaskItemProps) 
                   asChild
                 >
                   <Link href={action.href}>
-                    <action.icon className="h-4 w-4 mr-2" />
+                    <action.icon className="size-3.5" />
                     {action.label}
                   </Link>
                 </Button>
@@ -99,7 +99,7 @@ export function ChecklistTaskItem({ task, onComplete }: ChecklistTaskItemProps) 
                   size="sm"
                   onClick={action.onClick}
                 >
-                  <action.icon className="h-4 w-4 mr-2" />
+                  <action.icon className="size-3.5" />
                   {action.label}
                 </Button>
               )

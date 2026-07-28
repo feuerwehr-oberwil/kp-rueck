@@ -192,7 +192,7 @@ export function MobileIncidentDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="h-[85vh] overflow-y-auto px-4"
+        className="modal-h-tall overflow-y-auto px-4"
         style={{
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
         }}
@@ -297,8 +297,8 @@ export function MobileIncidentDetailSheet({
           {operation.rekoSummary?.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                <span className="font-semibold text-warning text-sm">{t('mobileDetail.dangers')}</span>
+                <AlertTriangle className="h-4 w-4 text-warning-foreground" />
+                <span className="font-semibold text-warning-foreground text-sm">{t('mobileDetail.dangers')}</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {operation.rekoSummary.dangerTypes.map((danger, idx) => (
@@ -370,12 +370,12 @@ export function MobileIncidentDetailSheet({
             </div>
 
             {/* Materials */}
-            {operation.materials.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{t('mobileDetail.materials', { count: operation.materials.length })}</span>
-                </div>
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{t('mobileDetail.materials', { count: operation.materials.length })}</span>
+              </div>
+              {operation.materials.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {operation.materials.map((matId) => (
                     <Badge key={matId} variant="outline" className="text-sm">
@@ -383,8 +383,10 @@ export function MobileIncidentDetailSheet({
                     </Badge>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('mobileDetail.noMaterials')}</p>
+              )}
+            </div>
           </div>
 
           <Separator />
@@ -437,7 +439,7 @@ export function MobileIncidentDetailSheet({
           {/* Action buttons */}
           <div className="flex flex-col gap-2 pt-2">
             <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
-              <Button variant="outline" className="w-full h-12 gap-2">
+              <Button variant="outline" size="lg" className="w-full gap-2">
                 <MapIcon className="h-4 w-4" />
                 {t('mobileDetail.showOnMap')}
               </Button>
@@ -447,7 +449,8 @@ export function MobileIncidentDetailSheet({
               variant="outline"
               onClick={handleCopyWhatsApp}
               disabled={isCopyingWhatsApp}
-              className="w-full h-12 gap-2"
+              size="lg"
+              className="w-full gap-2"
             >
               <MessageCircle className="h-4 w-4" />
               {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}

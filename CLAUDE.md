@@ -324,7 +324,9 @@ open http://localhost:8080
 ## Design Context
 
 ### Users
-Firefighting command post operators (KP Rück) managing active incidents in high-stress environments. They coordinate personnel, vehicles, and materials in real-time from a command post – often on tablets or large screens. Speed, clarity, and zero-confusion are critical. This tool replaces a physical magnet board, so spatial familiarity and at-a-glance readability matter.
+Firefighting command post operators (KP Rück) managing active incidents in high-stress environments. They coordinate personnel, vehicles, and materials in real-time from a command post – **on a desktop with mouse and keyboard**. Speed, clarity, and zero-confusion are critical. This tool replaces a physical magnet board, so spatial familiarity and at-a-glance readability matter.
+
+**Tablets are KP Front's brief, not this one.** Do not size KP Rück's UI around touch targets; a phone is used for *viewing* (and for spawning training incidents), never for running the board. Sizing decisions follow from this – see the button size scale in `frontend/components/ui/button.tsx`.
 
 ### Brand Personality
 **Reliable, Clear, Calm.** The interface should feel like a trusted instrument – professional, dependable, and composed under pressure. It communicates competence without being flashy. Swiss precision meets emergency readiness.
@@ -345,4 +347,4 @@ Firefighting command post operators (KP Rück) managing active incidents in high
 2. **Calm under pressure** – The UI must remain composed during high-stress moments. Avoid visual noise, unnecessary motion, or attention-competing elements. Reserve animation for meaningful state changes.
 3. **Density with order** – Pack information tightly but with clear structure. Use consistent spacing, alignment, and grouping so operators can scan fast without feeling overwhelmed.
 4. **Instant comprehension** – Status, priority, and assignments must be understood at a glance. Use color, position, and iconography systematically – never rely on color alone.
-5. **Touch-ready, keyboard-fast** – Work equally well on a command-post tablet and a desktop with keyboard shortcuts. Generous touch targets on mobile, power-user shortcuts on desktop.
+5. **Keyboard-fast, mouse-precise** – The board is operated from a desktop: power-user shortcuts, dense targets, no touch compromises. The phone layout is read-only enough that it can stay generous without holding the desktop back.

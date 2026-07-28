@@ -488,7 +488,7 @@ export function OperationDetailContent({
               </Label>
               {auftrag && (
                 <span
-                  className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                  className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
                   title={t('detail.viaAuftrag', { name: auftrag.name })}
                 >
                   <Waypoints className="h-3 w-3" />
@@ -507,31 +507,31 @@ export function OperationDetailContent({
                 <div className="flex flex-wrap justify-end gap-1">
                 {canEdit && assignedRekoPerson && (
                   <Button
-                    size="sm"
+                    size="xs"
                     variant="ghost"
                     onClick={() => setRekoTransferDialogOpen(true)}
-                    className="h-7 px-2 gap-1"
+                    className="px-2"
                     title={t('detail.eventWideRekoTransferTooltip')}
                   >
-                    <ArrowRightLeft className="h-3 w-3" />
+                    <ArrowRightLeft className="size-3.5" />
                     {t('detail.eventWideRekoTransfer')}
                   </Button>
                 )}
                 {canEdit && <Button
-                  size="sm"
+                  size="xs"
                   variant="ghost"
                   onClick={() => setRekoDialogOpen(true)}
-                  className="h-7 px-2 gap-1"
+                  className="px-2"
                   tabIndex={0}
                 >
                   {assignedRekoPersonnel ? (
                     <>
-                      <ArrowRightLeft className="h-3 w-3" />
+                      <ArrowRightLeft className="size-3.5" />
                       {t('common.switch')}
                     </>
                   ) : (
                     <>
-                      <Plus className="h-3 w-3" />
+                      <Plus className="size-3.5" />
                       {t('common.assign')}
                     </>
                   )}
@@ -553,14 +553,14 @@ export function OperationDetailContent({
                       variant="outline"
                       onClick={handleCopyDirectRekoLink}
                       disabled={isCopyingRekoLink}
-                      className="h-8 px-3 gap-1.5 text-sm flex-1"
+                      className="h-8 px-3 text-sm flex-1"
                     >
                       {isCopyingRekoLink ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="size-3.5 animate-spin" />
                       ) : rekoCopied === 'direct' ? (
-                        <Check className="h-3 w-3 text-success" />
+                        <Check className="size-3.5 text-success" />
                       ) : (
-                        <Link2 className="h-3 w-3" />
+                        <Link2 className="size-3.5" />
                       )}
                       {t('common.directLink')}
                     </Button>
@@ -569,12 +569,12 @@ export function OperationDetailContent({
                       variant="outline"
                       onClick={handleCopyDashboardLink}
                       disabled={isCopyingRekoLink}
-                      className="h-8 px-3 gap-1.5 text-sm flex-1"
+                      className="h-8 px-3 text-sm flex-1"
                     >
                       {rekoCopied === 'dashboard' ? (
-                        <Check className="h-3 w-3 text-success" />
+                        <Check className="size-3.5 text-success" />
                       ) : (
-                        <LayoutDashboard className="h-3 w-3" />
+                        <LayoutDashboard className="size-3.5" />
                       )}
                       {t('common.dashboard')}
                     </Button>
@@ -610,14 +610,14 @@ export function OperationDetailContent({
                 </div>
                 {canEdit && onAssignResource && (
                   <Button
-                    size="sm"
+                    size="xs"
                     variant="ghost"
                     onClick={() => onAssignResource('crew', operation.id)}
-                    className="h-7 px-2 gap-1"
+                    className="px-2"
                     title={t('common.assignCrew')}
                     tabIndex={0}
                   >
-                    <Plus className="h-3 w-3" />
+                    <Plus className="size-3.5" />
                     {t('common.add')}
                   </Button>
                 )}
@@ -656,12 +656,12 @@ export function OperationDetailContent({
                     <PopoverTrigger asChild>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 gap-1"
+                        size="xs"
+                        className="px-2"
                         title={t('common.assignVehicle')}
                         tabIndex={0}
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="size-3.5" />
                         {t('common.add')}
                       </Button>
                     </PopoverTrigger>
@@ -794,14 +794,14 @@ export function OperationDetailContent({
                 </div>
                 {canEdit && onAssignResource && (
                   <Button
-                    size="sm"
+                    size="xs"
                     variant="ghost"
                     onClick={() => onAssignResource('materials', operation.id)}
-                    className="h-7 px-2 gap-1"
+                    className="px-2"
                     title={t('common.assignMaterial')}
                     tabIndex={0}
                   >
-                    <Plus className="h-3 w-3" />
+                    <Plus className="size-3.5" />
                     {t('common.add')}
                   </Button>
                 )}
@@ -870,11 +870,10 @@ export function OperationDetailContent({
                   return (
                     <Button
                       key={col.id}
-                      size="sm"
+                      size="xs"
                       variant={isCurrent ? "default" : "outline"}
                       disabled={isCurrent}
                       onClick={() => onChangeStatus(operation.id, col.status[0])}
-                      className="h-7 px-2.5 text-xs"
                     >
                       {t(`columns.${col.id}`)}
                     </Button>
@@ -896,7 +895,7 @@ export function OperationDetailContent({
             onClick={handleCopyWhatsApp}
             disabled={isCopyingWhatsApp}
           >
-            <MessageCircle className="h-4 w-4" />
+            <MessageCircle className="size-3.5" />
             {isCopyingWhatsApp ? t('common.copying') : t('detail.copyWhatsapp')}
           </Button>
           {canEdit && diveraEnabled && onSendDivera && operation && (
@@ -906,7 +905,7 @@ export function OperationDetailContent({
               onClick={() => onSendDivera(operation)}
               className="border border-border"
             >
-              <Siren className="h-4 w-4" />
+              <Siren className="size-3.5" />
               {t('detail.diveraAlarm')}
             </Button>
           )}
@@ -916,7 +915,7 @@ export function OperationDetailContent({
             onClick={handleOpenTransfer}
             className="border border-border"
           >
-            <ArrowRightLeft className="h-4 w-4" />
+            <ArrowRightLeft className="size-3.5" />
             {t('common.transferResources')}
           </Button>}
           {canEdit && onDistributeToAuftrag && operation && (
@@ -926,7 +925,7 @@ export function OperationDetailContent({
               onClick={() => onDistributeToAuftrag(operation.id)}
               className="border border-border"
             >
-              <Waypoints className="h-4 w-4" />
+              <Waypoints className="size-3.5" />
               {t('common.distributeToAuftrag')}
             </Button>
           )}
@@ -937,7 +936,7 @@ export function OperationDetailContent({
               onClick={() => setShowDeleteConfirm(true)}
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="size-3.5" />
               {t('common.delete')}
             </Button>
           </div>}

@@ -128,7 +128,7 @@ export function RoutenplanungPanel({
           <h2 className="text-lg font-bold">{t("title")}</h2>
         </div>
         <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={onExit}>
-          <X className="h-4 w-4" />
+          <X className="size-3.5" />
           {t("exit")}
         </Button>
       </div>
@@ -142,8 +142,8 @@ export function RoutenplanungPanel({
             // No Aufträge yet: an empty picker is a dead end — offer creation
             // directly (editors) or say why there's nothing to pick (viewers).
             canEdit ? (
-              <Button size="sm" variant="outline" className="h-9 flex-1" onClick={startCreate}>
-                <Plus className="h-4 w-4" />
+              <Button size="sm" variant="outline" className="flex-1" onClick={startCreate}>
+                <Plus className="size-3.5" />
                 {t("newAuftrag")}
               </Button>
             ) : (
@@ -178,7 +178,7 @@ export function RoutenplanungPanel({
                     onClick={startCreate}
                     aria-label={t("newAuftrag")}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{t("newAuftrag")}</TooltipContent>
@@ -288,7 +288,7 @@ export function RoutenplanungPanel({
                       "flex min-h-10 w-full items-center gap-2 rounded-md border border-dashed px-1.5 py-1.5 text-sm transition-colors",
                       addMode
                         ? "border-primary/50 bg-primary/[0.06] text-foreground"
-                        : "border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                        : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                     )}
                   >
                     {isAddingStop ? <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" /> : <MousePointerClick className="h-3.5 w-3.5 flex-shrink-0" />}

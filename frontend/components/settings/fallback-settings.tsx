@@ -182,7 +182,7 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
           {autoPrint && (
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <Label htmlFor="fallback-interval" className="font-medium">{t('fallback.intervalLabel')}</Label>
+                <Label htmlFor="fallback-interval" className="text-sm font-semibold text-muted-foreground">{t('fallback.intervalLabel')}</Label>
                 <p className="text-xs text-muted-foreground">{t('fallback.intervalHint')}</p>
               </div>
               <div className="flex-shrink-0 w-24">
@@ -222,7 +222,7 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
         {autoDownload && (
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="fallback-download-interval" className="font-medium">{t('fallback.autoDownloadIntervalLabel')}</Label>
+              <Label htmlFor="fallback-download-interval" className="text-sm font-semibold text-muted-foreground">{t('fallback.autoDownloadIntervalLabel')}</Label>
               <p className="text-xs text-muted-foreground">{t('fallback.autoDownloadIntervalHint')}</p>
             </div>
             <div className="flex-shrink-0 w-24">

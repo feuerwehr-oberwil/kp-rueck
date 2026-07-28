@@ -96,9 +96,10 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken, isNameTaken }: 
         <Button
           onClick={() => setShowAddForm(true)}
           variant="outline"
-          className="w-full h-12"
+          size="lg"
+          className="w-full"
         >
-          <UserPlus className="h-5 w-5 mr-2" />
+          <UserPlus className="size-4" />
           {t('addNewPerson')}
         </Button>
       ) : (
@@ -120,7 +121,7 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken, isNameTaken }: 
             <Button
               onClick={addNewPerson}
               disabled={!newPersonName.trim() || addingPerson}
-              className="flex-1 h-11"
+              className="flex-1"
             >
               {addingPerson ? t('adding') : t('add')}
             </Button>
@@ -130,7 +131,7 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken, isNameTaken }: 
                 setNewPersonName('')
               }}
               variant="outline"
-              className="flex-1 h-11"
+              className="flex-1"
             >
               {tCommon('cancel')}
             </Button>

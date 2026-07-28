@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -61,6 +63,7 @@ export function UserSettings() {
   });
   const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<{ username?: string; password?: string }>({});
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -81,8 +84,11 @@ export function UserSettings() {
   }, []);
 
   const handleCreate = async () => {
-    if (!formData.username || !formData.password) {
-      toast.error(t('users.toasts.requiredFields'));
+    const errors: { username?: string; password?: string } = {};
+    if (!formData.username) errors.username = t('users.errors.usernameRequired');
+    if (!formData.password) errors.password = t('users.errors.passwordRequired');
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
     setSubmitting(true);
@@ -184,6 +190,12 @@ export function UserSettings() {
     }
   };
 
+  const openCreateDialog = () => {
+    setFormData({ username: '', password: '', role: 'editor', display_name: '' });
+    setFormErrors({});
+    setCreateDialogOpen(true);
+  };
+
   const openEditDialog = (user: ApiUser) => {
     setSelectedUser(user);
     setFormData({
@@ -228,10 +240,10 @@ export function UserSettings() {
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="flex items-center gap-4">
-              <div className="h-10 w-10 bg-muted animate-pulse rounded-full" />
+              <Skeleton className="h-10 w-10 rounded-full" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-                <div className="h-3 w-48 bg-muted animate-pulse rounded" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
               </div>
             </div>
           ))}
@@ -253,8 +265,8 @@ export function UserSettings() {
     <div className="space-y-4">
       {/* Header with Create Button */}
       <div className="flex justify-end">
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+        <Button onClick={openCreateDialog}>
+          <Plus className="size-4" />
           {t('users.newUser')}
         </Button>
       </div>
@@ -266,7 +278,7 @@ export function UserSettings() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                  user.role === 'admin' ? 'bg-warning/10 text-warning' : 'bg-info/10 text-info'
+                  user.role === 'admin' ? 'bg-warning/10 text-warning-foreground' : 'bg-info/10 text-info'
                 }`}>
                   {user.role === 'admin' ? (
                     <Shield className="h-5 w-5" />
@@ -303,7 +315,7 @@ export function UserSettings() {
                     onClick={() => openEditDialog(user)}
                     title={t('users.editTooltip')}
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil className="size-4" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -311,7 +323,7 @@ export function UserSettings() {
                     onClick={() => openPasswordDialog(user)}
                     title={t('users.resetPasswordTitle')}
                   >
-                    <Key className="h-4 w-4" />
+                    <Key className="size-4" />
                   </Button>
                   {user.id !== currentUser?.id && user.is_active && (
                     <Button
@@ -319,9 +331,9 @@ export function UserSettings() {
                       size="icon"
                       onClick={() => openDeleteDialog(user)}
                       title={t('users.deactivateAction')}
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <UserX className="h-4 w-4" />
+                      <UserX className="size-4" />
                     </Button>
                   )}
                   {!user.is_active && (
@@ -334,16 +346,16 @@ export function UserSettings() {
                         className="text-success hover:text-success"
                         disabled={submitting}
                       >
-                        <UserCheck className="h-4 w-4" />
+                        <UserCheck className="size-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => openPermanentDeleteDialog(user)}
                         title={t('users.permanentDeleteAction')}
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="size-4" />
                       </Button>
                     </>
                   )}
@@ -365,16 +377,28 @@ export function UserSettings() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="username">{t('users.usernameLabel')}</Label>
+              <Label htmlFor="username" className="text-sm font-semibold text-muted-foreground">
+                {t('users.usernameLabel')} <span className="text-destructive" aria-hidden="true">*</span>
+              </Label>
               <Input
                 id="username"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, username: e.target.value });
+                  if (formErrors.username) setFormErrors({ ...formErrors, username: undefined });
+                }}
                 placeholder={t('users.usernamePlaceholder')}
+                aria-invalid={!!formErrors.username}
+                className={cn(formErrors.username && 'border-destructive')}
               />
+              {formErrors.username && (
+                <p className="text-xs text-destructive">{formErrors.username}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="display_name">{t('users.displayNameLabel')}</Label>
+              <Label htmlFor="display_name" className="text-sm font-semibold text-muted-foreground">
+                {t('users.displayNameLabel')}
+              </Label>
               <Input
                 id="display_name"
                 value={formData.display_name}
@@ -383,16 +407,28 @@ export function UserSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t('users.passwordLabel')}</Label>
+              <Label htmlFor="password" className="text-sm font-semibold text-muted-foreground">
+                {t('users.passwordLabel')} <span className="text-destructive" aria-hidden="true">*</span>
+              </Label>
               <Input
                 id="password"
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, password: e.target.value });
+                  if (formErrors.password) setFormErrors({ ...formErrors, password: undefined });
+                }}
+                aria-invalid={!!formErrors.password}
+                className={cn(formErrors.password && 'border-destructive')}
               />
+              {formErrors.password && (
+                <p className="text-xs text-destructive">{formErrors.password}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role">{t('users.roleLabel')}</Label>
+              <Label htmlFor="role" className="text-sm font-semibold text-muted-foreground">
+                {t('users.roleLabel')}
+              </Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
@@ -416,7 +452,7 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={submitting}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && <Loader2 className="size-4 animate-spin" />}
               {t('common.create')}
             </Button>
           </DialogFooter>
@@ -434,7 +470,9 @@ export function UserSettings() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit_username">{t('users.usernameLabel')}</Label>
+              <Label htmlFor="edit_username" className="text-sm font-semibold text-muted-foreground">
+                {t('users.usernameLabel')}
+              </Label>
               <Input
                 id="edit_username"
                 value={formData.username}
@@ -442,7 +480,9 @@ export function UserSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit_display_name">{t('users.displayNameLabel')}</Label>
+              <Label htmlFor="edit_display_name" className="text-sm font-semibold text-muted-foreground">
+                {t('users.displayNameLabel')}
+              </Label>
               <Input
                 id="edit_display_name"
                 value={formData.display_name}
@@ -450,7 +490,9 @@ export function UserSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit_role">{t('users.roleLabel')}</Label>
+              <Label htmlFor="edit_role" className="text-sm font-semibold text-muted-foreground">
+                {t('users.roleLabel')}
+              </Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
@@ -477,7 +519,7 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleUpdate} disabled={submitting}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && <Loader2 className="size-4 animate-spin" />}
               {t('common.save')}
             </Button>
           </DialogFooter>
@@ -495,7 +537,9 @@ export function UserSettings() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="new_password">{t('users.newPasswordLabel')}</Label>
+              <Label htmlFor="new_password" className="text-sm font-semibold text-muted-foreground">
+                {t('users.newPasswordLabel')}
+              </Label>
               <Input
                 id="new_password"
                 type="password"
@@ -510,7 +554,7 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleResetPassword} disabled={submitting || !newPassword}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && <Loader2 className="size-4 animate-spin" />}
               {t('users.setPassword')}
             </Button>
           </DialogFooter>

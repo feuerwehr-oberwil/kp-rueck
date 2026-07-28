@@ -69,7 +69,7 @@ describe("MaterialSettings", () => {
 
     await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Tauchpumpe");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Tauchpumpe");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
     await waitFor(() => expect(createMaterialResource).toHaveBeenCalledTimes(1));
@@ -102,7 +102,7 @@ describe("MaterialSettings", () => {
 
     await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Halffilled");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Halffilled");
     await user.click(within(dialog).getByRole("button", { name: /Abbrechen/i }));
 
     expect(await screen.findByText(/Ungespeicherte Änderungen/i)).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe("MaterialSettings", () => {
 
     await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Flatterband");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Flatterband");
 
     const consumableSwitch = within(dialog).getByRole("switch");
     await user.click(consumableSwitch);

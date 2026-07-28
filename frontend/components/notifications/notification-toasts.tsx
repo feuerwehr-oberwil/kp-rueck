@@ -193,7 +193,7 @@ export function NotificationToasts() {
           closeButton: 'bg-black/5 border-0 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20',
           success: 'bg-success/10 text-success border-success/30',
           error: 'bg-destructive/10 text-destructive border-destructive/30',
-          warning: 'bg-warning/10 text-warning border-warning/30',
+          warning: 'bg-warning/10 text-warning-foreground border-warning/30',
           info: 'bg-info/10 text-info border-info/30',
         },
       }}

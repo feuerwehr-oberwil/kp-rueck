@@ -14,7 +14,7 @@ import { columns, getTimeSince } from "@/lib/kanban-utils"
 import { telHref } from "@/lib/phone"
 import { rekoPhotoUrl } from "@/lib/reko-photos"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
-import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
+import { PRIORITY_ICONS, PRIORITY_LABELS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import {
   Clock, Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
   MessageSquare, Building2, Timer, Footprints, FileCheck, Waypoints, Binoculars,
@@ -23,14 +23,14 @@ import {
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// Icons/labels from the shared priority module; only the tailwind tint is local.
+// Icons/labels/colors all sourced from the shared priority module.
 export const priorityVisuals: Record<
   Operation["priority"],
   { Icon: LucideIcon; label: string; iconColor: string }
 > = {
-  high: { Icon: PRIORITY_ICONS.high, label: PRIORITY_LABELS.high, iconColor: "text-red-500" },
-  medium: { Icon: PRIORITY_ICONS.medium, label: PRIORITY_LABELS.medium, iconColor: "text-amber-500" },
-  low: { Icon: PRIORITY_ICONS.low, label: PRIORITY_LABELS.low, iconColor: "text-green-600 dark:text-green-500" },
+  high: { Icon: PRIORITY_ICONS.high, label: PRIORITY_LABELS.high, iconColor: PRIORITY_TEXT_CLASSES.high },
+  medium: { Icon: PRIORITY_ICONS.medium, label: PRIORITY_LABELS.medium, iconColor: PRIORITY_TEXT_CLASSES.medium },
+  low: { Icon: PRIORITY_ICONS.low, label: PRIORITY_LABELS.low, iconColor: PRIORITY_TEXT_CLASSES.low },
 }
 
 /**
@@ -91,7 +91,7 @@ export function IncidentDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" aria-describedby={undefined}>
+      <DialogContent className="max-w-2xl modal-h-tall overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PriorityIcon
@@ -142,7 +142,7 @@ export function IncidentDetailModal({
               </Badge>
             )}
             {operation.amWarten && (
-              <Badge variant="outline" className="gap-1 border-yellow-500/50 text-yellow-600 dark:text-yellow-400">
+              <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600 dark:text-amber-400">
                 <Timer className="h-3 w-3" /> {t('board.amWarten')}
               </Badge>
             )}
@@ -156,7 +156,7 @@ export function IncidentDetailModal({
           {/* Auftrag (route) — read-only: name, this stop's position, and the
               route-owned resource roll-up (resources live on the route, not the stop). */}
           {auftrag && (
-            <div className="space-y-1.5 rounded-md border border-border/60 p-3">
+            <div className="space-y-1.5 rounded-md border border-border p-3">
               <div className="flex items-center gap-2">
                 <Waypoints className="h-4 w-4 flex-shrink-0" style={{ color: auftrag.color ?? "var(--muted-foreground)" }} />
                 <span className="text-sm font-bold uppercase tracking-wide" style={{ color: auftrag.color ?? "var(--muted-foreground)" }}>
@@ -378,7 +378,7 @@ export function IncidentDetailModal({
                 </p>
                 {operation.rekoSummary.hasDangers && (
                   <div className="flex items-start gap-1.5">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                     <span>{t('board.dangers', { types: operation.rekoSummary.dangerTypes.join(", ") })}</span>
                   </div>
                 )}

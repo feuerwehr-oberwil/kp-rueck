@@ -272,8 +272,8 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
               {completedTasks}/{tasks.length}
             </span>
             <Progress value={progressPercent} className="h-2 w-20" />
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDismiss}>
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="icon-xs" onClick={onDismiss} aria-label={t('dismiss')}>
+              <X className="size-3.5" />
             </Button>
           </div>
         </div>
@@ -336,9 +336,9 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
-                          <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                          <MessageCircle className="size-3.5" />
                           {t('whatsappSend')}
-                          <ChevronDown className="h-3.5 w-3.5 ml-1.5 opacity-60" />
+                          <ChevronDown className="size-3.5 opacity-60" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-64">
@@ -362,12 +362,12 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
                     >
                       {action.href ? (
                         <a href={action.href}>
-                          <ActionIcon className="h-3.5 w-3.5 mr-1.5" />
+                          <ActionIcon className="size-3.5" />
                           {action.label}
                         </a>
                       ) : (
                         <>
-                          <ActionIcon className="h-3.5 w-3.5 mr-1.5" />
+                          <ActionIcon className="size-3.5" />
                           {action.label}
                         </>
                       )}

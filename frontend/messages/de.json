@@ -179,7 +179,8 @@
       "lageblattA4": "Lageblatt (A4)",
       "commands": "Befehle & Tastaturkürzel",
       "help": "Hilfe",
-      "logout": "Abmelden"
+      "logout": "Abmelden",
+      "openMenu": "Benutzermenü öffnen"
     },
     "mobileNav": {
       "openMenu": "Menu öffnen",
@@ -354,6 +355,9 @@
       "allEvents": "Alle Ereignisse",
       "personnelSearch": "Personal suchen...",
       "materialSearch": "Material suchen...",
+      "showAvailableOnly": "Nur Verfügbare zeigen",
+      "showAll": "Alle zeigen",
+      "noneAvailableFiltered": "Nichts verfügbar",
       "sort": {
         "button": "Sortieren",
         "label": "Spalte sortieren",
@@ -700,7 +704,8 @@
       "repeatRadioPreview": "Noch nicht durchgegeben – so würde sie jetzt lauten.",
       "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stop. Die Durchsage entsteht mit dem ersten.",
       "repeatRadioCopy": "Text kopieren",
-      "repeatRadioCopied": "Funkdurchsage kopiert"
+      "repeatRadioCopied": "Funkdurchsage kopiert",
+      "moreOptions": "Weitere Optionen"
     },
     "closedStop": {
       "title": "Einsatz ist abgeschlossen",
@@ -1035,6 +1040,7 @@
       "crew": "Mannschaft ({count})",
       "noCrew": "Keine Mannschaft zugewiesen",
       "materials": "Material ({count})",
+      "noMaterials": "Kein Material zugewiesen",
       "contact": "Kontakt / Melder",
       "contactPlaceholder": "Kontakt hinzufügen...",
       "noContact": "Kein Kontakt",
@@ -1646,6 +1652,10 @@
         "admin": "Admin",
         "editor": "Bearbeiter",
         "viewer": "Betrachter"
+      },
+      "errors": {
+        "usernameRequired": "Benutzername ist erforderlich",
+        "passwordRequired": "Passwort ist erforderlich"
       },
       "toasts": {
         "requiredFields": "Benutzername und Passwort sind erforderlich",
@@ -2390,9 +2400,8 @@
       "generateSingle": "Einzelne Einsätze generieren",
       "normal": "Normal",
       "critical": "Kritisch",
-      "phoneAlarm": "Telefon-Alarm",
-      "diveraAlarm": "Alarmeingang",
-      "generateHint": "Normal: Wasser, Sturm, Baum | Kritisch: Brand, BMA, Personenrettung | Telefon: simuliert eine Meldung über den Alarm-Link | Alarmeingang: landet im Pool — der Operator übernimmt ihn dort (echter Alarmierungs-Weg)",
+      "phoneAlarm": "Telefon",
+      "generateHint": "Normal: Wasser, Sturm, Baum | Kritisch: Brand, BMA, Personenrettung | Telefon: simuliert eine Meldung über den Alarm-Link",
       "targetedDispatch": "Gezielter Einsatz",
       "scenarioPlaceholder": "Szenario wählen...",
       "scenarioLoading": "Lade Szenarien...",
@@ -2410,9 +2419,6 @@
       "toastGenerateFailed": "Einsatz konnte nicht generiert werden",
       "toastPhoneGenerated": "Telefon-Alarm generiert",
       "toastPhoneFailed": "Telefon-Alarm konnte nicht generiert werden",
-      "toastDiveraInPool": "Alarm im Alarmeingang",
-      "toastDiveraDescription": "{title} — Übernahme macht der Operator über den Alarmeingang.",
-      "toastDiveraFailed": "Alarm konnte nicht simuliert werden",
       "toastDispatched": "Einsatz ausgelöst",
       "toastDispatchFailed": "Einsatz konnte nicht ausgelöst werden",
       "toastBurstGenerated": "{count} Einsätze generiert",
@@ -2424,10 +2430,7 @@
       "toggleAria": "Automatik ein/aus",
       "intervalLabel": "Intervall (Min.)",
       "maxLabel": "Max. Einsätze",
-      "alarmPath": "Alarmweg",
-      "modeBoard": "Direkt aufs Board",
-      "modeDivera": "Über den Alarmeingang (echter Alarmierungs-Weg)",
-      "hint": "Wirkt auf die neueste aktive Übung. In den ersten 30 Minuten läuft die Generierung mit doppeltem Tempo (heisse Phase). \"Über den Alarmeingang\" lässt Alarme im Pool eingehen — der Operator übernimmt sie dort wie im Ernstfall.",
+      "hint": "Wirkt auf die neueste aktive Übung. In den ersten 30 Minuten läuft die Generierung mit doppeltem Tempo (heisse Phase).",
       "stop": "Automatik stoppen",
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "started": "Automatik gestartet",
@@ -2533,7 +2536,9 @@
       "conflictBufferHint": "Lokale Änderungen gewinnen bei gleichen Zeitstempeln",
       "secondsUnit": "Sek",
       "saving": "Speichert...",
-      "saveChanges": "Änderungen speichern"
+      "saveChanges": "Änderungen speichern",
+      "showPassword": "Passwort anzeigen",
+      "hidePassword": "Passwort verbergen"
     },
     "history": {
       "loadFailed": "Fehler beim Laden des Synchronisations-Verlaufs",
@@ -2559,7 +2564,9 @@
         "vehicles": "Fahrzeuge",
         "materials": "Materialien",
         "settings": "Einstellungen"
-      }
+      },
+      "expandRow": "Details anzeigen",
+      "collapseRow": "Details ausblenden"
     },
     "status": {
       "syncingFrom": "Synchronisiere von Railway...",
@@ -2676,7 +2683,8 @@
       "rekoTitle": "Reko-Dashboard",
       "rekoSubtitle": "Reko-Personal sieht Zuweisungen und füllt Formulare aus — ohne Anmeldung.",
       "alarmTitle": "Alarm-Link",
-      "alarmSubtitle": "Neue Alarme erfassen (Telefon/Walk-in) — ohne Anmeldung."
+      "alarmSubtitle": "Neue Alarme erfassen (Telefon/Walk-in) — ohne Anmeldung.",
+      "dismiss": "Checkliste ausblenden"
     },
     "priority": {
       "critical": "Erforderlich",
@@ -2786,10 +2794,10 @@
       "submitError": "Der Alarm konnte nicht übermittelt werden. Bitte erneut versuchen.",
       "title": "Alarm erfassen",
       "trainingMode": "Übungsmodus",
-      "messageLabel": "Meldung *",
+      "messageLabel": "Meldung",
       "messagePlaceholder": "z. B. Brennt im Keller, starke Rauchentwicklung",
-      "priorityLabel": "Priorität *",
-      "typeLabel": "Einsatzart *",
+      "priorityLabel": "Priorität",
+      "typeLabel": "Einsatzart",
       "typeSearchPlaceholder": "Einsatzart suchen...",
       "typeNotFound": "Keine Einsatzart gefunden.",
       "hintsLabel": "Weitere Hinweise",

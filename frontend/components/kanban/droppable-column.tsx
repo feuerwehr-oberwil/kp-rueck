@@ -256,12 +256,11 @@ export const DroppableColumn = memo(function DroppableColumn({
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon-sm"
-                    className="min-h-7 min-w-7"
+                    size="icon-xs"
                     title={tDash('sort.label')}
                     aria-label={`${columnTitle}: ${tDash('sort.label')}`}
                   >
-                    <ArrowUpDown className="h-4 w-4" />
+                    <ArrowUpDown className="size-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

@@ -163,11 +163,15 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
                     <Fragment key={entry.id}>
                       <TableRow className="cursor-pointer" onClick={() => toggleRow(entry.id)}>
                         <TableCell>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={isExpanded ? t('collapseRow') : t('expandRow')}
+                          >
                             {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
+                              <ChevronUp className="size-3.5" />
                             ) : (
-                              <ChevronDown className="h-4 w-4" />
+                              <ChevronDown className="size-3.5" />
                             )}
                           </Button>
                         </TableCell>

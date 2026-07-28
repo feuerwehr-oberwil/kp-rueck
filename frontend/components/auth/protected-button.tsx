@@ -92,7 +92,7 @@ export function ProtectedButton({
           onClick={handleLockedClick}
         >
           <Lock
-            className={`h-4 w-4 mr-1 ${wiggle ? 'animate-wiggle' : ''}`}
+            className={`size-4 ${wiggle ? 'animate-wiggle' : ''}`}
           />
           {children}
         </Button>

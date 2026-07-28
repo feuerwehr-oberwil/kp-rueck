@@ -10,7 +10,7 @@ import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-da
 import { ageLevel, columns, getTimeSince } from "@/lib/kanban-utils"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
-import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { RESOURCE_STATE_DOT_CLASSES, materialResourceState, personResourceState } from "@/lib/resource-status"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { type Operation } from "@/lib/contexts/operations-context"
@@ -300,7 +300,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
                 badge={
                   <span className={cn(
                     "shrink-0 text-[10px] xl:text-xs tabular-nums",
-                    free === 0 ? "font-semibold text-amber-600 dark:text-amber-500" : "text-muted-foreground",
+                    free === 0 ? cn("font-semibold", PRIORITY_TEXT_CLASSES.medium) : "text-muted-foreground",
                   )}>
                     {t('freeOfTotal', { free, total: people.length })}
                   </span>
@@ -339,7 +339,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
                 badge={
                   <span className={cn(
                     "shrink-0 text-[10px] xl:text-xs tabular-nums",
-                    free === 0 ? "font-semibold text-amber-600 dark:text-amber-500" : "text-muted-foreground",
+                    free === 0 ? cn("font-semibold", PRIORITY_TEXT_CLASSES.medium) : "text-muted-foreground",
                   )}>
                     {t('freeOfTotal', { free, total: items.length })}
                   </span>

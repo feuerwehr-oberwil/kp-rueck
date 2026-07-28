@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, User, CheckCircle, Circle, Loader2, X, AlertTriangle, UserPlus, Plus } from "lucide-react"
+import { Search, User, CheckCircle, Circle, Loader2, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
@@ -412,12 +412,12 @@ export function DriverAssignmentDialog({
                   size="sm"
                   onClick={() => setRemoveDialogOpen(true)}
                   disabled={isAssigning}
-                  className="cursor-pointer text-muted-foreground hover:text-foreground"
+                  className="cursor-pointer text-destructive hover:bg-destructive/10"
                 >
                   {isAssigning ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="size-3.5 animate-spin" />
                   ) : (
-                    <X className="h-4 w-4" />
+                    <Trash2 className="size-3.5" />
                   )}
                 </Button>
               </div>
@@ -468,9 +468,9 @@ export function DriverAssignmentDialog({
                     size="sm"
                   >
                     {isAddingPerson ? (
-                      <><Loader2 className="mr-1 h-4 w-4 animate-spin" />{t('adding')}</>
+                      <><Loader2 className="size-3.5 animate-spin" />{t('adding')}</>
                     ) : (
-                      <><Plus className="mr-1 h-4 w-4" />{t('addAndAssign')}</>
+                      <><Plus className="size-3.5" />{t('addAndAssign')}</>
                     )}
                   </Button>
                   <Button
@@ -506,7 +506,7 @@ export function DriverAssignmentDialog({
                           onClick={() => !isCurrentDriver && handleAssignDriver(person)}
                           disabled={isAssigning || isCurrentDriver}
                           className={cn(
-                            "w-full flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
+                            "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left",
                             !isCurrentDriver && "cursor-pointer hover:border-primary/50 hover:bg-secondary/30",
                             isCurrentDriver && "opacity-50 cursor-not-allowed"
                           )}
@@ -529,13 +529,13 @@ export function DriverAssignmentDialog({
                           </div>
                           <div className="flex items-center gap-2">
                             {drivingOtherVehicle && !isCurrentDriver && (
-                              <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                              <Badge variant="outline" className="text-xs gap-1 text-warning-foreground border-warning/30">
                                 <AlertTriangle className="h-3 w-3" />
                                 {t('drivesVehicle', { vehicle: drivingOtherVehicle.name })}
                               </Badge>
                             )}
                             {hasIncidentConflict && (
-                              <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                              <Badge variant="outline" className="text-xs gap-1 text-warning-foreground border-warning/30">
                                 <AlertTriangle className="h-3 w-3" />
                                 {t('inOperation')}
                               </Badge>
@@ -568,7 +568,7 @@ export function DriverAssignmentDialog({
                             onClick={() => !isCurrentDriver && handleAssignDriver(person)}
                             disabled={isAssigning || isCurrentDriver}
                             className={cn(
-                              "flex-1 min-w-0 flex items-center justify-between p-3 rounded-lg border border-border/50 transition-all text-left",
+                              "flex-1 min-w-0 flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left",
                               !isCurrentDriver && "cursor-pointer hover:border-primary/50 hover:bg-secondary/30",
                               isCurrentDriver && "opacity-50 cursor-not-allowed"
                             )}
@@ -591,13 +591,13 @@ export function DriverAssignmentDialog({
                             </div>
                             <div className="flex items-center gap-2">
                               {drivingOtherVehicle && !isCurrentDriver && (
-                                <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                                <Badge variant="outline" className="text-xs gap-1 text-warning-foreground border-warning/30">
                                   <AlertTriangle className="h-3 w-3" />
                                   {t('drivesVehicle', { vehicle: drivingOtherVehicle.name })}
                                 </Badge>
                               )}
                               {hasIncidentConflict && (
-                                <Badge variant="outline" className="text-xs gap-1 text-amber-500 border-amber-500/30">
+                                <Badge variant="outline" className="text-xs gap-1 text-warning-foreground border-warning/30">
                                   <AlertTriangle className="h-3 w-3" />
                                   {t('inOperation')}
                                 </Badge>
@@ -616,9 +616,9 @@ export function DriverAssignmentDialog({
                               aria-label={t('markAsDriver')}
                               disabled={isAssigning}
                               onClick={() => markAsDriver(person)}
-                              className="flex-shrink-0 h-9 px-2 text-muted-foreground hover:text-primary"
+                              className="flex-shrink-0 px-2 text-muted-foreground hover:text-primary"
                             >
-                              <UserPlus className="h-4 w-4" />
+                              <UserPlus className="size-3.5" />
                             </Button>
                           )}
                         </div>

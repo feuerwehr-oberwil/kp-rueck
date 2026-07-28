@@ -159,6 +159,12 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* The micro tier. Replaces ~49 hand-written text-[10px]/text-[11px]:
+     one named step for card captions, chips and timestamps. 11px is the
+     floor — below that, nothing on the board stays readable. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
   /* Semantic feedback colors */
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
@@ -261,12 +267,28 @@
 
 /* Micro-interactions for KP Rück */
 @layer utilities {
+  /* Modal height scale. Two steps, not the eight ad-hoc vh values this
+     replaced: `compact` for confirming something, `tall` for picking from a
+     list or working on a map. dvh, not vh — with vh the mobile address bar
+     pushes the footer buttons out of reach. */
+  .modal-h-compact {
+    max-height: 70dvh;
+  }
+
+  .modal-h-tall {
+    max-height: 88dvh;
+  }
+
   /* Drag-and-Drop Visual Affordances */
 
   /* Draggable item base state */
+  /* Cursor and hover feedback only. This used to also set
+     `border-2 border-transparent`, which silently overrode the border of every
+     draggable card — so draggable items looked border-less while the
+     non-draggable ones next to them kept theirs. The border belongs to the
+     card, not to the drag affordance. */
   .draggable {
     @apply cursor-grab hover:bg-muted/50 transition-all;
-    @apply border-2 border-transparent hover:border-border;
   }
 
   /* Active drag state */

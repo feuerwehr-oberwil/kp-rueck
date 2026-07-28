@@ -59,8 +59,13 @@ export function RemovableChip({
             e.stopPropagation()
             onRemove()
           }}
-          className={cn(REMOVE_BUTTON_VISIBILITY, removeButtonClassName)}
+          className={cn(
+            "inline-flex items-center justify-center min-h-[24px] min-w-[24px] -mr-1 rounded-sm",
+            REMOVE_BUTTON_VISIBILITY,
+            removeButtonClassName
+          )}
           title={removeTitle}
+          aria-label={removeTitle}
           tabIndex={removeTabIndex}
         >
           <X className={removeIconClassName} />

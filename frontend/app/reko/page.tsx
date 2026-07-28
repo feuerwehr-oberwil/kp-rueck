@@ -28,7 +28,7 @@ export default function RekoPage() {
           onClick={handleBack}
           className="mb-4 -ml-3"
         >
-          <ArrowLeft className="h-4 w-4 mr-1" />
+          <ArrowLeft className="size-3.5" />
           {t('back')}
         </Button>
 

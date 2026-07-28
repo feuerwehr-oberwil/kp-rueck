@@ -61,6 +61,7 @@ export function SidePanel({
             size="icon"
             onClick={() => onModeChange('detail')}
             className="fixed right-4 top-24 z-40 h-10 w-10 rounded-full border border-border shadow-lg"
+            aria-label={t('sidePanel.togglePanel')}
           >
             <PanelRight className="h-5 w-5" />
           </Button>
@@ -78,7 +79,7 @@ export function SidePanel({
             variant={mode === 'detail' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => onModeChange('detail')}
-            className="gap-1.5 px-3"
+            className="px-3"
           >
             <FileText className="h-4 w-4" />
             {t('sidePanel.details')}
@@ -87,7 +88,7 @@ export function SidePanel({
             variant={mode === 'map' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => onModeChange('map')}
-            className="gap-1.5 px-3"
+            className="px-3"
           >
             <MapIcon className="h-4 w-4" />
             {t('sidePanel.map')}
@@ -95,7 +96,7 @@ export function SidePanel({
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => onModeChange('collapsed')}>
+            <Button variant="ghost" size="icon" onClick={() => onModeChange('collapsed')} aria-label={t('sidePanel.togglePanel')}>
               <PanelRightClose className="h-5 w-5" />
             </Button>
           </TooltipTrigger>

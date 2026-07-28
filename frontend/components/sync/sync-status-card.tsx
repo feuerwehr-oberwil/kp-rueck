@@ -237,9 +237,9 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
                 className="flex-shrink-0"
               >
                 {copied ? (
-                  <Check className="h-4 w-4 text-success" />
+                  <Check className="size-3.5 text-success" />
                 ) : (
-                  <Copy className="h-4 w-4" />
+                  <Copy className="size-3.5" />
                 )}
               </Button>
             </div>
@@ -252,12 +252,11 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
             variant="outline"
             onClick={handleSyncFromRailway}
             disabled={isSyncing || !status?.railway_healthy || isLoading || config?.is_production}
-            className="flex items-center gap-2 disabled:opacity-50"
           >
             {isSyncing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="size-4" />
             )}
             {t('syncFromButton')}
           </Button>
@@ -267,12 +266,11 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
               variant="default"
               onClick={handleSyncToRailway}
               disabled={isSyncing || isLoading || config?.is_production}
-              className="flex items-center gap-2 disabled:opacity-50"
             >
               {isSyncing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <ArrowUp className="h-4 w-4" />
+                <ArrowUp className="size-4" />
               )}
               {t('syncToButton')}
             </Button>

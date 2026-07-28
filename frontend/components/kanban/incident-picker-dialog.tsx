@@ -308,7 +308,7 @@ export function IncidentPickerDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {/* Top-anchored + fixed-height body so toggling Liste ⇄ Karte never moves
           or resizes the dialog (both modes share the same h-[440px] body). */}
-      <DialogContent className="top-[8vh] flex max-h-[84vh] max-w-xl translate-y-0 flex-col gap-4">
+      <DialogContent className="top-[8vh] flex modal-h-tall max-w-xl translate-y-0 flex-col gap-4">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -376,7 +376,7 @@ export function IncidentPickerDialog({
                 red and a route colour both say "belongs somewhere", grey says
                 "belongs nowhere", and nothing on screen said which was which. */}
             {locatedCandidates.length > 0 && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-0.5 text-[11px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-0.5 text-2xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ backgroundColor: "#ef4444" }} />
                   {t("legendSelected")}
@@ -420,7 +420,7 @@ export function IncidentPickerDialog({
                       </span>
                       {otherGroup && (
                         <span
-                          className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                          className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
                           title={t("inRoute", { name: otherGroup.name })}
                         >
                           <span
@@ -447,13 +447,12 @@ export function IncidentPickerDialog({
             <Button
               variant="ghost"
               size="sm"
-              className="gap-1.5"
               onClick={() => {
                 handleOpenChange(false)
                 onCreateNew()
               }}
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="size-3.5" />
               {t("createNew")}
             </Button>
           ) : (

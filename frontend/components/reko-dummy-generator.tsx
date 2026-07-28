@@ -16,7 +16,7 @@ export function RekoDummyGenerator({ isTraining, onGenerate }: RekoDummyGenerato
   }
 
   return (
-    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+    <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-medium text-sm">{t('title')}</h3>
@@ -25,7 +25,7 @@ export function RekoDummyGenerator({ isTraining, onGenerate }: RekoDummyGenerato
           </p>
         </div>
         <Button onClick={onGenerate} variant="outline" size="sm">
-          <Wand2 className="mr-2 h-4 w-4" />
+          <Wand2 className="size-3.5" />
           {t('fill')}
         </Button>
       </div>

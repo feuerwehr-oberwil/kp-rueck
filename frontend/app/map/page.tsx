@@ -969,7 +969,7 @@ export default function MapPage() {
                       onSelect={(e) => { e.preventDefault(); setShowLabels(!showLabels) }}
                     >
                       <span className="flex-1">{t('page.labels')}</span>
-                      {!isMobile && <Kbd className="text-[10px]">L</Kbd>}
+                      {!isMobile && <Kbd className="text-2xs">L</Kbd>}
                     </DropdownMenuCheckboxItem>
                     {/* Both are drawn from vehicle GPS — without it they are dead
                         switches, so they only exist when GPS does. */}
@@ -980,7 +980,7 @@ export default function MapPage() {
                           onSelect={(e) => { e.preventDefault(); setShowAssignmentLines(!showAssignmentLines) }}
                         >
                           <span className="flex-1">{t('page.lines')}</span>
-                          {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
+                          {!isMobile && <Kbd className="text-2xs">I</Kbd>}
                         </DropdownMenuCheckboxItem>
                         <DropdownMenuCheckboxItem
                           checked={showDistances}

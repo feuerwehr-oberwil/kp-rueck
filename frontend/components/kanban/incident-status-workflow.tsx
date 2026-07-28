@@ -473,7 +473,7 @@ export function IncidentStatusWorkflowDialogs({
                     >
                       {filled
                         ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
-                        : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning" />}
+                        : <AlertCircle className="h-4 w-4 flex-shrink-0 text-warning-foreground" />}
                       <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium">{tRes(key)}</div>
@@ -520,7 +520,7 @@ export function IncidentStatusWorkflowDialogs({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Footprints className="h-5 w-5 text-warning" />
+              <Footprints className="h-5 w-5 text-warning-foreground" />
               {tReturning("title")}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -635,10 +635,10 @@ export function IncidentStatusWorkflowDialogs({
                   <div key={materialId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                     <span className="min-w-0 flex-1 truncate text-sm font-medium" title={name}>{name}</span>
                     <div className="flex flex-shrink-0 gap-1">
-                      <Button size="sm" variant={choice === "magazin" ? "default" : "outline"} className="h-7 px-2 text-xs" onClick={() => controller.setMaterialDecision(materialId, "magazin")}>
+                      <Button size="xs" variant={choice === "magazin" ? "default" : "outline"} onClick={() => controller.setMaterialDecision(materialId, "magazin")}>
                         {tMat("toMagazinShort")}
                       </Button>
-                      <Button size="sm" variant={choice === "vorort" ? "default" : "outline"} className="h-7 px-2 text-xs" onClick={() => controller.setMaterialDecision(materialId, "vorort")}>
+                      <Button size="xs" variant={choice === "vorort" ? "default" : "outline"} onClick={() => controller.setMaterialDecision(materialId, "vorort")}>
                         {tMat("onSiteShort")}
                       </Button>
                     </div>

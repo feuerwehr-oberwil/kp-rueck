@@ -294,7 +294,7 @@ export function LocationInput({
                 <span className="truncate">
                   {address || t('locationInput.addressPlaceholder')}
                 </span>
-                <MapPin className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                <MapPin className="ml-2 size-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[500px] p-0" align="start">
@@ -386,7 +386,7 @@ export function LocationInput({
             title={t('locationInput.pickOnMap')}
             tabIndex={-1}
           >
-            <Map className="h-4 w-4" />
+            <Map className="size-4" />
           </Button>
 
           {/* Show Coordinates Button - excluded from tab order for cleaner form navigation */}
@@ -399,7 +399,7 @@ export function LocationInput({
             title={t('locationInput.enterCoordinates')}
             tabIndex={-1}
           >
-            <Navigation className="h-4 w-4" />
+            <Navigation className="size-4" />
           </Button>
         </div>
       </div>
@@ -434,9 +434,9 @@ export function LocationInput({
                 onChange={(e) => handleCoordinatePaste(e.target.value)}
                 placeholder={t('locationInput.coordinatesPlaceholder')}
                 disabled={disabled || !showCoordinates}
+                aria-invalid={!!coordinateError}
                 className={cn(
-                  coordinateError && "border-red-500",
-                  coordinateWarning && "border-yellow-500"
+                  coordinateWarning && !coordinateError && "border-warning"
                 )}
               />
 
@@ -451,7 +451,7 @@ export function LocationInput({
                   title={t('locationInput.swapLatLng')}
                   tabIndex={-1}
                 >
-                  <ArrowUpDown className="h-4 w-4" />
+                  <ArrowUpDown className="size-4" />
                 </Button>
               )}
 
@@ -466,21 +466,21 @@ export function LocationInput({
                   title={t('locationInput.clearLocation')}
                   tabIndex={-1}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="size-4" />
                 </Button>
               )}
             </div>
 
             {/* Feedback Messages */}
             {coordinateError && (
-              <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400">
+              <div className="flex items-start gap-2 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 <span>{coordinateError}</span>
               </div>
             )}
 
             {coordinateWarning && !coordinateError && (
-              <div className="flex items-start gap-2 text-sm text-yellow-600 dark:text-yellow-400">
+              <div className="flex items-start gap-2 text-sm text-warning-foreground">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 <span>{coordinateWarning}</span>
               </div>

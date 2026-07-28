@@ -97,7 +97,7 @@ export function RouteOptimizeMenu({
           aria-label={optimizeLabel}
           className={className}
         >
-          <Wand2 className="h-3.5 w-3.5" />
+          <Wand2 className="size-3.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="z-[70]">

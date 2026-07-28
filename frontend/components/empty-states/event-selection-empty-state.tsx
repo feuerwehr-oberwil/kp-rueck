@@ -39,20 +39,20 @@ export function EventSelectionEmptyState() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Button
               size="lg"
-              className="gap-2 min-h-[52px] hover-delight"
+              className="min-h-[52px] hover-delight"
               onClick={() => router.push('/events?action=create')}
             >
-              <Calendar className="h-5 w-5" />
+              <Calendar className="size-4" />
               {t('emptyState.createButton')}
             </Button>
             <Button
               size="lg"
               variant="outline"
-              className="gap-2 min-h-[52px] hover-delight"
+              className="min-h-[52px] hover-delight"
               onClick={() => router.push('/events')}
             >
               {t('emptyState.viewButton')}
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="size-4" />
             </Button>
           </div>
         </CardContent>

@@ -238,7 +238,7 @@ export function AuftraegeSheet({
           hideCloseButton={!isMobile}
           overlayOffset={isMobile ? undefined : footerOffset}
           nonModal={!isMobile}
-          className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4", isMobile ? "max-h-[75vh]" : "max-h-[85vh]")}
+          className="flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall"
           style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
           onPointerDownOutside={(e) => {
             // A sonner toast is portalled outside this non-modal sheet, so clicking
@@ -271,8 +271,8 @@ export function AuftraegeSheet({
                 <SheetTitle>{t("title")}</SheetTitle>
                 <SheetDescription>{t("description")}</SheetDescription>
               </div>
-              {canEdit && <Button size="sm" variant="outline" onClick={startCreate} className="flex-shrink-0 gap-1.5">
-                <Plus className="h-4 w-4" />
+              {canEdit && <Button size="sm" variant="outline" onClick={startCreate} className="flex-shrink-0">
+                <Plus className="size-3.5" />
                 {t("newAuftrag")}
               </Button>}
             </div>
@@ -514,7 +514,7 @@ function AuftragCard({
       // coloured left accent. Its inner sub-sections are borderless peers, so the
       // primary visual split is always between Aufträge, not within one.
       className={cn(
-        "rounded-lg border border-l-[3px] bg-card shadow-sm transition-colors",
+        "rounded-lg border border-l-[3px] bg-card transition-colors",
         isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
       )}
       style={{ borderLeftColor: group.color ?? "var(--border)" }}
@@ -583,10 +583,10 @@ function AuftragCard({
                   className="h-7 max-w-xs"
                 />
               ) : (
-                <span className="font-semibold text-sm truncate block">{group.name}</span>
+                <span className="font-semibold text-sm truncate block" title={group.name}>{group.name}</span>
               )}
             </div>
-            <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">{squadSummary}</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]" title={squadSummary}>{squadSummary}</span>
             <span className="text-xs font-medium tabular-nums text-muted-foreground flex-shrink-0">
               {t("progress", { done, total })}
             </span>
@@ -594,8 +594,8 @@ function AuftragCard({
             {canEdit && <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <MoreHorizontal className="h-4 w-4" />
+                  <Button variant="ghost" size="icon-xs" aria-label={t("moreOptions")}>
+                    <MoreHorizontal className="size-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -626,7 +626,7 @@ function AuftragCard({
                     <Radio className="mr-2 h-4 w-4" />
                     {t("repeatRadio")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
+                  <DropdownMenuItem variant="destructive" onClick={onRequestDelete}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     {t("delete")}
                   </DropdownMenuItem>
@@ -654,7 +654,7 @@ function AuftragCard({
             {t("repeatRadio")}
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem onClick={onRequestDelete} className="text-destructive focus:text-destructive">
+          <ContextMenuItem variant="destructive" onClick={onRequestDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("delete")}
           </ContextMenuItem>
@@ -690,15 +690,15 @@ function AuftragCard({
                 <div className="flex items-center gap-1">
                   {/* Read-only repeat of the last Funkdurchsage — no canEdit gate,
                       a viewer reading it back over the radio changes nothing. */}
-                  <Button size="sm" variant="ghost" className="h-7 gap-1 px-2" onClick={onRepeatRadio}>
-                    <Radio className="h-3.5 w-3.5" />
+                  <Button size="xs" variant="ghost" className="gap-1" onClick={onRepeatRadio}>
+                    <Radio className="size-3.5" />
                     {t("repeatRadio")}
                   </Button>
                   {/* A route only needs the editor once there's an actual route to
                       plan — hide it for 0/1 stop, where it's just a single pin. */}
                   {total >= 2 && (
-                    <Button size="sm" variant="ghost" className="h-7 gap-1 px-2" onClick={() => onOpenRoutenEditor()}>
-                      <MapIcon className="h-3.5 w-3.5" />
+                    <Button size="xs" variant="ghost" className="gap-1" onClick={() => onOpenRoutenEditor()}>
+                      <MapIcon className="size-3.5" />
                       {t("routenEditor")}
                     </Button>
                   )}
@@ -883,24 +883,24 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
         )}
         {/* Karte — opens the Routen-Editor centred on this stop. */}
         <Button
-          size="icon"
+          size="icon-xs"
           variant="ghost"
-          className="h-7 w-7 flex-shrink-0"
+          className="flex-shrink-0"
           onClick={() => onOpenMap(incidentId)}
           title={t("map")}
           aria-label={t("map")}
         >
-          <MapIcon className="h-4 w-4" />
+          <MapIcon className="size-3.5" />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
-              <MoreHorizontal className="h-4 w-4" />
+            <Button variant="ghost" size="icon-xs" className="flex-shrink-0" aria-label={t("moreOptions")}>
+              <MoreHorizontal className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}>
             <DropdownMenuItem onClick={onOpenDetail}>{t("openDetail")}</DropdownMenuItem>
-            {!readOnly && <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
+            {!readOnly && <DropdownMenuItem variant="destructive" onClick={onRemove}>
               {t("removeStop")}
             </DropdownMenuItem>}
           </DropdownMenuContent>
@@ -934,7 +934,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
             {t("openDetail")}
           </ContextMenuItem>
           {!readOnly && <ContextMenuSeparator />}
-          {!readOnly && <ContextMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
+          {!readOnly && <ContextMenuItem variant="destructive" onClick={onRemove}>
             <Trash2 className="mr-2 h-4 w-4" />
             {t("removeStop")}
           </ContextMenuItem>}

@@ -77,7 +77,7 @@ export default function MicrosoftCallbackPage() {
     <div className="flex min-h-svh items-center justify-center bg-background p-4">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/[0.03] via-transparent to-transparent" />
       <div className="relative w-full max-w-sm">
-        <Card className="border border-border/50 bg-card/80 backdrop-blur-sm shadow-lg overflow-hidden">
+        <Card className="border border-border bg-card/80 backdrop-blur-sm overflow-hidden">
           <div className="p-8 text-center">
             {error ? (
               <>

@@ -86,9 +86,10 @@ export function MobileOperationActions({
 
         {onDelete && (
           <DropdownMenuItem
+            variant="destructive"
             onClick={onDelete}
           >
-            <Trash2 className="mr-2 h-4 w-4 text-muted-foreground" />
+            <Trash2 className="mr-2 h-4 w-4" />
             {t('common.delete')}
           </DropdownMenuItem>
         )}
