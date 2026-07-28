@@ -134,6 +134,13 @@ Oberwil.
   Basel-Landschaft line – one tap away on a public demo. All four are now visible dummy runs
   (`061 111 11 11` and friends). Switzerland reserves no drama range the way the US reserves 555,
   so the number has to show on its face that it is invented.
+- **«Durchsage wiederholen» never refuses.** Before the first stop went «Disponiert» the dialog
+  said there was nothing yet and showed no text – but the wording already exists, and somebody
+  who wants to read it out over the radio has every reason to. It now always shows one: the
+  recorded wording once there is one, and otherwise the announcement as it would read right now,
+  which for an Auftrag that has never been given out is the full Auftragsdurchsage. It still only
+  reads – nothing is recorded either way, so the first real Disponiert is still the Auftragsvergabe.
+  The wording says which of the two you are looking at.
 
 ## [0.2.0] – 2026-07-26
 
