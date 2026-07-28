@@ -28,9 +28,15 @@ will keep holding.
 
 ## [Unreleased]
 
-A round of Auftrag and viewer work, all of it from one afternoon of testing on the demo by an
-officer who does not build the thing. Everything below is running in production at Feuerwehr
-Oberwil.
+## [0.3.0] – 2026-07-28
+
+Two rounds of work. The first is Auftrag and viewer changes, all of it from one afternoon of
+testing on the demo by an officer who does not build the thing. The second is a pass over the
+interface itself: five audits went through every button, field, colour and border in the
+frontend, which turned up a handful of real defects — a helper class that had been erasing the
+border of every draggable card, a settings label wired to a field that did not exist, icon
+buttons a screen reader could not name — and left the same thing looking the same wherever it
+appears. Everything below is running in production at Feuerwehr Oberwil.
 
 ### Added
 - **An Auftrag is handed out once, not once per stop.** A route with four stops produced four
@@ -100,6 +106,18 @@ Oberwil.
   the site rather than drawn a second time, so tab, home screen and landing page cannot drift
   apart. The 16px favicon gets its own reduced cut, because the full mark turns to mud at that
   size.
+- **The sidebar shows availability the same way for people and material, and can hide what is
+  busy.** The two lists had drifted apart: a person's status icon was amber when in use and green
+  when free, while material drew the same icons in flat grey — so material read as if it had no
+  state at all. Both now use one shared colour source. Cards no longer signal state by fading or
+  tinting themselves either; that took the border with it, which is why some entries looked like
+  they had no border while their neighbours did.
+
+  Next to each search field there is now a single icon button that hides everything currently tied
+  up. It reads availability exactly as the cards draw it — a Fahrer, a Reko or a Magaziner counts
+  as busy even though the system still calls them "available", and consumables stay visible because
+  handing some out does not empty the depot. The counter at the bottom keeps counting the full
+  roster: it is the overall picture, not the filtered view.
 
 ### Fixed
 - **An Auftrag wears its own colour everywhere on the map.** Two places disagreed. The route drew
@@ -229,12 +247,48 @@ Oberwil.
   dispatch done through the assignment dialog therefore announced «kehrt zurück» for everything,
   true or not. Each assigned vehicle now carries the toggle there too, on the board and on the map.
   Not for an Auftrag yet: that flag has no endpoint to write through.
+- **Draggable cards had no border.** A drag-and-drop helper class quietly overrode the border of
+  every draggable card, so in the personnel sidebar an assigned person had a visible frame and a
+  free one did not. The border belongs to the card, not to the drag affordance.
+- **Priority colours had drifted back apart.** The map legend, the printed map legend and the
+  wall-display detail modal each hard-coded their own red/yellow/green instead of the shared
+  definition, so "low priority" was green in one view and emerald in another. All three read from
+  the one source again.
+- **Nine icon-only buttons were unusable with a screen reader** — including the user menu and the
+  page navigation, which announced only "button". They have names now.
+- **Removing a resource chip was a 10-pixel target.** The X on a crew or material chip had no
+  clickable area beyond the glyph itself. It now has a real one, and a name.
+- **A settings label did nothing when clicked.** It pointed at a field id that was never rendered.
+- **Long names in the sidebar are readable again.** Truncated personnel and material names expand
+  on hover, as do long Auftrag names in the Aufträge list.
 
 ### Changed
 - **The frontend dev container may use 4 GB instead of 1.** Next's dev server compiles some 3000
   modules and sat at 99.9% of a 1 GB cap from the moment it started. It never got OOM-killed
   either – node just GC-thrashed at 100% CPU and stopped answering, so the page would not reload
   while `docker ps` still said the container was up. Development only; nothing shipped changes.
+- **One visual language across the app.** Five audits went through every button, form field,
+  colour, border and spacing value in the frontend. Cards share one corner radius and one clearly
+  visible edge instead of three competing ones; dialogs use two heights instead of eight ad-hoc
+  ones; a delete action is a red icon everywhere rather than sometimes grey and sometimes
+  unmarked; small buttons are one size instead of four hand-written ones. Colour now means one
+  thing at a time — amber and green describe the incident and its resources, a separate warning
+  colour is the app reporting on itself (connection, sync, stale data).
+
+  Nothing here changes how the board is operated. What it changes is that the same thing looks the
+  same wherever it appears, so a status learned on the board still reads correctly on the wall
+  display, the map and the phone.
+
+### Removed
+- **The training controls no longer alarm through the alarm intake.** The "Alarmeingang" button
+  under *Einzelne Einsätze generieren* and the "Alarmweg" selector in the automatic generator are
+  gone. Both worked – the simulated alarm landed in the pool with a ÜBUNG badge and could be
+  attached to the exercise – but it was never decided **who gets alarmed during an exercise**.
+  While that is open, the automatic generator is one step away from texting the whole brigade for
+  an exercise three people are running. The training controls still generate straight onto the
+  board and through the phone alarm; running exercises are otherwise unchanged. The path comes
+  back once "who is taking part" can be set explicitly
+  (`docs/plans/16-training-alarm-intake.md`).
 
 ## [0.2.0] – 2026-07-26
 
@@ -569,6 +623,7 @@ something another station can pin.
 
 _For the full running history before the first release, see the git log._
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.1.0

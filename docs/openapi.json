@@ -3,7 +3,7 @@
   "info": {
     "title": "KP Rück API",
     "description": "API for firefighting operations dashboard",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/health": {

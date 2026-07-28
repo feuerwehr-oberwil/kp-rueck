@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # API
     api_v1_prefix: str = "/api"
     project_name: str = "KP Rück API"
-    version: str = "0.2.0"
+    version: str = "0.3.0"
     description: str = "API for firefighting operations dashboard"
 
     # Uvicorn
