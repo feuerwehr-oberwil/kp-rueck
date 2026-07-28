@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <!-- The KP Rück mark, the same artwork as on kp-rueck.ch: the Magnettafel it digitises —
-       cards in three columns, one of them red because something is running. Kept identical to
-       the website rather than drawn a second time, so the tab, the home screen and the landing
-       page cannot drift apart. -->
+  <!-- The KP Rück mark at favicon size. Same idea as on kp-rueck.ch and in apple-icon.svg — the
+       Magnettafel the app digitises, one card red because something is running — but drawn with
+       THREE fat cards instead of the website's eight.
+
+       This one is only ever rendered at 16–32px (browser tab, bookmark, history). At 16px each of
+       the eight cards is under 2px and they smear into one grey blur: rendered and looked at, not
+       assumed. Three cards survive that, and the red block on the left is what identifies the tab
+       at a glance. The full eight-card version stays where there is room for it. -->
   <rect width="32" height="32" rx="7" fill="#1b2330"/>
-  <rect x="5.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#e8392b"/>
-  <rect x="5.5" y="14" width="6.5" height="5.2" rx="1.5" fill="#e7edf4"/>
-  <rect x="5.5" y="21" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
-  <rect x="13.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#ffffff"/>
-  <rect x="13.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
-  <rect x="21.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#d8e1ec"/>
-  <rect x="21.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+  <rect x="3.5" y="10.5" width="7" height="11" rx="2" fill="#e8392b"/>
+  <rect x="12.5" y="10.5" width="7" height="11" rx="2" fill="#ffffff"/>
+  <rect x="21.5" y="10.5" width="7" height="11" rx="2" fill="#b8c4d3"/>
 </svg>
