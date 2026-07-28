@@ -141,6 +141,12 @@ Oberwil.
   which for an Auftrag that has never been given out is the full Auftragsdurchsage. It still only
   reads – nothing is recorded either way, so the first real Disponiert is still the Auftragsvergabe.
   The wording says which of the two you are looking at.
+- **Closing a toast no longer closes what is underneath it.** Sonner renders its stack outside
+  every panel, so dismissing a toast – or using «Alle ausblenden» – counted as a click *outside*
+  the open dialog, slide-up, popover or menu, and took it down with it. Losing a half-filled form
+  to a stray ✕ is not something anybody forgives at 3am. The guard now sits once in the shared
+  primitives instead of being retyped per surface, and it covers the toast's ✕ and action icons,
+  which are `<svg>` nodes and slipped through an earlier `HTMLElement` check.
 
 ## [0.2.0] – 2026-07-26
 

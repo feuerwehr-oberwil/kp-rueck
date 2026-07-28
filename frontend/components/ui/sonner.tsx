@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { Toaster as Sonner, ToasterProps, useSonner, toast } from 'sonner'
 
+import { TOAST_LAYER_ATTR } from '@/lib/toast-layer'
+
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = 'system' } = useTheme()
 
@@ -38,6 +40,9 @@ const DismissAllToasts = () => {
     // clear of the footer/nav.
     <button
       type="button"
+      // Part of the toast layer, but no sonner node – tag it so an open dialog
+      // or slide-up does not read this click as "outside" and close itself.
+      {...{ [TOAST_LAYER_ATTR]: '' }}
       onClick={() => toast.dismiss()}
       className="fixed bottom-12 right-4 z-[9999] inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur-sm transition-colors hover:text-foreground hover:bg-card"
     >

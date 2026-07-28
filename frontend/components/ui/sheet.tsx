@@ -5,6 +5,7 @@ import * as SheetPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { ignoreToastLayer } from '@/lib/toast-layer'
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -91,7 +92,9 @@ function SheetContent({
       <SheetOverlay overlayOffset={overlayOffset} elevated={elevated} nonModal={nonModal} />
       <SheetPrimitive.Content
         data-slot="sheet-content"
-        onInteractOutside={onInteractOutside}
+        // Dismissing a toast must never dismiss the slide-up behind it; any
+        // other outside interaction still reaches the caller's own guard.
+        onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(
           'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500',
           elevated ? 'z-[70]' : 'z-50',
