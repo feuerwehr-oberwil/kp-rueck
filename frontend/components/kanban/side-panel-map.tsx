@@ -321,18 +321,18 @@ export default function SidePanelMapContent({
       </MapContainer>
 
       {/* Mini legend */}
-      <div className="absolute bottom-2 left-2 bg-card/90 backdrop-blur-sm rounded-md px-2 py-1.5 text-xs z-10 border border-border">
+      <div className="absolute bottom-2 left-2 bg-card/90 backdrop-blur-sm rounded-lg px-2 py-1.5 text-xs z-10 border border-border">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-red-500" />
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PRIORITY_MARKER_COLORS.high }} />
             <span>{tIncidents("priority.high")}</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PRIORITY_MARKER_COLORS.medium }} />
             <span>{tIncidents("priority.medium")}</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PRIORITY_MARKER_COLORS.low }} />
             <span>{tIncidents("priority.low")}</span>
           </div>
           {assignedVehiclePositions.length > 0 && (

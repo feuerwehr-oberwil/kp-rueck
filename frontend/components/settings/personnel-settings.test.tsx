@@ -66,7 +66,7 @@ describe("PersonnelSettings", () => {
 
     await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Müller Stefan");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Müller Stefan");
     await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
@@ -88,7 +88,7 @@ describe("PersonnelSettings", () => {
 
     await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Halffilled");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Halffilled");
     await user.click(within(dialog).getByRole("button", { name: /Abbrechen/i }));
 
     expect(await screen.findByText(/Ungespeicherte Änderungen/i)).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("PersonnelSettings", () => {
 
     await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Müller Stefan");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Müller Stefan");
     await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
 
     const tagInput = within(dialog).getByPlaceholderText(/Neuer Tag/i);

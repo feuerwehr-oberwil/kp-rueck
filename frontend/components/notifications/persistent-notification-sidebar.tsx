@@ -7,6 +7,7 @@ import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import type { Notification, NotificationSeverity } from '@/lib/types/notification'
+import { formatNotificationTime } from '@/lib/notification-time'
 import { cn } from '@/lib/utils'
 
 interface NotificationCardProps {
@@ -29,10 +30,10 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
         }
       case 'warning':
         return {
-          border: 'border-l-2 border-l-orange-500/50 dark:border-l-orange-400/40',
-          bg: 'bg-orange-100/50 dark:bg-orange-950/10',
-          icon: <AlertTriangle className="h-4 w-4 text-orange-600/70 dark:text-orange-400/50" />,
-          badge: 'bg-orange-200/50 text-orange-700 dark:bg-orange-900/15 dark:text-orange-400/80',
+          border: 'border-l-2 border-l-warning/50',
+          bg: 'bg-warning/10',
+          icon: <AlertTriangle className="h-4 w-4 text-warning-foreground" />,
+          badge: 'bg-warning/10 text-warning-foreground',
         }
       case 'info':
         return {
@@ -46,18 +47,7 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
 
   const styles = getSeverityStyles(notification.severity)
 
-  const formatTime = (date: Date) => {
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(minutes / 60)
-    const days = Math.floor(hours / 24)
-
-    if (days > 0) return t('timeDays', { days })
-    if (hours > 0) return t('timeHours', { hours })
-    if (minutes > 0) return t('timeMinutes', { minutes })
-    return t('justNow')
-  }
+  const formatTime = (date: Date) => formatNotificationTime(date, t)
 
   const getSeverityLabel = (severity: NotificationSeverity) => {
     switch (severity) {
@@ -111,12 +101,12 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
         {!notification.dismissed && onDismiss && (
           <Button
             variant="ghost"
-            size="icon"
-            className="flex-shrink-0 h-7 w-7 hover:bg-background/80"
+            size="icon-xs"
+            className="flex-shrink-0 hover:bg-background/80"
             onClick={() => onDismiss(notification.id)}
             aria-label={tSidebar('dismissAria')}
           >
-            <X className="h-4 w-4" />
+            <X className="size-3.5" />
           </Button>
         )}
       </div>
@@ -162,7 +152,7 @@ export function PersistentNotificationSidebar() {
           )}
         </div>
         <Button variant="ghost" size="icon" onClick={closeSidebar} className="h-8 w-8" title={t('closePanel')}>
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </Button>
       </header>
 
@@ -180,9 +170,9 @@ export function PersistentNotificationSidebar() {
               </h3>
               <Button
                 variant="ghost"
-                size="sm"
+                size="xs"
                 onClick={dismissAllNotifications}
-                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground"
                 aria-label={t('dismissAll')}
               >
                 {t('dismissAll')}

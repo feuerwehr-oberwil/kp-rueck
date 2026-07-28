@@ -28,14 +28,14 @@ export function NotificationBellTrigger() {
       size="icon"
       onClick={toggleSidebar}
       className={cn(
-        'relative rounded-lg h-9 w-9 md:h-10 md:w-10',
+        'relative h-9 w-9 md:h-10 md:w-10',
         isSidebarOpen && 'bg-muted'
       )}
       aria-label={`Benachrichtigungen ${unreadCount > 0 ? `(${unreadCount} ungelesene)` : ''}`}
       aria-pressed={isSidebarOpen}
       title="Benachrichtigungen (B)"
     >
-      <Bell className="h-4 w-4 md:h-5 md:w-5" />
+      <Bell className="size-4 md:size-5" />
       {unreadCount > 0 && (
         <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/80 text-background text-xs font-medium">
           {unreadCount > 9 ? '9+' : unreadCount}

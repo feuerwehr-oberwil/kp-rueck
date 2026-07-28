@@ -217,7 +217,7 @@ function DisplayOperationCard({
   return (
     <Card
       className={cn(
-        "p-3 transition-all border border-border/50 bg-card/80 cursor-pointer hover:border-border hover:bg-card",
+        "p-3 transition-all border border-border bg-card/80 cursor-pointer hover:bg-card",
         isHighlighted && "ring-2 ring-primary border-primary scale-[1.02]",
         isFlashing && "animate-flash"
       )}

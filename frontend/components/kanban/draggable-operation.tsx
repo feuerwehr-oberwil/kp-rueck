@@ -79,7 +79,7 @@ const priorityStyles = {
     card: 'border-l-destructive priority-high-pulse bg-destructive/[0.08] dark:bg-destructive/[0.12] ring-1 ring-destructive/20 dark:ring-destructive/30',
   },
   medium: {
-    icon: 'text-warning',
+    icon: 'text-warning-foreground',
     card: 'border-l-warning',
   },
   low: {
@@ -271,13 +271,13 @@ function DraggableOperationBase({
             data-testid="incident-card"
             data-incident-id={operation.id}
             className={cn(
-              'operation-card border border-border/50 border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',
+              'operation-card border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',
               // Priority styling (when not selected/highlighted)
               !isSelected && !isHighlighted && !isKeyboardFocused && priorityConfig?.card,
               isOver && 'bg-muted/20',
               // Selection/highlight states - preserve priority border colors
               isHighlighted && (priority === 'high' ? 'border-l-destructive bg-muted/30' : priority === 'medium' ? 'border-l-warning bg-muted/30' : 'border-l-foreground bg-muted/30'),
-              isSelected && !isHighlighted && (priority === 'high' ? 'ring-2 ring-destructive/50 border-l-destructive/80 bg-muted/30 shadow-sm' : priority === 'medium' ? 'ring-2 ring-warning/50 border-l-warning/80 bg-muted/30 shadow-sm' : 'ring-2 ring-primary/50 border-l-foreground/70 bg-muted/30 shadow-sm'),
+              isSelected && !isHighlighted && (priority === 'high' ? 'ring-2 ring-destructive/50 border-l-destructive/80 bg-muted/30' : priority === 'medium' ? 'ring-2 ring-warning/50 border-l-warning/80 bg-muted/30' : 'ring-2 ring-primary/50 border-l-foreground/70 bg-muted/30'),
               isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-destructive/50' : priority === 'medium' ? 'border-l-warning/50' : 'border-l-muted-foreground/50')
             )}
             onMouseEnter={() => onHover(operation.id)}
@@ -431,7 +431,7 @@ function DraggableOperationBase({
                           variant="secondary"
                           className={cn(
                             "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
-                            isConflict && "border border-warning/60 text-warning bg-warning/10",
+                            isConflict && "border border-warning/60 text-warning-foreground bg-warning/10",
                           )}
                           title={
                             isConflict

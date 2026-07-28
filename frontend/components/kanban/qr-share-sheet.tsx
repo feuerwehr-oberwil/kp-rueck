@@ -90,9 +90,9 @@ export function QrShareSheet({
                 />
                 <Button variant="outline" size="sm" onClick={handleCopy} className="flex-shrink-0">
                   {copied ? (
-                    <Check className="h-3.5 w-3.5 text-green-600" />
+                    <Check className="size-3.5 text-success" />
                   ) : (
-                    <Copy className="h-3.5 w-3.5" />
+                    <Copy className="size-3.5" />
                   )}
                 </Button>
                 <Button
@@ -103,7 +103,7 @@ export function QrShareSheet({
                   title={tCommon("openInNewTab")}
                 >
                   <a href={url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5" />
+                    <ExternalLink className="size-3.5" />
                   </a>
                 </Button>
                 {printerEnabled && onPrint && (
@@ -115,7 +115,7 @@ export function QrShareSheet({
                     className="flex-shrink-0"
                     title={tCommon("printQrCode")}
                   >
-                    <Printer className="h-3.5 w-3.5" />
+                    <Printer className="size-3.5" />
                   </Button>
                 )}
               </div>

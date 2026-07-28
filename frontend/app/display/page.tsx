@@ -26,7 +26,7 @@ function DisplayLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="px-6 py-3 rounded-md border border-border bg-card hover:bg-muted transition-colors text-sm font-medium"
+      className="px-6 py-3 rounded-lg border border-border bg-card hover:bg-muted transition-colors text-sm font-medium"
     >
       {label}
     </Link>

@@ -69,7 +69,7 @@ export function TransferIncidentDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="max-w-2xl max-h-[80vh] flex flex-col"
+        className="max-w-2xl modal-h-tall flex flex-col"
         overlayClassName="backdrop-blur-none"
       >
         <DialogHeader>
@@ -175,7 +175,7 @@ export function TransferIncidentDialog({
             onClick={handleTransfer}
             disabled={!selectedIncidentId || isTransferring}
           >
-            {isTransferring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isTransferring && <Loader2 className="size-4 animate-spin" />}
             {t('transfer.transfer')}
           </Button>
         </DialogFooter>

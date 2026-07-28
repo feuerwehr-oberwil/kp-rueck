@@ -16,8 +16,8 @@ export function DiveraNotification({ message, isTraining }: DiveraNotificationPr
   }
 
   return (
-    <Alert className="bg-blue-50 border-blue-200">
-      <Info className="h-4 w-4 text-blue-600" />
+    <Alert className="bg-info/10 border-info/30">
+      <Info className="h-4 w-4 text-info" />
       <AlertDescription className="text-sm">
         <strong>{t('trainingTag')}</strong> {message}
       </AlertDescription>

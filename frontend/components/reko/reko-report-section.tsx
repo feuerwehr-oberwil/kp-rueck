@@ -171,12 +171,11 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
                     straight from the Reko-Meldung card. */}
                 {!report.is_relevant && onRequestComplete && (
                   <Button
-                    size="sm"
+                    size="xs"
                     variant="secondary"
-                    className="h-7 px-2 text-xs"
                     onClick={onRequestComplete}
                   >
-                    <CheckCheck className="mr-1 h-3.5 w-3.5" />
+                    <CheckCheck className="size-3.5" />
                     {t('completeIncident')}
                   </Button>
                 )}

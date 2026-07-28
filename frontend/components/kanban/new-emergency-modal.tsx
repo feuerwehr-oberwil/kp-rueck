@@ -145,7 +145,7 @@ export function NewEmergencyModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl modal-h-tall overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <Plus className="h-6 w-6 text-primary" />
@@ -185,7 +185,7 @@ export function NewEmergencyModal({
 
           {/* Meldung */}
           <div className="space-y-1.5">
-            <Label htmlFor="notes" className="text-sm font-medium">
+            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">
               {t('common.meldung')}
             </Label>
             <Textarea
@@ -200,7 +200,7 @@ export function NewEmergencyModal({
           {/* Grid - 2 columns */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="incidentType" className="text-sm font-medium">
+              <Label htmlFor="incidentType" className="text-sm font-semibold text-muted-foreground">
                 {t('common.einsatzart')}
               </Label>
               <Select
@@ -221,7 +221,7 @@ export function NewEmergencyModal({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="priority" className="text-sm font-medium">
+              <Label htmlFor="priority" className="text-sm font-semibold text-muted-foreground">
                 {t('common.priority')}
               </Label>
               <Select
@@ -242,7 +242,7 @@ export function NewEmergencyModal({
 
           {/* Contact */}
           <div className="space-y-1.5">
-            <Label htmlFor="contact" className="text-sm font-medium">
+            <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">
               {t('common.contact')}
             </Label>
             <Input
@@ -255,7 +255,7 @@ export function NewEmergencyModal({
 
           {/* Contact phone */}
           <div className="space-y-1.5">
-            <Label htmlFor="contact-phone" className="text-sm font-medium">
+            <Label htmlFor="contact-phone" className="text-sm font-semibold text-muted-foreground">
               {t('common.contactPhone')}
             </Label>
             <Input
@@ -280,7 +280,7 @@ export function NewEmergencyModal({
             <Button
               onClick={handleSubmit}
               disabled={!formData.location}
-              className="gap-2 hover-delight"
+              className="hover-delight"
             >
               <Plus className="h-4 w-4" />
               {t('newEmergency.create')}

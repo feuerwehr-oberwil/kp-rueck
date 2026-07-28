@@ -217,7 +217,7 @@ export function TrainingGpsSimulation() {
           </div>
           {drives.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => handleStop()}>
-              <Square className="mr-1.5 h-3.5 w-3.5" />
+              <Square className="size-3.5" />
               {t('stopAll')}
             </Button>
           )}
@@ -282,7 +282,7 @@ export function TrainingGpsSimulation() {
                         className="flex-shrink-0"
                         title={t('returnTitle')}
                       >
-                        <Home className="mr-1.5 h-3.5 w-3.5" />
+                        <Home className="size-3.5" />
                         {t('returnButton')}
                       </Button>
                     )}
@@ -293,7 +293,7 @@ export function TrainingGpsSimulation() {
                       size="sm"
                       className="flex-shrink-0"
                     >
-                      <Square className="mr-1.5 h-3.5 w-3.5" />
+                      <Square className="size-3.5" />
                       {t('stopButton')}
                     </Button>
                   </>
@@ -328,7 +328,7 @@ export function TrainingGpsSimulation() {
                       className="flex-shrink-0"
                       title={demoLocked ? t('lockedDemo') : undefined}
                     >
-                      <Play className="mr-1.5 h-3.5 w-3.5" />
+                      <Play className="size-3.5" />
                       {t('startDrive')}
                     </Button>
                   </>

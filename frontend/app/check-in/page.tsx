@@ -9,6 +9,8 @@ import { CheckCircle, Circle, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient, type WebSocketUpdate } from '@/lib/websocket-client'
+import { RESOURCE_STATE_DOT_CLASSES } from '@/lib/resource-status'
+import { cn } from '@/lib/utils'
 
 export default function CheckInPage() {
   const searchParams = useSearchParams()
@@ -235,7 +237,7 @@ export default function CheckInPage() {
                 w-full flex items-center gap-4 p-4 rounded-lg border-2 transition-all
                 ${
                   isDisabled
-                    ? 'border-orange-500 bg-orange-500/10 cursor-not-allowed opacity-75'
+                    ? 'border-amber-500 bg-amber-500/10 cursor-not-allowed opacity-75'
                     : person.checked_in
                     ? 'border-blue-500 bg-blue-500/10'
                     : 'border-border bg-card hover:border-muted-foreground'
@@ -259,7 +261,7 @@ export default function CheckInPage() {
               {/* Status Badge */}
               <div className="flex-shrink-0">
                 {person.is_assigned ? (
-                  <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                  <span className={cn(RESOURCE_STATE_DOT_CLASSES.assigned, "text-white px-3 py-1 rounded-full text-sm font-semibold")}>
                     {t('badgeAssigned')}
                   </span>
                 ) : person.checked_in ? (

@@ -178,7 +178,7 @@ export default function DisplayLayout({
 
           <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm font-semibold tracking-tight text-foreground truncate">{eventName}</h1>
           {isTraining && (
-            <span className="text-[11px] sm:text-xs font-medium text-warning bg-warning/10 border border-warning/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
+            <span className="text-[11px] sm:text-xs font-medium text-warning-foreground bg-warning/10 border border-warning/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
               {t('layout.training')}
             </span>
           )}

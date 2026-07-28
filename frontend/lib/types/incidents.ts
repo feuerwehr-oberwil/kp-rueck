@@ -157,15 +157,6 @@ export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
 }
 
 /**
- * Human-readable labels for priority levels
- */
-export const PRIORITY_LABELS: Record<IncidentPriority, string> = {
-  low: 'Niedrig',
-  medium: 'Mittel',
-  high: 'Hoch',
-}
-
-/**
  * Human-readable labels for status values
  */
 export const STATUS_LABELS: Record<IncidentStatus, string> = {

@@ -252,9 +252,9 @@ export default function DiveraPoolPage() {
             size="sm"
             onClick={loadData}
             disabled={loading}
-            className="h-9 px-3"
+            className="px-3"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
 
           <div className="flex-1" />
@@ -273,9 +273,8 @@ export default function DiveraPoolPage() {
                 onClick={handleAttachClick}
                 disabled={!hasSelection}
                 size="sm"
-                className="h-9"
               >
-                <Link2 className="mr-2 h-4 w-4" />
+                <Link2 className="size-3.5" />
                 {t('attach')}
               </Button>
             </>
@@ -293,7 +292,7 @@ export default function DiveraPoolPage() {
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             {demoMode && !searchQuery ? (
               <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-                <Info className="h-8 w-8 text-amber-500" />
+                <Info className="h-8 w-8 text-warning-foreground" />
                 <p className="font-medium text-foreground">{t('demoTitle')}</p>
                 <p className="text-sm">
                   {t.rich('demoDescription', {
@@ -358,7 +357,7 @@ export default function DiveraPoolPage() {
                           {emergency.is_training && (
                             <Badge
                               variant="outline"
-                              className="mr-2 border-orange-500/60 text-orange-600 dark:text-orange-400 align-middle"
+                              className="mr-2 border-warning/60 text-warning-foreground align-middle"
                             >
                               {t('trainingBadge')}
                             </Badge>
@@ -454,7 +453,7 @@ export default function DiveraPoolPage() {
               {t('cancel')}
             </Button>
             <Button onClick={handleAttach} disabled={!selectedEventId || attaching}>
-              {attaching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {attaching && <Loader2 className="size-4 animate-spin" />}
               {t('attach')}
             </Button>
           </DialogFooter>

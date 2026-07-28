@@ -359,12 +359,12 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
           <div className="flex justify-end gap-2">
             {!demoMode && (
               <Button variant="outline" onClick={handleOpenSyncDialog}>
-                <RefreshCw className="mr-2 h-4 w-4" />
+                <RefreshCw className="size-4" />
                 {t('personnel.syncButton')}
               </Button>
             )}
             <Button onClick={handleOpenCreate}>
-              <PlusCircle className="mr-2 h-4 w-4" />
+              <PlusCircle className="size-4" />
               {t('personnel.addButton')}
             </Button>
           </div>
@@ -434,14 +434,15 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                       size="sm"
                       onClick={() => handleEdit(person)}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="size-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteClick(person)}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      <Trash2 className="size-3.5" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -477,7 +478,9 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('common.name')}</FormLabel>
+                    <FormLabel className="text-sm font-semibold text-muted-foreground">
+                      {t('common.name')} <span className="text-destructive" aria-hidden="true">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -500,7 +503,9 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     field.value === '';
                   return (
                     <FormItem>
-                      <FormLabel htmlFor="role">{t('personnel.roleLabel')}</FormLabel>
+                      <FormLabel htmlFor="role" className="text-sm font-semibold text-muted-foreground">
+                        {t('personnel.roleLabel')} <span className="text-destructive" aria-hidden="true">*</span>
+                      </FormLabel>
                       {existingRoles.length > 0 ? (
                         <>
                           <Select
@@ -572,7 +577,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                 name="availability"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('personnel.availability')}</FormLabel>
+                    <FormLabel className="text-sm font-semibold text-muted-foreground">{t('personnel.availability')}</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
@@ -590,7 +595,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               />
 
               <div className="space-y-1.5">
-                <Label>{t('personnel.tags')}</Label>
+                <Label className="text-sm font-semibold text-muted-foreground">{t('personnel.tags')}</Label>
                 {/* Currently assigned tags */}
                 {tags.length > 0 && (
                   <div className="flex gap-1.5 flex-wrap">
@@ -661,7 +666,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={submitDisabled}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSaving && <Loader2 className="size-4 animate-spin" />}
                   {editingPersonnel ? t('common.save') : t('common.create')}
                 </Button>
               </DialogFooter>
@@ -682,7 +687,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
 
       {/* Divera Sync Dialog */}
       <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" aria-describedby={undefined}>
+        <DialogContent className="max-w-2xl modal-h-tall flex flex-col overflow-hidden" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('personnel.syncDialogTitle')}</DialogTitle>
           </DialogHeader>
@@ -747,7 +752,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     onClick={handleExecuteSync}
                     disabled={isSyncExecuting || (syncPreview.new.length === 0 && !removeStale)}
                   >
-                    {isSyncExecuting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSyncExecuting && <Loader2 className="size-4 animate-spin" />}
                     {t('personnel.syncExecuteButton')}
                   </Button>
                 </div>

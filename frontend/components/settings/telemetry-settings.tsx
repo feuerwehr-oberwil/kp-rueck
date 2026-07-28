@@ -221,7 +221,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
         {sendState === 'sent' ? (
           <div className="space-y-2">
             <p className="flex items-center gap-2 text-sm font-medium">
-              <Check className="h-4 w-4 text-green-600" />
+              <Check className="h-4 w-4 text-success" />
               {t('sentTitle')}
             </p>
             <p className="text-sm text-muted-foreground">{t('sentBody')}</p>
@@ -240,7 +240,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
         ) : (
           <>
             <div className="space-y-1.5">
-              <Label htmlFor="telemetry-message">{t('reportLabel')}</Label>
+              <Label htmlFor="telemetry-message" className="text-sm font-semibold text-muted-foreground">{t('reportLabel')}</Label>
               <Textarea
                 id="telemetry-message"
                 rows={4}
@@ -266,7 +266,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
               <p className="mt-2 text-xs text-muted-foreground">{t('reportWhat')}</p>
             </details>
             {(sendState === 'failed' || sendState === 'disabled') && (
-              <p className="flex items-start gap-2 text-sm text-amber-600" role="status">
+              <p className="flex items-start gap-2 text-sm text-warning-foreground" role="status">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 {sendState === 'disabled' ? t('sendDisabled') : t('sendFailed')}
               </p>
@@ -275,16 +275,15 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
               <Button
                 onClick={() => void send()}
                 disabled={sendState === 'sending' || message.trim().length === 0 || !env}
-                className="gap-2"
               >
-                <Send className="h-4 w-4" />
+                <Send className="size-4" />
                 {sendState === 'sending' ? t('sending') : t('send')}
               </Button>
               {/* Quieter, and never disabled: when the direct route has just failed or the
                   deployer has switched outbound off, this is the only way out — and a form
                   that can fail with no alternative is a dead end, not a form. */}
               <Button variant="ghost" size="sm" className="gap-2" onClick={() => void copyReport()}>
-                <Copy className="h-3.5 w-3.5" />
+                <Copy className="size-3.5" />
                 {t('copy')}
               </Button>
             </div>
@@ -343,8 +342,8 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="text-sm text-muted-foreground">{t('installId')}</span>
                   <code className="rounded bg-muted px-2 py-1 text-xs">{status.installId}</code>
-                  <Button variant="ghost" size="sm" className="gap-1.5" disabled={busy} onClick={() => void rotateId()}>
-                    <RefreshCw className="h-3.5 w-3.5" />
+                  <Button variant="ghost" size="sm" disabled={busy} onClick={() => void rotateId()}>
+                    <RefreshCw className="size-3.5" />
                     {t('rotate')}
                   </Button>
                 </div>
@@ -371,7 +370,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
                           <span className="text-muted-foreground tabular-nums">
                             {row.createdAt?.slice(0, 16).replace('T', ' ')}
                           </span>
-                          <span className={`ml-auto text-xs ${row.sentAt ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          <span className={`ml-auto text-xs ${row.sentAt ? 'text-success' : 'text-muted-foreground'}`}>
                             {row.sentAt ? t('stSent') : row.lastError ? `${t('stPending')} (${row.lastError})` : t('stPending')}
                           </span>
                         </summary>

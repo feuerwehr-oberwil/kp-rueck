@@ -34,7 +34,6 @@ import {
   Trash2,
   Truck,
   Bell,
-  AlertTriangle,
   BookOpen,
   Settings,
   PanelRight,
@@ -47,6 +46,7 @@ import {
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 import { useGroups } from "@/lib/contexts/groups-context"
+import { PRIORITY_ICONS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 
 /** Window event that opens the palette (for mouse entry points like the welcome card). */
 export const OPEN_COMMAND_PALETTE_EVENT = "kp:open-command-palette"
@@ -403,7 +403,7 @@ export function CommandPalette() {
                   runCommand(() => (hasSelectedIncident ? onSetPriority?.('low') : undefined))
                 }
               >
-                <AlertTriangle className="mr-2 h-4 w-4 text-muted-foreground" />
+                <PRIORITY_ICONS.low className={`mr-2 h-4 w-4 ${PRIORITY_TEXT_CLASSES.low}`} />
                 <span>{t('priorityLow')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧1</span>
               </CommandItem>
@@ -413,7 +413,7 @@ export function CommandPalette() {
                   runCommand(() => (hasSelectedIncident ? onSetPriority?.('medium') : undefined))
                 }
               >
-                <AlertTriangle className="mr-2 h-4 w-4 text-yellow-500" />
+                <PRIORITY_ICONS.medium className={`mr-2 h-4 w-4 ${PRIORITY_TEXT_CLASSES.medium}`} />
                 <span>{t('priorityMedium')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧2</span>
               </CommandItem>
@@ -423,7 +423,7 @@ export function CommandPalette() {
                   runCommand(() => (hasSelectedIncident ? onSetPriority?.('high') : undefined))
                 }
               >
-                <AlertTriangle className="mr-2 h-4 w-4 text-red-500" />
+                <PRIORITY_ICONS.high className={`mr-2 h-4 w-4 ${PRIORITY_TEXT_CLASSES.high}`} />
                 <span>{t('priorityHigh')}</span>
                 <span className="ml-auto text-xs text-muted-foreground">⇧3</span>
               </CommandItem>

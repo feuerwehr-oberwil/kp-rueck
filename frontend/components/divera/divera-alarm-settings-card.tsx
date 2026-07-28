@@ -164,11 +164,11 @@ export function DiveraAlarmSettingsCard({
             return (
               <div key={field.key} className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <Label className="font-medium">{field.label}</Label>
+                  <Label className="font-semibold text-muted-foreground">{field.label}</Label>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-muted-foreground"
+                    size="xs"
+                    className="text-muted-foreground"
                     disabled={!isEditor || isCurrentlySaving || value === field.fallback}
                     onClick={() => updateSetting(field.key, field.fallback)}
                   >
@@ -198,7 +198,7 @@ export function DiveraAlarmSettingsCard({
 
       {enabled && (
         <div className="space-y-1.5">
-          <Label className="font-medium">{t("testTitle")}</Label>
+          <Label className="font-semibold text-muted-foreground">{t("testTitle")}</Label>
           <p className="text-xs text-muted-foreground">
             {t("testDescription")}
           </p>
@@ -223,7 +223,7 @@ export function DiveraAlarmSettingsCard({
                 </SelectContent>
               </Select>
               <Button onClick={handleTest} disabled={!isEditor || isTesting || !testId}>
-                {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Siren className="h-4 w-4" />}
+                {isTesting ? <Loader2 className="size-4 animate-spin" /> : <Siren className="size-4" />}
                 {t("sendTest")}
               </Button>
             </div>

@@ -82,6 +82,7 @@ export default function RekoForm() {
   const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [relevantMissing, setRelevantMissing] = useState(false)
   const [isTraining, setIsTraining] = useState(false)
   // Local text mirror for the duration field: a controlled number input coerces
   // "0"/"0." to falsy and clears the field mid-typing, so we keep the raw string
@@ -377,7 +378,7 @@ export default function RekoForm() {
     e.preventDefault()
 
     if (formData.is_relevant === null) {
-      toast.error(t('relevantRequired'))
+      setRelevantMissing(true)
       return
     }
 
@@ -422,6 +423,7 @@ export default function RekoForm() {
     key: K,
     value: RekoFormData[K]
   ) {
+    if (key === 'is_relevant') setRelevantMissing(false)
     setFormData(prev => ({ ...prev, [key]: value }))
   }
 
@@ -485,21 +487,22 @@ export default function RekoForm() {
         onClick={handleMarkArrived}
         disabled={isMarkingArrived || !!arrivedAt}
         variant={arrivedAt ? "secondary" : "default"}
-        className={`w-full h-12 ${arrivedAt ? 'bg-muted text-muted-foreground' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+        size="lg"
+        className={`w-full ${arrivedAt ? 'bg-muted text-muted-foreground' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
       >
         {isMarkingArrived ? (
           <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin" />
             {t('markingArrival')}
           </>
         ) : arrivedAt ? (
           <>
-            <Check className="mr-2 h-5 w-5" />
+            <Check className="h-5 w-5" />
             {t('arrivalReported', { time: arrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}
           </>
         ) : (
           <>
-            <MapPin className="mr-2 h-5 w-5" />
+            <MapPin className="h-5 w-5" />
             {t('imOnSite')}
           </>
         )}
@@ -507,15 +510,19 @@ export default function RekoForm() {
 
       {/* Section 1: Basic Confirmation */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
-          {t('relevantQuestion')}
-        </Label>
+        <div className="flex items-center gap-1">
+          <Label className="text-sm font-medium text-muted-foreground tracking-wide">
+            {t('relevantQuestion')}
+          </Label>
+          <span className="text-destructive" aria-hidden="true">*</span>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Button
             type="button"
             variant={formData.is_relevant === true ? 'default' : 'outline'}
             onClick={() => updateFormData('is_relevant', true)}
-            className="h-12 text-base"
+            size="lg"
+            className="text-base"
           >
             {t('yes')}
           </Button>
@@ -523,11 +530,15 @@ export default function RekoForm() {
             type="button"
             variant={formData.is_relevant === false ? 'default' : 'outline'}
             onClick={() => updateFormData('is_relevant', false)}
-            className="h-12 text-base"
+            size="lg"
+            className="text-base"
           >
             {t('no')}
           </Button>
         </div>
+        {relevantMissing && (
+          <p className="text-xs text-destructive">{t('relevantRequired')}</p>
+        )}
       </div>
 
       <Separator />
@@ -560,7 +571,7 @@ export default function RekoForm() {
         </div>
 
         <div className="pt-2">
-          <Label htmlFor="danger-other" className="text-sm mb-1.5 block">{t('otherDangers')}</Label>
+          <Label htmlFor="danger-other" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('otherDangers')}</Label>
           <Textarea
             id="danger-other"
             value={formData.dangers_json.other_notes || ''}
@@ -584,7 +595,7 @@ export default function RekoForm() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="personnel-count" className="text-sm mb-1.5 block">{t('personnelCount')}</Label>
+            <Label htmlFor="personnel-count" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('personnelCount')}</Label>
             <Input
               id="personnel-count"
               type="number"
@@ -601,7 +612,7 @@ export default function RekoForm() {
           </div>
 
           <div>
-            <Label htmlFor="duration" className="text-sm mb-1.5 block">{t('duration')}</Label>
+            <Label htmlFor="duration" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('duration')}</Label>
             <Input
               id="duration"
               type="text"
@@ -641,7 +652,7 @@ export default function RekoForm() {
               type="button"
               variant={formData.power_supply === value ? 'default' : 'outline'}
               onClick={() => updateFormData('power_supply', value)}
-              className="h-11 text-sm"
+              className="text-sm"
             >
               {t(`powerLabels.${value}`)}
             </Button>
@@ -675,7 +686,7 @@ export default function RekoForm() {
         </Label>
 
         <div>
-          <Label htmlFor="summary" className="text-sm mb-1.5 block">{t('summaryShort')}</Label>
+          <Label htmlFor="summary" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('summaryShort')}</Label>
           <Textarea
             id="summary"
             value={formData.summary_text}
@@ -686,7 +697,7 @@ export default function RekoForm() {
         </div>
 
         <div>
-          <Label htmlFor="notes" className="text-sm mb-1.5 block">{t('notes')}</Label>
+          <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('notes')}</Label>
           <Textarea
             id="notes"
             value={formData.additional_notes}
@@ -707,12 +718,12 @@ export default function RekoForm() {
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
               {t('submitting')}
             </>
           ) : (
             <>
-              <Send className="mr-2 h-5 w-5" />
+              <Send className="h-5 w-5" />
               {t('submit')}
             </>
           )}

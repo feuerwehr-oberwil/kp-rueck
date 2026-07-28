@@ -47,8 +47,9 @@ export function PageNavigation({
             className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'kanban' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
             disabled={currentPage === 'kanban' || !hasSelectedEvent}
             title={t('kanban')}
+            aria-label={t('kanban')}
           >
-            <List className="h-4 w-4 md:h-5 md:w-5" />
+            <List className="size-4" />
           </Button>
         </Link>
 
@@ -61,7 +62,7 @@ export function PageNavigation({
             disabled={currentPage === 'map' || !hasSelectedEvent}
             title={t('map')}
           >
-            <MapIcon className="h-4 w-4 md:h-5 md:w-5" />
+            <MapIcon className="size-4" />
           </Button>
         </Link>
 
@@ -74,7 +75,7 @@ export function PageNavigation({
             disabled={currentPage === 'events'}
             title={t('events')}
           >
-            <Calendar className="h-4 w-4 md:h-5 md:w-5" />
+            <Calendar className="size-4" />
           </Button>
         </Link>
 

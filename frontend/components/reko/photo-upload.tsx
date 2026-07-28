@@ -220,7 +220,7 @@ export default function PhotoUpload({
           disabled={isUploading}
           className="flex-1"
         >
-          <Camera className="mr-2 h-4 w-4" />
+          <Camera className="size-4" />
           {t('camera')}
         </Button>
 
@@ -231,7 +231,7 @@ export default function PhotoUpload({
           disabled={isUploading}
           className="flex-1"
         >
-          <Upload className="mr-2 h-4 w-4" />
+          <Upload className="size-4" />
           {t('gallery')}
         </Button>
       </div>

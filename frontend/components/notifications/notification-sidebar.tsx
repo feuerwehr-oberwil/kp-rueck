@@ -14,6 +14,7 @@ import {
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import type { Notification, NotificationSeverity } from '@/lib/types/notification'
+import { formatNotificationTime } from '@/lib/notification-time'
 import { cn } from '@/lib/utils'
 
 interface NotificationCardProps {
@@ -36,10 +37,10 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
         }
       case 'warning':
         return {
-          border: 'border-l-2 border-l-orange-500/50 dark:border-l-orange-400/40',
-          bg: 'bg-orange-100/50 dark:bg-orange-950/10',
-          icon: <AlertTriangle className="h-5 w-5 text-orange-600/70 dark:text-orange-400/50" />,
-          badge: 'bg-orange-200/50 text-orange-700 dark:bg-orange-900/15 dark:text-orange-400/80',
+          border: 'border-l-2 border-l-warning/50',
+          bg: 'bg-warning/10',
+          icon: <AlertTriangle className="h-5 w-5 text-warning-foreground" />,
+          badge: 'bg-warning/10 text-warning-foreground',
         }
       case 'info':
         return {
@@ -53,18 +54,7 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
 
   const styles = getSeverityStyles(notification.severity)
 
-  const formatTime = (date: Date) => {
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(minutes / 60)
-    const days = Math.floor(hours / 24)
-
-    if (days > 0) return t('timeDays', { days })
-    if (hours > 0) return t('timeHours', { hours })
-    if (minutes > 0) return t('timeMinutes', { minutes })
-    return t('justNow')
-  }
+  const formatTime = (date: Date) => formatNotificationTime(date, t)
 
   const getSeverityLabel = (severity: NotificationSeverity) => {
     switch (severity) {
@@ -85,7 +75,7 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
         'p-3 rounded-lg border transition-all duration-200',
         styles.border,
         styles.bg,
-        notification.dismissed ? 'opacity-60' : 'shadow-sm hover:shadow-md',
+        notification.dismissed && 'opacity-60',
         isClickable && 'cursor-pointer hover:ring-1 hover:ring-ring/30'
       )}
       role="article"
@@ -118,12 +108,12 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
         {!notification.dismissed && onDismiss && (
           <Button
             variant="ghost"
-            size="icon"
-            className="flex-shrink-0 h-7 w-7 hover:bg-background/80"
+            size="icon-xs"
+            className="flex-shrink-0 hover:bg-background/80"
             onClick={() => onDismiss(notification.id)}
             aria-label={tSidebar('dismissAria')}
           >
-            <X className="h-4 w-4" />
+            <X className="size-3.5" />
           </Button>
         )}
       </div>
@@ -159,10 +149,10 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
         <Button
           variant="ghost"
           size="icon"
-          className="relative rounded-lg"
+          className="relative"
           aria-label={t('bellAria', { unread: unreadCount > 0 ? t('bellUnread', { count: unreadCount }) : '' })}
         >
-          <Bell className="h-5 w-5" />
+          <Bell className="size-4" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/80 text-background text-xs font-medium">
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -188,9 +178,9 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
                 </h3>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="xs"
                   onClick={dismissAllNotifications}
-                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground"
                   aria-label={t('dismissAll')}
                 >
                   {t('dismissAll')}

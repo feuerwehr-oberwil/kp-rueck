@@ -105,7 +105,7 @@ export function SyncConfigCard() {
           <>
             {/* Railway Database URL - full width since it's a long input */}
             <div className="space-y-2">
-              <Label htmlFor="railway-database-url" className="font-medium">{t('railwayUrlLabel')}</Label>
+              <Label htmlFor="railway-database-url" className="text-sm font-semibold text-muted-foreground">{t('railwayUrlLabel')}</Label>
               <div className="relative">
                 <Input
                   id="railway-database-url"
@@ -121,17 +121,18 @@ export function SyncConfigCard() {
                   size="icon"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? t('hidePassword') : t('showPassword')}
                   tabIndex={-1}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    <EyeOff className="size-4 text-muted-foreground" />
                   ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
+                    <Eye className="size-4 text-muted-foreground" />
                   )}
                 </Button>
               </div>
               {isInternalUrl && (
-                <p className="text-sm text-amber-600 dark:text-amber-400">
+                <p className="text-sm text-warning-foreground">
                   {t.rich('internalUrlWarning', { strong: (chunks) => <strong>{chunks}</strong> })}
                 </p>
               )}
@@ -140,7 +141,7 @@ export function SyncConfigCard() {
             {/* Sync Interval */}
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <Label htmlFor="sync-interval" className="font-medium">{t('intervalLabel')}</Label>
+                <Label htmlFor="sync-interval" className="text-sm font-semibold text-muted-foreground">{t('intervalLabel')}</Label>
                 <p className="text-xs text-muted-foreground">{t('intervalHint')}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -173,7 +174,7 @@ export function SyncConfigCard() {
             {/* Conflict Buffer */}
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <Label htmlFor="conflict-buffer" className="font-medium">{t('conflictBufferLabel')}</Label>
+                <Label htmlFor="conflict-buffer" className="text-sm font-semibold text-muted-foreground">{t('conflictBufferLabel')}</Label>
                 <p className="text-xs text-muted-foreground">{t('conflictBufferHint')}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -195,11 +196,10 @@ export function SyncConfigCard() {
               <Button
                 onClick={handleSave}
                 disabled={!hasChanges || isSaving}
-                className="flex items-center gap-2"
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                     {t('saving')}
                   </>
                 ) : (

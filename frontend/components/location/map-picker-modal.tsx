@@ -214,7 +214,7 @@ export function MapPickerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl modal-h-tall flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
@@ -254,9 +254,8 @@ export function MapPickerModal({
           <Button
             onClick={handleConfirm}
             disabled={selectedLat === null || selectedLon === null}
-            className="gap-2"
           >
-            <Check className="h-4 w-4" />
+            <Check className="size-4" />
             {t('mapPicker.confirm')}
           </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

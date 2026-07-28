@@ -149,7 +149,7 @@ export function MobileBottomNavigation({
           </SheetTrigger>
           <SheetContent
             side="bottom"
-            className="h-[70vh] overflow-y-auto animate-sheet-slide-up px-6"
+            className="modal-h-tall overflow-y-auto animate-sheet-slide-up px-6"
             style={{
               paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)'
             }}
@@ -181,33 +181,33 @@ export function MobileBottomNavigation({
                     <Button
                       key={event.id}
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight"
                       onClick={() => {
                         setSelectedEvent(event)
                         setSheetOpen(false)
                       }}
                     >
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      <ChevronRight className="size-4 text-muted-foreground" />
                       <span className="truncate">{event.name}</span>
                     </Button>
                   ))}
                   <Button
                     variant="ghost"
-                    className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight"
+                    className="w-full justify-start gap-3 touch-manipulation hover-delight"
                     onClick={() => {
                       router.push('/events?action=create')
                       setSheetOpen(false)
                     }}
                   >
-                    <Plus className="h-5 w-5" />
+                    <Plus className="size-4" />
                     <span>{t('newEvent')}</span>
                   </Button>
                   <Link href="/events" onClick={() => setSheetOpen(false)}>
                     <Button
                       variant={currentPage === 'events' ? 'secondary' : 'ghost'}
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight"
                     >
-                      <Calendar className="h-5 w-5" />
+                      <Calendar className="size-4" />
                       <span>{t('allEvents')}</span>
                     </Button>
                   </Link>
@@ -230,13 +230,13 @@ export function MobileBottomNavigation({
                   {isEditor && onCheckIn && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onCheckIn(), 350)
                       }}
                     >
-                      <QrCode className="h-5 w-5" />
+                      <QrCode className="size-4" />
                       <span>{t('checkInQr')}</span>
                     </Button>
                   )}
@@ -245,13 +245,13 @@ export function MobileBottomNavigation({
                   {isEditor && onReko && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onReko(), 350)
                       }}
                     >
-                      <Search className="h-5 w-5" />
+                      <Search className="size-4" />
                       <span>{t('reko')}</span>
                     </Button>
                   )}
@@ -260,13 +260,13 @@ export function MobileBottomNavigation({
                   {isEditor && onDisplay && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onDisplay(), 350)
                       }}
                     >
-                      <MonitorDown className="h-5 w-5" />
+                      <MonitorDown className="size-4" />
                       <span>{t('display')}</span>
                     </Button>
                   )}
@@ -275,13 +275,13 @@ export function MobileBottomNavigation({
                   {isEditor && onPersonnel && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onPersonnel(), 350)
                       }}
                     >
-                      <Users className="h-5 w-5" />
+                      <Users className="size-4" />
                       <span>{t('personnel')}</span>
                     </Button>
                   )}
@@ -290,13 +290,13 @@ export function MobileBottomNavigation({
                   {isEditor && onVehicleStatus && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onVehicleStatus(), 350)
                       }}
                     >
-                      <Truck className="h-5 w-5" />
+                      <Truck className="size-4" />
                       <span>{t('vehicles')}</span>
                     </Button>
                   )}
@@ -305,13 +305,13 @@ export function MobileBottomNavigation({
                   {isEditor && onPrint && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-4"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onPrint(), 350)
                       }}
                     >
-                      <Printer className="h-5 w-5" />
+                      <Printer className="size-4" />
                       <span>{t('print')}</span>
                     </Button>
                   )}
@@ -320,13 +320,13 @@ export function MobileBottomNavigation({
                   {isEditor && onThermo && printerEnabled && (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-5"
                       onClick={() => {
                         setSheetOpen(false)
                         setTimeout(() => onThermo(), 350)
                       }}
                     >
-                      <Printer className="h-5 w-5" />
+                      <Printer className="size-4" />
                       <span>{t('thermoPrint')}</span>
                     </Button>
                   )}
@@ -336,9 +336,9 @@ export function MobileBottomNavigation({
                     <Link href="/training" onClick={() => setSheetOpen(false)}>
                       <Button
                         variant="ghost"
-                        className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                        className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
                       >
-                        <Sparkles className="h-5 w-5 text-orange-500" />
+                        <Sparkles className="size-4 text-orange-500" />
                         <span>{t('trainingControl')}</span>
                       </Button>
                     </Link>
@@ -364,11 +364,11 @@ export function MobileBottomNavigation({
                         <Button
                           variant={isActive ? "secondary" : "ghost"}
                           className={cn(
-                            "w-full justify-start gap-3 h-11 touch-manipulation hover-delight",
+                            "w-full justify-start gap-3 touch-manipulation hover-delight",
                             `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
                           )}
                         >
-                          <Icon className="h-5 w-5" />
+                          <Icon className="size-4" />
                           <span>{item.label}</span>
                         </Button>
                       </Link>
@@ -393,11 +393,11 @@ export function MobileBottomNavigation({
                         <Button
                           variant={isActive ? "secondary" : "ghost"}
                           className={cn(
-                            "w-full justify-start gap-3 h-11 touch-manipulation hover-delight",
+                            "w-full justify-start gap-3 touch-manipulation hover-delight",
                             `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
                           )}
                         >
-                          <Icon className="h-5 w-5" />
+                          <Icon className="size-4" />
                           <span>{item.label}</span>
                         </Button>
                       </Link>
@@ -415,13 +415,13 @@ export function MobileBottomNavigation({
                 <div className="space-y-2">
                   <Button
                     variant="ghost"
-                    className="w-full justify-start gap-3 h-11 touch-manipulation hover-delight text-destructive hover:text-destructive hover:bg-destructive/10"
+                    className="w-full justify-start gap-3 touch-manipulation hover-delight text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => {
                       logout()
                       setSheetOpen(false)
                     }}
                   >
-                    <LogOut className="h-5 w-5" />
+                    <LogOut className="size-4" />
                     <span>{t('logout')}</span>
                   </Button>
                 </div>

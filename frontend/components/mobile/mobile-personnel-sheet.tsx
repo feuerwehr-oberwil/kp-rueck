@@ -64,7 +64,7 @@ export function MobilePersonnelSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="h-[85vh] overflow-y-auto px-4"
+        className="modal-h-tall overflow-y-auto px-4"
         style={{
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
         }}

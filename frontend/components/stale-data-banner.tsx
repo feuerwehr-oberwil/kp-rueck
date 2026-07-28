@@ -67,7 +67,7 @@ export function StaleDataBanner() {
       aria-live="polite"
       className="flex items-center gap-3 border-b border-warning/40 bg-warning/10 px-4 py-2 text-sm text-warning-foreground"
     >
-      <WifiOff className="h-4 w-4 flex-shrink-0 text-warning" aria-hidden="true" />
+      <WifiOff className="h-4 w-4 flex-shrink-0 text-warning-foreground" aria-hidden="true" />
       <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
         <span className="font-medium">
           {t('connectionLost')}
@@ -78,12 +78,12 @@ export function StaleDataBanner() {
       </div>
       <Button
         variant="outline"
-        size="sm"
-        className="h-7 shrink-0 gap-1.5 border-warning/40 bg-transparent px-2.5 text-xs hover:bg-warning/20"
+        size="xs"
+        className="shrink-0 border-warning/40 bg-transparent hover:bg-warning/20"
         onClick={handleReconnect}
         disabled={reconnecting}
       >
-        <RefreshCw className={cn("h-3.5 w-3.5", reconnecting && "animate-spin")} aria-hidden="true" />
+        <RefreshCw className={cn("size-3.5", reconnecting && "animate-spin")} aria-hidden="true" />
         {t('reconnect')}
       </Button>
     </div>

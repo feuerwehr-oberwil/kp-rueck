@@ -55,13 +55,13 @@ export default function Error({
         )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button onClick={reset} className="gap-2">
-            <RefreshCw className="h-4 w-4" />
+          <Button onClick={reset}>
+            <RefreshCw className="size-4" />
             {t('retry')}
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/" className="gap-2">
-              <Home className="h-4 w-4" />
+            <Link href="/">
+              <Home className="size-4" />
               {t('home')}
             </Link>
           </Button>

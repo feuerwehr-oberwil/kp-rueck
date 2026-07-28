@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Printer,
   CheckCircle,
@@ -235,9 +236,9 @@ export function PrinterSettings() {
     return (
       <Card className="p-6">
         <div className="space-y-4">
-          <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-          <div className="h-10 w-full bg-muted animate-pulse rounded" />
-          <div className="h-10 w-full bg-muted animate-pulse rounded" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
       </Card>
     );
@@ -292,7 +293,7 @@ export function PrinterSettings() {
             onClick={loadPrinterStatus}
             disabled={statusLoading}
           >
-            <RefreshCw className={`h-4 w-4 ${statusLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-3.5 ${statusLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </Card>
@@ -323,7 +324,7 @@ export function PrinterSettings() {
           {/* IP Address */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="printer-ip" className="font-medium">{t('ipLabel')}</Label>
+              <Label htmlFor="printer-ip" className="text-sm font-semibold text-muted-foreground">{t('ipLabel')}</Label>
               <p className="text-xs text-muted-foreground">{t('ipHint')}</p>
             </div>
             <div className="flex-shrink-0 w-48">
@@ -348,7 +349,7 @@ export function PrinterSettings() {
           {/* Port */}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="printer-port" className="font-medium">{t('portLabel')}</Label>
+              <Label htmlFor="printer-port" className="text-sm font-semibold text-muted-foreground">{t('portLabel')}</Label>
               <p className="text-xs text-muted-foreground">{t('portHint')}</p>
             </div>
             <div className="flex-shrink-0 w-24">
@@ -395,9 +396,9 @@ export function PrinterSettings() {
               disabled={testingConnection || testingPrint || !isEnabled}
             >
               {testingConnection ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="size-3.5 animate-spin" />
               ) : (
-                <CheckCircle className="h-4 w-4 mr-2" />
+                <CheckCircle className="size-3.5" />
               )}
               {t('testConnection')}
             </Button>
@@ -408,9 +409,9 @@ export function PrinterSettings() {
               disabled={testingPrint || testingConnection || !isEnabled}
             >
               {testingPrint ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="size-3.5 animate-spin" />
               ) : (
-                <Printer className="h-4 w-4 mr-2" />
+                <Printer className="size-3.5" />
               )}
               {t('testPrint')}
             </Button>
@@ -422,7 +423,7 @@ export function PrinterSettings() {
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   {testPhase === 'done' ? (
-                    <CheckCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-500" />
+                    <CheckCircle className="h-3.5 w-3.5 text-success" />
                   ) : (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   )}

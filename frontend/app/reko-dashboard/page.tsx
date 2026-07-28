@@ -311,7 +311,7 @@ export default function RekoDashboardPage() {
           onClick={handleBackToList}
           className="mb-4 -ml-2"
         >
-          <ArrowLeft className="h-4 w-4 mr-1" />
+          <ArrowLeft className="size-3.5" />
           {tCommon('back')}
         </Button>
 
@@ -377,7 +377,7 @@ export default function RekoDashboardPage() {
                   className="w-full"
                   size="lg"
                 >
-                  <FileText className="h-4 w-4 mr-2" />
+                  <FileText className="h-4 w-4" />
                   {assignment.has_completed_reko ? t('addSupplement') : t('openForm')}
                 </Button>
               </div>

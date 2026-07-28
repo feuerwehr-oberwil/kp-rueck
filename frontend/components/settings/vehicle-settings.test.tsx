@@ -64,7 +64,7 @@ describe("VehicleSettings", () => {
     await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
 
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Pio");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Pio");
     await user.type(within(dialog).getByLabelText(/Funkrufname/i), "Omega 2");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
@@ -102,7 +102,7 @@ describe("VehicleSettings", () => {
     await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
 
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Halffilled");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Halffilled");
 
     await user.click(within(dialog).getByRole("button", { name: /Abbrechen/i }));
 
@@ -119,7 +119,7 @@ describe("VehicleSettings", () => {
 
     await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(/^Name$/i), "Boom");
+    await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Boom");
     await user.type(within(dialog).getByLabelText(/Funkrufname/i), "Omega 9");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 

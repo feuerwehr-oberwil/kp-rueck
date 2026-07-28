@@ -23,9 +23,15 @@ const buttonVariants = cva(
       size: {
         default: 'min-h-[44px] px-4 py-2 has-[>svg]:px-3',
         sm: 'min-h-[36px] rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
+        // Desktop-only product (see CLAUDE.md): xs exists for dense panels —
+        // Detailpanel, Auftragsliste, Ressourcenzeilen. Replaces the ~28
+        // hand-written `h-7` (28px) strings that had grown into an unofficial
+        // fifth size. Do not go below this.
+        xs: 'min-h-[32px] rounded-md gap-1.5 px-2.5 text-xs has-[>svg]:px-2',
         lg: 'min-h-[48px] rounded-md px-6 has-[>svg]:px-4',
         icon: 'min-w-[44px] min-h-[44px]',
         'icon-sm': 'min-w-[36px] min-h-[36px]',
+        'icon-xs': 'min-w-[32px] min-h-[32px]',
         'icon-lg': 'min-w-[48px] min-h-[48px]',
       },
     },

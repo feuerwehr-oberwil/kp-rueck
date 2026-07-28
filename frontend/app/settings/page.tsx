@@ -471,6 +471,7 @@ export default function SettingsPage() {
     if (config.type === 'boolean' && !config.options) {
       return (
         <Switch
+          id={config.key}
           checked={value === 'true' || value === ''}
           onCheckedChange={(checked) => updateSetting(config.key, String(checked))}
           disabled={!isEditor || isCurrentlySaving}
@@ -485,7 +486,7 @@ export default function SettingsPage() {
           onValueChange={(newValue) => updateSetting(config.key, newValue)}
           disabled={!isEditor || isCurrentlySaving}
         >
-          <SelectTrigger className="w-full">
+          <SelectTrigger id={config.key} className="w-full">
             <SelectValue placeholder={t('page.general.selectPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
@@ -501,6 +502,7 @@ export default function SettingsPage() {
 
     return (
       <Input
+        id={config.key}
         type={config.type === 'number' ? 'number' : 'text'}
         value={value}
         onChange={(e) => setSettings((prev) => ({ ...prev, [config.key]: e.target.value }))}
@@ -521,7 +523,7 @@ export default function SettingsPage() {
 
   const DemoHint = ({ text }: { text: string }) => (
     demoMode ? (
-      <div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+      <div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning-foreground">
         <Info className="h-4 w-4 flex-shrink-0" />
         {text}
       </div>
@@ -538,7 +540,7 @@ export default function SettingsPage() {
               {/* Theme Selection */}
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <Label className="font-medium">{t('page.general.appearance')}</Label>
+                  <Label className="text-sm font-semibold text-muted-foreground">{t('page.general.appearance')}</Label>
                   <p className="text-xs text-muted-foreground">{t('page.general.appearanceHint')}</p>
                 </div>
                 {mounted && (
@@ -571,7 +573,7 @@ export default function SettingsPage() {
               {mounted && AVAILABLE_LOCALES.length > 1 && (
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <Label className="font-medium">{t('page.general.language')}</Label>
+                    <Label className="text-sm font-semibold text-muted-foreground">{t('page.general.language')}</Label>
                     <p className="text-xs text-muted-foreground">{t('page.general.languageHint')}</p>
                   </div>
                   <div className="w-56 flex-shrink-0">
@@ -616,7 +618,7 @@ export default function SettingsPage() {
                     {SETTING_CONFIGS.map((config) => (
                       <div key={config.key} className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
-                          <Label htmlFor={config.key} className="font-medium">{t(`page.general.configs.${config.key}.label`)}</Label>
+                          <Label htmlFor={config.key} className="text-sm font-semibold text-muted-foreground">{t(`page.general.configs.${config.key}.label`)}</Label>
                           <p className="text-xs text-muted-foreground">{t(`page.general.configs.${config.key}.description`)}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -680,11 +682,11 @@ export default function SettingsPage() {
                 return (
                   <div key={field.key} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="font-medium">{field.label}</Label>
+                      <Label className="text-sm font-semibold text-muted-foreground">{field.label}</Label>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-muted-foreground"
+                        size="xs"
+                        className="text-muted-foreground"
                         disabled={!isEditor || isCurrentlySaving || value === field.fallback}
                         onClick={() => updateSetting(field.key, field.fallback)}
                       >
@@ -733,11 +735,11 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="font-medium">{t('page.alerting.templateLabel')}</Label>
+                      <Label className="text-sm font-semibold text-muted-foreground">{t('page.alerting.templateLabel')}</Label>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-muted-foreground"
+                        size="xs"
+                        className="text-muted-foreground"
                         disabled={!isEditor || isCurrentlySaving || value === fallback}
                         onClick={() => updateSetting(key, fallback)}
                       >
@@ -861,8 +863,8 @@ export default function SettingsPage() {
                   <div className="flex-1">
                     <p className="text-sm text-destructive/90">{importError}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setImportError(null)}>
-                    <X className="h-4 w-4" />
+                  <Button variant="ghost" size="icon-xs" onClick={() => setImportError(null)}>
+                    <X className="size-3.5" />
                   </Button>
                 </div>
               </Card>
@@ -875,8 +877,8 @@ export default function SettingsPage() {
                   <div className="flex-1">
                     <p className="text-sm text-success">{importSuccess}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setImportSuccess(null)}>
-                    <X className="h-4 w-4" />
+                  <Button variant="ghost" size="icon-xs" onClick={() => setImportSuccess(null)}>
+                    <X className="size-3.5" />
                   </Button>
                 </div>
               </Card>
@@ -890,7 +892,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground">{t('page.import.exportDescription')}</p>
                 </div>
                 <Button onClick={handleExport} disabled={importLoading}>
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="size-4" />
                   {t('page.import.exportButton')}
                 </Button>
               </div>
@@ -913,7 +915,7 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground">{t('page.import.step1Description')}</p>
                   </div>
                   <Button onClick={handleDownloadTemplate} disabled={importLoading} variant="outline" size="sm">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    <FileSpreadsheet className="size-3.5" />
                     {t('page.import.templateButton')}
                   </Button>
                 </div>
@@ -999,7 +1001,7 @@ export default function SettingsPage() {
                       </Button>
                     )}
                     <Button onClick={resetImport} variant="ghost" size="sm" className="ml-auto">
-                      <X className="h-4 w-4 mr-1" />
+                      <X className="size-3.5" />
                       {t('common.reset')}
                     </Button>
                   </div>
@@ -1160,7 +1162,7 @@ export default function SettingsPage() {
                     disabled={!auditExportEventId || auditExportLoading || eventsLoading}
                     className="w-full sm:w-auto"
                   >
-                    <Download className="h-4 w-4 mr-2" />
+                    <Download className="size-4" />
                     {auditExportLoading ? t('page.audit.exporting') : t('page.audit.exportButton')}
                   </Button>
                 </div>
@@ -1201,7 +1203,7 @@ export default function SettingsPage() {
               </Select>
               {hasActiveAuditFilters && (
                 <Button variant="ghost" size="sm" onClick={clearAuditFilters} className="h-9">
-                  <X className="h-4 w-4 mr-1" />
+                  <X className="size-3.5" />
                   {t('page.audit.clearFilters')}
                 </Button>
               )}

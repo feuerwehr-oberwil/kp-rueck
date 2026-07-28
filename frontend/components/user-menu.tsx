@@ -346,8 +346,8 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-lg">
-          <User className="h-5 w-5" />
+        <Button variant="ghost" size="icon" aria-label={t('openMenu')}>
+          <User className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">

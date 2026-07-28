@@ -181,7 +181,7 @@ export function GpsSettingsCard({
                 />
               </div>
               {settings[ARRIVAL_SILENT_KEY] === "true" && (
-                <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
                   <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                   <span>
                     {t.rich("gps.silentWarning", {
@@ -218,17 +218,17 @@ export function GpsSettingsCard({
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">{t("gps.latLabel")}</Label>
+                <Label className="text-sm font-semibold text-muted-foreground">{t("gps.latLabel")}</Label>
                 {renderCoord(STATION_LAT_KEY)}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">{t("gps.lngLabel")}</Label>
+                <Label className="text-sm font-semibold text-muted-foreground">{t("gps.lngLabel")}</Label>
                 {renderCoord(STATION_LNG_KEY)}
               </div>
             </div>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <Label className="font-medium text-sm">{t("gps.stationRadiusLabel")}</Label>
+                <Label className="text-sm font-semibold text-muted-foreground">{t("gps.stationRadiusLabel")}</Label>
                 <p className="text-xs text-muted-foreground">
                   {t("gps.stationRadiusHint")}
                 </p>
@@ -243,7 +243,7 @@ export function GpsSettingsCard({
           <div className="border-t pt-4 space-y-3">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <Label className="font-medium text-sm">{t("gps.arrivalRadiusLabel")}</Label>
+                <Label className="text-sm font-semibold text-muted-foreground">{t("gps.arrivalRadiusLabel")}</Label>
                 <p className="text-xs text-muted-foreground">
                   {t("gps.arrivalRadiusHint")}
                 </p>
@@ -260,7 +260,7 @@ export function GpsSettingsCard({
             {tuningFields.map((field) => (
               <div key={field.key} className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <Label className="font-medium text-sm">{field.label}</Label>
+                  <Label className="text-sm font-semibold text-muted-foreground">{field.label}</Label>
                   <p className="text-xs text-muted-foreground">{field.hint}</p>
                 </div>
                 <div className="flex-shrink-0">

@@ -53,7 +53,7 @@ export function WebSocketStatus() {
   const getStatusColor = () => {
     switch (status) {
       case 'connecting':
-        return 'text-warning'
+        return 'text-warning-foreground'
       case 'connected':
         return 'text-success'
       case 'disconnected':
@@ -69,7 +69,7 @@ export function WebSocketStatus() {
         <TooltipTrigger asChild>
           <div className={cn(
             "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-            "bg-gray-100 dark:bg-gray-800",
+            "bg-muted",
             getStatusColor()
           )}>
             {getStatusIcon()}

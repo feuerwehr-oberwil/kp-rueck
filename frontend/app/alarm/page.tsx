@@ -11,8 +11,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { LocationInput } from '@/components/location/location-input'
-import { INCIDENT_TYPE_LABELS, PRIORITY_LABELS } from '@/lib/types/incidents'
+import { INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentType, IncidentPriority } from '@/lib/types/incidents'
+import { PRIORITY_LABELS } from '@/lib/priority'
 import { apiClient } from '@/lib/api-client'
 import { cn, sanitizePhoneInput } from '@/lib/utils'
 
@@ -110,7 +111,7 @@ function SuccessScreen({ eventName, onAnother }: { eventName: string; onAnother:
         {t('successDescription', { eventName })}
       </p>
       <Button className="mt-6 w-full" size="lg" onClick={onAnother}>
-        <Plus className="mr-2 h-5 w-5" />
+        <Plus className="h-5 w-5" />
         {t('another')}
       </Button>
     </div>
@@ -178,7 +179,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{eventName}</p>
         {trainingFlag && (
-          <span className="mt-2 inline-flex items-center gap-2 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs text-amber-500">
+          <span className="mt-2 inline-flex items-center gap-2 rounded border border-warning/20 bg-warning/10 px-2 py-1 text-xs text-warning-foreground">
             <AlertTriangle className="h-3.5 w-3.5" />
             {t('trainingMode')}
           </span>
@@ -201,7 +202,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
       {/* Meldung — what was reported (not the address, that's the location above) */}
       <div>
         <Label htmlFor="title" className="text-sm font-semibold text-muted-foreground">
-          {t('messageLabel')}
+          {t('messageLabel')} <span className="text-destructive" aria-hidden="true">*</span>
         </Label>
         <Input
           id="title"
@@ -216,7 +217,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
 
       {/* Priority — three quick buttons (mobile-friendly, like the Reko form) */}
       <div>
-        <Label className="text-sm font-semibold text-muted-foreground">{t('priorityLabel')}</Label>
+        <Label className="text-sm font-semibold text-muted-foreground">{t('priorityLabel')} <span className="text-destructive" aria-hidden="true">*</span></Label>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {(Object.entries(PRIORITY_LABELS) as [IncidentPriority, string][]).map(([key, label]) => (
             <Button
@@ -224,7 +225,8 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
               type="button"
               variant={priority === key ? 'default' : 'outline'}
               onClick={() => setPriority(key)}
-              className="h-12 text-base"
+              size="lg"
+              className="text-base"
             >
               {label}
             </Button>
@@ -234,7 +236,7 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
 
       {/* Type */}
       <div>
-        <Label className="text-sm font-semibold text-muted-foreground">{t('typeLabel')}</Label>
+        <Label className="text-sm font-semibold text-muted-foreground">{t('typeLabel')} <span className="text-destructive" aria-hidden="true">*</span></Label>
         <Popover open={typeOpen} onOpenChange={setTypeOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -242,7 +244,8 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
               variant="outline"
               role="combobox"
               aria-expanded={typeOpen}
-              className="mt-2 h-12 w-full justify-between text-base font-normal"
+              size="lg"
+              className="mt-2 w-full justify-between text-base font-normal"
             >
               {INCIDENT_TYPE_LABELS[type]}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -324,15 +327,15 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
         </div>
       )}
 
-      <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={submitting || !title.trim()}>
+      <Button type="submit" size="lg" className="w-full text-base" disabled={submitting || !title.trim()}>
         {submitting ? (
           <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin" />
             {t('submitting')}
           </>
         ) : (
           <>
-            <Plus className="mr-2 h-5 w-5" />
+            <Plus className="h-5 w-5" />
             {t('submit')}
           </>
         )}

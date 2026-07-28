@@ -93,7 +93,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-6 w-6" />
+          <Menu className="size-4" />
           <span className="sr-only">{t('openMenu')}</span>
         </Button>
       </SheetTrigger>
@@ -122,7 +122,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
           <div className="space-y-8">
             {/* Views Section */}
             <div>
-              <h3 className="text-[11px] font-semibold text-muted-foreground/80 tracking-wider mb-4 px-3">
+              <h3 className="text-2xs font-semibold text-muted-foreground/80 tracking-wider mb-4 px-3">
                 {t('views')}
               </h3>
               <nav className="space-y-1.5">
@@ -176,7 +176,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
 
             {/* Management Section */}
             <div>
-              <h3 className="text-[11px] font-semibold text-muted-foreground/80 tracking-wider mb-4 px-3">
+              <h3 className="text-2xs font-semibold text-muted-foreground/80 tracking-wider mb-4 px-3">
                 {t('management')}
               </h3>
               <nav className="space-y-1.5">
@@ -226,7 +226,7 @@ export function MobileNavigation({ open, onOpenChange, children, hasSelectedEven
               <NotificationSidebar />
               <UserMenu />
             </div>
-            <div className="text-[10px] text-muted-foreground/60 font-medium">
+            <div className="text-2xs text-muted-foreground/60 font-medium">
               v1.0
             </div>
           </div>

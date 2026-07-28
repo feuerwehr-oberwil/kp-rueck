@@ -209,7 +209,7 @@ export function VehicleSettings() {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button onClick={handleOpenCreate}>
-          <PlusCircle className="mr-2 h-4 w-4" />
+          <PlusCircle className="size-4" />
           {t('vehicles.addButton')}
         </Button>
         <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
@@ -226,7 +226,9 @@ export function VehicleSettings() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('common.name')}</FormLabel>
+                      <FormLabel className="text-sm font-semibold text-muted-foreground">
+                        {t('common.name')} <span className="text-destructive" aria-hidden="true">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -243,7 +245,9 @@ export function VehicleSettings() {
                   name="display_order"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('vehicles.orderLabel')}</FormLabel>
+                      <FormLabel className="text-sm font-semibold text-muted-foreground">
+                        {t('vehicles.orderLabel')} <span className="text-destructive" aria-hidden="true">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -268,7 +272,9 @@ export function VehicleSettings() {
                   name="radio_call_sign"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('common.radioCallSign')}</FormLabel>
+                      <FormLabel className="text-sm font-semibold text-muted-foreground">
+                        {t('common.radioCallSign')} <span className="text-destructive" aria-hidden="true">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Input {...field} placeholder={t('vehicles.radioPlaceholder')} />
                       </FormControl>
@@ -281,7 +287,9 @@ export function VehicleSettings() {
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('common.status')}</FormLabel>
+                      <FormLabel className="text-sm font-semibold text-muted-foreground">
+                        {t('common.status')}
+                      </FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
@@ -307,7 +315,7 @@ export function VehicleSettings() {
                     {t('common.cancel')}
                   </Button>
                   <Button type="submit" disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSaving && <Loader2 className="size-4 animate-spin" />}
                     {editingVehicle ? t('common.update') : t('common.create')}
                   </Button>
                 </DialogFooter>
@@ -375,10 +383,15 @@ export function VehicleSettings() {
               </TableCell>
               <TableCell className="text-right">
                 <Button variant="ghost" size="sm" onClick={() => handleEdit(vehicle)}>
-                  <Edit className="h-4 w-4" />
+                  <Edit className="size-3.5" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(vehicle)}>
-                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteClick(vehicle)}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" />
                 </Button>
               </TableCell>
             </TableRow>

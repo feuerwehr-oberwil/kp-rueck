@@ -193,9 +193,9 @@ export default function EventsPage() {
         <DropdownMenuTrigger asChild>
           <Button variant="outline" disabled={busy} title={t('page.exportTitle')}>
             {busy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="size-4" />
             )}
             {t('page.export')}
           </Button>
@@ -328,11 +328,11 @@ export default function EventsPage() {
 
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <Button onClick={() => setShowCreateDialog(true)} size="sm" className="hidden sm:flex">
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="size-3.5" />
               {t('page.newEvent')}
             </Button>
-            <Button onClick={() => setShowCreateDialog(true)} size="icon" className="sm:hidden">
-              <Plus className="h-5 w-5" />
+            <Button onClick={() => setShowCreateDialog(true)} size="icon" className="sm:hidden" aria-label={t('page.newEvent')}>
+              <Plus className="size-4" />
             </Button>
 
             {/* Desktop Navigation */}
@@ -380,7 +380,7 @@ export default function EventsPage() {
                         <Card
                           key={event.id}
                           data-testid="event-card"
-                          className={`cursor-pointer transition-all hover:shadow-lg ${
+                          className={`cursor-pointer transition-all hover:border-primary/50 ${
                             selectedEvent?.id === event.id ? 'border-2 border-red-600' : ''
                           }`}
                         >
@@ -415,7 +415,7 @@ export default function EventsPage() {
                                   setShowArchiveDialog(true)
                                 }}
                               >
-                                <Archive className="h-4 w-4" />
+                                <Archive className="size-4" />
                               </Button>
                               {renderExportMenu(event)}
                             </div>
@@ -458,20 +458,21 @@ export default function EventsPage() {
                                 className="flex-1"
                                 onClick={() => handleUnarchive(event)}
                               >
-                                <ArchiveRestore className="mr-2 h-4 w-4" />
+                                <ArchiveRestore className="size-4" />
                                 {t('page.restore')}
                               </Button>
                               {renderExportMenu(event)}
                               <Button
-                                variant="destructive"
+                                variant="ghost"
                                 size="icon"
                                 title={t('page.delete')}
+                                className="hover:bg-destructive/10"
                                 onClick={() => {
                                   setTargetEvent(event)
                                   setShowDeleteDialog(true)
                                 }}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </div>
                           </CardContent>
@@ -493,7 +494,7 @@ export default function EventsPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="event-name">{t('createDialog.nameLabel')}</Label>
+                <Label htmlFor="event-name" className="text-sm font-semibold text-muted-foreground">{t('createDialog.nameLabel')}</Label>
                 <Input
                   id="event-name"
                   value={newEventName}
@@ -535,7 +536,7 @@ export default function EventsPage() {
                     }}
                     className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left text-sm font-medium transition-colors ${
                       newEventTraining
-                        ? 'border-orange-500 bg-orange-500/5 text-orange-600 dark:text-orange-400'
+                        ? 'border-warning bg-warning/5 text-warning-foreground'
                         : 'border-muted hover:border-muted-foreground/25'
                     }`}
                   >
@@ -550,7 +551,7 @@ export default function EventsPage() {
                 {t('createDialog.cancel')}
               </Button>
               <Button onClick={handleCreateEvent} disabled={isCreating || !newEventName.trim()}>
-                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isCreating && <Loader2 className="size-4 animate-spin" />}
                 {isCreating ? t('createDialog.creating') : t('createDialog.create')}
               </Button>
             </DialogFooter>

@@ -132,7 +132,7 @@ export function GpsArrivalPrompt() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="sm:justify-between">
-          <Button variant="ghost" onClick={() => setPrompt(null)} disabled={advancing}>
+          <Button variant="outline" onClick={() => setPrompt(null)} disabled={advancing}>
             {t('decline')}
           </Button>
           <Button onClick={handleAdvance} disabled={advancing}>

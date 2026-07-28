@@ -9,7 +9,7 @@ import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft,
 import { columns, getTimeSince, ageChipClass, ageLevel } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
-import { cn } from '@/lib/utils'
+import { cn, formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 import { type OperationStatus } from '@/lib/contexts/operations-context'
 import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
 import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
@@ -33,11 +33,6 @@ function mapApiStatus(apiStatus: string): OperationStatus {
     abschluss: 'complete',
   }
   return statusMap[apiStatus] || 'incoming'
-}
-
-function formatLocation(address: string | null, unknownLabel: string): string {
-  if (!address) return unknownLabel
-  return address.split(',')[0].trim()
 }
 
 const priorityStyles = {
@@ -70,7 +65,7 @@ function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiInciden
   return (
     <Card
       className={cn(
-        'border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all cursor-pointer hover:border-border hover:bg-card',
+        'border border-border bg-card/80 backdrop-blur-sm p-4 transition-all cursor-pointer hover:bg-card',
         priorityConfig?.card,
       )}
       onClick={onClick}
@@ -89,7 +84,7 @@ function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiInciden
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-bold text-base text-foreground leading-tight break-words">
-                {incident.location_display || formatLocation(incident.location_address || incident.title, t('unknown'))}
+                {incident.location_display || formatLocationForDisplay(incident.location_address || incident.title, getGlobalHomeCity()) || t('unknown')}
               </h3>
               {incident.title && incident.location_address && incident.title !== incident.location_address && (
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{incident.title}</p>
@@ -339,7 +334,7 @@ export function TokenBoard({ token }: { token: string }) {
       {isStale && lastRefresh && (
         <div
           role="status"
-          className="flex items-center justify-center gap-2 border-b border-amber-500/30 bg-amber-500/15 px-4 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400"
+          className="flex items-center justify-center gap-2 border-b border-warning/30 bg-warning/15 px-4 py-1.5 text-sm font-medium text-warning-foreground"
         >
           <WifiOff className="h-4 w-4 flex-shrink-0" />
           <span>{t('staleBanner', { time: lastRefresh.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}</span>
@@ -365,7 +360,7 @@ export function TokenBoard({ token }: { token: string }) {
 
       {/* min-h-0 lets the columns scroll internally instead of the last card
           getting clipped at the container edge. */}
-      <main className="flex-1 min-h-0 overflow-x-auto p-4 bg-muted/30 dark:bg-zinc-950/20">
+      <main className="flex-1 min-h-0 overflow-x-auto p-4 bg-muted/30 dark:bg-background">
         <div className="flex h-full gap-3">
           {columns.filter((c) => !c.collapsible).map((column) => (
             <TokenColumn

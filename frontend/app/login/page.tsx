@@ -147,7 +147,7 @@ export default function LoginPage() {
           <Progress value={progress} className="h-1 rounded-t-xl rounded-b-none" />
         </div>
 
-        <Card className="border border-border/50 bg-card/80 backdrop-blur-sm shadow-lg overflow-hidden">
+        <Card className="border border-border bg-card/80 backdrop-blur-sm overflow-hidden">
           <div className="p-8">
             {/* Header */}
             <div className="mb-8 text-center">
@@ -161,7 +161,7 @@ export default function LoginPage() {
                 {t('subtitle')}
               </p>
               {isDemo && (
-                <span className="mt-2 inline-block rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-warning border border-warning/30">
+                <span className="mt-2 inline-block rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-warning-foreground border border-warning/30">
                   {t('demoBadge')}
                 </span>
               )}
@@ -185,27 +185,27 @@ export default function LoginPage() {
             {!configLoading && isDemo === true && (
               <div className="space-y-3">
                 <Button
-                  className="w-full h-11"
+                  className="w-full"
                   onClick={() => handleDemoLogin('editor')}
                   disabled={loading}
                 >
                   {loading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                   ) : (
-                    <Shield className="mr-2 h-4 w-4" />
+                    <Shield className="size-4" />
                   )}
                   {t('loginAsEditor')}
                 </Button>
                 <Button
-                  className="w-full h-11"
+                  className="w-full"
                   variant="outline"
                   onClick={() => handleDemoLogin('viewer')}
                   disabled={loading}
                 >
                   {loading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                   ) : (
-                    <Eye className="mr-2 h-4 w-4" />
+                    <Eye className="size-4" />
                   )}
                   {t('loginAsViewer')}
                 </Button>
@@ -218,11 +218,11 @@ export default function LoginPage() {
                 {/* Microsoft Login */}
                 {msConfig && (
                   <Button
-                    className="w-full h-11"
+                    className="w-full"
                     onClick={handleMicrosoftLogin}
                     disabled={loading}
                   >
-                    <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg className="size-4" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
                       <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
                       <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
@@ -263,7 +263,7 @@ export default function LoginPage() {
 
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="username" className="text-sm font-medium text-muted-foreground">
+                        <Label htmlFor="username" className="text-sm font-semibold text-muted-foreground">
                           {t('usernameLabel')}
                         </Label>
                         <Input
@@ -280,7 +280,7 @@ export default function LoginPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
+                        <Label htmlFor="password" className="text-sm font-semibold text-muted-foreground">
                           {t('passwordLabel')}
                         </Label>
                         <Input
@@ -298,14 +298,14 @@ export default function LoginPage() {
 
                     <Button
                       type="submit"
-                      className="w-full h-11"
+                      className="w-full"
                       variant={msConfig ? 'outline' : 'default'}
                       disabled={loading}
                     >
                       {loading ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="size-4 animate-spin" />
                       ) : (
-                        <LogIn className="mr-2 h-4 w-4" />
+                        <LogIn className="size-4" />
                       )}
                       {loading ? t('loggingIn') : t('submit')}
                     </Button>

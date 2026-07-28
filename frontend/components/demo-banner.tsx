@@ -116,7 +116,7 @@ export function DemoBanner() {
     <>
       <div
         data-demo-ribbon
-        className="pointer-events-none fixed top-[calc(15px+env(safe-area-inset-top))] -left-9 z-[150] w-[132px] -rotate-45 bg-amber-500 py-[3px] text-center text-[11px] font-extrabold tracking-[2px] text-amber-950 shadow-[0_1px_5px_rgba(20,28,40,0.35)]"
+        className="pointer-events-none fixed top-[calc(15px+env(safe-area-inset-top))] -left-9 z-[150] w-[132px] -rotate-45 bg-amber-500 py-[3px] text-center text-2xs font-extrabold tracking-[2px] text-amber-950 shadow-[0_1px_5px_rgba(20,28,40,0.35)]"
         role="note"
         aria-label={t('ariaLabel')}
       >
@@ -125,12 +125,12 @@ export function DemoBanner() {
 
       <Dialog open={showWelcome} onOpenChange={(open) => { if (!open) closeWelcome() }}>
         <DialogContent
-          className="z-[160] max-h-[88dvh] overflow-y-auto sm:max-w-md"
+          className="z-[160] modal-h-tall overflow-y-auto sm:max-w-md"
           overlayClassName="z-[160]"
         >
           <DialogHeader className="pr-8">
             <div className="flex items-center gap-3">
-              <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[10px] font-extrabold tracking-[1.5px] text-amber-950">
+              <span className="rounded-full bg-amber-500 px-2.5 py-1 text-2xs font-extrabold tracking-[1.5px] text-amber-950">
                 {t('ribbon')}
               </span>
               <DialogTitle>{t('welcome.title')}</DialogTitle>

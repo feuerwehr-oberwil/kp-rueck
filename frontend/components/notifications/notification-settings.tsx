@@ -155,7 +155,7 @@ export function NotificationSettingsCard() {
 
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <Label htmlFor="toast-duration" className="font-medium">{t('toastDurationLabel')}</Label>
+            <Label htmlFor="toast-duration" className="text-sm font-semibold text-muted-foreground">{t('toastDurationLabel')}</Label>
             <p className="text-xs text-muted-foreground">{t('toastDurationHint')}</p>
           </div>
           <div className="flex-shrink-0 w-24">
@@ -197,7 +197,7 @@ export function NotificationSettingsCard() {
           <TabsContent value="live" className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="live-eingegangen" className="font-medium">{t('eingegangenMin')}</Label>
+                <Label htmlFor="live-eingegangen" className="text-sm font-semibold text-muted-foreground">{t('eingegangenMin')}</Label>
                 <Input
                   id="live-eingegangen"
                   type="number"
@@ -213,7 +213,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-reko" className="font-medium">{t('rekoMin')}</Label>
+                <Label htmlFor="live-reko" className="text-sm font-semibold text-muted-foreground">{t('rekoMin')}</Label>
                 <Input
                   id="live-reko"
                   type="number"
@@ -229,7 +229,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-disponiert" className="font-medium">{t('disponiertMin')}</Label>
+                <Label htmlFor="live-disponiert" className="text-sm font-semibold text-muted-foreground">{t('disponiertMin')}</Label>
                 <Input
                   id="live-disponiert"
                   type="number"
@@ -245,7 +245,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-einsatz" className="font-medium">{t('einsatzHours')}</Label>
+                <Label htmlFor="live-einsatz" className="text-sm font-semibold text-muted-foreground">{t('einsatzHours')}</Label>
                 <Input
                   id="live-einsatz"
                   type="number"
@@ -261,7 +261,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-rueckfahrt" className="font-medium">{t('rueckfahrtMin')}</Label>
+                <Label htmlFor="live-rueckfahrt" className="text-sm font-semibold text-muted-foreground">{t('rueckfahrtMin')}</Label>
                 <Input
                   id="live-rueckfahrt"
                   type="number"
@@ -277,7 +277,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="live-archive" className="font-medium">{t('archiveHours')}</Label>
+                <Label htmlFor="live-archive" className="text-sm font-semibold text-muted-foreground">{t('archiveHours')}</Label>
                 <Input
                   id="live-archive"
                   type="number"
@@ -297,7 +297,7 @@ export function NotificationSettingsCard() {
           <TabsContent value="training" className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="training-eingegangen" className="font-medium">{t('eingegangenMin')}</Label>
+                <Label htmlFor="training-eingegangen" className="text-sm font-semibold text-muted-foreground">{t('eingegangenMin')}</Label>
                 <Input
                   id="training-eingegangen"
                   type="number"
@@ -313,7 +313,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-reko" className="font-medium">{t('rekoMin')}</Label>
+                <Label htmlFor="training-reko" className="text-sm font-semibold text-muted-foreground">{t('rekoMin')}</Label>
                 <Input
                   id="training-reko"
                   type="number"
@@ -329,7 +329,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-disponiert" className="font-medium">{t('disponiertMin')}</Label>
+                <Label htmlFor="training-disponiert" className="text-sm font-semibold text-muted-foreground">{t('disponiertMin')}</Label>
                 <Input
                   id="training-disponiert"
                   type="number"
@@ -345,7 +345,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-einsatz" className="font-medium">{t('einsatzHours')}</Label>
+                <Label htmlFor="training-einsatz" className="text-sm font-semibold text-muted-foreground">{t('einsatzHours')}</Label>
                 <Input
                   id="training-einsatz"
                   type="number"
@@ -361,7 +361,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-rueckfahrt" className="font-medium">{t('rueckfahrtMin')}</Label>
+                <Label htmlFor="training-rueckfahrt" className="text-sm font-semibold text-muted-foreground">{t('rueckfahrtMin')}</Label>
                 <Input
                   id="training-rueckfahrt"
                   type="number"
@@ -377,7 +377,7 @@ export function NotificationSettingsCard() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="training-archive" className="font-medium">{t('archiveHours')}</Label>
+                <Label htmlFor="training-archive" className="text-sm font-semibold text-muted-foreground">{t('archiveHours')}</Label>
                 <Input
                   id="training-archive"
                   type="number"
@@ -409,7 +409,7 @@ export function NotificationSettingsCard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="fatigue-hours" className="font-medium">{t('fatigueLabel')}</Label>
+            <Label htmlFor="fatigue-hours" className="text-sm font-semibold text-muted-foreground">{t('fatigueLabel')}</Label>
             <Input
               id="fatigue-hours"
               type="number"
@@ -425,7 +425,7 @@ export function NotificationSettingsCard() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="database-limit" className="font-medium">{t('databaseLabel')}</Label>
+            <Label htmlFor="database-limit" className="text-sm font-semibold text-muted-foreground">{t('databaseLabel')}</Label>
             <Input
               id="database-limit"
               type="number"
@@ -441,7 +441,7 @@ export function NotificationSettingsCard() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="photo-limit" className="font-medium">{t('photoLabel')}</Label>
+            <Label htmlFor="photo-limit" className="text-sm font-semibold text-muted-foreground">{t('photoLabel')}</Label>
             <Input
               id="photo-limit"
               type="number"

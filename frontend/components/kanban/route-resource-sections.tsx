@@ -72,14 +72,14 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
           viaLabel={viaLabel}
           action={!readOnly ? (
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               onClick={() => onAssign("crew")}
-              className="h-7 gap-1 px-2"
+              className="gap-1 px-2"
               title={t("common.assignCrew")}
               tabIndex={0}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="size-3.5" />
               {t("common.add")}
             </Button>
           ) : undefined}
@@ -112,14 +112,14 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
           viaLabel={viaLabel}
           action={!readOnly ? (
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               onClick={() => onAssign("vehicles")}
-              className="h-7 gap-1 px-2"
+              className="gap-1 px-2"
               title={t("common.assignVehicle")}
               tabIndex={0}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="size-3.5" />
               {t("common.add")}
             </Button>
           ) : undefined}
@@ -152,14 +152,14 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
           viaLabel={viaLabel}
           action={!readOnly ? (
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               onClick={() => onAssign("materials")}
-              className="h-7 gap-1 px-2"
+              className="gap-1 px-2"
               title={t("common.assignMaterial")}
               tabIndex={0}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="size-3.5" />
               {t("common.add")}
             </Button>
           ) : undefined}

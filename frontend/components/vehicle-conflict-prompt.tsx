@@ -62,7 +62,7 @@ export function VehicleConflictPrompt() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="sm:justify-between">
-          <Button variant="ghost" onClick={cancelVehicleConflict}>
+          <Button variant="outline" onClick={cancelVehicleConflict}>
             {tCommon('cancel')}
           </Button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

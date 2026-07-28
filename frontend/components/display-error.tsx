@@ -80,8 +80,8 @@ export default function DisplayError({ error }: { error: Error & { digest?: stri
           </div>
         )}
 
-        <Button onClick={() => window.location.reload()} className="gap-2">
-          <RefreshCw className="h-4 w-4" />
+        <Button onClick={() => window.location.reload()}>
+          <RefreshCw className="size-4" />
           {t('retryNow')}
         </Button>
       </div>
