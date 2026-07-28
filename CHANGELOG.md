@@ -28,6 +28,85 @@ will keep holding.
 
 ## [Unreleased]
 
+A round of Auftrag and viewer work, all of it from one afternoon of testing on the demo by an
+officer who does not build the thing. Everything below is running in production at Feuerwehr
+Oberwil.
+
+### Added
+- **An Auftrag is handed out once, not once per stop.** A route with four stops produced four
+  radio announcements, each reading out the same crew — so the Einsatzleiter read the same
+  Mannschaft aloud four times. The first stop to reach «Disponiert» *is* the Auftragsvergabe and
+  now gets the full announcement (crew and vehicles first, then the numbered list of stops, with
+  Reko dangers and Nachbarhilfe collected at the end and named with their address). Every later
+  stop gets the short continuation: «Auftrag ‹Sturmholz Oberwil› weiter mit Stop 3:
+  Mühlemattstrasse 12.»
+
+  If the route picks up crew, a vehicle or material in the meantime, the full announcement is due
+  again — whoever just joined has never heard the Auftrag. Completed stops drop out of the list
+  but **keep their number**, so «Stop 3» means the same address for the whole life of the
+  Auftrag; a list that renumbers itself is a trap over the radio.
+
+  There is deliberately **no new button**: the Disponiert dialog stays the trigger and only the
+  text differs, because the app can tell which case it is and the operator should not have to.
+  What was last announced is stored **on the Auftrag, server-side** (timestamp plus a digest of
+  the crew/vehicles/material) rather than in the browser — two devices, a wall screen and a
+  reload mid-Einsatz all have to agree on what has already been said.
+
+  > **No action required.** The migration adding the four `incident_groups` columns runs on boot.
+  > Until it has, an announcement simply cannot be recorded, and every stop falls back to the
+  > full text — the harmless direction.
+- **«Durchsage wiederholen» per Auftrag.** Radio traffic gets lost and asking for a repeat is
+  normal. Each Auftrag in the slide-up now repeats its last announcement word for word (card,
+  ⋮ menu, right-click) — no reopening a stop dialog for the wording, and the repeat is not
+  counted as a new announcement.
+- **The Reko photos are visible where the Reko result is read.** Photos uploaded through the Reko
+  form only ever existed *inside* the Reko form — the one surface the command post never opens.
+  The incident detail (including the `/display` views) shows them under «Reko-Ergebnis», together
+  with the Lagetext, which was missing for the same reason. A picture of the damage is the most
+  useful part of a Reko report. The images stay behind the login; a share-link view receives no
+  filenames at all.
+- **Every section of the display views folds away.** Board columns (including the share-link
+  board), the incident status groups, the Funktionen under Personal and the categories under
+  Material. A larger Feuerwehr otherwise only scrolls.
+
+  Open is the default — nothing hides from someone who has just walked up to the screen — with
+  ABGESCHLOSSEN as the one exception, as before. A **folded header keeps its count and its
+  state**: a red dot as soon as an incident in that section is past the board's own warning
+  threshold, and for Personal and Material how many are still free. Folding is hiding, and at 3am
+  nothing important may hide itself. The fold is remembered per device, like the other display
+  settings.
+- **A closed incident can still be made a stop, but never silently.** Attaching an already
+  completed incident to an Auftrag went through without a word, so a route showed a stop nobody
+  was going to drive to. There is now a confirmation naming *which* of the selected incidents are
+  closed — it warns, it does not forbid, because a Wiederaufnahme or a second visit to the same
+  address is a real case and a ban would just produce a duplicate incident. It sits on the action
+  rather than the screen, so it covers all three routes in: the stop picker, «An Auftrag
+  verteilen» and dragging a card onto a route.
+
+### Fixed
+- **An Auftrag wears its own colour everywhere on the map.** Two places disagreed. The route drew
+  its line and its numbered stop pins with a private indigo fallback whenever the Auftrag had no
+  colour set, while the board chip, the marker colouring and the legend had long resolved that
+  same case through `colorAccent` — so two colourless Aufträge were one colour on the line and
+  two different ones everywhere else. And while routes are drawn, a stop now also carries its
+  route's colour as a *marker*: the numbered pin on top already did, the marker underneath stayed
+  the priority fill, which on `/display/map` — routes on by default, colouring on «Priorität» —
+  made every stop of every route read as the same static red. It is only a fallback; a
+  deliberately chosen «Färben nach» dimension still wins, and the legend now lists the routes by
+  name instead of continuing to claim «Priorität».
+- **Neighbouring map labels no longer print over each other.** Two incidents a few metres apart
+  wrote their addresses on top of one another — worst with the Aufträge layer on, where the
+  numbered route pin lands on the same spot. A colliding label now steps down until it is clear;
+  nothing is dropped, because at 3am the address you cannot see is the one you were looking for.
+  Collisions are computed in screen pixels at the current zoom, so the same two incidents collide
+  zoomed out and not zoomed in, and the order is stable so a map always resolves the same way.
+  The marker and label under the pointer also come to the front, which the shared tooltip layer
+  previously left to DOM order.
+- **The stop-picker map keeps its labels inside the frame, and explains its colours.** Labels now
+  open towards the middle of the map instead of over the border (which clips), the map fits with
+  more padding so no marker sits against the edge, and a legend says what red, a route colour and
+  grey mean. Toggling Liste ⇄ Karte still does not resize the dialog.
+
 ## [0.2.0] – 2026-07-26
 
 ### Security
