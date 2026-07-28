@@ -106,6 +106,22 @@ Oberwil.
   open towards the middle of the map instead of over the border (which clips), the map fits with
   more padding so no marker sits against the edge, and a legend says what red, a route colour and
   grey mean. Toggling Liste ⇄ Karte still does not resize the dialog.
+- **Verbrauchsmaterial is never double-booked.** Unlimited stock has no count, so the fact that
+  the Absperrband is already lying on another incident says nothing about this one – yet the
+  assignment dialog flagged it amber and asked «Doppelbelegung?» before it would tick. Both are
+  gone for anything marked unlimited: it selects straight away and counts along with the group
+  tick, exactly like a free item. Limited material is unchanged – one Tauchpumpe assigned is
+  still one Tauchpumpe away, and taking it off another incident still asks first.
+- **The status display names every incident a material is on, not the last one.** The lookup kept
+  one incident per material, so a consumable running on three showed «→» and one address – a
+  precise-looking claim that happened to be wrong. It now collects all of them: one incident still
+  reads as its address and jumps there on click, several read as «3 Einsätze» and are deliberately
+  not clickable, because there is no single incident to open. Consumables also wear their ∞ in the
+  status column now, so a green dot next to «3 Einsätze» reads as the rule it is instead of a bug.
+- **Unlimited material is marked as such in the viewer's incident detail.** It was listed
+  correctly – it just looked like every other item, in the incident's own materials and in the
+  Auftrag roll-up. Both now carry the same ∞ the board and the Materialverwaltung use, on all
+  three read-only displays (status, board, map).
 
 ## [0.2.0] – 2026-07-26
 

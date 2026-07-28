@@ -2754,7 +2754,8 @@
       "otherRole": "Andere",
       "noMaterial": "Kein Material erfasst",
       "available": "verfügbar",
-      "freeOfTotal": "{free}/{total} frei"
+      "freeOfTotal": "{free}/{total} frei",
+      "onIncidents": "{count} Einsätze"
     },
     "tokenBoard": {
       "unknown": "Unbekannt",

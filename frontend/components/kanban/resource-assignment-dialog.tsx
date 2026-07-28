@@ -223,6 +223,9 @@ export function ResourceAssignmentDialog({
   const occupiedElsewhereMaterialIds = useMemo(() => {
     const set = new Set<string>()
     for (const m of materials) {
+      // Verbrauchsmaterial has no stock limit – being on another incident says
+      // nothing about this one, so no amber flag and no double-booking confirm.
+      if (m.consumable) continue
       if (assignedMaterials.includes(m.id)) continue
       if (materialOccupancy.has(m.id) || occupiedMaterialIds.has(m.id) || m.status === 'assigned') set.add(m.id)
     }
