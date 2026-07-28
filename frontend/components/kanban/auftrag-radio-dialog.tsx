@@ -28,14 +28,19 @@ interface AuftragRadioDialogProps {
 }
 
 /**
- * «Durchsage wiederholen» — shows the Funkdurchsage that was last made for this
- * Auftrag, word for word.
+ * «Durchsage wiederholen» – shows this Auftrag's Funkdurchsage, word for word.
  *
  * Radio traffic gets lost; asking for a repeat is normal. Reopening the
  * Disponiert dialog of some stop to read the text off it is a detour, and it
  * would also re-record the announcement. This only reads: it repeats the form
  * that was actually used (`lastAnnounced.full`) rather than deciding anew, so
  * the crew hears the same sentence twice instead of two different ones.
+ *
+ * Before the first stop is disponiert there is nothing to repeat – but the text
+ * still exists, and somebody who wants to read it out has every right to. So
+ * the dialog always shows one: the recorded wording once there is one, the
+ * announcement as it would read right now before that. Reading is never
+ * refused; it still records nothing either way.
  */
 export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: AuftragRadioDialogProps) {
   const t = useTranslations("kanban")
@@ -47,10 +52,10 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
   const announced = group?.lastAnnounced ?? null
 
   const radio = useMemo(() => {
-    if (!group || !announced) return null
-    // The stop it was about — or, if that one has since been removed from the
+    if (!group) return null
+    // The stop it was about – or, if that one has since been removed from the
     // route, the first stop still open, so a repeat is never blank.
-    const stopId = announced.stopId && group.stopIds.includes(announced.stopId)
+    const stopId = announced?.stopId && group.stopIds.includes(announced.stopId)
       ? announced.stopId
       : group.stopIds[0]
     const operation = operations.find((candidate) => candidate.id === stopId)
@@ -63,7 +68,10 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
       materials,
       funkrufname,
       fallbackAddress: t("disponiert.addressPlaceholder"),
-      forceFull: announced.full,
+      // A repeat keeps the form that was actually said. With nothing announced
+      // yet there is nothing to keep, so let auftragRadio decide – which for an
+      // Auftrag that has never been given out is the full Auftragsdurchsage.
+      forceFull: announced?.full,
     })
   }, [group, announced, operations, materials, funkrufname, getGroupResources, t])
 
@@ -79,13 +87,17 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{tAuftraege("repeatRadioTitle")}</DialogTitle>
+          <DialogTitle>
+            {announced ? tAuftraege("repeatRadioTitle") : tAuftraege("repeatRadioTitlePreview")}
+          </DialogTitle>
           <DialogDescription>
             {announced
               ? tAuftraege("repeatRadioDescription", {
                   time: announced.at.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }),
                 })
-              : tAuftraege("repeatRadioNever")}
+              : radio
+                ? tAuftraege("repeatRadioPreview")
+                : tAuftraege("repeatRadioNoStop")}
           </DialogDescription>
         </DialogHeader>
 

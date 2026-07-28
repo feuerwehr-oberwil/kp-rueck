@@ -695,8 +695,10 @@
       "markActive": "Als läuft markieren",
       "repeatRadio": "Durchsage wiederholen",
       "repeatRadioTitle": "Funkdurchsage wiederholen",
+      "repeatRadioTitlePreview": "Funkdurchsage",
       "repeatRadioDescription": "Zuletzt durchgegeben um {time} Uhr – Wortlaut unverändert.",
-      "repeatRadioNever": "Für diesen Auftrag wurde noch keine Funkdurchsage gemacht. Sie entsteht, sobald der erste Stop auf «Disponiert» geht.",
+      "repeatRadioPreview": "Noch nicht durchgegeben – so würde sie jetzt lauten.",
+      "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stop. Die Durchsage entsteht mit dem ersten.",
       "repeatRadioCopy": "Text kopieren",
       "repeatRadioCopied": "Funkdurchsage kopiert"
     },
