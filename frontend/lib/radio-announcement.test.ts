@@ -104,7 +104,7 @@ describe("Auftrag — full announcement", () => {
     )
     expect(text).toBe(
       "An alle Omega, neuer Auftrag «Sturmholz Oberwil»: es rücken aus Weber Martin, Moser Lea mit Pio und Motorsäge Gr.. " +
-        "2 Stops: 1. Poststrasse 6, 2. Schulstrasse 9.",
+        "2 Stops:\n1. Poststrasse 6\n2. Schulstrasse 9",
     )
   })
 
@@ -123,7 +123,7 @@ describe("Auftrag — full announcement", () => {
     )
     // Stop 1 is done and gone, but 2 and 3 keep the numbers they always had.
     expect(text).toBe(
-      "An alle Omega, neuer Auftrag «Sturmholz Oberwil»: 2 Stops: 2. Schulstrasse 9, 3. Mühlemattstrasse 12.",
+      "An alle Omega, neuer Auftrag «Sturmholz Oberwil»: 2 Stops:\n2. Schulstrasse 9\n3. Mühlemattstrasse 12",
     )
   })
 
@@ -152,7 +152,53 @@ describe("Auftrag — full announcement", () => {
         stops: [stop()],
       }),
     )
-    expect(text).toContain("1 Stop: 1. Poststrasse 6.")
+    expect(text).toContain("1 Stop:\n1. Poststrasse 6")
+  })
+})
+
+describe("Auftrag — the stop list is a list", () => {
+  const threeStops = () =>
+    auftragFullAnnouncement(t, {
+      funkrufname: "Omega",
+      auftragName: "Sturmholz Oberwil",
+      deployment: deployment({ crew: [], vehicles: [], materials: [] }),
+      stops: [
+        stop({ position: 1, address: "Bahnhofstrasse 31", status: "active" }),
+        stop({ position: 2, address: "Lettenweg 4", done: true, status: "complete" }),
+        stop({ position: 3, address: "Schulstrasse 9", status: "incoming" }),
+      ],
+    })
+
+  it("puts every open stop on its own line", () => {
+    const stopLines = threeStops().filter((segment) => segment.newline && segment.status)
+    expect(stopLines.map((segment) => segment.text)).toEqual([
+      "1. Bahnhofstrasse 31",
+      "3. Schulstrasse 9",
+    ])
+    // Run together with commas this read as one address with a house number.
+    expect(segmentsToText(threeStops())).toContain("\n1. Bahnhofstrasse 31\n3. Schulstrasse 9")
+  })
+
+  it("carries each open stop's status for the screen, never for the radio", () => {
+    const stopLines = threeStops().filter((segment) => segment.newline && segment.status)
+    expect(stopLines.map((segment) => segment.status)).toEqual(["active", "incoming"])
+
+    // The spoken and copied text is addresses only — nobody reads a status code
+    // over the radio, and the finished stop is not in there at all.
+    const text = segmentsToText(threeStops())
+    for (const forbidden of ["active", "incoming", "Einsatz", "Offen", "Lettenweg"]) {
+      expect(text).not.toContain(forbidden)
+    }
+  })
+
+  it("starts Besonderes on its own line, below the stops", () => {
+    const segments = auftragFullAnnouncement(t, {
+      funkrufname: "Omega",
+      auftragName: "Sturmholz Oberwil",
+      deployment: deployment({ crew: [], vehicles: [], materials: [] }),
+      stops: [stop({ position: 1, address: "Poststrasse 6", special: "Gasflaschen" })],
+    })
+    expect(segmentsToText(segments)).toContain("\n1. Poststrasse 6\nBesonderes: Poststrasse 6 Gasflaschen.")
   })
 })
 

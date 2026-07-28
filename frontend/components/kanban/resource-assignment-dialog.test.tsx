@@ -93,3 +93,58 @@ describe("material double-booking guard", () => {
     expect(screen.queryByText("Doppelbelegung?")).toBeNull()
   })
 })
+
+describe("vor Ort / zurück in the vehicle assignment", () => {
+  const TLF = { id: "v1", name: "TLF", type: "Tanklöschfahrzeug" }
+  const PIO = { id: "v2", name: "Pio", type: "Pionier" }
+
+  function renderVehicles(onToggleDriverStay?: (name: string) => void) {
+    return renderWithIntl(
+      <ResourceAssignmentDialog
+        open
+        onOpenChange={vi.fn()}
+        resourceType="vehicles"
+        operationId="incident-1"
+        personnel={[]}
+        vehicles={[TLF, PIO]}
+        materials={[]}
+        assignedPersonnel={[]}
+        assignedVehicles={["TLF"]}
+        assignedMaterials={[]}
+        onAssignPerson={vi.fn()}
+        onAssignVehicle={vi.fn()}
+        onAssignMaterial={vi.fn()}
+        onRemovePerson={vi.fn()}
+        onRemoveVehicle={vi.fn()}
+        onRemoveMaterial={vi.fn()}
+        vehicleDriverStay={new Map([["TLF", false]])}
+        onToggleDriverStay={onToggleDriverStay}
+      />,
+    )
+  }
+
+  it("offers the toggle on an assigned vehicle and reports its state", async () => {
+    const user = userEvent.setup()
+    const onToggle = vi.fn()
+    renderVehicles(onToggle)
+
+    // «zurück» is the default the flag carries from the moment of assignment.
+    const toggle = screen.getByRole("button", { name: /zurück/ })
+    expect(toggle.getAttribute("aria-pressed")).toBe("false")
+
+    await user.click(toggle)
+    expect(onToggle).toHaveBeenCalledWith("TLF")
+  })
+
+  it("does not offer it on a vehicle that is not assigned here", () => {
+    renderVehicles(vi.fn())
+
+    // Exactly one toggle — the unassigned Pio has nothing to set it on.
+    expect(screen.queryAllByRole("button", { name: /zurück|bleibt/ })).toHaveLength(1)
+  })
+
+  it("stays out of the way when the target cannot carry the flag (an Auftrag)", () => {
+    renderVehicles(undefined)
+    expect(screen.queryByRole("button", { name: /zurück|bleibt/ })).toBeNull()
+  })
+})

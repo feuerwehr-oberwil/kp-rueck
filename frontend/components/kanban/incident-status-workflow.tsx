@@ -26,7 +26,8 @@ import {
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
-import type { GroupResources } from "@/lib/types/groups"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
+import { findAuftragForStop } from "@/lib/kanban-utils"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 
@@ -57,6 +58,9 @@ type AssignmentReturn = { kind: "missing" | "returning"; operationId: string }
 interface UseIncidentStatusWorkflowOptions {
   operations: Operation[]
   materials: Material[]
+  /** The Aufträge — a stop's route is resolved through these, not through its
+   *  own groupId, which lags a stop that was just added (findAuftragForStop). */
+  groups: IncidentGroup[]
   changeStatusToTop: (operationId: string, status: OperationStatus) => void
   getGroupResources: (groupId: string) => GroupResources
   removeMaterial: (operationId: string, materialId: string) => unknown
@@ -66,6 +70,7 @@ interface UseIncidentStatusWorkflowOptions {
 export function useIncidentStatusWorkflow({
   operations,
   materials,
+  groups,
   changeStatusToTop,
   getGroupResources,
   removeMaterial,
@@ -98,22 +103,24 @@ export function useIncidentStatusWorkflow({
   )
 
   const getMissingResources = useCallback((operation: Operation): ResourceType[] => {
-    const route = operation.groupId ? getGroupResources(operation.groupId) : null
+    const auftrag = findAuftragForStop(groups, operation)
+    const route = auftrag ? getGroupResources(auftrag.id) : null
     const missing: ResourceType[] = []
     if (operation.crew.length + (route?.personnel.length ?? 0) === 0) missing.push("crew")
     if (!operation.zuFuss && operation.vehicles.length + (route?.vehicles.length ?? 0) === 0) missing.push("vehicles")
     if (operation.materials.length + (route?.materials.length ?? 0) === 0) missing.push("materials")
     return missing
-  }, [getGroupResources])
+  }, [getGroupResources, groups])
 
   const getResourceCoverage = useCallback((operation: Operation) => {
-    const route = operation.groupId ? getGroupResources(operation.groupId) : null
+    const auftrag = findAuftragForStop(groups, operation)
+    const route = auftrag ? getGroupResources(auftrag.id) : null
     return {
       crewCount: operation.crew.length + (route?.personnel.length ?? 0),
       vehicleNames: [...operation.vehicles, ...(route?.vehicles.map((vehicle) => vehicle.name) ?? [])],
       materialCount: operation.materials.length + (route?.materials.length ?? 0),
     }
-  }, [getGroupResources])
+  }, [getGroupResources, groups])
 
   const triggerDisponiertDialog = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
@@ -129,7 +136,8 @@ export function useIncidentStatusWorkflow({
   const triggerReturningVehicleCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
     if (!operation) return
-    const routeVehicleCount = operation.groupId ? getGroupResources(operation.groupId).vehicles.length : 0
+    const auftrag = findAuftragForStop(groups, operation)
+    const routeVehicleCount = auftrag ? getGroupResources(auftrag.id).vehicles.length : 0
     if (!operation.zuFuss && operation.vehicles.length === 0 && routeVehicleCount === 0) {
       setReturningVehicleOperationId(operation.id)
       // The assignment round-trip re-triggers without previousStatus — keep
@@ -139,7 +147,7 @@ export function useIncidentStatusWorkflow({
       // Gate resolved (vehicle assigned / zu Fuss) — drop any stored revert.
       setReturningVehicleReturnStatus(null)
     }
-  }, [getGroupResources, operationById])
+  }, [getGroupResources, groups, operationById])
 
   const triggerRekoCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)

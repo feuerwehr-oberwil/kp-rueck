@@ -43,7 +43,8 @@ import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
-import { columns } from "@/lib/kanban-utils"
+import { columns, findAuftragForStop } from "@/lib/kanban-utils"
+import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
@@ -314,9 +315,12 @@ export default function FireStationDashboard() {
   const [transferSourceOp, setTransferSourceOp] = useState<Operation | null>(null)
   const [transferAvailableIncidents, setTransferAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
+  const toggleDriverStay = useToggleDriverStay()
+
   const statusWorkflow = useIncidentStatusWorkflow({
     operations,
     materials,
+    groups,
     changeStatusToTop,
     getGroupResources,
     removeMaterial,
@@ -1329,8 +1333,12 @@ export default function FireStationDashboard() {
   // detail modal edits the route instead of the single stop.
   const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => {
     const op = operations.find((o) => o.id === operationId)
-    if (op?.groupId) {
-      handleAssignRouteResource(resourceType, op.groupId)
+    // A stop's resources belong to the Auftrag, never to the stop — including
+    // when the «es fehlt noch etwas» modal is what sent us here. Resolved via
+    // the routes, because a just-added stop has no groupId of its own yet.
+    const auftrag = findAuftragForStop(groups, op)
+    if (auftrag) {
+      handleAssignRouteResource(resourceType, auftrag.id)
       return
     }
     setAssignmentResourceType(resourceType)
@@ -1413,39 +1421,6 @@ export default function FireStationDashboard() {
     if (operation) {
       updateOperation(operationId, { zuFuss: !operation.zuFuss })
     }
-  }
-
-  // Handle toggling driver stay on vehicle (vor Ort / zurück)
-  const handleToggleDriverStay = (operationId: string, vehicleName: string) => {
-    const operation = operations.find(op => op.id === operationId)
-    if (!operation) return
-    const assignmentId = operation.vehicleAssignments.get(vehicleName)
-    if (!assignmentId) return
-    const driverStay = operation.vehicleDriverStay?.get(vehicleName) || false
-    const newValue = !driverStay
-    setOperations((ops) =>
-      ops.map((op) => {
-        if (op.id === operationId) {
-          const newDriverStay = new Map(op.vehicleDriverStay)
-          newDriverStay.set(vehicleName, newValue)
-          return { ...op, vehicleDriverStay: newDriverStay }
-        }
-        return op
-      })
-    )
-    apiClient.updateAssignment(operationId, assignmentId, { driver_stay: newValue }).catch(() => {
-      toast.error(tCommon('updateFailed'))
-      setOperations((ops) =>
-        ops.map((op) => {
-          if (op.id === operationId) {
-            const revertDriverStay = new Map(op.vehicleDriverStay)
-            revertDriverStay.set(vehicleName, driverStay)
-            return { ...op, vehicleDriverStay: revertDriverStay }
-          }
-          return op
-        })
-      )
-    })
   }
 
   // Get assigned resources for selected operation
@@ -1736,7 +1711,7 @@ export default function FireStationDashboard() {
                       onRemoveCrew={removeCrew}
                       onRemoveMaterial={removeMaterial}
                       onRemoveVehicle={removeVehicle}
-                      onToggleDriverStay={handleToggleDriverStay}
+                      onToggleDriverStay={toggleDriverStay}
                       onRemoveReko={removeReko}
                       onCardClick={handleCardClick}
                       onCardSelect={handleCardSelect}
@@ -2270,6 +2245,15 @@ export default function FireStationDashboard() {
         occupiedPersonnelIds={occupiedPersonnelIds}
         occupiedVehicleIds={occupiedVehicleIds}
         occupiedMaterialIds={occupiedMaterialIds}
+        // Incident-scoped only: the flag lives on the incident's assignment, and
+        // a route assignment has no endpoint to patch it through (see the Auftrag
+        // case in RouteResourceSections, which has no toggle either).
+        vehicleDriverStay={!routeAssign && assignmentOperationId
+          ? operations.find(op => op.id === assignmentOperationId)?.vehicleDriverStay
+          : undefined}
+        onToggleDriverStay={!routeAssign && assignmentOperationId
+          ? (vehicleName) => toggleDriverStay(assignmentOperationId, vehicleName)
+          : undefined}
       />
 
 

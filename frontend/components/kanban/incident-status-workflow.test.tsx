@@ -44,7 +44,11 @@ function operation(overrides: Partial<Operation> = {}): Operation {
   }
 }
 
-function renderWorkflow(currentOperation: Operation, groupResources: GroupResources = emptyGroupResources) {
+function renderWorkflow(
+  currentOperation: Operation,
+  groupResources: GroupResources = emptyGroupResources,
+  groups: { id: string; stopIds: string[] }[] = [],
+) {
   const changeStatusToTop = vi.fn()
   const getGroupResources = vi.fn(() => groupResources)
   const materials: Material[] = currentOperation.materials.map((id) => ({
@@ -60,6 +64,7 @@ function renderWorkflow(currentOperation: Operation, groupResources: GroupResour
   const result = renderHook(() => useIncidentStatusWorkflow({
     operations: [currentOperation],
     materials,
+    groups: groups as never,
     changeStatusToTop,
     getGroupResources,
     removeMaterial: vi.fn(),
@@ -69,6 +74,24 @@ function renderWorkflow(currentOperation: Operation, groupResources: GroupResour
 }
 
 describe("shared incident detail status workflow", () => {
+  it("counts the Auftrag's crew for a stop whose groupId has not arrived yet", () => {
+    // «+ Stop» writes the route; the incident's own group_id follows on the next
+    // refresh. In that window the gate saw no crew and «es fehlt noch etwas»
+    // opened for an Auftrag that was fully staffed.
+    const stop = operation({ id: "incident-1", groupId: null })
+    const routeCrew: GroupResources = {
+      personnel: [{ assignmentId: "a1", resourceId: "p1", name: "Roth Til" }],
+      vehicles: [{ assignmentId: "a2", resourceId: "v1", name: "TLF" }],
+      materials: [{ assignmentId: "a3", resourceId: "m1", name: "Motorsäge" }],
+    }
+
+    const blind = renderWorkflow(stop, routeCrew, [])
+    expect(blind.result.current.getMissingResources(stop)).toEqual(["crew", "vehicles", "materials"])
+
+    const seeing = renderWorkflow(stop, routeCrew, [{ id: "g1", stopIds: ["incident-1"] }])
+    expect(seeing.result.current.getMissingResources(stop)).toEqual([])
+  })
+
   it("gates enroute requests on missing resources before opening Disponiert", () => {
     const { result, changeStatusToTop } = renderWorkflow(operation())
 

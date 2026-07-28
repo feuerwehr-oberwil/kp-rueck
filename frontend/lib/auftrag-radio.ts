@@ -10,6 +10,7 @@
 import type { Material, Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { toStopMirrorStatus } from "@/lib/kanban-utils"
 import {
   auftragFullAnnouncement,
   auftragShortAnnouncement,
@@ -83,6 +84,8 @@ export function routeStops(
       // A stop counts as done once the squad has left it — it drops out of the
       // list but keeps its number, so «Stop 3» stays the same address.
       done: operation ? operation.status === "returning" || operation.status === "complete" : false,
+      // Screen-only: the list shows where each open stop stands.
+      status: toStopMirrorStatus(operation),
     }
   })
 }

@@ -20,10 +20,18 @@
  * screen, and a reload mid-Einsatz all have to agree.
  */
 
+import type { StopMirrorStatus } from "@/lib/kanban-utils"
+
 /** One piece of the spoken sentence; `bold` marks the variable parts. */
 export interface RadioSegment {
   text: string
   bold?: boolean
+  /** Start this piece on its own line. The numbered stop list is a list, not a
+   *  run-on: «…strasse 31, 3. L…» is unreadable at a glance and worse aloud. */
+  newline?: boolean
+  /** Screen-only status of this stop. Never spoken and never copied — the radio
+   *  hears an address, the operator sees where that stop stands. */
+  status?: StopMirrorStatus
 }
 
 /** The `useTranslations("kanban")` shape, narrowed to what this module needs. */
@@ -61,6 +69,8 @@ export interface RadioStop {
   special: string | null
   /** Finished stops are left out of the list but keep their number. */
   done: boolean
+  /** Where this stop stands, for the screen only (see RadioSegment.status). */
+  status?: StopMirrorStatus
 }
 
 // ── Building blocks ─────────────────────────────────────────────────────────
@@ -168,12 +178,20 @@ export function auftragFullAnnouncement(
   const deployment = deploymentSegments(t, input.deployment)
   if (deployment.length > 0) segments.push({ text: " " }, ...deployment, { text: "." })
 
+  // One stop per line. Comma-joined, «Bahnhofstrasse 31, 3. Lettenweg» reads as
+  // one address with a house number — exactly the confusion a route cannot
+  // afford. Finished stops stay out but the rest keep their numbers, so the gaps
+  // in the numbering are real information: 1, 3, 4 means stop 2 is done.
   if (open.length > 0) {
-    segments.push(
-      { text: ` ${t("disponiert.radioAuftragStops", { count: open.length })} ` },
-      { text: open.map((stop) => `${stop.position}. ${stop.address}`).join(", "), bold: true },
-      { text: "." },
-    )
+    segments.push({ text: ` ${t("disponiert.radioAuftragStops", { count: open.length })}` })
+    for (const stop of open) {
+      segments.push({
+        text: `${stop.position}. ${stop.address}`,
+        bold: true,
+        newline: true,
+        status: stop.status,
+      })
+    }
   }
 
   // Reko dangers + Nachbarhilfe of the open stops, each named with its address.
@@ -182,7 +200,11 @@ export function auftragFullAnnouncement(
     .map((stop) => `${stop.address} ${stop.special}`)
     .join(", ")
   if (specials) {
-    segments.push({ text: ` ${t("disponiert.radioSpecial")} ` }, { text: specials, bold: true }, { text: "." })
+    segments.push(
+      { text: `${t("disponiert.radioSpecial")} `, newline: true },
+      { text: specials, bold: true },
+      { text: "." },
+    )
   }
   return segments
 }
@@ -241,7 +263,11 @@ export function needsFullAnnouncement(
   return lastAnnounced.fingerprint !== currentFingerprint
 }
 
-/** Flatten segments to plain text (copying, printing, tests). */
+/** Flatten segments to plain text (copying, printing, tests). A segment marked
+ *  `newline` starts a line, so a copied Auftrag pastes as the same list that is
+ *  on screen. The screen-only status is never part of it. */
 export function segmentsToText(segments: RadioSegment[]): string {
-  return segments.map((segment) => segment.text).join("")
+  return segments
+    .map((segment, index) => (segment.newline && index > 0 ? `\n${segment.text}` : segment.text))
+    .join("")
 }
