@@ -704,13 +704,25 @@
    (which swells into the full detail card) always comes to the front. */
 .leaflet-tooltip.incident-label--hovered {
   z-index: 1000;
+  /* Leaflet renders every tooltip at opacity .9 — fine for a one-line address,
+     but the detail card is the thing being read, and the labels underneath it
+     bled through. It wins outright: opaque, in front (Leaflet sets the .9
+     inline, hence !important). */
+  opacity: 1 !important;
 }
 
-/* A label that had to step down to clear a neighbour is no longer level with its
-   marker, so its arrow would point at empty map. Drop the arrow rather than let
-   it lie about which marker the address belongs to. */
+/* A label that had to step aside to clear a neighbour is no longer level with its
+   marker, so its arrow would point at empty map. Drop the arrow and draw a leader
+   line back to the marker instead — the label has to name its own dot. */
 .leaflet-tooltip.incident-label--stepped::before {
   display: none;
+}
+
+.leaflet-tooltip .incident-label__leader {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0.75;
 }
 
 .priority-high-pulse {

@@ -16,7 +16,9 @@ function LegendMarker({
   dasharray,
   opacity = 1,
 }: {
-  fillColor: string
+  /** null in the status section: there the frame carries the meaning, and a grey
+   *  dot in the middle only invites the question which status "grey" is. */
+  fillColor: string | null
   dasharray: string
   opacity?: number
 }) {
@@ -28,14 +30,16 @@ function LegendMarker({
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity }} className="flex-shrink-0" aria-hidden="true">
-      <circle
-        cx={borderRadius}
-        cy={borderRadius}
-        r={innerRadius}
-        fill={fillColor}
-        stroke="white"
-        strokeWidth="3"
-      />
+      {fillColor && (
+        <circle
+          cx={borderRadius}
+          cy={borderRadius}
+          r={innerRadius}
+          fill={fillColor}
+          stroke="white"
+          strokeWidth="3"
+        />
+      )}
       <circle
         cx={borderRadius}
         cy={borderRadius}
@@ -140,15 +144,15 @@ export function MapLegend({
         </p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <LegendMarker fillColor="#9ca3af" dasharray="4,3" />
+            <LegendMarker fillColor={null} dasharray="4,3" />
             <span className="text-xs">{t('legend.statusOpen')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <LegendMarker fillColor="#9ca3af" dasharray="none" />
+            <LegendMarker fillColor={null} dasharray="none" />
             <span className="text-xs">{t('legend.statusActive')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <LegendMarker fillColor="#9ca3af" dasharray="2,2" opacity={0.6} />
+            <LegendMarker fillColor={null} dasharray="2,2" opacity={0.6} />
             <span className="text-xs">{t('legend.statusCompleted')}</span>
           </div>
         </div>
