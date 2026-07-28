@@ -244,7 +244,10 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "Löschangriff über die Fassade läuft."
         ),
         contact="Bühler Werner (Nachbar, Melder)",
-        contact_phone="061 401 12 34",
+        # Demo numbers are deliberate dummy runs (111…, 222…): the detail dialog
+        # turns a contact number into a tel: link, and the public demo must not
+        # ring a real person in Oberwil.
+        contact_phone="061 111 11 11",
         created_at=ago(50),
     )
 
@@ -265,7 +268,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "status": "eingegangen",
             "description": "Bewohnerin meldet ca. 20 cm Wasser im Keller des Mehrfamilienhauses, Waschküche betroffen.",
             "contact": "Meier Ruth (Bewohnerin)",
-            "contact_phone": "061 401 22 18",
+            "contact_phone": "061 222 22 22",
             "created_at": ago(25),
         },
         {
@@ -291,7 +294,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "status": "eingegangen",
             "description": "Keller läuft über die Lichtschächte voll, Heizungsraum betroffen.",
             "contact": "Bürgin Anton (Eigentümer)",
-            "contact_phone": "079 512 44 87",
+            "contact_phone": "079 333 33 33",
             "created_at": ago(12),
         },
         {
@@ -327,7 +330,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "status": "reko",
             "description": "Unterführung nach Starkregen überflutet, ein Fahrzeug steckengeblieben. Polizei vor Ort.",
             "contact": "Polizei Basel-Landschaft",
-            "contact_phone": "061 553 35 35",
+            "contact_phone": "061 444 44 44",
             "created_at": ago(45),
         },
         {

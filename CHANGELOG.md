@@ -122,6 +122,11 @@ Oberwil.
   correctly – it just looked like every other item, in the incident's own materials and in the
   Auftrag roll-up. Both now carry the same ∞ the board and the Materialverwaltung use, on all
   three read-only displays (status, board, map).
+- **The demo's contact numbers cannot reach anyone.** The detail dialog turns a contact number
+  into a `tel:` link, and one of the four numbers in the demo seed was the real Polizei
+  Basel-Landschaft line – one tap away on a public demo. All four are now visible dummy runs
+  (`061 111 11 11` and friends). Switzerland reserves no drama range the way the US reserves 555,
+  so the number has to show on its face that it is invented.
 
 ## [0.2.0] – 2026-07-26
 
