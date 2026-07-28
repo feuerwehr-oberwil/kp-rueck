@@ -96,7 +96,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          # 4G, not 1G. Next's dev server compiles ~3000 modules and sat at
+          # 99.9% of a 1G cap from the moment it started. It never got OOM-killed
+          # either — node just GC-thrashed at 100% CPU and stopped answering, so
+          # the page would not reload while the container still looked "up".
+          memory: 4G
     networks:
       - kprueck-network
 

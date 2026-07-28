@@ -230,6 +230,12 @@ Oberwil.
   true or not. Each assigned vehicle now carries the toggle there too, on the board and on the map.
   Not for an Auftrag yet: that flag has no endpoint to write through.
 
+### Changed
+- **The frontend dev container may use 4 GB instead of 1.** Next's dev server compiles some 3000
+  modules and sat at 99.9% of a 1 GB cap from the moment it started. It never got OOM-killed
+  either – node just GC-thrashed at 100% CPU and stopped answering, so the page would not reload
+  while `docker ps` still said the container was up. Development only; nothing shipped changes.
+
 ## [0.2.0] – 2026-07-26
 
 ### Security
