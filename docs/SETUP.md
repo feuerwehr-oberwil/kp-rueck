@@ -34,16 +34,18 @@ Several stations means several deployments, not one instance with a switch.
 ```bash
 git clone https://github.com/feuerwehr-oberwil/kp-rueck.git
 cd kp-rueck
-git checkout v0.2.0          # a tagged release, not main – see §6
+git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release, not main – see §6
 cp .env.example .env
 ```
 
 You only need the clone for `docker-compose.yml` and `.env.example` – the stack itself runs from
 published images and never builds from this source.
 
-> **Do not start on `v0.1.0`.** Its print-agent endpoints accept *any* request when
-> `PRINT_AGENT_TOKEN` is unset, which on a public host means anyone can read the printer
-> configuration and claim print jobs. Fixed in `v0.2.0`.
+> **If you print, set `PRINT_AGENT_TOKEN` before you expose the stack** (step 5 covers the agent
+> itself). On releases that predate the fail-closed fix – check the `Security` section of
+> [`CHANGELOG.md`](../CHANGELOG.md) for the version you picked – the four print-agent endpoints
+> accept *any* request while the token is unset, which on a public host means anyone can read the
+> printer configuration and claim print jobs. Setting the token closes that on every version.
 
 Fill in the five required values. All of them matter and none has a safe default:
 
@@ -194,13 +196,16 @@ AUDIT_RETENTION_DAYS=0      # keep everything (default)
 AUDIT_RETENTION_DAYS=3650   # e.g. a ten-year policy
 ```
 
-> Versions before 0.2 defaulted to **90 days** and swept silently. If you have been running one
-> of those, the trail for anything older than 90 days is already gone — worth knowing before
+> Earlier releases defaulted to **90 days** and swept silently – the `Changed` entry in
+> [`CHANGELOG.md`](../CHANGELOG.md) names the release this flipped in. If you have been running
+> one of those, the trail for anything older than 90 days is already gone — worth knowing before
 > someone asks you for it.
 
-Pin your version while you are here. `KP_RUECK_TAG=0.2.0` follows nothing, `0.2` follows patch
-fixes, `latest` follows everything. A station that updates deliberately wants one of the first
-two. What a bump costs you is the table at the top of [`CHANGELOG.md`](../CHANGELOG.md).
+Pin your version while you are here. A full version (`KP_RUECK_TAG=X.Y.Z`) follows nothing, the
+series (`X.Y`) follows patch fixes, `latest` follows everything. A station that updates
+deliberately wants one of the first two; which versions exist is the
+[releases page](https://github.com/feuerwehr-oberwil/kp-rueck/releases). What a bump costs you is
+the table at the top of [`CHANGELOG.md`](../CHANGELOG.md).
 
 ---
 
@@ -210,8 +215,8 @@ Ordered by how often they catch people.
 
 1. **`CORS_ORIGINS` must match how browsers actually reach the deployment.** It is the allowed
    CORS origin. Get it wrong and the frontend loads but every API call fails – which looks like a
-   broken app, not a config typo. (Called `PUBLIC_URL` before 0.2; that name still works, and
-   means something different in KP Front.)
+   broken app, not a config typo. (It was called `PUBLIC_URL` in earlier releases; that name
+   still works as a fallback, and means something different in KP Front.)
 2. **`SECRET_KEY` and `AUTH_SECRET_KEY` must never change.** Rotating either logs everyone out.
    Back them up with your secrets, not with your code.
 3. **Plain HTTP on a LAN needs `AUTH_COOKIE_SECURE=false`.** Otherwise the browser drops the

@@ -25,9 +25,9 @@ station's URL is baked into the image at build time. It also means there is no C
 ## 2. Quick start
 
 ```bash
-# 1. Get the compose file + templates (a tagged release is the safe choice)
+# 1. Get the compose file + templates (a tagged release is the safe choice, not main)
 git clone https://github.com/feuerwehr-oberwil/kp-rueck.git && cd kp-rueck
-git checkout v0.1.0
+git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release; pick an older tag if you prefer
 
 # 2. Configure
 cp .env.example .env
@@ -61,9 +61,12 @@ matched set, never a mix.
 
 | Value | Follows | For |
 | --- | --- | --- |
-| `0.1.0` | nothing – exactly this build | production stations that update deliberately |
-| `0.1` | patch releases in the 0.1 series | stations that want fixes but not features |
+| `X.Y.Z` (a full version) | nothing – exactly this build | production stations that update deliberately |
+| `X.Y` (a series) | patch releases in that series | stations that want fixes but not features |
 | `latest` (default) | every release | evaluation, demo instances |
+
+Which versions exist is the [releases page](https://github.com/feuerwehr-oberwil/kp-rueck/releases);
+`latest` is the newest *release*, never `main`.
 
 ## 4. Updating
 
