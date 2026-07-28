@@ -82,6 +82,24 @@ Oberwil.
   address is a real case and a ban would just produce a duplicate incident. It sits on the action
   rather than the screen, so it covers all three routes in: the stop picker, «An Auftrag
   verteilen» and dragging a card onto a route.
+- **«Alle Einsätze einpassen» is a button now.** The map fitted itself to every incident exactly
+  once, when it opened, and never again – so an incident arriving outside the viewport, or
+  somebody having panned away, left «show me everything» to be rebuilt by hand out of zooming and
+  searching. The fitting itself had existed all along; it hung off the panel resize and simply had
+  no control. It sits top left under the zoom keys, with generous padding so a marker's label
+  doesn't end up against the edge.
+- **An Einsatzart's colour follows the hazard instead of a hash.** The colour was derived from the
+  key's *name*, which made every colour an accident: «Ölwehr» came out green and collided on the
+  same map with the green of a route. There is a table now – Brandbekämpfung red, BMA and Unechte
+  Alarme dark red, Elementarereignis blue, Ölwehr orange – so the map reads the way the danger
+  does.
+- **The app wears the same mark as kp-rueck.ch.** Favicon and home-screen icon were a red square
+  with «KP» set in Arial, a placeholder that matched neither the website nor KP Front. They now
+  carry the landing page's mark – the magnet board the app is a version of, three columns of
+  cards with one of them red because something is running – built from the same coordinates as
+  the site rather than drawn a second time, so tab, home screen and landing page cannot drift
+  apart. The 16px favicon gets its own reduced cut, because the full mark turns to mud at that
+  size.
 
 ### Fixed
 - **An Auftrag wears its own colour everywhere on the map.** Two places disagreed. The route drew
@@ -147,6 +165,49 @@ Oberwil.
   to a stray ✕ is not something anybody forgives at 3am. The guard now sits once in the shared
   primitives instead of being retyped per surface, and it covers the toast's ✕ and action icons,
   which are `<svg>` nodes and slipped through an earlier `HTMLElement` check.
+- **A Reko is an order, and the crew doing it is not available.** The header read «7 verfügbar ·
+  10 im Einsatz» on 17 people, and five of those seven were out on Reko – green, with the
+  binocular glyph right beside them. A Reko is not an assignment and therefore never sets
+  `status="assigned"`, but the tile colour and both counters read exactly that field, so every
+  Reko-Trupp fell into the leftover bucket. Availability is decided in one place now
+  (`personResourceState`) instead of three: tile, live statistics and the display header can no
+  longer disagree about who is standing where.
+- **A completed incident's clock stops.** The duration in the incident detail always counted up to
+  *now*, so an incident that ran 58 minutes read «1h 12'» in the afternoon and «19h 40'» the next
+  morning – the one number a Rückblick wants was never legible. It ends at `completed_at`, which
+  the backend already stamped but which never reached the frontend, and is now carried through the
+  live context, the WebSocket catch-up and the viewer. On the board the number stays what it
+  always was, *how long this has stood in THIS status*, and it stops on a completed incident: a
+  nag pointing at something left lying has nothing to say about a finished job.
+- **The legend only lists what this map can actually contain.** «Fahrzeuge (GPS)» and
+  «Zuweisungen» stood there always, including at a Feuerwehr without any GPS – so the legend
+  explained blue lorry squares and dashed lines that never appear, and anybody looking for them is
+  hunting a defect that does not exist. Both sections now depend on whether a vehicle reports a
+  position at all, and the assignment lines additionally on whether they are switched on.
+- **`/display/*` without a login and without an access code goes back to the start page.** The
+  display surfaces exist for a wall screen behind a login or for a share link behind a code.
+  Without either they used to show a single line of text on an otherwise empty surface – and on
+  the demo the welcome dialog sat on top of it promising things a pure display cannot do
+  («Einsätze erfassen, priorisieren, durch die Einsatzphasen bewegen»). The redirect waits for the
+  session check first, so a slow check no longer bounces a legitimate wall screen.
+- **A GPS-simulated drive in an exercise is no longer blocked by a real incident.** The safety line
+  in the start endpoint refused every simulated drive as soon as *any* non-archived real event had
+  an incident that wasn't closed – globally, regardless of vehicle or destination. In practice an
+  exercise became undrivable because some old real situation lay around open somewhere. Drives to
+  exercise incidents are unconditional now; the destination check («only incidents from exercises
+  can be driven to») and the demo-mode lock both stay.
+- **The Melder number is dialable in the viewer.** It stood in the incident detail as plain
+  typewriter text – not tappable, not selectable, and a visual foreign body next to the rest of
+  the block. It is a `tel:` link in the same typeface as everything around it. That turned up
+  three separate `tel:` implementations with three different cleanups, two of which only stripped
+  spaces – so a note like «(Nachbar)» went straight into the `href` and the link did nothing. One
+  cleanup now serves all three. A stop inside an Auftrag also stops listing its resources twice.
+- **The Rückmeldung form shows what it claims to show.** The channel rests on the idea that the
+  operator reads the payload and *then* presses Senden – that press is the consent. Only there was
+  nothing to read: before sending, the form showed a sentence *about* the payload, and the payload
+  itself appeared only afterwards in the echo. The block now stands open above the buttons,
+  verbatim, the way KP Front does it. The environment is captured once on mount and feeds both
+  preview and payload, so the two cannot drift.
 
 ## [0.2.0] – 2026-07-26
 
