@@ -106,6 +106,13 @@ Oberwil.
   open towards the middle of the map instead of over the border (which clips), the map fits with
   more padding so no marker sits against the edge, and a legend says what red, a route colour and
   grey mean. Toggling Liste ⇄ Karte still does not resize the dialog.
+- **The setup and deployment guides no longer name a version.** They walked a new station through
+  `git checkout` of one specific tag and pinned `KP_RUECK_TAG` to one specific number – both go
+  stale the moment the next release lands, and a doc naming a tag that is not published yet stops
+  the installation dead at the first command. The clone step now resolves the newest tag itself
+  (`git tag -l 'v*' --sort=-v:refname | head -n1`), the pinning table talks in `X.Y.Z` / `X.Y` and
+  links to the releases page, and the print-agent warning is an instruction that holds on every
+  version – **set `PRINT_AGENT_TOKEN`** – instead of a warning against one release number.
 - **Verbrauchsmaterial is never double-booked.** Unlimited stock has no count, so the fact that
   the Absperrband is already lying on another incident says nothing about this one – yet the
   assignment dialog flagged it amber and asked «Doppelbelegung?» before it would tick. Both are
