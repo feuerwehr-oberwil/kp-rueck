@@ -71,24 +71,12 @@ import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIR
 import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
 import { AuftragRadioDialog } from "@/components/kanban/auftrag-radio-dialog"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
+import { isToastLayer } from "@/lib/toast-layer"
 import type { GroupResources } from "@/lib/types/groups"
 
 // Six-swatch palette for the inline create / colour picker. Kept small and
 // distinct so routes read apart at a glance on board + map.
 const SWATCHES = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"] as const
-
-// True when an event originates inside a sonner toast (portalled outside this
-// non-modal sheet). Used to stop toast clicks — e.g. the optimize "Rückgängig"
-// action — from being read as an outside interaction that dismisses the sheet.
-function isToastTarget(target: EventTarget | null): boolean {
-  // Use `Element`, not `HTMLElement`: the toast's close ✕ (and the undo/info
-  // action icons) are <svg>/<path> nodes, which are SVGElement — not HTMLElement.
-  // Guarding only HTMLElement let a click/dismiss on the ✕ fall through as an
-  // outside interaction and close the sheet. Both HTML and SVG elements support
-  // `.closest`, so this still walks up to the toast/toaster container.
-  if (!(target instanceof Element)) return false
-  return !!target.closest("[data-sonner-toast]") || !!target.closest("[data-sonner-toaster]")
-}
 
 // True when an event originates inside ANY dialog layered over this sheet.
 //
@@ -256,7 +244,7 @@ export function AuftraegeSheet({
             // A sonner toast is portalled outside this non-modal sheet, so clicking
             // its "Rückgängig" action counts as an outside interaction and would
             // dismiss the sheet. Ignore interactions that target a toast.
-            if (isToastTarget(e.target)) {
+            if (isToastLayer(e.target)) {
               e.preventDefault()
               return
             }
@@ -264,11 +252,9 @@ export function AuftraegeSheet({
           }}
           onFocusOutside={dragGuardProps.onFocusOutside}
           onEscapeKeyDown={dragGuardProps.onEscapeKeyDown}
+          // The toast case never arrives here — SheetContent filters it out for
+          // every sheet in the app. What is left is this sheet's own business.
           onInteractOutside={(e) => {
-            if (isToastTarget(e.target)) {
-              e.preventDefault()
-              return
-            }
             // Defensive: a stop reorder drag inside the sheet must not dismiss it.
             dragGuardProps.onInteractOutside(e)
             if (e.defaultPrevented) return
