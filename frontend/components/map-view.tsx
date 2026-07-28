@@ -566,47 +566,32 @@ function MapModeIndicator({
 }
 
 
-type LabelBox = { id: string; x: number; y: number; width: number }
-type PlacedBox = { top: number; bottom: number; left: number; right: number }
-
 /**
- * Vertical offset per label so no two addresses print on top of each other.
+ * Vertical offset per label. Empty for all but one case: a label sits at its own
+ * dot, full stop.
  *
- * A colliding label steps aside — one row down, one row up, two down, … always
- * the nearest free row, so it never drifts further from its marker than it must
- * (a leader line then says which marker it belongs to). Dropping labels would be
- * less work and less honest — at 3am the address you cannot see is the one you
- * needed.
+ * The exception is several incidents at exactly the same address. Their markers
+ * are one dot on the screen, so their labels stack downwards from it — the only
+ * place a leader line is needed, and a short one.
+ *
+ * Labels of *different* addresses may overlap. Keeping them apart was worse:
+ * resolving every collision walked addresses hundreds of pixels away from their
+ * markers with leader lines crossing half the town, and the address you then
+ * read next to a dot was somebody else's. Whichever label is pointed at comes
+ * to the front (see IncidentLabel).
  */
-function placeLabels(boxes: LabelBox[]): Map<string, number> {
-  const GAP = 2
-  const STEP = LABEL_HEIGHT + GAP
-  const MAX_STEPS = 6 // ±6 rows; past that a pile-up gets stacked, not hidden
-  const placed: PlacedBox[] = []
-  const result = new Map<string, number>()
-
-  const collides = (top: number, left: number, right: number) =>
-    placed.some(
-      (other) => other.left < right && left < other.right && other.top < top + LABEL_HEIGHT && top < other.bottom,
-    )
-
-  for (const box of boxes) {
-    const left = box.x + LABEL_ANCHOR_X
-    const right = left + box.width
-    // The last candidate wins by default so a pathological pile-up (a dozen
-    // incidents on one address) stacks instead of vanishing.
-    let dy = 0
-    for (let step = 0; step <= MAX_STEPS; step++) {
-      const candidates = step === 0 ? [0] : [step * STEP, -step * STEP]
-      const free = candidates.find((candidate) => !collides(box.y + candidate - LABEL_HEIGHT / 2, left, right))
-      dy = free ?? candidates[candidates.length - 1]
-      if (free !== undefined) break
-    }
-    const top = box.y + dy - LABEL_HEIGHT / 2
-    placed.push({ top, bottom: top + LABEL_HEIGHT, left, right })
-    result.set(box.id, dy)
+function stackSharedAddresses(incidents: Incident[]): Map<string, number> {
+  const STEP = LABEL_HEIGHT + 2
+  const offsets = new Map<string, number>()
+  const seen = new Map<string, number>()
+  for (const incident of incidents) {
+    // 6 decimals ≈ 10cm: the same address, not merely the same neighbourhood.
+    const spot = `${incident.location_lat!.toFixed(6)}:${incident.location_lng!.toFixed(6)}`
+    const index = seen.get(spot) ?? 0
+    seen.set(spot, index + 1)
+    if (index > 0) offsets.set(incident.id, index * STEP)
   }
-  return result
+  return offsets
 }
 
 /**
@@ -626,6 +611,7 @@ function IncidentLabel({
   incidentId,
   offset,
   hovered,
+  selected,
   onHoverStart,
   onHoverEnd,
   children,
@@ -633,6 +619,9 @@ function IncidentLabel({
   incidentId: string
   offset: [number, number]
   hovered: boolean
+  /** Selected on the map or highlighted from the list/Reko — the label belongs
+   *  in front of its neighbours then too, not only under the pointer. */
+  selected: boolean
   onHoverStart: (incidentId: string) => void
   onHoverEnd: (incidentId: string) => void
   children: ReactNode
@@ -658,6 +647,13 @@ function IncidentLabel({
     // neighbouring address, whatever the DOM order happens to be.
     if (hovered) bubble.parentNode?.appendChild(bubble)
   }, [hovered])
+
+  useEffect(() => {
+    const bubble = tooltipRef.current?.getElement()
+    if (!bubble) return
+    bubble.classList.toggle("incident-label--selected", selected)
+    if (selected) bubble.parentNode?.appendChild(bubble)
+  }, [selected])
 
   useEffect(() => {
     const bubble = tooltipRef.current?.getElement()
@@ -1083,50 +1079,19 @@ export default function MapView({
     return accents
   }, [showGroupRoutes, groups])
   const effectiveMarkerAccents = markerAccents ?? routeAccents
-  // Permanent labels all sit to the right of their marker at the same height, so
-  // two incidents a few metres apart print their addresses on top of each other —
-  // worst with the Aufträge layer on, where a numbered route pin lands on the
-  // same spot as the incident marker and doubles the clutter.
-  //
-  // Nothing is hidden: a colliding label steps aside — one row down, one row up,
-  // two down, … always the nearest free row, so it never drifts further from its
-  // marker than it must, and a leader line (drawn in the tooltip) says which
-  // marker it belongs to. Dropping labels would be less work and less honest —
-  // at 3am the address you cannot see is the one you needed.
+  // Every label hangs on its own marker; only incidents sharing one address
+  // stack (see stackSharedAddresses). Overlapping labels are left overlapping,
+  // and hovering brings the one being pointed at to the front — the map's job
+  // is to say where an incident is, and an address parked next to a stranger's
+  // dot does the opposite.
   const labelOffsets = useMemo(() => {
     const offsets = new Map<string, [number, number]>()
     if (!showLabels) return offsets
-
-    // Project to absolute pixels at the current zoom: collisions are a screen
-    // phenomenon, so the same two incidents collide when zoomed out and don't
-    // when zoomed in. EPSG3857 is Leaflet's own CRS — no map instance needed.
-    const boxes = mappableIncidents
-      .map((incident) => {
-        const point = L.CRS.EPSG3857.latLngToPoint(
-          L.latLng(incident.location_lat!, incident.location_lng!),
-          mapZoom,
-        )
-        const text =
-          (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
-          || incident.title
-        // ~6.4px per character at 11px semibold, plus the box padding.
-        return { id: incident.id, x: point.x, y: point.y, width: Math.min(240, text.length * 6.4 + 34) }
-      })
-      // Top-down, west-to-east: a stable order, so the same map always resolves
-      // the same way instead of shuffling labels on every re-render.
-      .sort((a, b) => a.y - b.y || a.x - b.x)
-
-    // Hovering moves nothing. The open card simply covers its neighbours —
-    // opaque and in front — and they are back the moment it closes. Making the
-    // map reflow around it was worse in every direction: the layout sprang out
-    // from under the pointer as a card collapsed, so walking down a cluster
-    // skipped entries, and holding positions to stop that dragged labels
-    // further and further from their markers.
-    for (const [id, dy] of placeLabels(boxes)) {
-      if (dy !== 0) offsets.set(id, [LABEL_ANCHOR_X, Math.round(dy)])
+    for (const [id, dy] of stackSharedAddresses(mappableIncidents)) {
+      offsets.set(id, [LABEL_ANCHOR_X, dy])
     }
     return offsets
-  }, [showLabels, mappableIncidents, mapZoom])
+  }, [showLabels, mappableIncidents])
 
   // …and the legend says so, listing the routes by name. A legend that still
   // reads «Priorität» while the markers carry route colours is worse than none.
@@ -1263,6 +1228,7 @@ export default function MapView({
                       incidentId={incident.id}
                       offset={offset}
                       hovered={hovered}
+                      selected={isHighlighted}
                       onHoverStart={handleHoverStart}
                       onHoverEnd={handleHoverEnd}
                     >
@@ -1287,6 +1253,7 @@ export default function MapView({
                     incidentId={incident.id}
                     offset={[LABEL_ANCHOR_X, 0]}
                     hovered={true}
+                    selected={isHighlighted}
                     onHoverStart={handleHoverStart}
                     onHoverEnd={handleHoverEnd}
                   >

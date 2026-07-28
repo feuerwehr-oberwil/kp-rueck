@@ -698,20 +698,30 @@
   }
 }
 
-/* Permanent incident labels. All tooltips share one Leaflet pane, so without a
-   z-index the DOM order decides which of two neighbouring labels wins — which
-   meant the one being pointed at could end up underneath. The hovered label
-   (which swells into the full detail card) always comes to the front. */
-.leaflet-tooltip.incident-label--hovered {
-  z-index: 1000;
-  /* Leaflet renders every tooltip at opacity .9 — fine for a one-line address,
-     but the detail card is the thing being read, and the labels underneath it
-     bled through. It wins outright: opaque, in front (Leaflet sets the .9
-     inline, hence !important). */
+/* Permanent incident labels. Two labels are allowed to overlap (each stays on
+   its own marker), so they have to occlude each other cleanly: Leaflet renders
+   every tooltip at opacity .9 and the address underneath showed through, which
+   left both unreadable. Opaque — the .9 is inline, hence !important. */
+.leaflet-tooltip.incident-label {
   opacity: 1 !important;
 }
 
-/* A label that had to step aside to clear a neighbour is no longer level with its
+/* All tooltips share one Leaflet pane, so without a z-index the DOM order
+   decides which of two overlapping labels wins — which meant the one being
+   pointed at could end up underneath. Whatever is hovered (and swelling into
+   the full detail card) always comes to the front. */
+.leaflet-tooltip.incident-label--hovered {
+  z-index: 1000;
+}
+
+/* Same for the selected incident (map click, list, Reko-Modus): whatever the
+   operator just picked out has to be readable, not half under a neighbour.
+   Below the hovered one — the pointer wins over the older selection. */
+.leaflet-tooltip.incident-label--selected {
+  z-index: 900;
+}
+
+/* A label stacked under another at the same address is no longer level with its
    marker, so its arrow would point at empty map. Drop the arrow and draw a leader
    line back to the marker instead — the label has to name its own dot. */
 .leaflet-tooltip.incident-label--stepped::before {
