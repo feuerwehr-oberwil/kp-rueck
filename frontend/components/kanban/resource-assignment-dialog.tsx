@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Siren } from "lucide-react"
+import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Siren, MapPin, Undo2 } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
@@ -45,6 +45,10 @@ interface ResourceAssignmentDialogProps {
   occupiedPersonnelIds?: Set<string>
   occupiedVehicleIds?: Set<string>
   occupiedMaterialIds?: Set<string>
+  /** Vehicle name → «bleibt vor Ort». Shown per assigned vehicle so the choice
+   *  can be made where the vehicle is assigned, not only on the incident card. */
+  vehicleDriverStay?: Map<string, boolean>
+  onToggleDriverStay?: (vehicleName: string) => void
 }
 
 /** Where an occupied resource currently is: `short` is length-capped for the
@@ -76,6 +80,8 @@ export function ResourceAssignmentDialog({
   occupiedPersonnelIds = new Set(),
   occupiedVehicleIds = new Set(),
   occupiedMaterialIds = new Set(),
+  vehicleDriverStay,
+  onToggleDriverStay,
 }: ResourceAssignmentDialogProps) {
   const t = useTranslations('kanban')
   const { materialGroups } = useMaterials()
@@ -869,39 +875,70 @@ export function ResourceAssignmentDialog({
                     // Already on another incident/Auftrag → amber flag with the
                     // reference, matching the crew special-function treatment.
                     const elsewhere = vehicleElsewhereLabel(vehicle)
+                    // «bleibt vor Ort» vs «kehrt zurück». Assigning here used to
+                    // drop that decision on the floor: the flag exists from the
+                    // moment the vehicle is assigned (defaulting to «zurück»),
+                    // it is read out on the radio and printed on the slip, but
+                    // it could only be set from the incident card — so a whole
+                    // dispatch done through this dialog announced the wrong thing.
+                    const stays = vehicleDriverStay?.get(vehicle.name) ?? false
+                    const canSetStay = isAssigned && !!onToggleDriverStay
                     return (
-                      <button
+                      <div
                         key={vehicle.id}
-                        onClick={() => handleToggleVehicle(vehicle)}
                         className={cn(
-                          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                          "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all hover-delight",
                           isAssigned && "border-primary/30 bg-primary/5",
                           elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5"
                         )}
                       >
-                        {isAssigned ? (
-                          <CheckCircle className={cn(
-                            "h-5 w-5 text-emerald-500 flex-shrink-0",
-                            wasJustAssigned && "animate-checkmark-spring"
-                          )} />
-                        ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate" title={vehicle.name}>{vehicle.name}</p>
-                          {elsewhere ? (
-                            <span
-                              title={elsewhere.full}
-                              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400"
-                            >
-                              <Siren className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{elsewhere.short}</span>
-                            </span>
+                        <button
+                          onClick={() => handleToggleVehicle(vehicle)}
+                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left"
+                        >
+                          {isAssigned ? (
+                            <CheckCircle className={cn(
+                              "h-5 w-5 text-emerald-500 flex-shrink-0",
+                              wasJustAssigned && "animate-checkmark-spring"
+                            )} />
                           ) : (
-                            <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
+                            <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                           )}
-                        </div>
-                      </button>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate" title={vehicle.name}>{vehicle.name}</p>
+                            {elsewhere ? (
+                              <span
+                                title={elsewhere.full}
+                                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-amber-600 dark:text-amber-400"
+                              >
+                                <Siren className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{elsewhere.short}</span>
+                              </span>
+                            ) : (
+                              <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
+                            )}
+                          </div>
+                        </button>
+                        {canSetStay && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onToggleDriverStay!(vehicle.name)
+                            }}
+                            className={cn(
+                              "flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-1.5 py-1 text-[11px] font-medium transition-colors",
+                              stays
+                                ? "bg-primary/15 text-foreground hover:bg-primary/25"
+                                : "bg-muted text-muted-foreground hover:bg-muted/70",
+                            )}
+                            title={stays ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
+                            aria-pressed={stays}
+                          >
+                            {stays ? <MapPin className="h-3 w-3" /> : <Undo2 className="h-3 w-3" />}
+                            {stays ? t('common.driverStays') : t('common.driverReturns')}
+                          </button>
+                        )}
+                      </div>
                     )
                   })}
                 </div>

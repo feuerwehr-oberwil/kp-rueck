@@ -36,6 +36,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
@@ -342,9 +343,12 @@ export default function MapPage() {
     deleteOperation,
   })
 
+  const toggleDriverStay = useToggleDriverStay()
+
   const statusWorkflow = useIncidentStatusWorkflow({
     operations,
     materials,
+    groups,
     changeStatusToTop,
     getGroupResources,
     removeMaterial,
@@ -1293,6 +1297,10 @@ export default function MapPage() {
           occupiedPersonnelIds={occupiedPersonnelIds}
           occupiedVehicleIds={occupiedVehicleIds}
           occupiedMaterialIds={occupiedMaterialIds}
+          vehicleDriverStay={routeAssign ? undefined : assignmentOperation?.vehicleDriverStay}
+          onToggleDriverStay={!routeAssign && assignmentOperation
+            ? (vehicleName) => toggleDriverStay(assignmentOperation.id, vehicleName)
+            : undefined}
         />
 
         <AuftragPickerDialog

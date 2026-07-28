@@ -208,6 +208,27 @@ Oberwil.
   itself appeared only afterwards in the echo. The block now stands open above the buttons,
   verbatim, the way KP Front does it. The environment is captured once on mount and feeds both
   preview and payload, so the two cannot drift.
+- **The Auftrag's stops are a list, one per line.** Joined with commas they ran together into
+  something unreadable – «Bahnhofstrasse 31, 3. Lettenweg» is one address with a house number
+  until you look twice, and a route is the last place that may be ambiguous. Each open stop now
+  has its own line and carries where it stands (Offen / Disponiert / Einsatz), in the colours the
+  stop list already uses. That status is for the eye only: it is not spoken and not copied,
+  because nobody reads a status code over the radio. «Text kopieren» pastes the same list. The
+  quotation marks are gone too – a straight `"` around a block several lines long left a stray
+  mark in the middle of it, so the block carries a left rule instead.
+- **A stop that was just added to an Auftrag is treated as part of it.** Adding a stop writes the
+  *route*; the incident's own group id only arrives with the next refresh. In that window the stop
+  looked ungrouped and three things went wrong at once: it was announced as a lone «neuer Einsatz»
+  instead of the Auftragsdurchsage, «es fehlt noch etwas» offered to assign to the incident rather
+  than to the Auftrag, and the Auftrag's own crew and vehicles were not counted when deciding what
+  was missing – so the checklist opened for a route that was fully staffed. Membership is now read
+  from the route's own stop list, which is authoritative and never lags.
+- **«bleibt vor Ort» / «kehrt zurück» can be set where the vehicle is assigned.** The flag exists
+  from the moment a vehicle is assigned, defaults to «zurück», and is read out on the radio,
+  printed on the slip and shown on the board – but it could only be set from the incident card. A
+  dispatch done through the assignment dialog therefore announced «kehrt zurück» for everything,
+  true or not. Each assigned vehicle now carries the toggle there too, on the board and on the map.
+  Not for an Auftrag yet: that flag has no endpoint to write through.
 
 ## [0.2.0] – 2026-07-26
 

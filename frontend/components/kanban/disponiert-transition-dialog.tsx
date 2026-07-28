@@ -22,6 +22,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { auftragRadio, routeDeployment, stopAddress } from "@/lib/auftrag-radio"
 import { deploymentSegments, incidentAnnouncement, stopSpecial } from "@/lib/radio-announcement"
+import { findAuftragForStop } from "@/lib/kanban-utils"
 import { RadioQuote } from "@/components/kanban/radio-quote"
 import type { GroupResources } from "@/lib/types/groups"
 
@@ -69,7 +70,7 @@ export function DisponierTransitionDialog({
   // A grouped incident carries no resources itself — the Auftrag (route) owns
   // them. Resolve the route's resources + stop position so both the Funkdurchsage
   // and the WhatsApp message reflect what's actually assigned.
-  const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const auftrag = findAuftragForStop(groups, operation)
   const groupRes = auftrag ? getGroupResources(auftrag.id) : null
   const addressPlaceholder = t('disponiert.addressPlaceholder')
 

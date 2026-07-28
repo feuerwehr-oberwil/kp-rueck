@@ -17,6 +17,7 @@ import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { getTimeSince, columns } from "@/lib/kanban-utils"
 import { telHref } from "@/lib/phone"
@@ -82,6 +83,7 @@ export function OperationDetailContent({
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
   const { formatLocation, setOperations, refreshOperations } = useOperations()
+  const toggleDriverStay = useToggleDriverStay()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
   const { materialGroups } = useMaterials()
@@ -754,32 +756,7 @@ export function OperationDetailContent({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              const newValue = !driverStay
-                              // Optimistic update
-                              setOperations((ops: Operation[]) =>
-                                ops.map((op: Operation) => {
-                                  if (op.id === operation.id) {
-                                    const newDriverStay = new Map(op.vehicleDriverStay)
-                                    newDriverStay.set(vehicleName, newValue)
-                                    return { ...op, vehicleDriverStay: newDriverStay }
-                                  }
-                                  return op
-                                })
-                              )
-                              apiClient.updateAssignment(operation.id, assignmentId, { driver_stay: newValue }).catch(() => {
-                                toast.error(t('common.updateFailed'))
-                                // Revert
-                                setOperations((ops: Operation[]) =>
-                                  ops.map((op: Operation) => {
-                                    if (op.id === operation.id) {
-                                      const revertDriverStay = new Map(op.vehicleDriverStay)
-                                      revertDriverStay.set(vehicleName, driverStay)
-                                      return { ...op, vehicleDriverStay: revertDriverStay }
-                                    }
-                                    return op
-                                  })
-                                )
-                              })
+                              toggleDriverStay(operation.id, vehicleName)
                             }}
                             className={cn(
                               "ml-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors",

@@ -133,6 +133,59 @@ export function colorGroupFor(
 // meaning as the board column it mirrors.
 export type StopMirrorStatus = "incoming" | "enroute" | "active" | "returning" | "complete"
 
+/**
+ * The Auftrag a stop belongs to — by the incident's own `groupId` when it has
+ * one, otherwise by the routes' `stopIds`.
+ *
+ * The fallback is the load-bearing half. `groupId` is server state on the
+ * INCIDENT, while adding a stop writes the ROUTE: `addStopsToGroup` updates the
+ * groups context and the incident's `group_id` only arrives with the next
+ * operations refresh. In that window a freshly added stop looked ungrouped, and
+ * three things went wrong at once — it was announced as a lone «neuer Einsatz»
+ * instead of the Auftragsdurchsage, «es fehlt noch etwas» offered to assign to
+ * the incident rather than to the route, and the route's own crew and vehicles
+ * were not counted when deciding what was missing. A route's stopIds are
+ * authoritative for membership, so ask them.
+ */
+export function findAuftragForStop<G extends { id: string; stopIds: string[] }>(
+  groups: G[],
+  operation: { id: string; groupId: string | null } | null | undefined,
+): G | undefined {
+  if (!operation) return undefined
+  if (operation.groupId) {
+    const byId = groups.find((group) => group.id === operation.groupId)
+    if (byId) return byId
+  }
+  return groups.find((group) => group.stopIds.includes(operation.id))
+}
+
+/** Label key under `kanban.stopStatus` for each mirror column. */
+export const STOP_STATUS_LABEL_KEY: Record<StopMirrorStatus, string> = {
+  incoming: "offen",
+  enroute: "disponiert",
+  active: "einsatz",
+  returning: "beendet",
+  complete: "abgeschlossen",
+}
+
+/** Text tint for a stop status — same colour language as the border accent and
+ *  the StopStatusControl pill, kept here so a consumer that only needs the
+ *  colour does not pull in the drag-heavy route-stop-list module. */
+export function stopStatusTextClass(status: StopMirrorStatus): string {
+  switch (status) {
+    case "enroute":
+      return "text-blue-600 dark:text-blue-400"
+    case "active":
+      return "text-amber-600 dark:text-amber-400"
+    case "returning":
+      return "text-emerald-600 dark:text-emerald-400"
+    case "complete":
+      return "text-emerald-700 dark:text-emerald-300"
+    default:
+      return "text-muted-foreground/70"
+  }
+}
+
 export function stopStatusBorderClass(status: StopMirrorStatus): string {
   switch (status) {
     case "enroute":
