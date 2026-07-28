@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
-import { Loader2, Binoculars, Package2 } from "lucide-react"
+import { Loader2, Binoculars, Package2, Infinity as InfinityIcon } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
@@ -155,10 +155,18 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
     return map
   }, [operations])
 
+  // Material → EVERY incident it sits on. Verbrauchsmaterial is unlimited and
+  // routinely runs on several at once; keeping only the last one made the row
+  // claim it was on exactly one incident, which is a lie the board can't afford.
   const materialAssignment = useMemo(() => {
-    const map = new Map<string, AssignmentRef>()
+    const map = new Map<string, AssignmentRef[]>()
     for (const op of operations) {
-      for (const [matId] of op.materialAssignments) map.set(matId, { operationId: op.id, label: incidentLocationLabel(op) })
+      for (const [matId] of op.materialAssignments) {
+        const ref = { operationId: op.id, label: incidentLocationLabel(op) }
+        const refs = map.get(matId)
+        if (refs) refs.push(ref)
+        else map.set(matId, [ref])
+      }
     }
     return map
   }, [operations])
@@ -342,7 +350,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
               >
                 <div className="px-2 xl:px-3 py-1 space-y-0.5 xl:space-y-1">
                   {items.map((m) => (
-                    <MaterialRow key={m.id} material={m} assignedTo={materialAssignment.get(m.id)} onOpenIncident={setSelectedOperationId} />
+                    <MaterialRow key={m.id} material={m} assignedTo={materialAssignment.get(m.id) ?? []} onOpenIncident={setSelectedOperationId} />
                   ))}
                 </div>
               </CollapsibleSection>
@@ -479,23 +487,37 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
   )
 }
 
-function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Material; assignedTo?: AssignmentRef; onOpenIncident: (id: string) => void }) {
+function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Material; assignedTo: AssignmentRef[]; onOpenIncident: (id: string) => void }) {
   const t = useTranslations('display.status')
+  const tk = useTranslations('kanban')
   const isAssigned = m.status === "assigned"
-  const clickable = isAssigned && !!assignedTo
+  // One incident → name it and jump there on click. Several (the normal case for
+  // Verbrauchsmaterial) → the count, and no click: there is no single target.
+  const single = assignedTo.length === 1 ? assignedTo[0] : null
+  // A resolved incident is reason enough to open it – a consumable can carry a
+  // reference while `status` still reads "available" (it is stocked, not lent out).
+  const clickable = !!single
   return (
     <div
       className={cn(
         "flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm",
         clickable && "cursor-pointer transition-colors hover:bg-muted/60"
       )}
-      onClick={clickable ? () => onOpenIncident(assignedTo!.operationId) : undefined}
+      onClick={clickable ? () => onOpenIncident(single!.operationId) : undefined}
     >
       {/* Verbrauchsmaterial stays green even while assigned — it is stocked, not lent out */}
       <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[materialResourceState(m)])} />
+      {m.consumable && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
       <span className="text-xs xl:text-sm truncate flex-1">{m.name}</span>
-      {clickable ? (
-        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
+      {single ? (
+        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {single.label}</span>
+      ) : assignedTo.length > 1 ? (
+        <span
+          className="text-[10px] xl:text-xs text-muted-foreground shrink-0"
+          title={assignedTo.map((a) => a.label).join(", ")}
+        >
+          → {t('onIncidents', { count: assignedTo.length })}
+        </span>
       ) : (
         !isAssigned && <span className="text-[10px] xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
       )}

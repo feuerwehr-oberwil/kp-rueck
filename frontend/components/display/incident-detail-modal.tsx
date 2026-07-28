@@ -18,6 +18,7 @@ import { PRIORITY_ICONS, PRIORITY_LABELS } from "@/lib/priority"
 import {
   Clock, Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
   MessageSquare, Building2, Timer, Footprints, FileCheck, Waypoints, Binoculars,
+  Infinity as InfinityIcon,
 } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -77,9 +78,11 @@ export function IncidentDetailModal({
 
   const statusColumnId = columns.find((c) => c.status.includes(operation.status))?.id
 
-  const materialNames = operation.materials.map(id => {
+  // Carry `consumable` along: Verbrauchsmaterial is on this incident AND possibly
+  // others at the same time, so it gets the ∞ marker it wears everywhere else.
+  const assignedMaterials = operation.materials.map(id => {
     const mat = materials.find(m => m.id === id)
-    return mat?.name ?? id
+    return { id, name: mat?.name ?? id, consumable: mat?.consumable ?? false }
   })
 
   const personnelRoleByName = new Map<string, string | undefined>(
@@ -183,7 +186,12 @@ export function IncidentDetailModal({
                   ))}
                   {auftragResources.materials.map((m) => (
                     <Badge key={m.assignmentId} variant="secondary" className="text-xs gap-1">
-                      <Package className="h-3 w-3" /> {m.name}
+                      {materials.find((mat) => mat.id === m.resourceId)?.consumable ? (
+                        <InfinityIcon className="h-3 w-3" aria-label={tk('material.consumableUnlimited')} />
+                      ) : (
+                        <Package className="h-3 w-3" />
+                      )}
+                      {m.name}
                     </Badge>
                   ))}
                 </div>
@@ -339,10 +347,15 @@ export function IncidentDetailModal({
             <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Package className="h-4 w-4" /> {t('board.materialsHeading', { count: operation.materials.length })}
             </div>
-            {materialNames.length > 0 ? (
+            {assignedMaterials.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {materialNames.map((name, i) => (
-                  <Badge key={i} variant="secondary" className="text-sm">{name}</Badge>
+                {assignedMaterials.map((m, i) => (
+                  <Badge key={`${m.id}-${i}`} variant="secondary" className="text-sm gap-1">
+                    {m.consumable && (
+                      <InfinityIcon className="h-3.5 w-3.5 shrink-0" aria-label={tk('material.consumableUnlimited')} />
+                    )}
+                    {m.name}
+                  </Badge>
                 ))}
               </div>
             ) : (
