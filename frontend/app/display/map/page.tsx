@@ -70,6 +70,8 @@ export default function DisplayMapPage() {
   // shares the persisted setting with the board/map; the storage listener keeps
   // the display in sync when the mode is switched from another window.
   const [options, setOptions] = useState<MapViewOptions>(DEFAULT_VIEW_OPTIONS)
+  // Reported by the map: no GPS, no Linien/Distanz options (see DisplayMapControls).
+  const [gpsAvailable, setGpsAvailable] = useState(false)
   useEffect(() => {
     const read = (value: string | null) => {
       if (value === 'reko' || value === 'vehicle' || value === 'type' || value === 'priority' || value === 'auftrag') {
@@ -130,6 +132,8 @@ export default function DisplayMapPage() {
     onSetColorBy: setColorBy,
     detailIncidentId,
     onCloseDetail: () => setDetailIncidentId(null),
+    gpsAvailable,
+    onGpsAvailabilityChange: setGpsAvailable,
   }
 
   // If authenticated (editor mode), use contexts directly
@@ -160,6 +164,8 @@ interface DisplayMapVariantProps {
   onSetColorBy: (value: ColorByDimension) => void
   detailIncidentId: string | null
   onCloseDetail: () => void
+  gpsAvailable: boolean
+  onGpsAvailabilityChange: (available: boolean) => void
 }
 
 /** Compact overlay with the same view filters as the normal map: status pills
@@ -171,6 +177,7 @@ function DisplayMapControls({
   onToggleOption,
   onSetColorBy,
   colorLegend,
+  gpsAvailable,
 }: {
   options: MapViewOptions
   statusCounts: Record<StatusGroup, number>
@@ -178,10 +185,12 @@ function DisplayMapControls({
   onToggleOption: (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes') => void
   onSetColorBy: (value: ColorByDimension) => void
   colorLegend: ColorGroup[]
+  /** Linien/Distanz need vehicle GPS; without it they are dead switches. */
+  gpsAvailable: boolean
 }) {
   const t = useTranslations('map')
   const optionsChanged =
-    !options.showLabels || !options.showAssignmentLines || options.showDistances
+    !options.showLabels || (gpsAvailable && (!options.showAssignmentLines || options.showDistances))
     || !options.showGroupRoutes || options.colorBy !== 'priority'
 
   return (
@@ -229,18 +238,22 @@ function DisplayMapControls({
           >
             {t('page.labels')}
           </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={options.showAssignmentLines}
-            onSelect={(e) => { e.preventDefault(); onToggleOption('showAssignmentLines') }}
-          >
-            {t('page.lines')}
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={options.showDistances}
-            onSelect={(e) => { e.preventDefault(); onToggleOption('showDistances') }}
-          >
-            {t('page.distance')}
-          </DropdownMenuCheckboxItem>
+          {gpsAvailable && (
+            <>
+              <DropdownMenuCheckboxItem
+                checked={options.showAssignmentLines}
+                onSelect={(e) => { e.preventDefault(); onToggleOption('showAssignmentLines') }}
+              >
+                {t('page.lines')}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={options.showDistances}
+                onSelect={(e) => { e.preventDefault(); onToggleOption('showDistances') }}
+              >
+                {t('page.distance')}
+              </DropdownMenuCheckboxItem>
+            </>
+          )}
           <DropdownMenuCheckboxItem
             checked={options.showGroupRoutes}
             onSelect={(e) => { e.preventDefault(); onToggleOption('showGroupRoutes') }}
@@ -332,6 +345,8 @@ function AuthenticatedDisplayMap({
   onSetColorBy,
   detailIncidentId,
   onCloseDetail,
+  gpsAvailable,
+  onGpsAvailabilityChange,
 }: DisplayMapVariantProps) {
   const { incidents, refreshIncidents } = useIncidents()
   const { operations } = useOperations()
@@ -374,6 +389,7 @@ function AuthenticatedDisplayMap({
         groups={groups}
         operationsById={operationsById}
         onGroupStopMarkerClick={onMarkerClick}
+        onGpsAvailabilityChange={onGpsAvailabilityChange}
       />
 
       <DisplayMapControls
@@ -383,6 +399,7 @@ function AuthenticatedDisplayMap({
         onToggleOption={onToggleOption}
         onSetColorBy={onSetColorBy}
         colorLegend={colorLegend}
+        gpsAvailable={gpsAvailable}
       />
 
       <IncidentDetailModal
@@ -434,6 +451,8 @@ function TokenDisplayMap({
   onSetColorBy,
   detailIncidentId,
   onCloseDetail,
+  gpsAvailable,
+  onGpsAvailabilityChange,
 }: DisplayMapVariantProps & { token: string }) {
   const [data, setData] = useState<ApiViewerData | null>(null)
 
@@ -509,6 +528,7 @@ function TokenDisplayMap({
         groups={groups}
         operationsById={operationsById}
         onGroupStopMarkerClick={onMarkerClick}
+        onGpsAvailabilityChange={onGpsAvailabilityChange}
       />
 
       <DisplayMapControls
@@ -518,6 +538,7 @@ function TokenDisplayMap({
         onToggleOption={onToggleOption}
         onSetColorBy={onSetColorBy}
         colorLegend={colorLegend}
+        gpsAvailable={gpsAvailable}
       />
 
       <IncidentDetailModal

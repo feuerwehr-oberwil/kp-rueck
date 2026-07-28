@@ -133,6 +133,10 @@ export default function MapPage() {
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
   const [showDistances, setShowDistances] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
+  // Zuweisungslinien and Distanz are drawn from vehicle GPS positions. Without
+  // GPS (a station without Traccar, the demo) they can never show anything, so
+  // the map reports what it knows and the options disappear rather than lie.
+  const [gpsAvailable, setGpsAvailable] = useState(false)
   // Aufträge route display (all viewers) + editor-only Routenplanung mode.
   const [showGroupRoutes, setShowGroupRoutes] = useState(false)
   const [planningActive, setPlanningActive] = useState(false)
@@ -789,8 +793,8 @@ export default function MapPage() {
         e.preventDefault()
         setShowLabels((prev) => !prev)
       }
-      // 'i' key to toggle assignment lines
-      else if ((e.key === 'i' || e.key === 'I') && !e.metaKey && !e.ctrlKey) {
+      // 'i' key to toggle assignment lines (only with GPS — see gpsAvailable)
+      else if ((e.key === 'i' || e.key === 'I') && !e.metaKey && !e.ctrlKey && gpsAvailable) {
         e.preventDefault()
         setShowAssignmentLines((prev) => !prev)
       }
@@ -816,7 +820,7 @@ export default function MapPage() {
         clearTimeout(gPrefixTimeoutRef.current)
       }
     }
-  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick, vehicleTypes])
+  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick, vehicleTypes, gpsAvailable])
 
   return (
     <ProtectedRoute>
@@ -870,6 +874,7 @@ export default function MapPage() {
               focusGroupId={planningActive ? planningGroupId : null}
               highlightGroupStopId={planningActive ? planningFocusStopId : null}
               onGroupStopMarkerClick={planningActive ? setPlanningFocusStopId : handleIncidentClick}
+              onGpsAvailabilityChange={setGpsAvailable}
               onMapClick={
                 planningActive && planningAddMode && planningGroupId ? handleMapAddStop : undefined
               }
@@ -944,7 +949,7 @@ export default function MapPage() {
                   <DropdownMenuTrigger asChild>
                     <button
                       className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${
-                        !showLabels || !showAssignmentLines || showDistances || showGroupRoutes || colorBy !== 'priority'
+                        !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority'
                           ? 'border-primary/50 bg-secondary/50 text-foreground'
                           : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                       }`}
@@ -966,19 +971,25 @@ export default function MapPage() {
                       <span className="flex-1">{t('page.labels')}</span>
                       {!isMobile && <Kbd className="text-[10px]">L</Kbd>}
                     </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={showAssignmentLines}
-                      onSelect={(e) => { e.preventDefault(); setShowAssignmentLines(!showAssignmentLines) }}
-                    >
-                      <span className="flex-1">{t('page.lines')}</span>
-                      {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={showDistances}
-                      onSelect={(e) => { e.preventDefault(); setShowDistances(!showDistances) }}
-                    >
-                      <span className="flex-1">{t('page.distance')}</span>
-                    </DropdownMenuCheckboxItem>
+                    {/* Both are drawn from vehicle GPS — without it they are dead
+                        switches, so they only exist when GPS does. */}
+                    {gpsAvailable && (
+                      <>
+                        <DropdownMenuCheckboxItem
+                          checked={showAssignmentLines}
+                          onSelect={(e) => { e.preventDefault(); setShowAssignmentLines(!showAssignmentLines) }}
+                        >
+                          <span className="flex-1">{t('page.lines')}</span>
+                          {!isMobile && <Kbd className="text-[10px]">I</Kbd>}
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          checked={showDistances}
+                          onSelect={(e) => { e.preventDefault(); setShowDistances(!showDistances) }}
+                        >
+                          <span className="flex-1">{t('page.distance')}</span>
+                        </DropdownMenuCheckboxItem>
+                      </>
+                    )}
                     <DropdownMenuCheckboxItem
                       checked={showGroupRoutes}
                       onSelect={(e) => { e.preventDefault(); toggleGroupRoutes() }}

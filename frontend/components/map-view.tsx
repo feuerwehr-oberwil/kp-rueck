@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Tooltip } from "react-leaflet"
 import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
@@ -110,6 +110,16 @@ function createIncidentIcon(incident: Incident, isHighlighted: boolean = false, 
     popupAnchor: [0, -size / 2],
   })
 }
+
+// Permanent incident labels: one line of the 11px label plus Leaflet's padding,
+// and the tooltip's own horizontal offset from the marker. The leader line has
+// to bridge that offset plus Leaflet's 6px arrow margin on a right-hand tooltip.
+const LABEL_HEIGHT = 32
+const LABEL_ANCHOR_X = 14
+const LABEL_LEADER_DX = LABEL_ANCHOR_X + 6
+// Grace period before an abandoned card closes — long enough to cross the seam
+// into the next label, short enough that a card never lingers on its own.
+const LABEL_HOVER_CLOSE_MS = 200
 
 // Pill dimensions for vehicle markers (used by icon + tooltip offset).
 const VEHICLE_PILL_HEIGHT = 24
@@ -556,6 +566,165 @@ function MapModeIndicator({
 }
 
 
+type LabelBox = { id: string; x: number; y: number; width: number }
+type PlacedBox = { top: number; bottom: number; left: number; right: number }
+
+/**
+ * Vertical offset per label so no two addresses print on top of each other.
+ *
+ * A colliding label steps aside — one row down, one row up, two down, … always
+ * the nearest free row, so it never drifts further from its marker than it must
+ * (a leader line then says which marker it belongs to). Dropping labels would be
+ * less work and less honest — at 3am the address you cannot see is the one you
+ * needed.
+ */
+function placeLabels(boxes: LabelBox[]): Map<string, number> {
+  const GAP = 2
+  const STEP = LABEL_HEIGHT + GAP
+  const MAX_STEPS = 6 // ±6 rows; past that a pile-up gets stacked, not hidden
+  const placed: PlacedBox[] = []
+  const result = new Map<string, number>()
+
+  const collides = (top: number, left: number, right: number) =>
+    placed.some(
+      (other) => other.left < right && left < other.right && other.top < top + LABEL_HEIGHT && top < other.bottom,
+    )
+
+  for (const box of boxes) {
+    const left = box.x + LABEL_ANCHOR_X
+    const right = left + box.width
+    // The last candidate wins by default so a pathological pile-up (a dozen
+    // incidents on one address) stacks instead of vanishing.
+    let dy = 0
+    for (let step = 0; step <= MAX_STEPS; step++) {
+      const candidates = step === 0 ? [0] : [step * STEP, -step * STEP]
+      const free = candidates.find((candidate) => !collides(box.y + candidate - LABEL_HEIGHT / 2, left, right))
+      dy = free ?? candidates[candidates.length - 1]
+      if (free !== undefined) break
+    }
+    const top = box.y + dy - LABEL_HEIGHT / 2
+    placed.push({ top, bottom: top + LABEL_HEIGHT, left, right })
+    result.set(box.id, dy)
+  }
+  return result
+}
+
+/**
+ * One incident's permanent map label.
+ *
+ * react-leaflet builds a Tooltip once and ignores every later prop change, so
+ * both the step a label takes (the zoom re-shuffles which labels collide) and
+ * the hovered state have to be pushed onto the live Leaflet instance by hand —
+ * otherwise the bubble keeps a stale place while its leader line already points
+ * elsewhere, and the detail card stays behind its neighbours.
+ *
+ * Hover is bound with native mouseenter/mouseleave on the bubble: Leaflet's own
+ * mouseover/mouseout fire again for every child node, so swapping the address
+ * for the card instantly "left" it and the label only flickered.
+ */
+function IncidentLabel({
+  incidentId,
+  offset,
+  hovered,
+  onHoverStart,
+  onHoverEnd,
+  children,
+}: {
+  incidentId: string
+  offset: [number, number]
+  hovered: boolean
+  onHoverStart: (incidentId: string) => void
+  onHoverEnd: (incidentId: string) => void
+  children: ReactNode
+}) {
+  const tooltipRef = useRef<L.Tooltip | null>(null)
+  const [dx, dy] = offset
+
+  useEffect(() => {
+    const tooltip = tooltipRef.current
+    if (!tooltip) return
+    tooltip.options.offset = new L.Point(dx, dy)
+    // A stepped label's arrow would point at empty map — the leader line takes
+    // over that job (see LabelLeader).
+    tooltip.getElement()?.classList.toggle("incident-label--stepped", dy !== 0)
+    tooltip.update()
+  }, [dx, dy])
+
+  useEffect(() => {
+    const bubble = tooltipRef.current?.getElement()
+    if (!bubble) return
+    bubble.classList.toggle("incident-label--hovered", hovered)
+    // The card is the thing being read: it belongs in front of every
+    // neighbouring address, whatever the DOM order happens to be.
+    if (hovered) bubble.parentNode?.appendChild(bubble)
+  }, [hovered])
+
+  useEffect(() => {
+    const bubble = tooltipRef.current?.getElement()
+    if (!bubble) return
+    const enter = () => onHoverStart(incidentId)
+    const leave = () => onHoverEnd(incidentId)
+    bubble.addEventListener("mouseenter", enter)
+    bubble.addEventListener("mouseleave", leave)
+    return () => {
+      bubble.removeEventListener("mouseenter", enter)
+      bubble.removeEventListener("mouseleave", leave)
+    }
+  }, [incidentId, onHoverStart, onHoverEnd])
+
+  return (
+    <Tooltip
+      ref={tooltipRef}
+      direction="right"
+      offset={offset}
+      permanent={true}
+      // Forward clicks to the marker so the label is as tappable as the dot
+      // (selection, Reko-Modus assignment, …).
+      interactive={true}
+      className="incident-label"
+    >
+      {children}
+    </Tooltip>
+  )
+}
+
+/**
+ * Leader line for a label that had to step aside. Drawn inside the tooltip, from
+ * its left edge (which Leaflet keeps vertically centred on the anchor point,
+ * even when the label swells into the hover card) back to the marker — so the
+ * address always names its own dot, never the nearest one.
+ */
+function LabelLeader({ dy }: { dy: number }) {
+  if (dy === 0) return null
+  const height = Math.abs(dy)
+  return (
+    <svg
+      className="incident-label__leader"
+      width={LABEL_LEADER_DX}
+      height={height}
+      style={{
+        left: -LABEL_LEADER_DX,
+        top: dy > 0 ? `calc(50% - ${height}px)` : "50%",
+      }}
+      aria-hidden="true"
+    >
+      {/* White underlay first: a 1px grey hairline disappears into a busy map. */}
+      {["#ffffff", "#4b5563"].map((stroke, i) => (
+        <line
+          key={stroke}
+          x1={0}
+          y1={dy > 0 ? 0 : height}
+          x2={LABEL_LEADER_DX}
+          y2={dy > 0 ? height : 0}
+          stroke={stroke}
+          strokeWidth={i === 0 ? 3 : 1}
+          strokeLinecap="round"
+        />
+      ))}
+    </svg>
+  )
+}
+
 interface MapViewProps {
   selectedIncidentId?: string | null
   onMarkerClick?: (incidentId: string) => void
@@ -586,6 +755,10 @@ interface MapViewProps {
   incidentsOverride?: Incident[]
   vehiclesOverride?: ApiVehicle[]
   positionsOverride?: ApiVehiclePosition[]
+  /** Reports whether GPS is live (Traccar configured or a simulation running,
+   *  positions present in token mode). The map knows this first-hand; the page
+   *  around it uses the answer to hide controls that need GPS to do anything. */
+  onGpsAvailabilityChange?: (available: boolean) => void
 }
 
 export default function MapView({
@@ -614,6 +787,7 @@ export default function MapView({
   incidentsOverride,
   vehiclesOverride,
   positionsOverride,
+  onGpsAvailabilityChange,
 }: MapViewProps) {
   const t = useTranslations('map')
   const tokenMode = incidentsOverride !== undefined
@@ -627,8 +801,27 @@ export default function MapView({
   const [magazinCoords, setMagazinCoords] = useState<[number, number] | null>(null)
   // Tracks live zoom so vehicle markers can shrink when zoomed out.
   const [mapZoom, setMapZoom] = useState<number>(13)
-  // Hovered incident marker → its label swaps to the rich detail card.
+  // Hovered incident → its label swaps to the rich detail card.
   const [hoveredIncidentId, setHoveredIncidentId] = useState<string | null>(null)
+  // Leaving a label does not close its card at once. The grace period rides out
+  // the seam between two labels (and the moment the swelling card redraws under
+  // the pointer), so a card never blinks on its way from one address to the next.
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
+  const handleHoverStart = useCallback((incidentId: string) => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+    setHoveredIncidentId(incidentId)
+  }, [])
+  const handleHoverEnd = useCallback((incidentId: string) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    closeTimer.current = setTimeout(() => {
+      closeTimer.current = null
+      setHoveredIncidentId((current) => (current === incidentId ? null : current))
+    }, LABEL_HOVER_CLOSE_MS)
+  }, [])
 
   // Vehicle positions from Traccar GPS
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
@@ -797,6 +990,13 @@ export default function MapView({
     })
   }, [vehiclePositions, deviceNameToVehicleName])
 
+  // Tell the page whether GPS is live at all. Token mode has no status endpoint,
+  // so there the positions themselves are the answer.
+  const gpsAvailable = tokenMode ? vehiclePositions.length > 0 : traccarConfigured
+  useEffect(() => {
+    onGpsAvailabilityChange?.(gpsAvailable)
+  }, [gpsAvailable, onGpsAvailabilityChange])
+
   // Cluster vehicles that share (roughly) the same GPS coord so their
   // labels stack vertically instead of piling on top of each other.
   // Epsilon ≈ 0.0005° ≈ ~50m, which is well below firestation-yard scale.
@@ -888,16 +1088,14 @@ export default function MapView({
   // worst with the Aufträge layer on, where a numbered route pin lands on the
   // same spot as the incident marker and doubles the clutter.
   //
-  // Nothing is hidden: a colliding label is stepped DOWN until it clears the ones
-  // already placed. Dropping labels would be less work and less honest — at 3am
-  // the address you cannot see is the one you needed.
+  // Nothing is hidden: a colliding label steps aside — one row down, one row up,
+  // two down, … always the nearest free row, so it never drifts further from its
+  // marker than it must, and a leader line (drawn in the tooltip) says which
+  // marker it belongs to. Dropping labels would be less work and less honest —
+  // at 3am the address you cannot see is the one you needed.
   const labelOffsets = useMemo(() => {
     const offsets = new Map<string, [number, number]>()
     if (!showLabels) return offsets
-    const LABEL_HEIGHT = 22 // one line of the 11px label plus Leaflet's padding
-    const GAP = 2
-    const ANCHOR_X = 14 // the tooltip's own horizontal offset from the marker
-    const placed: { top: number; bottom: number; left: number; right: number }[] = []
 
     // Project to absolute pixels at the current zoom: collisions are a screen
     // phenomenon, so the same two incidents collide when zoomed out and don't
@@ -918,22 +1116,14 @@ export default function MapView({
       // the same way instead of shuffling labels on every re-render.
       .sort((a, b) => a.y - b.y || a.x - b.x)
 
-    for (const box of boxes) {
-      const left = box.x + ANCHOR_X
-      const right = left + box.width
-      let top = box.y - LABEL_HEIGHT / 2
-      // Step past every label already placed. The guard bounds a pathological
-      // pile-up (a dozen incidents on one address) instead of looping forever.
-      for (let attempt = 0; attempt < 12; attempt++) {
-        const hit = placed.find(
-          (other) => other.left < right && left < other.right && other.top < top + LABEL_HEIGHT && top < other.bottom,
-        )
-        if (!hit) break
-        top = hit.bottom + GAP
-      }
-      placed.push({ top, bottom: top + LABEL_HEIGHT, left, right })
-      const dy = Math.round(top + LABEL_HEIGHT / 2 - box.y)
-      if (dy !== 0) offsets.set(box.id, [ANCHOR_X, dy])
+    // Hovering moves nothing. The open card simply covers its neighbours —
+    // opaque and in front — and they are back the moment it closes. Making the
+    // map reflow around it was worse in every direction: the layout sprang out
+    // from under the pointer as a card collapsed, so walking down a cluster
+    // skipped entries, and holding positions to stop that dragged labels
+    // further and further from their markers.
+    for (const [id, dy] of placeLabels(boxes)) {
+      if (dy !== 0) offsets.set(id, [LABEL_ANCHOR_X, Math.round(dy)])
     }
     return offsets
   }, [showLabels, mappableIncidents, mapZoom])
@@ -1056,37 +1246,27 @@ export default function MapView({
               zIndexOffset={hoveredIncidentId === incident.id ? 600 : isHighlighted ? 300 : 0}
               eventHandlers={{
                 click: () => onMarkerClick?.(incident.id),
-                mouseover: () => setHoveredIncidentId(incident.id),
-                mouseout: () =>
-                  setHoveredIncidentId((current) => (current === incident.id ? null : current)),
+                mouseover: () => handleHoverStart(incident.id),
+                mouseout: () => handleHoverEnd(incident.id),
               }}
             >
               {(() => {
                 // Hover shows the full picture (type, status, crew, reko, …)
                 // via the Operation lookup; the permanent label stays short.
                 // Token/display mode has no operations — labels stay short there.
-                const hoverOperation =
-                  hoveredIncidentId === incident.id ? operationsById?.get(incident.id) : undefined
-                // A stepped-away label's arrow would point at empty map, and the
-                // hovered label — which swells into the detail card — has to come
-                // to the front instead of landing under a neighbour's address.
-                const offset = labelOffsets.get(incident.id) ?? [14, 0]
-                const labelClass = [
-                  "incident-label",
-                  offset[1] !== 0 ? "incident-label--stepped" : "",
-                  hoveredIncidentId === incident.id ? "incident-label--hovered" : "",
-                ].filter(Boolean).join(" ")
+                const hovered = hoveredIncidentId === incident.id
+                const hoverOperation = hovered ? operationsById?.get(incident.id) : undefined
+                const offset = labelOffsets.get(incident.id) ?? [LABEL_ANCHOR_X, 0]
                 if (showLabels) {
                   return (
-                    <Tooltip
-                      direction="right"
+                    <IncidentLabel
+                      incidentId={incident.id}
                       offset={offset}
-                      permanent={true}
-                      // Forward clicks to the marker so the label is as tappable
-                      // as the dot (selection, Reko-Modus assignment, …).
-                      interactive={true}
-                      className={labelClass}
+                      hovered={hovered}
+                      onHoverStart={handleHoverStart}
+                      onHoverEnd={handleHoverEnd}
                     >
+                      <LabelLeader dy={offset[1]} />
                       {hoverOperation ? (
                         <OperationHoverCard operation={hoverOperation} />
                       ) : (
@@ -1097,15 +1277,21 @@ export default function MapView({
                           )}
                         </>
                       )}
-                    </Tooltip>
+                    </IncidentLabel>
                   )
                 }
                 // Labels hidden: no permanent label, but hovering still reveals
                 // the detail card when we can resolve the operation.
                 return hoverOperation ? (
-                  <Tooltip direction="right" offset={[14, 0]} permanent={true} className="incident-label incident-label--hovered">
+                  <IncidentLabel
+                    incidentId={incident.id}
+                    offset={[LABEL_ANCHOR_X, 0]}
+                    hovered={true}
+                    onHoverStart={handleHoverStart}
+                    onHoverEnd={handleHoverEnd}
+                  >
                     <OperationHoverCard operation={hoverOperation} />
-                  </Tooltip>
+                  </IncidentLabel>
                 ) : null
               })()}
             </Marker>
