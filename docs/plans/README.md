@@ -34,7 +34,8 @@ made – do not re-litigate), implementation steps, and a test plan.
 | 2 | 13 | [Reko material requests and guided allocation](13-reko-material-requests.md) | Backend + frontend + training + migration | Large operational feature: structured Reko demand, normalized material kinds/capabilities, exact KP allocation, per-event exclusivity, and curated training profiles | – |
 | 3 | 11 | [Material depletion thresholds: co-located & dual-dimension](11-resource-alarm-linking.md) | Backend + frontend | Dual-dimension material thresholds; adapt to Plan 13's normalized kind/type model instead of creating a competing managed-string identity | 13 phase 1 |
 | 4 | 12 | [Aufträge: multi-stop group routing (Flächenlage batching)](12-auftrag-multi-stop-routing.md) | Backend + frontend + map | Group several incidents into an ordered route for one squad; Plan 13 reservations must cover Auftrag-owned material | – |
-| 5 | 06 | [i18n (German + French)](06-i18n.md) | Frontend | Cross-cutting; do **last** so it absorbs strings from 09/11/12/13 in one pass | 09, 11, 12, 13 |
+| 5 | 16 | [Training alarm intake: who is training, who gets which alarm](16-training-alarm-intake.md) | Backend + frontend + training | The Übungssteuerung "Alarmeingang" controls were **removed on 2026-07-28** (unused, and no recipient model). The dormant backend comes back only once "who is taking part in the exercise" is explicit state – otherwise a real training alarm texts the whole brigade | – |
+| 6 | 06 | [i18n (German + French)](06-i18n.md) | Frontend | Cross-cutting; do **last** so it absorbs strings from 09/11/12/13 in one pass | 09, 11, 12, 13 |
 
 ### Engineering debt (no deadline, pick up between features)
 

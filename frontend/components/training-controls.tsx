@@ -19,7 +19,6 @@ import {
   Target,
   MapPin,
   Phone,
-  Radio,
   X,
 } from 'lucide-react';
 import {
@@ -148,23 +147,6 @@ export function TrainingControls() {
     }
   };
 
-  const handleGenerateDivera = async () => {
-    setIsGenerating(true);
-    try {
-      const emergency = await apiClient.simulateDiveraAlarm(selectedEvent.id);
-      toast.success(t('controls.toastDiveraInPool'), {
-        description: t('controls.toastDiveraDescription', { title: emergency.title }),
-      });
-    } catch (error) {
-      console.error('❌ Failed to simulate divera alarm:', error);
-      toast.error(t('common.error'), {
-        description: t('controls.toastDiveraFailed'),
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const canDispatch =
     !!selectedTemplateId && (!!selectedLocationId || !!pinLocation);
 
@@ -254,44 +236,36 @@ export function TrainingControls() {
         {/* Manual Generation Buttons */}
         <div className="space-y-2">
           <Label>{t('controls.generateSingle')}</Label>
-          <div className="grid grid-cols-2 gap-2">
+          {/* Three-up row down to phone width: the Button base is
+              `whitespace-nowrap shrink-0`, so each cell needs `min-w-0` + a
+              truncating label or the content overflows the grid column. */}
+          <div className="grid grid-cols-3 gap-2">
             <Button
               onClick={handleGenerateNormal}
               disabled={isGenerating}
               variant="outline"
-              className="w-full"
+              className="w-full min-w-0 text-xs sm:text-sm"
             >
-              <Droplet className="mr-2 h-4 w-4 text-blue-600" />
-              {t('controls.normal')}
+              <Droplet className="size-3.5 text-blue-600 sm:size-4" />
+              <span className="truncate">{t('controls.normal')}</span>
             </Button>
             <Button
               onClick={handleGenerateCritical}
               disabled={isGenerating}
               variant="outline"
-              className="w-full"
+              className="w-full min-w-0 text-xs sm:text-sm"
             >
-              <Flame className="mr-2 h-4 w-4 text-red-600" />
-              {t('controls.critical')}
+              <Flame className="size-3.5 text-red-600 sm:size-4" />
+              <span className="truncate">{t('controls.critical')}</span>
             </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
             <Button
               onClick={handleGenerateTelefon}
               disabled={isGenerating}
               variant="outline"
-              className="w-full"
+              className="w-full min-w-0 text-xs sm:text-sm"
             >
-              <Phone className="mr-2 h-4 w-4 text-sky-600" />
-              {t('controls.phoneAlarm')}
-            </Button>
-            <Button
-              onClick={handleGenerateDivera}
-              disabled={isGenerating}
-              variant="outline"
-              className="w-full"
-            >
-              <Radio className="mr-2 h-4 w-4 text-orange-600" />
-              {t('controls.diveraAlarm')}
+              <Phone className="size-3.5 text-sky-600 sm:size-4" />
+              <span className="truncate">{t('controls.phoneAlarm')}</span>
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -335,12 +309,15 @@ export function TrainingControls() {
               </span>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-xs"
                 onClick={() => setPinLocation(null)}
-                className="h-9 w-9 sm:h-7 sm:w-7 p-0"
+                // Desktop-only is the rule for the board, but this page is the
+                // one thing that gets driven from a phone (spawning training
+                // incidents), so the target stays generous below `sm`.
+                className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
                 title={t('controls.removePin')}
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="size-3.5" />
               </Button>
             </div>
           ) : (
@@ -363,10 +340,10 @@ export function TrainingControls() {
                 variant="outline"
                 size="icon-sm"
                 onClick={() => setPickerOpen(true)}
-                className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] flex-shrink-0"
+                className="min-h-[44px] min-w-[44px] flex-shrink-0 sm:min-h-[36px] sm:min-w-[36px]"
                 title={t('controls.setPin')}
               >
-                <MapPin className="h-4 w-4" />
+                <MapPin className="size-3.5" />
               </Button>
             </div>
           )}
@@ -375,7 +352,7 @@ export function TrainingControls() {
             disabled={isDispatching || !canDispatch}
             className="w-full"
           >
-            <Target className="mr-2 h-4 w-4" />
+            <Target className="size-4" />
             {t('controls.dispatch')}
           </Button>
           <p className="text-xs text-muted-foreground">
@@ -394,7 +371,7 @@ export function TrainingControls() {
             variant="secondary"
             className="w-full"
           >
-            <Zap className="mr-2 h-4 w-4" />
+            <Zap className="size-4" />
             {t('controls.burst')}
           </Button>
           <p className="text-xs text-muted-foreground">
