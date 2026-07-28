@@ -1131,7 +1131,11 @@ class ApiClient {
     })
   }
 
-  /** Inject a simulated Divera alarm into the pool (training intake exercise). */
+  /** Inject a simulated Divera alarm into the pool (training intake exercise).
+   *
+   * No caller since 2026-07-28 — the Übungssteuerung buttons were removed while
+   * the recipient model is unresolved. Endpoint and generator still exist;
+   * see docs/plans/16-training-alarm-intake.md. */
   async simulateDiveraAlarm(
     eventId: string,
     category?: 'normal' | 'critical' | null
