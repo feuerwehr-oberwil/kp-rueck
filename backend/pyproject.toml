@@ -12,7 +12,11 @@ dependencies = [
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
     "alembic>=1.13.0",
-    "passlib[bcrypt]>=1.7.4",
+    # bcrypt is imported DIRECTLY by app/auth/security.py, seed.py, seed_demo.py and
+    # ensure_accounts.py. It used to arrive only as passlib's [bcrypt] extra while passlib
+    # itself was imported nowhere — password hashing rode on a transitive dependency of an
+    # unused package, so dropping passlib would have broken login.
+    "bcrypt>=4.0.0",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.20",
     "pyjwt>=2.8.0",
