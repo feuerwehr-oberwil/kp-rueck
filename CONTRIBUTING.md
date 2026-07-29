@@ -179,8 +179,9 @@ just test-ui         # Interactive UI mode
 > Adding to the subset: tag a spec `{ tag: '@smoke' }` once you are confident it does not flake,
 > and keep the whole subset under five minutes. If a `@smoke` spec starts flaking, fix it or
 > untag it the same day – one tolerated flake and the gate is decorative again.
-> [Plan 15](docs/plans/15-e2e-in-ci.md) has the remaining work: nobody has yet measured which
-> specs are actually the slow ones and which are actually the flaky ones.
+> Known gap, so you don't have to rediscover it: nobody has yet measured which specs are
+> actually the slow ones and which are actually the flaky ones. Until that happens the subset
+> reports rather than blocks.
 
 ## Project Architecture
 

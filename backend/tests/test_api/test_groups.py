@@ -1,6 +1,6 @@
 """Tests for the Auftrag (incident group) API endpoints.
 
-Covers plan 12 (docs/plans/12-auftrag-multi-stop-routing.md):
+Covers:
 - create / list / update / delete groups (delete leaves stops on the board)
 - reorder groups & stops; add / remove stops (cross-event rejected -> 400)
 - group-level assignments via the API (assign / list / unassign)

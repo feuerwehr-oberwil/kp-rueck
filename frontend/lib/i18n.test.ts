@@ -41,4 +41,4 @@ describe('messages/de.json', () => {
 })
 
 // Once fr.json exists (Phase 2): assert key parity de ⊇ fr and matching ICU
-// placeholder sets per key. Kept as a reminder — see docs/plans/06-i18n.md.
+// placeholder sets per key. Kept as a reminder.

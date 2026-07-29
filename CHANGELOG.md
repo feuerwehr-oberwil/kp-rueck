@@ -364,8 +364,7 @@ appears. Everything below is running in production at Feuerwehr Oberwil.
   While that is open, the automatic generator is one step away from texting the whole brigade for
   an exercise three people are running. The training controls still generate straight onto the
   board and through the phone alarm; running exercises are otherwise unchanged. The path comes
-  back once "who is taking part" can be set explicitly
-  (`docs/plans/16-training-alarm-intake.md`).
+  back once "who is taking part" can be set explicitly.
 
 ## [0.2.0] – 2026-07-26
 
@@ -623,7 +622,6 @@ something another station can pin.
   **`Squad` vs `Nur Fahrzeug` (Pendeldienst)** mode so a shuttle shares only the vehicle while crew
   stays per-incident. Routes draw as colored numbered polylines on the map, and GPS arrival
   auto-advance gains a nearest-single-match guard so clustered stops don't double-fire.
-  See [`docs/plans/12-auftrag-multi-stop-routing.md`](docs/plans/12-auftrag-multi-stop-routing.md).
 - Provider-neutral alarm intake: a generic `POST /api/alarms` webhook accepts alarms from **any**
   dispatch or alarm system – shared-secret auth, `(source, source_id)` idempotency, auto-attach
   to the active event, and fail-closed when no secret is configured. The native Divera adapter
