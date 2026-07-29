@@ -29,6 +29,13 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
+    # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
+    # re-measure before tightening them.
+    # Postgres: 221 MB peak measured. The most important one NOT to kill —
+    # a killed database takes the incident record with it, so it gets the most headroom.
+    mem_limit: 1g
     logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-kprueck}
@@ -49,6 +56,13 @@ services:
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./backend, dockerfile: Dockerfile }
     restart: unless-stopped
+    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
+    # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
+    # re-measure before tightening them.
+    # 498 MB peak measured, but PDF export and Excel import spike well above
+    # steady state, and this is the process that must not die mid-Einsatz.
+    mem_limit: 1g
     logging: *default-logging
     depends_on:
       db:
@@ -112,6 +126,12 @@ services:
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./frontend, dockerfile: Dockerfile, target: runner }
     restart: unless-stopped
+    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
+    # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
+    # re-measure before tightening them.
+    # 239 MB peak measured for the Next standalone server. 2x.
+    mem_limit: 512m
     logging: *default-logging
     depends_on:
       backend:
@@ -137,6 +157,13 @@ services:
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ., dockerfile: ./tileserver/Dockerfile }
     restart: unless-stopped
+    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
+    # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
+    # re-measure before tightening them.
+    # 103 MB observed locally; it memory-maps the MBTiles, so leave room for a
+    # canton-sized file rather than the small default bbox.
+    mem_limit: 512m
     logging: *default-logging
     environment:
       - TILESERVER_PORT=8080
@@ -158,6 +185,12 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
+    # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
+    # re-measure before tightening them.
+    # A reverse proxy with a handful of routes.
+    mem_limit: 128m
     logging: *default-logging
     depends_on:
       frontend:
@@ -190,6 +223,12 @@ services:
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./tools/print-agent, dockerfile: Dockerfile }
     restart: unless-stopped
+    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
+    # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
+    # re-measure before tightening them.
+    # Stdlib polling loop plus Pillow when it renders a QR code.
+    mem_limit: 256m
     logging: *default-logging
     profiles: ["printing"]
     network_mode: "host"
