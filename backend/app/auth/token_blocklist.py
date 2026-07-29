@@ -1,9 +1,20 @@
-"""Token blocklist for JWT revocation.
+"""DB-backed JWT JTI blocklist with opportunistic + periodic pruning.
 
-Provides proper logout functionality by tracking revoked token JTIs.
-Uses in-memory storage with automatic cleanup of expired entries.
+Revoked/logged-out tokens are persisted in the ``revoked_tokens`` table so they stay
+revoked across restarts and across multiple instances. The previous in-memory store
+silently re-validated them on restart: a user who logged out was logged out only until
+the next ``docker compose up -d``, which is not what "logout" means.
 
-For distributed deployments, consider Redis or database storage.
+Ported from kp-front, where this was fixed first. The two auth stacks are forks of each
+other, so the interface, the table and the pruning behaviour are kept identical on
+purpose — a future fix on either side should port across as a straight copy.
+
+The public interface (``revoke`` / ``is_revoked`` / ``cleanup_expired`` and the cleanup
+task lifecycle) is unchanged from the in-memory version, so ``dependencies.py``,
+``api/auth.py`` and ``main.py`` did not change. The store opens its own short-lived
+session per call via the app session factory; callers therefore still pass no DB handle.
+This runs on every authenticated request, so ``is_revoked`` is a single indexed
+primary-key lookup.
 """
 
 import asyncio
@@ -11,24 +22,34 @@ import contextlib
 import logging
 from datetime import UTC, datetime
 
+from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from ..database import execute_dml
+from ..models import RevokedToken
+
 logger = logging.getLogger(__name__)
 
 
 class TokenBlocklist:
-    """
-    In-memory blocklist for revoked JWT tokens.
+    """Blocklist for revoked JWT tokens, backed by ``revoked_tokens``."""
 
-    Stores token JTIs (JWT IDs) with their expiration times.
-    Automatically cleans up expired entries to prevent memory growth.
-
-    Thread-safe for async operations.
-    """
-
-    def __init__(self) -> None:
-        self._revoked: dict[str, datetime] = {}  # jti -> original token expiry
-        self._lock = asyncio.Lock()
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession] | None = None) -> None:
+        # Resolved lazily so importing this module never forces the engine to build
+        # (keeps the pure/unit tests import-safe) and so tests can inject a test factory.
+        self._session_factory = session_factory
         self._cleanup_task: asyncio.Task[None] | None = None
         self._cleanup_interval = 3600  # Clean up every hour
+
+    def _factory(self) -> async_sessionmaker[AsyncSession]:
+        if self._session_factory is None:
+            from ..database import async_session_maker
+
+            self._session_factory = async_session_maker
+        return self._session_factory
+
+    # --- cleanup task lifecycle (unchanged interface) ------------------------------
 
     async def start_cleanup_task(self) -> None:
         """Start the background cleanup task."""
@@ -56,52 +77,61 @@ class TokenBlocklist:
             except Exception as e:
                 logger.error(f"Token blocklist cleanup error: {e}")
 
+    # --- public store API (unchanged signatures) -----------------------------------
+
     async def revoke(self, jti: str, expires_at: datetime) -> None:
-        """
-        Add a token JTI to the blocklist.
+        """Persist a token's JTI as revoked until its own expiry (idempotent).
 
         Args:
             jti: The JWT ID to revoke
-            expires_at: When the original token expires (for cleanup)
+            expires_at: When the original token expires (for pruning)
         """
-        async with self._lock:
-            self._revoked[jti] = expires_at
+        async with self._factory()() as session:
+            await self._revoke(session, jti, expires_at)
+            await session.commit()
             logger.debug(f"Token revoked: {jti[:8]}... (expires: {expires_at})")
 
     async def is_revoked(self, jti: str) -> bool:
-        """
-        Check if a token JTI has been revoked.
-
-        Args:
-            jti: The JWT ID to check
-
-        Returns:
-            True if the token has been revoked, False otherwise
-        """
-        return jti in self._revoked
+        """Hot path: single indexed PK lookup; ``True`` iff the JTI is blocklisted."""
+        async with self._factory()() as session:
+            found = (
+                await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == jti))
+            ).scalar_one_or_none()
+            return found is not None
 
     async def cleanup_expired(self) -> int:
-        """
-        Remove expired entries from the blocklist.
+        """Delete rows whose tokens have already expired; returns rows removed."""
+        async with self._factory()() as session:
+            now = datetime.now(UTC)
+            result = await execute_dml(session, delete(RevokedToken).where(RevokedToken.expires_at <= now))
+            await session.commit()
+            removed = result.rowcount or 0
+            if removed:
+                logger.debug(f"Cleaned up {removed} expired token blocklist entries")
+            return removed
 
-        Returns:
-            Number of entries removed
-        """
-        now = datetime.now(UTC)
-        async with self._lock:
-            expired_jtis = [jti for jti, exp in self._revoked.items() if exp <= now]
-            for jti in expired_jtis:
-                del self._revoked[jti]
+    # --- internals -----------------------------------------------------------------
 
-            if expired_jtis:
-                logger.debug(f"Cleaned up {len(expired_jtis)} expired token blocklist entries")
+    async def _revoke(self, session: AsyncSession, jti: str, expires_at: datetime) -> None:
+        """Upsert one revocation. Uses an ON CONFLICT no-op on postgres; falls back to a
+        select-then-insert elsewhere (e.g. SQLite in tests) so a double-logout is a no-op,
+        never an IntegrityError on the auth hot path."""
+        # Opportunistic prune so the table can't grow unbounded between periodic sweeps.
+        await session.execute(delete(RevokedToken).where(RevokedToken.expires_at <= datetime.now(UTC)))
 
-            return len(expired_jtis)
+        dialect = session.bind.dialect.name if session.bind is not None else ""
+        if dialect == "postgresql":
+            stmt = (
+                pg_insert(RevokedToken)
+                .values(jti=jti, expires_at=expires_at)
+                .on_conflict_do_nothing(index_elements=["jti"])
+            )
+            await session.execute(stmt)
+            return
 
-    @property
-    def size(self) -> int:
-        """Current number of entries in the blocklist."""
-        return len(self._revoked)
+        exists = (await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == jti))).scalar_one_or_none()
+        if exists is None:
+            session.add(RevokedToken(jti=jti, expires_at=expires_at))
 
 
 # Global singleton instance
