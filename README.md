@@ -8,11 +8,11 @@ physical magnet board used to track personnel, vehicles, materials, and incident
 operation – a shared Kanban board, an incident map, resource assignments, and a defensible
 record, all live across every connected device.
 
-One operator runs it from the command post on a tablet or large screen; viewers follow along
-read-only. KP Rück owns its own incident state, map, audit trail, and exports – integrations
+One operator runs it from the command post on a desktop with mouse and keyboard; viewers
+follow along read-only on any screen. KP Rück owns its own incident state, map, audit trail, and exports – integrations
 (Divera, Traccar, a thermal printer) add data but are not required to operate it.
 
-Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/) and designed
+Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehr-oberwil.ch/) and designed
 to be adaptable for any fire department.
 
 | Operations Board | Interactive Map |
@@ -32,8 +32,8 @@ event, one operator at the board**, not scaled down from a dispatch center.
 
 - **Replaces the magnet board.** The same spatial mental model – columns for status, cards for
   incidents, magnets for crew and vehicles – but live, shared, and self-documenting.
-- **Made for the command post.** Dense, calm, dark-mode-first, keyboard-fast on a desktop and
-  touch-ready on a tablet. Status and priority read at a glance.
+- **Made for the command post.** Dense, calm, dark-mode-first and keyboard-fast on a desktop –
+  the board is run with mouse and keyboard, not thumbs. Status and priority read at a glance.
 - **Provider-neutral intake.** Any dispatch or alarm system can open incidents through one
   generic webhook; Divera, a phone form, and a QR walk-in slip are adapters on top of it.
 - **Training that mirrors reality.** A full training mode with auto-generated incidents and
@@ -52,6 +52,9 @@ event, one operator at the board**, not scaled down from a dispatch center.
 - **Map:** Leaflet incident markers, optional [Traccar](https://www.traccar.org/) vehicle GPS
   with GPS-driven status automation, distance labels, and offline tiles.
 - **Resources:** personnel, vehicles, and materials with assignment conflict warnings.
+- **Aufträge:** group several incidents into one ordered route for a squad – the storm case,
+  where a crew works a list rather than a single address. The board keeps the sequence, the
+  crew, and the radio announcement for the whole route.
 - **Alarm intake:** provider-neutral `POST /api/alarms`, a native Divera adapter, a token-gated
   phone/walk-in form, and a capability registry the UI reads instead of hard-coding providers.
 - **Reconnaissance:** Reko forms with photo upload from mobile devices.
@@ -93,7 +96,7 @@ is auto-seeded on first run; admin credentials are printed to the terminal.
 Runs on any Docker host, from **published images** – no build toolchain on the server:
 
 ```bash
-cp .env.example .env          # POSTGRES_PASSWORD, SECRET_KEY, AUTH_SECRET_KEY, ADMIN_SEED_PASSWORD
+cp .env.example .env          # fill in the five required secrets (see docs/SETUP.md §2)
 docker compose up -d          # pulls ghcr.io/feuerwehr-oberwil/kp-rueck-*, migrates on boot
 ```
 
@@ -111,7 +114,8 @@ commit that has been carrying live operations. Releases exist for *other* statio
 
 Setting up a station for the first time? Follow **[docs/SETUP.md](docs/SETUP.md)**, which walks
 the whole path in order. **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** is the full self-hosting
-reference behind it, and **[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed-PaaS route.
+reference behind it. **[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed-PaaS route, but
+it is legacy and no longer maintained in step with the compose path.
 
 ## Architecture & key decisions
 
@@ -214,7 +218,7 @@ kp-rueck/
 │   ├── app/services/         # Business logic (Divera, Traccar, alerting, GPS, PDF)
 │   ├── app/models.py         # SQLAlchemy models
 │   └── alembic/              # Database migrations
-├── print-agent/              # Standalone thermal printer agent
+├── tools/print-agent/        # Standalone print agent (serves KP Rück *and* KP Front)
 ├── tileserver/               # Offline map tile server
 ├── docker-compose.dev.yml    # Development setup
 └── justfile                  # Task runner (run `just` for all commands)
@@ -245,8 +249,11 @@ plans – see its companion **[KP Front](https://github.com/feuerwehr-oberwil/kp
 ([live demo](https://demo.kp-front.ch)).
 
 The two grew out of the same brigade and share a design language, but they are **completely
-independent** codebases and deployments – neither requires the other. They can *optionally* hand
-alarms to each other through the same generic `POST /api/alarms` webhook, and nothing more.
+independent** codebases and deployments – neither requires the other. Both expose a generic `POST /api/alarms` webhook, but they are not plug-compatible: the
+payloads and auth differ, so KP Front can feed KP Rück through a short adapter you write,
+and KP Rück has no outbound webhook to push the other way. Nothing else connects them –
+separate databases, separate auth, separate deployments. See
+[`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
 
 Their sign-in models differ on purpose. KP Rück runs at a desk with a network, so it uses named
 accounts and can defer to an identity provider. KP Front runs on a tablet at the Einsatzort,
@@ -270,7 +277,7 @@ Copyright © 2026 Bastian Eichenberger.
 
 ## Acknowledgments
 
-- **[Feuerwehr Oberwil BL](https://www.feuerwehroberwil.ch/)** – original development and
+- **[Feuerwehr Oberwil BL](https://www.feuerwehr-oberwil.ch/)** – original development and
   real-world testing
 - [shadcn/ui](https://ui.shadcn.com/), [OpenStreetMap](https://www.openstreetmap.org/),
   [TileServer GL](https://github.com/maptiler/tileserver-gl),

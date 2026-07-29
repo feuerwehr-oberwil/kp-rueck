@@ -403,7 +403,7 @@ The application automatically uses **"online" mode** on Railway by default:
 If your production deployment requires offline maps:
 1. Use a managed tile hosting service (e.g., Maptiler, Mapbox)
 2. Deploy TileServer GL separately with persistent volume
-3. Update frontend `NEXT_PUBLIC_TILE_SERVER_URL` environment variable
+3. Update frontend `NEXT_PUBLIC_TILE_URL` environment variable
 4. Consider costs: hosting + storage + bandwidth
 
 For most use cases, online OpenStreetMap tiles are sufficient.

@@ -198,7 +198,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo "**Images** (all at \`${VERSION}\`): \`kp-rueck-backend\`, \`kp-rueck-frontend\`, \`kp-rueck-tileserver\`, \`kp-rueck-print-agent\` under \`ghcr.io/${{ github.repository_owner }}/\`."
+            echo "**Images** (all at \`${VERSION}\`): \`kp-rueck-backend\`, \`kp-rueck-frontend\`, \`kp-rueck-tileserver\`, \`kp-print-agent\` under \`ghcr.io/${{ github.repository_owner }}/\`."
             echo
             echo "**Update:** \`docker compose pull && docker compose up -d\` · **New deployment:** [docs/DEPLOYMENT.md](https://github.com/${{ github.repository }}/blob/${GITHUB_REF_NAME}/docs/DEPLOYMENT.md)"
             echo

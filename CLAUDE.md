@@ -223,7 +223,7 @@ A deployment `.env` for the compose stack is documented in `.env.example` / `doc
 
 **Docker Compose (the production path):**
 - `docker-compose.yml`: the PRODUCTION stack. Pulls published GHCR images
-  (`kp-rueck-{backend,frontend,tileserver,print-agent}`, pinned by `KP_RUECK_TAG`) and puts
+  (`kp-rueck-{backend,frontend,tileserver}` + `kp-print-agent`, pinned by `KP_RUECK_TAG`) and puts
   Caddy in front as a single origin: `/socket.io` + `/api` → backend, `/tiles` → tileserver,
   everything else → frontend. Sets `ENVIRONMENT=production`, which is what turns on mandatory
   secrets, no auth bypass, and no sample data at all — not just no sample incidents, but no fleet,

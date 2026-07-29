@@ -38,7 +38,7 @@ Recommended layout for two public domains on one host:
 DOMAIN=                  # empty: the outer proxy terminates TLS, Caddy stays plain HTTP
 HTTP_PORT=8080           # what your reverse proxy forwards to
 HTTPS_PORT=8443          # NOT 443 – see the warning below
-COOKIE_SECURE=           # leave blank; the browser still speaks HTTPS to the outer proxy
+AUTH_COOKIE_SECURE=      # leave blank; the browser still speaks HTTPS to the outer proxy
 ```
 
 ```bash
@@ -60,8 +60,10 @@ DOMAIN=                  # unused without --profile tls
 
 **Keeping it simpler:** if only one of the two is published and the other stays on the LAN, skip
 the outer proxy. Let the public one keep `DOMAIN` and 80/443, and move the other onto plain
-high ports. `COOKIE_SECURE=false` then applies to the LAN-only stack, whose browsers really are
-on plain HTTP.
+high ports. The LAN-only stack then needs the insecure-cookie switch — and it is spelled
+differently in each: `AUTH_COOKIE_SECURE=false` for KP Rück, `COOKIE_SECURE=false` for KP
+Front (see the table in §5). Setting the wrong one is silent: the browser drops the login
+cookie and signing in fails with no error.
 
 ---
 
@@ -201,4 +203,6 @@ Before you start the second stack:
 
 ---
 
-*This file is deliberately identical in both repositories ([kp-front](https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/RUNNING-BOTH.md), [kp-rueck](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md)) — a station hits these problems before it knows which repository to look in. Change one, copy it to the other.*
+*This file lives **once**, here in kp-rueck; the kp-front repository links to it rather than
+keeping a second copy that would drift. A station hits these problems before it knows which
+repository to look in, so both READMEs point at this page.*

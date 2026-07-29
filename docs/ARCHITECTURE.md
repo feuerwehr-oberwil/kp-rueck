@@ -108,14 +108,14 @@ graph TB
 ```mermaid
 erDiagram
     events ||--o{ incidents : contains
-    events ||--o{ incident_special_functions : has
+    events ||--o{ event_special_functions : has
     incidents ||--o{ incident_assignments : has
     incidents ||--o{ status_transitions : tracks
     incidents ||--o{ reko_reports : has
     incident_assignments }o--|| personnel : assigns
     incident_assignments }o--|| vehicles : assigns
     incident_assignments }o--|| materials : assigns
-    incident_special_functions }o--|| personnel : assigns
+    event_special_functions }o--|| personnel : assigns
 
     events {
         uuid id PK
@@ -161,21 +161,23 @@ erDiagram
     }
 ```
 
-**Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies`, `token_blocklist`, `incident_special_functions`, `reko_reports`, `status_transitions`
+**Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies`, `revoked_tokens` (the persisted JWT blocklist), `event_special_functions`, `reko_reports`, `status_transitions`, `personnel_external_identities`, `print_jobs`, `telemetry_outbox`, `notifications`
 
 ### Print Agent (Standalone Python)
 
 | Component | Responsibility |
 |-----------|---------------|
 | **agent.py** | Polling loop with adaptive intervals (idle: 60s, active: 5s) |
-| **printer.py** | ESC/POS network printer driver (58mm thermal paper) |
+| **core.py** | Job model, HTTP client, claim/report state machine (stdlib only) |
+| **protocols/** | One module per backend wire contract (`front.py`, `rueck.py`) |
+| **outputs/** | One module per device (`escpos.py` thermal, `cups.py` A4 laser) |
 | **formatters.py** | Print layout: assignment slips, board snapshots |
 
 ---
 
 ## Deployment Architectures
 
-KP Rück supports three deployment modes depending on the use case.
+The **self-hosted production stack** below is the reference deployment — it is what published releases are built and tested for, and what [`DEPLOYMENT.md`](DEPLOYMENT.md) documents. The others are the development stack, the same production stack tuned for a command post with no internet, and a legacy managed-PaaS layout.
 
 ### Local Development (Docker Compose)
 
@@ -206,42 +208,59 @@ graph LR
 | TileServer | `kprueck-tileserver-dev` | 8080 | Auto-creates bootstrap tiles on first run |
 | Print Agent | *(optional, profile=printing)* | host network | Requires physical printer on LAN |
 
-### Cloud Production (Railway)
+### Self-hosted Production (Docker Compose + Caddy)
 
-For internet-facing deployments. Three services on Railway, no tile server.
+The reference deployment: one box, one origin, published images from GHCR pinned by
+`KP_RUECK_TAG`. Caddy terminates TLS and fans out by path, which is why the frontend image
+carries no station URL — the browser only ever talks to its own host.
 
 ```mermaid
 graph LR
-    subgraph railway["Railway"]
-        fe_prod["Frontend<br/><small>HTTPS</small>"]
-        be_prod["Backend<br/><small>HTTPS</small>"]
-        db_prod[("PostgreSQL<br/><small>Managed</small>")]
-        vol["Volume<br/><small>/mnt/data</small>"]
+    subgraph host["Docker Compose (docker-compose.yml) — one host"]
+        caddy["Caddy<br/><small>:80/:443 · automatic HTTPS</small>"]
+        fe_prod["Frontend<br/><small>Next.js</small>"]
+        be_prod["Backend<br/><small>FastAPI</small>"]
+        db_prod[("PostgreSQL 16")]
+        tiles_prod["TileServer GL"]
+        vol["Volume<br/><small>photos</small>"]
     end
 
-    internet["Internet<br/>Users"] --> fe_prod
-    fe_prod -->|HTTPS| be_prod
+    users["Browsers<br/><small>LAN or internet</small>"] -->|one origin| caddy
+    caddy -->|"/api, /socket.io"| be_prod
+    caddy -->|"/tiles"| tiles_prod
+    caddy -->|"everything else"| fe_prod
     be_prod --> db_prod
     be_prod --> vol
 
-    divera["Divera 24/7"] -.->|webhook| be_prod
+    divera["Divera 24/7"] -.->|webhook| caddy
     traccar["Traccar"] -.->|API| be_prod
 
-    style railway fill:#fdf4ff,stroke:#a855f7
+    style host fill:#f0f9ff,stroke:#0284c7
 ```
 
-| Service | Configuration | Notes |
-|---------|--------------|-------|
-| PostgreSQL | Railway managed | Auto-backups, `DATABASE_URL` injected |
-| Backend | `start.sh` + Dockerfile | `SECRET_KEY` required, Swagger docs disabled |
-| Frontend | `node server.js` | Production build, `NEXT_PUBLIC_API_URL` set |
-| Volume | `/mnt/data` | Persistent photo storage (Reko reports) |
+| Service | Image | Notes |
+|---------|-------|-------|
+| Caddy | `caddy:2-alpine` | Single origin. Automatic HTTPS when `DOMAIN` is set; plain HTTP on `HTTP_PORT` for a LAN-only install (then `AUTH_COOKIE_SECURE=false` is required). |
+| Backend | `ghcr.io/feuerwehr-oberwil/kp-rueck-backend` | `start.sh` runs `alembic upgrade head` on boot. `ENVIRONMENT=production` makes the secrets mandatory and disables the auth bypass, sample data and Swagger. |
+| Frontend | `ghcr.io/feuerwehr-oberwil/kp-rueck-frontend` | Built **without** `NEXT_PUBLIC_API_URL` on purpose — baking a URL in would tie the image to one station. The browser calls `/backend-api` on its own origin and Next forwards to the runtime `API_URL`. |
+| PostgreSQL | `postgres:16-alpine` | Named volume. `DATABASE_URL` is composed in `docker-compose.yml` from the `POSTGRES_*` values. |
+| TileServer | `ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver` | Offline tiles, reachable at `/tiles`. Optional but recommended — it is what keeps the map alive without internet. |
+| Print Agent | `ghcr.io/feuerwehr-oberwil/kp-print-agent` | Optional (`--profile printing`), amd64 + arm64. |
 
-Maps use **online-only** OpenStreetMap tiles (no tile server on Railway).
+All four published images share one tag; a station runs a matched set, never a mix.
+
+### Cloud (managed PaaS) — legacy
+
+Feuerwehr Oberwil's own deployment grew up on Railway, and [`RAILWAY.md`](RAILWAY.md) still
+describes that layout: three services, managed Postgres, a `/mnt/data` volume for Reko photos,
+online-only OSM tiles (no tile server). The runtime no longer assumes Railway and this path is
+not maintained in step with the compose stack — it is documented for deployments already on it,
+not recommended for new ones.
+
 
 ### Command Post (Offline-capable)
 
-For field deployments at a physical command post. Runs on a local machine with an optional Raspberry Pi for thermal printing.
+The same production stack as above, on a machine at the command post with offline tiles installed and an optional Raspberry Pi for thermal printing. Nothing about the images or compose file differs — only the configuration (no `DOMAIN`, tiles downloaded, print agent enabled).
 
 ```mermaid
 graph TB
@@ -272,10 +291,10 @@ graph TB
 
 | Component | Location | Notes |
 |-----------|----------|-------|
-| Backend + DB + Frontend | Local machine | `just dev` or native install |
+| Backend + DB + Frontend | Local machine | The production compose stack (`docker compose up -d`), `DOMAIN` left empty so Caddy serves plain HTTP on the LAN. |
 | TileServer GL | Local machine | Pre-downloaded offline tiles for the region |
 | Print Agent | Raspberry Pi | Connected via LAN, polls backend for print jobs |
-| Thermal Printer | Network printer | ESC/POS protocol, 58mm paper (e.g. Epson TM-T20) |
+| Thermal Printer | Network printer | ESC/POS protocol, 80mm paper (Epson TM-T20III or compatible) |
 | Clients | Any device on LAN | Tablets, laptops, phones -- browser only |
 
 Works **fully offline** once tiles are downloaded and no external integrations are needed.

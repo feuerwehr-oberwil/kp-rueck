@@ -10,7 +10,7 @@ requires-python = ">=3.9"
 dependencies = []
 
 [project.optional-dependencies]
-# Only needed for `output: escpos` (the 58 mm thermal printer). Imported lazily, so an agent
+# Only needed for `output: escpos` (the 80 mm thermal printer). Imported lazily, so an agent
 # without these installed still runs fine for CUPS backends and reports a clear error if a
 # thermal job ever reaches it.
 escpos = [

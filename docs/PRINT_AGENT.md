@@ -6,7 +6,7 @@ The print agent connects the KP Rueck dashboard to a printer on the local networ
 >
 > It is published under the neutral name `ghcr.io/feuerwehr-oberwil/kp-print-agent` — it is not a KP Rück component, it just lives in this repository. The old `kp-rueck-print-agent` name is still published for one release so existing compose files keep working.
 
-> **The backend print queue is transport-neutral.** Jobs are stored as structured JSON – the backend knows nothing about ESC/POS, paper widths, or any printer brand. The bundled agent is the *reference* implementation for a 58 mm ESC/POS thermal printer, but any department can point their own agent at the same four endpoints and render the jobs however they like (a CUPS/A4 laser printer, a PDF spooler, a second printer). See [Writing your own agent](#writing-your-own-agent) below. This mirrors the alarm connectors ([docs/ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)): the core stays vendor-neutral, the device-specific part lives at the edge.
+> **The backend print queue is transport-neutral.** Jobs are stored as structured JSON – the backend knows nothing about ESC/POS, paper widths, or any printer brand. The bundled agent is the *reference* implementation for an 80 mm ESC/POS thermal printer, but any department can point their own agent at the same four endpoints and render the jobs however they like (a CUPS/A4 laser printer, a PDF spooler, a second printer). See [Writing your own agent](#writing-your-own-agent) below. This mirrors the alarm connectors ([docs/ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)): the core stays vendor-neutral, the device-specific part lives at the edge.
 
 ## Architecture
 
@@ -56,7 +56,7 @@ A 30-second deduplication window prevents duplicate prints for the same incident
 
 ## Printer Hardware
 
-- **Type**: 58mm ESC/POS thermal receipt printer
+- **Type**: 80mm ESC/POS thermal receipt printer (Epson TM-T20III or compatible)
 - **Connection**: TCP port 9100 (network printer)
 - **Codepage**: WPC1252 (ESC t 16) for German umlauts (ä, ö, ü, ß)
 - **Font A**: ~22 characters/line (used for titles, list items, separators)
@@ -94,7 +94,7 @@ while True:
     sleep(5 if jobs else 60)
 ```
 
-Render each `job_type` however your hardware needs – the reference agent (`tools/print-agent/`) uses python-escpos for a 58 mm thermal printer; a CUPS-based agent would hand the same payload to `lp` for an A4 laser printer instead.
+Render each `job_type` however your hardware needs – the reference agent (`tools/print-agent/`) uses python-escpos for an 80 mm thermal printer; a CUPS-based agent would hand the same payload to `lp` for an A4 laser printer instead.
 
 ## Local Development
 

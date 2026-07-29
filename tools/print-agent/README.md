@@ -11,7 +11,7 @@ This is one program that speaks both wire protocols and drives both kinds of pri
 | Polling | long-poll (~25 s hang, near-instant claim) | adaptive: 60 s idle / 5 s after a job |
 | Auth header | `X-Print-Agent-Secret` | `X-Agent-Token` |
 | Backend sets | `PRINT_AGENT_SECRET` | `PRINT_AGENT_TOKEN` |
-| Pairs with | `output: cups` (A4 laser) | `output: escpos` (58 mm thermal) |
+| Pairs with | `output: cups` (A4 laser) | `output: escpos` (80 mm thermal) |
 
 **Neither backend changed and neither protocol changed.** The agent lives in this repository
 for a single maintainer's convenience; it is not a KP Rück component, which is why it is
