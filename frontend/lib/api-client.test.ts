@@ -4,8 +4,8 @@ vi.mock('@/lib/env', () => ({
   getApiUrl: () => 'http://test-backend',
 }))
 
-vi.mock('@/hooks/use-toast', () => ({
-  toast: vi.fn(),
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
 }))
 
 import { apiClient, NetworkError } from './api-client'
