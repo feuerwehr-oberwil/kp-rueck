@@ -77,7 +77,12 @@ class FrontProtocol:
             Job(
                 id=job_id,
                 backend=self.url,
-                kind=job.get("job_type") or "document",
+                # kp-front's column is `kind` (backend/app/api/print_relay.py). `job_type` is
+                # kp-RUECK's name, copy-pasted in from protocols/rueck.py — it never matched,
+                # so every job silently arrived as "document" and the real kind (report /
+                # zeitplan / capture_report) was lost. Harmless so far only because the CUPS
+                # output that serves kp-front ignores `kind`; fixed before that stops being true.
+                kind=job.get("kind") or "document",
                 document=pdf,
                 filename=job.get("filename"),
                 color=bool(job.get("color")),

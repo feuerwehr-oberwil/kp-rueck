@@ -62,7 +62,12 @@ class FrontHandler(BaseHTTPRequestHandler):
             self.server.claims += 1
             if self.server.claims > 1:  # one job, then an empty queue
                 self.send_response(204); self.end_headers(); return
-            body = json.dumps({"id": "job-1", "filename": "rapport.pdf", "color": False}).encode()
+            # `kind` is in the stub because leaving it out is what let the job_type/kind
+            # mismatch in protocols/front.py survive: with no field on the wire, the
+            # driver's `or "document"` fallback looked like correct behaviour.
+            body = json.dumps(
+                {"id": "job-1", "filename": "rapport.pdf", "color": False, "kind": "report"}
+            ).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body))); self.end_headers()
             self.wfile.write(body)
@@ -195,6 +200,21 @@ def test_front_backend_claims_downloads_prints_and_reports(front_server, fake_cu
     assert "print-color-mode=monochrome" in argv
     # The PDF is passed as a real file that exists at call time.
     assert argv[-1].endswith(".pdf")
+
+
+def test_front_job_kind_survives_the_wire(front_server, fake_cups):
+    """kp-front sends `kind`; the driver must read that name and not kp-rueck's `job_type`.
+
+    It read `job_type` for a while and nothing caught it: the CUPS output ignores `kind`, and
+    the test stub omitted the field, so the `or "document"` fallback looked deliberate. The
+    assertion is on the parsed Job rather than on printer behaviour for exactly that reason.
+    """
+    backend = _build({
+        "name": "front", "protocol": "kp-front", "url": front_server.url,
+        "secret": "front-secret", "output": "cups", "printer": "FakePrinter",
+    })
+    jobs = backend.protocol.poll()
+    assert [j.kind for j in jobs] == ["report"]
 
 
 def test_front_lp_options_from_config_come_last(front_server, fake_cups):
