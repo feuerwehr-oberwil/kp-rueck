@@ -6,6 +6,87 @@ docker-compose stack, which is the path published releases are built for.
 
 Nothing here requires a build toolchain: the stack pulls published images from GHCR.
 
+## 0. What machine do I need
+
+Less than people expect. KP Rück is one station's board, not a multi-tenant service: a handful
+of concurrent operators, a database measured in tens of megabytes, and no video, no analytics,
+no search cluster.
+
+| | Minimum | Recommended |
+| --- | --- | --- |
+| CPU | 2 cores, x86-64 or arm64 | 4 cores |
+| RAM | **2 GB** | **4 GB** (8 GB if you generate map tiles on this machine, or run KP Front alongside) |
+| Disk | 32 GB **SSD** | 128 GB SSD |
+| Network | wired Ethernet | wired Ethernet + a UPS |
+| OS | anything with Docker Engine + Compose v2 | Debian 12/13 |
+
+**Both architectures are published.** Every image (`backend`, `frontend`, `tileserver`,
+`print-agent`) is built for `linux/amd64` **and** `linux/arm64`, so a mini PC, a retired
+laptop, an ARM VPS or a Raspberry Pi 5 all work. 32-bit ARM (armv7, e.g. Raspberry Pi 3 or a
+Pi 4 running a 32-bit OS) is **not** built and will not run — if you use a Pi, install a
+64-bit OS.
+
+### Where the numbers come from
+
+Measured on a running stack (resident memory per container):
+
+| Service | Memory |
+| --- | --- |
+| `backend` (FastAPI/uvicorn) | ~200 MB |
+| `db` (postgres:16-alpine) | ~130 MB |
+| `tileserver` | ~75 MB |
+| `frontend` (Next.js, `next start`) | ~300 MB |
+| `caddy` | ~30 MB |
+
+That is well under 1 GB in total, which is why 2 GB is a real minimum rather than an
+optimistic one — the rest is headroom and page cache, and Postgres benefits from the cache
+more than from anything else you could spend the RAM on.
+
+Disk, likewise, is dominated by things that do not grow:
+
+- container images: budget **5 GB**
+- database: **61 MB** on a seeded install; incidents and personnel are text rows, so this
+  grows slowly enough to ignore for years
+- map tiles: **~12 MB** for a canton-sized region — these are *vector* tiles, not images
+- **photos are the only thing that really grows** (Reko photos, see
+  [`PHOTO_STORAGE.md`](PHOTO_STORAGE.md)); size this from how your station actually uses them
+
+### The one peak: generating map tiles
+
+`scripts/download-tiles.sh` is the only step that wants a real machine — roughly **500 MB of
+OSM data downloaded, ~2 GB of temporary disk, and 4 GB of RAM recommended**. The *result* is
+a ~12 MB file.
+
+So on a small box, do not build tiles on the box. Run the script on a laptop and copy the
+finished `.mbtiles` into the tileserver volume (see [`OFFLINE_MAPS.md`](OFFLINE_MAPS.md)).
+Tiles are optional in any case; without them the map uses online OpenStreetMap.
+
+### Storage endurance matters more than storage speed
+
+Use an SSD — SATA, NVMe or eMMC. **Do not run the system on a microSD card or a USB stick.**
+Postgres writes continuously even on an idle board (WAL, autovacuum, checkpoints), and flash
+without wear levelling worth the name fails by silent corruption rather than by stopping,
+which is the worst failure mode for the machine your command post depends on. This is the
+single most common way a cheap self-hosted box dies, and it is entirely avoidable.
+
+If the machine sits in the Gerätehaus, put it on a **UPS** together with the switch and access
+point. Without one, a power blip takes the board with it — see
+[`AUSFALL_SOP.md`](AUSFALL_SOP.md), which treats the station box as the single point it all
+hangs on.
+
+### Two applications on one host
+
+KP Front is roughly half this footprint (one image serving a static SPA plus its API, and its
+own Postgres). Both stacks on one machine fit comfortably in 4 GB and are more comfortable in
+8 GB — but they collide on ports and environment-variable names, so read
+[`RUNNING-BOTH.md`](RUNNING-BOTH.md) before you start.
+
+### What it does not need
+
+No Kubernetes, no cluster, no load balancer, no GPU, no Redis, no object storage, no CDN. One
+station, one box, one `docker compose up`. If you are sizing this like a web service, you are
+sizing it wrong.
+
 ## 1. What runs
 
 | Service | Image | Role |

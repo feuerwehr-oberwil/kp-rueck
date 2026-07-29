@@ -250,7 +250,7 @@ The system includes optional offline map tile support so the map keeps working w
 **Architecture:**
 - **Tile Server**: TileServer GL running on port 8080
 - **Coverage**: whatever `TILES_BOUNDS` covers (default Basel-Landschaft), zoom levels 0-17
-- **Storage**: MBTiles format (~1-2 GB), stored in Docker volume
+- **Storage**: MBTiles format, stored in Docker volume. **~12 MB** for the default region – these are *vector* tiles, not raster. Generating them is the expensive part (~500 MB OSM download, ~2 GB temp disk, 4 GB RAM), which is why a small station box should have the file built elsewhere and copied in (`docs/DEPLOYMENT.md` §0).
 - **Behavior**:
   - **Auto mode** (default): Try online OSM tiles first, fall back to offline on failure
   - **Online mode**: Always use online OSM tiles

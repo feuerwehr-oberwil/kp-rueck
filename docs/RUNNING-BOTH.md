@@ -12,6 +12,11 @@ variable names that mean different things**, and **alarm intake secrets**.
 
 If you run only one of the two, you can ignore this entire page.
 
+**Sizing:** both stacks together fit in **4 GB of RAM** and are comfortable in 8 GB — KP Rück
+is the larger of the two (see [`DEPLOYMENT.md`](DEPLOYMENT.md) §0), KP Front roughly half
+that. Neither is CPU-bound. The machine is not what makes running both awkward; the three
+collisions below are.
+
 > **This is the canonical copy, and it is linked from the kp-front repository** (its README,
 > its docs index, and its `.env.example`) rather than duplicated there — a second copy would
 > drift, and half-right instructions about a silent port collision are worse than none. Edit it
