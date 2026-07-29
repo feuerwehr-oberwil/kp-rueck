@@ -17,3 +17,8 @@ htmlcov/
 .coverage
 coverage.xml
 *.cover
+
+# Tool caches. Both write a self-ignoring .gitignore inside themselves, which is protection
+# that lasts exactly as long as that behaviour does — so name them here too.
+.ruff_cache/
+.mypy_cache/

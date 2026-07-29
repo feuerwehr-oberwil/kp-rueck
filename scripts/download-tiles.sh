@@ -39,7 +39,13 @@ TILES_PBF_URL="${TILES_PBF_URL:-https://download.geofabrik.de/europe/switzerland
 TILES_NAME="${TILES_NAME:-basel-landschaft}"
 
 TILES_FILE="${TILES_NAME}.mbtiles"
-CONTAINER_NAME="${TILES_CONTAINER:-kprueck-tileserver-dev}"
+# Which tileserver container to talk to. The dev stack names it
+# kprueck-tileserver-dev; the production stack (compose project "kp-rueck") names it
+# kp-rueck-tileserver-1. This used to default to the dev name, so offline tiles — the
+# flagship feature for a station with no internet — could not be installed on a
+# production stack by any documented command. Detect instead of guessing.
+# Set TILES_CONTAINER to override for a non-standard setup.
+CONTAINER_NAME="${TILES_CONTAINER:-$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^kp-?rueck[-_].*tileserver' | head -1)}"
 DOWNLOAD_URL="$TILES_PBF_URL"
 OSM_FILE="$(basename "$TILES_PBF_URL")"
 
@@ -69,9 +75,11 @@ fi
 echo "✓ Docker found"
 
 # Check if tile server container exists
-if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+if [ -z "$CONTAINER_NAME" ] || ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "⚠️  Warning: Tile server container not found."
-    echo "   Please run 'just dev' first to start all services."
+    echo "   Start the stack first — 'docker compose up -d' for a production"
+    echo "   install, or 'just dev' for the development stack."
+    echo "   If your container has a non-standard name, set TILES_CONTAINER=<name>."
     exit 1
 fi
 echo "✓ Tile server container found"

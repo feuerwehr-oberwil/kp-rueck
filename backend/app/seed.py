@@ -38,7 +38,7 @@ def get_admin_password() -> str:
     if is_production:
         raise ValueError(
             "ADMIN_SEED_PASSWORD environment variable is required in production. "
-            "Generate a strong password and set it in Railway variables."
+            "Generate one (openssl rand -base64 24) and set it in your .env."
         )
 
     # Development: Generate random password
@@ -65,7 +65,7 @@ def get_shared_account_password(env_var: str, dev_default: str) -> str:
     if is_production:
         raise ValueError(
             f"{env_var} environment variable is required in production. "
-            "Generate a strong password and set it in Railway variables."
+            "Generate one (openssl rand -base64 24) and set it in your .env."
         )
 
     return dev_default

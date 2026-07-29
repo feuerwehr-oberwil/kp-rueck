@@ -119,7 +119,7 @@ services:
     networks:
       - kprueck-network
     # Automatically creates minimal tiles on first run
-    # For full-resolution tiles: make tiles-download
+    # For full-resolution tiles: just tiles-download
     healthcheck:
       # The tileserver image ships neither wget nor curl; probe via node.
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
@@ -134,10 +134,10 @@ services:
 
   # Thermal printer agent (optional - for local command post installations)
   # Start with: docker compose -f docker-compose.dev.yml --profile printing up -d
-  # Or: just print-agent
+  # Or: just printer
   print-agent:
     build:
-      context: ./print-agent
+      context: ./tools/print-agent
       dockerfile: Dockerfile
     container_name: kprueck-print-agent-dev
     restart: unless-stopped

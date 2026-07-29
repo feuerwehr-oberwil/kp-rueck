@@ -9,6 +9,14 @@ import * as path from 'path';
  * Screenshots are saved to: frontend/public/help/images/
  *
  * Run with: pnpm test:e2e tests/capture-help-screenshots.spec.ts
+ *
+ * NOTHING IS COMMITTED FROM THIS ANY MORE, AND THE OUTPUT DIRECTORY IS GITIGNORED.
+ * The previous batch was 14 PNGs / 3.4 MB generated against the (since-deleted)
+ * `seed_oberwil.py`, sitting in `public/` — shipped in every frontend image, referenced by no
+ * page, and showing a UI from before the design-system refactor.
+ *
+ * If you re-run this: only commit images the help page actually renders, and check the frames
+ * first — screenshots capture whatever seed data happens to be in the database.
  */
 
 // Ensure screenshot directory exists
