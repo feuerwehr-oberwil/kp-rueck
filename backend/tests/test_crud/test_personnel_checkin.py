@@ -14,6 +14,7 @@ import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import schemas
 from app.crud import personnel_checkin as checkin_crud
 from app.models import (
     Event,
@@ -536,3 +537,99 @@ class TestCheckOutPersonnel:
         attendance = attendance_result.scalar_one_or_none()
         assert attendance is not None
         assert attendance.checked_in is False
+
+
+# ============================================
+# Availability gates the check-in — and nothing else
+# ============================================
+
+
+class TestAvailabilityGatesCheckIn:
+    """`availability` decides who is OFFERED a check-in. That is its whole job.
+
+    It is deliberately not retroactive: somebody already checked in and working an Einsatz
+    stays there when an officer flips the roster flag. Pulling a person off a running Einsatz
+    because a setting changed would rewrite the crew list that gets read out on the radio and
+    printed on the Einsatzzettel — the flag means "do not offer them next time", not "they are
+    not here".
+
+    Both directions below already worked; they are pinned here because nothing did so before,
+    and because the honest answer to "why does availability not affect the board?" is easier to
+    trust with a test next to it.
+    """
+
+    @pytest.mark.asyncio
+    async def test_unavailable_personnel_are_not_offered_for_checkin(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_personnel: Personnel,
+        unavailable_personnel: Personnel,
+    ):
+        """They must not appear in the check-in list at all — refusing at submit is worse."""
+        roster = await checkin_crud.get_available_personnel(db=db_session, event_id=test_event.id)
+        names = {p.name for p in roster}
+        assert test_personnel.name in names
+        assert unavailable_personnel.name not in names
+
+    @pytest.mark.asyncio
+    async def test_checking_in_an_unavailable_person_is_refused(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        unavailable_personnel: Personnel,
+    ):
+        """Belt and braces: the roster hides them, and the call itself still says no."""
+        with pytest.raises(ValueError, match="unavailable"):
+            await checkin_crud.check_in_personnel(
+                db=db_session,
+                event_id=test_event.id,
+                personnel_id=unavailable_personnel.id,
+            )
+
+    @pytest.mark.asyncio
+    async def test_marking_unavailable_leaves_a_running_einsatz_alone(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_user: User,
+    ):
+        """The point of the whole class: a running Einsatz keeps its crew."""
+        from app.crud import personnel as personnel_crud
+
+        await checkin_crud.check_in_personnel(
+            db=db_session,
+            event_id=test_event.id,
+            personnel_id=test_personnel.id,
+        )
+        assignment = IncidentAssignment(
+            incident_id=test_incident.id,
+            resource_type="personnel",
+            resource_id=test_personnel.id,
+        )
+        db_session.add(assignment)
+        await db_session.commit()
+
+        await personnel_crud.update_personnel(
+            db=db_session,
+            personnel_id=test_personnel.id,
+            personnel_data=schemas.PersonnelUpdate(availability="unavailable"),
+            current_user=test_user,
+            request=MagicMock(client=MagicMock(host="127.0.0.1"), headers={}),
+        )
+        await db_session.commit()
+        await db_session.refresh(assignment)
+
+        attendance = (
+            await db_session.execute(
+                select(EventAttendance).where(
+                    EventAttendance.event_id == test_event.id,
+                    EventAttendance.personnel_id == test_personnel.id,
+                )
+            )
+        ).scalar_one()
+
+        assert assignment.unassigned_at is None, "they stay on the Einsatz"
+        assert attendance.checked_in is True, "and stay checked in — they are still here"
