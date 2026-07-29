@@ -6,395 +6,368 @@
 > who runs the server, not by which is "real". Railway means somebody else keeps the machine
 > alive; compose on a box in the Gerätehaus means the board survives an internet outage. A
 > station that does not want a server to look after should take Railway. Either way, start at
-> **[`SETUP.md`](SETUP.md)**.
->
-> Known stale spot below: `EDITOR_PASSWORD`, which production ignores — the shared editor
-> account is refused in production entirely (see `backend/app/seed.py`).
+> **[`SETUP.md`](SETUP.md)** for the station-level setup that follows deployment.
 
-> [!WARNING]
-> **Do not set `NEXT_PUBLIC_API_URL` on the frontend service.** It is inlined at *build* time
-> and makes the browser call the backend origin directly, which turns the session cookie into
-> a third-party cookie — Safari blocks those, so **mobile logins fail with "Sitzung
-> abgelaufen"** while desktop keeps working. Set the server-side **`API_URL`** instead; the
-> browser then talks to `/backend-api` on its own origin and Next forwards the request, so the
-> cookie stays first-party. This is not theoretical: it is exactly how the public demo broke,
-> and deleting the variable is what fixed it.
+Railway runs KP Rück as **three services** — PostgreSQL, backend, frontend — built from the
+Dockerfiles in this repository. Most of this guide applies to any Docker-capable PaaS; the
+parts that are genuinely Railway-specific are marked.
 
-Deploy KP Rück to [Railway](https://railway.app/) with separate services for database, backend, and frontend. This guide also applies broadly to other Docker-compatible PaaS providers.
+---
 
-## Prerequisites
+## 1. Decide this before you click anything
 
-- Railway account: https://railway.app
-- Railway CLI (optional): `npm install -g @railway/cli`
+Two choices are hard to change later. Read this section first; it is the difference between a
+board that updates live and one that quietly lags five seconds behind.
 
-## Deployment Architecture
+### 1.1 Service names decide whether real-time sync works
 
-Railway will deploy three separate services:
-1. **PostgreSQL** - Managed database
-2. **Backend** - FastAPI application
-3. **Frontend** - Next.js application
+Railway has **no shared reverse proxy** in front of your services: the frontend and the backend
+are two separate hostnames. HTTP requests are fine — the frontend proxies them server-side
+through its own `/backend-api` route. **WebSockets cannot use that proxy**, because Next.js API
+routes handle HTTP, not socket upgrades.
 
-## Deployment Steps
+So the browser has to address the backend directly, and it does so **by naming convention**
+(`frontend/lib/env.ts`, `getWsUrl()`): it takes the frontend's hostname, appends `-api` to the
+first label, and connects there.
 
-### Method 1: Railway Dashboard (Recommended)
+| Frontend public domain | Backend public domain it will look for |
+| --- | --- |
+| `kp-rueck.up.railway.app` | `kp-rueck-api.up.railway.app` |
+| `feuerwehr-musterhausen.up.railway.app` | `feuerwehr-musterhausen-api.up.railway.app` |
 
-#### 1. Create New Project
+**Set both domains explicitly** under each service's Settings → Networking → Public Networking,
+rather than accepting whatever Railway generates. If the backend domain does not match the
+pattern, nothing errors visibly — the socket simply never connects and the board falls back to
+polling every 5 seconds (`POLLING_BASE_INTERVAL`, `operations-context.tsx`). Everything still
+works; it just stops feeling live, and you will not be told why.
 
-1. Go to https://railway.app/new
-2. Click "Deploy from GitHub repo"
-3. Select your `kp-rueck` repository
-4. Railway will create a new project
+### 1.2 Custom domains break the convention
 
-#### 2. Add PostgreSQL Database
+If you put a custom domain on the frontend (`kp.feuerwehr-musterhausen.ch`), the `-api` rule no
+longer applies — it is keyed on `.up.railway.app` — and the browser falls back to same-origin,
+where there is no Socket.IO listener. **Result: permanent polling fallback.**
 
-1. In your Railway project, click "New"
-2. Select "Database" → "PostgreSQL"
-3. Railway will provision a PostgreSQL instance
-4. Note: Railway automatically creates `DATABASE_URL` variable
+There is no environment variable that fixes this on Railway today. `NEXT_PUBLIC_WS_URL` is read
+by the code, but it is a build-time inline and `frontend/Dockerfile` declares only
+`NEXT_PUBLIC_API_URL` as a build `ARG` — so there is no way to bake it in from Railway's UI
+without adding that ARG to the Dockerfile.
 
-#### 3. Deploy Backend Service
+Your options, honestly:
 
-1. Click "New" → "GitHub Repo" → Select `kp-rueck`
-2. Configure the service:
-   - **Name**: `backend`
+- **Keep the frontend on `*.up.railway.app`** and follow the `-api` convention. Custom domain on
+  the backend only, if you want one. This is the path that works with no code changes.
+- **Accept 5-second polling** with a custom frontend domain. The board is correct, just not
+  instant. For a station that mostly watches rather than edits, this is survivable.
+- **Add a `NEXT_PUBLIC_WS_URL` build ARG** to `frontend/Dockerfile` and set it in Railway. Two
+  lines, and a genuinely useful contribution back.
+
+---
+
+## 2. Prerequisites
+
+- A Railway account: <https://railway.app>
+- This repository on GitHub (Railway deploys from a repo, not from GHCR images)
+- Optional: the CLI, `npm install -g @railway/cli`
+- Two secrets generated up front — you will paste them in a minute:
+
+  ```bash
+  openssl rand -hex 32   # AUTH_SECRET_KEY
+  openssl rand -hex 32   # SECRET_KEY
+  ```
+
+  Keep both **stable forever**. `AUTH_SECRET_KEY` signs login tokens; changing it logs
+  everyone out mid-operation.
+
+---
+
+## 3. Setup
+
+### 3.1 Create the project and database
+
+1. <https://railway.app/new> → **Deploy from GitHub repo** → select your `kp-rueck` fork.
+2. In the project, **New → Database → PostgreSQL**. Railway provisions it and exposes
+   `${{Postgres.DATABASE_URL}}` as a reference you can use from other services.
+
+### 3.2 Backend service
+
+1. **New → GitHub Repo →** `kp-rueck`, then in Settings:
    - **Root Directory**: `/backend`
-   - **Build Command**: (Auto-detected from Dockerfile)
-   - **Start Command**: `./start.sh`
+   - Build and start command come from [`backend/railway.json`](../backend/railway.json)
+     (Dockerfile build, `./start.sh`, healthcheck on `/health`). You do not need to type them.
 
-3. **Add Volume for Photo Storage**:
-   - Go to backend service → Settings → Volumes
-   - Click "New Volume"
-   - Mount path: `/mnt/data`
-   - Size: 5GB+ (adjust based on expected photo storage needs)
+2. **Attach a volume** — Settings → Volumes → New Volume, mount path **`/mnt/data`**, 5 GB or
+   more. Reko photos live here; without a volume they land in ephemeral container storage and
+   vanish on the next deploy.
 
-4. Add environment variables:
+   > The backend container runs as **root**, so Railway's root-owned volume mounts are not a
+   > problem here. (KP Front is different — it runs as uid 10001 and needs `RAILWAY_RUN_UID=0`.
+   > Do not copy that setting into this project; it is not needed.)
+
+3. **Variables:**
+
    ```
    DATABASE_URL=${{Postgres.DATABASE_URL}}
-   CORS_ORIGINS=https://your-frontend-url.railway.app
-   PHOTOS_DIR=/mnt/data/photos
    SECRET_KEY=<openssl rand -hex 32>
    AUTH_SECRET_KEY=<openssl rand -hex 32>
-   ADMIN_SEED_PASSWORD=<strong initial admin password>
-   EDITOR_PASSWORD=<strong shared editor password, or disable this user after first login>
-   PORT=8000
-   ```
-
-5. Click "Deploy"
-
-#### 4. Deploy Frontend Service
-
-1. Click "New" → "GitHub Repo" → Select `kp-rueck`
-2. Configure the service:
-   - **Name**: `frontend`
-   - **Root Directory**: `/frontend`
-   - **Build Command**: (Auto-detected from Dockerfile)
-   - **Start Command**: `node server.js`
-
-3. Add environment variables:
-   ```
-   API_URL=https://your-backend-url.railway.app
-   PORT=3000
-   ```
-   `API_URL` is read at runtime by the server-side proxy. Do **not** add
-   `NEXT_PUBLIC_API_URL` — see the warning at the top of this document.
-
-4. Click "Deploy"
-
-#### 5. Update CORS Origins
-
-After frontend deploys, copy its URL and update backend's `CORS_ORIGINS`:
-```
-CORS_ORIGINS=https://your-frontend-url.railway.app
-```
-
-### Method 2: Railway CLI
-
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login
-railway login
-
-# Initialize project
-railway init
-
-# Link to project
-railway link
-
-# Deploy backend
-cd backend
-railway up
-
-# Deploy frontend
-cd ../frontend
-railway up
-
-# Add database
-railway add --database postgresql
-```
-
-## Environment Variables
-
-### Backend (`backend` service)
-
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Auto-linked from PostgreSQL service |
-| `CORS_ORIGINS` | `https://your-frontend.railway.app` | Frontend URL for CORS |
-| `PHOTOS_DIR` | `/mnt/data/photos` | Photo storage directory. Must point inside the mounted Railway volume |
-| `SECRET_KEY` | Generated 32-byte hex string | Signs public check-in, Reko, viewer, and alarm-intake tokens |
-| `AUTH_SECRET_KEY` | Generated 32-byte hex string | Signs login access and refresh JWTs |
-| `ADMIN_SEED_PASSWORD` | Strong password, 12+ characters | Required for the initial `admin` user when the database is first seeded |
-| `EDITOR_PASSWORD` | Strong password, 12+ characters | Password for the seeded shared `editor` account. Set this explicitly or disable the account after first login |
-| `PORT` | `8000` | Port (Railway sets automatically) |
-
-**Important**: The `PHOTOS_DIR` environment variable must point to the volume mount path. Without this, photos will be stored in ephemeral container storage and lost on restart.
-
-Generate secrets locally with:
-
-```bash
-openssl rand -hex 32
-```
-
-`SECRET_KEY` and `AUTH_SECRET_KEY` protect different token families in the backend. They can be generated the same way, but should be stored as separate Railway variables.
-
-### Frontend (`frontend` service)
-
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `API_URL` | `https://your-backend.railway.app` | Backend URL, read at **runtime** by the `/backend-api` proxy route. |
-| `PORT` | `3000` | Port (Railway sets automatically) |
-
-> `NEXT_PUBLIC_API_URL` must stay **unset**. It is a build-time inline that sends the browser
-> straight at the backend origin and breaks mobile logins (third-party cookie). The published
-> frontend image is deliberately built without it.
-
-## Post-Deployment
-
-### 1. Initialize Database
-
-The backend's `start.sh` script automatically:
-- Creates database tables
-- Seeds initial data (on first run)
-
-### 2. Verify Deployment
-
-- **Frontend**: https://your-frontend.railway.app
-- **Backend API**: https://your-backend.railway.app/docs
-- **Health Check**: https://your-backend.railway.app/health
-
-### 3. Monitor Logs
-
-View logs in Railway dashboard:
-- Click on each service
-- Navigate to "Deployments" tab
-- Click "View Logs"
-
-## Service Configuration
-
-Each service has a `railway.json` file:
-
-**Backend** (`backend/railway.json`):
-```json
-{
-  "build": {
-    "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
-  },
-  "deploy": {
-    "startCommand": "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT",
-    "healthcheckPath": "/health"
-  }
-}
-```
-
-**Frontend** (`frontend/railway.json`):
-```json
-{
-  "build": {
-    "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
-  },
-  "deploy": {
-    "startCommand": "node server.js"
-  }
-}
-```
-
-## Connecting Services
-
-Railway automatically handles:
-- **Database → Backend**: Use `${{Postgres.DATABASE_URL}}` reference
-- **Backend → Frontend**: set `API_URL` on the frontend service to the backend URL
-- **Service Discovery**: Internal networking between services
-
-## Custom Domains
-
-1. Go to service settings
-2. Click "Settings" → "Domains"
-3. Click "Generate Domain" or add custom domain
-4. Update CORS and API URL environment variables accordingly
-
-## Scaling
-
-Railway allows horizontal scaling:
-1. Go to service settings
-2. Adjust "Replicas" count
-3. Backend and Frontend can scale independently
-
-## Database Backups
-
-Railway PostgreSQL includes:
-- Automatic daily backups
-- Point-in-time recovery
-- Manual snapshot creation
-
-## Database Reset (If Needed)
-
-If the Railway database contains stale data with incorrect enum values, you can reset it:
-
-### Option 1: Via Railway Dashboard
-
-1. Go to your Railway project
-2. Click on the PostgreSQL service
-3. Go to "Data" tab
-4. Click "Reset Database" (this will delete all data and tables)
-5. Redeploy the backend service to trigger automatic re-seeding
-
-### Option 2: Via Railway CLI
-
-```bash
-# Connect to Railway project
-railway link
-
-# Open Railway shell for backend service
-railway run bash
-
-# Inside the shell, reset database
-PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-
-# Exit shell
-exit
-
-# Trigger redeployment to re-seed
-railway up
-```
-
-### Option 3: Manual SQL Reset
-
-1. Open Railway dashboard
-2. Navigate to PostgreSQL service → "Data" tab
-3. Run SQL query:
-   ```sql
-   DROP SCHEMA public CASCADE;
-   CREATE SCHEMA public;
-   ```
-4. Redeploy backend service
-
-After reset, the backend's `start.sh` script will automatically:
-- Run Alembic migrations to recreate tables
-- Seed initial data with correct values
-
-## Troubleshooting
-
-### Backend not connecting to database
-
-1. Check `DATABASE_URL` is set correctly
-2. Verify PostgreSQL service is running
-3. Check logs for connection errors
-
-### Frontend can't reach backend
-
-1. Verify `API_URL` is set on the frontend service (and that `NEXT_PUBLIC_API_URL` is **not**)
-2. Check backend CORS settings
-3. Ensure backend service is deployed and healthy
-
-### Build failures
-
-1. Check Dockerfile syntax
-2. Verify all dependencies are listed
-3. Review build logs in Railway dashboard
-
-## Costs
-
-Railway pricing (as of 2024):
-- **Hobby Plan**: $5/month + usage
-- **PostgreSQL**: ~$5-10/month
-- **Compute**: Pay for what you use
-- **Bandwidth**: Generous free tier
-
-## Photo Storage (Reko Reports)
-
-The backend supports photo uploads for Reko (reconnaissance) reports. Photos require persistent storage to survive container restarts.
-
-### Volume Setup
-
-1. **Attach Volume to Backend Service:**
-   - Railway Dashboard → Backend Service → Settings → Volumes
-   - Click "New Volume"
-   - Mount path: `/mnt/data`
-   - Size: 5GB+ (recommended)
-
-2. **Set Environment Variable:**
-   ```bash
+   ADMIN_SEED_PASSWORD=<at least 12 characters>
+   VIEWER_PASSWORD=<at least 12 characters>
    PHOTOS_DIR=/mnt/data/photos
+   CORS_ORIGINS=https://<your-frontend-domain>
    ```
 
-3. **Verify Setup:**
-   - Check backend logs during startup for:
-     ```
-     Photo storage directory: /mnt/data/photos
-     Photos directory ready: /mnt/data/photos
-     ```
+   `CORS_ORIGINS` you will only know after step 3.3 — set it then, or set it now if you already
+   fixed the frontend domain in §1.1.
 
-### Storage Estimates
+4. Deploy. `start.sh` runs `alembic upgrade head` on every boot, then seeds on first run.
 
-- Average photo after compression: ~200KB
-- Max photos per report: 20
-- Max size per report: ~4MB
+### 3.3 Frontend service
 
-Storage needs:
-- 100 reports: ~400MB
-- 1,000 reports: ~4GB
-- 10,000 reports: ~40GB
+1. **New → GitHub Repo →** `kp-rueck`, Settings → **Root Directory**: `/frontend`.
+   [`frontend/railway.json`](../frontend/railway.json) supplies the rest (`node server.js`).
 
-### Troubleshooting Photos
+2. **Variables — just one:**
 
-**Photos disappear after restart:**
-- Verify `PHOTOS_DIR=/mnt/data/photos` is set
-- Check volume is mounted at `/mnt/data`
-- Review backend startup logs
+   ```
+   API_URL=https://<your-backend-domain>
+   ```
 
-**Upload fails:**
-- Check volume has available space
-- Verify mount path is correct
-- Review backend error logs
+   `API_URL` is read **at runtime** by the server-side `/backend-api` proxy route.
 
-**Detailed Documentation:**
-See `docs/PHOTO_STORAGE.md` for comprehensive photo storage documentation, including:
-- API endpoints
-- Testing procedures
-- Security considerations
-- Performance optimization
+   > [!WARNING]
+   > **Do not set `NEXT_PUBLIC_API_URL`.** It is inlined at *build* time and makes the browser
+   > call the backend origin directly, which turns the session cookie into a third-party
+   > cookie. Safari blocks those, so **mobile logins fail with "Sitzung abgelaufen"** while
+   > desktop keeps working. This is not hypothetical — it is exactly how the public demo broke,
+   > and deleting the variable is what fixed it. Leave it unset and the browser talks to
+   > `/backend-api` on its own origin, keeping the cookie first-party.
 
-## Production Checklist
+3. Set the public domains for both services now, per §1.1.
 
-- [ ] Set strong PostgreSQL password
-- [ ] Enable Railway's built-in DDoS protection
-- [ ] Set up custom domain with SSL
-- [ ] Configure backend environment variables: `DATABASE_URL`, `CORS_ORIGINS`, `PHOTOS_DIR`, `SECRET_KEY`, `AUTH_SECRET_KEY`, `ADMIN_SEED_PASSWORD`, `EDITOR_PASSWORD`
-- [ ] Configure frontend environment variables: `API_URL` (and leave `NEXT_PUBLIC_API_URL` unset)
-- [ ] **Attach volume for photo storage (`/mnt/data`)**
-- [ ] **Set `PHOTOS_DIR=/mnt/data/photos` environment variable**
-- [ ] Verify backend startup logs show `Photo storage directory: /mnt/data/photos` and `Photos directory ready: /mnt/data/photos`
-- [ ] Enable automatic deployments from `main` branch
-- [ ] Set up monitoring and alerts
-- [ ] Configure backups retention policy
-- [ ] Review and optimize resource allocation
+4. Go back to the backend and set `CORS_ORIGINS` to the frontend's URL, exactly — scheme
+   included, no trailing slash.
+
+### 3.4 First login
+
+Open the frontend URL and log in as **`admin`** with your `ADMIN_SEED_PASSWORD`. Change it
+immediately, then continue with [`SETUP.md`](SETUP.md) for roster, fleet and integrations.
+
+A **`viewer`** account also exists, using `VIEWER_PASSWORD` — that is the read-only login for
+wall displays and kiosk screens.
+
+There is **no shared `editor` account in production.** It is created only outside production
+(`backend/app/seed.py`); editors get individual accounts. `EDITOR_PASSWORD` is ignored here —
+if you find it in an older deployment of yours, it is doing nothing.
+
+---
+
+## 4. Production mode is automatic on Railway
+
+You do **not** need to set `ENVIRONMENT=production`. Railway injects `RAILWAY_ENVIRONMENT` and
+friends, and `backend/app/environment.py` treats any of them as production. Setting
+`ENVIRONMENT=production` explicitly is harmless and slightly clearer.
+
+What production mode changes — all of it fail-closed:
+
+- **Secrets are mandatory and must be strong.** A missing `SECRET_KEY`, or one containing
+  `change_this`, `secret`, `password`, `test`, `demo`, `openssl_rand`, aborts startup instead of
+  falling back to a generated value. Minimum 32 characters.
+- **`AUTH_BYPASS_AUTH_DEV=true` refuses to start.** There is no way to disable auth here.
+- **No sample data at all** — no demo incidents, and no sample fleet, roster, materials or
+  training locations. The board starts genuinely empty.
+- **No shared editor login** (see above).
+- **Secure cookies by default.** `AUTH_COOKIE_SECURE=false` exists as an escape hatch for a
+  plain-HTTP LAN, which does not apply to Railway. Do not set it.
+
+If the backend crash-loops on the first deploy, read the logs before changing anything: it is
+almost always one of these refusing a weak or missing value, and the message names the variable.
+
+---
+
+## 5. Environment variables
+
+### Backend
+
+| Variable | Value | Notes |
+|---|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Railway reference, not a literal string. Railway hands out a `postgresql://` URL and the backend rewrites it to `postgresql+asyncpg://` itself (`config.py`), so paste it through unchanged |
+| `SECRET_KEY` | 32-byte hex | Signs check-in, Reko, viewer and alarm-intake tokens. **Required.** |
+| `AUTH_SECRET_KEY` | 32-byte hex | Signs login/refresh JWTs. **Required. Keep stable** — changing it logs everyone out |
+| `ADMIN_SEED_PASSWORD` | 12+ characters | The initial `admin` login, created on first seed. **Required** |
+| `VIEWER_PASSWORD` | 12+ characters | The read-only `viewer` login. **Required** |
+| `PHOTOS_DIR` | `/mnt/data/photos` | Must point inside the mounted volume |
+| `CORS_ORIGINS` | `https://<frontend>` | The frontend's exact origin |
+| `PORT` | `8000` | Railway sets this automatically |
+
+Optional, per integration: `DIVERA_ACCESS_KEY`, `TRACCAR_*`, `PRINT_AGENT_TOKEN`. See
+[`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) and [`PRINT_AGENT.md`](PRINT_AGENT.md).
+
+### Frontend
+
+| Variable | Value | Notes |
+|---|---|---|
+| `API_URL` | `https://<backend>` | Read at **runtime** by the `/backend-api` proxy |
+| `PORT` | `3000` | Railway sets this automatically |
+
+> `NEXT_PUBLIC_API_URL` must stay **unset** — see the warning in §3.3. The published frontend
+> image is deliberately built without it for the same reason.
+
+---
+
+## 6. What you give up compared to docker-compose
+
+Worth knowing before you commit, not after.
+
+| | docker-compose | Railway |
+|---|---|---|
+| **Internet outage** | Board and printing keep working on the LAN | Everything is unreachable |
+| **Offline map tiles** | Yes, tileserver behind `/tiles` | **No** — see below |
+| **Real-time sync** | Always (single origin routes `/socket.io`) | Only with the `-api` naming convention (§1.1) |
+| **Origins** | One, via Caddy | Two hostnames |
+| **Machine upkeep** | Yours | Railway's |
+| **Cost** | Hardware once | Monthly |
+
+**Offline tiles do not work on Railway.** There is no reverse proxy to route `/tiles` to a
+tileserver, which is where the browser looks on any deployed origin. The map falls back to
+online OpenStreetMap, which is fine until the connection you are already relying on for the
+whole deployment goes away. If offline maps matter to you — and for a fire station they usually
+do — that is an argument for the compose path.
+
+**The print agent still runs on your premises** either way. It is a pull agent: it sits on the
+station LAN next to the printer and polls the backend, so it works against a Railway backend
+without any inbound firewall rule. Point `BACKEND_URL` at your backend's public URL. See
+[`PRINT_AGENT.md`](PRINT_AGENT.md).
+
+---
+
+## 7. Do not run more than one replica
+
+`numReplicas: 1` in both `railway.json` files is deliberate. Two backend replicas break the
+application in two ways that are hard to diagnose:
+
+- **WebSocket rooms are in-process.** `socketio.AsyncServer` is configured without a message
+  queue, so a broadcast from replica A never reaches a browser connected to replica B. Half
+  your operators stop seeing updates.
+- **Background jobs would run twice.** Audit cleanup, the fallback print job, the sync
+  scheduler and telemetry flush all run in-process — duplicated thermal prints, duplicated
+  sync.
+
+KP Rück is single-tenant by design: one station, one deployment, one instance. Scale the
+container's CPU and memory if you need to, never the replica count.
+
+---
+
+## 8. Updating
+
+Railway redeploys on push to your default branch. Because `start.sh` runs
+`alembic upgrade head` on boot, schema migrations apply automatically — the same behaviour as
+the compose path.
+
+Read [`CHANGELOG.md`](../CHANGELOG.md) before updating: MAJOR means operator action is
+required, MINOR means new features and automatic migrations, PATCH means fixes.
+
+To roll back, redeploy an earlier deployment from the Railway dashboard. **A database dump from
+a newer version will not restore into an older one** — migrations only run forwards.
+
+---
+
+## 9. Backups
+
+Railway's managed PostgreSQL provides automatic backups and point-in-time recovery — that
+covers the database. **It does not cover your photo volume.** Reko photos live on the
+`/mnt/data` volume and are not part of a database backup.
+
+Pull a dump and the photos periodically:
+
+```bash
+railway link                                                    # select the project
+railway run bash -c 'pg_dump "$DATABASE_URL"' > kprueck-$(date +%F).sql
+```
+
+The inner command must be **single-quoted**: `railway run` injects the variables into the
+process it starts, so `$DATABASE_URL` has to survive your local shell unexpanded.
+
+Verify a restore occasionally rather than assuming it works — a backup nobody has restored is
+a hypothesis. [`DEPLOYMENT.md`](DEPLOYMENT.md) §6.1 has the restore procedure, and it applies
+here too.
+
+---
+
+## 10. Resetting the database
+
+Only for a deployment with nothing worth keeping — this destroys all data.
+
+**Dashboard:** PostgreSQL service → Data → Reset Database, then redeploy the backend.
+
+**CLI:**
+
+```bash
+railway link
+railway run psql "$DATABASE_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+```
+
+Then redeploy the backend: `start.sh` recreates the tables via Alembic and re-seeds.
+
+---
+
+## 11. Troubleshooting
+
+**The board only updates every few seconds.**
+The WebSocket is not connecting and it has fallen back to polling. Check the backend's public
+domain against §1.1 — it must be the frontend's first hostname label plus `-api`. On a custom
+frontend domain, see §1.2.
+
+**Mobile login fails with "Sitzung abgelaufen", desktop works.**
+`NEXT_PUBLIC_API_URL` is set on the frontend service. Delete it and redeploy — it must be
+rebuilt without the variable, since it is inlined at build time.
+
+**Backend crash-loops on first deploy.**
+Read the logs. Production refuses weak or missing secrets by design, and the error names the
+variable. See §4.
+
+**Frontend cannot reach the backend.**
+Verify `API_URL` is set on the frontend, that `CORS_ORIGINS` on the backend exactly matches the
+frontend origin (scheme, no trailing slash), and that the backend healthcheck at `/health` is
+green.
+
+**Photos disappear after a deploy.**
+The volume is missing or `PHOTOS_DIR` does not point inside it. Backend startup logs should
+show `Photo storage directory: /mnt/data/photos`. See [`PHOTO_STORAGE.md`](PHOTO_STORAGE.md).
+
+---
+
+## 12. Storage sizing
+
+Photos are the only thing that grows meaningfully. After compression a photo is roughly 200 KB,
+and a Reko report holds up to 20 of them:
+
+| Reports | Photo storage |
+|---|---|
+| 100 | ~400 MB |
+| 1,000 | ~4 GB |
+| 10,000 | ~40 GB |
+
+The database itself stays small — incidents and personnel are text rows.
+
+---
+
+## 13. Checklist
+
+- [ ] Frontend and backend public domains follow the `<name>` / `<name>-api` convention (§1.1)
+- [ ] Backend: `SECRET_KEY`, `AUTH_SECRET_KEY`, `ADMIN_SEED_PASSWORD`, `VIEWER_PASSWORD` set and strong
+- [ ] Backend: `DATABASE_URL` uses the `${{Postgres.DATABASE_URL}}` reference
+- [ ] Backend: volume mounted at `/mnt/data` and `PHOTOS_DIR=/mnt/data/photos`
+- [ ] Backend: `CORS_ORIGINS` matches the frontend origin exactly
+- [ ] Frontend: `API_URL` set, `NEXT_PUBLIC_API_URL` **not** set
+- [ ] Startup logs show `Photos directory ready: /mnt/data/photos`
+- [ ] Logged in as `admin` and changed the seeded password
+- [ ] Board updates instantly with two browsers open (proves the WebSocket, not polling)
+- [ ] Replica count left at 1 (§7)
+- [ ] A database dump has been pulled *and* restored once
+- [ ] Continue with [`SETUP.md`](SETUP.md)
+
+---
 
 ## Support
 
-- Railway Docs: https://docs.railway.app
-- Railway Discord: https://discord.gg/railway
-- GitHub Issues: https://github.com/railwayapp/railway/issues
+- Railway docs: <https://docs.railway.app>
+- KP Rück issues: <https://github.com/feuerwehr-oberwil/kp-rueck/issues>
