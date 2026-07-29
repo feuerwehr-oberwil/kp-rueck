@@ -119,6 +119,10 @@ FEEDBACK-PLAN.md
 ALARM-WEBHOOK-TEST-PROTOCOL.md
 GPS-TEST-PROTOCOL.md
 
+# Sicherungen. scripts/backup.sh schreibt standardmässig hierhin; auf einem Server gehören
+# sie ohnehin ausserhalb des Repos (z. B. /var/backups/kp-rueck).
+/backups/
+
 # Persönliche Betriebsskripte gegen die PRODUKTIV-Datenbank. Standen vorher nur in
 # .git/info/exclude — das ist maschinenlokal und schützt genau einen Klon. Hier stehen sie
 # portabel. (check-logins.sh liest Login-Ereignisse inkl. Benutzernamen und IP-Adressen.)

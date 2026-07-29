@@ -106,6 +106,16 @@ db cmd="start" *args:
     esac
 
 # ============================================
+# Backups
+# ============================================
+
+# Postgres dump + the photo volume, from the same moment, with retention.
+# Restore procedure and the drill: docs/DEPLOYMENT.md §6.1 / §6.2
+# Back up the database and the Reko photos (default ./backups, BACKUP_KEEP=14)
+backup dir="./backups":
+    ./scripts/backup.sh {{dir}}
+
+# ============================================
 # API contract
 # ============================================
 

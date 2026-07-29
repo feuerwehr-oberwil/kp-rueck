@@ -103,13 +103,61 @@ For contributors or a patched fork: comment out the `image:` line on the service
 Back up **two** things together, from the same moment:
 
 ```bash
-docker compose exec -T db pg_dump -U kprueck kprueck | gzip > kprueck-$(date +%F).sql.gz
-docker run --rm -v kp-rueck_photos:/data -v "$PWD:/out" alpine \
-  tar czf /out/photos-$(date +%F).tar.gz -C /data .
+./scripts/backup.sh /var/backups/kp-rueck        # or: just backup
 ```
 
-The database holds the operational record; the `photos` volume holds Reko photos, which are not
-in the database. A dump without the volume restores a board with missing images.
+That writes `db-<stamp>.sql.gz` and `photos-<stamp>.tar.gz` and keeps the newest 14 of each
+(`BACKUP_KEEP` to change that). Daily from cron on the docker host:
+
+```cron
+30 3 * * * cd /opt/kp-rueck && ./scripts/backup.sh /var/backups/kp-rueck >> /var/log/kp-rueck-backup.log 2>&1
+```
+
+Both halves matter. The database holds the operational record; the `photos` volume holds Reko
+photos, which are **not** in the database. A dump without the volume restores a complete record
+pointing at missing images.
 
 Keep `SECRET_KEY` and `AUTH_SECRET_KEY` with the backup – restoring a database with different
 secrets logs everyone out and invalidates issued tokens.
+
+### 6.1 Restore
+
+Restoring replaces everything. Do it on a **fresh stack** first – see the drill below.
+
+```bash
+# 1. Stop the app, leave the database running (it is the thing being restored INTO).
+docker compose stop backend frontend
+
+# 2. Drop and recreate the database, so the restore starts from nothing rather than
+#    merging into whatever is there.
+docker compose exec -T db psql -U kprueck -d postgres \
+  -c "DROP DATABASE IF EXISTS kprueck;" -c "CREATE DATABASE kprueck OWNER kprueck;"
+
+# 3. Restore the dump.
+gunzip -c db-2026-07-29-033000.sql.gz | docker compose exec -T db psql -U kprueck -d kprueck
+
+# 4. Restore the photos into the volume, through the backend container that mounts it.
+docker compose start backend
+docker compose exec -T backend sh -c 'rm -rf /mnt/data/photos/* && tar xzf - -C /mnt/data/photos' \
+  < photos-2026-07-29-033000.tar.gz
+
+# 5. Bring everything back up. Migrations run on boot, so a dump from an OLDER version is
+#    upgraded automatically; a dump from a NEWER version is not — match or exceed its tag.
+docker compose up -d
+```
+
+Then check: log in, open an incident that had photos, and confirm the images load.
+
+### 6.2 The drill
+
+Do this **once before you go live**, and after any change to how you back up:
+
+1. Copy a real backup pair onto a machine that is not the station's server.
+2. `git clone` the repository there, `cp .env.example .env`, and fill in the five secrets –
+   including the **same** `SECRET_KEY` and `AUTH_SECRET_KEY` as the backup.
+3. `docker compose up -d`, wait for it to come up, then run the restore above.
+4. Log in and check the board, one incident with photos, and the Einsatztagebuch export.
+5. `docker compose down -v` to throw the test stack away.
+
+If step 4 shows what you expect, the backup is real. Until you have done it once, it is a
+guess – which is the only reason this section exists at a length nobody wants to read.
