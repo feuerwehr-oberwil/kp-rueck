@@ -11,6 +11,8 @@ import logging
 from datetime import datetime
 from escpos.printer import Network
 
+from core import QR_BORDER_MODULES, QR_MIN_BOX_DOTS, qr_box_size
+
 logger = logging.getLogger(__name__)
 
 # Paper widths in characters for 80mm paper
@@ -56,6 +58,28 @@ PRIORITY_MARKERS = {
 def _text(p: Network, text: str) -> None:
     """Send text encoded as CP437 (printer's default codepage)."""
     p._raw(text.encode('cp437', errors='replace'))
+
+
+def _qr_box_size(content: str) -> int:
+    """How many dots per QR module, so the code fills the paper without overrunning it.
+
+    `qrcode` ships with python-escpos, which is the only reason importing it here is free —
+    it is asked the same question python-escpos will ask it a moment later, with the same
+    error correction and border, so the module count matches what actually gets rendered.
+    A sizing detail must never be what stops a slip from printing, hence the fallback.
+    """
+    try:
+        import qrcode
+
+        code = qrcode.QRCode(
+            error_correction=qrcode.constants.ERROR_CORRECT_L, border=QR_BORDER_MODULES
+        )
+        code.add_data(content)
+        code.make(fit=True)
+        return qr_box_size(code.modules_count)
+    except Exception as e:  # noqa: BLE001 - any failure here is a cosmetic one
+        logger.warning("QR sizing fell back to the minimum: %s", e)
+        return QR_MIN_BOX_DOTS
 
 
 def _sep(p: Network, char: str = "=") -> None:
@@ -260,11 +284,12 @@ def format_qr_code_slip(p: Network, payload: dict) -> None:
         _text(p, "\n")
 
     if qr_content:
-        # ec defaults to QR_ECLEVEL_L; a small module size keeps the (long,
-        # JWT-bearing) URL within the paper width while staying scannable.
-        p.qr(qr_content, size=4, center=True)
+        # ec defaults to QR_ECLEVEL_L. The size is fitted to the content rather than fixed:
+        # a check-in link carries a token and needs far more modules than a bare URL, so one
+        # constant either wastes paper width on the long case or the roll on the short one.
+        p.qr(qr_content, size=_qr_box_size(qr_content), center=True)
         p.set(font="b", bold=False, align="center")
-        _text(p, "\nScannen zum Oeffnen\n")
+        _text(p, "\nScannen zum Öffnen\n")
 
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")
