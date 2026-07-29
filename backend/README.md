@@ -1,198 +1,125 @@
 # KP Rück Backend
 
-FastAPI backend for the KP Rück firefighting operations dashboard, following modern best practices.
+FastAPI service for the KP Rück operations dashboard. It owns the database, the photo store,
+the WebSocket board updates, and every outbound integration — one deployment per station.
+
+For running a station, start at [`../docs/SETUP.md`](../docs/SETUP.md); this file is for
+working *on* the backend.
 
 ## Stack
 
-- **FastAPI** - Modern async Python web framework
-- **SQLAlchemy 2.0** - Async ORM for PostgreSQL
-- **PostgreSQL** - Relational database
-- **Pydantic** - Data validation and settings management
-- **uv** - Fast Python package manager
+- **FastAPI** — async Python web framework
+- **SQLAlchemy 2.0** — async ORM (`AsyncSession` everywhere)
+- **PostgreSQL 16**
+- **Pydantic / pydantic-settings** — request/response schemas and configuration
+- **Alembic** — migrations
+- **uv** — package manager. Python **3.12+**
 
-## Setup
+## Running it
 
-### Prerequisites
+The normal path is the whole stack from the repository root — it starts Postgres for you and
+reloads on save:
 
-- **uv** (recommended): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- OR Python 3.12+
-- PostgreSQL 16+ (or use Docker)
+```bash
+just dev              # http://localhost:8000, docs at /docs
+```
 
-### Using uv (Recommended)
+To run only the backend on the host, with the database still in Docker:
 
-1. Install dependencies:
+```bash
+just be               # starts the dev Postgres, then uvicorn on :8000
+```
+
+Or by hand, from this directory:
+
 ```bash
 uv sync
-```
-
-2. Create a `.env` file:
-```bash
-cp .env.example .env
-# Edit .env with your database credentials
-```
-
-3. Start PostgreSQL (via Docker):
-```bash
-docker-compose up -d postgres
-```
-
-4. Create database tables and seed data:
-```bash
-uv run python -m app.seed
-```
-
-5. Start the development server:
-```bash
+cp .env.example .env                    # see the file itself for what each value does
+docker compose -f ../docker-compose.dev.yml up -d postgres
+uv run alembic upgrade head             # create the schema — seeding does NOT do this
+uv run python -m app.seed               # optional: reference data
 uv run uvicorn app.main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
+`alembic upgrade head` before `app.seed` is not optional: the seed script deliberately does
+not `create_all`, so development and production build the schema the same way.
 
-### Using Docker
+## Layout
 
-```bash
-# From root directory
-docker-compose up -d backend
-
-# Seed the database
-docker-compose exec backend uv run python -m app.seed
+```
+app/
+├── main.py              # app factory, lifespan, router registration
+├── config.py            # pydantic-settings Settings (the .env contract)
+├── environment.py       # is_production_environment() — what turns on the hard rules
+├── database.py          # async engine, session factory, Base
+├── models.py            # SQLAlchemy models (single module)
+├── api/                 # 33 routers, one per resource — mounted in main.py
+├── crud/                # query layer, one module per resource
+├── schemas/             # Pydantic request/response models, one module per resource
+├── services/            # domain logic (alerting, notifications, PDF, Divera intake, …)
+├── auth/                # JWT, cookies, dependencies, token blocklist, throttling
+├── middleware/          # audit, rate limit, request id
+├── background/          # scheduled jobs
+├── telemetry/           # opt-in crash reporting (vendored, shared with kp-front)
+└── seed*.py             # seed.py (reference data), seed_training.py, seed_demo.py
 ```
 
-## Development
+Note that `crud` and `schemas` are **packages**, not single modules, and routes live under
+`api/` rather than in one `routes.py`.
 
-### Running the server
+## API
+
+The committed contract is [`../docs/openapi.json`](../docs/openapi.json); regenerate it with
+`just openapi` in the same change that adds or renames a route — a pytest fails when it drifts.
+
+Interactive docs are at `/docs` and `/redoc` **in development only** — both are disabled when
+`ENVIRONMENT=production`.
+
+The main resources are `/api/incidents`, `/api/events`, `/api/personnel`, `/api/vehicles`,
+`/api/materials`, `/api/assignments`, `/api/reko`, `/api/print`, `/api/alarms`. Paths are
+plural and sit under `API_V1_PREFIX` (default `/api`). There is no `/api/operations` — an
+Einsatz is an `incident`, and an `event` is the Lage that contains several of them.
+
+## Tests
 
 ```bash
-# Development mode with hot reload
-uv run uvicorn app.main:app --reload
-
-# Production mode
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run pytest                 # needs a Postgres test database
+uv run pytest -k auth         # one area
 ```
 
-### Code Quality
+`TEST_DATABASE_URL` selects the database (default
+`postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test`). The suite drops and
+recreates the schema once per session, so point it at a scratch database, never a real one.
+
+`tests/test_database/test_migration_drift.py` asserts that the migrations and the models agree.
+It builds its own connection to `localhost:5433`, so it runs on the host rather than inside the
+backend container.
+
+## Lint, format, types
 
 ```bash
-# Linting with ruff
-uv run ruff check .
-
-# Formatting with ruff
+uv run ruff check .           # blocking in CI, currently at zero
 uv run ruff format .
-
-# Type checking with mypy
-uv run mypy app/
+uv run mypy app               # a named subset is blocking; the whole tree is advisory
 ```
 
-### Database Operations
+Every entry in the ruff `ignore` list in `pyproject.toml` carries a written reason — read it
+before adding another. The mypy split, and which packages are already at zero, is documented at
+the top of [`../.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+
+## Migrations
 
 ```bash
-# Seed database
-uv run python -m app.seed
-
-# Connect to database
-psql postgresql://kprueck:kprueck@localhost:5433/kprueck
+just db new "add x to y"      # autogenerate a revision
+just db migrate               # upgrade to head
+just db status                # current revision
 ```
 
-## API Documentation
-
-Once the server is running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-## Project Structure
-
-```
-backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py           # FastAPI app with lifespan events
-│   ├── config.py         # Settings with pydantic-settings
-│   ├── database.py       # Async SQLAlchemy setup
-│   ├── models.py         # Database models
-│   ├── schemas.py        # Pydantic schemas
-│   ├── crud.py           # Async CRUD operations
-│   ├── seed.py           # Database seeding script
-│   └── api/
-│       ├── __init__.py
-│       └── routes.py     # API endpoints
-├── pyproject.toml        # uv project configuration
-├── Dockerfile            # Docker setup with uv
-└── .env.example          # Environment variables template
-```
-
-## API Endpoints
-
-### Operations
-- `GET /api/operations` - List all operations
-- `POST /api/operations` - Create a new operation
-- `GET /api/operations/{id}` - Get operation details
-- `PUT /api/operations/{id}` - Update an operation
-- `DELETE /api/operations/{id}` - Delete an operation
-
-### Personnel
-- `GET /api/personnel` - List all personnel
-- `POST /api/personnel` - Create a new person
-- `GET /api/personnel/{id}` - Get person details
-- `PUT /api/personnel/{id}` - Update a person
-
-### Materials
-- `GET /api/materials` - List all materials
-- `POST /api/materials` - Create a new material
-- `GET /api/materials/{id}` - Get material details
-- `PUT /api/materials/{id}` - Update a material
+Migrations run automatically on boot in production (`start.sh` → `alembic upgrade head`).
 
 ## Configuration
 
-Environment variables (`.env` file):
-
-```env
-DATABASE_URL=postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001
-API_V1_PREFIX=/api
-PROJECT_NAME=KP Rück API
-HOST=0.0.0.0
-PORT=8000
-RELOAD=true
-```
-
-## Best Practices
-
-This project follows [FastAPI Best Practices](https://github.com/zhanymkanov/fastapi-best-practices):
-
-- ✅ **Async all the way** - Using async/await with AsyncSession
-- ✅ **Pydantic settings** - Configuration management
-- ✅ **Proper dependency injection** - Database sessions, settings
-- ✅ **Lifespan events** - Instead of deprecated startup/shutdown
-- ✅ **Modern SQLAlchemy 2.0** - Mapped columns, async engine
-- ✅ **Type hints everywhere** - Full type safety
-- ✅ **Project structure** - Clear separation of concerns
-- ✅ **uv for dependencies** - Fast, reliable package management
-
-## Testing
-
-```bash
-# Run tests (when implemented)
-uv run pytest
-
-# With coverage
-uv run pytest --cov=app --cov-report=html
-```
-
-## Deployment
-
-### Production with uv
-
-```bash
-# Install dependencies (production only)
-uv sync --no-dev
-
-# Run with gunicorn + uvicorn workers
-uv run gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
-```
-
-### Docker Production
-
-```bash
-docker build -t kprueck-backend .
-docker run -p 8000:8000 --env-file .env kprueck-backend
-```
+`app/config.py` is the contract and `.env.example` documents each value. In production
+(`ENVIRONMENT=production`) the secrets become mandatory, the development auth bypass is
+refused, sample data is never seeded, and shared `editor` accounts are refused — see
+[`../docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md).

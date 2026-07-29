@@ -1,5 +1,16 @@
 # Railway Deployment Guide
 
+> [!IMPORTANT]
+> **This is the legacy path.** The reference deployment is the docker-compose stack in
+> **[`DEPLOYMENT.md`](DEPLOYMENT.md)** — that is what published releases are built and tested
+> for, and what a new station should follow. Start at **[`SETUP.md`](SETUP.md)**.
+>
+> This document is kept because Feuerwehr Oberwil's own deployment grew up on Railway and
+> some of it is still useful for other managed-PaaS providers. It is **not** maintained in
+> step with the compose path, and parts of it are known to be out of date — notably
+> `EDITOR_PASSWORD` below, which production ignores (the shared editor account is refused in
+> production entirely; see `backend/app/seed.py`).
+
 Deploy KP Rück to [Railway](https://railway.app/) with separate services for database, backend, and frontend. This guide also applies broadly to other Docker-compatible PaaS providers.
 
 ## Prerequisites

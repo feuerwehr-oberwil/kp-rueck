@@ -10,17 +10,17 @@ Nothing here requires a build toolchain: the stack pulls published images from G
 
 | Service | Image | Role |
 | --- | --- | --- |
-| `db` | `postgres:16-alpine` | The database. Bundled; or point `DATABASE_URL` at a managed Postgres and drop the service. |
+| `db` | `postgres:16-alpine` | The database. Bundled. To use a managed Postgres you must edit `docker-compose.yml` — the backend's `DATABASE_URL` is composed there from the `POSTGRES_*` values, so setting `DATABASE_URL` in `.env` has no effect. |
 | `backend` | `ghcr.io/feuerwehr-oberwil/kp-rueck-backend` | FastAPI: API, WebSocket board updates, integrations. Runs migrations and seeding on boot. |
 | `frontend` | `ghcr.io/feuerwehr-oberwil/kp-rueck-frontend` | The Next.js dashboard. |
 | `tileserver` | `ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver` | Offline map tiles (see [`OFFLINE_MAPS.md`](OFFLINE_MAPS.md)). |
 | `caddy` | `caddy:2-alpine` | The single origin in front of everything, with automatic HTTPS. |
-| `print-agent` | `ghcr.io/feuerwehr-oberwil/kp-rueck-print-agent` | Optional thermal printer relay (`--profile printing`), also built for arm64 so it runs on a Pi. |
+| `print-agent` | `ghcr.io/feuerwehr-oberwil/kp-print-agent` | Optional thermal printer relay (`--profile printing`), also built for arm64 so it runs on a Pi. |
 
 **Everything is served through one origin.** Caddy routes `/socket.io` and `/api` to the
 backend, `/tiles` to the tileserver, and everything else to the frontend. That is what keeps
 the published frontend image generic – the browser only ever talks to its own host, so no
-station's URL is baked into the image at build time. It also means there is no CORS surface.
+station's URL is baked into the image at build time. Cross-origin requests are therefore not part of normal operation — but `CORS_ORIGINS` must still match the URL the browser actually uses, or the API refuses the browser's calls (see [`SETUP.md`](SETUP.md) §7).
 
 ## 2. Quick start
 
@@ -31,11 +31,13 @@ git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest releas
 
 # 2. Configure
 cp .env.example .env
-#    Required: POSTGRES_PASSWORD, SECRET_KEY, AUTH_SECRET_KEY, ADMIN_SEED_PASSWORD
+#    Required (all five – compose refuses to start if any is unset OR empty):
+#      POSTGRES_PASSWORD, SECRET_KEY, AUTH_SECRET_KEY, ADMIN_SEED_PASSWORD, VIEWER_PASSWORD
 #      SECRET_KEY / AUTH_SECRET_KEY: openssl rand -hex 32  (KEEP THEM STABLE)
 #      ADMIN_SEED_PASSWORD: at least 12 characters – this is your first login
+#      VIEWER_PASSWORD:     at least 12 characters – the read-only/kiosk login
 #    For HTTPS: set DOMAIN to a hostname whose A/AAAA record points here, and
-#    PUBLIC_URL to https://<that domain>.
+#    CORS_ORIGINS to https://<that domain>.
 
 # 3. Start
 docker compose up -d           # add --profile printing if you use the thermal printer
@@ -44,7 +46,7 @@ docker compose up -d           # add --profile printing if you use the thermal p
 ```
 
 On a LAN with no domain, leave `DOMAIN` empty: Caddy serves plain HTTP on `HTTP_PORT`
-(default 8080), `PUBLIC_URL` should be `http://<host>:8080`, and you **must** also set
+(default 8080), `CORS_ORIGINS` should be `http://<host>:8080`, and you **must** also set
 `AUTH_COOKIE_SECURE=false`. Browsers refuse to send a `Secure` cookie over plain HTTP, so
 without it the login cookie is silently dropped and signing in fails with no visible error.
 Only do this on a network you trust – never on an internet-facing deployment.

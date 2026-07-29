@@ -22,13 +22,11 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 | [`PHOTO_STORAGE.md`](PHOTO_STORAGE.md) | 🟢 | How Reko photos are stored on the persistent volume, served, and pooled for training scenarios. |
 | [`AUSFALL_SOP.md`](AUSFALL_SOP.md) | 🟢 | Outage / paper-fallback standard operating procedure: Lageblatt PDF, automatic thermal snapshots, and what to do when the network or backend is down. |
 | [`openapi.json`](openapi.json) | 🟢 | The committed OpenAPI contract — every route, request and response shape, readable without booting the stack. Regenerate with `just openapi`; a pytest fails when it drifts from the code. |
-| [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) | 🟡 | Reference table map. Alembic migrations are the source of truth – regenerate if this drifts. |
 
 ## Open checklist
 
 | Doc | Status | What it is |
 | --- | --- | --- |
-| [`VERIFICATION.md`](VERIFICATION.md) | 🟡 | **Temporary.** What still has to be run against a real environment for the 0.2.0 batch — the Postgres-backed tests, the Node 24 image build, the WebSocket-auth and audit-retention behaviour changes (each with a rollback), and the E2E work that must happen before the smoke job becomes a required check. Delete it once it is ticked. |
 
 ## Planning ([`plans/`](plans/))
 

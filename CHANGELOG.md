@@ -28,6 +28,57 @@ will keep holding.
 
 ## [Unreleased]
 
+A review pass before publishing the repository more widely: the documentation was checked claim
+by claim against the code, and four things turned out to be promises the code did not keep.
+
+### Fixed
+- **The telemetry veto in `PRIVACY.md` did nothing.** The page tells an operator to put
+  `KP_TELEMETRY_ENABLED=0` in their compose file and promises it "outranks the settings page, so
+  no later click can turn it on". `Settings` has no `env_prefix`, so the field actually bound to
+  `TELEMETRY_ENABLED` and the documented `KP_` spelling matched nothing at all. Consent still
+  defaults to off in the database, so nothing was ever transmitted — but a station that had
+  *enforced* the ban per the documentation had enforced nothing. Both spellings are now accepted
+  and `test_telemetry_env_veto.py` pins them.
+- **A logout did not survive a restart.** The JWT blocklist was a process-local dict, so every
+  revoked token silently became valid again on the next `docker compose up -d`, and a second
+  instance never saw the revocation at all. It now lives in the `revoked_tokens` table, ported
+  from KP Front where the same defect was fixed first. Migration runs automatically.
+- **The print agent read the wrong field for KP Front jobs.** `protocols/front.py` asked for
+  `job_type`, which is KP *Rück's* column name; KP Front sends `kind`. Every job therefore
+  arrived as a generic `document` and its real kind was lost. Harmless so far only because the
+  CUPS output that serves KP Front ignores the field — fixed before that stopped being true.
+- **Commands from the README failed on a normal Linux host.** `just dev` — the first command a
+  newcomer runs — called `docker-compose` (the v1 binary), which a box installed per Docker's own
+  instructions does not have. `just stop` aborted on the production compose file's guards before
+  it got round to stopping the dev stack. The offline-tile scripts hardcoded the *development*
+  container name, so `just tiles-download` greeted production operators with "run `just dev`
+  first" and `just tiles-status` reported a healthy stack as not running. Dependabot watched
+  `/print-agent`, a path that has not existed since the agent moved to `tools/`, leaving the one
+  component a station actually runs unmonitored.
+
+### Documentation
+- **The documentation now says what the code does.** `backend/README.md` documented an
+  `/api/operations` resource that does not exist and a module layout two refactors old;
+  `ARCHITECTURE.md` had no section for the docker-compose stack that *is* production and told you
+  to bake `NEXT_PUBLIC_API_URL` into the frontend image, which the release workflow deliberately
+  does not do; `PHOTO_STORAGE.md` claimed Reko photos are public when the endpoint requires
+  authentication and audits every view; `DATABASE_SCHEMA.md` listed six indexes as missing that
+  all exist, and contained no schema. `RAILWAY.md` carries a legacy banner, `DATABASE_SCHEMA.md`
+  and `VERIFICATION.md` are gone, and the required-secrets list finally includes the fifth one
+  that compose refuses to start without.
+- **The thermal printer is 80 mm, not 58 mm.** The code has always formatted for 80 mm paper
+  (Font A at 48 characters); four documents said 58 mm, which would have sent somebody to buy the
+  wrong printer.
+- **Both READMEs described an interoperability that does not exist.** They claimed the two apps
+  hand alarms to each other "through the same generic webhook, and nothing more". The payloads
+  and auth differ, so KP Front needs a small adapter to feed KP Rück — and KP Rück has no
+  outbound webhook to push the other way.
+- **Screenshots are current again.** Every image in the repository predated the design-system
+  refactor. `site/capture.mjs` now writes the README images from the same page states as the
+  landing-page shots, so the two cannot drift apart the way they had (the README images were six
+  months older).
+
+
 ## [0.3.0] – 2026-07-28
 
 Two rounds of work. The first is Auftrag and viewer changes, all of it from one afternoon of

@@ -7,7 +7,7 @@ both wire protocols and drives both kinds of printer. Neither backend changed; n
 protocol changed.
 
     protocol: kp-front  → long-poll claim, opaque PDF     → output: cups   (A4 laser)
-    protocol: kp-rueck  → adaptive poll, structured JSON  → output: escpos (58 mm thermal)
+    protocol: kp-rueck  → adaptive poll, structured JSON  → output: escpos (80 mm thermal)
 
 Pull-based, like both agents before it: only outbound HTTPS, no inbound ports, no exposure of
 CUPS or the printer to anything but this machine. Each backend gets its own worker thread, so
@@ -248,7 +248,7 @@ INSTALL = """\
 #    For KP Front (A4 laser via CUPS) — a working CUPS queue:
 #      lpstat -p                    # list destinations
 #      lp -d <PRINTER> test.pdf     # must produce paper
-#    For KP Rück (58 mm thermal) — the printer reachable on the LAN; its address is
+#    For KP Rück (80 mm thermal) — the printer reachable on the LAN; its address is
 #    configured in KP Rück's settings UI, not here.
 #
 #    Each backend needs its shared secret set on the backend side:

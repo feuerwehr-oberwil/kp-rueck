@@ -1,4 +1,4 @@
-# Photo Storage Configuration for Railway
+# Photo Storage
 
 ## Overview
 
@@ -156,10 +156,11 @@ Response:
 ### Photo Serving
 ```http
 GET /api/photos/{incident_id}/{filename}
+  (requires an authenticated session — 401 otherwise)
 
 Response:
   Image file (image/jpeg)
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: private, max-age=3600
 ```
 
 ### Photo Deletion
@@ -176,7 +177,7 @@ Response:
 
 ### Access Control
 - **Upload**: Requires valid form token (generated per incident)
-- **Viewing**: No authentication (photos are public once uploaded)
+- **Viewing**: **Authenticated.** `GET /api/reko/photos/{id}` requires a logged-in user, writes an audit entry (`action_type="view_photo"`), and responds `Cache-Control: private, max-age=3600`. Reko photos are never public — see `backend/app/api/reko.py`.
 - **Deletion**: Requires valid form token (same as upload)
 
 ### File Validation
@@ -187,7 +188,7 @@ Response:
 
 ### Performance
 - **Compression**: Reduces storage and bandwidth usage
-- **Caching**: 1-year cache headers for CDN/browser caching
+- **Caching**: photo responses are `private, max-age=3600` — cacheable by the operator's own browser, never by a shared cache.
 - **Cleanup**: Empty incident directories are automatically removed
 
 ## Troubleshooting
@@ -283,13 +284,19 @@ If you previously deployed without a volume:
 
 ### Backup Strategy
 
-Railway volumes are persistent but not automatically backed up:
+On the reference deployment (docker-compose) the photos live in the named `photos` volume, and
+**they are not in the database**. A `pg_dump` alone therefore restores a board with missing
+images. Back both up from the same moment:
 
-1. **Periodic backups**: Use Railway CLI or API to download photos
-2. **S3 integration**: Consider migrating to S3 for automatic backups (future enhancement)
-3. **Snapshot**: Railway may offer volume snapshots (check current features)
+```bash
+docker compose exec -T db pg_dump -U kprueck kprueck | gzip > kprueck-$(date +%F).sql.gz
+docker run --rm -v kp-rueck_photos:/data -v "$PWD:/out" alpine \
+  tar czf /out/photos-$(date +%F).tar.gz -C /data .
+```
 
-Do not treat `PHOTOS_DIR=/mnt/data/photos` as a backup by itself. It only ensures uploaded photos survive normal container restarts and redeploys; an operational deployment still needs a tested export or snapshot process for the Railway volume.
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) §6. On a managed PaaS the equivalent is whatever that
+platform offers for volume export — but the rule is the same, and a persistent volume is not a
+backup by itself: it only ensures uploads survive a normal container restart.
 
 ## Future Enhancements
 
