@@ -6,6 +6,9 @@ name: CI
 #   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
 #   frontend-typecheck, frontend-unit-tests, frontend-build, images
 #   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
+#   plus telemetry-drift — the ONLY check that compares the vendored sanitiser against
+#   kp-front; the in-repo hash test cannot see the other repository. Add it to the required
+#   list on main once it has run a few times (it depends on a sibling repo being reachable).
 #
 # ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-26:
 #   backend-typecheck  mypy, second step – 526 errors in 59 files across the packages NOT in
@@ -171,6 +174,60 @@ jobs:
         run: |
           python -m pip install --quiet pytest
           python -m pytest -q
+
+  # The vendored telemetry modules are shared with kp-front by COPY, not by package. The
+  # in-repo test hashes them against a recorded literal, which catches an accidental edit here
+  # — but not the case the docstring actually warns about: change scrub.py in one repo, update
+  # that repo's own literal, and BOTH suites stay green while the two sanitisers diverge. One
+  # of them then strips something the other leaks.
+  #
+  # So this job is the only thing that ever compares the two repositories. kp-front is public,
+  # so no token is needed. It runs on the default branch of the sibling, which is what a
+  # station actually deploys — pinning a ref would compare against something nobody runs.
+  telemetry-drift:
+    name: Telemetry sanitiser matches KP Front
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out kp-front
+        uses: actions/checkout@v7
+        with:
+          repository: feuerwehr-oberwil/kp-front
+          path: .kp-front
+          fetch-depth: 1
+
+      - name: Diff the vendored telemetry modules
+        run: |
+          set -euo pipefail
+          # consent.py and dsn.py are deliberately NOT here: the first talks to whatever table
+          # each app keeps deployment state in, the second holds the app's own ingest project.
+          files="scrub.py envelope.py outbox.py forwarder.py __init__.py"
+          status=0
+          for f in $files; do
+            ours="backend/app/telemetry/$f"
+            theirs=".kp-front/backend/app/telemetry/$f"
+            if [ ! -f "$theirs" ]; then
+              echo "::error::$f is missing in kp-front — the vendored set has changed shape"
+              status=1
+              continue
+            fi
+            if ! diff -u "$theirs" "$ours" > "/tmp/$f.diff"; then
+              echo "::error::app/telemetry/$f has diverged from kp-front"
+              cat "/tmp/$f.diff"
+              status=1
+            else
+              echo "  ✓ $f"
+            fi
+          done
+          if [ "$status" -ne 0 ]; then
+            echo ""
+            echo "Copy the changed file across, run BOTH test suites, and update the recorded"
+            echo "hash in both repositories in the same change. Updating one side alone is"
+            echo "exactly the failure this job exists to catch."
+            exit 1
+          fi
 
   backend-security:
     name: Backend Security Scan

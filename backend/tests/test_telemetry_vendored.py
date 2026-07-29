@@ -7,8 +7,15 @@ genuinely dangerous is the sanitiser — a rule tightened in one app and not the
 mean one of them quietly leaks what the other strips.
 
 So the copies carry a checksum of themselves, and this test fails when it stops matching.
-Same trick as the openapi.json drift test: cheap, obvious, and it fires at the moment the
-change is made rather than months later.
+Same trick as the openapi.json drift test: cheap, obvious, offline, and it fires at the moment
+the change is made rather than months later.
+
+**What this test can and cannot do.** It compares the local file against a literal recorded
+here. That catches an accidental edit on this side. It does NOT read kp-front — so the failure
+the paragraph above describes (edit one repo, update that repo's own literal, both suites stay
+green while the sanitisers diverge) is invisible to it. The `telemetry-drift` job in
+`.github/workflows/ci.yml` is the only thing that actually compares the two repositories; it
+checks kp-front out and diffs. Keep both: this one is fast and works offline, that one is true.
 
 **When this fails**, the fix is never to update the hash on its own. Copy the changed file
 across, run both suites, then update the hash in both repositories in the same change.
@@ -41,11 +48,11 @@ def _sha256(path: Path) -> str:
 
 
 @pytest.mark.parametrize("name", sorted(VENDORED))
-def test_vendored_file_matches_kp_front(name: str):
+def test_vendored_file_matches_the_recorded_hash(name: str):
     path = TELEMETRY / name
     assert path.exists(), f"{name} is missing — the vendored copy must not be deleted"
     assert _sha256(path) == VENDORED[name], (
-        f"app/telemetry/{name} has diverged from the kp-front copy.\n"
+        f"app/telemetry/{name} no longer matches the hash recorded here.\n"
         f"Copy the file across, run both test suites, and update the hash in BOTH repositories "
         f"in the same change. Do NOT just update the hash — see this module's docstring."
     )
