@@ -99,7 +99,7 @@ cd frontend && pnpm exec playwright test --headed  # Visible browser
 - **Database**: PostgreSQL 16
 - **Map Tiles**: TileServer GL (self-hosted offline tiles; region set by `TILES_BOUNDS`, default Basel-Landschaft)
 - **Package Managers**: pnpm (frontend), uv (backend)
-- **Deployment**: Docker Compose from published GHCR images (Railway still works; it is no longer the reference path)
+- **Deployment**: two supported paths on the same images — Docker Compose from published GHCR images, or Railway (`docs/RAILWAY.md`). Pick by who runs the server: compose survives an internet outage, Railway means nobody has to look after a box.
 - **Local Development**: Docker Compose with hot reload
 
 **Application Purpose:**
@@ -315,7 +315,7 @@ open http://localhost:8080
 - `docs/DEPLOYMENT.md` - Self-hosting guide (the reference deployment path)
 - `docs/SETUP.md` - Ordered first-time setup for a new station
 - `docs/RUNNING-BOTH.md` - Running KP Front and KP Rück on one host
-- `docs/RAILWAY.md` - Railway deployment guide (legacy; the runtime was de-Railway'd)
+- `docs/RAILWAY.md` - Railway deployment guide (a supported path, not legacy). **`NEXT_PUBLIC_API_URL` must stay unset there** — it is build-time inlined and breaks mobile logins via third-party cookies; the frontend uses runtime `API_URL` through its own-origin `/backend-api` proxy.
 - `docs/OFFLINE_MAPS.md` - Offline map tiles setup and troubleshooting guide
 - `justfile` - Quick reference for common commands (run `just` to see all)
 - `backend/README.md` - Backend-specific setup and API docs
