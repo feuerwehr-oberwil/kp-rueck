@@ -311,14 +311,19 @@ volumes:
 
 ## Storage Requirements
 
-| Zoom Levels | Coverage | Approximate Size |
-|-------------|----------|------------------|
-| 0-10        | Basel-Landschaft | ~50 MB |
-| 0-14        | Basel-Landschaft | ~300 MB |
-| 0-17        | Basel-Landschaft | ~1-2 GB |
-| 0-17        | All Switzerland  | ~10-15 GB |
+**These are *vector* tiles, generated with planetiler — an order of magnitude smaller than the
+raster tiles people expect.** The default region (Basel-Landschaft, zoom 0-17) produces a
+**~12 MB** `.mbtiles` file. A whole country is in the low gigabytes, not the tens.
 
-**Recommendation**: Use zoom 0-17 for a single canton or district (~1-2 GB) for the best balance of detail and storage.
+| Coverage (zoom 0-17) | Approximate size |
+|----------------------|------------------|
+| A district / canton (default: Basel-Landschaft) | **~12 MB** (measured) |
+| All of Switzerland | low single-digit GB (estimate) |
+
+**The generation is the expensive part, not the result.** `scripts/download-tiles.sh`
+downloads ~500 MB of OSM data, needs ~2 GB of temporary disk and recommends 4 GB of RAM. On a
+small station box, run the script on a laptop instead and copy the finished file in — see
+[`DEPLOYMENT.md`](DEPLOYMENT.md) §0.
 
 ## Backup and Disaster Recovery
 

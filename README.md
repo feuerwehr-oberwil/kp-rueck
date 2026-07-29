@@ -93,7 +93,11 @@ is auto-seeded on first run; admin credentials are printed to the terminal.
 
 ## Self-host
 
-Runs on any Docker host, from **published images** – no build toolchain on the server:
+Runs on any Docker host, from **published images** – no build toolchain on the server. **2 GB
+RAM and a 32 GB SSD are enough**; all four images are built for `amd64` *and* `arm64`, so a
+mini PC, a retired laptop, an ARM VPS or a Raspberry Pi 5 all qualify. Sizing details,
+including the one step that does want a bigger machine, are in
+[docs/DEPLOYMENT.md §0](docs/DEPLOYMENT.md).
 
 ```bash
 cp .env.example .env          # fill in the five required secrets (see docs/SETUP.md §2)
