@@ -128,6 +128,13 @@ the socket host from the frontend's hostname. Put a custom domain on the backend
 
 4. Deploy. `start.sh` runs `alembic upgrade head` on every boot, then seeds on first run.
 
+   > **The first deploy is the slow one.** It applies every migration to an empty database and
+   > then seeds, and uvicorn only binds a port afterwards — so Railway sees nothing to health-
+   > check for a while. `healthcheckTimeout` is set to 300 s in
+   > [`backend/railway.json`](../backend/railway.json) for exactly this reason. Later deploys
+   > are fast, because the migrations are no-ops. If a first deploy does time out, redeploying
+   > usually succeeds: the schema is already migrated by then.
+
 ### 3.3 Frontend service
 
 1. **New → GitHub Repo →** `kp-rueck`, Settings → **Root Directory**: `/frontend`.
