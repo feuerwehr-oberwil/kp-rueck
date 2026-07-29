@@ -49,6 +49,9 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001
       AUTH_BYPASS_AUTH_DEV: "true"
       RELOAD: "true"
+      # Dev-only default so the print agent can talk to this backend out of the box; in
+      # production the same variable is empty and the endpoints stay fail-closed.
+      PRINT_AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-dev-print-token}
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,8 +149,15 @@ services:
     environment:
       # Backend URL (use localhost since we're on host network)
       BACKEND_URL: http://localhost:8000
-      # Printer config is fetched from backend settings
-      POLL_INTERVAL: ${POLL_INTERVAL:-2}
+      # The print endpoints are fail-closed: with no token on BOTH ends they answer 403 and
+      # the agent stops on its first cycle. Same default as the backend service above, so
+      # `--profile printing` works without an .env; override both with one PRINT_AGENT_TOKEN.
+      AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-dev-print-token}
+      # Printer config (address, on/off) is fetched from backend settings, not set here.
+      # Fallback pace behind the long poll. These are the names the agent actually reads —
+      # the previous POLL_INTERVAL was never read by any version of the agent.
+      POLL_INTERVAL_IDLE: ${POLL_INTERVAL_IDLE:-10}
+      POLL_INTERVAL_ACTIVE: ${POLL_INTERVAL_ACTIVE:-5}
       DRY_RUN: ${DRY_RUN:-false}
       LOG_LEVEL: INFO
     profiles:

@@ -199,20 +199,29 @@ tiles-restart:
 printer cmd="start":
     #!/usr/bin/env bash
     set -euo pipefail
+    # The agent refuses to guess a backend — no BACKEND_URL means "no configuration", by
+    # design. So the dev wiring belongs here: the local backend, and the token both ends
+    # must share (the print endpoints are fail-closed, an unset token is 403, not open).
+    # Defaults match docker-compose.dev.yml, so `just dev` + `just printer` just work.
+    export BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
+    export AGENT_TOKEN="${PRINT_AGENT_TOKEN:-dev-print-token}"
     case "{{cmd}}" in
         start)
             echo -e "\033[1;34m→ Starting thermal print agent...\033[0m"
-            echo -e "\033[1;34m→ Printer config is fetched from backend settings\033[0m"
+            echo -e "\033[1;34m→ Backend: $BACKEND_URL (printer config comes from its settings)\033[0m"
             echo -e "\033[1;34m→ Use 'just printer dry' for testing without a printer\033[0m"
-            cd tools/print-agent && uv run python agent.py
+            # --extra escpos: python-escpos/pillow are optional (the CUPS path needs neither),
+            # so a plain `uv run` reaches the printer and fails on the lazy import instead.
+            cd tools/print-agent && uv run --extra escpos python agent.py
             ;;
         dry)
             echo -e "\033[1;34m→ Starting print agent in DRY RUN mode (no printer needed)...\033[0m"
+            # No --extra here on purpose: dry run never touches the ESC/POS packages.
             cd tools/print-agent && DRY_RUN=true uv run python agent.py
             ;;
         bg)
             echo -e "\033[1;34m→ Starting thermal print agent in background...\033[0m"
-            cd tools/print-agent && nohup uv run python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
+            cd tools/print-agent && nohup uv run --extra escpos python agent.py > /tmp/kprueck-print-agent.log 2>&1 &
             echo -e "\033[1;32m✓ Print agent started in background\033[0m"
             echo -e "\033[1;34m→ Logs: just printer logs\033[0m"
             ;;

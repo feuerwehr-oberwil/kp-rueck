@@ -74,7 +74,9 @@ class EscposOutput:
         except ImportError as e:
             return False, (
                 f"ESC/POS support is not installed ({e}). This output needs python-escpos and "
-                "pillow — `uv sync` in tools/print-agent, or use the published image."
+                "pillow — they are an OPTIONAL extra, so plain `uv sync` does not install "
+                "them: run `uv sync --extra escpos` in tools/print-agent, or use the "
+                "published image, which bakes the extra in."
             )
 
         renderers = {

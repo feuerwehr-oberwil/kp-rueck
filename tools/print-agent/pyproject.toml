@@ -13,9 +13,15 @@ dependencies = []
 # Only needed for `output: escpos` (the 80 mm thermal printer). Imported lazily, so an agent
 # without these installed still runs fine for CUPS backends and reports a clear error if a
 # thermal job ever reaches it.
+#
+# The 3.10 marker is what keeps `requires-python = ">=3.9"` above honest. Pillow 12 dropped
+# 3.9, and 12.2.0 is a security floor (e8c971b) that must not be relaxed — so without the
+# marker the two lines contradict each other and every resolve fails, `uv run` included.
+# Nothing is lost: 3.9 is the bare-Bullseye CUPS path, which needs no extra at all, while the
+# thermal path runs on 3.12 (this Dockerfile, or uv on the Pi).
 escpos = [
-    "python-escpos>=3.1",
-    "pillow>=12.2.0",
+    "python-escpos>=3.1; python_version >= '3.10'",
+    "pillow>=12.2.0; python_version >= '3.10'",
 ]
 
 [project.scripts]
