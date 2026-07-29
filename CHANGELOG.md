@@ -55,6 +55,32 @@ by claim against the code, and four things turned out to be promises the code di
   first" and `just tiles-status` reported a healthy stack as not running. Dependabot watched
   `/print-agent`, a path that has not existed since the agent moved to `tools/`, leaving the one
   component a station actually runs unmonitored.
+- **The print agent could not be started from this repository.** `tools/print-agent`
+  declared `requires-python = ">=3.9"` — which is real, and load-bearing: the bare-Raspberry-Pi
+  CUPS install runs on Bullseye's system Python — while also pinning `pillow>=12.2.0`, which
+  dropped 3.9. The two contradict each other, so every resolve failed and `just printer` died
+  before it started. The ESC/POS extra now carries a `python_version >= '3.10'` marker: the
+  security floor stays, and 3.9 keeps the path that needs no extra at all. `just printer` also
+  set no `BACKEND_URL` (the agent refuses to guess one) and no token, so on a good day it
+  would have stopped at the fail-closed 403 — both are now wired to the dev defaults, and it
+  runs with `--extra escpos`, without which it would have authenticated, claimed a job and
+  only *then* failed on the lazy import.
+- **The dev compose stack could not print either.** Its print-agent had no `AGENT_TOKEN` and
+  the backend no `PRINT_AGENT_TOKEN`, which is a 403 by design; and it still passed
+  `POLL_INTERVAL`, the dead variable no version of the agent has ever read.
+
+### Changed
+- **A print job now reaches the printer in milliseconds instead of up to a minute.** The
+  agent polled: 5 s while an operation was running, but 60 s when idle — and it only became
+  brisk *after* it had printed something, so the slowest case was the first slip of an
+  operation, the Einsatzzettel at alarm time. `/api/print/jobs/pending/` now accepts `wait`
+  and holds the request open until a job is queued, the same long-poll KP Front's claim
+  endpoint has always used. Two things improve with it: a job lost to a crashed agent is
+  requeued within seconds rather than on the next idle poll, since the reaper runs on every
+  pass through the wait; and the fallback pace drops from 60 s to 10 s.
+  Nothing has to be updated in step — `wait` defaults to 0, so an old agent sees the old
+  behaviour, and a new agent measures how fast an empty answer comes back and paces itself
+  against a backend that does not know the parameter.
 
 ### Documentation
 - **The documentation now says what the code does.** `backend/README.md` documented an

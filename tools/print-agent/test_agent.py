@@ -17,6 +17,7 @@ import subprocess
 import sys
 import textwrap
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -291,6 +292,88 @@ def test_rueck_wrong_token_is_fatal(rueck_server):
         backend.protocol.refresh_config()
 
 
+class LongPollHandler(BaseHTTPRequestHandler):
+    """A backend that honours `wait`, like the real one: it holds the request, then answers."""
+
+    HANG = 0.6
+
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        self.server.seen.append(("GET", self.path))
+        if self.path == "/api/print/config/":
+            body = json.dumps({"enabled": True, "ip": "10.0.0.9", "port": 9100}).encode()
+        elif self.path.startswith("/api/print/jobs/pending/"):
+            time.sleep(self.HANG)
+            body = json.dumps([]).encode()
+        else:
+            self.send_response(404); self.end_headers(); return
+        self.send_response(200); self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body))); self.end_headers()
+        self.wfile.write(body)
+
+
+class NoLongPollHandler(LongPollHandler):
+    """An older backend: it ignores `wait` and answers empty immediately."""
+
+    HANG = 0.0
+
+
+@pytest.fixture
+def long_poll_server():
+    srv = _serve(LongPollHandler)
+    yield srv
+    srv.shutdown()
+
+
+@pytest.fixture
+def no_long_poll_server():
+    srv = _serve(NoLongPollHandler)
+    yield srv
+    srv.shutdown()
+
+
+def _rueck(url, **extra):
+    return _build({"name": "rueck", "protocol": "kp-rueck", "url": url, "secret": "",
+                   "output": "escpos", "dry_run": True, **extra})
+
+
+def test_rueck_asks_the_backend_to_hold_the_request(long_poll_server):
+    """The whole point of the long poll: the parameter has to actually be on the wire."""
+    backend = _rueck(long_poll_server.url, long_poll_sec=1.0)
+    backend.run(threading.Event(), once=True)
+
+    pending = [p for _, p in long_poll_server.seen if p.startswith("/api/print/jobs/pending/")]
+    assert pending and "wait=1" in pending[0]
+
+
+def test_rueck_does_not_sleep_on_top_of_a_hang(long_poll_server):
+    """A backend that held the request has already done the waiting.
+
+    Sleeping the idle gap again afterwards would hand back the latency the long poll just
+    bought — and would do it invisibly, since the agent looks perfectly healthy either way.
+    """
+    backend = _rueck(long_poll_server.url, long_poll_sec=1.0, poll_idle_sec=30.0)
+
+    started = time.monotonic()
+    backend.run(threading.Event(), once=True)
+    elapsed = time.monotonic() - started
+
+    assert elapsed < LongPollHandler.HANG + 0.5, f"slept on top of the hang ({elapsed:.1f}s)"
+
+
+def test_rueck_still_paces_itself_against_a_backend_that_ignores_wait(no_long_poll_server):
+    """An updated agent must not spin against a station that has not been updated yet."""
+    backend = _rueck(no_long_poll_server.url, long_poll_sec=1.0, poll_idle_sec=0.5)
+
+    started = time.monotonic()
+    backend.run(threading.Event(), once=True)
+    elapsed = time.monotonic() - started
+
+    assert elapsed >= 0.5, f"spun instead of pacing itself ({elapsed:.2f}s)"
+
+
 # --- Configuration ----------------------------------------------------------------------
 
 
@@ -343,9 +426,11 @@ def test_tuning_knobs_actually_reach_the_drivers(monkeypatch):
     monkeypatch.setenv("POLL_INTERVAL_IDLE", "31")
     monkeypatch.setenv("POLL_INTERVAL_ACTIVE", "3")
     monkeypatch.setenv("ACTIVE_DURATION", "77")
+    monkeypatch.setenv("LONG_POLL_SEC", "12")
 
     proto = load_backends(None)[0].protocol
     assert (proto.poll_idle_sec, proto.poll_active_sec, proto.active_duration_sec) == (31.0, 3.0, 77.0)
+    assert proto.long_poll_sec == 12.0
 
     monkeypatch.delenv("BACKEND_URL", raising=False)
     monkeypatch.setenv("KP_BASE_URL", "https://front.example.org")

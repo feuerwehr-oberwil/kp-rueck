@@ -23,18 +23,24 @@ The print agent connects the KP Rueck dashboard to a printer on the local networ
 └──────────────┘
 ```
 
-The agent is **pull-based** with **adaptive polling**. No inbound ports, proxies, or tunnels required. The backend queues print jobs in the database, the agent fetches, prints, and reports completion.
+The agent is **pull-based**. No inbound ports, proxies, or tunnels required. The backend queues print jobs in the database, the agent fetches, prints, and reports completion.
 
-### Adaptive Polling
+### Long Polling
 
-To minimize unnecessary requests (emergencies are rare), the agent uses two poll intervals:
+The agent asks the backend to hold the pending-jobs request open (`?wait=25`) instead of asking again and again. The backend answers the moment a job is queued, so **a slip reaches the printer within milliseconds** and an idle agent makes about two requests a minute.
+
+That matters most for the very first print of an operation – the Einsatzzettel at alarm time – which used to be the *slowest* case: the old agent only sped up after it had already printed something.
+
+`wait` is optional and defaults to 0, so an agent that predates it sees the endpoint behave exactly as before.
+
+### Fallback pacing
+
+Against a backend too old to long-poll (it answers empty immediately, which the agent measures), and while printing is switched off in the settings, the agent paces itself with two intervals:
 
 | Mode | Interval | Condition |
 |---|---|---|
-| **Idle** | 60s | Default – no recent print activity |
+| **Idle** | 10s | Default – no recent print activity |
 | **Active** | 5s | After a job is printed, stays active for 15 minutes |
-
-This means ~60 requests/hour when idle (instead of ~1800 at a fixed 2s interval), while still responding quickly during active operations. The agent automatically switches back to idle after 15 minutes without a print job.
 
 ## Print Jobs
 
@@ -83,7 +89,10 @@ Because the queue is just JSON, a custom agent is a small poll loop against the 
 
 ```python
 while True:
-    jobs = GET("/api/print/jobs/pending/", headers={"X-Agent-Token": TOKEN})
+    # `wait` is optional: leave it off for a plain poll, or set it (max 30) to have the
+    # backend hold the request open until a job is queued. Give your HTTP client a timeout
+    # comfortably above it, and don't sleep after a call that really did hang.
+    jobs = GET("/api/print/jobs/pending/?wait=25", headers={"X-Agent-Token": TOKEN})
     for job in jobs:
         PATCH(f"/api/print/jobs/{job['id']}/claim/", headers=...)
         try:
@@ -91,7 +100,8 @@ while True:
             PATCH(f"/api/print/jobs/{job['id']}/complete/", json={"status": "completed"}, headers=...)
         except Exception as e:
             PATCH(f"/api/print/jobs/{job['id']}/complete/", json={"status": "failed", "error": str(e)}, headers=...)
-    sleep(5 if jobs else 60)
+    if not jobs and the_call_returned_immediately:
+        sleep(10)
 ```
 
 Render each `job_type` however your hardware needs – the reference agent (`tools/print-agent/`) uses python-escpos for an 80 mm thermal printer; a CUPS-based agent would hand the same payload to `lp` for an A4 laser printer instead.
@@ -116,8 +126,9 @@ just printer logs
 
 Environment variables:
 - `BACKEND_URL` - Backend API URL (default: `http://localhost:8000`)
-- `POLL_INTERVAL_IDLE` - Seconds between polls when idle (default: `60`)
-- `POLL_INTERVAL_ACTIVE` - Seconds between polls after recent job (default: `5`)
+- `LONG_POLL_SEC` - Seconds the backend is asked to hold the pending call open (default: `25`, backend max `30`)
+- `POLL_INTERVAL_IDLE` - Fallback seconds between polls when idle (default: `10`)
+- `POLL_INTERVAL_ACTIVE` - Fallback seconds between polls after recent job (default: `5`)
 - `ACTIVE_DURATION` - Seconds to stay in active mode after last job (default: `900` = 15 min)
 - `DRY_RUN` - Set to `true` to simulate printing
 - `LOG_LEVEL` - Logging level (default: `INFO`)

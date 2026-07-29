@@ -8,7 +8,7 @@ This is one program that speaks both wire protocols and drives both kinds of pri
 | --- | --- | --- |
 | `protocol:` | `kp-front` | `kp-rueck` |
 | Job arrives as | an opaque PDF, composed server-side | structured JSON, rendered here |
-| Polling | long-poll (~25 s hang, near-instant claim) | adaptive: 60 s idle / 5 s after a job |
+| Polling | long-poll (~25 s hang, near-instant claim) | long-poll (~25 s hang); falls back to 10 s idle / 5 s after a job against an older backend |
 | Auth header | `X-Print-Agent-Secret` | `X-Agent-Token` |
 | Backend sets | `PRINT_AGENT_SECRET` | `PRINT_AGENT_TOKEN` |
 | Pairs with | `output: cups` (A4 laser) | `output: escpos` (80 mm thermal) |
@@ -53,11 +53,12 @@ Each backend gets its own worker thread, so one unreachable backend never stalls
 agents used still work unchanged — `KP_BASE_URL` / `KP_PRINT_AGENT_SECRET` / `KP_PRINTER`
 (plus `KP_LP_OPTS`, `KP_POLL_SEC`, `KP_CLAIM_TIMEOUT_SEC`, `KP_CUPS_TIMEOUT_SEC`) for KP
 Front, and `BACKEND_URL` / `AGENT_TOKEN` (plus `DRY_RUN`, `POLL_INTERVAL_IDLE`,
-`POLL_INTERVAL_ACTIVE`, `ACTIVE_DURATION`) for KP Rück. A station that runs only one system
-never has to learn about the config file.
+`POLL_INTERVAL_ACTIVE`, `ACTIVE_DURATION`, `LONG_POLL_SEC`) for KP Rück. A station that runs
+only one system never has to learn about the config file.
 
 Optional per-backend keys mirror those knobs: `poll_sec`, `claim_timeout_sec`,
-`cups_timeout_sec`, `poll_idle_sec`, `poll_active_sec`, `active_duration_sec`, `dry_run`.
+`cups_timeout_sec`, `poll_idle_sec`, `poll_active_sec`, `active_duration_sec`,
+`long_poll_sec`, `dry_run`.
 A non-numeric value is refused at startup rather than silently replaced by the default.
 
 ## Running

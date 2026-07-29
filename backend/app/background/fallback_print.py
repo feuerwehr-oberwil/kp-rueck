@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import Event, Incident, IncidentAssignment, PrintJob
+from app.services import print_signal
 from app.services import settings as settings_service
 
 logger = logging.getLogger(__name__)
@@ -141,6 +142,7 @@ class FallbackPrintTask:
             job = PrintJob(job_type="board", status="pending", payload=payload, event_id=event.id)
             db.add(job)
             await db.commit()
+            print_signal.notify_job_queued()
             logger.info("Queued automatic fallback board snapshot for event %s", event.id)
 
 

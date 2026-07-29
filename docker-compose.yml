@@ -239,9 +239,14 @@ services:
       # The agent reads AGENT_TOKEN; the backend reads PRINT_AGENT_TOKEN. One value in .env
       # feeds both — they are the two ends of the same shared secret and must match.
       AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-}
-      # Adaptive polling: idle until a job arrives, then brisk for ACTIVE_DURATION seconds.
-      POLL_INTERVAL_IDLE: ${PRINT_POLL_INTERVAL_IDLE:-60}
+      # The agent long-polls, so a queued slip prints within milliseconds and these two are
+      # only the fallback pace — used while printing is switched off in the settings, or
+      # against a backend older than the long-poll endpoint.
+      POLL_INTERVAL_IDLE: ${PRINT_POLL_INTERVAL_IDLE:-10}
       POLL_INTERVAL_ACTIVE: ${PRINT_POLL_INTERVAL_ACTIVE:-5}
+      # How long the backend is asked to hold the pending call open. Lower it if something
+      # between agent and backend drops idle connections sooner than this.
+      LONG_POLL_SEC: ${PRINT_LONG_POLL_SEC:-25}
       DRY_RUN: ${DRY_RUN:-false}
       LOG_LEVEL: INFO
 
