@@ -84,6 +84,11 @@ venv/
 dist/
 build/
 .pytest_cache/
+# ruff and mypy each drop a self-ignoring .gitignore INSIDE their own cache directory, so
+# these look unnecessary right until you run the tool from a different cwd or hit a version
+# that stops writing that file. Then the cache shows up in git status.
+.ruff_cache/
+.mypy_cache/
 backend/.env
 backend/env/
 backend/venv/
@@ -113,3 +118,14 @@ docs/research/
 FEEDBACK-PLAN.md
 ALARM-WEBHOOK-TEST-PROTOCOL.md
 GPS-TEST-PROTOCOL.md
+
+# Persönliche Betriebsskripte gegen die PRODUKTIV-Datenbank. Standen vorher nur in
+# .git/info/exclude — das ist maschinenlokal und schützt genau einen Klon. Hier stehen sie
+# portabel. (check-logins.sh liest Login-Ereignisse inkl. Benutzernamen und IP-Adressen.)
+/check-logins.sh
+
+# Help screenshots are GENERATED (frontend/tests/capture-help-screenshots.spec.ts) and are not
+# committed. The previous batch was 3.4 MB of PNGs that NO page referenced, shipped in every
+# frontend image, showing a UI two design-system refactors out of date. Regenerate when the
+# help page actually renders them, and commit only what it uses.
+frontend/public/help/images/

@@ -24,7 +24,7 @@ updates:
   # Print agent — its own lockfile, and it decodes images, so it drifts on the same
   # advisories as the backend rather than tracking it automatically.
   - package-ecosystem: pip
-    directory: "/print-agent"
+    directory: "/tools/print-agent"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -46,7 +46,7 @@ updates:
     directories:
       - "/frontend"
       - "/backend"
-      - "/print-agent"
+      - "/tools/print-agent"
       - "/tileserver"
     schedule:
       interval: weekly

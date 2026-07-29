@@ -9,7 +9,10 @@ set -e
 # be called anything — it is renamed to this on the way into the volume.
 TILES_NAME="${TILES_NAME:-basel-landschaft}"
 
-CONTAINER_NAME="${TILES_CONTAINER:-kprueck-tileserver-dev}"
+# Dev names it kprueck-tileserver-dev, production names it kp-rueck-tileserver-1.
+# Detect rather than default to one of them; TILES_CONTAINER overrides.
+# (Same resolution as scripts/download-tiles.sh — keep the two in step.)
+CONTAINER_NAME="${TILES_CONTAINER:-$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^kp-?rueck[-_].*tileserver' | head -1)}"
 TILES_FILE="${TILES_NAME}.mbtiles"
 
 echo "═══════════════════════════════════════════════"
@@ -52,9 +55,11 @@ if ! docker ps &> /dev/null; then
 fi
 
 # Check if tile server container exists
-if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+if [ -z "$CONTAINER_NAME" ] || ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "❌ Error: Tile server container not found."
-    echo "   Please run 'just dev' first to start all services."
+    echo "   Start the stack first — 'docker compose up -d' for a production"
+    echo "   install, or 'just dev' for the development stack."
+    echo "   If your container has a non-standard name, set TILES_CONTAINER=<name>."
     exit 1
 fi
 
