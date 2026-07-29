@@ -12,19 +12,25 @@ Papier führend, bis der Wiederanlauf ausgerufen wird.
 
 - [ ] Thermodrucker aktiv **und** in den Einstellungen *Papier-Fallback: Board
       automatisch drucken* eingeschaltet (Standard: alle 15 Min, nur bei Änderungen)
-- [ ] Alternativ/zusätzlich am Führungs-Gerät: *Lageblatt Auto-Download* im
-      Export-Menü aktivieren (lädt alle 15 Min ein aktuelles A4-Lageblatt)
+- [ ] Alternativ/zusätzlich am Führungs-Gerät: *Lageblatt Auto-Download* unter
+      Einstellungen → Ausfallsicherheit aktivieren (lädt alle 15 Min ein aktuelles
+      A4-Lageblatt)
 - [ ] Physischer Fallback bereit: Magnetboard **oder** leere Führungsformulare
       (Elementarschaden FWI BL/BS) + Stifte + Klemmbrett im KP
 - [ ] Das Lageblatt aus KP Rück hat dieselben Spalten wie das kantonale
       Führungsformular – es kann direkt von Hand weitergeführt werden
+- [ ] **Eigener Server im Magazin:** USV für die Box (und den Switch/AP) geprüft. Ohne sie
+      nimmt ein Stromausfall das Board sofort mit – bei dieser Aufstellung ist die Box der
+      einzige Punkt, an dem alles hängt
+- [ ] **Eigener Server im Magazin:** Offline-Kacheln installiert (`just tiles-download`),
+      sonst ist die Karte beim Internetausfall leer, obwohl das Board weiterläuft
 
 ## Auslösung (Trigger)
 
 Das Board gilt als ausgefallen, wenn **eine** der Bedingungen zutrifft:
 
 - Board länger als **2 Minuten** nicht erreichbar oder eingefroren – auch von
-  einem zweiten Gerät aus (damit ein defektes Tablet nicht zum Fehlalarm führt)
+  einem zweiten Gerät aus (damit ein defektes Gerät nicht zum Fehlalarm führt)
 - Stromausfall der KP-Infrastruktur ohne Notstrom-Weiterbetrieb der Geräte
 
 **Wer:** Jede Bedienperson darf den Fallback ausrufen; die Einsatzleitung bestätigt.
@@ -50,12 +56,32 @@ Das Board gilt als ausgefallen, wenn **eine** der Bedingungen zutrifft:
 
 ## Was fällt wann aus? (Merkhilfe)
 
-| Ausfall | Board | Thermodrucker (Pi, lokal) | Massnahme |
-|---|---|---|---|
-| Internet im Magazin | ✗ (Backend ist in der Cloud) | ✗ (erreicht Backend nicht) | Papier führt – darum **vorher** drucken/downloaden |
-| Railway/Backend-Störung | ✗ | ✗ | Papier führt |
-| Einzelnes Tablet defekt | ✓ (anderes Gerät) | ✓ | Gerät wechseln, kein Fallback |
-| Stromausfall (mit Notstrom) | ✓ solange Internet steht | ✓ | Beobachten, Lageblatt drucken |
+> **Zuerst klären: wo läuft euer Board?** Die Tabelle unterscheidet zwei Aufstellungen, und
+> die Antworten sind teils entgegengesetzt. **Eigener Server im Magazin** ist der Weg, den
+> `DEPLOYMENT.md` beschreibt und für den die Releases gebaut werden. **Gehostet** (Railway
+> o. ä.) ist die Aufstellung, mit der Oberwil angefangen hat.
+
+### A) Eigener Server im Magazin (docker compose)
+
+| Ausfall | Board | Karte | Thermodrucker (Pi, lokal) | Massnahme |
+|---|---|---|---|---|
+| Internet im Magazin | ✓ (alles läuft lokal) | ✓ **wenn Offline-Kacheln installiert** | ✓ | Weiterarbeiten. Divera, Traccar und Geokodierung fallen aus – Adressen von Hand setzen |
+| Server (Box) defekt | ✗ | ✗ | ✗ | **Papier führt.** Das ist der eigentliche Single Point of Failure dieser Aufstellung |
+| Einzelnes Gerät defekt | ✓ (anderes Gerät) | ✓ | ✓ | Gerät wechseln, kein Fallback |
+| Stromausfall (mit Notstrom) | ✓ solange die Box läuft | ✓ | ✓ | Beobachten, Lageblatt drucken. **USV für die Box?** siehe Vorbereitung |
+| Stromausfall (ohne Notstrom) | ✗ | ✗ | ✗ | Papier führt |
+
+### B) Gehostetes Backend (Railway o. ä.)
+
+| Ausfall | Board | Karte | Thermodrucker (Pi, lokal) | Massnahme |
+|---|---|---|---|---|
+| Internet im Magazin | ✗ (Backend ist ausser Haus) | ✗ | ✗ (erreicht Backend nicht) | Papier führt – darum **vorher** drucken/downloaden |
+| Störung beim Anbieter | ✗ | ✗ | ✗ | Papier führt |
+| Einzelnes Gerät defekt | ✓ (anderes Gerät) | ✓ | ✓ | Gerät wechseln, kein Fallback |
+| Stromausfall (mit Notstrom) | ✓ solange Internet steht | ✓ | ✓ | Beobachten, Lageblatt drucken |
+
+Der Unterschied in der ersten Zeile ist der ganze Punkt: bei A) ist ein Internetausfall ein
+Ärgernis, bei B) ist er ein Totalausfall des Boards.
 
 Der Wert des automatischen Druckens/Downloads liegt darin, dass **im Moment des
 Ausfalls** ein höchstens 15 Minuten alter Stand auf Papier bzw. lokal auf dem
@@ -66,7 +92,7 @@ Gerät liegt.
 ## Failover-Übung (halbjährlich, ~15 Minuten)
 
 1. Übungsereignis mit 5–10 Einsätzen laufen lassen (Übungssteuerung → Automatik)
-2. Ohne Vorwarnung: WLAN am Führungs-Tablet trennen («Ausfall»)
+2. Ohne Vorwarnung: WLAN am Führungs-Gerät trennen («Ausfall»)
 3. Stoppuhr: Team führt gemäss dieser SOP auf Papier weiter – **Ziel < 2 Minuten**
    bis zur ersten auf Papier erfassten Änderung
 4. 5 Minuten auf Papier arbeiten (mind. 1 neue Meldung, 1 Statuswechsel, 1 Auftrag)
