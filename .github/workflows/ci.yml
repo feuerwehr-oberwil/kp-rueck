@@ -15,7 +15,7 @@ name: CI
 #                      the blocking subset (was 711 in 79 before app/crud, app/background,
 #                      websocket_manager.py, models.py and traccar.py were cleared and moved
 #                      into the blocking step). Still a project, not a cleanup:
-#                      docs/plans/14-typing-debt.md. Progress = moving one more package in, at zero.
+#                      progress = moving one more package into the blocking step, at zero.
 #   codecov upload   – never worth failing a build over.
 #
 # bandit used to be here too, at "52 findings". That number was misleading: with the `-ll -ii`
@@ -136,7 +136,7 @@ jobs:
 
       # Blocking for the modules that are clean, advisory for the rest. Splitting it this way
       # is the point: one gate over the whole tree could only ever be advisory (526 findings
-      # left, see docs/plans/14-typing-debt.md), and an advisory gate is one nobody reads.
+      # left), and an advisory gate is one nobody reads.
       # These paths are at zero and must stay there.
       - name: Type check with mypy (blocking subset)
         run: >-
@@ -435,7 +435,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
   # ============================================
-  # E2E — the @smoke subset only (docs/plans/15-e2e-in-ci.md, phases 2 and 3).
+  # E2E — the @smoke subset only.
   #
   # The full suite is ~300 specs at ~25 minutes and flaky enough that a red result had stopped
   # carrying information, so it stayed switched off entirely and CI covered no click-through at

@@ -18,7 +18,7 @@ import { Timer } from 'lucide-react';
 //
 // The backend still understands `training_autogen_mode=divera` (alarms into the
 // intake pool instead of onto the board), but the UI no longer exposes it —
-// generation always runs in `board` mode. See docs/plans/16-training-alarm-intake.md.
+// generation always runs in `board` mode.
 export function TrainingAutogenControls() {
   const t = useTranslations('training.autogen');
   const { selectedEvent } = useEvent();

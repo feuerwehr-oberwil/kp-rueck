@@ -1,6 +1,6 @@
 """Tests for Auftrag (incident group) CRUD operations.
 
-Covers plan 12 (docs/plans/12-auftrag-multi-stop-routing.md):
+Covers:
 - create/list/update/soft-delete a group; list excludes soft-deleted
 - stop_ids returned in group_position order; progress counts done stops
 - soft delete nulls group_id on stops (incidents survive)

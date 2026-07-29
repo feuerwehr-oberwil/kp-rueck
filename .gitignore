@@ -138,3 +138,7 @@ frontend/public/help/images/
 # with `uv pip install`, not from a lock. `uv run` still drops a lock here — a byproduct, not
 # a pinned input. The backend's uv.lock IS committed; this one deliberately is not.
 tools/print-agent/uv.lock
+
+# Internal working documents: feature/hardening plans stay local (docs/README.md
+# "Not in this repository"). They are point-in-time snapshots and go stale fast.
+docs/plans/

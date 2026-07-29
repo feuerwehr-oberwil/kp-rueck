@@ -13,7 +13,7 @@ name: E2E (full suite, nightly)
 # delete this workflow, not to keep it as decoration.
 #
 # The path to fewer of them: fix or quarantine a flaky spec the same day, and move specs into
-# @smoke as they earn it. See docs/plans/15-e2e-in-ci.md, phase 4.
+# @smoke as they earn it.
 
 on:
   schedule:
@@ -166,7 +166,7 @@ jobs:
               '',
               'This does not block merges: only the eight `@smoke` specs run per pull request.',
               'Fix the spec or quarantine it — a flaky nightly left red is how the whole suite',
-              'ended up switched off the first time. See `docs/plans/15-e2e-in-ci.md`.',
+              'ended up switched off the first time.',
             ].join('\n')
 
             const { data: open } = await github.rest.issues.listForRepo({

@@ -1,9 +1,8 @@
 """Auftrag (incident group) CRUD operations.
 
-An Auftrag is a lightweight ordered container over real incidents (see
-``docs/plans/12-auftrag-multi-stop-routing.md``). Stops are first-class
-``Incident`` rows carrying ``group_id`` / ``group_position``; the group holds
-only route metadata. Progress is derived, never stored.
+An Auftrag is a lightweight ordered container over real incidents. Stops are
+first-class ``Incident`` rows carrying ``group_id`` / ``group_position``; the
+group holds only route metadata. Progress is derived, never stored.
 """
 
 import uuid

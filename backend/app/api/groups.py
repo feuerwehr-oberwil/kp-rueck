@@ -1,8 +1,7 @@
 """Auftrag (incident group) API endpoints.
 
-An Auftrag is an ordered, lightweight container over real incidents (see
-``docs/plans/12-auftrag-multi-stop-routing.md``). Mutations broadcast a
-``group_update`` WS event; membership changes additionally emit an
+An Auftrag is an ordered, lightweight container over real incidents. Mutations
+broadcast a ``group_update`` WS event; membership changes additionally emit an
 ``incident_update`` refresh so boards re-fetch the affected stops.
 """
 

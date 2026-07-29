@@ -28,18 +28,12 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 | Doc | Status | What it is |
 | --- | --- | --- |
 
-## Planning ([`plans/`](plans/))
-
-| Doc | Status | What it is |
-| --- | --- | --- |
-| [`plans/README.md`](plans/README.md) | 🔵 | Post-launch feature and hardening plans, priority-ordered. The pre-publication reliability work is shipped (see the CHANGELOG); remaining plans include emergency plans, Reko material requests, material thresholds, Auftrag routing, and i18n. |
-
 ## Not in this repository
 
-Internal working documents – point-in-time audits, design critiques, feature planning, QA
-protocols run against a live instance – stay local and are not published. They are snapshots of
-a moment, they go stale fast, and a half-finished register of "things we were worried about in
-March" is a worse answer to "is this software any good?" than the
+Internal working documents – point-in-time audits, design critiques, **feature and hardening
+plans**, QA protocols run against a live instance – stay local and are not published. They are
+snapshots of a moment, they go stale fast, and a half-finished register of "things we were
+worried about in March" is a worse answer to "is this software any good?" than the
 [CHANGELOG](../CHANGELOG.md), the [known limitations](../README.md#known-limitations), and the
 [open issues](https://github.com/feuerwehr-oberwil/kp-rueck/issues) – all of which are current.
 
