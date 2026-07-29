@@ -1,6 +1,6 @@
 """Application configuration using pydantic-settings."""
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .telemetry.dsn import UPSTREAM_DSN
@@ -232,14 +232,28 @@ class Settings(BaseSettings):
     # KP_TELEMETRY_ENABLED=0 (or a blank DSN) compiles the forwarder out of this process, so
     # a station whose IT policy forbids outbound traffic can enforce that in the compose file
     # rather than trusting that nobody ticks a box. Consent is the SECOND gate, not the first.
-    telemetry_enabled: bool = True
+    # These three are the ONLY settings read under a KP_ prefix. Settings has no env_prefix, so
+    # every other field binds to its bare upper-cased name; without the explicit alias below,
+    # KP_TELEMETRY_ENABLED would bind to nothing and the deployer veto documented in PRIVACY.md
+    # would silently do nothing. The bare names stay accepted so existing .env files keep working.
+    # test_telemetry_env_veto.py pins both spellings — do not collapse these to plain fields.
+    telemetry_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("KP_TELEMETRY_ENABLED", "TELEMETRY_ENABLED"),
+    )
     # Points at our ingest by default (a public, write-only key — read app/telemetry/dsn.py
     # before assuming that's a mistake). Override to aim the same machinery at your own
     # GlitchTip and upstream never hears from you.
-    telemetry_dsn: str = UPSTREAM_DSN
+    telemetry_dsn: str = Field(
+        default=UPSTREAM_DSN,
+        validation_alias=AliasChoices("KP_TELEMETRY_DSN", "TELEMETRY_DSN"),
+    )
     # Minutes between flush attempts. Nothing waits on this; it exists so an offline station
     # drains its queue eventually, not so a crash reaches us quickly.
-    telemetry_flush_minutes: int = 5
+    telemetry_flush_minutes: int = Field(
+        default=5,
+        validation_alias=AliasChoices("KP_TELEMETRY_FLUSH_MINUTES", "TELEMETRY_FLUSH_MINUTES"),
+    )
 
     @field_validator("telemetry_enabled", mode="before")
     @classmethod
