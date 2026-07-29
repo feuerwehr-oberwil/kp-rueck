@@ -8,6 +8,7 @@ import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { usePersonnel, type Person, type PersonStatus } from "./personnel-context"
+import { toIncidentStatus, toOperationStatus, type OperationStatus } from "@/lib/incident-status"
 import { useMaterials, type Material } from "./materials-context"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -33,7 +34,9 @@ export type { Material } from "./materials-context"
 export type PersonRole = string
 
 // Types
-export type OperationStatus = "incoming" | "ready" | "rekoDone" | "enroute" | "active" | "returning" | "complete"
+// Defined in lib/incident-status.ts, next to the map that bridges it to the API's German
+// identifiers. Re-exported here so existing imports keep working.
+export type { OperationStatus } from "@/lib/incident-status"
 export type VehicleType = string | null
 
 export interface RekoSummary {
@@ -357,15 +360,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // Helper to convert Incident to Operation
   const apiIncidentToOperation = (incident: ApiIncident): Operation => {
-    const statusMap: Record<string, OperationStatus> = {
-      "eingegangen": "incoming",
-      "reko": "ready",
-      "reko_done": "rekoDone",
-      "disponiert": "enroute",
-      "einsatz": "active",
-      "einsatz_beendet": "returning",
-      "abschluss": "complete",
-    }
 
     return {
       id: incident.id,
@@ -377,7 +371,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       dispatchTime: new Date(incident.created_at),
       crew: [],
       priority: incident.priority as "high" | "medium" | "low",
-      status: statusMap[incident.status] || "incoming",
+      status: toOperationStatus(incident.status),
       coordinates: apiCoordinatesToTuple(incident.location_lat, incident.location_lng),
       materials: [],
       notes: incident.description || "",
@@ -1216,21 +1210,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     if (isLoaded) {
       const performUpdate = async (batchedUpdates: Partial<Operation>) => {
-        const statusToBackend: Record<OperationStatus, string> = {
-          "incoming": "eingegangen",
-          "ready": "reko",
-          "rekoDone": "reko_done",
-          "enroute": "disponiert",
-          "active": "einsatz",
-          "returning": "einsatz_beendet",
-          "complete": "abschluss",
-        }
-
         const apiUpdates: Partial<ApiIncidentUpdate> = {}
         if (batchedUpdates.location !== undefined) apiUpdates.location_address = batchedUpdates.location
         if (batchedUpdates.incidentType !== undefined) apiUpdates.type = batchedUpdates.incidentType as ApiIncidentUpdate['type']
         if (batchedUpdates.priority !== undefined) apiUpdates.priority = batchedUpdates.priority
-        if (batchedUpdates.status !== undefined) apiUpdates.status = statusToBackend[batchedUpdates.status] as ApiIncidentUpdate['status']
+        if (batchedUpdates.status !== undefined) apiUpdates.status = toIncidentStatus(batchedUpdates.status)
         if (batchedUpdates.coordinates !== undefined) {
           Object.assign(apiUpdates, coordinatesToApiFields(batchedUpdates.coordinates))
         }
@@ -2007,16 +1991,6 @@ export function useIncidents() {
     throw new Error("useIncidents must be used within an OperationsProvider")
   }
 
-  const operationToIncidentStatus: Record<OperationStatus, string> = {
-    "incoming": "eingegangen",
-    "ready": "reko",
-    "rekoDone": "reko_done",
-    "enroute": "disponiert",
-    "active": "einsatz",
-    "returning": "einsatz_beendet",
-    "complete": "abschluss",
-  }
-
   const incidents = context.operations.map((op) => ({
     id: op.id,
     event_id: selectedEvent?.id || "",
@@ -2027,7 +2001,7 @@ export function useIncidents() {
     location_display: op.locationDisplay ?? null,
     location_lat: op.coordinates?.[0] ?? null,
     location_lng: op.coordinates?.[1] ?? null,
-    status: operationToIncidentStatus[op.status] as ApiIncident['status'],
+    status: toIncidentStatus(op.status),
     description: op.notes,
     nachbarhilfe: op.nachbarhilfe || false,
     am_warten: op.amWarten || false,
