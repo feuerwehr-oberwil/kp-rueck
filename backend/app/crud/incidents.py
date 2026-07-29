@@ -443,6 +443,7 @@ async def update_incident(
     await events_crud.update_event_activity(db, incident.event_id)
 
     # Auto-print assignment slip when status changes to "disponiert" or "einsatz"
+    queued_print = None
     if incident.status != old_status and incident.status in ("disponiert", "einsatz"):
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
@@ -452,13 +453,20 @@ async def update_incident(
 
         if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
             try:
-                await print_crud.queue_assignment_print(db, incident_id)
+                queued_print = await print_crud.queue_assignment_print(db, incident_id)
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
     await db.commit()
     await db.refresh(incident)
+
+    # The slip only flushes above, so the wake-up belongs after this commit — this is the
+    # auto-print on dispatch, the one print whose latency anybody actually feels.
+    if queued_print is not None:
+        from ..services import print_signal
+
+        print_signal.notify_job_queued()
 
     return incident
 
@@ -542,6 +550,7 @@ async def update_incident_status(
     await events_crud.update_event_activity(db, incident.event_id)
 
     # Auto-print assignment slip when status changes to "disponiert" or "einsatz"
+    queued_print = None
     if new_status in ("disponiert", "einsatz"):
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
@@ -551,13 +560,18 @@ async def update_incident_status(
 
         if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
             try:
-                await print_crud.queue_assignment_print(db, incident_id)
+                queued_print = await print_crud.queue_assignment_print(db, incident_id)
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
     await db.commit()
     await db.refresh(incident)
+
+    if queued_print is not None:
+        from ..services import print_signal
+
+        print_signal.notify_job_queued()
 
     return incident
 

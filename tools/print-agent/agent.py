@@ -7,7 +7,7 @@ both wire protocols and drives both kinds of printer. Neither backend changed; n
 protocol changed.
 
     protocol: kp-front  → long-poll claim, opaque PDF     → output: cups   (A4 laser)
-    protocol: kp-rueck  → adaptive poll, structured JSON  → output: escpos (80 mm thermal)
+    protocol: kp-rueck  → long-poll pending, structured JSON → output: escpos (80 mm thermal)
 
 Pull-based, like both agents before it: only outbound HTTPS, no inbound ports, no exposure of
 CUPS or the printer to anything but this machine. Each backend gets its own worker thread, so
@@ -56,6 +56,7 @@ from protocols.front import (  # noqa: E402
 )
 from protocols.rueck import (  # noqa: E402
     DEFAULT_ACTIVE_DURATION_SEC,
+    DEFAULT_LONG_POLL_SEC,
     DEFAULT_POLL_ACTIVE_SEC,
     DEFAULT_POLL_IDLE_SEC,
     RueckProtocol,
@@ -147,6 +148,7 @@ def _build(entry: dict) -> Backend:
             poll_idle_sec=tuning("poll_idle_sec", DEFAULT_POLL_IDLE_SEC),
             poll_active_sec=tuning("poll_active_sec", DEFAULT_POLL_ACTIVE_SEC),
             active_duration_sec=tuning("active_duration_sec", DEFAULT_ACTIVE_DURATION_SEC),
+            long_poll_sec=tuning("long_poll_sec", DEFAULT_LONG_POLL_SEC),
         )
     else:
         raise SystemExit(f"config: backend '{name}' has unknown protocol '{proto_name}' (kp-front | kp-rueck)")
@@ -212,6 +214,7 @@ def _backend_from_env() -> list[dict]:
             "poll_idle_sec": _env("POLL_INTERVAL_IDLE"),
             "poll_active_sec": _env("POLL_INTERVAL_ACTIVE"),
             "active_duration_sec": _env("ACTIVE_DURATION"),
+            "long_poll_sec": _env("LONG_POLL_SEC"),
         })
 
     return entries

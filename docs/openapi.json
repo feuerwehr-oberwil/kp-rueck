@@ -6942,7 +6942,7 @@
           "print"
         ],
         "summary": "Get Pending Jobs",
-        "description": "Get pending print jobs for the print agent.\n\nAuthenticated via the shared agent token (X-Agent-Token) when\nPRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).",
+        "description": "Get pending print jobs for the print agent.\n\nAuthenticated via the shared agent token (X-Agent-Token) when\nPRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).\n\nWith `wait` set the request LONG-POLLS: the response is held open until a job is queued\nor `wait` seconds pass, so a slip reaches the printer in milliseconds instead of on the\nagent's next poll. `wait=0` (the default) keeps the original immediate behaviour, which\nis what makes this safe to ship ahead of the agent — an old agent never sends the\nparameter and sees no change at all.",
         "operationId": "get_pending_jobs_api_print_jobs_pending__get",
         "parameters": [
           {
@@ -6955,6 +6955,18 @@
               "minimum": 1,
               "default": 10,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 30.0,
+              "minimum": 0.0,
+              "default": 0.0,
+              "title": "Wait"
             }
           },
           {

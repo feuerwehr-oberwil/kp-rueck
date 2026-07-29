@@ -9,8 +9,11 @@ NOTE: These endpoints are intended for local installations only.
 The print agent runs on the command post computer and polls for jobs.
 """
 
+import asyncio
+import contextlib
 import logging
 import secrets
+import time
 import uuid
 from datetime import UTC, datetime
 
@@ -25,6 +28,7 @@ from ..config import settings as app_settings
 from ..crud.print_jobs import build_assignment_payload, requeue_lost_jobs
 from ..database import get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
+from ..services import print_signal
 from ..services import settings as settings_service
 
 logger = logging.getLogger(__name__)
@@ -51,8 +55,18 @@ async def require_print_agent(x_agent_token: str = Header(default="")) -> None:
 
 
 # How long after the agent's last contact we still consider it "online".
-# The agent polls for pending jobs at least every 60s (idle), so 90s gives margin.
+# The agent touches the backend at least every 25s (the long-poll hang) and, on a backend
+# too old to long-poll, every 10s (the idle poll). 90s gives margin over both.
 AGENT_ONLINE_THRESHOLD_SECONDS = 90
+
+# Long-poll bounds for /jobs/pending/. The hang has to stay comfortably under the idle
+# timeout of any proxy in front of the backend (Caddy, Railway) or the agent would see a
+# stream of dropped connections instead of clean empty responses.
+LONG_POLL_MAX_SECONDS = 30.0
+# While parked, re-query on this timer as well as on the signal. The signal alone would be
+# enough for today's single worker; this is what keeps the endpoint correct if the backend
+# is ever run with several, at the cost of one indexed query per agent per interval.
+LONG_POLL_RECHECK_SECONDS = 5.0
 
 # In-memory heartbeat for the print agent. This is a single-instance local
 # deployment (the agent polls a backend on the same LAN), so module-level state
@@ -380,6 +394,8 @@ async def queue_assignment_print(
     db.add(job)
     await db.commit()
     await db.refresh(job)
+    # After the commit, so an agent woken by this immediately sees the row.
+    print_signal.notify_job_queued()
 
     logger.info(f"Queued assignment print job {job.id} for incident {incident_id}")
     return job
@@ -417,6 +433,7 @@ async def queue_board_print(
     db.add(job)
     await db.commit()
     await db.refresh(job)
+    print_signal.notify_job_queued()
 
     logger.info(f"Queued board print job {job.id} for event {request.event_id}")
     return job
@@ -446,6 +463,7 @@ async def queue_test_print(
     db.add(job)
     await db.commit()
     await db.refresh(job)
+    print_signal.notify_job_queued()
 
     logger.info(f"Queued test print job {job.id} by user {current_user.username}")
     return job
@@ -479,6 +497,7 @@ async def queue_qr_code_print(
     db.add(job)
     await db.commit()
     await db.refresh(job)
+    print_signal.notify_job_queued()
 
     logger.info(f"Queued QR-code print job {job.id} by user {current_user.username}")
     return job
@@ -490,22 +509,47 @@ async def queue_qr_code_print(
 async def get_pending_jobs(
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=10, ge=1, le=50),
+    wait: float = Query(default=0.0, ge=0.0, le=LONG_POLL_MAX_SECONDS),
 ):
     """
     Get pending print jobs for the print agent.
 
     Authenticated via the shared agent token (X-Agent-Token) when
     PRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).
+
+    With `wait` set the request LONG-POLLS: the response is held open until a job is queued
+    or `wait` seconds pass, so a slip reaches the printer in milliseconds instead of on the
+    agent's next poll. `wait=0` (the default) keeps the original immediate behaviour, which
+    is what makes this safe to ship ahead of the agent — an old agent never sends the
+    parameter and sees no change at all.
     """
     _touch_agent_heartbeat()
-    # Reaper: bring back jobs stuck in 'printing' (agent died mid-print) or
-    # 'failed' with attempts left — otherwise those slips vanish silently.
-    await requeue_lost_jobs(db)
-    result = await db.execute(
-        select(PrintJob).where(PrintJob.status == "pending").order_by(PrintJob.created_at).limit(limit)
-    )
-    jobs = result.scalars().all()
-    return jobs
+    deadline = time.monotonic() + wait
+
+    while True:
+        # Arm before looking, never after: see services/print_signal.
+        print_signal.arm()
+        # Reaper: bring back jobs stuck in 'printing' (agent died mid-print) or
+        # 'failed' with attempts left — otherwise those slips vanish silently. Running it
+        # on every pass through the wait, not just at entry, is a bonus of long-polling:
+        # recovery used to be bounded by the idle poll interval, and is now a few seconds.
+        await requeue_lost_jobs(db)
+        result = await db.execute(
+            select(PrintJob).where(PrintJob.status == "pending").order_by(PrintJob.created_at).limit(limit)
+        )
+        jobs = result.scalars().all()
+
+        remaining = deadline - time.monotonic()
+        if jobs or remaining <= 0:
+            return jobs
+
+        # End the read transaction before parking. Without this the session would hold a
+        # pooled connection idle-in-transaction for the whole hang, which is how a long poll
+        # quietly turns into a connection leak under any concurrency.
+        await db.rollback()
+        with contextlib.suppress(TimeoutError):
+            async with asyncio.timeout(min(remaining, LONG_POLL_RECHECK_SECONDS)):
+                await print_signal.wait_for_job()
 
 
 @router.get("/jobs/{job_id}/", response_model=schemas.PrintJobResponse)
