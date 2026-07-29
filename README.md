@@ -118,8 +118,10 @@ commit that has been carrying live operations. Releases exist for *other* statio
 
 Setting up a station for the first time? Follow **[docs/SETUP.md](docs/SETUP.md)**, which walks
 the whole path in order. **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** is the full self-hosting
-reference behind it. **[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed-PaaS route, but
-it is legacy and no longer maintained in step with the compose path.
+reference behind it. Prefer not to look after a machine at all?
+**[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed route — same images, same releases,
+equally supported. The trade is the one you would expect: a box in the Gerätehaus keeps the
+board alive through an internet outage, a managed platform keeps it alive without you.
 
 ## Architecture & key decisions
 
@@ -237,7 +239,7 @@ Start with the [documentation index](docs/README.md). Highlights:
 | [docs/SETUP.md](docs/SETUP.md) | **Start here** for a new station: the ordered path from an empty host to a board you can run an event on |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and deployment diagrams |
 | [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) | Provider-neutral alarm webhook and integration registry |
-| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide (legacy; self-hosting is the reference path) |
+| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide — the managed path, equally supported |
 | [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) | Thermal printer and print agent |
 | [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md) | Offline map tiles setup |
 | [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md) | Outage / paper-fallback standard operating procedure |

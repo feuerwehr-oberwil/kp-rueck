@@ -1,15 +1,24 @@
 # Railway Deployment Guide
 
 > [!IMPORTANT]
-> **This is the legacy path.** The reference deployment is the docker-compose stack in
-> **[`DEPLOYMENT.md`](DEPLOYMENT.md)** — that is what published releases are built and tested
-> for, and what a new station should follow. Start at **[`SETUP.md`](SETUP.md)**.
+> **Both deployment paths are supported.** Railway (this guide) and the docker-compose stack
+> in **[`DEPLOYMENT.md`](DEPLOYMENT.md)** run the same images from the same releases — pick by
+> who runs the server, not by which is "real". Railway means somebody else keeps the machine
+> alive; compose on a box in the Gerätehaus means the board survives an internet outage. A
+> station that does not want a server to look after should take Railway. Either way, start at
+> **[`SETUP.md`](SETUP.md)**.
 >
-> This document is kept because Feuerwehr Oberwil's own deployment grew up on Railway and
-> some of it is still useful for other managed-PaaS providers. It is **not** maintained in
-> step with the compose path, and parts of it are known to be out of date — notably
-> `EDITOR_PASSWORD` below, which production ignores (the shared editor account is refused in
-> production entirely; see `backend/app/seed.py`).
+> Known stale spot below: `EDITOR_PASSWORD`, which production ignores — the shared editor
+> account is refused in production entirely (see `backend/app/seed.py`).
+
+> [!WARNING]
+> **Do not set `NEXT_PUBLIC_API_URL` on the frontend service.** It is inlined at *build* time
+> and makes the browser call the backend origin directly, which turns the session cookie into
+> a third-party cookie — Safari blocks those, so **mobile logins fail with "Sitzung
+> abgelaufen"** while desktop keeps working. Set the server-side **`API_URL`** instead; the
+> browser then talks to `/backend-api` on its own origin and Next forwards the request, so the
+> cookie stays first-party. This is not theoretical: it is exactly how the public demo broke,
+> and deleting the variable is what fixed it.
 
 Deploy KP Rück to [Railway](https://railway.app/) with separate services for database, backend, and frontend. This guide also applies broadly to other Docker-compatible PaaS providers.
 
@@ -83,9 +92,11 @@ Railway will deploy three separate services:
 
 3. Add environment variables:
    ```
-   NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app
+   API_URL=https://your-backend-url.railway.app
    PORT=3000
    ```
+   `API_URL` is read at runtime by the server-side proxy. Do **not** add
+   `NEXT_PUBLIC_API_URL` — see the warning at the top of this document.
 
 4. Click "Deploy"
 
@@ -152,8 +163,12 @@ openssl rand -hex 32
 
 | Variable | Value | Description |
 |----------|-------|-------------|
-| `NEXT_PUBLIC_API_URL` | `https://your-backend.railway.app` | Backend API URL |
+| `API_URL` | `https://your-backend.railway.app` | Backend URL, read at **runtime** by the `/backend-api` proxy route. |
 | `PORT` | `3000` | Port (Railway sets automatically) |
+
+> `NEXT_PUBLIC_API_URL` must stay **unset**. It is a build-time inline that sends the browser
+> straight at the backend origin and breaks mobile logins (third-party cookie). The published
+> frontend image is deliberately built without it.
 
 ## Post-Deployment
 
@@ -211,7 +226,7 @@ Each service has a `railway.json` file:
 
 Railway automatically handles:
 - **Database → Backend**: Use `${{Postgres.DATABASE_URL}}` reference
-- **Backend → Frontend**: Set `NEXT_PUBLIC_API_URL` to backend URL
+- **Backend → Frontend**: set `API_URL` on the frontend service to the backend URL
 - **Service Discovery**: Internal networking between services
 
 ## Custom Domains
@@ -291,7 +306,7 @@ After reset, the backend's `start.sh` script will automatically:
 
 ### Frontend can't reach backend
 
-1. Verify `NEXT_PUBLIC_API_URL` is set
+1. Verify `API_URL` is set on the frontend service (and that `NEXT_PUBLIC_API_URL` is **not**)
 2. Check backend CORS settings
 3. Ensure backend service is deployed and healthy
 
@@ -369,7 +384,7 @@ See `docs/PHOTO_STORAGE.md` for comprehensive photo storage documentation, inclu
 - [ ] Enable Railway's built-in DDoS protection
 - [ ] Set up custom domain with SSL
 - [ ] Configure backend environment variables: `DATABASE_URL`, `CORS_ORIGINS`, `PHOTOS_DIR`, `SECRET_KEY`, `AUTH_SECRET_KEY`, `ADMIN_SEED_PASSWORD`, `EDITOR_PASSWORD`
-- [ ] Configure frontend environment variables: `NEXT_PUBLIC_API_URL` and, if needed, `NEXT_PUBLIC_WS_URL`
+- [ ] Configure frontend environment variables: `API_URL` (and leave `NEXT_PUBLIC_API_URL` unset)
 - [ ] **Attach volume for photo storage (`/mnt/data`)**
 - [ ] **Set `PHOTOS_DIR=/mnt/data/photos` environment variable**
 - [ ] Verify backend startup logs show `Photo storage directory: /mnt/data/photos` and `Photos directory ready: /mnt/data/photos`
