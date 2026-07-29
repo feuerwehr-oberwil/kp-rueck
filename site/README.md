@@ -57,3 +57,18 @@ unterscheidet sich: Inhalt, Bilder und die gegenseitige Verlinkung
 `site/` ist direkt ausrollbar (statische Dateien, keine Server-Logik). `dist/index.html` aus
 `build.mjs` ist dieselbe Seite als eine einzige Datei mit eingebetteten Schriften und Bildern –
 zum Weitergeben oder für einen Host, der nur eine Datei annimmt.
+
+### README-Bilder
+
+Shots mit `docs:` schreiben denselben Seitenzustand zusätzlich als PNG nach `docs/images/` —
+das ist der Grund, warum die README-Bilder früher ein halbes Jahr älter waren als die
+Landingpage. Beide Ausgaben entstehen aus einer Aufnahme, wollen aber nicht dieselbe
+Auflösung: die Landingpage bindet die Bilder inline ein (1x, Seitengewicht zählt), die
+README-Bilder werden auf GitHub vergrössert betrachtet.
+
+```bash
+node site/capture.mjs                    # Landingpage-JPEGs (1x) + README-PNGs
+node site/capture.mjs --scale 2 --docs-only --only board,karte
+```
+
+`--docs-only` lässt die JPEGs unangetastet. Aktuell liegen die README-Bilder bei 1500 px Breite.
