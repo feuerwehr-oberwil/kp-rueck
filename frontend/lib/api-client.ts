@@ -4,7 +4,7 @@
  */
 
 import { getApiUrl } from './env'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { translateOutsideReact } from './i18n-messages'
 import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
@@ -207,9 +207,7 @@ class ApiClient {
           // above produces a single, specific message instead
           // Don't show toast for 409 Conflict - let the caller handle it with context-specific message
           if (!skipToast && response.status !== 401 && !isConflict) {
-            toast({
-              variant: "destructive",
-              title: translateOutsideReact('errors.api.title'),
+            toast.error(translateOutsideReact('errors.api.title'), {
               description: errorMessage,
             })
           }
@@ -238,9 +236,7 @@ class ApiClient {
 
           // Final network error
           if (!skipToast) {
-            toast({
-              variant: "destructive",
-              title: translateOutsideReact('errors.api.connectionTitle'),
+            toast.error(translateOutsideReact('errors.api.connectionTitle'), {
               description: translateOutsideReact('errors.api.connectionDescription'),
             })
           }

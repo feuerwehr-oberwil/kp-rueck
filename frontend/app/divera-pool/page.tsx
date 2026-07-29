@@ -31,7 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Link2, RefreshCw, Search, Check, Info, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
@@ -97,12 +97,12 @@ export default function DiveraPoolPage() {
     wsClient.connect();
     const unsubscribe = wsClient.on('divera_emergency_received', (data: any) => {
       const emergency = data.emergency as ApiDiveraEmergency;
-      toast({
-        title: emergency.is_training
+      // Neutral, not a success: an incoming alarm is news, not something that went well.
+      toast(emergency.is_training
           ? t('newAlarmTraining')
           : emergency.source && emergency.source !== 'divera'
             ? t('newAlarmGeneric')
-            : t('newEmergency'),
+            : t('newEmergency'), {
         description: data.auto_attached
           ? t('autoAttached', { title: emergency.title })
           : emergency.title,
@@ -167,17 +167,14 @@ export default function DiveraPoolPage() {
       const emergencyIds = Array.from(selectedEmergencies);
       if (emergencyIds.length === 1) {
         await apiClient.attachEmergencyToEvent(emergencyIds[0], selectedEventId);
-        toast({
-          title: t('attachedSuccess'),
+        toast.success(t('attachedSuccess'), {
           description: t('attachedOne'),
         });
       } else {
         const { created, errors } = await apiClient.bulkAttachEmergencies(emergencyIds, selectedEventId);
         if (errors.length > 0) {
           // Partial success — tell the operator exactly how many actually attached.
-          toast({
-            variant: 'destructive',
-            title: t('partiallyAttached'),
+          toast.error(t('partiallyAttached'), {
             description: t('partiallyAttachedDescription', {
               created: created.length,
               total: emergencyIds.length,
@@ -185,8 +182,7 @@ export default function DiveraPoolPage() {
             }),
           });
         } else {
-          toast({
-            title: t('attachedSuccess'),
+          toast.success(t('attachedSuccess'), {
             description: t('attachedMany', { count: created.length }),
           });
         }
@@ -197,9 +193,7 @@ export default function DiveraPoolPage() {
       await loadData();
     } catch (error) {
       console.error('Failed to attach emergencies:', error);
-      toast({
-        variant: 'destructive',
-        title: t('errorTitle'),
+      toast.error(t('errorTitle'), {
         description: t('attachError'),
       });
     } finally {
