@@ -47,19 +47,27 @@ If you put a custom domain on the frontend (`kp.feuerwehr-musterhausen.ch`), the
 longer applies — it is keyed on `.up.railway.app` — and the browser falls back to same-origin,
 where there is no Socket.IO listener. **Result: permanent polling fallback.**
 
-There is no environment variable that fixes this on Railway today. `NEXT_PUBLIC_WS_URL` is read
-by the code, but it is a build-time inline and `frontend/Dockerfile` declares only
-`NEXT_PUBLIC_API_URL` as a build `ARG` — so there is no way to bake it in from Railway's UI
-without adding that ARG to the Dockerfile.
+**The fix is one variable: set `NEXT_PUBLIC_WS_URL` on the frontend service** to the backend's
+WebSocket URL, scheme included:
 
-Your options, honestly:
+```
+NEXT_PUBLIC_WS_URL=wss://kp-api.feuerwehr-musterhausen.ch
+```
 
-- **Keep the frontend on `*.up.railway.app`** and follow the `-api` convention. Custom domain on
-  the backend only, if you want one. This is the path that works with no code changes.
-- **Accept 5-second polling** with a custom frontend domain. The board is correct, just not
-  instant. For a station that mostly watches rather than edits, this is survivable.
-- **Add a `NEXT_PUBLIC_WS_URL` build ARG** to `frontend/Dockerfile` and set it in Railway. Two
-  lines, and a genuinely useful contribution back.
+`frontend/Dockerfile` declares it as a build `ARG`, and Railway passes service variables into
+Dockerfile builds — so it is inlined when the image is built. **Changing it requires a
+redeploy**, not just a restart, because like every `NEXT_PUBLIC_*` value it is baked in at
+build time rather than read at runtime.
+
+> Why this one is safe to bake in when `NEXT_PUBLIC_API_URL` is not: it names only the socket
+> endpoint. HTTP traffic still goes through `/backend-api` on the app's own origin, so session
+> cookies stay first-party and mobile logins keep working. `NEXT_PUBLIC_API_URL` is what moves
+> HTTP off-origin, and that is what breaks them.
+
+Alternatively, **keep the frontend on `*.up.railway.app`** and follow the `-api` convention from
+§1.1 — a custom domain on the *backend* alone changes nothing, since the browser only derives
+the socket host from the frontend's hostname. Put a custom domain on the backend and set
+`NEXT_PUBLIC_WS_URL` to match, and both work together.
 
 ---
 
@@ -125,13 +133,16 @@ Your options, honestly:
 1. **New → GitHub Repo →** `kp-rueck`, Settings → **Root Directory**: `/frontend`.
    [`frontend/railway.json`](../frontend/railway.json) supplies the rest (`node server.js`).
 
-2. **Variables — just one:**
+2. **Variables — one, usually:**
 
    ```
    API_URL=https://<your-backend-domain>
    ```
 
    `API_URL` is read **at runtime** by the server-side `/backend-api` proxy route.
+
+   Add `NEXT_PUBLIC_WS_URL=wss://<your-backend-domain>` **only** if the frontend runs on a
+   custom domain — see §1.2 for why, and note it is inlined at build time.
 
    > [!WARNING]
    > **Do not set `NEXT_PUBLIC_API_URL`.** It is inlined at *build* time and makes the browser
@@ -206,6 +217,7 @@ Optional, per integration: `DIVERA_ACCESS_KEY`, `TRACCAR_*`, `PRINT_AGENT_TOKEN`
 | Variable | Value | Notes |
 |---|---|---|
 | `API_URL` | `https://<backend>` | Read at **runtime** by the `/backend-api` proxy |
+| `NEXT_PUBLIC_WS_URL` | `wss://<backend>` | **Only** with a custom frontend domain (§1.2). Inlined at build time — changing it needs a redeploy |
 | `PORT` | `3000` | Railway sets this automatically |
 
 > `NEXT_PUBLIC_API_URL` must stay **unset** — see the warning in §3.3. The published frontend
@@ -312,9 +324,10 @@ Then redeploy the backend: `start.sh` recreates the tables via Alembic and re-se
 ## 11. Troubleshooting
 
 **The board only updates every few seconds.**
-The WebSocket is not connecting and it has fallen back to polling. Check the backend's public
-domain against §1.1 — it must be the frontend's first hostname label plus `-api`. On a custom
-frontend domain, see §1.2.
+The WebSocket is not connecting and it has fallen back to polling. On `*.up.railway.app`, check
+the backend's public domain against §1.1 — it must be the frontend's first hostname label plus
+`-api`. On a custom frontend domain, set `NEXT_PUBLIC_WS_URL` (§1.2) and **redeploy**, since it
+is baked in at build time.
 
 **Mobile login fails with "Sitzung abgelaufen", desktop works.**
 `NEXT_PUBLIC_API_URL` is set on the frontend service. Delete it and redeploy — it must be

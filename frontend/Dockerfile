@@ -32,9 +32,23 @@ COPY . .
 # Disable telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Next.js inlines NEXT_PUBLIC_* at build time — pass as build args
+# Next.js inlines NEXT_PUBLIC_* at build time — pass as build args.
+#
+# Both are OPTIONAL and the published image is built with NEITHER set: baking a URL in would
+# tie the image to one station. Leave them unset and the browser uses its own origin
+# (/backend-api for HTTP, forwarded to the runtime API_URL) — see frontend/lib/env.ts.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+# Only needed where the socket cannot be reached on the app's own origin: a platform with no
+# shared reverse proxy, i.e. Railway behind a custom domain (docs/RAILWAY.md §1.2). WebSockets
+# cannot traverse the /backend-api route, so the browser must address the backend directly.
+#
+# Unlike NEXT_PUBLIC_API_URL this is safe to bake in: it only names the socket endpoint and
+# does not move HTTP traffic off the app's origin, so session cookies stay first-party and
+# mobile logins keep working.
+ARG NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 
 RUN pnpm build
 
