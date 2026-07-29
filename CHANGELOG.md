@@ -65,6 +65,18 @@ by claim against the code, and four things turned out to be promises the code di
   would have stopped at the fail-closed 403 — both are now wired to the dev defaults, and it
   runs with `--extra escpos`, without which it would have authenticated, claimed a job and
   only *then* failed on the lazy import.
+- **The QR slip printed a quarter-width code and a transliterated umlaut.** Found on paper at
+  the station, not in a test. The code was fixed at 4 dots per module, justified in a comment
+  as keeping a long JWT-bearing URL "within the paper width" — measured on the real printer,
+  such a link comes to 49 modules, or 204 of 576 available dots. It was never near the limit,
+  just small. The size is now fitted to the content and clamped at both ends, so a bare URL
+  cannot eat the roll and absurd content still prints something scannable. The target is a
+  judgement made on paper, not the maximum that fits: filling all 576 dots was tried at the
+  station and read as a poster rather than as a slip, so it aims at ~50 mm — the measured
+  check-in link goes from 204 dots (~26 mm) to 408 (~51 mm). The sizing sits in the stdlib `core` rather
+  than in `formatters`, which imports escpos — so CI's bare-Python job can test it. And the
+  slip said "Scannen zum Oeffnen" although the codepage is CP437, which has `Ö`, and the same
+  file already prints `ÖLWEHR` and `EINSÄTZE`.
 - **The dev compose stack could not print either.** Its print-agent had no `AGENT_TOKEN` and
   the backend no `PRINT_AGENT_TOKEN`, which is a 403 by design; and it still passed
   `POLL_INTERVAL`, the dead variable no version of the agent has ever read.

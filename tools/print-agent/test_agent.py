@@ -26,7 +26,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from agent import _build, load_backends  # noqa: E402
-from core import FatalError  # noqa: E402
+from core import (  # noqa: E402
+    QR_BORDER_MODULES,
+    QR_MAX_BOX_DOTS,
+    QR_MIN_BOX_DOTS,
+    QR_TARGET_DOTS,
+    FatalError,
+    qr_box_size,
+)
 
 PDF_BYTES = b"%PDF-1.4 fake"
 
@@ -372,6 +379,39 @@ def test_rueck_still_paces_itself_against_a_backend_that_ignores_wait(no_long_po
     elapsed = time.monotonic() - started
 
     assert elapsed >= 0.5, f"spun instead of pacing itself ({elapsed:.2f}s)"
+
+
+# --- QR sizing --------------------------------------------------------------------------
+#
+# The sizing lives in `core` (stdlib) rather than in `formatters` (which imports escpos), so
+# it can be tested here — this file runs on a bare Python in CI, with no escpos installed.
+
+
+@pytest.mark.parametrize("modules", [25, 41, 53, 65, 77])
+def test_a_qr_code_never_overruns_the_paper(modules):
+    """It would not error — it would come out clipped, on paper, at the station."""
+    dots = (modules + 2 * QR_BORDER_MODULES) * qr_box_size(modules)
+    assert dots <= QR_TARGET_DOTS
+
+
+def test_a_qr_code_uses_the_width_it_has(modules=49):
+    """49 modules is a real check-in link with its token, measured on the station printer.
+
+    Asserted as a ratio against the size that used to be hardcoded, not as a dot count: the
+    target is a judgement about how a slip reads in the hand and was already retuned once
+    after seeing it on paper. A test that pins the exact number would fail on the next such
+    adjustment while saying nothing about whether the code got better.
+    """
+    size = qr_box_size(modules)
+    span = modules + 2 * QR_BORDER_MODULES
+    assert size >= QR_MIN_BOX_DOTS * 1.5, "should be clearly bigger than the old fixed size"
+    assert (size + 1) * span > QR_TARGET_DOTS, "should be the LARGEST size that still fits"
+
+
+def test_qr_sizing_is_clamped_at_both_ends():
+    assert qr_box_size(1) == QR_MAX_BOX_DOTS  # a tiny code must not eat the roll
+    assert qr_box_size(500) == QR_MIN_BOX_DOTS  # absurd content still prints something
+    assert qr_box_size(0) == QR_MIN_BOX_DOTS  # and no division by zero
 
 
 # --- Configuration ----------------------------------------------------------------------

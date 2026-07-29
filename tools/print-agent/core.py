@@ -51,6 +51,36 @@ class Job:
     color: bool = False
 
 
+# ESC/POS QR sizing. python-escpos renders the code as an image of
+# (modules + 2 * border) * box_size dots, with border=1 — so the box size that fits depends
+# on how much content the code carries, which is why a single constant was always going to be
+# wrong for one end or the other. The old fixed 4 was justified in a comment as "keeps the
+# long, JWT-bearing URL within the paper width"; measured on the real printer, such a URL came
+# to 53 modules = 212 dots on 576 dots of paper. It was not near the limit, just small.
+QR_BORDER_MODULES = 1
+# NOT the maximum that fits. 576 dots are printable (TM-T20III, 80 mm at 203 dpi) and filling
+# them was tried at the station: ~64 mm of QR reads as a poster, not as a slip someone hands
+# over. This aims at roughly 50 mm, which keeps a token-bearing link comfortably scannable
+# while leaving the code recognisably a detail on the paper rather than the whole of it.
+# The margin to 576 is deliberate too: the printer profile carries no media width, so nothing
+# downstream would catch an image that is too wide — it would just come out clipped.
+QR_TARGET_DOTS = 416
+QR_MIN_BOX_DOTS = 4
+QR_MAX_BOX_DOTS = 12
+
+
+def qr_box_size(modules: int, target_dots: int = QR_TARGET_DOTS) -> int:
+    """Largest module size whose rendered QR still fits `target_dots` across.
+
+    Clamped at both ends: never below the size that used to be hardcoded, and never so large
+    that a short link turns into a hand-sized square that eats the roll.
+    """
+    if modules <= 0:
+        return QR_MIN_BOX_DOTS
+    fitted = target_dots // (modules + 2 * QR_BORDER_MODULES)
+    return max(QR_MIN_BOX_DOTS, min(QR_MAX_BOX_DOTS, fitted))
+
+
 def request(
     url: str,
     *,
