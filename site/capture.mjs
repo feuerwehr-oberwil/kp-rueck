@@ -3,6 +3,7 @@
  * Screenshots für die Landingpage aufnehmen.
  *
  *   node site/capture.mjs                       # gegen die öffentliche Demo
+ *   node site/capture.mjs --scale 2 --only board,karte   # README-Bilder in 2x nachziehen
  *   node site/capture.mjs --base http://localhost:3000
  *   node site/capture.mjs --only board,karte    # nur einzelne Shots
  *
@@ -22,6 +23,10 @@ const { chromium } = await import('@playwright/test')
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
+// Die README-Bilder entstehen aus denselben Seitenzuständen wie die Landingpage-Shots.
+// Vorher wurden sie von Hand geschossen und waren dadurch ein halbes Jahr alt, während
+// site/shots/ aktuell blieb — ein Shot mit `docs:` schreibt jetzt beides in einem Durchgang.
+const DOCS_IMAGES = join(HERE, '..', 'docs', 'images')
 
 const DEFAULT_BASE = 'https://demo.kp-rueck.ch'
 const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform wie bei KP Front
@@ -36,15 +41,26 @@ const arg = (name) => {
 }
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
+// Nur die README-Bilder neu schreiben und die Landingpage-JPEGs in Ruhe lassen. Nötig,
+// weil beide Ausgaben aus derselben Aufnahme stammen, aber nicht dieselbe Auflösung
+// wollen: die Landingpage bindet inline ein (1x), die README-Bilder werden auf GitHub
+// vergrössert (2x). Also: erst der normale Lauf, dann `--scale 2 --docs-only`.
+const docsOnly = argv.includes('--docs-only')
+// Auflösung der Aufnahme. 1 reicht für die Landingpage (sie bindet die Bilder inline ein,
+// Seitengewicht zählt dort). Die README-Bilder werden auf GitHub auf Retina-Displays
+// betrachtet und wurden früher von Hand mit 2x geschossen — darum `--scale 2` für den
+// docs-Durchgang. Die width/height-Attribute in index.html bleiben davon unberührt.
+const scale = Number(arg('scale') || 1)
 
 /** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.). */
 const shots = [
-  { name: 'board', path: '/', settle: 2500, note: 'Hero: Einsatzboard' },
+  { name: 'board', path: '/', settle: 2500, note: 'Hero: Einsatzboard', docs: 'dashboard' },
   {
     name: 'karte',
     path: '/map',
     settle: 4000,
     note: 'Karte mit Einsätzen und Fahrzeugen',
+    docs: 'map-view',
     // Die Karte startet auf der ganzen Region; für das Bild auf das Einsatzgebiet
     // hineinzoomen (Leaflet-Scrollzoom auf den Cluster).
     prep: async (page) => {
@@ -167,7 +183,7 @@ const run = async () => {
   const browser = await chromium.launch()
   const ctx = await browser.newContext({
     viewport: VIEWPORT,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: scale,
     locale: 'de-CH',
     timezoneId: 'Europe/Zurich',
     colorScheme: 'light',
@@ -213,13 +229,23 @@ const run = async () => {
     // wäre dann wieder verloren.
     await page.addStyleTag({ content: HIDE_CSS })
     await page.waitForTimeout(250)
-    const path = join(SHOTS, `${shot.name}.jpg`)
-    await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
-    console.log(`  ✓ ${shot.name}.jpg  (${shot.path})`)
+    if (!docsOnly) {
+      const path = join(SHOTS, `${shot.name}.jpg`)
+      await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
+      console.log(`  ✓ ${shot.name}.jpg  (${shot.path})`)
+    }
+    // Derselbe Seitenzustand, zweite Ausgabe: das README-Bild. PNG, weil README-Bilder
+    // auf GitHub oft vergrössert betrachtet werden und Text dort verlustfrei bleiben soll.
+    if (shot.docs) {
+      const docsPath = join(DOCS_IMAGES, `${shot.docs}.png`)
+      await page.screenshot({ path: docsPath, type: 'png' })
+      console.log(`  ✓ docs/images/${shot.docs}.png`)
+    }
   }
 
   await browser.close()
   console.log('Fertig. Danach: node site/build.mjs')
+  console.log('README-Bilder (docs/images/) wurden mitgeschrieben, wo ein Shot `docs:` trägt.')
 }
 
 run().catch((err) => {
