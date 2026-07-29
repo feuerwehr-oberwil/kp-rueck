@@ -133,3 +133,8 @@ GPS-TEST-PROTOCOL.md
 # frontend image, showing a UI two design-system refactors out of date. Regenerate when the
 # help page actually renders them, and commit only what it uses.
 frontend/public/help/images/
+
+# The print agent has no required dependencies (the core is stdlib) and its image installs
+# with `uv pip install`, not from a lock. `uv run` still drops a lock here — a byproduct, not
+# a pinned input. The backend's uv.lock IS committed; this one deliberately is not.
+tools/print-agent/uv.lock
