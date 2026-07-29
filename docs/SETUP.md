@@ -31,6 +31,18 @@ Several stations means several deployments, not one instance with a switch.
 
 ## 1. Get it running
 
+**Two ways, pick one.** Everything from §2 onward is the same either way — this is the only
+step that differs.
+
+| | Who it suits |
+| --- | --- |
+| **Docker Compose on your own box** (below) | You have, or want, a machine in the Gerätehaus. The board and the printer keep working through an internet outage, and offline map tiles are available. |
+| **Railway**, a managed platform — [`RAILWAY.md`](RAILWAY.md) | You would rather not look after a server at all. Same images, same releases. No offline tiles, and read its §1 before naming the services. |
+
+If you chose Railway, follow that guide now and rejoin at §2 below.
+
+### Docker Compose
+
 ```bash
 git clone https://github.com/feuerwehr-oberwil/kp-rueck.git
 cd kp-rueck
@@ -117,6 +129,11 @@ Excel path is for the bulk of it.
 
 ## 4. Offline map tiles (do this before you need them)
 
+> **Docker Compose only.** Offline tiles need a reverse proxy routing `/tiles` to the
+> tileserver, which a Railway deployment does not have — there the map uses online OSM and
+> goes blank without an uplink. If that matters to your station, it is the strongest argument
+> for running your own box.
+
 The board's map works from public OSM tiles, but a command post that loses its uplink loses its
 map with it. The bundled tileserver fixes that:
 
@@ -201,7 +218,9 @@ AUDIT_RETENTION_DAYS=3650   # e.g. a ten-year policy
 > one of those, the trail for anything older than 90 days is already gone — worth knowing before
 > someone asks you for it.
 
-Pin your version while you are here. A full version (`KP_RUECK_TAG=X.Y.Z`) follows nothing, the
+Pin your version while you are here — **on Compose**; a Railway deployment builds from a branch
+of your fork instead, so there you pin by choosing what you merge into it. A full version
+(`KP_RUECK_TAG=X.Y.Z`) follows nothing, the
 series (`X.Y`) follows patch fixes, `latest` follows everything. A station that updates
 deliberately wants one of the first two; which versions exist is the
 [releases page](https://github.com/feuerwehr-oberwil/kp-rueck/releases). What a bump costs you is
