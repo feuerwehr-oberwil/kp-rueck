@@ -9,7 +9,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth.dependencies import get_current_user
 from app.auth.security import hash_password
@@ -94,6 +94,65 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
         await session.close()
         await transaction.rollback()
+
+
+@pytest_asyncio.fixture
+async def session_factory(test_engine):
+    """A session *factory* bound to one rolled-back connection.
+
+    Most fixtures hand out a session, but the token blocklist deliberately takes none — it
+    opens its own short-lived session per call so that `dependencies.py` and `api/auth.py`
+    can stay ignorant of the DB. Testing it therefore needs a factory rather than a session.
+
+    Every session the factory makes is bound to the same connection, so the store's own
+    commits land inside the test's outer transaction and disappear on the rollback below.
+    Same isolation as `db_session`, one level of indirection further out.
+    """
+    async with test_engine.connect() as connection:
+        transaction = await connection.begin()
+
+        maker = async_sessionmaker(
+            bind=connection,
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+
+        yield maker
+
+        await transaction.rollback()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _bind_token_blocklist_to_test_db(test_engine):
+    """Point the global blocklist singleton at the test database.
+
+    The blocklist opens its own sessions instead of taking a handle, so that the auth
+    dependency chain doesn't have to thread one through. The cost is that in tests it would
+    otherwise resolve `app.database.async_session_maker` and write to whatever database the
+    developer's own .env points at — which, before the store moved into the DB, was
+    harmless, because there was nothing to write.
+
+    Autouse rather than opt-in: any test that reaches `get_current_user` can touch the
+    singleton without asking for it, and a missed binding would be a confusing failure in
+    an unrelated test rather than an obvious one here.
+
+    These sessions commit for real (no enclosing transaction to roll back), so the table is
+    emptied afterwards instead.
+    """
+    from app.auth.token_blocklist import token_blocklist
+
+    maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
+    original = token_blocklist._session_factory
+    token_blocklist._session_factory = maker
+
+    yield
+
+    try:
+        async with maker() as session:
+            await session.execute(text("DELETE FROM revoked_tokens"))
+            await session.commit()
+    finally:
+        token_blocklist._session_factory = original
 
 
 # ============================================

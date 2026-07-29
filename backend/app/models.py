@@ -64,6 +64,25 @@ class User(Base):
     __table_args__ = (CheckConstraint("role IN ('admin', 'editor', 'viewer')", name="valid_user_role"),)
 
 
+class RevokedToken(Base):
+    """Persisted JWT blocklist: a logged-out / rotated token's ``jti`` stays revoked
+    across restarts and instances until its own ``expires_at`` passes (then it's pruned).
+
+    This replaced an in-memory dict, which meant a logout silently un-did itself on the
+    next container restart. Kept byte-compatible with kp-front's table of the same name —
+    the two auth stacks are forks of each other and drift here is expensive.
+
+    Generic column types only (no JSONB/postgres UUID) so the auth hot path's table is
+    portable — it also stands up on SQLite for the test suite.
+    """
+
+    __tablename__ = "revoked_tokens"
+
+    jti: Mapped[str] = mapped_column(String(64), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 # ============================================
 # MASTER LISTS
 # ============================================
