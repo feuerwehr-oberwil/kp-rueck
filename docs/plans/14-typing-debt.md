@@ -4,7 +4,7 @@
 
 ## Where things stand
 
-`mypy app --ignore-missing-imports` reports **526 errors in 59 files** (was ~705). CI runs
+`mypy app --ignore-missing-imports` reports **532 errors in 59 files** (was ~705). CI runs
 mypy twice (`.github/workflows/ci.yml`, job `backend-typecheck`):
 
 - **Blocking**, at zero and must stay there:

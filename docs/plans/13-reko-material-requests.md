@@ -709,7 +709,7 @@ development server is active.
   material kinds/types. If this plan runs first, implement Plan 11 thresholds against
   the normalized kind/type model and keep `location` on physical copies. Do not build
   a second coordinated string-rename system.
-- **Plan 12:** reservations must include Auftrag-owned material. Request allocation
+- **Plan 12 (shipped 0.3.0):** reservations must include Auftrag-owned material. Request allocation
   creates direct incident assignments; route-level fulfillment is not added here.
 - **Plan 06:** implement i18n after this plan so it includes the new Reko, request,
   capability, substitution, and shortage strings.

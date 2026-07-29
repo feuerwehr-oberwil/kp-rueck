@@ -21,6 +21,11 @@ made – do not re-litigate), implementation steps, and a test plan.
 - **Undo incident deletion** – `POST /api/incidents/{id}/restore` + "Rückgängig" toast
 - **PDF after-action report + unified export** – `services/pdf_report_service.py`,
   `GET /api/exports/events/{id}/report`, events-page + UserMenu export menus
+- **Aufträge: multi-stop group routing (plan 12)** – group several incidents into one
+  ordered route for a squad, the storm case. `frontend/components/map/routenplanung-panel.tsx`,
+  `frontend/lib/hooks/use-route-planning.ts`, `incident_groups` (+ the `last_announced_*`
+  columns that make the Funkdurchsage happen once per route, not once per stop). Shipped in
+  0.3.0 and running at Oberwil.
 - **Onboarding (plan 05) – resolved, no welcome card.** The welcome card was
   dropped (added nothing for daily operators). Shortcut discoverability is the
   existing **⌘K command palette** (also opens with `?`) – no separate legend. The
@@ -31,18 +36,17 @@ made – do not re-litigate), implementation steps, and a test plan.
 | Order | # | Plan | Scope | Why here | Depends on |
 |-------|---|------|-------|----------|------------|
 | 1 | 09 | [Emergency plans integration (generic provider, SchlüHü first)](09-emergency-plans-integration.md) | Backend + frontend | Largest (~500 LOC), high field value, external dependency – a proper feature effort | – |
-| 2 | 13 | [Reko material requests and guided allocation](13-reko-material-requests.md) | Backend + frontend + training + migration | Large operational feature: structured Reko demand, normalized material kinds/capabilities, exact KP allocation, per-event exclusivity, and curated training profiles | – |
+| 2 | 13 | [Reko material requests and guided allocation](13-reko-material-requests.md) | Backend + frontend + training + migration | Large operational feature: structured Reko demand, normalized material kinds/capabilities, exact KP allocation, per-event exclusivity, and curated training profiles. Reservations must also cover Auftrag-owned material (plan 12, shipped) | – |
 | 3 | 11 | [Material depletion thresholds: co-located & dual-dimension](11-resource-alarm-linking.md) | Backend + frontend | Dual-dimension material thresholds; adapt to Plan 13's normalized kind/type model instead of creating a competing managed-string identity | 13 phase 1 |
-| 4 | 12 | [Aufträge: multi-stop group routing (Flächenlage batching)](12-auftrag-multi-stop-routing.md) | Backend + frontend + map | Group several incidents into an ordered route for one squad; Plan 13 reservations must cover Auftrag-owned material | – |
-| 5 | 16 | [Training alarm intake: who is training, who gets which alarm](16-training-alarm-intake.md) | Backend + frontend + training | The Übungssteuerung "Alarmeingang" controls were **removed on 2026-07-28** (unused, and no recipient model). The dormant backend comes back only once "who is taking part in the exercise" is explicit state – otherwise a real training alarm texts the whole brigade | – |
-| 6 | 06 | [i18n (German + French)](06-i18n.md) | Frontend | Cross-cutting; do **last** so it absorbs strings from 09/11/12/13 in one pass | 09, 11, 12, 13 |
+| 4 | 16 | [Training alarm intake: who is training, who gets which alarm](16-training-alarm-intake.md) | Backend + frontend + training | The Übungssteuerung "Alarmeingang" controls were **removed on 2026-07-28** (unused, and no recipient model). The dormant backend comes back only once "who is taking part in the exercise" is explicit state – otherwise a real training alarm texts the whole brigade | – |
+| 5 | 06 | [i18n: actually translate](06-i18n.md) | Frontend | The machinery is **done** – next-intl, the `NEXT_LOCALE` cookie, deep-partial overlays merged over German, and a picker that only offers locales with real content. `fr.json` and `it.json` are still `{}`. What remains is translation work, not engineering; do it **last** so it absorbs the strings from 09/11/13 in one pass | 09, 11, 13 |
 
 ### Engineering debt (no deadline, pick up between features)
 
 | # | Plan | Why here |
 |---|------|----------|
-| 14 | [Typing debt: widen the blocking mypy subset](14-typing-debt.md) | mypy blocks on `auth`/`middleware`/`schemas`/`services/alerting` and is advisory for the rest (~705 findings). Progress = moving one package into the blocking list, at zero. Three patterns explain most of the tree – read those before starting. |
-| 15 | [Make the E2E suite fast enough for CI](15-e2e-in-ci.md) | ~300 Playwright specs are off in CI (`if: false`, ~25 min, flaky). Goal is a blocking `@smoke` subset under five minutes plus a nightly full run – **not** the whole suite on every PR. Until then the suite is a local step before releases. |
+| 14 | [Typing debt: widen the blocking mypy subset](14-typing-debt.md) | mypy blocks on `auth`/`middleware`/`schemas`/`services/alerting` and is advisory for the rest (532 findings, and drifting up — new untyped code keeps landing in the advisory zone). Progress = moving one package into the blocking list, at zero. Three patterns explain most of the tree – read those before starting. |
+| 15 | [Make the E2E suite fast enough for CI](15-e2e-in-ci.md) | Phases 2–3 have landed: the `@smoke` subset runs on every PR and `e2e-nightly.yml` runs the full suite. Still open: phase 1 (measure what is actually slow and flaky), making the smoke job a **required** check on main, and phase 4 (widen). |
 
 ## Shared conventions (apply to every plan)
 
