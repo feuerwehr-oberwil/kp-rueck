@@ -215,43 +215,14 @@ export class MainPage extends BasePage {
     await this.page.waitForTimeout(500);
   }
 
-  /**
-   * Open resource assignment dialog from incident card
-   */
-  async openResourceAssignmentDialog(
-    resourceType: 'crew' | 'vehicles' | 'materials',
-    incidentLocation?: string
-  ) {
-    // Find the incident card
-    const incidentCard = incidentLocation
-      ? this.findIncidentByLocation(incidentLocation)
-      : this.page.locator('[data-testid="incident-card"]').first();
-
-    // Map resource type to German text
-    const resourceMap = {
-      crew: 'Crew',
-      vehicles: 'Fahrzeuge',
-      materials: 'Material',
-    };
-
-    // Find the resource section and click plus button
-    const resourceSection = incidentCard.locator(`text=${resourceMap[resourceType]}`).locator('..');
-    const plusButton = resourceSection.locator('button').filter({
-      has: this.page.locator('svg[class*="lucide-plus"]')
-    });
-
-    await plusButton.click();
-
-    // Wait for dialog to open
-    const dialogTitles = {
-      crew: 'Mannschaft zuweisen',
-      vehicles: 'Fahrzeuge zuweisen',
-      materials: 'Material zuweisen',
-    };
-
-    const dialog = this.page.locator('[role="dialog"]', { hasText: dialogTitles[resourceType] });
-    await dialog.waitFor({ state: 'visible', timeout: 3000 });
-  }
+  // `openResourceAssignmentDialog`, `getResourceBadgeCount` and
+  // `resourceBadgeHasCheckmark` used to live here. All three were dead (nothing
+  // called them) and all three were also broken: they looked for a "Crew (n)"
+  // badge and a [+] button on the kanban card, which stopped rendering them when
+  // the counted resource sections moved into the detail view — and the label is
+  // "Mannschaft", not "Crew", so `text=Crew` matched nothing in any version of
+  // the app they outlived. 09-resource-badges asserts the sections where they
+  // now are.
 
   /**
    * Assign resource via dialog
@@ -354,52 +325,6 @@ export class MainPage extends BasePage {
     await itemButton.click();
 
     await this.page.waitForTimeout(500);
-  }
-
-  /**
-   * Get resource status badge count from incident card
-   */
-  async getResourceBadgeCount(
-    incidentLocation: string,
-    resourceType: 'crew' | 'vehicles' | 'materials'
-  ): Promise<number | null> {
-    const incidentCard = this.findIncidentByLocation(incidentLocation);
-
-    const resourceMap = {
-      crew: 'Crew',
-      vehicles: 'Fahrzeuge',
-      materials: 'Material',
-    };
-
-    const badge = incidentCard.locator(`text=${resourceMap[resourceType]} (`);
-    const text = await badge.textContent();
-    if (!text) return null;
-
-    const match = text.match(/\((\d+)\)/);
-    if (!match) return null;
-
-    return parseInt(match[1]);
-  }
-
-  /**
-   * Check if resource badge shows checkmark (assigned)
-   */
-  async resourceBadgeHasCheckmark(
-    incidentLocation: string,
-    resourceType: 'crew' | 'vehicles' | 'materials'
-  ): Promise<boolean> {
-    const incidentCard = this.findIncidentByLocation(incidentLocation);
-
-    const resourceMap = {
-      crew: 'Crew',
-      vehicles: 'Fahrzeuge',
-      materials: 'Material',
-    };
-
-    const resourceSection = incidentCard.locator(`text=${resourceMap[resourceType]}`).locator('..');
-    const checkIcon = resourceSection.locator('svg[class*="lucide-check-circle"]');
-
-    return await checkIcon.isVisible().catch(() => false);
   }
 
   /**
