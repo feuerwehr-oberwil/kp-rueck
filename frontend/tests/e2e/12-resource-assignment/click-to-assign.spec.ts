@@ -34,7 +34,7 @@ test.describe('Resource Assignment Dialog - Opening', () => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
     // Find crew section and click plus button
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -78,7 +78,7 @@ test.describe('Resource Assignment Dialog - Opening', () => {
   test('dialog closes when clicking outside', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -118,7 +118,7 @@ test.describe('Resource Assignment Dialog - Content', () => {
 
   test('crew dialog shows correct title and icon', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -175,7 +175,7 @@ test.describe('Resource Assignment Dialog - Content', () => {
 
   test('dialog shows description with counts', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -214,7 +214,7 @@ test.describe('Resource Assignment Dialog - Search Functionality', () => {
 
   test('dialog has search input', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -230,7 +230,7 @@ test.describe('Resource Assignment Dialog - Search Functionality', () => {
 
   test('search input has search icon', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -246,7 +246,7 @@ test.describe('Resource Assignment Dialog - Search Functionality', () => {
 
   test('search input is focusable', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -265,7 +265,7 @@ test.describe('Resource Assignment Dialog - Search Functionality', () => {
 
   test('typing in search filters results', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -295,7 +295,7 @@ test.describe('Resource Assignment Dialog - Search Functionality', () => {
 
   test('search resets when dialog reopens', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -344,7 +344,7 @@ test.describe('Resource Assignment Dialog - Resource List', () => {
 
   test('dialog shows available resources', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -365,7 +365,7 @@ test.describe('Resource Assignment Dialog - Resource List', () => {
 
   test('unassigned resources show circle icon', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -383,7 +383,7 @@ test.describe('Resource Assignment Dialog - Resource List', () => {
 
   test('resource items are clickable', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -404,7 +404,7 @@ test.describe('Resource Assignment Dialog - Resource List', () => {
 
   test('resource items have hover effect', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -450,7 +450,7 @@ test.describe('Resource Assignment Dialog - Assignment Actions', () => {
 
   test('clicking resource assigns it and shows checkmark', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -477,7 +477,7 @@ test.describe('Resource Assignment Dialog - Assignment Actions', () => {
 
   test('assigning resource shows success toast', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -503,7 +503,7 @@ test.describe('Resource Assignment Dialog - Assignment Actions', () => {
 
   test('clicking assigned resource unassigns it', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -534,7 +534,7 @@ test.describe('Resource Assignment Dialog - Assignment Actions', () => {
 
   test('unassigning resource shows success toast', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -586,7 +586,7 @@ test.describe('Resource Assignment Dialog - Visual Feedback', () => {
 
   test('assigned resources have emerald checkmark', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -613,7 +613,7 @@ test.describe('Resource Assignment Dialog - Visual Feedback', () => {
 
   test('unassigned resources have muted circle', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -634,7 +634,7 @@ test.describe('Resource Assignment Dialog - Visual Feedback', () => {
 
   test('dialog has entrance animation', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -674,7 +674,7 @@ test.describe('Resource Assignment Dialog - Scrollable List', () => {
 
   test('resource list is scrollable', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -690,7 +690,7 @@ test.describe('Resource Assignment Dialog - Scrollable List', () => {
 
   test('resource list has max height', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -725,7 +725,7 @@ test.describe('Resource Assignment Dialog - Mobile', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -756,7 +756,7 @@ test.describe('Resource Assignment Dialog - Mobile', () => {
     await authenticatedPage.waitForTimeout(1000);
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -800,7 +800,7 @@ test.describe('Resource Assignment Dialog - Keyboard Navigation', () => {
 
   test('search input can be focused with keyboard', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
@@ -821,7 +821,7 @@ test.describe('Resource Assignment Dialog - Keyboard Navigation', () => {
 
   test('resource items can be selected with keyboard', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const crewSection = incidentCard.locator('text=Crew').locator('..');
+    const crewSection = incidentCard.locator('text=Mannschaft').locator('..');
     const plusButton = crewSection.locator('button').filter({
       has: authenticatedPage.locator('svg[class*="lucide-plus"]')
     });
