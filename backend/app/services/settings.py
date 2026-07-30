@@ -145,11 +145,35 @@ async def get_alarm_webhook_secret(db: AsyncSession) -> str:
     return await get_setting(db, "alarm_webhook_secret") or ""
 
 
-async def get_all_settings(db: AsyncSession) -> dict[str, str]:
-    """Get all settings as dict."""
+# Settings whose VALUE is a credential. They live in the same table as the polling
+# interval and the radio callsign, and `GET /api/settings/` used to hand the whole table
+# to any authenticated user — including read-only viewers. Both of these have a dedicated,
+# careful path (`/api/sync/config` redacts the DSN before returning it; the webhook secret
+# is configured via ALARM_WEBHOOK_SECRET or rotated with a targeted PATCH), so nothing
+# legitimate needs to read them out of the generic endpoint. The frontend never does.
+SECRET_SETTING_KEYS = frozenset({"alarm_webhook_secret", "railway_database_url"})
+
+SECRET_PLACEHOLDER = "***"  # noqa: S105 — the mask itself, not a credential
+
+# Keys the generic PATCH /api/settings/{key} must refuse, because a dedicated endpoint
+# owns them and does something the generic one cannot (validate the DSN, redact it on the
+# way back out, restart the sync scheduler). `railway_database_url` decides where this
+# backend opens an outbound database connection, so "any editor can PATCH it" was a way to
+# make the station push its whole board somewhere else.
+GENERIC_WRITE_DENYLIST = frozenset({"railway_database_url"})
+
+
+async def get_all_settings(db: AsyncSession, *, include_secrets: bool = False) -> dict[str, str]:
+    """Get all settings as dict, with credential values masked by default.
+
+    Defaulting to masked is the fail-safe direction: a new caller has to ask for the
+    secrets on purpose, rather than leak them by not knowing they were in there.
+    """
     result = await db.execute(select(Setting))
     settings = result.scalars().all()
-    return {s.key: s.value for s in settings}
+    if include_secrets:
+        return {s.key: s.value for s in settings}
+    return {s.key: (SECRET_PLACEHOLDER if s.key in SECRET_SETTING_KEYS and s.value else s.value) for s in settings}
 
 
 async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID | None) -> Setting:
