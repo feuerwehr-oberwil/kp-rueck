@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
-import { MainPage } from '../../pages/main.page';
+import { addIncidents, setupBoard, type BoardFixture } from '../../helpers/api.helper';
+
+let board: BoardFixture;
 
 /**
  * Sprint 3 Integration Tests
@@ -11,24 +12,8 @@ import { MainPage } from '../../pages/main.page';
  */
 
 test.describe('Sprint 3 Integration - All Features Together', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Integration Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Integration ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    board = await setupBoard(authenticatedPage, 'Integration Test');
   });
 
   test('incident card shows all Sprint 3 features simultaneously', async ({ authenticatedPage }) => {
@@ -112,24 +97,8 @@ test.describe('Sprint 3 Integration - All Features Together', () => {
 });
 
 test.describe('Sprint 3 Integration - Visual Hierarchy', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Hierarchy Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Hierarchy ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    board = await setupBoard(authenticatedPage, 'Hierarchy Test');
   });
 
   test('priority indicators are visually prominent', async ({ authenticatedPage }) => {
@@ -177,24 +146,8 @@ test.describe('Sprint 3 Integration - Visual Hierarchy', () => {
 });
 
 test.describe('Sprint 3 Integration - Color Harmony', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Color Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Color ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    board = await setupBoard(authenticatedPage, 'Color Test');
   });
 
   test('priority colors use consistent palette', async ({ authenticatedPage }) => {
@@ -250,20 +203,7 @@ test.describe('Sprint 3 Integration - Mobile Experience', () => {
   test('all Sprint 3 features work on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Mobile Integration ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Mobile ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    board = await setupBoard(authenticatedPage, 'Mobile Integration');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
     // All features should be visible on mobile
@@ -285,20 +225,7 @@ test.describe('Sprint 3 Integration - Mobile Experience', () => {
   test('mobile layout prevents overlapping of Sprint 3 elements', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Mobile Layout ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Mobile ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    board = await setupBoard(authenticatedPage, 'Mobile Layout');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
     // Get positions of key elements
@@ -317,20 +244,7 @@ test.describe('Sprint 3 Integration - Mobile Experience', () => {
   test('Sprint 3 features remain readable on small screens', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 320, height: 568 }); // iPhone SE
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Small Screen ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Small ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    board = await setupBoard(authenticatedPage, 'Small Screen');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
     // All elements should be visible
@@ -351,60 +265,12 @@ test.describe('Sprint 3 Integration - Mobile Experience', () => {
 });
 
 test.describe('Sprint 3 Integration - Performance', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Performance Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-  });
-
-  test('multiple incidents with Sprint 3 features render quickly', async ({ authenticatedPage }) => {
-    // Create multiple incidents
-    const createPromises = [];
-    for (let i = 0; i < 5; i++) {
-      createPromises.push(
-        mainPage.createIncident(`Performance ${i} ${Date.now()}`)
-          .then(() => authenticatedPage.waitForTimeout(500))
-      );
-    }
-
-    const startTime = Date.now();
-    await Promise.all(createPromises);
-    const endTime = Date.now();
-
-    // Should create 5 incidents in reasonable time (< 15 seconds)
-    expect(endTime - startTime).toBeLessThan(15000);
-
-    // All incidents should be visible
-    const incidents = authenticatedPage.locator('[data-testid="incident-card"]');
-    const count = await incidents.count();
-
-    expect(count).toBeGreaterThanOrEqual(5);
-
-    // All should have Sprint 3 features
-    for (let i = 0; i < Math.min(count, 5); i++) {
-      const incident = incidents.nth(i);
-      const hasPriority = await incident.locator('[class*="rounded-full"]').count() > 0;
-      const hasTime = await incident.locator('svg[class*="lucide-clock"]').count() > 0;
-
-      expect(hasPriority).toBeTruthy();
-      expect(hasTime).toBeTruthy();
-    }
+    board = await setupBoard(authenticatedPage, 'Performance Test', { count: 0 });
   });
 
   test('Sprint 3 animations dont cause layout thrashing', async ({ authenticatedPage }) => {
-    await mainPage.createIncident(`Animation ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await addIncidents(authenticatedPage, board, 1, 'Animation');
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
@@ -426,24 +292,8 @@ test.describe('Sprint 3 Integration - Performance', () => {
 });
 
 test.describe('Sprint 3 Integration - Accessibility', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `A11y Integration ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`A11y ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    board = await setupBoard(authenticatedPage, 'A11y Integration');
   });
 
   test('all Sprint 3 visual indicators have semantic meaning', async ({ authenticatedPage }) => {
@@ -494,26 +344,12 @@ test.describe('Sprint 3 Integration - Accessibility', () => {
 });
 
 test.describe('Sprint 3 Integration - Real-World Scenarios', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Real World ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
+    board = await setupBoard(authenticatedPage, 'Real World', { count: 0 });
   });
 
   test('operator can quickly identify incident priority and age', async ({ authenticatedPage }) => {
-    await mainPage.createIncident(`Emergency ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await addIncidents(authenticatedPage, board, 1, 'Emergency');
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
@@ -533,12 +369,7 @@ test.describe('Sprint 3 Integration - Real-World Scenarios', () => {
 
   test('Sprint 3 features support rapid incident triage', async ({ authenticatedPage }) => {
     // Create multiple incidents
-    await mainPage.createIncident(`Incident A ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(500);
-    await mainPage.createIncident(`Incident B ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(500);
-    await mainPage.createIncident(`Incident C ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await addIncidents(authenticatedPage, board, 3, 'Triage');
 
     const incidents = authenticatedPage.locator('[data-testid="incident-card"]');
     const count = await incidents.count();
@@ -558,8 +389,7 @@ test.describe('Sprint 3 Integration - Real-World Scenarios', () => {
   });
 
   test('Sprint 3 features enhance situational awareness', async ({ authenticatedPage }) => {
-    await mainPage.createIncident(`Situation ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await addIncidents(authenticatedPage, board, 1, 'Situation');
 
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 

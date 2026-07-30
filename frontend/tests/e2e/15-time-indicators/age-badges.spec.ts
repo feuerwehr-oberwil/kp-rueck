@@ -1,6 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
-import { MainPage } from '../../pages/main.page';
+import { setupBoard } from '../../helpers/api.helper';
 
 /**
  * Time-Based Indicators Tests (Sprint 3)
@@ -9,24 +8,8 @@ import { MainPage } from '../../pages/main.page';
  */
 
 test.describe('Time-Based Indicators - Display and Formatting', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Time Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Time Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Time Test');
   });
 
   test('incident shows dispatch time', async ({ authenticatedPage }) => {
@@ -90,24 +73,8 @@ test.describe('Time-Based Indicators - Display and Formatting', () => {
 });
 
 test.describe('Time-Based Indicators - Time Formatting', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Format Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Format Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Format Test');
   });
 
   test('dispatch time uses 24-hour format', async ({ authenticatedPage }) => {
@@ -143,24 +110,8 @@ test.describe('Time-Based Indicators - Time Formatting', () => {
 });
 
 test.describe('Time-Based Indicators - Visual Styling', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Style Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Style Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Style Test');
   });
 
   test('time elements use muted foreground color', async ({ authenticatedPage }) => {
@@ -225,24 +176,8 @@ test.describe('Time-Based Indicators - Visual Styling', () => {
 });
 
 test.describe('Time-Based Indicators - Layout and Position', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Layout Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Layout Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Layout Test');
   });
 
   test('dispatch time is on same line as clock icon', async ({ authenticatedPage }) => {
@@ -301,20 +236,7 @@ test.describe('Time-Based Indicators - Responsiveness', () => {
   test('time displays correctly on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Mobile Time Test ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    await setupBoard(authenticatedPage, 'Mobile Time Test');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
     // Time should still be visible on mobile
@@ -325,20 +247,7 @@ test.describe('Time-Based Indicators - Responsiveness', () => {
   test('elapsed time remains readable on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Mobile Elapsed Test ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    await setupBoard(authenticatedPage, 'Mobile Elapsed Test');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
     const elapsedTime = incidentCard.locator('[class*="font-mono"]').last();
 
@@ -357,20 +266,7 @@ test.describe('Time-Based Indicators - Responsiveness', () => {
   test('time section doesnt overflow on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Mobile Overflow Test ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    await setupBoard(authenticatedPage, 'Mobile Overflow Test');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
     const timeRow = incidentCard.locator('[class*="flex"]').filter({
       has: authenticatedPage.locator('svg[class*="lucide-clock"]')
@@ -388,24 +284,8 @@ test.describe('Time-Based Indicators - Responsiveness', () => {
 });
 
 test.describe('Time-Based Indicators - Accessibility', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `A11y Time Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`A11y Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'A11y Time Test');
   });
 
   test('time information is readable by screen readers', async ({ authenticatedPage }) => {
@@ -436,29 +316,8 @@ test.describe('Time-Based Indicators - Accessibility', () => {
 });
 
 test.describe('Time-Based Indicators - Multiple Incidents', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Multiple Time Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Create multiple incidents
-    await mainPage.createIncident(`First ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(500);
-    await mainPage.createIncident(`Second ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(500);
-    await mainPage.createIncident(`Third ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Multiple Time Test', { count: 3 });
   });
 
   test('all incidents show time information', async ({ authenticatedPage }) => {
@@ -499,24 +358,8 @@ test.describe('Time-Based Indicators - Multiple Incidents', () => {
 });
 
 test.describe('Time-Based Indicators - Dark Mode', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Dark Mode Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Dark Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Dark Mode Test');
   });
 
   test('time text uses muted foreground in all themes', async ({ authenticatedPage }) => {

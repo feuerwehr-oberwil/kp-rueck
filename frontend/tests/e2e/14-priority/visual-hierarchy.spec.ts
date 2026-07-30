@@ -1,6 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
-import { MainPage } from '../../pages/main.page';
+import { setupBoard } from '../../helpers/api.helper';
 
 /**
  * Priority Visual Hierarchy Tests (Sprint 3)
@@ -9,24 +8,8 @@ import { MainPage } from '../../pages/main.page';
  */
 
 test.describe('Priority Visual Hierarchy - Priority Indicators', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Priority Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Priority Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Priority Test');
   });
 
   test('incident cards show priority indicator dot', async ({ authenticatedPage }) => {
@@ -83,24 +66,8 @@ test.describe('Priority Visual Hierarchy - Priority Indicators', () => {
 });
 
 test.describe('Priority Visual Hierarchy - Icon Variants', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Icon Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Icon Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Icon Test');
   });
 
   test('priority icon has correct color coding', async ({ authenticatedPage }) => {
@@ -169,24 +136,8 @@ test.describe('Priority Visual Hierarchy - Icon Variants', () => {
 });
 
 test.describe('Priority Visual Hierarchy - Color Consistency', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Color Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Color Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Color Test');
   });
 
   test('priority dot and icon use matching colors', async ({ authenticatedPage }) => {
@@ -230,24 +181,8 @@ test.describe('Priority Visual Hierarchy - Color Consistency', () => {
 });
 
 test.describe('Priority Visual Hierarchy - Layout and Placement', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Layout Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Layout Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Layout Test');
   });
 
   test('priority indicators are at start of card', async ({ authenticatedPage }) => {
@@ -298,20 +233,7 @@ test.describe('Priority Visual Hierarchy - Responsiveness', () => {
   test('priority indicators visible on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Mobile Priority Test ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    await setupBoard(authenticatedPage, 'Mobile Priority Test');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
     // Priority indicators should still be visible
@@ -325,20 +247,7 @@ test.describe('Priority Visual Hierarchy - Responsiveness', () => {
   test('priority indicators maintain size on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Mobile Size Test ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    await setupBoard(authenticatedPage, 'Mobile Size Test');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
     const priorityDot = incidentCard.locator('[class*="h-2.5"][class*="w-2.5"]').first();
 
@@ -355,24 +264,8 @@ test.describe('Priority Visual Hierarchy - Responsiveness', () => {
 });
 
 test.describe('Priority Visual Hierarchy - Semantic Meaning', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Semantic Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Semantic Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Semantic Test');
   });
 
   test('red priority indicates urgency', async ({ authenticatedPage }) => {
@@ -410,29 +303,8 @@ test.describe('Priority Visual Hierarchy - Semantic Meaning', () => {
 });
 
 test.describe('Priority Visual Hierarchy - Multiple Incidents', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Multiple Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Create multiple incidents
-    await mainPage.createIncident(`First ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(500);
-    await mainPage.createIncident(`Second ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(500);
-    await mainPage.createIncident(`Third ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Multiple Test', { count: 3 });
   });
 
   test('all incidents show priority indicators', async ({ authenticatedPage }) => {
@@ -475,24 +347,8 @@ test.describe('Priority Visual Hierarchy - Multiple Incidents', () => {
 });
 
 test.describe('Priority Visual Hierarchy - Interaction States', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Interaction Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Interaction Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Interaction Test');
   });
 
   test('priority indicators remain visible during hover', async ({ authenticatedPage }) => {
