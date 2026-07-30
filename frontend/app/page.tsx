@@ -1,5 +1,14 @@
 "use client"
 
+/**
+ * The operations board.
+ *
+ * Reached only by editors and admins: `ProtectedRoute` sends every `viewer` to
+ * `/display/board` before this renders. The `isEditor` checks below are therefore
+ * constant-true today — kept deliberately, see the note in
+ * `components/protected-route.tsx` for why and for what actually enforces the role.
+ */
+
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
