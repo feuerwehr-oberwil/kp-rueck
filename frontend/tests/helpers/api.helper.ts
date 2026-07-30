@@ -246,15 +246,18 @@ export async function setupBoard(
 
   const path = options.path ?? '/';
   await selectEvent(page, path, event.id);
-  if (path === '/') {
-    // The board is only "there" once its columns are (`droppable-column.tsx`).
-    // Nothing waited for this before, because arranging through the events page
-    // took long enough to hide it; REST setup arrives while the board is still
-    // mounting, and a spec that counts columns then counts one.
-    await expect
-      .poll(() => page.locator('[data-column]').count(), { timeout: 20_000 })
-      .toBeGreaterThanOrEqual(3);
-  }
+
+  // Wait for the event to actually be the selected one, by its name in the page
+  // heading. Nothing waited for this before, because arranging through the events
+  // page took long enough to hide it; REST setup arrives while the app is still
+  // mounting, and the specs then assert against an empty board.
+  //
+  // The heading rather than the kanban columns: `[data-column]` does not exist at
+  // all on a 375px viewport, so a column-based check cost `08-navigation` a 20s
+  // timeout on every one of its mobile tests. The event name is on every layout.
+  await expect(page.getByRole('heading', { name: event.name }).first()).toBeVisible({
+    timeout: 20_000,
+  });
   if (incidents.length) {
     await expectCardCount(page, incidents.length);
   }
