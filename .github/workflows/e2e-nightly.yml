@@ -128,6 +128,12 @@ jobs:
       # attacker-controllable by anyone who can dispatch the workflow.
       - name: Run the E2E suite
         working-directory: frontend
+        # Ten minutes under the job's 60, and that gap is the point. A job that blows its own
+        # `timeout-minutes` is *cancelled*, and whether a later `if: cancelled()` step still
+        # runs is not something to bet a signal on — from 2026-07-27 to 07-30 it did not, and
+        # four red nights went unreported. Timing out here instead fails one step and leaves
+        # the job alive, so the issue below is filed the ordinary way.
+        timeout-minutes: 50
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
           TEST_USERNAME: admin
