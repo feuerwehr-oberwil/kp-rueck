@@ -3,7 +3,7 @@
 # runs, on a runtime nobody was patching any more. Keep this in step with NODE_VERSION in
 # .github/workflows/*.yml and the engines field in package.json; dependabot's docker
 # ecosystem now proposes the bumps so it cannot drift silently again.
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
