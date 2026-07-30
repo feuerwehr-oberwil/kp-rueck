@@ -39,7 +39,18 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
+        // NO exit animation, deliberately — the same defect popover.tsx carries a
+        // note about, and here it is worse. Radix's `Presence` keeps the closed
+        // Overlay mounted until its `animate-out` has run, and Radix writes an
+        // unconditional inline `pointer-events: auto` onto the overlay
+        // (react-dialog dist/index.mjs: `style: { pointerEvents: 'auto', ... }`),
+        // so for ~150ms after every dialog close a `fixed inset-0` layer — the
+        // full 1280x720 viewport, measured — sat over the whole app and ate the
+        // operator's next click. A `data-[state=closed]:pointer-events-none`
+        // class does NOT help: the inline style wins. Dropping the exit keyframes
+        // makes `animationName` resolve to `none`, so Presence unmounts
+        // synchronously and the dead layer never exists.
+        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
         className,
       )}
       {...props}
@@ -66,7 +77,12 @@ function DialogContent({
         // Dismissing a toast must never dismiss the dialog behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(
-          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-2xl ring-1 ring-white/10 duration-200 sm:max-w-lg',
+          // The Content loses its exit animation too, for both reasons: it is a
+          // click sink in its own right (a closed modal still owned the centre of
+          // the screen in the measurement above), and overlay and content have to
+          // leave together — a backdrop that vanishes while the panel is still
+          // fading would read as a bug. Enter animations stay on both.
+          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-2xl ring-1 ring-white/10 duration-200 sm:max-w-lg',
           className,
         )}
         {...props}
