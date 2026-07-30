@@ -3,6 +3,16 @@
 /**
  * Unified Settings & Administration Page
  * Sidebar navigation with all configuration and resource management
+ *
+ * Reached only by editors and admins: `ProtectedRoute` sends every `viewer` to
+ * `/display/board` before this renders, so the `isEditor` checks below are constant-true
+ * today — see `components/protected-route.tsx` for why they are kept.
+ *
+ * `activeSection` is read unfiltered from the URL, so `?section=users` and
+ * `?section=audit` are reachable by anyone who gets this far. That is safe because the
+ * data is not: `GET /api/users` requires `CurrentAdmin` and `GET /api/audit` requires
+ * `CurrentEditor`, so those panels render empty rather than leaking. If you add a
+ * section here, gate its endpoint on the backend — not just its sidebar entry.
  */
 
 import { useState, useEffect, useRef } from 'react';

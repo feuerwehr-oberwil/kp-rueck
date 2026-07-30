@@ -3,6 +3,27 @@
 /**
  * Protected route wrapper
  * Redirects to login if user is not authenticated
+ *
+ * **This redirect is the role gate for the whole interactive app.** A `viewer` never
+ * reaches the board, the map or the settings page — it is sent to `/display/board`, the
+ * read-only wall view, which is what the shared/kiosk viewer account exists for
+ * (`backend/app/seed.py`). Everyone who gets past here is an editor or an admin.
+ *
+ * Two consequences worth knowing before changing anything here:
+ *
+ * 1. The ~69 `isEditor` checks in `app/page.tsx`, `app/map/page.tsx` and
+ *    `app/settings/page.tsx` are therefore **constant-true in practice** — their false
+ *    branch is unreachable while this redirect stands. They were kept on purpose: they
+ *    are what would make "let viewers open the real board read-only" a cheap change
+ *    rather than a re-derivation. Do not read their presence as evidence that the
+ *    controls are gated *here*.
+ * 2. This is a convenience and UX guard, **not** the security boundary. The boundary is
+ *    the backend: mutations require `CurrentEditor` and the admin surfaces require
+ *    `CurrentAdmin`, so bypassing this redirect exposes no data — `GET /api/users` and
+ *    `GET /api/audit` both refuse a viewer. Verified 2026-07-30.
+ *
+ * If you ever remove or weaken the redirect, those `isEditor` checks stop being
+ * decoration and start being the thing that keeps the UI honest.
  */
 
 import { useRouter } from 'next/navigation';
