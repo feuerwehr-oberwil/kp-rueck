@@ -665,7 +665,29 @@ export function OperationDetailContent({
                         {t('common.add')}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-64 p-2" align="start">
+                    {/* Opens to the LEFT of its trigger, and that is the whole point.
+                        The trigger sits in the modal's right-hand resource column; the
+                        modal's X sits above it in the same column. With the default
+                        `side="bottom"` the fleet list is taller than the space beneath
+                        the trigger, so Radix flips it upwards — measured at 1280x720:
+                        panel x 1024..1267 / y 26..362 against an X at x 1166..1198 /
+                        y 71..103. The panel lay straight over the close button, and a
+                        click aimed at it hit a vehicle row and silently assigned that
+                        vehicle: the operator believes they closed the modal and has in
+                        fact changed the incident.
+                        `side="left"` separates the two HORIZONTALLY: the panel's right
+                        edge is `triggerLeft - sideOffset` (1073), the X's left edge is
+                        1166. That clearance does not depend on the panel's height, on
+                        how long the station's fleet is, or on where Radix's collision
+                        limiter shifts the panel vertically — which a `collisionPadding`
+                        reserve or an explicit offset would all depend on. There is
+                        ~1080px to the left of the trigger and the panel is 256px wide,
+                        so it also never flips back to the right. Nothing shrinks: the
+                        list keeps its max-h-64 and Radix just shifts it to fit.
+                        It cannot merely move the collision onto the other resource
+                        buttons either — those all sit at x >= 1100, to the RIGHT of
+                        the panel. */}
+                    <PopoverContent className="w-64 p-2" side="left" align="start">
                       <div className="space-y-1">
                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                           {t('common.assignVehicle')}
