@@ -52,6 +52,112 @@ export function publicBackendOrigin(raw: string | null | undefined): string | nu
 }
 
 /**
+ * The same vetting as `publicBackendOrigin()`, for a value that is already a WebSocket URL.
+ *
+ * `NEXT_PUBLIC_WS_URL` names `wss://…`, and `publicBackendOrigin()` deliberately refuses any
+ * scheme but http/https. Rather than copy the hostname rule — the one thing that must never
+ * exist twice — the scheme is mapped to http for the check and back afterwards.
+ */
+function publicWebsocketOrigin(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const vetted = publicBackendOrigin(raw.trim().replace(/^ws/, 'http'))
+  return vetted ? vetted.replace(/^http/, 'ws') : null
+}
+
+/** `https://host` → `wss://host`, `http://host` → `ws://host`. */
+function asWebsocketOrigin(origin: string): string {
+  return origin.replace(/^http/, 'ws')
+}
+
+/** What the CSP builder needs to know about the environment it is running in. */
+export interface CspEnvironment {
+  /** Runtime `API_URL`. The only source that knows where THIS deployment's backend is. */
+  apiUrl?: string | null
+  /** Build-time `NEXT_PUBLIC_API_URL` — an override for a station building its own image. */
+  publicApiUrl?: string | null
+  /** Build-time `NEXT_PUBLIC_WS_URL` — same, for a socket endpoint elsewhere. */
+  publicWsUrl?: string | null
+  /** `NODE_ENV === 'production'`; dev hot reload needs `'unsafe-eval'`. */
+  isProduction?: boolean
+}
+
+/**
+ * Assemble the Content-Security-Policy header.
+ *
+ * This lives here, and is called from `middleware.ts` per request, because `connect-src` has
+ * to name the backend — and on a split-origin deployment (Railway) the backend is only known
+ * at *runtime*, from `API_URL`. It used to be built in `next.config.mjs`, which Next serialises
+ * into the route manifest during `next build`: the header was then fixed for the life of the
+ * image, and its only backend entry came from `NEXT_PUBLIC_API_URL`. The published images are
+ * built without that variable on purpose, so a station on a custom backend domain got a socket
+ * that was aimed correctly and a browser that refused to open it.
+ *
+ * That also made `NEXT_PUBLIC_API_URL` load-bearing for two unrelated jobs — an API override
+ * *and* the only channel into the CSP — which is why it could not be dropped from a deployment
+ * that had it set. Now it is an override again, and nothing more.
+ *
+ * Backend origins go through `publicBackendOrigin()`, the same filter `getWsUrl()` uses: the
+ * compose stack sets `API_URL=http://backend:8000`, a Docker service name, and naming it in
+ * `connect-src` would put a hostname in the policy that no browser can resolve. Compose is
+ * served from one origin anyway, where `'self'` already covers the API, the tiles and (per
+ * CSP3) the same-origin WebSocket.
+ */
+export function buildContentSecurityPolicy(env: CspEnvironment = {}): string {
+  // Runtime first, then the build-time overrides. Each contributes both its https origin (the
+  // API calls) and the matching wss origin (the Socket.IO upgrade).
+  const backendOrigins: string[] = []
+  for (const raw of [env.apiUrl, env.publicApiUrl]) {
+    const origin = publicBackendOrigin(raw)
+    if (!origin) continue
+    backendOrigins.push(origin, asWebsocketOrigin(origin))
+  }
+  const wsOverride = publicWebsocketOrigin(env.publicWsUrl)
+  if (wsOverride) backendOrigins.push(wsOverride)
+
+  // A Set keeps insertion order and stops a station that sets NEXT_PUBLIC_API_URL to the same
+  // value as API_URL from getting every host twice.
+  const connectSrc = [
+    ...new Set([
+      "'self'",
+      'http://localhost:8000',
+      'https://*.railway.app',
+      ...backendOrigins,
+      'https://*.tile.openstreetmap.org',
+      'https://nominatim.openstreetmap.org',
+      'https://*.basemaps.cartocdn.com',
+      'https://server.arcgisonline.com',
+      'http://localhost:8080',
+      'ws://localhost:*',
+      'wss://*.railway.app',
+    ]),
+  ]
+
+  return [
+    "default-src 'self'",
+    // Scripts: self + inline (Next.js hydration) + eval (dev hot reload)
+    env.isProduction
+      ? "script-src 'self' 'unsafe-inline'"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    // Styles: self + inline (Tailwind CSS)
+    "style-src 'self' 'unsafe-inline'",
+    // Images: self + data URIs + blob + map tile servers
+    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080",
+    // Fonts: self + data URIs
+    "font-src 'self' data:",
+    // Connect: self + API + WebSocket + map tiles + local tile server
+    `connect-src ${connectSrc.join(' ')}`,
+    // Frame ancestors: prevent clickjacking
+    "frame-ancestors 'none'",
+    // Form actions: only to self
+    "form-action 'self'",
+    // Base URI: only self
+    "base-uri 'self'",
+    // Object sources: none (no plugins)
+    "object-src 'none'",
+  ].join('; ')
+}
+
+/**
  * Publish the server's `API_URL` to the client. Called during render of a client
  * component in the root layout, so it is set before any effect opens a socket.
  */
