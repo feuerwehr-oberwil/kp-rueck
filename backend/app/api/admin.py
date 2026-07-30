@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -88,7 +88,18 @@ async def preview_excel_import(
 async def execute_excel_import(
     current_user: CurrentEditor,
     file: UploadFile = File(...),
-    mode: str = "replace",  # replace, merge, or append
+    # `mode` is read from BOTH the multipart body and the query string, and it is required.
+    #
+    # It used to be a bare `mode: str = "replace"`, which FastAPI binds from the query string
+    # only — while the frontend has always sent it as a form field. The two never met, so
+    # `append` was unreachable from the UI and every roster import ran as `replace`, deleting
+    # all personnel, vehicles and materials plus everything cascading off them. The form field
+    # is what the UI sends; the query parameter is kept so existing scripts keep working.
+    #
+    # There is deliberately NO default: a missing mode must never resolve to the destructive
+    # one. Absent both, the request is rejected below.
+    mode_form: str | None = Form(None, alias="mode"),
+    mode_query: str | None = Query(None, alias="mode"),
     db: AsyncSession = Depends(get_db),
     # FastAPI injects this itself and the `= None` default is unreachable; annotating it
     # `| None` turns it into a Pydantic body field and the app fails at import.
@@ -106,6 +117,13 @@ async def execute_excel_import(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Datenimport ist im Demo-Modus nicht verfügbar",
+        )
+
+    mode = mode_form or mode_query
+    if mode is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Import-Modus fehlt. Erlaubt: replace, merge, append.",
         )
 
     if mode not in ["replace", "merge", "append"]:
@@ -129,8 +147,8 @@ async def execute_excel_import(
     except ExcelImportError:
         raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden") from None
 
-    # Execute import (`mode` is a plain str query param, validated against the
-    # three literals above — mypy can't narrow str to the Literal import_data wants)
+    # Execute import (`mode` is a plain str, validated against the three literals
+    # above — mypy can't narrow str to the Literal import_data wants)
     counts = await import_data(db, parsed_data, mode, str(current_user.id))  # type: ignore[arg-type]
 
     # Audit log

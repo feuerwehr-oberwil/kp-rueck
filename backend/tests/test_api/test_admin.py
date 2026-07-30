@@ -237,6 +237,62 @@ async def test_import_execute_append_mode(editor_client: AsyncClient):
         assert data["mode"] == "append"
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_import_execute_mode_from_multipart_body(editor_client: AsyncClient):
+    """`mode` sent as a form field must be honoured.
+
+    Regression: the endpoint declared `mode: str = "replace"` with no `Form(...)`, so
+    FastAPI bound it from the query string — while the frontend has always sent it in the
+    multipart body (`formData.append('mode', mode)`). The two never met, `append` was
+    unreachable from the UI, and every roster import silently ran as `replace`, deleting
+    all personnel, vehicles and materials.
+    """
+    with (
+        patch(
+            "app.api.admin.validate_and_parse_excel",
+            return_value={"personnel": [], "vehicles": [], "materials": []},
+        ),
+        patch(
+            "app.api.admin.import_data",
+            new_callable=AsyncMock,
+            return_value={"personnel": 2, "vehicles": 1, "materials": 5},
+        ) as mock_import,
+    ):
+        files = {
+            "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        }
+        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "append"})
+        assert response.status_code == 200
+        assert response.json()["mode"] == "append"
+        # The mode actually handed to the importer is what decides whether rows are deleted.
+        assert mock_import.await_args.args[2] == "append"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_import_execute_without_mode_is_rejected(editor_client: AsyncClient):
+    """A missing `mode` must never mean "delete everything".
+
+    The old default was `"replace"`, so any caller that forgot the parameter — or sent it
+    somewhere the endpoint did not read — wiped the roster without saying so. The mode is
+    now required from either the form body or the query string.
+    """
+    with (
+        patch(
+            "app.api.admin.validate_and_parse_excel",
+            return_value={"personnel": [], "vehicles": [], "materials": []},
+        ),
+        patch("app.api.admin.import_data", new_callable=AsyncMock) as mock_import,
+    ):
+        files = {
+            "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        }
+        response = await editor_client.post("/api/admin/import/execute", files=files)
+        assert response.status_code == 400
+        mock_import.assert_not_awaited()
+
+
 # ============================================
 # Export Data Tests
 # ============================================
@@ -374,7 +430,7 @@ async def test_import_creates_audit_log(editor_client: AsyncClient, db_session: 
         files = {
             "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         }
-        response = await editor_client.post("/api/admin/import/execute", files=files)
+        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "append"})
         assert response.status_code == 200
 
     # Check audit log
