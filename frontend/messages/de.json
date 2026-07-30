@@ -2544,7 +2544,9 @@
     "common": {
       "yes": "Ja",
       "no": "Nein",
-      "personCount": "{count} Person(en)"
+      "personCount": "{count} Person(en)",
+      "staleWarn": "Verbindung gestört — letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
+      "staleAlert": "Keine Verbindung · Stand {time} Uhr"
     },
     "board": {
       "loginRequired": "Bitte melde dich an für die Board-Anzeige.",
@@ -2621,7 +2623,6 @@
       "rekoOnSite": "Reko vor Ort",
       "overOneHour": "In diesem Status seit über 1 Stunde",
       "invalidLink": "Ungültiger oder abgelaufener Link. Bitte einen neuen Link anfordern.",
-      "staleBanner": "Verbindung gestört — letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
       "eventFallback": "Ereignis",
       "readOnly": "Nur-Lesen",
       "hideCompleted": "Abgeschlossen ausblenden",

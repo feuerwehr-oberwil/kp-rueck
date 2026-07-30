@@ -5,7 +5,8 @@ import { useTranslations } from 'next-intl'
 import { apiClient, type ApiIncident, type ApiEvent, type ApiIncidentGroup, type ApiViewerData } from '@/lib/api-client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, Phone, WifiOff } from 'lucide-react'
+import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, Phone } from 'lucide-react'
+import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
 import { columns, getTimeSince, ageChipClass, ageLevel } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
@@ -293,8 +294,6 @@ export function TokenBoard({ token }: { token: string }) {
     [situation, selectedIncidentId],
   )
 
-  const isStale = lastRefresh !== null && currentTime.getTime() - lastRefresh.getTime() > 30_000
-
   if (error) {
     return (
       <div className="min-h-full bg-background flex items-center justify-center p-4">
@@ -316,15 +315,7 @@ export function TokenBoard({ token }: { token: string }) {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      {isStale && lastRefresh && (
-        <div
-          role="status"
-          className="flex items-center justify-center gap-2 border-b border-warning/30 bg-warning/15 px-4 py-1.5 text-sm font-medium text-warning-foreground"
-        >
-          <WifiOff className="h-4 w-4 flex-shrink-0" />
-          <span>{t('staleBanner', { time: lastRefresh.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}</span>
-        </div>
-      )}
+      <DisplayStaleBanner lastRefresh={lastRefresh} />
 
       <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
         <div className="flex items-center gap-3 min-w-0 flex-1">
