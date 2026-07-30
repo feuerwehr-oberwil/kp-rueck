@@ -1821,7 +1821,7 @@
   },
   "print": {
     "toasts": {
-      "completed": "Gedruckt",
+      "completed": "An Drucker gesendet",
       "failed": "Druck fehlgeschlagen",
       "failedRetry": "Druck fehlgeschlagen – neuer Versuch läuft",
       "unknownError": "Grund unbekannt",
