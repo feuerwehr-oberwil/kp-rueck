@@ -583,7 +583,7 @@ export default function FireStationDashboard() {
     } finally {
       setIsPrintingBoard(false)
     }
-  }, [selectedEvent, isPrintingBoard])
+  }, [selectedEvent, isPrintingBoard, tCommon, tDash])
 
   // Handle thermal QR-code slip print (Check-In / Reko / Viewer / Walk-In links)
   const handlePrintQR = useCallback(async (qrContent: string, title: string, subtitle?: string) => {
@@ -602,7 +602,7 @@ export default function FireStationDashboard() {
     } finally {
       setIsPrintingQR(false)
     }
-  }, [printerEnabled, isPrintingQR, selectedEvent])
+  }, [printerEnabled, isPrintingQR, selectedEvent, tCommon, tDash])
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -688,7 +688,7 @@ export default function FireStationDashboard() {
       console.error("Failed to load incidents:", error)
       toast.error(tCommon('loadFailed'))
     }
-  }, [operations, selectedEvent])
+  }, [operations, selectedEvent, tCommon])
 
   // Perform the transfer. The backend returns a specific German reason on failure.
   const handleTransfer = useCallback(async (targetIncidentId: string) => {
@@ -705,7 +705,7 @@ export default function FireStationDashboard() {
     } finally {
       setIsTransferring(false)
     }
-  }, [transferSourceOp])
+  }, [transferSourceOp, tCommon])
 
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)

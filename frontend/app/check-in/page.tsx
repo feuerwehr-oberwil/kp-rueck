@@ -51,7 +51,7 @@ export default function CheckInPage() {
         setLoading(false)
       }
     }
-  }, [token])
+  }, [token, t])
 
   useEffect(() => {
     if (!token) {
@@ -82,7 +82,7 @@ export default function CheckInPage() {
       unsubscribePersonnel()
       wsClient.disconnect()
     }
-  }, [token, loadPersonnel])
+  }, [token, loadPersonnel, t])
 
   const toggleCheckIn = async (person: ApiPersonnelListItem) => {
     if (!token) return
