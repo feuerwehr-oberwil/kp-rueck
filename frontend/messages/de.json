@@ -734,15 +734,6 @@
       "returning": "Beendet / Rückfahrt",
       "complete": "Abgeschlossen"
     },
-    "columns": {
-      "incoming": "EINGEGANGEN",
-      "reko": "REKO",
-      "reko_done": "REKO ABGESCHLOSSEN",
-      "enroute": "DISPONIERT / ANFAHRT",
-      "active": "EINSATZ",
-      "returning": "BEENDET / RÜCKFAHRT",
-      "complete": "ABGESCHLOSSEN"
-    },
     "assignReko": {
       "title": "Reko-Personal zuweisen",
       "incidentLabel": "Einsatz: {title}",
@@ -1856,13 +1847,13 @@
       "printedLabel": "Gedruckt",
       "mapOverview": "EINSATZÜBERSICHT KARTE",
       "statusHeading": {
-        "incoming": "EINGEGANGEN",
-        "reko": "REKO",
-        "reko_done": "REKO ABGESCHLOSSEN",
-        "enroute": "DISPONIERT / ANFAHRT",
-        "active": "EINSATZ",
-        "returning": "BEENDET / RÜCKFAHRT",
-        "complete": "ABGESCHLOSSEN"
+        "incoming": "Eingegangen",
+        "reko": "Reko",
+        "reko_done": "Reko abgeschlossen",
+        "enroute": "Disponiert / Anfahrt",
+        "active": "Einsatz",
+        "returning": "Beendet / Rückfahrt",
+        "complete": "Abgeschlossen"
       },
       "priority": {
         "high": "HOCH",

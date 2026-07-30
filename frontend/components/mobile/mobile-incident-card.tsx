@@ -71,7 +71,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
             <Badge variant="outline" className="text-xs px-1.5 py-0">
               {getIncidentTypeLabel(operation.incidentType)}
             </Badge>
-            <Badge variant="secondary" className="text-xs px-1.5 py-0">
+            <Badge variant="secondary" className="text-xs px-1.5 py-0 max-w-full">
               {getOperationStatusLabel(operation.status)}
             </Badge>
             {operation.hasCompletedReko && (

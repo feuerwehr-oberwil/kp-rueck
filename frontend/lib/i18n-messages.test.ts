@@ -69,8 +69,12 @@ describe('label coverage', () => {
     'kanban.statusLabels', // t(`statusLabels.${status}`) — map search, timeline popover
     'kanban.columns', // t(`columns.${column.id}`) — board, display board/status, hover card
     'incidents.status', // t(`status.${…}`) + translateOutsideReact(`incidents.status.${…}`)
-    'incidents.columns', // the ALL-CAPS variant for /display/*
     'print.view.statusHeading', // t(`statusHeading.${status}`) — print view
+    // NOT listed: `incidents.columns`. It held an ALL-CAPS copy of these labels and was
+    // documented here as "the variant for /display/*" — but /display/* reads
+    // `kanban.columns` and uppercases it in CSS (`app/display/board/page.tsx`). Nothing
+    // ever read `incidents.columns`; this list was the only thing keeping it alive, which
+    // is why the orphan sweep could not see it. Deleted 2026-07-30.
   ]
   // Mirrors incidentTypeLabels in lib/incident-types.ts
   const INCIDENT_TYPES = [
