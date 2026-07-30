@@ -19,14 +19,19 @@ const displayPages = [
 
 const HIDE_DELAY = 8000 // ms before header auto-hides
 
-function ConnectionIndicator() {
+function ConnectionIndicator({ token }: { token: string | null }) {
   const t = useTranslations('display')
   const [online, setOnline] = useState(true)
 
   useEffect(() => {
     const check = async () => {
       try {
-        await apiClient.getAllSettings()
+        // Probe something THIS viewer can actually reach. `getAllSettings` is authenticated,
+        // so on a share-token display it failed every single time and the icon sat
+        // permanently red — the only warning these screens had was stuck crying wolf, which
+        // is worse than no indicator at all: a real alert next to it reads as more noise.
+        if (token) await apiClient.getViewerData(token)
+        else await apiClient.getAllSettings()
         setOnline(true)
       } catch {
         setOnline(false)
@@ -35,7 +40,7 @@ function ConnectionIndicator() {
     check()
     const interval = setInterval(check, 15000)
     return () => clearInterval(interval)
-  }, [])
+  }, [token])
 
   return (
     <div className="flex items-center gap-1.5" title={online ? t('layout.connected') : t('layout.disconnected')}>
@@ -215,7 +220,7 @@ export default function DisplayLayout({
           {/* Utility icons — grouped for consistent visual weight */}
           <div className="flex items-center gap-0.5">
             <div className="flex h-7 w-7 items-center justify-center">
-              <ConnectionIndicator />
+              <ConnectionIndicator token={token} />
             </div>
             <button
               onClick={toggleFullscreen}

@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { buildSituationData, viewerGroupsToIncidentGroups } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
+import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
@@ -455,15 +456,22 @@ function TokenDisplayMap({
   onGpsAvailabilityChange,
 }: DisplayMapVariantProps & { token: string }) {
   const [data, setData] = useState<ApiViewerData | null>(null)
+  // Age of the last SUCCESSFUL poll. Holding the last-known data through a failed fetch is
+  // correct; rendering it as if it were current is not. Frozen vehicle positions on a map
+  // are read as fact by whoever glances at the wall.
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       try {
         const d = await apiClient.getViewerData(token)
-        if (!cancelled) setData(d)
+        if (!cancelled) {
+          setData(d)
+          setLastRefresh(new Date())
+        }
       } catch {
-        // keep last-known data on transient failures
+        // Keep the last-known data — DisplayStaleBanner surfaces that it has gone stale.
       }
     }
     load()
@@ -510,6 +518,12 @@ function TokenDisplayMap({
 
   return (
     <div className="relative w-full h-full">
+      {/* Overlaid rather than stacked in a flex column: the map is full-bleed and every
+          control on it is absolutely positioned, so reflowing the container would move all
+          of them. pointer-events-none keeps the banner from swallowing map drags. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-40">
+        <DisplayStaleBanner lastRefresh={lastRefresh} />
+      </div>
       <MapView
         selectedIncidentId={selectedIncidentId}
         onMarkerClick={onMarkerClick}
