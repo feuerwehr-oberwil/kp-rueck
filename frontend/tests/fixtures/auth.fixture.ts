@@ -43,7 +43,6 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
 
       const cookies = await context.cookies();
       await context.close();
-      // eslint-disable-next-line react-hooks/rules-of-hooks
       await use(cookies);
     },
     { scope: 'worker' },

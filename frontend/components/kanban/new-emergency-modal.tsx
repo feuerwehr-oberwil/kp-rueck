@@ -8,7 +8,7 @@
  * Any changes to location input behavior should be made in that component.
  */
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { sanitizePhoneInput } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -20,7 +20,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
-import { apiClient } from "@/lib/api-client"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 
@@ -28,7 +27,6 @@ interface NewEmergencyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreateOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
-  nextOperationId: string
   /** When set, the created incident is attached to this Auftrag (streamlined "+ Stop"). */
   defaultGroupId?: string | null
 }
@@ -37,7 +35,6 @@ export function NewEmergencyModal({
   open,
   onOpenChange,
   onCreateOperation,
-  nextOperationId,
   defaultGroupId = null,
 }: NewEmergencyModalProps) {
   const t = useTranslations('kanban')

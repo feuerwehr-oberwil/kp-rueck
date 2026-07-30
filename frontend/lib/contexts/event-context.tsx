@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { apiClient, type ApiEvent } from '@/lib/api-client'
-import type { Event, EventCreate, EventUpdate } from '@/lib/types/incidents'
+import type { Event } from '@/lib/types/incidents'
 import { isValidUUID } from '@/lib/utils/validation'
 import { useAuth } from './auth-context'
 

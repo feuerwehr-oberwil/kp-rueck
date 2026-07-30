@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import { MapPin, Check } from "lucide-react"
 import { reverseGeocode } from "@/lib/geocoding"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
+import type { LeafletMouseEvent } from "leaflet"
 
 // Leaflet coordinate type (lat, lng tuple)
 type LatLngExpression = [number, number]
@@ -47,7 +48,7 @@ function MapClickHandler({
   const { useMapEvents } = require('react-leaflet')
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useMapEvents({
-    click: (e: any) => {
+    click: (e: LeafletMouseEvent) => {
       onLocationClick(e.latlng.lat, e.latlng.lng)
     },
   })
@@ -80,7 +81,7 @@ export function MapPickerModal({
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const L = require('leaflet')
-      delete (L.Icon.Default.prototype as any)._getIconUrl
+      delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
       L.Icon.Default.mergeOptions({
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         iconUrl: require('leaflet/dist/images/marker-icon.png').default.src,

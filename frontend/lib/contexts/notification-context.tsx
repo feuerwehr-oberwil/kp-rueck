@@ -116,7 +116,7 @@ export function NotificationProvider({
       const data = await response.json()
 
       // Convert created_at strings to Date objects
-      return data.map((n: any) => ({
+      return (data as (Omit<Notification, 'created_at'> & { created_at: string })[]).map((n) => ({
         ...n,
         created_at: new Date(n.created_at),
       }))

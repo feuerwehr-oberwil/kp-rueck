@@ -220,10 +220,6 @@ test.describe('Role Badge - Mobile Behavior', () => {
     await badge.tap();
     await authenticatedPage.waitForTimeout(500);
 
-    // Tooltip should appear (or not, depending on mobile tooltip behavior)
-    const tooltip = authenticatedPage.locator('[role="tooltip"]');
-    const isVisible = await tooltip.isVisible().catch(() => false);
-
     // On mobile, tooltips might not show on tap, which is okay
     // We just verify the badge exists and is tappable
     expect(await badge.isVisible()).toBeTruthy();
@@ -234,17 +230,17 @@ test.describe('Role Badge - Mobile Behavior', () => {
 // These tests are placeholders and will need actual viewer credentials
 
 test.describe('Role Badge - Viewer (Placeholder)', () => {
-  test.skip('shows viewer badge with Eye icon', async ({ page }) => {
+  test.skip('shows viewer badge with Eye icon', async () => {
     // This test requires viewer credentials
     // Skipped until viewer test account is available
   });
 
-  test.skip('viewer badge has secondary styling', async ({ page }) => {
+  test.skip('viewer badge has secondary styling', async () => {
     // This test requires viewer credentials
     // Skipped until viewer test account is available
   });
 
-  test.skip('viewer badge shows supportive tooltip', async ({ page }) => {
+  test.skip('viewer badge shows supportive tooltip', async () => {
     // This test requires viewer credentials
     // Skipped until viewer test account is available
   });
@@ -275,11 +271,6 @@ test.describe('Role Badge - Accessibility', () => {
     const badge = authenticatedPage.locator('[class*="badge"]').filter({
       has: authenticatedPage.locator('svg[class*="lucide-shield"]')
     }).first();
-
-    // Verify badge is wrapped in tooltip trigger (asChild pattern)
-    const tooltipTrigger = authenticatedPage.locator('[data-radix-collection-item]').filter({
-      has: badge
-    });
 
     // Badge should be accessible
     await expect(badge).toBeVisible();

@@ -31,7 +31,6 @@ import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 
 interface DraggableOperationProps {
   operation: Operation
-  columnColor: string
   onRemoveCrew: (crewName: string) => void
   onRemoveMaterial: (materialId: string) => void
   onRemoveVehicle: (vehicleName: string) => void
@@ -46,7 +45,6 @@ interface DraggableOperationProps {
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
   index: number
-  columnOperations: Operation[]
   formatLocation: (address: string) => string
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
   onAssignReko?: () => void
@@ -90,7 +88,6 @@ const priorityStyles = {
 
 function DraggableOperationBase({
   operation,
-  columnColor,
   onRemoveCrew,
   onRemoveMaterial,
   onRemoveVehicle,
@@ -105,7 +102,6 @@ function DraggableOperationBase({
   isDraggingRef,
   materials,
   index,
-  columnOperations,
   formatLocation,
   onAssignResource,
   onAssignReko,
@@ -229,7 +225,7 @@ function DraggableOperationBase({
         : []),
       dropTargetForElements({
         element,
-        canDrop: ({ source }) => {
+        canDrop: () => {
           // Can drop anything on operation cards
           return true
         },
@@ -282,7 +278,7 @@ function DraggableOperationBase({
             )}
             onMouseEnter={() => onHover(operation.id)}
             onMouseLeave={() => onHover(null)}
-            onClick={(e) => {
+            onClick={() => {
               // Only trigger click if not dragging
               if (!isDraggingRef.current) {
                 // Large screen: select for sidebar, small screen: open modal
@@ -770,7 +766,6 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
     prevProps.operation.vehicles.every((v, i) => v === nextProps.operation.vehicles[i]) &&
     prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleDriverStay?.get(v) === nextProps.operation.vehicleDriverStay?.get(v)) &&
-    prevProps.columnColor === nextProps.columnColor &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&

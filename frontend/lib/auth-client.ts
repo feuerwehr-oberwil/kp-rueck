@@ -155,10 +155,9 @@ export async function getCurrentUser(): Promise<User | null> {
     // Silently handle expected network errors during development
     // (backend not running, network unavailable, etc.)
     if (error instanceof AuthError) {
-      if (error.type === AuthErrorType.NETWORK_ERROR) {
-        // Don't spam console for network errors - common during dev
-        console.debug('[Auth] Backend not reachable');
-      } else if (error.type === AuthErrorType.TIMEOUT) {
+      // NETWORK_ERROR is deliberately silent: "backend not reachable" is the
+      // ordinary dev case and ProtectedRoute already shows it on screen.
+      if (error.type === AuthErrorType.TIMEOUT) {
         console.warn('[Auth] Request timeout - backend may be slow');
       }
     } else {

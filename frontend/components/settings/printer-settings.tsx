@@ -122,7 +122,7 @@ export function PrinterSettings() {
       } else {
         toast.success(t('toasts.serviceOnlineConfigured'));
       }
-    } catch (error) {
+    } catch {
       toast.error(t('toasts.connectionTestFailed'));
     } finally {
       setTestingConnection(false);

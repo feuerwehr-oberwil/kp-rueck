@@ -667,10 +667,6 @@ export class MainPage extends BasePage {
     hasPriorityIndicators: boolean;
     hasTimeIndicators: boolean;
   }> {
-    const incidentCard = incidentLocation
-      ? this.findIncidentByLocation(incidentLocation)
-      : this.page.locator('[data-testid="incident-card"]').first();
-
     const hasDragAffordance = await this.incidentHasTransitions(incidentLocation);
     const hasPriorityIndicators = await this.incidentHasPriorityDot(incidentLocation) &&
                                    await this.incidentHasPriorityIcon(incidentLocation);

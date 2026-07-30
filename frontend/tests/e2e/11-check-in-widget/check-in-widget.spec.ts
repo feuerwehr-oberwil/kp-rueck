@@ -420,9 +420,6 @@ test.describe('Check-In Widget - Integration', () => {
       has: authenticatedPage.locator('svg[class*="lucide-user-check"]')
     });
 
-    // Get initial count
-    const initialText = await checkInWidget.textContent();
-
     // Click to navigate to check-in page
     await checkInWidget.click();
     await expect(authenticatedPage).toHaveURL(/\/check-in/);

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { FooterSheet } from "@/components/ui/footer-sheet"
@@ -43,9 +43,6 @@ interface VehicleStatusSheetProps {
   eventId: string | null
 }
 
-type SortOption = "name" | "status" | "duration"
-type FilterOption = "all" | "available" | "assigned" | "unavailable"
-
 function formatDuration(minutes: number | null): string {
   if (minutes === null) return "-"
 
@@ -67,18 +64,6 @@ function getDurationColor(minutes: number | null): string {
   return "text-muted-foreground font-medium" // >= 2 hours
 }
 
-function getVehicleStatusBadge(status: string): { variant: "default" | "secondary" | "destructive" | "outline"; label: string; color?: string } {
-  switch (status) {
-    case "available":
-      // Subtle, desaturated green - Refactoring UI: don't use bright colors for passive states
-      return { variant: "outline", label: translateOutsideReact('incidents.vehicleStatus.available'), color: RESOURCE_STATE_BADGE_CLASSES.available }
-    case "unavailable":
-      return { variant: "secondary", label: translateOutsideReact('incidents.vehicleStatus.unavailable'), color: "bg-muted text-muted-foreground border-border" }
-    default:
-      return { variant: "outline", label: status }
-  }
-}
-
 function getStatusBorderColor(status: string, hasIncident: boolean): string {
   // Refactoring UI: Use subtle visual cues, not heavy color blocks
   // Only highlight assigned vehicles, available is the default state
@@ -93,13 +78,6 @@ function getStatusBorderColor(status: string, hasIncident: boolean): string {
     default:
       return "border-l-transparent"
   }
-}
-
-function getIncidentStatusBadgeVariant(incidentStatus: string | null): "default" | "secondary" | "destructive" | "outline" {
-  if (!incidentStatus) return "outline"
-  if (incidentStatus === "einsatz") return "destructive"
-  if (incidentStatus === "disponiert") return "secondary"
-  return "default"
 }
 
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
@@ -327,7 +305,6 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
           ) : (
             <div className="space-y-2">
               {displayedVehicles.map((vehicle, index) => {
-                const vehicleStatusBadge = getVehicleStatusBadge(vehicle.status)
                 const isSelected = index === selectedVehicleIndex
                 const isClickable = !!vehicle.incident_id
                 const auftragName = auftragByVehicleId.get(vehicle.id)

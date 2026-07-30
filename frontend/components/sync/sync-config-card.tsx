@@ -21,7 +21,6 @@ export function SyncConfigCard() {
   const [autoSyncOnCreate, setAutoSyncOnCreate] = useState<boolean>(true)
   const [railwayDatabaseUrl, setRailwayDatabaseUrl] = useState<string>('')
   const [conflictBuffer, setConflictBuffer] = useState<number>(5)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   // Load config on mount

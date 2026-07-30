@@ -7,7 +7,19 @@ import { getWsUrl } from './env'
 
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
-export interface WebSocketUpdate<T = any> {
+// Connection-lifecycle tracing is opt-in via NEXT_PUBLIC_DEBUG_WS=1 so a station's
+// production console stays quiet — this file used to narrate every room join and
+// every 30s pong to every operator. Errors are always logged. The flag is inlined at
+// build time, so it is a development convenience: published images are built without
+// it and can never turn it on by accident.
+// Same shape as the proxy route's PROXY_DEBUG (app/backend-api/[...path]/route.ts).
+const WS_DEBUG = process.env.NEXT_PUBLIC_DEBUG_WS === '1'
+const debug = (...args: unknown[]) => {
+  // eslint-disable-next-line no-console -- opt-in diagnostic tracing only
+  if (WS_DEBUG) console.log(...args)
+}
+
+export interface WebSocketUpdate<T = unknown> {
   // 'driver_stay' is a targeted assignment toggle that clients apply surgically
   // (no full reload), unlike structural create/update/delete events.
   action: 'create' | 'update' | 'delete' | 'driver_stay'
@@ -54,7 +66,7 @@ class WebSocketClient {
   private dial() {
     if (this.socket) {
       if (this.socket.connected) {
-        console.log('WebSocket already connected')
+        debug('WebSocket already connected')
         return
       }
       // A socket exists and its io manager is still actively connecting or
@@ -91,7 +103,7 @@ class WebSocketClient {
     // multi-hour wall-display session.
     this.listeners.forEach((callbacks, event) => {
       callbacks.forEach(callback => {
-        this.socket!.on(event, callback as any)
+        this.socket!.on(event, callback as (...args: unknown[]) => void)
       })
     })
 
@@ -149,7 +161,7 @@ class WebSocketClient {
   joinRoom(room: string) {
     if (this.socket?.connected) {
       this.socket.emit('join', { room })
-      console.log(`Joining room: ${room}`)
+      debug(`Joining room: ${room}`)
     }
   }
 
@@ -159,7 +171,7 @@ class WebSocketClient {
   leaveRoom(room: string) {
     if (this.socket?.connected) {
       this.socket.emit('leave', { room })
-      console.log(`Leaving room: ${room}`)
+      debug(`Leaving room: ${room}`)
     }
   }
 
@@ -177,7 +189,7 @@ class WebSocketClient {
     // keeps handlers across reconnects). If no socket exists yet, connect()
     // attaches everything buffered in `listeners` when it creates one.
     if (this.socket) {
-      this.socket.on(event, callback as any)
+      this.socket.on(event, callback as (...args: unknown[]) => void)
     }
 
     // Return unsubscribe function
@@ -200,7 +212,7 @@ class WebSocketClient {
     }
 
     if (this.socket) {
-      this.socket.off(event, callback as any)
+      this.socket.off(event, callback as (...args: unknown[]) => void)
     }
   }
 
@@ -248,7 +260,7 @@ class WebSocketClient {
     // on every reconnect and socket.io already keeps handlers across
     // reconnects; re-attaching would duplicate them (see connect()).
     this.socket.on('connect', () => {
-      console.log('WebSocket connected')
+      debug('WebSocket connected')
       this.reconnectAttempts = 0
       this.updateStatus('connected')
 
@@ -257,7 +269,7 @@ class WebSocketClient {
     })
 
     this.socket.on('disconnect', (reason) => {
-      console.log('WebSocket disconnected:', reason)
+      debug('WebSocket disconnected:', reason)
       this.updateStatus('disconnected')
       // The server closed the connection deliberately (e.g. the idle-session
       // reaper kicking a background tab whose 30s ping was throttled).
@@ -280,19 +292,19 @@ class WebSocketClient {
 
     // Custom events
     this.socket.on('connected', (data) => {
-      console.log('Server acknowledged connection:', data)
+      debug('Server acknowledged connection:', data)
     })
 
     this.socket.on('joined', (data) => {
-      console.log('Joined room:', data.room)
+      debug('Joined room:', data.room)
     })
 
     this.socket.on('left', (data) => {
-      console.log('Left room:', data.room)
+      debug('Left room:', data.room)
     })
 
     this.socket.on('pong', (data) => {
-      console.log('Pong received:', data)
+      debug('Pong received:', data)
     })
 
     this.socket.on('error', (data) => {

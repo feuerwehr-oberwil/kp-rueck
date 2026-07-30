@@ -16,12 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  MapPin,
   Clock,
   Truck,
   Users,
   Package,
-  Siren,
   FileCheck,
   AlertTriangle,
   MessageCircle,
@@ -33,7 +31,7 @@ import {
   Pencil,
 } from "lucide-react"
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
-import { getTimeSince, columns } from "@/lib/kanban-utils"
+import { getTimeSince } from "@/lib/kanban-utils"
 import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
