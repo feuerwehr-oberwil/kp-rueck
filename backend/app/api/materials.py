@@ -1,6 +1,8 @@
 """Material management API endpoints."""
 
 import uuid
+from collections.abc import Sequence
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select, update
@@ -21,7 +23,7 @@ router = APIRouter(prefix="/materials", tags=["materials"])
 async def list_materials(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> list[Material]:
     """List all materials (all users)."""
     return await crud.get_all_materials(db)
 
@@ -31,7 +33,7 @@ async def get_material(
     material_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> Material:
     """Get single material by ID."""
     material = await crud.get_material(db, material_id)
     if not material:
@@ -46,7 +48,7 @@ async def create_material(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.Material:
     """Create new material (editor only)."""
     new_material = await crud.create_material(db, material, current_user, request)
 
@@ -65,7 +67,7 @@ async def update_material(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.Material:
     """Update material (editor only)."""
     updated = await crud.update_material(db, material_id, material, current_user, request)
     if not updated:
@@ -85,7 +87,7 @@ async def delete_material(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Delete material (editor only) - soft delete."""
     success = await crud.delete_material(db, material_id, current_user, request)
     if not success:
@@ -95,12 +97,12 @@ async def delete_material(
     background_tasks.add_task(broadcast_material_update, {"id": str(material_id)}, "delete")
 
 
-@router.post("/categories/sort-order", status_code=status.HTTP_200_OK)
+@router.post("/categories/sort-order", status_code=status.HTTP_200_OK, response_model=None)
 async def update_location_sort_orders(
     sort_update: schemas.BulkCategorySortOrderUpdate,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Update sort orders for material location categories (editor only).
 
@@ -130,7 +132,7 @@ groups_router = APIRouter(prefix="/material-groups", tags=["material-groups"])
 async def list_material_groups(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> Sequence[MaterialGroup]:
     """List all material groups with their materials."""
     result = await db.execute(select(MaterialGroup).order_by(MaterialGroup.location_sort_order, MaterialGroup.name))
     groups = result.scalars().all()
@@ -145,7 +147,7 @@ async def create_material_group(
     group: schemas.MaterialGroupCreate,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> MaterialGroup:
     """Create a material group and optionally assign materials to it."""
     db_group = MaterialGroup(
         name=group.name,
@@ -171,7 +173,7 @@ async def update_material_group(
     group_update: schemas.MaterialGroupUpdate,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> MaterialGroup:
     """Update a material group."""
     result = await db.execute(select(MaterialGroup).where(MaterialGroup.id == group_id))
     db_group = result.scalar_one_or_none()
@@ -202,7 +204,7 @@ async def delete_material_group(
     group_id: uuid.UUID,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Delete a material group. Materials are unlinked, not deleted."""
     result = await db.execute(select(MaterialGroup).where(MaterialGroup.id == group_id))
     db_group = result.scalar_one_or_none()

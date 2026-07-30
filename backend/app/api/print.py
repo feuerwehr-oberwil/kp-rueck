@@ -15,7 +15,9 @@ import logging
 import secrets
 import time
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import and_, func, select
@@ -99,17 +101,17 @@ async def _build_board_payload(
     include_completed: bool = False,
     include_vehicles: bool = True,
     include_personnel: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Build the payload for a board snapshot print job."""
     # Get event
-    result = await db.execute(select(Event).where(Event.id == event_id))
-    event = result.scalar_one_or_none()
+    event_result = await db.execute(select(Event).where(Event.id == event_id))
+    event = event_result.scalar_one_or_none()
 
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
     # Get all non-deleted incidents for this event
-    result = await db.execute(
+    incident_result = await db.execute(
         select(Incident)
         .options(selectinload(Incident.assignments))
         .where(
@@ -120,11 +122,11 @@ async def _build_board_payload(
         )
         .order_by(Incident.created_at)
     )
-    incidents = result.scalars().all()
+    incidents = incident_result.scalars().all()
 
     # Find reko personnel for this event to exclude from crew
     reko_personnel_ids: set[uuid.UUID] = set()
-    result = await db.execute(
+    reko_result = await db.execute(
         select(EventSpecialFunction.personnel_id).where(
             and_(
                 EventSpecialFunction.event_id == event_id,
@@ -132,11 +134,11 @@ async def _build_board_payload(
             )
         )
     )
-    reko_personnel_ids = {row[0] for row in result.all()}
+    reko_personnel_ids = {row[0] for row in reko_result.all()}
 
     # Find all drivers for this event
     driver_map: dict[uuid.UUID, str] = {}  # vehicle_id -> driver name
-    result = await db.execute(
+    driver_result = await db.execute(
         select(EventSpecialFunction, Personnel)
         .join(Personnel, EventSpecialFunction.personnel_id == Personnel.id)
         .where(
@@ -146,12 +148,12 @@ async def _build_board_payload(
             )
         )
     )
-    for sf, person in result.all():
+    for sf, person in driver_result.all():
         if sf.vehicle_id:
             driver_map[sf.vehicle_id] = person.name
 
     # Build incidents list with full details
-    incidents_data = []
+    incidents_data: list[dict[str, Any]] = []
     for inc in incidents:
         active_assignments = [a for a in inc.assignments if a.unassigned_at is None]
         personnel_ids = [a.resource_id for a in active_assignments if a.resource_type == "personnel"]
@@ -162,7 +164,7 @@ async def _build_board_payload(
         vehicle_assignment_map = {a.resource_id: a for a in active_assignments if a.resource_type == "vehicle"}
 
         # Get vehicle details with driver info
-        inc_vehicles = []
+        inc_vehicles: list[dict[str, Any]] = []
         if vehicle_ids:
             veh_result = await db.execute(select(Vehicle).where(Vehicle.id.in_(vehicle_ids)))
             for v in veh_result.scalars().all():
@@ -178,7 +180,7 @@ async def _build_board_payload(
                 )
 
         # Get crew details (exclude reko personnel)
-        crew = []
+        crew: list[dict[str, Any]] = []
         if personnel_ids:
             pers_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
             for p in pers_result.scalars().all():
@@ -186,7 +188,7 @@ async def _build_board_payload(
                     crew.append({"name": p.name, "role": p.role})
 
         # Get material details
-        materials_list = []
+        materials_list: list[dict[str, Any]] = []
         if material_ids:
             mat_result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
             for m in mat_result.scalars().all():
@@ -209,18 +211,18 @@ async def _build_board_payload(
         )
 
     # Get vehicle status summary
-    result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
-    all_vehicles = result.scalars().all()
+    all_vehicles_result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
+    all_vehicles = all_vehicles_result.scalars().all()
 
     # Check which vehicles are assigned to active incidents
-    assigned_vehicle_ids = set()
+    assigned_vehicle_ids: set[uuid.UUID] = set()
     for inc in incidents:
         if inc.status not in ("abschluss",):
             for a in inc.assignments:
                 if a.resource_type == "vehicle" and a.unassigned_at is None:
                     assigned_vehicle_ids.add(a.resource_id)
 
-    vehicle_status = []
+    vehicle_status: list[dict[str, Any]] = []
     for v in all_vehicles:
         vehicle_status.append(
             {
@@ -231,7 +233,7 @@ async def _build_board_payload(
         )
 
     # Get personnel summary (checked in for this event)
-    result = await db.execute(
+    checked_in_result = await db.execute(
         select(func.count(EventAttendance.id)).where(
             and_(
                 EventAttendance.event_id == event_id,
@@ -239,15 +241,15 @@ async def _build_board_payload(
             )
         )
     )
-    checked_in_count = result.scalar() or 0
+    checked_in_count = checked_in_result.scalar() or 0
 
-    result = await db.execute(select(func.count(Personnel.id)))
-    total_personnel = result.scalar() or 0
+    total_personnel_result = await db.execute(select(func.count(Personnel.id)))
+    total_personnel = total_personnel_result.scalar() or 0
 
     # Get individual checked-in personnel for detailed listing
-    personnel_list = []
+    personnel_list: list[dict[str, Any]] = []
     if include_personnel:
-        result = await db.execute(
+        checked_in_personnel_result = await db.execute(
             select(Personnel)
             .join(EventAttendance, Personnel.id == EventAttendance.personnel_id)
             .where(
@@ -258,7 +260,7 @@ async def _build_board_payload(
             )
             .order_by(Personnel.role_sort_order, Personnel.name)
         )
-        for p in result.scalars().all():
+        for p in checked_in_personnel_result.scalars().all():
             # Determine if this person is assigned to any active incident
             is_assigned = False
             for inc in incidents:
@@ -279,7 +281,7 @@ async def _build_board_payload(
                 }
             )
 
-    payload = {
+    payload: dict[str, Any] = {
         "event_id": str(event.id),
         "event_name": event.name,
         "training_flag": event.training_flag,
@@ -306,7 +308,7 @@ async def _build_board_payload(
 @router.get("/config/", response_model=schemas.PrinterConfigResponse, dependencies=[Depends(require_print_agent)])
 async def get_printer_config(
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.PrinterConfigResponse:
     """
     Get printer configuration for the print agent.
 
@@ -329,7 +331,7 @@ async def get_printer_config(
 async def get_printer_status(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.PrinterStatusResponse:
     """Get printer status and configuration."""
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
     ip = await settings_service.get_setting_value(db, "printer.ip", "")
@@ -337,17 +339,17 @@ async def get_printer_status(
     auto_anfahrt = await settings_service.get_setting_value(db, "printer.auto_anfahrt", "true")
 
     # Count pending jobs
-    result = await db.execute(select(func.count(PrintJob.id)).where(PrintJob.status == "pending"))
-    pending_count = result.scalar() or 0
+    pending_result = await db.execute(select(func.count(PrintJob.id)).where(PrintJob.status == "pending"))
+    pending_count = pending_result.scalar() or 0
 
     # Get last job info
-    result = await db.execute(
+    last_job_result = await db.execute(
         select(PrintJob)
         .where(PrintJob.status.in_(["completed", "failed"]))
         .order_by(PrintJob.completed_at.desc())
         .limit(1)
     )
-    last_job = result.scalar_one_or_none()
+    last_job = last_job_result.scalar_one_or_none()
 
     agent_online = bool(
         _agent_last_seen and (datetime.now(UTC) - _agent_last_seen).total_seconds() < AGENT_ONLINE_THRESHOLD_SECONDS
@@ -371,7 +373,7 @@ async def queue_assignment_print(
     incident_id: uuid.UUID,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> PrintJob:
     """Queue an assignment slip for printing."""
     # Check if printer is enabled
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
@@ -406,7 +408,7 @@ async def queue_board_print(
     request: schemas.PrintBoardRequest,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> PrintJob:
     """Queue a board snapshot for printing."""
     # Check if printer is enabled
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
@@ -443,7 +445,7 @@ async def queue_board_print(
 async def queue_test_print(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> PrintJob:
     """Queue a test print to verify the whole printing chain end-to-end."""
     # Check if printer is enabled (the agent only polls when enabled)
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
@@ -474,7 +476,7 @@ async def queue_qr_code_print(
     request: schemas.PrintQRCodeRequest,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> PrintJob:
     """Queue a QR-code slip (shareable link as QR + text) for printing."""
     # Check if printer is enabled (the agent only polls when enabled)
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
@@ -510,7 +512,7 @@ async def get_pending_jobs(
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=10, ge=1, le=50),
     wait: float = Query(default=0.0, ge=0.0, le=LONG_POLL_MAX_SECONDS),
-):
+) -> Sequence[PrintJob]:
     """
     Get pending print jobs for the print agent.
 
@@ -557,7 +559,7 @@ async def get_print_job(
     job_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> PrintJob:
     """Get a single print job by id (used by the frontend to poll test-print results)."""
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
     job = result.scalar_one_or_none()
@@ -574,7 +576,7 @@ async def get_print_job(
 async def claim_print_job(
     job_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-):
+) -> PrintJob:
     """
     Claim a print job (mark as printing).
 
@@ -607,7 +609,7 @@ async def complete_print_job(
     job_id: uuid.UUID,
     update: schemas.PrintJobUpdate,
     db: AsyncSession = Depends(get_db),
-):
+) -> PrintJob:
     """
     Complete a print job (mark as completed or failed).
 
@@ -643,7 +645,7 @@ async def delete_print_job(
     job_id: uuid.UUID,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Delete a print job (editor only)."""
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
     job = result.scalar_one_or_none()

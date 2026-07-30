@@ -21,7 +21,7 @@ router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 async def list_vehicles(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> list[Vehicle]:
     """List all vehicles (all users)."""
     return await crud.get_all_vehicles(db)
 
@@ -31,7 +31,7 @@ async def get_vehicle(
     vehicle_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> Vehicle:
     """Get single vehicle by ID."""
     vehicle = await crud.get_vehicle(db, vehicle_id)
     if not vehicle:
@@ -46,7 +46,7 @@ async def create_vehicle(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.Vehicle:
     """Create new vehicle (editor only)."""
     new_vehicle = await crud.create_vehicle(db, vehicle, current_user, request)
 
@@ -65,7 +65,7 @@ async def update_vehicle(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.Vehicle:
     """Update vehicle (editor only)."""
     updated = await crud.update_vehicle(db, vehicle_id, vehicle, current_user, request)
     if not updated:
@@ -85,7 +85,7 @@ async def delete_vehicle(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Delete vehicle (editor only) - soft delete."""
     success = await crud.delete_vehicle(db, vehicle_id, current_user, request)
     if not success:
@@ -101,7 +101,7 @@ async def get_vehicle_status(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
     event_id: uuid.UUID = Query(..., description="Event ID to check driver and incident assignment"),
-):
+) -> schemas.VehicleStatusResponse:
     """
     Get vehicle status including driver assignment and current incident.
 

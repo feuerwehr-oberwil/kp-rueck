@@ -63,7 +63,7 @@ async def export_event_audit(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,  # Only editors can export
-):
+) -> StreamingResponse:
     """
     Export complete event audit data for payment processing.
 
@@ -144,7 +144,7 @@ async def export_event_report(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,  # Only editors can export
-):
+) -> StreamingResponse:
     """
     Generate a presentable PDF after-action report (Einsatzbericht) for an event.
 
@@ -227,7 +227,7 @@ async def export_event_lageblatt(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> StreamingResponse:
     """
     Generate the Lageblatt PDF — the paper-fallback snapshot of the current board.
 

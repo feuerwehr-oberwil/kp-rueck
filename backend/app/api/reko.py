@@ -7,6 +7,7 @@ rewriting other incidents' recon reports.
 """
 
 import uuid
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -70,7 +71,7 @@ async def get_reko_form(
     token: str = Query(...),
     personnel_id: uuid.UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.RekoReportResponse:
     """
     Load Reko form (existing draft or new).
 
@@ -117,7 +118,7 @@ async def submit_reko_report(
     background_tasks: BackgroundTasks,
     submit: bool = Query(default=True, description="Mark as submitted (not draft)"),
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.RekoReportResponse:
     """
     Submit or update Reko report.
 
@@ -178,7 +179,7 @@ async def update_report(
     access_token: str | None = Cookie(None),
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.RekoReportResponse:
     """Update existing Reko report (e.g., add more photos after submission).
 
     Requires either the incident's form token (X-Reko-Token header) or a
@@ -230,7 +231,7 @@ async def get_report(
     access_token: str | None = Cookie(None),
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.RekoReportResponse:
     """Get Reko report by ID (for viewing on incident card).
 
     Requires either the incident's form token (?token=) or a logged-in user.
@@ -264,7 +265,7 @@ async def get_incident_reports(
     incident_id: uuid.UUID,
     _current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> list[schemas.RekoReportResponse]:
     """Get all Reko reports for an incident (for incident detail view).
 
     Requires authentication — only called from the logged-in board UI.
@@ -300,7 +301,7 @@ async def mark_reko_arrived(
     background_tasks: BackgroundTasks,
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.RekoReportResponse:
     """
     Mark Reko personnel as arrived on site.
 
@@ -364,7 +365,7 @@ async def mark_reko_arrived(
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
 
-@router.post("/generate-link")
+@router.post("/generate-link", response_model=None)
 async def generate_reko_link(
     request: Request,
     incident_id: uuid.UUID = Query(...),
@@ -374,7 +375,7 @@ async def generate_reko_link(
     access_token: str | None = Cookie(None),
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Generate Reko form link for an incident.
 
@@ -421,7 +422,7 @@ async def get_event_reko_summaries(
     event_id: uuid.UUID,
     _current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.EventRekoSummariesResponse:
     """
     Get reko summaries for all incidents in an event (bulk load).
 
@@ -439,7 +440,8 @@ async def get_event_reko_summaries(
     summaries_str_keys = {str(k): v for k, v in summaries.items()}
 
     return schemas.EventRekoSummariesResponse(
-        summaries=summaries_str_keys,
+        # Plain dicts; pydantic builds the RekoSummary models from them.
+        summaries=summaries_str_keys,  # type: ignore[arg-type]
         total=len(summaries),
     )
 
@@ -449,7 +451,7 @@ async def get_event_reko_summaries(
 # ============================================
 
 
-@router.post("/{incident_id}/photos")
+@router.post("/{incident_id}/photos", response_model=None)
 @limiter.limit(RateLimits.PHOTO_UPLOAD)
 async def upload_photo(
     request: Request,
@@ -457,7 +459,7 @@ async def upload_photo(
     file: UploadFile = File(...),
     x_reko_token: str = Header(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, str]:
     """
     Upload photo to Reko report.
 
@@ -518,13 +520,13 @@ async def upload_photo(
     return {"filename": filename}
 
 
-@router.delete("/{incident_id}/photos/{filename}")
+@router.delete("/{incident_id}/photos/{filename}", response_model=None)
 async def delete_photo(
     incident_id: uuid.UUID,
     filename: str,
     x_reko_token: str = Header(...),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, bool]:
     """
     Delete photo from Reko report.
 
@@ -574,7 +576,7 @@ async def serve_photo(
     request: Request,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> FileResponse:
     """
     Serve photo file with authentication and authorization.
 

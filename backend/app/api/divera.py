@@ -2,14 +2,14 @@
 
 import logging
 import re
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import schemas
+from .. import models, schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings
 from ..crud import assignments as assignments_crud
@@ -42,14 +42,16 @@ router = APIRouter(prefix="/divera", tags=["divera"])
 # poller and attach endpoints share one source.
 
 
-@router.post("/webhook", status_code=status.HTTP_200_OK)
+@router.post("/webhook", status_code=status.HTTP_200_OK, response_model=None)
 @limiter.limit(RateLimits.WEBHOOK)
 async def receive_divera_webhook(
     payload: schemas.DiveraWebhookPayload,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-    request: Request = None,
-):
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    request: Request = None,  # type: ignore[assignment]
+) -> dict[str, str | None]:
     """
     Receive Divera 24/7 webhook and store emergency.
 
@@ -124,7 +126,7 @@ async def list_divera_emergencies(
     include_archived: bool = Query(False, description="Include archived emergencies"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
-):
+) -> schemas.DiveraEmergencyListResponse:
     """
     List Divera emergencies with filters.
 
@@ -168,7 +170,7 @@ async def get_divera_emergency(
     emergency_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> schemas.DiveraEmergencyResponse:
     """Get a specific Divera emergency by ID."""
     emergency = await divera_crud.get_divera_emergency_by_id(db, emergency_id)
     if not emergency:
@@ -189,7 +191,7 @@ async def attach_emergency_to_event(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.IncidentResponse:
     """
     Attach a Divera emergency to an Event by creating an Incident.
 
@@ -269,7 +271,7 @@ async def bulk_attach_emergencies(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.BulkAttachEmergenciesResponse:
     """
     Attach multiple Divera emergencies to an Event.
 
@@ -353,7 +355,7 @@ async def archive_divera_emergency(
     emergency_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """
     Archive a Divera emergency (soft delete).
 
@@ -372,7 +374,7 @@ async def archive_divera_emergency(
 async def get_personnel_sync_preview(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.DiveraSyncPreview:
     """
     Preview personnel sync from Divera.
 
@@ -418,7 +420,7 @@ async def execute_personnel_sync(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.DiveraSyncResult:
     """
     Execute personnel sync from Divera.
 
@@ -476,7 +478,7 @@ DEFAULT_ALARM_TEXT = settings_service.DEFAULT_SETTINGS["alerting.text_template"]
 _TOKEN_RE = re.compile(r"\{(\w+)\}")
 
 
-def _render_alarm_template(template: str, incident) -> str:
+def _render_alarm_template(template: str, incident: models.Incident) -> str:
     """Render an alarm title/text template against an incident.
 
     Same section engine as the frontend (message-template.ts): a line whose tokens
@@ -521,7 +523,7 @@ async def send_incident_alarm(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.DiveraAlarmResponse:
     """Send an outbound Divera alarm to selected personnel assigned to an incident.
 
     Editor role. Off by default: requires ``alerting.enabled = true`` and a
@@ -661,7 +663,9 @@ async def send_incident_alarm(
 
     try:
         result = await provider.send_alarm(
-            external_ids=[external_ids[r.personnel_id] for r in sent],
+            # Every recipient appended to `sent` above carries a non-None personnel_id
+            # and a matching external_ids entry; the schema type (UUID | None) is wider.
+            external_ids=[external_ids[r.personnel_id] for r in sent],  # type: ignore[index]
             title=title,
             text=text,
             foreign_id=foreign_id,
@@ -713,7 +717,7 @@ async def send_incident_alarm(
 @router.get("/members", response_model=list[schemas.DiveraMemberPreview])
 async def list_divera_members(
     current_user: CurrentEditor,
-):
+) -> list[schemas.DiveraMemberPreview]:
     """List Divera members (id + name) — used to pick a test-alarm recipient.
 
     Reads live from Divera (pull/all); independent of local personnel linking.
@@ -741,7 +745,7 @@ async def send_test_alarm(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.DiveraAlarmResponse:
     """Send a setup test alarm (push only) to a single Divera member.
 
     Used from Settings to verify the Divera connection. Same gating as a real
@@ -804,10 +808,10 @@ async def send_test_alarm(
     )
 
 
-@router.get("/polling/status")
+@router.get("/polling/status", response_model=None)
 async def get_polling_status(
     current_user: CurrentUser,
-):
+) -> dict[str, Any]:
     """
     Get Divera polling status.
 

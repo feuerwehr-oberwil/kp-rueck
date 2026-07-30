@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -11,7 +12,7 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import special_functions as crud
 from ..database import get_db
-from ..models import Personnel, Vehicle
+from ..models import EventSpecialFunction, Personnel, Vehicle
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_special_function_update
 
@@ -20,7 +21,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/events/{event_id}/special-functions", tags=["special-functions"])
 
 
-async def _enrich_assignments(db: AsyncSession, assignments) -> list[schemas.EventSpecialFunctionResponse]:
+async def _enrich_assignments(
+    db: AsyncSession, assignments: Sequence[EventSpecialFunction]
+) -> list[schemas.EventSpecialFunctionResponse]:
     """Build response objects, bulk-loading personnel and vehicle names.
 
     Avoids an N+1 query pattern: instead of two lookups per assignment, fetch all
@@ -45,7 +48,8 @@ async def _enrich_assignments(db: AsyncSession, assignments) -> list[schemas.Eve
             event_id=a.event_id,
             personnel_id=a.personnel_id,
             personnel_name=personnel_names.get(a.personnel_id, "Unknown"),
-            function_type=a.function_type,
+            # The column is a plain str; the str-Enum FunctionType is applied by pydantic.
+            function_type=a.function_type,  # type: ignore[arg-type]
             vehicle_id=a.vehicle_id,
             vehicle_name=vehicle_names.get(a.vehicle_id) if a.vehicle_id else None,
             assigned_at=a.assigned_at,
@@ -60,7 +64,7 @@ async def list_event_special_functions(
     event_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> list[schemas.EventSpecialFunctionResponse]:
     """List all special function assignments for an event (all users)."""
     assignments = await crud.get_event_special_functions(db, event_id)
     return await _enrich_assignments(db, assignments)
@@ -72,7 +76,7 @@ async def list_personnel_special_functions(
     personnel_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> list[schemas.EventSpecialFunctionResponse]:
     """List all special functions for a specific person in an event (all users)."""
     assignments = await crud.get_personnel_special_functions(db, event_id, personnel_id)
     return await _enrich_assignments(db, assignments)
@@ -85,7 +89,7 @@ async def assign_special_function(
     request: Request,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.EventSpecialFunctionResponse:
     """Assign a special function to personnel for an event (editor only)."""
     try:
         db_assignment = await crud.create_special_function(db, event_id, assignment, current_user, request)
@@ -109,7 +113,8 @@ async def assign_special_function(
         event_id=db_assignment.event_id,
         personnel_id=db_assignment.personnel_id,
         personnel_name=personnel.name if personnel else "Unknown",
-        function_type=db_assignment.function_type,
+        # The column is a plain str; the str-Enum FunctionType is applied by pydantic.
+        function_type=db_assignment.function_type,  # type: ignore[arg-type]
         vehicle_id=db_assignment.vehicle_id,
         vehicle_name=vehicle_name,
         assigned_at=db_assignment.assigned_at,
@@ -130,7 +135,7 @@ async def unassign_special_function(
     request: Request,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Remove a special function assignment (editor only)."""
     success = await crud.delete_special_function(
         db,

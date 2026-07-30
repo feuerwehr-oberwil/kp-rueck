@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/import/template")
 async def download_import_template(
     current_user: CurrentEditor,
-):
+) -> StreamingResponse:
     """Download empty Excel template for data import."""
     # openpyxl work off the event loop (audit H4)
     template_bytes = await asyncio.to_thread(generate_empty_template)
@@ -49,12 +50,12 @@ async def download_import_template(
 async def preview_excel_import(
     current_user: CurrentEditor,
     file: UploadFile = File(...),
-):
+) -> dict[str, Any]:
     """
     Preview Excel import without committing to database.
     Returns first 10 rows of each sheet for user confirmation.
     """
-    if not file.filename.endswith((".xlsx", ".xls")):
+    if not (file.filename or "").endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
 
     file_bytes = await file.read()
@@ -89,8 +90,10 @@ async def execute_excel_import(
     file: UploadFile = File(...),
     mode: str = "replace",  # replace, merge, or append
     db: AsyncSession = Depends(get_db),
-    request: Request = None,
-):
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    request: Request = None,  # type: ignore[assignment]
+) -> dict[str, Any]:
     """
     Execute Excel import with specified mode.
 
@@ -108,7 +111,7 @@ async def execute_excel_import(
     if mode not in ["replace", "merge", "append"]:
         raise HTTPException(status_code=400, detail="Invalid mode. Must be replace, merge, or append")
 
-    if not file.filename.endswith((".xlsx", ".xls")):
+    if not (file.filename or "").endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
 
     file_bytes = await file.read()
@@ -126,8 +129,9 @@ async def execute_excel_import(
     except ExcelImportError:
         raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden") from None
 
-    # Execute import
-    counts = await import_data(db, parsed_data, mode, str(current_user.id))
+    # Execute import (`mode` is a plain str query param, validated against the
+    # three literals above — mypy can't narrow str to the Literal import_data wants)
+    counts = await import_data(db, parsed_data, mode, str(current_user.id))  # type: ignore[arg-type]
 
     # Audit log
     await log_action(
@@ -157,8 +161,10 @@ async def execute_excel_import(
 async def export_all_data(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-    request: Request = None,
-):
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    request: Request = None,  # type: ignore[assignment]
+) -> StreamingResponse:
     """Export all personnel, vehicles, and materials to Excel."""
     excel_bytes = await export_data_to_excel(db)
 
@@ -183,14 +189,16 @@ async def export_all_data(
     )
 
 
-@router.post("/seed-training")
+@router.post("/seed-training", response_model=None)
 async def seed_training_templates(
     current_user: CurrentEditor,
     skip_geocoding: bool = True,
     force_reseed: bool = False,
     db: AsyncSession = Depends(get_db),
-    request: Request = None,
-):
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    request: Request = None,  # type: ignore[assignment]
+) -> dict[str, Any]:
     """
     Manually seed training emergency templates and locations.
     Use this endpoint if automatic seeding failed during deployment.

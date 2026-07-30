@@ -19,7 +19,7 @@ async def get_event_stats(
     event_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> schemas.EventStats:
     """
     Get real-time statistics for an event.
 
@@ -75,7 +75,11 @@ async def get_event_stats(
     # (from created_at to completed_at)
     completed_incidents = [i for i in incidents if i.completed_at is not None]
     if completed_incidents:
-        durations = [(i.completed_at - i.created_at).total_seconds() for i in completed_incidents]
+        durations = [
+            (completed_at - i.created_at).total_seconds()
+            for i in completed_incidents
+            if (completed_at := i.completed_at) is not None
+        ]
         avg_duration_sec = sum(durations) / len(durations)
         avg_duration_minutes = int(avg_duration_sec / 60)
     else:

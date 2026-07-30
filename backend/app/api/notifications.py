@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..database import get_db
+from ..models import Notification
 from ..services import notification_service
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -19,7 +20,7 @@ async def get_current_notifications(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
     event_id: UUID = Query(..., description="Event ID to get notifications for"),
-):
+) -> list[Notification]:
     """
     Get all active notifications for the specified event.
 
@@ -34,7 +35,7 @@ async def dismiss_notification(
     notification_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> None:
     """
     Mark notification as dismissed.
 
@@ -50,7 +51,7 @@ async def dismiss_notification(
 async def get_notification_settings(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> schemas.NotificationSettings:
     """
     Get current notification threshold settings.
 
@@ -65,7 +66,7 @@ async def update_notification_settings(
     settings_update: schemas.NotificationSettingsUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.NotificationSettings:
     """
     Update notification thresholds (Editor only).
 

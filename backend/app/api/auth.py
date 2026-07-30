@@ -3,7 +3,7 @@
 import logging
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal, NotRequired, TypedDict, cast
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -33,6 +33,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
+class _CookieKwargs(TypedDict):
+    """Attributes shared by every auth cookie write — set and delete must match."""
+
+    path: str
+    httponly: bool
+    secure: bool
+    samesite: Literal["lax", "strict", "none"]
+    domain: NotRequired[str]
+
+
 @router.post("/login", response_model=schemas.UserResponse)
 @limiter.limit(RateLimits.LOGIN)
 async def login(
@@ -40,7 +50,7 @@ async def login(
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     """
     Login with username and password.
 
@@ -113,11 +123,12 @@ async def login(
 
     # Set httpOnly cookies - explicitly set path="/" to ensure cookies are sent on all paths
     # In production, set AUTH_COOKIE_DOMAIN to share cookies across subdomains
-    cookie_kwargs = {
+    cookie_kwargs: _CookieKwargs = {
         "path": "/",
         "httponly": auth_settings.COOKIE_HTTPONLY,
         "secure": auth_settings.cookie_secure,
-        "samesite": auth_settings.cookie_samesite,
+        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
+        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
     }
     if auth_settings.cookie_domain:
         cookie_kwargs["domain"] = auth_settings.cookie_domain
@@ -154,7 +165,7 @@ async def refresh_token(
     response: Response,
     refresh_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     """
     Refresh access token using refresh token.
 
@@ -197,11 +208,12 @@ async def refresh_token(
     )
 
     # Update cookie - explicitly set path="/" to match login
-    cookie_kwargs = {
+    cookie_kwargs: _CookieKwargs = {
         "path": "/",
         "httponly": auth_settings.COOKIE_HTTPONLY,
         "secure": auth_settings.cookie_secure,
-        "samesite": auth_settings.cookie_samesite,
+        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
+        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
     }
     if auth_settings.cookie_domain:
         cookie_kwargs["domain"] = auth_settings.cookie_domain
@@ -216,14 +228,14 @@ async def refresh_token(
     return user
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=None)
 async def logout(
     request: Request,
     response: Response,
     access_token: Annotated[str | None, Cookie()] = None,
     refresh_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, str]:
     """
     Logout by revoking tokens and clearing cookies.
 
@@ -273,11 +285,12 @@ async def logout(
         await db.commit()
 
     # Always clear cookies - must match attributes used when setting them
-    cookie_kwargs = {
+    cookie_kwargs: _CookieKwargs = {
         "path": "/",
         "httponly": auth_settings.COOKIE_HTTPONLY,
         "secure": auth_settings.cookie_secure,
-        "samesite": auth_settings.cookie_samesite,
+        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
+        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
     }
     if auth_settings.cookie_domain:
         cookie_kwargs["domain"] = auth_settings.cookie_domain
@@ -288,7 +301,7 @@ async def logout(
 
 
 @router.get("/me", response_model=schemas.UserResponse)
-async def get_current_user_info(current_user: CurrentUser):
+async def get_current_user_info(current_user: CurrentUser) -> User:
     """
     Get current authenticated user info.
 
@@ -298,7 +311,7 @@ async def get_current_user_info(current_user: CurrentUser):
 
 
 @router.get("/microsoft-config", response_model=schemas.MicrosoftAuthConfig)
-async def get_microsoft_auth_config():
+async def get_microsoft_auth_config() -> schemas.MicrosoftAuthConfig:
     """
     Get Microsoft auth configuration for the frontend.
 
@@ -333,7 +346,7 @@ async def microsoft_login(
     response: Response,
     body: schemas.MicrosoftLoginRequest,
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     """
     Login with Microsoft Entra ID authorization code.
 
@@ -449,11 +462,12 @@ async def microsoft_login(
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     # Set httpOnly cookies
-    cookie_kwargs = {
+    cookie_kwargs: _CookieKwargs = {
         "path": "/",
         "httponly": auth_settings.COOKIE_HTTPONLY,
         "secure": auth_settings.cookie_secure,
-        "samesite": auth_settings.cookie_samesite,
+        # auth_settings.cookie_samesite is declared `str`; Starlette wants the literal set.
+        "samesite": cast(Literal["lax", "strict", "none"], auth_settings.cookie_samesite),
     }
     if auth_settings.cookie_domain:
         cookie_kwargs["domain"] = auth_settings.cookie_domain

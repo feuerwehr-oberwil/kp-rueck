@@ -54,8 +54,10 @@ async def receive_alarm(
     alarm: schemas.AlarmIn,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-    request: Request = None,
-):
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    request: Request = None,  # type: ignore[assignment]
+) -> schemas.AlarmAck:
     """
     Receive a provider-neutral alarm and store it in the intake pool.
 
