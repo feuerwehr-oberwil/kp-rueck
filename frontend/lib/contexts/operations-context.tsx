@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, type ApiPersonnel, type ApiMaterialResource, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
+import { apiClient, ApiError, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { isValidUUID } from "@/lib/utils/validation"
@@ -38,6 +38,21 @@ export type PersonRole = string
 // identifiers. Re-exported here so existing imports keep working.
 export type { OperationStatus } from "@/lib/incident-status"
 export type VehicleType = string | null
+
+/** Payload of an `assignment_update` with `action: 'driver_stay'`. */
+interface DriverStayPayload {
+  id?: string
+  incident_id?: string
+  driver_stay?: boolean
+}
+
+/** Callers pass coordinates as numbers; the API wants decimal strings. */
+interface CoordinateInput {
+  location_lat?: number | string | null
+  location_lng?: number | string | null
+}
+type IncidentCreateInput = Omit<ApiIncidentCreate, "location_lat" | "location_lng"> & CoordinateInput
+type IncidentUpdateInput = Omit<ApiIncidentUpdate, "location_lat" | "location_lng"> & CoordinateInput
 
 export interface RekoSummary {
   isRelevant: boolean
@@ -867,7 +882,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // client — flip just that vehicle's flag instead of reloading the board.
     // Matches the assignment by id within the incident; idempotent for the
     // sender (it already applied the value optimistically).
-    const applyDriverStayUpdate = (data: { id?: string; incident_id?: string; driver_stay?: boolean }) => {
+    const applyDriverStayUpdate = (data: DriverStayPayload) => {
       if (!data?.id || !data?.incident_id) return
       setOperations((ops) =>
         ops.map((op) => {
@@ -888,14 +903,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const unsubscribePersonnelUpdate = wsClient.on('personnel_update', handleRemoteUpdate)
     const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', handleRemoteUpdate)
     const unsubscribeMaterialUpdate = wsClient.on('material_update', handleRemoteUpdate)
-    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate) => {
+    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate<DriverStayPayload>) => {
       if (update?.action === 'driver_stay') {
         applyDriverStayUpdate(update.data)
         return
       }
       handleRemoteUpdate()
     })
-    const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', (_update: WebSocketUpdate) => {
+    const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', () => {
       handleRemoteUpdate()
     })
 
@@ -2053,7 +2068,7 @@ export function useIncidents() {
     setMaterials: context.setMaterials,
     setTrainingMode: (_trainingMode: boolean) => {},
     formatLocation: context.formatLocation,
-    createIncident: async (data: any) => {
+    createIncident: async (data: IncidentCreateInput) => {
       const apiData: ApiIncidentCreate = {
         ...data,
         location_lat: data.location_lat != null ? String(data.location_lat) : null,
@@ -2063,7 +2078,7 @@ export function useIncidents() {
       await context.refreshOperations()
       return apiIncident
     },
-    updateIncident: async (id: string, data: any) => {
+    updateIncident: async (id: string, data: IncidentUpdateInput) => {
       const apiData: Partial<ApiIncidentUpdate> = {
         ...data,
         location_lat: data.location_lat != null ? String(data.location_lat) : data.location_lat === null ? null : undefined,

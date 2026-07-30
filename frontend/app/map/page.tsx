@@ -855,7 +855,6 @@ export default function MapPage() {
             <MapView
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={handleIncidentClick}
-              onDetailsClick={handleDetailsClick}
               resetZoomTrigger={resetZoomTrigger}
               panTrigger={panTrigger}
               statusFilters={statusFilters}

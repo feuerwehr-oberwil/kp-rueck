@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
-import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
-import { useMaterials, type Material } from "@/lib/contexts/materials-context"
+import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { useMaterials } from "@/lib/contexts/materials-context"
 import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
 import { personResourceState } from "@/lib/resource-status"

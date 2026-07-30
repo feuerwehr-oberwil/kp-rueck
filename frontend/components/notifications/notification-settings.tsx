@@ -62,7 +62,7 @@ export function NotificationSettingsCard() {
     try {
       await updateSettings({ ...settings, [key]: value })
       // Success toast is optional - removed to reduce noise
-    } catch (error) {
+    } catch {
       toast.error(t('saveFailed'))
     } finally {
       setSavingKey(null)

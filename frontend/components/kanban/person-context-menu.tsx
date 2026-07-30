@@ -127,11 +127,12 @@ export function PersonContextMenu({
         vehicle_id: vehicleId || null,
       })
       refreshOperations()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to assign function:', error)
 
-      // Handle specific error cases
-      const errorDetail = error?.message || error?.response?.data?.detail || ''
+      // Handle specific error cases. apiClient rejects with ApiError, whose
+      // message carries the backend's `detail`.
+      const errorDetail = error instanceof Error ? error.message : ''
 
       if (errorDetail.includes('already has a driver')) {
         toast.error(t('personMenu.vehicleTaken'), {
@@ -174,10 +175,11 @@ export function PersonContextMenu({
         vehicle_id: vehicleId || null,
       })
       refreshOperations()
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to unassign function:', error)
-      const errorMessage = error?.response?.data?.detail || t('personMenu.unassignFailed')
-      toast.error(t('common.error'), { description: errorMessage })
+      // Deliberately generic: the axios-shaped lookup this replaced never
+      // matched (apiClient throws ApiError), so this was always the message.
+      toast.error(t('common.error'), { description: t('personMenu.unassignFailed') })
     } finally {
       setLoading(false)
     }

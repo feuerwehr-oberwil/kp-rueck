@@ -37,7 +37,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
   LAGEBLATT_AUTODOWNLOAD_EVENT,
   LAGEBLATT_AUTODOWNLOAD_KEY,
@@ -147,7 +146,7 @@ export function UserMenu({
       try {
         const data = await apiClient.getSyncConfig();
         setSyncConfig(data);
-      } catch (err) {
+      } catch {
         // Ignore errors - config is optional
       }
     };
@@ -204,7 +203,7 @@ export function UserMenu({
       } else {
         setStatus("disconnected");
       }
-    } catch (error) {
+    } catch {
       setStatus("disconnected");
     }
   };

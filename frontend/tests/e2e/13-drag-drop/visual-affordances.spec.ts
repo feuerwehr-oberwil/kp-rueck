@@ -305,7 +305,6 @@ test.describe('Drag-Drop Visual Affordances - Mobile', () => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
     const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
     const testEventName = `Mobile Scroll Test ${Date.now()}`;
 
     await eventsPage.goto();

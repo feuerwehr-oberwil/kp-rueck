@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Camera, Upload, X, Loader2 } from 'lucide-react'
@@ -261,10 +262,16 @@ export default function PhotoUpload({
         <div className="grid grid-cols-2 gap-3">
           {photos.map((filename, index) => (
             <div key={filename} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-              <img
+              {/* unoptimized: the source is either a local blob: preview or the
+                  backend at a runtime-determined origin — neither can go through
+                  Next's optimizer, which resolves hosts at build time. */}
+              <Image
                 src={getPhotoUrl(filename)}
                 alt={`Photo ${index + 1}`}
-                className="w-full h-full object-cover"
+                fill
+                sizes="50vw"
+                unoptimized
+                className="object-cover"
               />
               <button
                 type="button"

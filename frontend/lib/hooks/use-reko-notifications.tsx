@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
+import { apiClient } from '@/lib/api-client'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
-import type { Operation, RekoSummary } from '@/lib/contexts/operations-context'
+import type { RekoSummary } from '@/lib/contexts/operations-context'
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 
 /**

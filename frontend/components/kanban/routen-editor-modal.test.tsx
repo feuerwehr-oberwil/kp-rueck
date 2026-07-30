@@ -54,7 +54,9 @@ vi.mock("@/lib/contexts/groups-context", () => ({
     reorderGroupStops,
     refreshGroups,
     getGroupResources: (groupId: string) => ({
-      vehicles: (rp.groups.find((g: any) => g.id === groupId) as any)?.vehicles ?? [],
+      vehicles:
+        (rp.groups as { id: string; vehicles?: unknown[] }[]).find((g) => g.id === groupId)
+          ?.vehicles ?? [],
       personnel: [],
       materials: [],
     }),

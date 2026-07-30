@@ -40,11 +40,22 @@ export const EventFactory = {
   }),
 };
 
+/** The incident payload the E2E helpers POST to /api/incidents. */
+export interface IncidentPayload {
+  event_id: string;
+  location: string;
+  address: string;
+  description: string;
+  criticality: 'normal' | 'critical';
+  type: string;
+  status: string;
+}
+
 export const IncidentFactory = {
   /**
    * Create a default incident
    */
-  default: (eventId: string) => ({
+  default: (eventId: string): IncidentPayload => ({
     event_id: eventId,
     location: 'Hauptstrasse 1, 4410 Liestal',
     address: 'Hauptstrasse 1, 4410 Liestal',
@@ -73,7 +84,7 @@ export const IncidentFactory = {
   /**
    * Create a custom incident
    */
-  custom: (eventId: string, overrides: any) => ({
+  custom: (eventId: string, overrides: Partial<IncidentPayload>): IncidentPayload => ({
     ...IncidentFactory.default(eventId),
     ...overrides,
   }),

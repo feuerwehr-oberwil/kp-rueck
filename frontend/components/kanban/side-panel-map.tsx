@@ -164,7 +164,6 @@ interface SidePanelMapContentProps {
   panToNonce?: number
   onSelectOperation: (operation: Operation) => void
   onSwitchToDetail?: (operation: Operation) => void
-  formatLocation: (address: string) => string
 }
 
 export default function SidePanelMapContent({
@@ -173,7 +172,6 @@ export default function SidePanelMapContent({
   panToNonce,
   onSelectOperation,
   onSwitchToDetail,
-  formatLocation,
 }: SidePanelMapContentProps) {
   const t = useTranslations("kanban.sidePanelMap")
   const tIncidents = useTranslations("incidents")

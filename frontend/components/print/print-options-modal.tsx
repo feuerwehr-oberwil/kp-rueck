@@ -15,7 +15,7 @@ import { useTranslations } from "next-intl"
 import { PrintView, type PrintOptions } from "./print-view"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { apiClient, type ApiVehicle, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
+import { apiClient, type ApiVehicle } from "@/lib/api-client"
 
 interface PrintOptionsModalProps {
   open: boolean

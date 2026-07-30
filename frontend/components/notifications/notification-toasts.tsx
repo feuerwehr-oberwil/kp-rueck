@@ -5,7 +5,6 @@ import { useTranslations } from 'next-intl'
 import { toast, Toaster } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
-import type { Notification } from '@/lib/types/notification'
 import { isStringArray, readJson, removeItem, writeJson } from '@/lib/utils/safe-storage'
 
 const TOAST_DATA_KEY = 'shownToastData'

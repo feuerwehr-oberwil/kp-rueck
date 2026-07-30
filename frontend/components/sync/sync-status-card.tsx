@@ -34,7 +34,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
       try {
         const data = await apiClient.getSyncConfig()
         setConfig(data)
-      } catch (err) {
+      } catch {
         // Ignore errors - config is optional for status display
       }
     }
@@ -163,7 +163,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
       setCopied(true)
       toast.success(t('copied'))
       setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
+    } catch {
       toast.error(t('copyFailed'))
     }
   }
