@@ -1,7 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
-import { MainPage } from '../../pages/main.page';
+import { setupBoard } from '../../helpers/api.helper';
 
 /**
  * A failed print has to reach the person walking to the printer.
@@ -49,15 +48,7 @@ test.describe('Print job outcome reaches the operator', () => {
     });
     expect(enable.ok(), 'could not enable the printer').toBeTruthy();
 
-    const eventsPage = new EventsPage(page);
-    const mainPage = new MainPage(page);
-    const eventName = `Print Outcome ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(eventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(eventName);
-    await expect(page).toHaveURL('/');
-    await mainPage.createIncident(`Keller unter Wasser ${Date.now()}`);
+    await setupBoard(page, 'Print Outcome');
   });
 
   test.afterEach(async ({ authenticatedPage: page }) => {
