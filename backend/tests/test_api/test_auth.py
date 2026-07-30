@@ -153,7 +153,7 @@ async def test_viewer_cannot_create(viewer_client: AsyncClient):
             "title": "Test Incident",
             "type": "brandbekaempfung",
             "priority": "high",
-            "status": "eingegangen",
+            "status": "incoming",
         },
     )
     assert response.status_code == 403
@@ -169,7 +169,7 @@ async def test_editor_can_create(authenticated_editor_client: AsyncClient, test_
             "title": "Test Incident",
             "type": "brandbekaempfung",
             "priority": "high",
-            "status": "eingegangen",
+            "status": "incoming",
             "event_id": str(test_event.id),
         },
     )

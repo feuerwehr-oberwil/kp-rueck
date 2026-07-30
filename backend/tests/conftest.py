@@ -366,7 +366,7 @@ async def test_incident(db_session: AsyncSession, test_user: User, test_event: E
         location_address="Hauptstrasse 123, Basel",
         location_lat=47.5596,
         location_lng=7.5886,
-        status="eingegangen",
+        status="incoming",
         event_id=test_event.id,
         description="Brand in Mehrfamilienhaus",
         created_by=test_user.id,
@@ -410,7 +410,7 @@ def valid_incident_data() -> dict:
         "location_address": "Test Street 1",
         "location_lat": 47.5596,
         "location_lng": 7.5886,
-        "status": "eingegangen",
+        "status": "incoming",
         "description": "Test description",
     }
 

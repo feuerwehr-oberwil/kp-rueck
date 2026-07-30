@@ -345,7 +345,7 @@ async def test_alarm_auto_attaches_to_active_event(
     # Type and priority inferred by the shared intake core
     assert incident.type == "brandbekaempfung"
     assert incident.priority == "high"
-    assert incident.status == "eingegangen"
+    assert incident.status == "incoming"
     # Alarm provenance flows onto the board card
     assert incident.source == "leitstelle"
     assert incident.source_ref == "A-2026-001"

@@ -135,7 +135,7 @@ export function toMirrorStatus(op: Operation | undefined): MirrorStatus {
   if (op.status === "returning") return "returning"
   if (op.status === "active") return "active"
   if (op.status === "enroute") return "enroute"
-  // incoming, ready (Reko) and rekoDone all read as "Offen".
+  // incoming, reko and reko_done all read as "Offen".
   return "incoming"
 }
 

@@ -28,13 +28,13 @@ from app.seed_demo import seed_demo_database, seed_demo_shared_resources
 EXPECTED_INCIDENT_COUNT = 21
 
 ALL_BOARD_COLUMNS = {
-    "eingegangen",
+    "incoming",
     "reko",
     "reko_done",
-    "disponiert",
-    "einsatz",
-    "einsatz_beendet",
-    "abschluss",
+    "enroute",
+    "active",
+    "returning",
+    "complete",
 }
 
 
@@ -194,7 +194,7 @@ class TestSeedDemoEventContent:
         # everything else is the storm story (elementarereignis-heavy).
         fires = [i for i in incidents if i.type == "brandbekaempfung"]
         assert len(fires) == 1
-        assert fires[0].status == "einsatz"
+        assert fires[0].status == "active"
         assert fires[0].group_id is None
         assert sum(1 for i in incidents if i.type == "elementarereignis") >= 12
 
@@ -301,7 +301,7 @@ class TestSeedDemoEventContent:
         assert len(completed) >= 3
         for report in completed:
             incident = incident_by_id[report.incident_id]
-            assert incident.status not in ("eingegangen", "reko")
+            assert incident.status not in ("incoming", "reko")
             assert report.submitted_by_personnel_id is not None
             assert report.summary_text
             assert report.dangers_json is not None

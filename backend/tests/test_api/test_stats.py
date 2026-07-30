@@ -58,7 +58,7 @@ async def test_event(db_session: AsyncSession) -> Event:
 @pytest_asyncio.fixture
 async def test_event_with_incidents(db_session: AsyncSession, test_event: Event) -> Event:
     """Create an event with incidents in various statuses."""
-    statuses = ["eingegangen", "reko", "disponiert", "einsatz", "einsatz_beendet", "abschluss"]
+    statuses = ["incoming", "reko", "enroute", "active", "returning", "complete"]
 
     for i, status in enumerate(statuses):
         incident = Incident(
@@ -170,12 +170,12 @@ async def test_get_stats_status_counts(authenticated_client: AsyncClient, test_e
     status_counts = data["status_counts"]
 
     # Each status should have exactly 1 incident
-    assert status_counts.get("eingegangen", 0) == 1
+    assert status_counts.get("incoming", 0) == 1
     assert status_counts.get("reko", 0) == 1
-    assert status_counts.get("disponiert", 0) == 1
-    assert status_counts.get("einsatz", 0) == 1
-    assert status_counts.get("einsatz_beendet", 0) == 1
-    assert status_counts.get("abschluss", 0) == 1
+    assert status_counts.get("enroute", 0) == 1
+    assert status_counts.get("active", 0) == 1
+    assert status_counts.get("returning", 0) == 1
+    assert status_counts.get("complete", 0) == 1
 
 
 @pytest.mark.asyncio
@@ -213,7 +213,7 @@ async def test_get_stats_resource_utilization(
         event_id=event.id,
         title="Test Incident",
         type="brandbekaempfung",
-        status="einsatz",
+        status="active",
         priority="medium",
         location_address="Test Street",
     )
@@ -253,7 +253,7 @@ async def test_get_stats_avg_duration(db_session: AsyncSession, authenticated_cl
             event_id=test_event.id,
             title=f"Completed Incident {i}",
             type="brandbekaempfung",
-            status="abschluss",
+            status="complete",
             priority="medium",
             location_address=f"Street {i}",
             created_at=base_time - timedelta(minutes=60),  # Created 60 mins ago
@@ -313,7 +313,7 @@ async def test_get_stats_excludes_deleted_incidents(
         event_id=test_event.id,
         title="Active Incident",
         type="brandbekaempfung",
-        status="eingegangen",
+        status="incoming",
         priority="medium",
         location_address="Active Street",
         created_at=datetime.now(UTC),
@@ -326,7 +326,7 @@ async def test_get_stats_excludes_deleted_incidents(
         event_id=test_event.id,
         title="Deleted Incident",
         type="brandbekaempfung",
-        status="eingegangen",
+        status="incoming",
         priority="medium",
         location_address="Deleted Street",
         created_at=datetime.now(UTC),
@@ -403,7 +403,7 @@ async def test_get_stats_utilization_rounded(
         event_id=test_event.id,
         title="Test Incident",
         type="brandbekaempfung",
-        status="einsatz",
+        status="active",
         priority="medium",
         location_address="Test Street",
     )

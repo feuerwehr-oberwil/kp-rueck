@@ -70,7 +70,7 @@ async def event_with_incidents(db_session: AsyncSession, test_editor: User) -> E
             title=f"Incident {i + 1}",
             type="brandbekaempfung",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             created_by=test_editor.id,
         )
         db_session.add(incident)

@@ -43,7 +43,7 @@ async def test_incident(db_session: AsyncSession, test_event: Event, test_editor
         title="Error Recovery Test Incident",
         type="brandbekaempfung",
         priority="medium",
-        status="eingegangen",
+        status="incoming",
         created_by=test_editor.id,
     )
     db_session.add(incident)
@@ -498,7 +498,7 @@ async def test_status_transition_consistency(
     # Make a status transition
     response = await editor_client.post(
         f"/api/incidents/{test_incident.id}/status",
-        json={"from_status": "eingegangen", "to_status": "reko"},
+        json={"from_status": "incoming", "to_status": "reko"},
     )
     assert response.status_code == 200
 
@@ -513,7 +513,7 @@ async def test_status_transition_consistency(
     response = await editor_client.get(f"/api/incidents/{test_incident.id}/history")
     history = response.json()
     assert len(history) == 1
-    assert history[0]["from_status"] == "eingegangen"
+    assert history[0]["from_status"] == "incoming"
     assert history[0]["to_status"] == "reko"
 
 

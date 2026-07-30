@@ -19,7 +19,7 @@ class TestAuditLogModel:
             action_type="create",
             resource_type="incident",
             resource_id=uuid4(),
-            changes_json={"title": "New Incident", "status": "eingegangen"},
+            changes_json={"title": "New Incident", "status": "incoming"},
             ip_address="192.168.1.1",
             user_agent="Mozilla/5.0",
         )
@@ -32,7 +32,7 @@ class TestAuditLogModel:
         assert log.action_type == "create"
         assert log.resource_type == "incident"
         assert log.resource_id is not None
-        assert log.changes_json == {"title": "New Incident", "status": "eingegangen"}
+        assert log.changes_json == {"title": "New Incident", "status": "incoming"}
         assert str(log.ip_address) == "192.168.1.1"  # INET type returns IPv4Address object
         assert log.user_agent == "Mozilla/5.0"
         assert log.timestamp is not None
@@ -78,12 +78,12 @@ class TestAuditLogModel:
         """Test audit log with complex change data."""
         changes = {
             "before": {
-                "status": "eingegangen",
+                "status": "incoming",
                 "priority": "medium",
                 "assignments": [],
             },
             "after": {
-                "status": "disponiert",
+                "status": "enroute",
                 "priority": "high",
                 "assignments": ["vehicle-1", "personnel-1", "personnel-2"],
             },
@@ -101,7 +101,7 @@ class TestAuditLogModel:
         await db_session.refresh(log)
 
         assert log.changes_json == changes
-        assert log.changes_json["before"]["status"] == "eingegangen"
+        assert log.changes_json["before"]["status"] == "incoming"
         assert len(log.changes_json["after"]["assignments"]) == 3
 
     async def test_audit_log_query_by_user(self, db_session: AsyncSession, test_user: User):

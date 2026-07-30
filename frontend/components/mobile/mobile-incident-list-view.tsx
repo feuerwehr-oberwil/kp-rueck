@@ -29,8 +29,8 @@ const statusOrder: Record<string, number> = {
   active: 0,
   enroute: 1,
   incoming: 2,
-  ready: 3,
-  rekoDone: 4,
+  reko: 3,
+  reko_done: 4,
   returning: 5,
   complete: 6,
 }
@@ -38,7 +38,7 @@ const statusOrder: Record<string, number> = {
 // Status groups for filtering — labels render via t(`filters.${id}`)
 const statusGroups = [
   { id: "active", statuses: ["active", "enroute"] },
-  { id: "incoming", statuses: ["incoming", "ready", "rekoDone"] },
+  { id: "incoming", statuses: ["incoming", "reko", "reko_done"] },
   { id: "returning", statuses: ["returning"] },
   { id: "complete", statuses: ["complete"] },
 ]

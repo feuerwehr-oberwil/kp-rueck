@@ -97,7 +97,7 @@ async def log_action(
             resource_id=incident.id,
             user=current_user,
             changes={
-                "before": {"status": "eingegangen"},
+                "before": {"status": "incoming"},
                 "after": {"status": "reko"}
             },
             request=request
@@ -197,10 +197,10 @@ def calculate_changes(before: dict, after: dict) -> dict:
         Dict with before/after values for changed fields only
 
     Example:
-        before = {"status": "eingegangen", "priority": "high"}
+        before = {"status": "incoming", "priority": "high"}
         after = {"status": "reko", "priority": "high"}
         result = {
-            "status": {"before": "eingegangen", "after": "reko"}
+            "status": {"before": "incoming", "after": "reko"}
         }
     """
     changes = {}

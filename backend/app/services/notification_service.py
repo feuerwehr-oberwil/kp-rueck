@@ -138,7 +138,7 @@ async def _check_time_based_alerts(
     result = await db.execute(
         select(Incident)
         .where(Incident.event_id == event_id)
-        .where(Incident.status.in_(["eingegangen", "reko", "reko_done", "disponiert", "einsatz", "einsatz_beendet"]))
+        .where(Incident.status.in_(["incoming", "reko", "reko_done", "enroute", "active", "returning"]))
         .where(Incident.deleted_at.is_(None))
     )
     incidents = list(result.scalars().all())
@@ -208,11 +208,11 @@ async def _check_time_based_alerts(
             )
 
     # Check for completed incidents not archived
-    archive_threshold_minutes = settings.get_threshold_minutes("abschluss", is_training)
+    archive_threshold_minutes = settings.get_threshold_minutes("complete", is_training)
     result = await db.execute(
         select(Incident)
         .where(Incident.event_id == event_id)
-        .where(Incident.status == "einsatz_beendet")
+        .where(Incident.status == "returning")
         .where(Incident.completed_at.isnot(None))
         .where(Incident.deleted_at.is_(None))
     )
@@ -369,14 +369,14 @@ async def _check_data_quality_alerts(db: AsyncSession, event_id: UUID) -> list[N
     """Check for data quality issues."""
     notifications = []
 
-    # Missing geocoded location - only check for incidents in disponiert or later status
-    # (location not needed for eingegangen or reko)
+    # Missing geocoded location - only check for incidents in enroute or later status
+    # (location not needed for incoming or reko)
     result = await db.execute(
         select(Incident)
         .where(Incident.event_id == event_id)
         .where(Incident.deleted_at.is_(None))
         .where(Incident.location_lat.is_(None))
-        .where(Incident.status.in_(["disponiert", "einsatz", "einsatz_beendet"]))
+        .where(Incident.status.in_(["enroute", "active", "returning"]))
     )
     incidents_no_location = result.scalars().all()
 
@@ -463,7 +463,7 @@ async def _check_geofence_alerts(
             .where(IncidentAssignment.resource_type == "vehicle")
             .where(IncidentAssignment.unassigned_at.is_(None))
             .where(Incident.deleted_at.is_(None))
-            .where(Incident.status.in_(["disponiert", "einsatz"]))
+            .where(Incident.status.in_(["enroute", "active"]))
             .where(Incident.location_lat.isnot(None))
             .where(Incident.location_lng.isnot(None))
         )

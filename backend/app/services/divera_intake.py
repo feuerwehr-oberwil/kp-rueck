@@ -178,7 +178,7 @@ def incident_create_from_emergency(emergency: models.DiveraEmergency, event_id) 
         location_lat=str(emergency.latitude) if emergency.latitude else None,
         location_lng=str(emergency.longitude) if emergency.longitude else None,
         description=emergency.text,
-        status=schemas.IncidentStatus.EINGEGANGEN,
+        status=schemas.IncidentStatus.INCOMING,
     )
 
 

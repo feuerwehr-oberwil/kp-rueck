@@ -106,6 +106,18 @@ by claim against the code, and four things turned out to be promises the code di
   alone could not have fixed this either.
 
 ### Changed
+- **The incident status identifiers are English, and the board no longer translates them.**
+  The database and API said `eingegangen … abschluss` while the board said `incoming …
+  complete`, so a translation table sat between them — and a status renamed in one place and
+  not the other would have desynced the board silently, during an Einsatz. They are now one
+  vocabulary: `incoming`, `reko`, `reko_done`, `enroute`, `active`, `returning`, `complete`.
+  `reko` stays `reko` because a Reko is a running assignment, not a state of readiness.
+  **Nothing on screen changes** — the German an operator reads has always come from the
+  translation catalogue — with one deliberate exception: the vehicle overview now says
+  «Rückfahrt» and «Abgeschlossen» like the board, where it used to say «Einsatz beendet» and
+  «Abschluss». The migration translates existing incidents *and* their status history and
+  runs automatically on boot; it is reversible. **If you read `/api/incidents` from your own
+  script, the `status` values change** — that is the only thing outside this app that notices.
 - **`NEXT_PUBLIC_API_URL` is an override again, and nothing more.** It had quietly become
   load-bearing for a second, unrelated job — it was the only way a backend address could enter
   the Content-Security-Policy — so a deployment that had set it could not follow this project's

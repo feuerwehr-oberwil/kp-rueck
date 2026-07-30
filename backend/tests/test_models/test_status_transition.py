@@ -17,8 +17,8 @@ class TestStatusTransitionModel:
         transition = StatusTransition(
             id=uuid4(),
             incident_id=test_incident.id,
-            from_status="eingegangen",
-            to_status="disponiert",
+            from_status="incoming",
+            to_status="enroute",
             user_id=test_user.id,
             notes="Fahrzeug alarmiert",
         )
@@ -28,8 +28,8 @@ class TestStatusTransitionModel:
 
         assert transition.id is not None
         assert transition.incident_id == test_incident.id
-        assert transition.from_status == "eingegangen"
-        assert transition.to_status == "disponiert"
+        assert transition.from_status == "incoming"
+        assert transition.to_status == "enroute"
         assert transition.user_id == test_user.id
         assert transition.notes == "Fahrzeug alarmiert"
         assert transition.timestamp is not None
@@ -40,7 +40,7 @@ class TestStatusTransitionModel:
             id=uuid4(),
             incident_id=test_incident.id,
             from_status="reko",
-            to_status="disponiert",
+            to_status="enroute",
             user_id=None,
             notes="Automated transition",
         )
@@ -57,7 +57,7 @@ class TestStatusTransitionModel:
         transition = StatusTransition(
             id=uuid4(),
             incident_id=test_incident.id,
-            from_status="eingegangen",
+            from_status="incoming",
             to_status="reko",
             user_id=test_user.id,
         )
@@ -82,7 +82,7 @@ class TestStatusTransitionModel:
             StatusTransition(
                 id=uuid4(),
                 incident_id=test_incident.id,
-                from_status="eingegangen",
+                from_status="incoming",
                 to_status="reko",
                 user_id=test_user.id,
             ),
@@ -90,7 +90,7 @@ class TestStatusTransitionModel:
                 id=uuid4(),
                 incident_id=test_incident.id,
                 from_status="reko",
-                to_status="disponiert",
+                to_status="enroute",
                 user_id=test_user.id,
             ),
         ]
@@ -113,8 +113,8 @@ class TestStatusTransitionModel:
             transition = StatusTransition(
                 id=uuid4(),
                 incident_id=test_incident.id,
-                from_status="eingegangen",
-                to_status="disponiert",
+                from_status="incoming",
+                to_status="enroute",
                 user_id=test_user.id,
             )
             db_session.add(transition)

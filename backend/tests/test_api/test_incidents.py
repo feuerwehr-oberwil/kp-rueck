@@ -48,7 +48,7 @@ async def test_incident(db_session: AsyncSession, test_event: Event, test_editor
         title="Test Incident",
         type="brandbekaempfung",
         priority="medium",
-        status="eingegangen",
+        status="incoming",
         location_address="Test Street 123",
         created_by=test_editor.id,
     )
@@ -125,7 +125,7 @@ async def test_get_incident_success(editor_client: AsyncClient, test_incident: I
     assert data["title"] == "Test Incident"
     assert data["type"] == "brandbekaempfung"
     assert data["priority"] == "medium"
-    assert data["status"] == "eingegangen"
+    assert data["status"] == "incoming"
 
 
 @pytest.mark.asyncio
@@ -191,7 +191,7 @@ async def test_create_incident_success(editor_client: AsyncClient, test_event: E
     assert data["title"] == "New Incident"
     assert data["type"] == "brandbekaempfung"
     assert data["priority"] == "high"
-    assert data["status"] == "eingegangen"  # Default status
+    assert data["status"] == "incoming"  # Default status
     assert data["event_id"] == str(test_event.id)
     assert "id" in data
 
@@ -366,7 +366,7 @@ async def test_update_incident_partial(editor_client: AsyncClient, test_incident
 async def test_update_status_success(editor_client: AsyncClient, test_incident: Incident):
     """Test updating incident status."""
     status_data = {
-        "from_status": "eingegangen",
+        "from_status": "incoming",
         "to_status": "reko",
         "notes": "Sending reko team",
     }
@@ -381,7 +381,7 @@ async def test_update_status_success(editor_client: AsyncClient, test_incident: 
 async def test_update_status_viewer_forbidden(viewer_client: AsyncClient, test_incident: Incident):
     """Test that viewers cannot update incident status."""
     status_data = {
-        "from_status": "eingegangen",
+        "from_status": "incoming",
         "to_status": "reko",
     }
     response = await viewer_client.post(f"/api/incidents/{test_incident.id}/status", json=status_data)
@@ -393,7 +393,7 @@ async def test_update_status_viewer_forbidden(viewer_client: AsyncClient, test_i
 async def test_update_status_not_found(editor_client: AsyncClient):
     """Test updating status of non-existent incident returns 404."""
     status_data = {
-        "from_status": "eingegangen",
+        "from_status": "incoming",
         "to_status": "reko",
     }
     response = await editor_client.post(f"/api/incidents/{uuid4()}/status", json=status_data)
@@ -406,7 +406,7 @@ async def test_get_status_history(editor_client: AsyncClient, test_incident: Inc
     """Test getting status history for an incident."""
     # First make a status change
     status_data = {
-        "from_status": "eingegangen",
+        "from_status": "incoming",
         "to_status": "reko",
     }
     await editor_client.post(f"/api/incidents/{test_incident.id}/status", json=status_data)
@@ -701,7 +701,7 @@ async def three_incidents(db_session: AsyncSession, test_event: Event, test_edit
             title=f"Incident {i}",
             type="brandbekaempfung",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             position=i,
             created_by=test_editor.id,
         )

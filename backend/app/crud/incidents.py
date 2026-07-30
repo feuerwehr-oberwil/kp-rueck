@@ -283,7 +283,7 @@ async def create_public_incident(
     db_incident = Incident(
         **incident.model_dump(),
         event_id=event_id,
-        status="eingegangen",
+        status="incoming",
         source="intake",
         created_by=None,
     )
@@ -388,8 +388,8 @@ async def update_incident(
         )
         db.add(transition)
 
-        # Entering Abschluss always runs release side effects, even after reopening.
-        if incident.status == "abschluss":
+        # Entering complete always runs release side effects, even after reopening.
+        if incident.status == "complete":
             incident.completed_at = datetime.utcnow()
 
             # Automatically release personnel and vehicles (but keep materials)
@@ -410,7 +410,7 @@ async def update_incident(
             incident.group_resources_released = await group_assignments_crud.auto_release_group_resources_if_last_stop(
                 db=db, incident=incident, current_user=current_user, request=request
             )
-        elif old_status == "abschluss":
+        elif old_status == "complete":
             incident.completed_at = None
 
     # Capture after state
@@ -442,9 +442,9 @@ async def update_incident(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)
 
-    # Auto-print assignment slip when status changes to "disponiert" or "einsatz"
+    # Auto-print assignment slip when status changes to "enroute" or "active"
     queued_print = None
-    if incident.status != old_status and incident.status in ("disponiert", "einsatz"):
+    if incident.status != old_status and incident.status in ("enroute", "active"):
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
 
@@ -484,7 +484,7 @@ async def update_incident_status(
 
     Used for Kanban drag-and-drop.
 
-    When status is changed to 'abschluss', automatically releases personnel
+    When status is changed to 'complete', automatically releases personnel
     and vehicles (but keeps materials assigned as they may be left on site).
     """
     incident = await get_incident(db, incident_id)
@@ -497,8 +497,8 @@ async def update_incident_status(
     incident.status = new_status
     incident.updated_at = datetime.utcnow()
 
-    # Entering Abschluss always runs release side effects, even after reopening.
-    if new_status == "abschluss" and old_status != "abschluss":
+    # Entering complete always runs release side effects, even after reopening.
+    if new_status == "complete" and old_status != "complete":
         incident.completed_at = datetime.utcnow()
 
         # Automatically release personnel and vehicles (but keep materials)
@@ -519,7 +519,7 @@ async def update_incident_status(
         incident.group_resources_released = await group_assignments_crud.auto_release_group_resources_if_last_stop(
             db=db, incident=incident, current_user=current_user, request=request
         )
-    elif old_status == "abschluss":
+    elif old_status == "complete":
         incident.completed_at = None
 
     # Create status transition record
@@ -549,9 +549,9 @@ async def update_incident_status(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)
 
-    # Auto-print assignment slip when status changes to "disponiert" or "einsatz"
+    # Auto-print assignment slip when status changes to "enroute" or "active"
     queued_print = None
-    if new_status in ("disponiert", "einsatz"):
+    if new_status in ("enroute", "active"):
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
 

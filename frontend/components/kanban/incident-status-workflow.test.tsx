@@ -117,11 +117,11 @@ describe("shared incident detail status workflow", () => {
 
   it("gates Reko, Reko completion, return, and incident completion requests", () => {
     const reko = renderWorkflow(operation())
-    act(() => reko.result.current.requestStatusChange("incident-1", "ready"))
+    act(() => reko.result.current.requestStatusChange("incident-1", "reko"))
     expect(reko.result.current.rekoMissingOperation?.id).toBe("incident-1")
 
     const rekoDone = renderWorkflow(operation())
-    act(() => rekoDone.result.current.requestStatusChange("incident-1", "rekoDone"))
+    act(() => rekoDone.result.current.requestStatusChange("incident-1", "reko_done"))
     expect(rekoDone.result.current.rekoFormMissingOperation?.id).toBe("incident-1")
 
     const returning = renderWorkflow(operation())
@@ -135,14 +135,14 @@ describe("shared incident detail status workflow", () => {
   })
 
   it("reverts to the pre-dispatch status when the missing-resource gate is cancelled", () => {
-    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "ready" }))
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "reko" }))
 
     act(() => result.current.requestStatusChange("incident-1", "enroute"))
     expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "enroute")
     expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
 
     act(() => result.current.cancelMissingResources())
-    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "ready")
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "reko")
     expect(result.current.missingResourcesOperation).toBeNull()
   })
 
@@ -170,19 +170,19 @@ describe("shared incident detail status workflow", () => {
   })
 
   it("reverts to the previous status when the returning-vehicle gate is cancelled", () => {
-    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "rekoDone" }))
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "reko_done" }))
 
     act(() => result.current.requestStatusChange("incident-1", "returning"))
     expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "returning")
     expect(result.current.returningVehicleOperation?.id).toBe("incident-1")
 
     act(() => result.current.cancelReturningVehicle())
-    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "rekoDone")
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "reko_done")
     expect(result.current.returningVehicleOperation).toBeNull()
   })
 
   it("keeps the returning-vehicle return status across the assignment suspend/resume round-trip", () => {
-    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "rekoDone" }))
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "reko_done" }))
 
     act(() => result.current.requestStatusChange("incident-1", "returning"))
     act(() => result.current.suspendGateForAssignment("returning", "incident-1"))
@@ -193,21 +193,21 @@ describe("shared incident detail status workflow", () => {
     expect(result.current.returningVehicleOperation?.id).toBe("incident-1")
 
     act(() => result.current.cancelReturningVehicle())
-    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "rekoDone")
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "reko_done")
     expect(result.current.returningVehicleOperation).toBeNull()
   })
 
   it("reverts on cancel in the Reko gates", () => {
     const reko = renderWorkflow(operation({ status: "enroute" }))
-    act(() => reko.result.current.requestStatusChange("incident-1", "ready"))
+    act(() => reko.result.current.requestStatusChange("incident-1", "reko"))
     act(() => reko.result.current.cancelRekoMissing())
     expect(reko.changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "enroute")
     expect(reko.result.current.rekoMissingOperation).toBeNull()
 
-    const rekoForm = renderWorkflow(operation({ status: "ready" }))
-    act(() => rekoForm.result.current.requestStatusChange("incident-1", "rekoDone"))
+    const rekoForm = renderWorkflow(operation({ status: "reko" }))
+    act(() => rekoForm.result.current.requestStatusChange("incident-1", "reko_done"))
     act(() => rekoForm.result.current.cancelRekoFormMissing())
-    expect(rekoForm.changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "ready")
+    expect(rekoForm.changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "reko")
     expect(rekoForm.result.current.rekoFormMissingOperation).toBeNull()
   })
 
@@ -228,7 +228,7 @@ describe("shared incident detail status workflow", () => {
   })
 
   it("cancel in the post-change gates only closes when no return status is known", () => {
-    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "rekoDone" }))
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "reko_done" }))
 
     act(() => result.current.triggerReturningVehicleCheck("incident-1"))
     expect(result.current.returningVehicleOperation?.id).toBe("incident-1")

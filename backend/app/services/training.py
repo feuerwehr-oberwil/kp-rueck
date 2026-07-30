@@ -84,7 +84,7 @@ class TrainingGenerator:
             title=self._pick_title(template),
             type=template.incident_type,
             priority=priority,
-            status="eingegangen",
+            status="incoming",
             location_address=address,
             location_lat=latitude,
             location_lng=longitude,

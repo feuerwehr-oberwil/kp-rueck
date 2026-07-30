@@ -42,7 +42,7 @@ DEFAULT_SETTINGS = {
     "printer.enabled": "false",  # Master toggle for printer functionality
     "printer.ip": "",  # Printer IP address (e.g., "192.168.1.100")
     "printer.port": "9100",  # Printer port (default ESC/POS port)
-    "printer.auto_anfahrt": "true",  # Auto-print assignment slip when status changes to "einsatz"
+    "printer.auto_anfahrt": "true",  # Auto-print assignment slip when status changes to "active"
     "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
     # Incident message templates. Section-based: {token} placeholders are filled
     # from the incident, a line whose tokens are all empty is dropped, blank runs

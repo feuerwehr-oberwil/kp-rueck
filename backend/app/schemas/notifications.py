@@ -101,12 +101,12 @@ class NotificationSettings(BaseModel):
         prefix = "training" if is_training else "live"
 
         status_map = {
-            "eingegangen": f"{prefix}_eingegangen_min",
+            "incoming": f"{prefix}_eingegangen_min",
             "reko": f"{prefix}_reko_min",
-            "disponiert": f"{prefix}_disponiert_min",
-            "einsatz": f"{prefix}_einsatz_hours",
-            "einsatz_beendet": f"{prefix}_rueckfahrt_min",
-            "abschluss": f"{prefix}_archive_hours",
+            "enroute": f"{prefix}_disponiert_min",
+            "active": f"{prefix}_einsatz_hours",
+            "returning": f"{prefix}_rueckfahrt_min",
+            "complete": f"{prefix}_archive_hours",
         }
 
         field_name = status_map.get(status)

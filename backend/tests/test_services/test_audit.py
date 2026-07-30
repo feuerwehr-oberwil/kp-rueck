@@ -62,7 +62,7 @@ class TestLogAction:
     async def test_log_action_with_changes(self, db_session: AsyncSession):
         """Verify changes_json is stored correctly."""
         changes = {
-            "status": {"before": "eingegangen", "after": "reko"},
+            "status": {"before": "incoming", "after": "reko"},
             "priority": {"before": "low", "after": "high"},
         }
 
@@ -74,7 +74,7 @@ class TestLogAction:
         )
 
         assert audit_entry.changes_json == changes
-        assert audit_entry.changes_json["status"]["before"] == "eingegangen"
+        assert audit_entry.changes_json["status"]["before"] == "incoming"
         assert audit_entry.changes_json["priority"]["after"] == "high"
 
     @pytest.mark.asyncio
@@ -187,17 +187,17 @@ class TestCalculateChanges:
 
     def test_calculate_changes_simple(self):
         """Verify diff calculation for simple field changes."""
-        before = {"status": "eingegangen"}
+        before = {"status": "incoming"}
         after = {"status": "reko"}
 
         changes = calculate_changes(before, after)
 
-        assert changes == {"status": {"before": "eingegangen", "after": "reko"}}
+        assert changes == {"status": {"before": "incoming", "after": "reko"}}
 
     def test_calculate_changes_complex(self):
         """Verify diff handles multiple fields, additions, deletions."""
         before = {
-            "status": "eingegangen",
+            "status": "incoming",
             "priority": "medium",
             "assignee": "John",
         }
@@ -210,7 +210,7 @@ class TestCalculateChanges:
         changes = calculate_changes(before, after)
 
         # Changed field
-        assert changes["status"]["before"] == "eingegangen"
+        assert changes["status"]["before"] == "incoming"
         assert changes["status"]["after"] == "reko"
 
         # Unchanged field should not be in changes

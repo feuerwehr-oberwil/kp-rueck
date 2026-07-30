@@ -143,7 +143,7 @@ async def unassign_resource(
 
     Flushes only — the CALLER owns the commit. This runs inside larger
     operations (incident completion auto-release); a commit here would let a
-    crash mid-completion leave status=abschluss with crew still assigned and
+    crash mid-completion leave status=complete with crew still assigned and
     no StatusTransition/audit row (audit H3).
     """
     result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
@@ -290,7 +290,7 @@ async def auto_release_incident_resources(
     """
     Automatically release resources when incident completed.
 
-    Called when incident status moves to 'abschluss'.
+    Called when incident status moves to 'complete'.
 
     Args:
         db: Database session

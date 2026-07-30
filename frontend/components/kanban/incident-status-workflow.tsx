@@ -195,8 +195,8 @@ export function useIncidentStatusWorkflow({
     const previousStatus = operation.status
     changeStatusToTop(operationId, targetStatus)
     if (targetStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-    if (targetStatus === "ready") triggerRekoCheck(operationId, previousStatus)
-    if (targetStatus === "rekoDone") triggerRekoFormCheck(operationId, previousStatus)
+    if (targetStatus === "reko") triggerRekoCheck(operationId, previousStatus)
+    if (targetStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
     if (targetStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
     if (targetStatus === "complete") promptMaterialDecision(operationId, previousStatus)
   }, [changeStatusToTop, operationById, promptMaterialDecision, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck])

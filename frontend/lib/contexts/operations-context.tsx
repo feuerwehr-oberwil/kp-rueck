@@ -1,14 +1,13 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
+import { apiClient, ApiError, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { usePersonnel, type Person, type PersonStatus } from "./personnel-context"
-import { toIncidentStatus, toOperationStatus, type OperationStatus } from "@/lib/incident-status"
 import { useMaterials, type Material } from "./materials-context"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -34,9 +33,10 @@ export type { Material } from "./materials-context"
 export type PersonRole = string
 
 // Types
-// Defined in lib/incident-status.ts, next to the map that bridges it to the API's German
-// identifiers. Re-exported here so existing imports keep working.
-export type { OperationStatus } from "@/lib/incident-status"
+// The board's status vocabulary IS the API's — one set of seven identifiers,
+// shared by database, API and board, so nothing translates between them. The
+// German an operator reads comes from `de.json`, keyed on these same values.
+export type OperationStatus = IncidentStatus
 export type VehicleType = string | null
 
 /** Payload of an `assignment_update` with `action: 'driver_stay'`. */
@@ -386,7 +386,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       dispatchTime: new Date(incident.created_at),
       crew: [],
       priority: incident.priority as "high" | "medium" | "low",
-      status: toOperationStatus(incident.status),
+      status: incident.status,
       coordinates: apiCoordinatesToTuple(incident.location_lat, incident.location_lng),
       materials: [],
       notes: incident.description || "",
@@ -1229,7 +1229,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.location !== undefined) apiUpdates.location_address = batchedUpdates.location
         if (batchedUpdates.incidentType !== undefined) apiUpdates.type = batchedUpdates.incidentType as ApiIncidentUpdate['type']
         if (batchedUpdates.priority !== undefined) apiUpdates.priority = batchedUpdates.priority
-        if (batchedUpdates.status !== undefined) apiUpdates.status = toIncidentStatus(batchedUpdates.status)
+        if (batchedUpdates.status !== undefined) apiUpdates.status = batchedUpdates.status
         if (batchedUpdates.coordinates !== undefined) {
           Object.assign(apiUpdates, coordinatesToApiFields(batchedUpdates.coordinates))
         }
@@ -1372,7 +1372,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           priority: operation.priority as "low" | "medium" | "high",
           location_address: operation.location,
           ...coordinatesToApiFields(operation.coordinates),
-          status: "eingegangen" as const,
+          status: "incoming" as const,
           description: operation.notes || null,
           contact: operation.contact || null,
           contact_phone: operation.contactPhone || null,
@@ -1543,7 +1543,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     armAssignmentCooldown()
 
-    // Optimistically update UI - also move to "reko" status if currently "eingegangen"
+    // Optimistically update UI - also move to "reko" status if currently "incoming"
     const currentOp = operations.find(op => op.id === operationId)
     const shouldAutoMoveToReko = currentOp?.status === "incoming"
 
@@ -1552,7 +1552,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (op.id !== operationId) return op
         const updated = { ...op, assignedReko: { id: personId, name: personName } }
         if (shouldAutoMoveToReko) {
-          updated.status = "ready" as OperationStatus // "ready" maps to "reko" backend status
+          updated.status = "reko"
           updated.statusChangedAt = new Date()
         }
         return updated
@@ -2016,7 +2016,7 @@ export function useIncidents() {
     location_display: op.locationDisplay ?? null,
     location_lat: op.coordinates?.[0] ?? null,
     location_lng: op.coordinates?.[1] ?? null,
-    status: toIncidentStatus(op.status),
+    status: op.status,
     description: op.notes,
     nachbarhilfe: op.nachbarhilfe || false,
     am_warten: op.amWarten || false,

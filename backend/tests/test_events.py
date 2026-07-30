@@ -166,14 +166,14 @@ async def test_get_event_incident_count(db_session: AsyncSession, test_user):
         title="Incident 1",
         type="brandbekaempfung",
         priority="high",
-        status="eingegangen",
+        status="incoming",
     )
     incident2 = Incident(
         event_id=event.id,
         title="Incident 2",
         type="strassenrettung",
         priority="medium",
-        status="eingegangen",
+        status="incoming",
     )
 
     db_session.add(incident1)
@@ -198,7 +198,7 @@ async def test_cascade_delete_incidents(db_session: AsyncSession):
         title="Test Incident",
         type="brandbekaempfung",
         priority="medium",
-        status="eingegangen",
+        status="incoming",
     )
     db_session.add(incident)
     await db_session.commit()
