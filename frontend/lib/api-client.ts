@@ -95,6 +95,14 @@ export interface ApiViewerData {
   special_functions?: ApiEventSpecialFunctionResponse[]
 }
 
+/**
+ * Hard ceiling on a single request. Generous on purpose: a command post on a saturated
+ * uplink is slow but still worth waiting for, and cutting off a real response is worse
+ * than waiting. This exists to bound a connection that will never answer at all, not to
+ * enforce latency.
+ */
+const REQUEST_TIMEOUT_MS = 20_000
+
 class ApiClient {
   // No constructor needed - URL is resolved dynamically per request
 
@@ -142,6 +150,13 @@ class ApiClient {
         const response = await fetch(url, {
           ...options,
           credentials: 'include', // Send cookies for authentication
+          // Without this a request could hang indefinitely — a dead-but-open TCP connection
+          // never rejects on its own. One hung GET was enough to wedge the polling loop for
+          // good: `startPolling()` cannot re-arm while `isPollingActive` is still true, and
+          // only a WebSocket 'connected' transition resets it. The board then sat there
+          // quietly not updating. Callers may override for genuinely slow routes (exports,
+          // PDF generation) by passing their own signal.
+          signal: options?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
           headers: {
             'Content-Type': 'application/json',
             ...options?.headers,
@@ -231,8 +246,19 @@ class ApiClient {
       } catch (error) {
         lastError = error as Error
 
-        // Network errors are always retryable
-        if (error instanceof TypeError && error.message.includes('fetch')) {
+        // Network errors are always retryable.
+        //
+        // The message is deliberately NOT inspected any more. It used to require
+        // `.includes('fetch')`, which only matches Chrome's "Failed to fetch" — Safari
+        // throws `TypeError: Load failed` and Firefox "NetworkError when attempting to
+        // fetch resource". On Safari every offline request therefore fell through to the
+        // generic re-throw below: no "Verbindung verloren" toast, and GETs threw instead of
+        // degrading softly, so ~85 read call sites silently changed contract per browser.
+        // Any TypeError out of `fetch()` is a network-layer failure; that is the check.
+        //
+        // AbortError is the request timeout below — also a network failure, also retryable.
+        const isTimeout = error instanceof DOMException && error.name === 'TimeoutError'
+        if (error instanceof TypeError || isTimeout) {
           if (retryCount < maxRetries) {
             const delay = this.getBackoffDelay(retryCount)
             await this.sleep(delay)
