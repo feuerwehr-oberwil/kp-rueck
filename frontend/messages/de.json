@@ -21,46 +21,10 @@
         "cta": "Los geht’s"
       }
     },
-    "protectedButton": {
-      "editorOnlyTitle": "Diese Funktion ist nur für Editoren verfügbar",
-      "editorOnlyDescription": "Du kannst aber alle Einsätze in Echtzeit verfolgen. Sprich mit deinem Administrator für erweiterte Berechtigungen."
-    },
-    "connectionStatus": {
-      "statusConnected": "Connected",
-      "statusDisconnected": "Offline",
-      "statusChecking": "Checking...",
-      "labelConnected": "Backend verbunden",
-      "labelDisconnected": "Backend nicht erreichbar",
-      "labelChecking": "Verbindung wird geprüft",
-      "backendStatus": "Backend Status",
-      "backendUrl": "Backend URL:",
-      "lastCheck": "Last check:"
-    },
-    "websocketStatus": {
-      "connecting": "Verbindung wird hergestellt...",
-      "connected": "Echtzeit-Updates aktiv",
-      "disconnected": "Offline - Polling aktiv",
-      "error": "Verbindungsfehler - Polling aktiv",
-      "tooltipConnected": "Änderungen werden in Echtzeit übertragen",
-      "tooltipConnecting": "Verbindung zum Server wird hergestellt",
-      "tooltipPolling": "Daten werden alle 5 Sekunden aktualisiert"
-    },
     "staleDataBanner": {
       "connectionLost": "Verbindung verloren — Daten sind möglicherweise veraltet.",
       "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund.",
       "reconnect": "Neu verbinden"
-    },
-    "statsWidget": {
-      "loading": "Statistiken werden geladen...",
-      "loadError": "Fehler beim Laden der Statistiken",
-      "title": "Einsatz-Statistiken",
-      "description": "Echtzeit-Übersicht der aktuellen Einsatzdaten",
-      "activeIncidents": "Aktive Einsätze",
-      "personnelAvailable": "Personal verfügbar",
-      "avgDuration": "Ø Einsatzdauer",
-      "minutesValue": "{minutes} min.",
-      "utilization": "Auslastung",
-      "statusDistribution": "Status-Verteilung"
     },
     "copyButton": {
       "copiedTitle": "Kopiert",
@@ -181,21 +145,6 @@
       "help": "Hilfe",
       "logout": "Abmelden",
       "openMenu": "Benutzermenü öffnen"
-    },
-    "mobileNav": {
-      "openMenu": "Menu öffnen",
-      "views": "Ansichten",
-      "management": "Verwaltung",
-      "kanban": "Kanban",
-      "kanbanDescription": "Übersichtsboard",
-      "map": "Karte",
-      "mapDescription": "Lagekarte",
-      "events": "Ereignisse",
-      "eventsDescription": "Ereignisverwaltung",
-      "settings": "Einstellungen",
-      "settingsDescription": "Konfiguration & Verwaltung",
-      "help": "Hilfe",
-      "helpDescription": "Dokumentation"
     },
     "mobileBottomNav": {
       "incidents": "Einsätze",
@@ -510,12 +459,6 @@
       "assigned": "zugewiesen",
       "unknown": "(unbekannt)"
     },
-    "mobileActions": {
-      "openAria": "Aktionen öffnen",
-      "title": "Aktionen",
-      "viewDetails": "Details anzeigen",
-      "changeStatusTo": "Status ändern zu:"
-    },
     "newEmergency": {
       "validationTitle": "Bitte fülle alle Pflichtfelder aus",
       "validationDescription": "Der Einsatzort ist erforderlich.",
@@ -554,12 +497,7 @@
       "map": "Karte",
       "clickToView": "Klicke auf einen Einsatz, um Details anzuzeigen",
       "selectPlaceholder": "Auswählen",
-      "nachbarhilfeShort": "Nachbarfeuerwehr-Beteiligung",
-      "transferRekoTooltip": "Alle offenen Rekos an andere Person übertragen",
       "transfer": "Übertragen",
-      "noCrewShort": "Keine Mannschaft",
-      "noVehiclesShort": "Keine Fahrzeuge",
-      "noMaterialShort": "Kein Material",
       "whatsapp": "WhatsApp",
       "mapLoading": "Karte wird geladen..."
     },
@@ -671,21 +609,12 @@
       "addStop": "Stop hinzufügen",
       "routenEditor": "Routen-Editor",
       "stopsCount": "Zugewiesene Einsätze ({count})",
-      "noResourcesYet": "Noch keine Ressourcen zugewiesen.",
-      "removeResource": "{name} entfernen",
-      "assignVehicleRoute": "Fahrzeug zuweisen",
-      "assignCrewRoute": "Personen zuweisen",
-      "assignMaterialRoute": "Material zuweisen",
       "deleteTitle": "Auftrag löschen?",
       "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur die Route wird entfernt.",
       "deleteConfirm": "Löschen",
-      "stateDone": "erledigt",
-      "stateActive": "läuft",
-      "stateOpen": "offen",
       "map": "Karte",
       "dragStop": "Stop verschieben",
       "openDetail": "Details öffnen",
-      "markDone": "Als erledigt markieren",
       "removeStop": "Stop entfernen",
       "changeColor": "Farbe ändern",
       "optimizeOrder": "Optimieren",
@@ -696,7 +625,6 @@
       "optimized": "Reihenfolge optimiert.",
       "optimizeUnchanged": "Reihenfolge bereits optimal.",
       "undo": "Rückgängig",
-      "markActive": "Als läuft markieren",
       "repeatRadio": "Durchsage wiederholen",
       "repeatRadioTitle": "Funkdurchsage wiederholen",
       "repeatRadioTitlePreview": "Funkdurchsage",
@@ -737,9 +665,6 @@
       "startVehicle": "Fahrzeug-GPS",
       "startFirst": "Erster Stop",
       "optimize": "Reihenfolge optimieren",
-      "applyPreview": "Übernehmen",
-      "discardPreview": "Verwerfen",
-      "previewNotice": "Vorgeschlagene Reihenfolge – {count} Stops verschoben.",
       "previewUnchanged": "Die Reihenfolge ist bereits optimal.",
       "applied": "Reihenfolge übernommen.",
       "done": "Fertig",
@@ -750,8 +675,6 @@
       "noCoordsBadge": "kein Ort",
       "optimized": "Reihenfolge optimiert.",
       "undo": "Rückgängig",
-      "markDone": "Als erledigt markieren",
-      "markActive": "Als läuft markieren",
       "removeStop": "Stop entfernen"
     },
     "incidentPicker": {
@@ -861,55 +784,11 @@
       "distanceLastSuffix": "(zuletzt)"
     },
     "card": {
-      "minutesAgo": "{minutes} Min",
-      "hoursMinutes": "{hours}h {mins}m",
       "rekoCompleted": "Reko-Bericht ausgefüllt",
       "rekoOnSite": "Reko vor Ort",
       "showOnMap": "Auf Karte anzeigen",
       "assignReko": "Reko zuweisen",
       "transferResources": "Ressourcen übertragen"
-    },
-    "form": {
-      "conflictErrorTitle": "Von anderer Person geändert",
-      "conflictErrorDescription": "Bitte Ansicht aktualisieren und erneut versuchen.",
-      "saveErrorTitle": "Speichern fehlgeschlagen",
-      "saveErrorDescription": "Bitte erneut versuchen.",
-      "titleCreate": "Neuer Einsatz",
-      "titleEdit": "Einsatz bearbeiten",
-      "trainingModeActive": "Übungsmodus aktiv",
-      "idLabel": "ID: {id}",
-      "titleLabel": "Titel / Einsatzbezeichnung *",
-      "titlePlaceholder": "z. B. Wohnungsbrand Hauptstrasse 45",
-      "typeLabel": "Einsatzart *",
-      "typePlaceholder": "Einsatzart wählen...",
-      "typeSearchPlaceholder": "Einsatzart suchen...",
-      "typeNotFound": "Keine Einsatzart gefunden.",
-      "priorityLabel": "Priorität *",
-      "descriptionLabel": "Beschreibung / Notizen",
-      "descriptionPlaceholder": "Zusätzliche Informationen, Besonderheiten, Gefahren...",
-      "nachbarhilfe": "Nachbarhilfe",
-      "nachbarhilfeDescription": "Einsatz mit Nachbarfeuerwehr-Beteiligung",
-      "amWarten": "Am Warten",
-      "amWartenDescription": "Einsatz verzögert / wartet auf Ressourcen",
-      "rekoReports": "Rekognoszierungs-Meldungen",
-      "submitCreate": "Einsatz erstellen",
-      "submitEdit": "Änderungen speichern"
-    },
-    "kanban": {
-      "transferErrorTitle": "Fehler beim Übertragen",
-      "transferErrorDescription": "Die Ressourcen konnten nicht übertragen werden.",
-      "loading": "Laden...",
-      "title": "Einsatzübersicht (Incidents)",
-      "trainingMode": "Übungsmodus",
-      "liveMode": "Live-Modus",
-      "refresh": "Aktualisieren",
-      "newIncident": "Neuer Einsatz",
-      "errorPrefix": "Fehler: {error}",
-      "columnCount": "{count} Einsätze",
-      "emptyColumn": "Keine Einsätze",
-      "total": "Gesamt: <b>{count}</b> Einsätze",
-      "trainingOnly": "Nur Übungen",
-      "editHint": "Zum Bearbeiten auf Einsatzkarte klicken"
     },
     "transfer": {
       "title": "Ressourcen übertragen",
@@ -1082,8 +961,6 @@
       "priorityLow": "Niedrige Priorität",
       "noAssignment": "Ohne Zuweisung",
       "noAuftrag": "Kein Auftrag",
-      "colorByTitle": "Marker einfärben nach",
-      "colorByButton": "Färben: {label}",
       "colorByMenuLabel": "Färben nach",
       "noActiveIncidents": "Keine aktiven Einsätze"
     },
@@ -1092,20 +969,12 @@
       "title": "Lagekarte",
       "activeBadge": "{count} Aktiv",
       "incidentsHeading": "Einsätze ({count})",
-      "labelsHide": "Labels ausblenden (L)",
-      "labelsShow": "Labels einblenden (L)",
       "labels": "Labels",
-      "linesHide": "Zuweisungslinien ausblenden (I)",
-      "linesShow": "Zuweisungslinien einblenden (I)",
       "lines": "Linien",
-      "distanceHide": "Distanz Fahrzeug–Einsatz ausblenden",
-      "distanceShow": "Distanz Fahrzeug–Einsatz einblenden",
       "distance": "Distanz",
       "searchPlaceholder": "Suchen...",
       "showDetails": "Details anzeigen",
       "groupRoutes": "Aufträge",
-      "groupRoutesShow": "Aufträge anzeigen",
-      "groupRoutesHide": "Aufträge ausblenden",
       "routePlanning": "Routenplanung",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
@@ -1131,9 +1000,6 @@
       "startVehicle": "Fahrzeug-GPS",
       "startFirst": "Erster Stop",
       "optimize": "Reihenfolge optimieren",
-      "applyPreview": "Übernehmen",
-      "discardPreview": "Verwerfen",
-      "previewNotice": "Vorgeschlagene Reihenfolge – {count} Stops verschoben.",
       "previewUnchanged": "Die Reihenfolge ist bereits optimal.",
       "applied": "Reihenfolge übernommen.",
       "stopAdded": "Stop zur Route hinzugefügt.",
@@ -1149,8 +1015,6 @@
       "missingCoords": "⚠️ {count, plural, one {# Einsatz} other {# Einsatze}} ohne gültige Koordinaten",
       "clickToExpand": "Klicken zum Erweitern",
       "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
-      "modeTitle": "Karten-Modus: {mode} ({status})",
-      "retryOnlineTitle": "Online-Modus erneut versuchen",
       "retry": "Neu versuchen",
       "mapAria": "Einsatzkarte — Pfeiltasten zum Verschieben, Tab zum Markieren"
     },
@@ -1658,7 +1522,6 @@
         "passwordRequired": "Passwort ist erforderlich"
       },
       "toasts": {
-        "requiredFields": "Benutzername und Passwort sind erforderlich",
         "createError": "Fehler beim Erstellen",
         "updateError": "Fehler beim Aktualisieren",
         "resetError": "Fehler beim Zurücksetzen",
@@ -1698,7 +1561,6 @@
       "setPassword": "Passwort setzen",
       "deactivateTitle": "Benutzer deaktivieren?",
       "deactivateDescription": "Der Benutzer {name} wird deaktiviert und kann sich nicht mehr anmelden. Diese Aktion kann rückgängig gemacht werden.",
-      "deactivating": "Deaktiviere...",
       "deactivateAction": "Deaktivieren",
       "permanentDeleteTitle": "Benutzer endgültig löschen?",
       "permanentDeleteDescription": "Der Benutzer {name} wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -2510,14 +2372,6 @@
       "railwayOffline": "Railway Offline",
       "stale": "Daten veraltet"
     },
-    "navbar": {
-      "loadingStatus": "Lade Status...",
-      "error": "Fehler: {error}",
-      "noStatus": "Kein Status verfügbar",
-      "offlineLastSync": "Railway Offline • Letzte Sync: {lastSync}",
-      "staleLastSync": "Daten veraltet • Letzte Sync: {lastSync}",
-      "syncedAt": "Synchronisiert • {lastSync}"
-    },
     "config": {
       "loadFailed": "Fehler beim Laden der Synchronisations-Konfiguration",
       "saveFailed": "Fehler beim Speichern der Konfiguration",
@@ -2704,7 +2558,6 @@
       "priorityAria": "Priorität: {label}",
       "materialCount": "{count} Material(ien)",
       "auftragChipTooltip": "Auftrag: {name}",
-      "auftragHeading": "Auftrag",
       "auftragStopPosition": "Stop {pos}/{total}",
       "nachbarhilfe": "Nachbarhilfe",
       "amWarten": "Am Warten",
@@ -2749,8 +2602,7 @@
       "fullscreen": "Vollbild"
     },
     "map": {
-      "authRequired": "Bitte melde dich an oder verwende einen Zugangscode (?token=xxx)",
-      "tokenModeUnsupported": "Kartenanzeige erfordert Editor-Zugang für GPS-Daten."
+      "authRequired": "Bitte melde dich an oder verwende einen Zugangscode (?token=xxx)"
     },
     "status": {
       "accessRequired": "Zugang erforderlich",
@@ -2780,8 +2632,7 @@
       "readOnly": "Nur-Lesen",
       "hideCompleted": "Abgeschlossen ausblenden",
       "showCompleted": "Abgeschlossen anzeigen",
-      "completedColumn": "ABGESCHLOSSEN ({count})",
-      "footerReadOnly": "Nur-Lesen-Ansicht — Automatische Aktualisierung alle 5 Sekunden"
+      "completedColumn": "ABGESCHLOSSEN ({count})"
     }
   },
   "intake": {
