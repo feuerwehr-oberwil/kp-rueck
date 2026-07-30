@@ -1,7 +1,7 @@
 """Tests for Divera 24/7 webhook integration API endpoints.
 
 Tests cover:
-- Webhook reception (no auth required)
+- Webhook reception (shared webhook secret required)
 - Emergency listing and filtering
 - Emergency attachment to events
 - Bulk attachment
@@ -18,7 +18,21 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DiveraEmergency, Event
+from app.models import DiveraEmergency, Event, Setting
+
+WEBHOOK_SECRET = "test_secret"
+
+
+@pytest_asyncio.fixture
+async def webhook_secret(db_session: AsyncSession) -> str:
+    """Configure the shared inbound-alarm secret.
+
+    The webhook fails closed when none is configured, so every test that expects a
+    successful delivery has to set one and present it.
+    """
+    db_session.add(Setting(key="alarm_webhook_secret", value=WEBHOOK_SECRET))
+    await db_session.commit()
+    return WEBHOOK_SECRET
 
 
 @pytest_asyncio.fixture
@@ -64,7 +78,7 @@ async def test_emergency(db_session: AsyncSession) -> DiveraEmergency:
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_webhook_receive_success(client: AsyncClient):
+async def test_webhook_receive_success(client: AsyncClient, webhook_secret: str):
     """Test receiving a Divera webhook successfully.
 
     Note: Webhook endpoint does not require authentication.
@@ -84,7 +98,7 @@ async def test_webhook_receive_success(client: AsyncClient):
 
     # Mock the WebSocket broadcast
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
-        response = await client.post("/api/divera/webhook", json=webhook_payload)
+        response = await client.post("/api/divera/webhook", json=webhook_payload, params={"secret": webhook_secret})
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
@@ -93,7 +107,7 @@ async def test_webhook_receive_success(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_webhook_duplicate_ignored(client: AsyncClient, test_emergency: DiveraEmergency):
+async def test_webhook_duplicate_ignored(client: AsyncClient, test_emergency: DiveraEmergency, webhook_secret: str):
     """Test that duplicate webhooks are ignored."""
     # Send webhook with same divera_id as existing emergency
     webhook_payload = {
@@ -101,7 +115,7 @@ async def test_webhook_duplicate_ignored(client: AsyncClient, test_emergency: Di
         "title": "Duplicate test",
     }
 
-    response = await client.post("/api/divera/webhook", json=webhook_payload)
+    response = await client.post("/api/divera/webhook", json=webhook_payload, params={"secret": webhook_secret})
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
@@ -110,7 +124,7 @@ async def test_webhook_duplicate_ignored(client: AsyncClient, test_emergency: Di
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_webhook_minimal_payload(client: AsyncClient):
+async def test_webhook_minimal_payload(client: AsyncClient, webhook_secret: str):
     """Test webhook with minimal required fields."""
     webhook_payload = {
         "id": 99999,
@@ -118,13 +132,13 @@ async def test_webhook_minimal_payload(client: AsyncClient):
     }
 
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
-        response = await client.post("/api/divera/webhook", json=webhook_payload)
+        response = await client.post("/api/divera/webhook", json=webhook_payload, params={"secret": webhook_secret})
         assert response.status_code == 200
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_webhook_full_payload(client: AsyncClient):
+async def test_webhook_full_payload(client: AsyncClient, webhook_secret: str):
     """Test webhook with all fields populated."""
     webhook_payload = {
         "id": 11111,
@@ -142,7 +156,7 @@ async def test_webhook_full_payload(client: AsyncClient):
     }
 
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
-        response = await client.post("/api/divera/webhook", json=webhook_payload)
+        response = await client.post("/api/divera/webhook", json=webhook_payload, params={"secret": webhook_secret})
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
@@ -794,7 +808,7 @@ async def auto_attach_event(db_session: AsyncSession) -> Event:
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_webhook_auto_attaches_to_flagged_event(
-    client: AsyncClient, db_session: AsyncSession, auto_attach_event: Event
+    client: AsyncClient, db_session: AsyncSession, auto_attach_event: Event, webhook_secret: str
 ):
     """A webhook emergency auto-attaches as an incident when an event wants it."""
     payload = {
@@ -806,7 +820,7 @@ async def test_webhook_auto_attaches_to_flagged_event(
         "lng": 7.55,
     }
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
-        response = await client.post("/api/divera/webhook", json=payload)
+        response = await client.post("/api/divera/webhook", json=payload, params={"secret": webhook_secret})
     assert response.status_code == 200
     data = response.json()
     assert data["auto_attached_incident_id"] is not None
@@ -832,11 +846,13 @@ async def test_webhook_auto_attaches_to_flagged_event(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_webhook_no_auto_attach_without_flag(client: AsyncClient, db_session: AsyncSession, test_event: Event):
+async def test_webhook_no_auto_attach_without_flag(
+    client: AsyncClient, db_session: AsyncSession, test_event: Event, webhook_secret: str
+):
     """Without any auto-attach event the emergency stays in the pool."""
     payload = {"id": 555002, "title": "STURM Baum auf Strasse"}
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
-        response = await client.post("/api/divera/webhook", json=payload)
+        response = await client.post("/api/divera/webhook", json=payload, params={"secret": webhook_secret})
     assert response.status_code == 200
     assert response.json()["auto_attached_incident_id"] is None
 
@@ -850,7 +866,9 @@ async def test_webhook_no_auto_attach_without_flag(client: AsyncClient, db_sessi
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_webhook_never_auto_attaches_to_training_event(client: AsyncClient, db_session: AsyncSession):
+async def test_webhook_never_auto_attaches_to_training_event(
+    client: AsyncClient, db_session: AsyncSession, webhook_secret: str
+):
     """A training event with auto-attach on must never receive real alarms."""
     event = Event(
         id=uuid4(),
@@ -864,7 +882,7 @@ async def test_webhook_never_auto_attaches_to_training_event(client: AsyncClient
 
     payload = {"id": 555003, "title": "BMA Schulhaus"}
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
-        response = await client.post("/api/divera/webhook", json=payload)
+        response = await client.post("/api/divera/webhook", json=payload, params={"secret": webhook_secret})
     assert response.status_code == 200
     assert response.json()["auto_attached_incident_id"] is None
 

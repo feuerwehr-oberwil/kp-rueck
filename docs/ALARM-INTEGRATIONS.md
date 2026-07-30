@@ -24,7 +24,14 @@ ersten Start automatisch erzeugt und steht in der Datenbank:
 SELECT value FROM settings WHERE key = 'alarm_webhook_secret';
 ```
 
-Ohne konfiguriertes oder mit falschem Secret antwortet der Endpunkt mit `403`.
+Ohne konfiguriertes oder mit falschem Secret antwortet der Endpunkt mit `403`. Das gilt
+seit 2026-07 genauso für den Divera-Adapter (`POST /api/divera/webhook`) — der hat die
+Prüfung bei leerem Secret vorher übersprungen und war damit offen. Beide Wege gehen jetzt
+durch dieselbe Prüfung.
+
+Statt per SQL lässt sich das Secret auch in der Oberfläche unter *Einstellungen →
+Alarmierung* nachschlagen, oder mit `ALARM_WEBHOOK_SECRET` in der `.env` fest vorgeben
+(die Umgebungsvariable gewinnt über den Datenbankwert).
 
 ## Payload
 

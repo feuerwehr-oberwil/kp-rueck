@@ -150,7 +150,9 @@ async def get_alarm_webhook_secret(db: AsyncSession) -> str:
     that could not be scripted (and the one KP Front never had, since it is env-only there).
 
     Empty env = the DB value, i.e. the existing behaviour for every deployment that does not
-    set it. Returns "" when neither is configured, which both call sites treat as fail-closed.
+    set it. Returns "" when neither is configured; both call sites go through
+    ``divera_intake.check_webhook_secret``, which treats that as fail-closed. (Until 2026-07
+    only one of them did — the Divera adapter skipped the check on an empty secret.)
     """
     from ..config import settings as app_settings
 
@@ -199,9 +201,19 @@ async def initialize_default_settings(db: AsyncSession) -> None:
     for key, value in DEFAULT_SETTINGS.items():
         existing = await get_setting(db, key)
         if existing is None:
-            # Auto-generate webhook secret on first init
+            # Auto-generate webhook secret on first init.
+            #
+            # The generated value is deliberately NOT logged. It used to be, because reading
+            # it back out of the database was the one setup step a station could not script —
+            # but stdout goes to the platform log (and to whatever ships it onward), which is
+            # the wrong home for a credential that authorises writes to the board. Since
+            # ALARM_WEBHOOK_SECRET in the environment wins over this value, provisioning no
+            # longer needs the log line: set it in .env, or read it from Settings → Alarmierung.
             if key == "alarm_webhook_secret" and not value:
                 value = _generate_webhook_secret()
-                logger.info("Generated alarm_webhook_secret: %s", value)
+                logger.info(
+                    "Generated alarm_webhook_secret (not logged — see Settings → Alarmierung, "
+                    "or set ALARM_WEBHOOK_SECRET in the environment to pin it)"
+                )
             db.add(Setting(key=key, value=value))
     await db.commit()
