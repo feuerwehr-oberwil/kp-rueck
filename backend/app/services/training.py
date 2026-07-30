@@ -22,12 +22,12 @@ class TrainingGenerator:
         self._cache_templates: list[EmergencyTemplate] = []
         self._cache_locations: list[TrainingLocation] = []
 
-    async def _load_templates(self):
+    async def _load_templates(self) -> None:
         """Load all active emergency templates."""
         result = await self.db.execute(select(EmergencyTemplate).where(EmergencyTemplate.is_active))
         self._cache_templates = list(result.scalars().all())
 
-    async def _load_locations(self):
+    async def _load_locations(self) -> None:
         """Load all active training locations."""
         result = await self.db.execute(select(TrainingLocation).where(TrainingLocation.is_active))
         self._cache_locations = list(result.scalars().all())
@@ -137,7 +137,8 @@ class TrainingGenerator:
         if category is None:
             normal_weight = int(settings.get("training_normal_weight", 90)) if settings else 90
             critical_weight = int(settings.get("training_critical_weight", 10)) if settings else 10
-            category = random.choices(["normal", "critical"], weights=[normal_weight, critical_weight], k=1)[0]
+            pool: list[Literal["normal", "critical"]] = ["normal", "critical"]
+            category = random.choices(pool, weights=[normal_weight, critical_weight], k=1)[0]
 
         # Filter templates by category
         templates = [t for t in self._cache_templates if t.category == category]
@@ -263,7 +264,8 @@ class TrainingGenerator:
         if category is None:
             normal_weight = int(settings.get("training_normal_weight", 90)) if settings else 90
             critical_weight = int(settings.get("training_critical_weight", 10)) if settings else 10
-            category = random.choices(["normal", "critical"], weights=[normal_weight, critical_weight], k=1)[0]
+            pool: list[Literal["normal", "critical"]] = ["normal", "critical"]
+            category = random.choices(pool, weights=[normal_weight, critical_weight], k=1)[0]
 
         templates = [t for t in self._cache_templates if t.category == category]
         if not templates:

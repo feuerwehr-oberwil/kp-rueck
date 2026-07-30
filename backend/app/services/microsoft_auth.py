@@ -9,6 +9,7 @@ This module is only used when MICROSOFT_CLIENT_ID etc. are configured.
 """
 
 import logging
+from typing import Any
 
 import httpx
 import jwt as pyjwt
@@ -31,7 +32,7 @@ def _get_jwks_client() -> PyJWKClient:
     return _jwks_client
 
 
-async def exchange_code_for_tokens(auth_code: str) -> dict:
+async def exchange_code_for_tokens(auth_code: str) -> dict[str, Any]:
     """Exchange an authorization code for tokens via Microsoft's token endpoint.
 
     Args:
@@ -65,14 +66,14 @@ async def exchange_code_for_tokens(auth_code: str) -> dict:
         logger.error("Microsoft token exchange failed: %s", error_desc)
         raise ValueError(f"Token exchange failed: {error_desc}")
 
-    token_data = response.json()
+    token_data: dict[str, Any] = response.json()
     if "id_token" not in token_data:
         raise ValueError("No id_token in Microsoft token response")
 
     return token_data
 
 
-def validate_and_decode_id_token(id_token: str) -> dict:
+def validate_and_decode_id_token(id_token: str) -> dict[str, Any]:
     """Validate and decode a Microsoft ID token.
 
     Verifies the RS256 signature against Microsoft's JWKS endpoint,

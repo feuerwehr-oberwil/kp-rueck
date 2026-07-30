@@ -16,6 +16,7 @@ through an outage.
 import uuid
 from datetime import datetime
 from io import BytesIO
+from typing import Any
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
@@ -32,7 +33,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from ..models import Incident, RekoReport, StatusTransition
+from ..models import Incident, Material, Personnel, RekoReport, StatusTransition, Vehicle
 from .audit_export_service import EventReportData
 from .pdf_report_service import (
     LOCAL_TZ,
@@ -108,7 +109,9 @@ def _first_transition_to(data: EventReportData, incident_id: uuid.UUID, statuses
     return hits[0] if hits else None
 
 
-def _active_resources(data: EventReportData, incident_id: uuid.UUID) -> tuple[list, list, list]:
+def _active_resources(
+    data: EventReportData, incident_id: uuid.UUID
+) -> tuple[list[Personnel], list[Vehicle], list[Material]]:
     """(crew Personnel, vehicles Vehicle, materials Material) actively assigned."""
     active = [a for a in data.assignments if a.incident_id == incident_id and a.unassigned_at is None]
     crew = [
@@ -129,12 +132,12 @@ def _active_resources(data: EventReportData, incident_id: uuid.UUID) -> tuple[li
     return crew, vehicles, materials
 
 
-def _rank_key(person) -> tuple:
+def _rank_key(person: Personnel) -> tuple[int, int, str]:
     role = (person.role or "").lower()
     return (_ROLE_RANK.get(role, 98), person.role_sort_order, person.name)
 
 
-def _mittel(inc: Incident, vehicles: list) -> list[str]:
+def _mittel(inc: Incident, vehicles: list[Vehicle]) -> list[str]:
     """Womit: vehicles, with 'Zu Fuss' treated like one more vehicle."""
     names = [v.name for v in vehicles]
     if inc.zu_fuss:
@@ -142,7 +145,7 @@ def _mittel(inc: Incident, vehicles: list) -> list[str]:
     return names
 
 
-def _crew_compact(crew: list) -> str:
+def _crew_compact(crew: list[Personnel]) -> str:
     """Highest rank + count instead of everyone: 'Of Muster +4'."""
     if not crew:
         return ""
@@ -155,7 +158,7 @@ def _crew_compact(crew: list) -> str:
     return f"{label} +{extra}" if extra else label
 
 
-def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: str) -> list:
+def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: str) -> list[Any]:
     reko = _first_reko(data, inc.id)
     reko_by = ""
     if reko and reko.submitted_by_personnel_id in data.personnel_map:
@@ -180,7 +183,7 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
     ]
 
 
-def _json_true_keys(payload) -> str:
+def _json_true_keys(payload: Any) -> str:
     """Compact rendering for dangers/effort JSON: list truthy entries."""
     if not isinstance(payload, dict):
         return ""
@@ -265,7 +268,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     return rows
 
 
-def _detail_block(data: EventReportData, inc: Incident, index: int, home_city: str) -> list:
+def _detail_block(data: EventReportData, inc: Incident, index: int, home_city: str) -> list[Any]:
     """One bordered card per incident: shaded header row, generous row spacing."""
     head = (
         f"{index} — {inc.title}"
@@ -273,7 +276,7 @@ def _detail_block(data: EventReportData, inc: Incident, index: int, home_city: s
         f"  ·  Prio {_PRIORITY_SHORT.get(inc.priority, '—')}"
     )
     usable = A4[0] - 16 * mm
-    rows: list[list] = [[Paragraph(escape(head), _DETAIL_HEAD), ""]]
+    rows: list[list[Any]] = [[Paragraph(escape(head), _DETAIL_HEAD), ""]]
     rows.extend(
         [Paragraph(escape(label), _DETAIL_LABEL), Paragraph(escape(value), _DETAIL_VALUE)]
         for label, value in _detail_rows(data, inc, home_city)
@@ -356,7 +359,7 @@ def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
         "",
     ]
 
-    rows: list[list] = [header_group, header_sub]
+    rows: list[list[Any]] = [header_group, header_sub]
     for index, inc in enumerate(data.incidents, start=1):
         rows.append(_incident_row(data, inc, index, home_city))
     for _ in range(EMPTY_ROWS):

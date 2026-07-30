@@ -131,7 +131,7 @@ async def _check_time_based_alerts(
     db: AsyncSession, event_id: UUID, is_training: bool, settings: NotificationSettings
 ) -> list[Notification]:
     """Check for time-based alerts on incidents."""
-    notifications = []
+    notifications: list[Notification] = []
     now = datetime.now(UTC)
 
     # Get all active incidents (not in final status)
@@ -243,16 +243,16 @@ async def _check_resource_alerts(
     db: AsyncSession, event_id: UUID, settings: NotificationSettings
 ) -> list[Notification]:
     """Check for resource constraint alerts."""
-    notifications = []
+    notifications: list[Notification] = []
 
     # Check available personnel
     # Get personnel checked in for this event
     from ..models import EventAttendance
 
-    result = await db.execute(
+    attendance_result = await db.execute(
         select(EventAttendance).where(EventAttendance.event_id == event_id).where(EventAttendance.checked_in)
     )
-    checked_in_personnel_ids = [att.personnel_id for att in result.scalars().all()]
+    checked_in_personnel_ids = [att.personnel_id for att in attendance_result.scalars().all()]
 
     if checked_in_personnel_ids:
         # Check how many are available (not assigned)
@@ -282,7 +282,7 @@ async def _check_resource_alerts(
     now = datetime.now(UTC)
     fatigue_threshold_minutes = settings.fatigue_hours * 60
 
-    result = await db.execute(
+    assignment_result = await db.execute(
         select(IncidentAssignment, Personnel.name)
         .join(Personnel, IncidentAssignment.resource_id == Personnel.id)
         .join(Incident)
@@ -290,7 +290,7 @@ async def _check_resource_alerts(
         .where(IncidentAssignment.resource_type == "personnel")
         .where(IncidentAssignment.unassigned_at.is_(None))
     )
-    active_assignments = result.all()
+    active_assignments = assignment_result.all()
 
     for assignment, personnel_name in active_assignments:
         duration_minutes = (now - assignment.assigned_at).total_seconds() / 60
@@ -340,8 +340,8 @@ async def _check_resource_alerts(
         if assigned_material_ids:
             query = query.where(Material.id.notin_(assigned_material_ids))
 
-        result = await db.execute(query)
-        available_count = result.scalar_one()
+        count_result = await db.execute(query)
+        available_count = count_result.scalar_one()
 
         if available_count == 0:
             notifications.append(
@@ -398,7 +398,7 @@ async def _check_event_size_alerts(
     db: AsyncSession, event_id: UUID, settings: NotificationSettings
 ) -> list[Notification]:
     """Check for event size limit warnings."""
-    notifications = []
+    notifications: list[Notification] = []
 
     # Note: Actual database and photo size checking would require additional implementation
     # This is a placeholder that would need to query actual sizes
@@ -438,7 +438,7 @@ async def _check_geofence_alerts(
     notifications: list[Notification] = []
 
     try:
-        from ..traccar import traccar_client
+        from ..traccar import VehiclePosition, traccar_client
         from .gps_simulation import gps_simulation
 
         if not traccar_client.is_configured and not gps_simulation.any_active():
@@ -450,7 +450,7 @@ async def _check_geofence_alerts(
             return notifications
 
         # Build a map of vehicle name (lowercase) → position
-        position_by_name: dict[str, object] = {}
+        position_by_name: dict[str, VehiclePosition] = {}
         for pos in positions:
             position_by_name[pos.device_name.lower()] = pos
 

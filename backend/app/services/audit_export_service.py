@@ -6,9 +6,11 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from io import BytesIO
+from typing import Any
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
+from openpyxl.worksheet.worksheet import Worksheet
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -197,7 +199,9 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
     )
 
 
-async def export_event_audit_excel(db: AsyncSession, event_id: uuid.UUID, current_user: User) -> tuple[BytesIO, dict]:
+async def export_event_audit_excel(
+    db: AsyncSession, event_id: uuid.UUID, current_user: User
+) -> tuple[BytesIO, dict[str, Any]]:
     """
     Export complete event audit data for payment processing.
 
@@ -225,7 +229,7 @@ async def export_event_audit_excel(db: AsyncSession, event_id: uuid.UUID, curren
     return await asyncio.to_thread(_build_audit_workbook, data, current_user)
 
 
-def _build_audit_workbook(data: EventReportData, current_user: User) -> tuple[BytesIO, dict]:
+def _build_audit_workbook(data: EventReportData, current_user: User) -> tuple[BytesIO, dict[str, Any]]:
     """Blocking workbook construction — runs in a worker thread."""
     wb = Workbook()
     wb.remove(wb.active)  # Remove default sheet
@@ -289,7 +293,14 @@ def _build_audit_workbook(data: EventReportData, current_user: User) -> tuple[By
     return buffer, metadata
 
 
-def _add_overview_sheet(ws, event: Event, incidents: list, assignments: list, transitions: list, current_user: User):
+def _add_overview_sheet(
+    ws: Worksheet,
+    event: Event,
+    incidents: list[Incident],
+    assignments: list[IncidentAssignment],
+    transitions: list[StatusTransition],
+    current_user: User,
+) -> None:
     """Add event overview sheet."""
     ws["A1"] = "Audit Export - Ereignis Übersicht"
     ws["A1"].font = Font(size=16, bold=True)
@@ -330,7 +341,7 @@ def _add_overview_sheet(ws, event: Event, incidents: list, assignments: list, tr
     ws.column_dimensions["B"].width = 50
 
 
-def _add_incidents_sheet(ws, incidents: list[Incident], user_map: dict[uuid.UUID, User]):
+def _add_incidents_sheet(ws: Worksheet, incidents: list[Incident], user_map: dict[uuid.UUID, User]) -> None:
     """Add incidents sheet."""
     headers = [
         "Einsatz ID",
@@ -382,12 +393,12 @@ def _add_incidents_sheet(ws, incidents: list[Incident], user_map: dict[uuid.UUID
 
 
 def _add_personnel_assignments_sheet(
-    ws,
+    ws: Worksheet,
     assignments: list[IncidentAssignment],
     incident_map: dict[uuid.UUID, Incident],
     personnel_map: dict[uuid.UUID, Personnel],
     user_map: dict[uuid.UUID, User],
-):
+) -> None:
     """Add personnel assignments sheet."""
     headers = [
         "Zuweisung ID",
@@ -423,12 +434,12 @@ def _add_personnel_assignments_sheet(
 
 
 def _add_vehicle_assignments_sheet(
-    ws,
+    ws: Worksheet,
     assignments: list[IncidentAssignment],
     incident_map: dict[uuid.UUID, Incident],
     vehicle_map: dict[uuid.UUID, Vehicle],
     user_map: dict[uuid.UUID, User],
-):
+) -> None:
     """Add vehicle assignments sheet."""
     headers = [
         "Zuweisung ID",
@@ -466,12 +477,12 @@ def _add_vehicle_assignments_sheet(
 
 
 def _add_material_assignments_sheet(
-    ws,
+    ws: Worksheet,
     assignments: list[IncidentAssignment],
     incident_map: dict[uuid.UUID, Incident],
     material_map: dict[uuid.UUID, Material],
     user_map: dict[uuid.UUID, User],
-):
+) -> None:
     """Add material assignments sheet."""
     headers = [
         "Zuweisung ID",
@@ -509,11 +520,11 @@ def _add_material_assignments_sheet(
 
 
 def _add_status_transitions_sheet(
-    ws,
+    ws: Worksheet,
     transitions: list[StatusTransition],
     incident_map: dict[uuid.UUID, Incident],
     user_map: dict[uuid.UUID, User],
-):
+) -> None:
     """Add status transitions sheet."""
     headers = [
         "Transition ID",
@@ -546,11 +557,11 @@ def _add_status_transitions_sheet(
 
 
 def _add_reko_reports_sheet(
-    ws,
+    ws: Worksheet,
     reko_reports: list[RekoReport],
     incident_map: dict[uuid.UUID, Incident],
     personnel_map: dict[uuid.UUID, Personnel],
-):
+) -> None:
     """Add reko reports sheet."""
     headers = [
         "Report ID",

@@ -185,7 +185,7 @@ async def log_logout(db: AsyncSession, user: User, request: Request) -> AuditLog
     )
 
 
-def calculate_changes(before: dict, after: dict) -> dict:
+def calculate_changes(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
     """
     Calculate diff between before/after states.
 

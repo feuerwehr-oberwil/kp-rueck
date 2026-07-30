@@ -2,6 +2,7 @@
 
 import random
 import re
+from typing import Any
 
 # Danger profiles per incident type: which dangers are likely and their probability
 _DANGER_PROFILES: dict[str, dict[str, float]] = {
@@ -605,7 +606,7 @@ def _pick_weighted(weights: dict[str, float]) -> str:
 _DANGER_PROBABILITY_SCALE = 0.6
 
 
-def generate_dangers(incident_type: str | None = None) -> dict:
+def generate_dangers(incident_type: str | None = None) -> dict[str, Any]:
     """Generate danger flags based on incident type probabilities."""
     profile = _DANGER_PROFILES.get(incident_type or "", _DANGER_PROFILES["elementarereignis"])
 
@@ -623,7 +624,7 @@ def generate_dangers(incident_type: str | None = None) -> dict:
     }
 
 
-def generate_effort(incident_type: str | None = None) -> dict:
+def generate_effort(incident_type: str | None = None) -> dict[str, Any]:
     """Generate effort estimation scaled to incident type."""
     min_p, max_p, min_h, max_h = _EFFORT_PROFILES.get(incident_type or "", (2, 6, 0.5, 2.0))
 
@@ -678,7 +679,7 @@ def vary_dispatch_numbers(text: str) -> str:
     if not text:
         return text
 
-    def _range_cm(m: re.Match) -> str:
+    def _range_cm(m: re.Match[str]) -> str:
         a = _nice_near(int(m.group(1)), _NICE_CM)
         b = _nice_near(int(m.group(2)), _NICE_CM)
         if b <= a:
@@ -754,9 +755,9 @@ _LARGE_EFFORT_KW = [
 def _reconcile_with_summary(
     summary: str,
     resolved_type: str | None,
-    dangers: dict,
-    effort: dict,
-) -> tuple[dict, dict]:
+    dangers: dict[str, Any],
+    effort: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Make the structured danger/effort fields agree with the summary prose."""
     lower = summary.lower()
 
@@ -838,7 +839,7 @@ def generate_reko_report_data(
     incident_type: str | None = None,
     title: str | None = None,
     description: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Generate a complete reko report payload with contextual random data.
 
     Beyond picking type-matched values, this keeps the report internally
@@ -943,7 +944,7 @@ _INTAKE_CALLER_CONTEXTS = [
 ]
 
 
-def generate_intake_caller() -> dict:
+def generate_intake_caller() -> dict[str, Any]:
     """Fake caller (Melder) for a simulated phone/walk-in training alarm.
 
     Returns a ``contact`` string (name + Swiss mobile number) and a short

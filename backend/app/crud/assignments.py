@@ -134,7 +134,7 @@ async def unassign_resource(
     db: AsyncSession,
     assignment_id: uuid.UUID,
     current_user: User,
-    request: Request,
+    request: Request | None,
 ) -> bool:
     """
     Release resource from incident.
@@ -284,7 +284,7 @@ async def auto_release_incident_resources(
     db: AsyncSession,
     incident_id: uuid.UUID,
     current_user: User,
-    request: Request,
+    request: Request | None,
     exclude_materials: bool = True,
 ) -> None:
     """

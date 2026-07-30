@@ -36,6 +36,7 @@ import math
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +52,7 @@ from ..models import (
     User,
     Vehicle,
 )
+from ..traccar import VehiclePosition
 from ..websocket_manager import broadcast_incident_update, broadcast_message
 from .settings import get_setting_value
 
@@ -131,19 +133,23 @@ class _AutomationState:
     unassigned_returns: dict[uuid.UUID, _Debounce] = field(default_factory=dict)
     unassigned_away: set[uuid.UUID] = field(default_factory=set)
 
-    def prune(self, arrival_keys: set, return_keys: set) -> None:
+    def prune(
+        self,
+        arrival_keys: set[tuple[uuid.UUID, uuid.UUID]],
+        return_keys: set[uuid.UUID],
+    ) -> None:
         """Drop debounce entries whose target is no longer relevant.
 
         Clearing the entry also clears the one-shot ``fired`` latch, which is correct:
         once an incident leaves ``enroute`` (Rule A) or an assignment is released
         (Rule B), the target is gone and a brand-new one may legitimately fire later.
         """
-        for key in list(self.arrival.keys()):
-            if key not in arrival_keys:
-                del self.arrival[key]
-        for key in list(self.returns.keys()):
-            if key not in return_keys:
-                del self.returns[key]
+        for arrival_key in list(self.arrival.keys()):
+            if arrival_key not in arrival_keys:
+                del self.arrival[arrival_key]
+        for return_key in list(self.returns.keys()):
+            if return_key not in return_keys:
+                del self.returns[return_key]
 
 
 _state = _AutomationState()
@@ -229,7 +235,7 @@ def _is_fresh(last_update: datetime, now: datetime, freshness_seconds: float) ->
     return -freshness_seconds <= age <= freshness_seconds
 
 
-def _advance_debounce(store: dict, key, fix_at: datetime, cfg: _AutomationConfig) -> bool:
+def _advance_debounce[K](store: dict[K, _Debounce], key: K, fix_at: datetime, cfg: _AutomationConfig) -> bool:
     """Register a confirming fix (at GPS time ``fix_at``) and report whether to fire.
 
     Returns True exactly once when N consecutive confirming fixes have accumulated over a
@@ -270,15 +276,15 @@ def _advance_debounce(store: dict, key, fix_at: datetime, cfg: _AutomationConfig
     return False
 
 
-def _reset_debounce(store: dict, key) -> None:
+def _reset_debounce[K](store: dict[K, _Debounce], key: K) -> None:
     db = store.get(key)
     if db is not None:
         db.reset()
 
 
 def _suppressed_arrival_keys(
-    targets: list[dict],
-    position_by_name: dict,
+    targets: list[dict[str, Any]],
+    position_by_name: dict[str, VehiclePosition],
     cfg: _AutomationConfig,
     now: datetime,
 ) -> set[tuple[uuid.UUID, uuid.UUID]]:
@@ -308,7 +314,7 @@ def _suppressed_arrival_keys(
         ):
             continue
         vp = position_by_name.get(t["vehicle_name"].lower())
-        if not _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now):
+        if vp is None or not _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now):
             continue
         distance = _haversine_distance_meters(
             float(vp.latitude),
@@ -327,7 +333,7 @@ def _suppressed_arrival_keys(
     return suppressed
 
 
-async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
+async def _group_vehicle_targets(db: AsyncSession) -> list[dict[str, Any]]:
     """Expand active route-level (Auftrag) vehicle assignments into arrival targets.
 
     A vehicle assigned to an Auftrag covers every stop of that Auftrag. Each such
@@ -376,11 +382,11 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
         .where(Incident.deleted_at.is_(None))
         .order_by(Incident.group_position.asc())
     )
-    stops_by_group: dict[uuid.UUID, list] = {}
+    stops_by_group: dict[uuid.UUID, list[Any]] = {}
     for stop in stops_result.all():
         stops_by_group.setdefault(stop.group_id, []).append(stop)
 
-    targets: list[dict] = []
+    targets: list[dict[str, Any]] = []
     for ga_id, vehicle_id, vehicle_name, group_id, group_name, event_id in group_rows:
         stops = stops_by_group.get(group_id, [])
         if not stops:
@@ -420,7 +426,7 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
     return targets
 
 
-async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None:
+async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehiclePosition]) -> None:
     """Entry point invoked once per Traccar poll tick.
 
     ``vehicle_positions`` is the same ``list[VehiclePosition]`` the poller already
@@ -479,8 +485,8 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
         # stop and one route-level return prompt per group assignment.
         targets.extend(await _group_vehicle_targets(db))
 
-        arrival_keys: set = set()
-        return_keys: set = set()
+        arrival_keys: set[tuple[uuid.UUID, uuid.UUID]] = set()
+        return_keys: set[uuid.UUID] = set()
         actor = None  # lazily created only when an action actually fires
 
         # Nearest-single-match guard: if a vehicle confirms arrival at several of its
@@ -501,7 +507,8 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                 a_key = (t["incident_id"], t["vehicle_id"])
                 arrival_keys.add(a_key)
                 if (
-                    _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now)
+                    vp is not None
+                    and _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now)
                     and a_key not in suppressed_arrival
                 ):
                     if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
@@ -533,7 +540,7 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
             ):
                 r_key = t["assignment_id"]
                 return_keys.add(r_key)
-                if _return_fix_confirms(vp, cfg, now):
+                if vp is not None and _return_fix_confirms(vp, cfg, now):
                     if _advance_debounce(_state.returns, r_key, vp.last_update, cfg):
                         if t["is_group"]:
                             await _fire_group_return_prompt(
@@ -568,7 +575,9 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
         logger.debug("GPS automation tick failed: %s", e)
 
 
-def _arrival_fix_confirms(vp, inc_lat: float, inc_lng: float, cfg: _AutomationConfig, now: datetime) -> bool:
+def _arrival_fix_confirms(
+    vp: VehiclePosition | None, inc_lat: float, inc_lng: float, cfg: _AutomationConfig, now: datetime
+) -> bool:
     """True only for a fresh, slow, in-radius fix at the incident location."""
     if vp is None:
         return False
@@ -585,9 +594,11 @@ def _arrival_fix_confirms(vp, inc_lat: float, inc_lng: float, cfg: _AutomationCo
     return distance <= cfg.arrival_radius_m
 
 
-def _return_fix_confirms(vp, cfg: _AutomationConfig, now: datetime) -> bool:
+def _return_fix_confirms(vp: VehiclePosition | None, cfg: _AutomationConfig, now: datetime) -> bool:
     """True only for a fresh, slow fix inside the station geofence."""
-    if vp is None:
+    if vp is None or cfg.station_lat is None or cfg.station_lng is None:
+        # Without a configured station there is no geofence to be inside of. Every
+        # caller already gates on this; stating it here makes the guard local.
         return False
     if not _is_fresh(vp.last_update, now, cfg.freshness_seconds):
         return False
@@ -605,8 +616,8 @@ def _return_fix_confirms(vp, cfg: _AutomationConfig, now: datetime) -> bool:
 async def _watch_unassigned_returns(
     db: AsyncSession,
     cfg: _AutomationConfig,
-    position_by_name: dict,
-    assigned_vehicle_ids: set,
+    position_by_name: dict[str, VehiclePosition],
+    assigned_vehicle_ids: set[uuid.UUID],
     now: datetime,
 ) -> None:
     """Rule C: notify (info bell) when an unassigned vehicle comes home.
@@ -618,6 +629,8 @@ async def _watch_unassigned_returns(
     dropped, so a vehicle released at the magazin (via the release prompt)
     starts fresh and never double-notifies.
     """
+    if cfg.station_lat is None or cfg.station_lng is None:
+        return  # no station geofence configured — same gate the caller applies
     vehicles = (await db.execute(select(Vehicle))).scalars().all()
     for vehicle in vehicles:
         if vehicle.id in assigned_vehicle_ids:
