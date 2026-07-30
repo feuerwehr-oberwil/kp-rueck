@@ -357,7 +357,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                               </Badge>
                             )}
                             {vehicle.incident_id && vehicle.incident_status && (
-                              <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
+                              <Badge variant="outline" className={cn("text-xs max-w-full", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
                                 {vehicle.incident_status in STATUS_LABELS ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
                               </Badge>
                             )}

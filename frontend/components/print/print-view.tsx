@@ -132,7 +132,9 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
 
           return (
             <div key={status} className="mb-4">
-              <h2 className="font-bold border-b border-black mb-2 text-sm">
+              {/* Caps come from CSS, not the source string — the message block stays
+                  title-case like every other status block (decision of 2026-07-21). */}
+              <h2 className="font-bold border-b border-black mb-2 text-sm uppercase">
                 {status in STATUS_ORDER ? t(`statusHeading.${status}`) : status.toUpperCase()} ({statusOps.length})
               </h2>
 

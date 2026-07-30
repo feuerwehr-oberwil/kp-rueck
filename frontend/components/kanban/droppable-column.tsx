@@ -249,7 +249,9 @@ export const DroppableColumn = memo(function DroppableColumn({
         column.color
       )}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-tight text-foreground">{columnTitle}</h2>
+          {/* min-w-0 + truncate: the title is the only part that may give way. A long
+              column name must not push the sort/collapse controls off the header. */}
+          <h2 className="min-w-0 truncate text-sm font-bold uppercase tracking-tight text-foreground" title={columnTitle}>{columnTitle}</h2>
           <div className="flex items-center gap-2">
             {onSort && (
               <DropdownMenu>

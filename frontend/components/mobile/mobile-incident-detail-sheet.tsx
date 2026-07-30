@@ -239,7 +239,7 @@ export function MobileIncidentDetailSheet({
                 </SelectContent>
               </Select>
             ) : (
-              <Badge variant="secondary" className="text-sm">
+              <Badge variant="secondary" className="text-sm max-w-full">
                 {t(`status.${operation.status}`)}
               </Badge>
             )}
