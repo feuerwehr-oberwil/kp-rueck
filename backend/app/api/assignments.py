@@ -10,6 +10,7 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import assignments as crud
 from ..database import get_db
+from ..models import IncidentAssignment
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_assignment_update
 
@@ -26,7 +27,7 @@ async def assign_resource(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.AssignmentResponse:
     """
     Assign resource to incident (editor only).
 
@@ -72,7 +73,7 @@ async def unassign_resource(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Release resource from incident."""
     success = await crud.unassign_resource(
         db=db,
@@ -98,7 +99,7 @@ async def get_assignments(
     incident_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> list[IncidentAssignment]:
     """Get all active assignments for incident."""
     return await crud.get_incident_assignments(db, incident_id)
 
@@ -111,7 +112,7 @@ async def update_assignment(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.AssignmentResponse:
     """Update assignment properties (e.g., driver_stay flag)."""
     assignment = await crud.update_assignment(db, assignment_id, update)
     if not assignment:
@@ -133,7 +134,7 @@ async def release_all_resources(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """
     Release all resources from incident.
 
@@ -162,12 +163,12 @@ from fastapi import APIRouter as NewRouter
 bulk_router = NewRouter(prefix="/assignments", tags=["assignments"])
 
 
-@bulk_router.get("/by-event/{event_id}")
+@bulk_router.get("/by-event/{event_id}", response_model=None)
 async def get_assignments_by_event(
     event_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, list[schemas.AssignmentResponse]]:
     """
     Get all assignments for all incidents in an event.
 

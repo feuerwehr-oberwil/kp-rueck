@@ -141,7 +141,7 @@ async def get_all_settings(db: AsyncSession) -> dict[str, str]:
     return {s.key: s.value for s in settings}
 
 
-async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID) -> Setting:
+async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID | None) -> Setting:
     """Update or create setting."""
     result = await db.execute(select(Setting).where(Setting.key == key))
     setting = result.scalar_one_or_none()
