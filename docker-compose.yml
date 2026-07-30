@@ -112,6 +112,12 @@ services:
       MICROSOFT_REDIRECT_URI: ${MICROSOFT_REDIRECT_URI:-}
     volumes:
       - photos:/mnt/data/photos
+      # Snapshots taken by start.sh immediately before `alembic upgrade head`. A NAMED volume,
+      # not the container's own filesystem: a failed migration is exactly the moment the
+      # container gets recreated, which would throw an in-image dump away with it. Not the
+      # nightly backup and no substitute for it — this one covers the ten seconds where the
+      # schema changes under live data.
+      - premigration:/mnt/data/backups
     healthcheck:
       # The backend image ships no curl; probe with the interpreter instead.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
@@ -216,6 +222,57 @@ services:
       - "${HTTPS_PORT:-443}:443"
     networks: [kprueck]
 
+  # Nightly backup: Postgres dump + the photo volume, with retention. Opt-in, because it writes
+  # to a path on the HOST and only you know which one:
+  #   docker compose --profile backup up -d
+  #
+  # It replaces the cron line this used to be documented as. A sidecar wins twice: it needs no
+  # docker socket (it talks to `db` over the compose network and mounts the photo volume
+  # read-only), and it can be *observed* — `docker compose ps` shows it unhealthy when the last
+  # backup failed or went stale, which a cron job writing into a directory cannot.
+  backup:
+    # The Postgres client must be at least as new as the server or pg_dump refuses outright
+    # ("aborting because of server version mismatch"), so this deliberately tracks the db
+    # service's image. If you move `db` to a newer major, move this with it — the script
+    # compares the two versions and fails loudly rather than quietly dumping nothing.
+    image: ${BACKUP_PG_IMAGE:-postgres:16-alpine}
+    restart: unless-stopped
+    # Memory ceiling. pg_dump streams; the peak is gzip on the photo tarball.
+    mem_limit: 256m
+    logging: *default-logging
+    profiles: ["backup"]
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/scripts/backup.sh", "--loop"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-kprueck}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      PGDATABASE: ${POSTGRES_DB:-kprueck}
+      BACKUP_DIR: /backups
+      PHOTOS_DIR: /photos
+      # Retention: see .env.example for why these two numbers.
+      BACKUP_AT: ${BACKUP_AT:-03:30}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-14}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-8}
+    volumes:
+      - ./scripts:/scripts:ro
+      # Read-only: this service may never be the thing that deletes a Reko photo.
+      - photos:/photos:ro
+      # A host path, NOT a named volume — `docker compose down -v` must not be able to take the
+      # backups with it, and the files have to be copyable off the box without docker.
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    healthcheck:
+      # Reads the status file the script writes. This is the difference between "a backup job
+      # exists" and "a backup happened last night".
+      test: ["CMD", "/scripts/backup.sh", "--check", "/backups"]
+      interval: 1h
+      timeout: 15s
+      retries: 1
+      start_period: 5m
+    networks: [kprueck]
+
   # Thermal printer agent for the command post. Opt-in: it needs to reach a printer on the
   # local LAN, so it runs on the host network and only starts with the `printing` profile:
   #   docker compose --profile printing up -d
@@ -262,6 +319,7 @@ networks:
 volumes:
   pgdata:
   photos:
+  premigration:
   tiles:
   caddy_data:
   caddy_config:

@@ -105,7 +105,43 @@ by claim against the code, and four things turned out to be promises the code di
   `NEXT_PUBLIC_WS_URL` now reaches the policy too; it never did before, which is why setting it
   alone could not have fixed this either.
 
+### Added
+- **The backup is now scheduled, verified and provably restorable.** Until today the only thing
+  standing between a station and a lost operational record was somebody remembering to type
+  `scripts/backup.sh` — no schedule, no retention beyond a flat 14 files, and no evidence that
+  any of those files could be restored. Now: an opt-in compose sidecar
+  (`docker compose --profile backup up -d`) takes the Postgres dump **and** the Reko photo volume
+  nightly into a host directory, keeping **14 dailies and 8 weeklies** — two series because they
+  answer two different questions (undo last night vs. somebody imported the wrong roster five
+  weeks ago). Dumps are `-Fc` custom format, so `pg_restore` can list them and pull single tables
+  out, and every one is read back with `pg_restore --list` before it counts as taken.
+  `scripts/restore.sh` is the other half; it refuses to merge into a database that still has
+  tables. A weekly `restore-drill` CI job runs the whole cycle — seed, dump, restore into a
+  fresh empty database, diff the row counts and real values, migrate the result forward — so
+  "has anyone ever restored one of these?" has a standing answer.
+- **The failure modes are loud.** A backup that can silently do nothing is worse than none, so an
+  unwritable directory, an unreachable database, a zero-byte or unreadable dump, or a missing
+  photo volume each abort with a distinct exit code, a `BACKUP-FAILED` marker, a
+  `"status": "failed"` in `last-backup.json`, and a failing container healthcheck —
+  `docker compose ps backup` says `unhealthy` when last night did not work. Retention never runs
+  after a failure and never deletes the last remaining copy.
+- **A snapshot is taken before every migration.** `start.sh` ran `alembic upgrade head` on boot
+  with nothing captured first; a failed migration ended the container, `restart: unless-stopped`
+  replaced it, and the previous state was already gone. It now dumps first whenever a migration
+  is actually pending (newest 5 kept, on a named volume so a container recreation cannot take
+  them with it). Deliberately best-effort: if it cannot dump it warns unmistakably and boots
+  anyway, because a board that is down is worse than a migration without a snapshot.
+
 ### Changed
+- **The backend image pins the PostgreSQL client to 17.** Debian bookworm's `postgresql-client`
+  is version 15, and `pg_dump` 15 refuses outright to dump the 17.x server production runs
+  ("aborting because of server version mismatch") — which would have made the new pre-migration
+  snapshot fail exactly when it mattered. The client now comes from PGDG, pinned by
+  `PG_CLIENT_MAJOR`, one major ahead of the compose database and level with production. The
+  backup scripts additionally compare the two versions themselves and stop with the remedy
+  spelled out, because the *server* is what a station can upgrade without touching this image.
+  Note for self-hosters: `docker-compose.yml` still pins `postgres:16` — a 16 data volume cannot
+  be read by a 17 server, so that move stays a deliberate, documented one.
 - **The incident status identifiers are English, and the board no longer translates them.**
   The database and API said `eingegangen … abschluss` while the board said `incoming …
   complete`, so a translation table sat between them — and a status renamed in one place and
