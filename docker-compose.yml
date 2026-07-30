@@ -140,6 +140,11 @@ services:
       # RUNTIME api target for the Next.js /backend-api proxy route. The published image is
       # built WITHOUT NEXT_PUBLIC_API_URL on purpose — baking a URL in would tie the image to
       # one station. The browser calls /backend-api on its own origin and Next forwards here.
+      #
+      # A split-origin deployment (Railway) also hands API_URL to the browser as the WebSocket
+      # origin. This value is a Docker service name, reachable only on this network, so the
+      # frontend deliberately withholds it (publicBackendOrigin() in frontend/lib/env.ts) and
+      # the socket stays on the app's own origin — where Caddy routes /socket.io to the backend.
       API_URL: http://backend:8000
       NODE_ENV: production
     healthcheck:

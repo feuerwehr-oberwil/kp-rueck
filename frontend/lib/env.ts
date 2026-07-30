@@ -8,6 +8,164 @@
  * The Dockerfile must pass them as build args for production builds.
  */
 
+/**
+ * The backend origin the browser is allowed to address directly, handed down by the
+ * server at request time (root layout → `<RuntimeBackendOrigin>`), because the value
+ * lives in `API_URL` — a *runtime* variable the browser otherwise never sees.
+ *
+ * Module-level, and only ever written on the client: during SSR this module is shared
+ * by every request in the process, so storing per-request state here would be a leak.
+ */
+let runtimeBackendOrigin: string | null = null
+
+/**
+ * Reduce a configured backend URL to an origin the *browser* can actually open a
+ * connection to, or `null` if it cannot.
+ *
+ * `API_URL` is not automatically a public address. The compose stack sets
+ * `API_URL=http://backend:8000` — a Docker service name that resolves inside the
+ * container network and nowhere else; handing that to the browser would replace one
+ * silent failure with another. A single-label hostname is exactly that shape, and
+ * `*.railway.internal` is Railway's equivalent for private networking.
+ */
+export function publicBackendOrigin(raw: string | null | undefined): string | null {
+  if (!raw) return null
+
+  let url: URL
+  try {
+    url = new URL(raw.trim())
+  } catch {
+    return null
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+
+  const host = url.hostname
+  const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+  if (!isLoopback) {
+    // Container/service names, not addresses: `backend`, `frontend.railway.internal`.
+    if (!host.includes('.')) return null
+    if (host.endsWith('.internal')) return null
+  }
+
+  return `${url.protocol}//${url.host}`
+}
+
+/**
+ * The same vetting as `publicBackendOrigin()`, for a value that is already a WebSocket URL.
+ *
+ * `NEXT_PUBLIC_WS_URL` names `wss://…`, and `publicBackendOrigin()` deliberately refuses any
+ * scheme but http/https. Rather than copy the hostname rule — the one thing that must never
+ * exist twice — the scheme is mapped to http for the check and back afterwards.
+ */
+function publicWebsocketOrigin(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const vetted = publicBackendOrigin(raw.trim().replace(/^ws/, 'http'))
+  return vetted ? vetted.replace(/^http/, 'ws') : null
+}
+
+/** `https://host` → `wss://host`, `http://host` → `ws://host`. */
+function asWebsocketOrigin(origin: string): string {
+  return origin.replace(/^http/, 'ws')
+}
+
+/** What the CSP builder needs to know about the environment it is running in. */
+export interface CspEnvironment {
+  /** Runtime `API_URL`. The only source that knows where THIS deployment's backend is. */
+  apiUrl?: string | null
+  /** Build-time `NEXT_PUBLIC_API_URL` — an override for a station building its own image. */
+  publicApiUrl?: string | null
+  /** Build-time `NEXT_PUBLIC_WS_URL` — same, for a socket endpoint elsewhere. */
+  publicWsUrl?: string | null
+  /** `NODE_ENV === 'production'`; dev hot reload needs `'unsafe-eval'`. */
+  isProduction?: boolean
+}
+
+/**
+ * Assemble the Content-Security-Policy header.
+ *
+ * This lives here, and is called from `middleware.ts` per request, because `connect-src` has
+ * to name the backend — and on a split-origin deployment (Railway) the backend is only known
+ * at *runtime*, from `API_URL`. It used to be built in `next.config.mjs`, which Next serialises
+ * into the route manifest during `next build`: the header was then fixed for the life of the
+ * image, and its only backend entry came from `NEXT_PUBLIC_API_URL`. The published images are
+ * built without that variable on purpose, so a station on a custom backend domain got a socket
+ * that was aimed correctly and a browser that refused to open it.
+ *
+ * That also made `NEXT_PUBLIC_API_URL` load-bearing for two unrelated jobs — an API override
+ * *and* the only channel into the CSP — which is why it could not be dropped from a deployment
+ * that had it set. Now it is an override again, and nothing more.
+ *
+ * Backend origins go through `publicBackendOrigin()`, the same filter `getWsUrl()` uses: the
+ * compose stack sets `API_URL=http://backend:8000`, a Docker service name, and naming it in
+ * `connect-src` would put a hostname in the policy that no browser can resolve. Compose is
+ * served from one origin anyway, where `'self'` already covers the API, the tiles and (per
+ * CSP3) the same-origin WebSocket.
+ */
+export function buildContentSecurityPolicy(env: CspEnvironment = {}): string {
+  // Runtime first, then the build-time overrides. Each contributes both its https origin (the
+  // API calls) and the matching wss origin (the Socket.IO upgrade).
+  const backendOrigins: string[] = []
+  for (const raw of [env.apiUrl, env.publicApiUrl]) {
+    const origin = publicBackendOrigin(raw)
+    if (!origin) continue
+    backendOrigins.push(origin, asWebsocketOrigin(origin))
+  }
+  const wsOverride = publicWebsocketOrigin(env.publicWsUrl)
+  if (wsOverride) backendOrigins.push(wsOverride)
+
+  // A Set keeps insertion order and stops a station that sets NEXT_PUBLIC_API_URL to the same
+  // value as API_URL from getting every host twice.
+  const connectSrc = [
+    ...new Set([
+      "'self'",
+      'http://localhost:8000',
+      'https://*.railway.app',
+      ...backendOrigins,
+      'https://*.tile.openstreetmap.org',
+      'https://nominatim.openstreetmap.org',
+      'https://*.basemaps.cartocdn.com',
+      'https://server.arcgisonline.com',
+      'http://localhost:8080',
+      'ws://localhost:*',
+      'wss://*.railway.app',
+    ]),
+  ]
+
+  return [
+    "default-src 'self'",
+    // Scripts: self + inline (Next.js hydration) + eval (dev hot reload)
+    env.isProduction
+      ? "script-src 'self' 'unsafe-inline'"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    // Styles: self + inline (Tailwind CSS)
+    "style-src 'self' 'unsafe-inline'",
+    // Images: self + data URIs + blob + map tile servers
+    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080",
+    // Fonts: self + data URIs
+    "font-src 'self' data:",
+    // Connect: self + API + WebSocket + map tiles + local tile server
+    `connect-src ${connectSrc.join(' ')}`,
+    // Frame ancestors: prevent clickjacking
+    "frame-ancestors 'none'",
+    // Form actions: only to self
+    "form-action 'self'",
+    // Base URI: only self
+    "base-uri 'self'",
+    // Object sources: none (no plugins)
+    "object-src 'none'",
+  ].join('; ')
+}
+
+/**
+ * Publish the server's `API_URL` to the client. Called during render of a client
+ * component in the root layout, so it is set before any effect opens a socket.
+ */
+export function setRuntimeBackendOrigin(raw: string | null | undefined): void {
+  if (typeof window === 'undefined') return
+  runtimeBackendOrigin = publicBackendOrigin(raw)
+}
+
 export function getApiUrl(): string {
   // Server-side or explicit env var: always prefer NEXT_PUBLIC_API_URL
   const envUrl = process.env.NEXT_PUBLIC_API_URL
@@ -55,11 +213,29 @@ export function getTileBaseUrl(): string {
  *
  * WebSocket connections cannot go through the Next.js API proxy (/backend-api) because API
  * routes only handle HTTP, not WebSocket upgrades. A single-origin deployment therefore
- * relies on its reverse proxy routing /socket.io to the backend; Railway, which has no such
- * proxy, is addressed directly by hostname convention.
+ * relies on its reverse proxy routing /socket.io to the backend; a split-origin deployment
+ * (Railway) has to name the backend host.
+ *
+ * The sources, in order — the first one that answers wins:
+ *
+ * 1. the runtime `API_URL` the server handed us. It is the only source that is both
+ *    correct per deployment and free of a rebuild, which is why it outranks the
+ *    `NEXT_PUBLIC_*` pair: those are inlined at build time and so tie an image to one
+ *    station;
+ * 2. `NEXT_PUBLIC_WS_URL`, then `NEXT_PUBLIC_API_URL` — overrides, kept for a build that
+ *    sets them (local `.env.local`, a station building its own image);
+ * 3. guesses from `window.location`: the Railway `X` → `X-api` hostname convention, then
+ *    same-origin. Last resort for a deployment that tells the browser nothing.
  */
 export function getWsUrl(): string {
-  // Explicit WS URL takes highest priority
+  // Runtime configuration beats anything baked into the bundle: it is the only source that
+  // knows where THIS deployment's backend is. Without it, a Railway install on a custom
+  // domain fell through to same-origin — no socket, no error, 5-second polling forever.
+  if (runtimeBackendOrigin) {
+    return runtimeBackendOrigin.replace(/^http/, 'ws')
+  }
+
+  // Explicit WS URL takes priority over the remaining guesses
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL
   if (wsUrl) {
     return wsUrl

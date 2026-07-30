@@ -80,8 +80,37 @@ by claim against the code, and four things turned out to be promises the code di
 - **The dev compose stack could not print either.** Its print-agent had no `AGENT_TOKEN` and
   the backend no `PRINT_AGENT_TOKEN`, which is a 403 by design; and it still passed
   `POLL_INTERVAL`, the dead variable no version of the agent has ever read.
+- **A split-origin deployment on a custom domain lost real-time updates without saying so.**
+  The browser worked out where to open its WebSocket from build-time variables and, failing
+  those, from the page's own hostname: `X.up.railway.app` → `X-api.up.railway.app`, and
+  same-origin for anything else. Same-origin is right behind Caddy and wrong on Railway, where
+  the frontend and the backend are two hosts — so a Railway install on a custom domain connected
+  to nothing, fell back to polling every five seconds, and reported no error at all. The server
+  now hands the browser its runtime `API_URL` — the same variable the `/backend-api` proxy
+  already uses — and that outranks every guess, so a domain name no longer decides whether the
+  board is live. An `API_URL` the browser cannot reach (`http://backend:8000` on the compose
+  stack, `*.railway.internal`) is withheld deliberately, leaving that path exactly as it was.
+  `NEXT_PUBLIC_WS_URL` still works and is now an override nobody needs.
+- **…and then the browser's own security policy refused the connection anyway.** Aiming the
+  socket at the right host only helps if the page is allowed to open it. The
+  Content-Security-Policy was assembled in `next.config.mjs`, which Next writes into the image
+  during the build, so its `connect-src` could name only what was known on the build machine —
+  the app's own origin, `localhost`, `*.railway.app`, and whatever `NEXT_PUBLIC_API_URL` said.
+  The published images are built without that variable on purpose, so a station with its backend
+  on a custom domain got a correctly aimed socket and a blocked one. The policy is now composed
+  per request in `frontend/middleware.ts` from the runtime `API_URL`, and it names both that
+  origin and its `wss://` counterpart. Nothing was widened to achieve it — no `connect-src *`,
+  no blanket `wss:` — and an address the browser cannot reach is withheld by the same filter the
+  WebSocket uses, so the compose stack's `http://backend:8000` never enters the header.
+  `NEXT_PUBLIC_WS_URL` now reaches the policy too; it never did before, which is why setting it
+  alone could not have fixed this either.
 
 ### Changed
+- **`NEXT_PUBLIC_API_URL` is an override again, and nothing more.** It had quietly become
+  load-bearing for a second, unrelated job — it was the only way a backend address could enter
+  the Content-Security-Policy — so a deployment that had set it could not follow this project's
+  own advice to unset it. With the policy built at runtime, both jobs are done by `API_URL`.
+  Stations that set the build-time variable keep working exactly as before.
 - **A print job now reaches the printer in milliseconds instead of up to a minute.** The
   agent polled: 5 s while an operation was running, but 60 s when idle — and it only became
   brisk *after* it had printed something, so the slowest case was the first slip of an
