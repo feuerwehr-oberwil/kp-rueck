@@ -149,7 +149,12 @@ export function MobileBottomNavigation({
           </SheetTrigger>
           <SheetContent
             side="bottom"
-            className="modal-h-tall overflow-y-auto animate-sheet-slide-up px-6"
+            // No `animate-sheet-slide-up`: it duplicated SheetContent's own
+            // `slide-in-from-bottom` and, being unscoped by `data-state`, it kept
+            // `animation-name` non-`none` on the *closed* sheet — which is exactly
+            // what makes Radix's Presence hold the dismissed panel mounted (and
+            // hit-testable) for another ~150ms. Measured; the entrance is unchanged.
+            className="modal-h-tall overflow-y-auto px-6"
             style={{
               paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)'
             }}
