@@ -289,23 +289,65 @@ a newer version will not restore into an older one** — migrations only run for
 
 ## 9. Backups
 
-Railway's managed PostgreSQL provides automatic backups and point-in-time recovery — that
-covers the database. **It does not cover your photo volume.** Reko photos live on the
-`/mnt/data` volume and are not part of a database backup.
+**Railway is not the same problem as Compose, and this section says plainly what you do and do
+not get.** There is no cron container to lean on and no host filesystem outside the volume, so
+the scheduled sidecar from [`DEPLOYMENT.md` §6](DEPLOYMENT.md#6-backups) **does not exist here**.
+What you have instead is three things, two automatic and one not:
 
-Pull a dump and the photos periodically:
+**1. The database — covered, by Railway.** Managed PostgreSQL takes automatic backups with
+point-in-time recovery. Check the retention on your plan in the database service's *Backups*
+tab; do not assume it is what you want. This is a genuinely good backup and it is the reason
+this page does not try to rebuild one.
+
+**2. Before every migration — covered, by us.** The backend takes a `pg_dump -Fc` snapshot on
+boot whenever a migration is pending, into `/mnt/data/backups` on the volume, newest 5 kept.
+That is the gap Railway's nightly cannot close: a deploy that migrates live data at 14:20 and
+goes wrong is not helped by a backup from 03:00. Watch the deploy log for the line naming the
+snapshot file — or for `WARNING: pre-migration snapshot FAILED`, which means the migration below
+it ran with no way back.
+
+**3. The photos — NOT covered by anything automatic.** Reko photos live on the `/mnt/data`
+volume. They are not in the database, so Railway's database backup does not contain them, and
+Railway's volume backups (where offered) are not something this project can schedule for you. A
+database restored without them is a complete operational record pointing at missing images.
+
+So: **put a recurring reminder in the calendar** — monthly is a reasonable pace for a station,
+and after any big Einsatz with Reko photos. From a machine with `railway` and a Postgres client
+at least as new as the server (17.x today; `pg_dump` 15 will refuse outright with "server
+version mismatch"):
 
 ```bash
 railway link                                                    # select the project
-railway run bash -c 'pg_dump "$DATABASE_URL"' > kprueck-$(date +%F).sql
+
+# Database, custom format — same file the compose path produces.
+railway run bash -c 'pg_dump -Fc --no-owner --no-privileges "$DATABASE_URL"' > kprueck-$(date +%F).dump
+pg_restore --list kprueck-$(date +%F).dump | head    # prove it is readable BEFORE you trust it
+
+# Photos, from the volume, through the backend service.
+railway ssh --service backend 'tar czf - -C /mnt/data/photos .' > photos-$(date +%F).tar.gz
 ```
 
 The inner command must be **single-quoted**: `railway run` injects the variables into the
 process it starts, so `$DATABASE_URL` has to survive your local shell unexpanded.
 
-Verify a restore occasionally rather than assuming it works — a backup nobody has restored is
-a hypothesis. [`DEPLOYMENT.md`](DEPLOYMENT.md) §6.1 has the restore procedure, and it applies
-here too.
+No matching client to hand? Borrow one:
+
+```bash
+railway variables --service Postgres --kv | grep DATABASE_PUBLIC_URL   # host/port/password
+docker run --rm postgres:17-alpine pg_dump -Fc "postgresql://…" > kprueck-$(date +%F).dump
+```
+
+**What is honestly not achievable here.** A scheduled, unattended backup of *both* halves,
+inside the Railway project, with retention this project controls. It would need either a cron
+service on the paid tier running the same script against `DATABASE_URL` and a shared volume, or
+an external machine that pulls on a timer — and an external machine that pulls is exactly what a
+Railway deployment was chosen to avoid. If your station cannot rely on a monthly manual pull,
+that is a real argument for the Compose path, not something to paper over.
+
+Verify a restore occasionally rather than assuming it works — a backup nobody has restored is a
+hypothesis. [`DEPLOYMENT.md`](DEPLOYMENT.md) §6.1 has the restore procedure and it applies here
+too; restore into a scratch database (a local `postgres:17` container is enough), not into
+production.
 
 ---
 
