@@ -6,6 +6,8 @@ endpoints so all ingest paths derive the same incident from an emergency.
 
 import logging
 import re
+import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -167,7 +169,7 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
     return schemas.IncidentPriority.LOW
 
 
-def incident_create_from_emergency(emergency: models.DiveraEmergency, event_id) -> schemas.IncidentCreate:
+def incident_create_from_emergency(emergency: models.DiveraEmergency, event_id: uuid.UUID) -> schemas.IncidentCreate:
     """Derive the IncidentCreate payload for attaching an emergency to an event."""
     return schemas.IncidentCreate(
         event_id=event_id,
@@ -264,12 +266,12 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
 
 
 async def broadcast_emergency_received(
-    emergency_data: dict, incident_data: dict | None = None, source: str | None = None
-):
+    emergency_data: dict[str, Any], incident_data: dict[str, Any] | None = None, source: str | None = None
+) -> None:
     """Broadcast a new pool emergency (and its auto-attached incident, if any)."""
     from ..websocket_manager import broadcast_incident_update, broadcast_message
 
-    message = {
+    message: dict[str, Any] = {
         "type": "divera_emergency_received",
         "emergency": emergency_data,
         "auto_attached": incident_data is not None,

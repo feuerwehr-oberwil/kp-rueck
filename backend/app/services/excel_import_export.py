@@ -1,6 +1,7 @@
 """Excel import/export service for bulk data management."""
 
 import asyncio
+from collections.abc import Sequence
 from io import BytesIO
 from typing import Any, Literal
 
@@ -109,7 +110,7 @@ def validate_and_parse_excel(
     except Exception as e:
         raise ExcelImportError(f"Invalid Excel file: {e!s}") from e
 
-    result = {"personnel": [], "vehicles": [], "materials": []}
+    result: dict[str, list[dict[str, Any]]] = {"personnel": [], "vehicles": [], "materials": []}
 
     # Validate Personnel sheet
     if "Personnel" in wb.sheetnames:
@@ -266,19 +267,21 @@ async def import_data(
 
 async def export_data_to_excel(db: AsyncSession) -> BytesIO:
     """Export all personnel, vehicles, and materials to Excel."""
-    result = await db.execute(select(Personnel).order_by(Personnel.name))
-    personnel = result.scalars().all()
-    result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
-    vehicles = result.scalars().all()
-    result = await db.execute(select(Material).order_by(Material.location, Material.name))
-    materials = result.scalars().all()
+    personnel_result = await db.execute(select(Personnel).order_by(Personnel.name))
+    personnel = personnel_result.scalars().all()
+    vehicle_result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
+    vehicles = vehicle_result.scalars().all()
+    material_result = await db.execute(select(Material).order_by(Material.location, Material.name))
+    materials = material_result.scalars().all()
 
     # openpyxl workbook building is pure CPU — keep it off the event loop
     # so a large export doesn't freeze every operator's requests (audit H4).
     return await asyncio.to_thread(_build_export_workbook, personnel, vehicles, materials)
 
 
-def _build_export_workbook(personnel: list, vehicles: list, materials: list) -> BytesIO:
+def _build_export_workbook(
+    personnel: Sequence[Personnel], vehicles: Sequence[Vehicle], materials: Sequence[Material]
+) -> BytesIO:
     """Blocking workbook construction — runs in a worker thread."""
     wb = Workbook()
     wb.remove(wb.active)

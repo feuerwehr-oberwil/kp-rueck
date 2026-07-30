@@ -476,13 +476,18 @@ async def update_incident_status(
     incident_id: uuid.UUID,
     new_status: str,
     current_user: User,
-    request: Request,
+    request: Request | None,
     notes: str | None = None,
 ) -> Incident | None:
     """
     Update incident status and create status transition record.
 
     Used for Kanban drag-and-drop.
+
+    ``request`` is None for system-initiated transitions (GPS automation) — there is no
+    HTTP request to attribute, and ``log_action`` already handles a missing one by
+    recording no IP/user-agent. The chain below (auto-release, unassign) accepts the
+    same None for the same reason.
 
     When status is changed to 'complete', automatically releases personnel
     and vehicles (but keeps materials assigned as they may be left on site).

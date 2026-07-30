@@ -24,8 +24,15 @@ import math
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..traccar import VehiclePosition
 
 logger = logging.getLogger(__name__)
+
+# Strong references to in-flight status broadcasts; see the create_task call in overlay().
+_inflight_broadcast_tasks: set[asyncio.Task[None]] = set()
 
 # A drive vanishes this long after it was started — nobody should have to
 # remember to clean up a forgotten simulation.
@@ -134,7 +141,7 @@ class SimulatedDrive:
 class GpsSimulation:
     """In-memory registry of active simulated drives, keyed by vehicle name."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._drives: dict[str, SimulatedDrive] = {}  # key: vehicle_name.lower()
         self._lock = asyncio.Lock()
 
@@ -207,7 +214,7 @@ class GpsSimulation:
             await self._broadcast_status()
         return removed
 
-    def overlay(self, positions: list) -> list:
+    def overlay(self, positions: list["VehiclePosition"]) -> list["VehiclePosition"]:
         """Mask real positions of simulated vehicles and append the simulated ones.
 
         Called from ``TraccarClient.get_vehicle_positions`` so every consumer
@@ -224,8 +231,14 @@ class GpsSimulation:
                 logger.info("GPS simulation: %s expired after 30min", drive.vehicle_name)
         if expired:
             # Fire-and-forget status update; overlay() runs inside async contexts.
+            # Strong reference until it finishes: asyncio keeps only a weak one, so an
+            # unreferenced task can be collected mid-flight and the "drive expired"
+            # broadcast is lost — leaving the Übungssteuerung showing a drive that is
+            # already gone until something else triggers a status push.
             with contextlib.suppress(RuntimeError):
-                asyncio.get_running_loop().create_task(self._broadcast_status())
+                task = asyncio.get_running_loop().create_task(self._broadcast_status())
+                _inflight_broadcast_tasks.add(task)
+                task.add_done_callback(_inflight_broadcast_tasks.discard)
 
         if not self._drives:
             return positions

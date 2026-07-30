@@ -28,7 +28,7 @@ settings = get_settings()
 class PhotoStorageService:
     """Service for managing Reko form photo uploads."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize photo storage service."""
         self.photos_dir = Path(settings.photos_dir)
         self.max_size_bytes = settings.max_photo_size_mb * 1024 * 1024

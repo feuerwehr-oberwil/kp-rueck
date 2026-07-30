@@ -1,7 +1,7 @@
 """Bidirectional sync service for Railway ↔ Local synchronization."""
 
 from datetime import UTC, datetime
-from typing import ClassVar
+from typing import Any, ClassVar
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -20,7 +20,11 @@ class SyncService:
     # Syncable tables and their models
     # NOTE: Users are NOT synced - they are authentication records managed per environment
     # Incidents reference users via created_by, so users must exist on both systems independently
-    SYNCABLE_MODELS: ClassVar[dict[str, type]] = {
+    # ``type[Any]``, not ``type[Base]``: the sync loop reads ``updated_at``, ``id`` and
+    # ``__table__`` off whichever model it is handed, and DeclarativeBase declares none of
+    # them. The six entries are a closed, hand-maintained set — the alternative (a Protocol
+    # per attribute) buys nothing here because ``select(model_class)`` needs a real entity.
+    SYNCABLE_MODELS: ClassVar[dict[str, type[Any]]] = {
         "events": Event,
         "incidents": Incident,
         "personnel": Personnel,
@@ -70,7 +74,7 @@ class SyncService:
             self._railway_engine = create_async_engine(railway_url, echo=False)
         return self._railway_engine
 
-    async def close_railway_connection(self):
+    async def close_railway_connection(self) -> None:
         """Close Railway database connection."""
         if self._railway_engine:
             await self._railway_engine.dispose()
@@ -217,7 +221,7 @@ class SyncService:
                             continue
 
                         # Convert ISO format strings back to datetime objects
-                        processed_data = {}
+                        processed_data: dict[str, Any] = {}
                         for key, value in record_data.items():
                             if isinstance(value, str):
                                 # Try to parse as datetime
