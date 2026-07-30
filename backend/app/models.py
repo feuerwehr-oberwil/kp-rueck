@@ -379,7 +379,7 @@ class Incident(Base):
     location_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     location_lat: Mapped[float | None] = mapped_column(Numeric(10, 8), nullable=True)
     location_lng: Mapped[float | None] = mapped_column(Numeric(11, 8), nullable=True)
-    status: Mapped[str] = mapped_column(String(50), nullable=False, default="eingegangen")
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="incoming")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     contact: Mapped[str | None] = mapped_column(Text, nullable=True)  # Reporter/contact info (Melder/Anrufer)
     contact_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Direct phone number for the reporter
@@ -446,7 +446,7 @@ class Incident(Base):
         ),
         CheckConstraint("priority IN ('low', 'medium', 'high')", name="valid_priority"),
         CheckConstraint(
-            "status IN ('eingegangen', 'reko', 'reko_done', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss')",
+            "status IN ('incoming', 'reko', 'reko_done', 'enroute', 'active', 'returning', 'complete')",
             name="valid_status",
         ),
         CheckConstraint(

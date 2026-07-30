@@ -46,7 +46,7 @@ async def test_incident(db_session: AsyncSession, test_event: Event) -> Incident
         event_id=test_event.id,
         title="Test Incident",
         type="brandbekaempfung",
-        status="eingegangen",
+        status="incoming",
         priority="medium",
         created_at=datetime.now(UTC),
     )

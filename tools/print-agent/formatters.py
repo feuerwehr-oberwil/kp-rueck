@@ -37,13 +37,13 @@ TYPE_LABELS = {
 }
 
 STATUS_LABELS = {
-    "eingegangen": "Eingegangen",
+    "incoming": "Eingegangen",
     "reko": "Rekognoszierung",
     "reko_done": "Reko abgeschlossen",
-    "disponiert": "Disponiert",
-    "einsatz": "Im Einsatz",
-    "einsatz_beendet": "Einsatz beendet",
-    "abschluss": "Abgeschlossen",
+    "enroute": "Disponiert",
+    "active": "Im Einsatz",
+    "returning": "Einsatz beendet",
+    "complete": "Abgeschlossen",
 }
 
 PRIORITY_MARKERS = {
@@ -327,7 +327,7 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
     if include_completed:
         filtered_incidents = incidents
     else:
-        filtered_incidents = [i for i in incidents if i.get("status") != "abschluss"]
+        filtered_incidents = [i for i in incidents if i.get("status") != "complete"]
 
     p.set(font="a", bold=True, align="left")
     if filtered_incidents:

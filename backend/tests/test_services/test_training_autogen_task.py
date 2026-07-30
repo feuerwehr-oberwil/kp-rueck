@@ -283,7 +283,7 @@ class TestCheckAndRunLogic:
                 title=f"Incident {i}",
                 type="brandbekaempfung",
                 priority="medium",
-                status="eingegangen",
+                status="incoming",
                 event_id=training_event.id,
                 created_by=autogen_user.id,
             )
@@ -334,7 +334,7 @@ class TestCheckAndRunLogic:
             title="Recent Incident",
             type="brandbekaempfung",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             event_id=training_event.id,
             created_by=autogen_user.id,
             created_at=datetime.now(UTC) - timedelta(minutes=2),  # 2 min ago, interval is 5
@@ -364,7 +364,7 @@ class TestCheckAndRunLogic:
             title="Old Incident",
             type="brandbekaempfung",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             event_id=training_event.id,
             created_by=autogen_user.id,
             created_at=datetime.now(UTC) - timedelta(minutes=10),  # 10 min ago, interval is 5
@@ -415,7 +415,7 @@ class TestBoostPeriod:
             title="Recent Incident",
             type="brandbekaempfung",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             event_id=new_event.id,
             created_by=autogen_user.id,
             created_at=datetime.now(UTC) - timedelta(minutes=3),  # 3 min ago
@@ -456,7 +456,7 @@ class TestBoostPeriod:
             title="Recent Incident",
             type="brandbekaempfung",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             event_id=old_event.id,
             created_by=autogen_user.id,
             created_at=datetime.now(UTC) - timedelta(minutes=3),  # 3 min ago

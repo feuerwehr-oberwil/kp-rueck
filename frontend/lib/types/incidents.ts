@@ -160,13 +160,13 @@ export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
  * Human-readable labels for status values
  */
 export const STATUS_LABELS: Record<IncidentStatus, string> = {
-  eingegangen: 'Eingegangen',
+  incoming: 'Eingegangen',
   reko: 'Reko',
   reko_done: 'Reko abgeschlossen',
-  disponiert: 'Disponiert',
-  einsatz: 'Einsatz',
-  einsatz_beendet: 'Einsatz beendet',
-  abschluss: 'Abschluss',
+  enroute: 'Disponiert',
+  active: 'Einsatz',
+  returning: 'Einsatz beendet',
+  complete: 'Abschluss',
 }
 
 /**
@@ -179,13 +179,13 @@ export type StatusGroup = 'open' | 'active' | 'completed'
  * Map individual statuses to their group
  */
 export const STATUS_TO_GROUP: Record<IncidentStatus, StatusGroup> = {
-  eingegangen: 'open',
+  incoming: 'open',
   reko: 'open',
   reko_done: 'open',
-  disponiert: 'active',
-  einsatz: 'active',
-  einsatz_beendet: 'completed',
-  abschluss: 'completed',
+  enroute: 'active',
+  active: 'active',
+  returning: 'completed',
+  complete: 'completed',
 }
 
 /**

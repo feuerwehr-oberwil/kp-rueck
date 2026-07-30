@@ -5,16 +5,21 @@ import { INCIDENT_TYPE_MARKER_COLORS } from "./map-colors"
 
 // Kanban column definitions
 // Colors use light mode defaults with dark: variants
+//
+// `id` IS a status: since database, API and board share one vocabulary there is
+// nothing left to translate, and typing it as `OperationStatus` is what keeps
+// `t(`kanban.columns.${column.id}`)` provably inside the message block — that
+// lookup resolves at runtime, so nothing else would notice a typo.
 export const columns: Array<{
-  id: string
+  id: OperationStatus
   title: string
   status: OperationStatus[]
   color: string
   collapsible?: boolean
 }> = [
   { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: "bg-slate-200/80 dark:bg-slate-800/70" },
-  { id: "ready", title: "REKO", status: ["ready"], color: "bg-emerald-100/80 dark:bg-emerald-950/70" },
-  { id: "rekoDone", title: "REKO ABGESCHLOSSEN", status: ["rekoDone"], color: "bg-teal-100/80 dark:bg-teal-950/70" },
+  { id: "reko", title: "REKO", status: ["reko"], color: "bg-emerald-100/80 dark:bg-emerald-950/70" },
+  { id: "reko_done", title: "REKO ABGESCHLOSSEN", status: ["reko_done"], color: "bg-teal-100/80 dark:bg-teal-950/70" },
   { id: "enroute", title: "DISPONIERT / ANFAHRT", status: ["enroute"], color: "bg-blue-100/80 dark:bg-blue-950/70" },
   { id: "active", title: "EINSATZ", status: ["active"], color: "bg-orange-100/80 dark:bg-orange-950/70" },
   { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: "bg-sky-100/80 dark:bg-sky-950/70" },
@@ -159,7 +164,14 @@ export function findAuftragForStop<G extends { id: string; stopIds: string[] }>(
   return groups.find((group) => group.stopIds.includes(operation.id))
 }
 
-/** Label key under `kanban.stopStatus` for each mirror column. */
+/**
+ * Label key under `kanban.stopStatus` for each mirror column.
+ *
+ * The German key names stay German on purpose. They are NOT status values — the
+ * route stops collapse seven statuses onto five coarser mirror columns whose
+ * wording (Offen / Beendet / Abgeschlossen) has no 1:1 counterpart in the status
+ * vocabulary. This map is that deliberate collapse, not a translation table.
+ */
 export const STOP_STATUS_LABEL_KEY: Record<StopMirrorStatus, string> = {
   incoming: "offen",
   enroute: "disponiert",

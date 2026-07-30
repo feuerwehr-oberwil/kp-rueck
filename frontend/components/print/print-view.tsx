@@ -40,8 +40,8 @@ const DANGER_KEYS = ["fire", "explosion", "collapse", "chemical", "electrical", 
 // Column display order (labels come from the print.view.statusHeading messages).
 const STATUS_ORDER: Record<string, number> = {
   incoming: 1,
-  ready: 2,
-  rekoDone: 3,
+  reko: 2,
+  reko_done: 3,
   enroute: 4,
   active: 5,
   returning: 6,

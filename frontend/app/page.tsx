@@ -286,9 +286,9 @@ export default function FireStationDashboard() {
     setOperations(prev => prev.map(op => {
       if (op.id !== incidentId) return op
       const updates: Partial<Operation> = { hasCompletedReko: true, rekoSummary }
-      // Auto-transition reko → rekoDone when reko form is submitted
-      if (op.status === "ready") {
-        updates.status = "rekoDone"
+      // Auto-transition reko → reko_done when reko form is submitted
+      if (op.status === "reko") {
+        updates.status = "reko_done"
         updates.statusChangedAt = new Date()
       }
       return { ...op, ...updates }
@@ -709,8 +709,8 @@ export default function FireStationDashboard() {
       const previousStatus = operation.status
       updateOperation(operationId, { status: newStatus })
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-      if (newStatus === "ready") triggerRekoCheck(operationId, previousStatus)
-      if (newStatus === "rekoDone") triggerRekoFormCheck(operationId, previousStatus)
+      if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
+      if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
       if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
       if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
     }
@@ -1102,8 +1102,8 @@ export default function FireStationDashboard() {
     },
     onStatusChange: (operationId, newStatus, previousStatus) => {
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-      if (newStatus === "ready") triggerRekoCheck(operationId, previousStatus)
-      if (newStatus === "rekoDone") triggerRekoFormCheck(operationId, previousStatus)
+      if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
+      if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
       if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
       // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
       // (which keeps materials). Just prompt the material decision here.

@@ -119,13 +119,13 @@ LABELS: dict[str, str] = {
 
 # Human-readable labels mirroring the frontend (frontend/lib/types/incidents.ts).
 STATUS_LABELS: dict[str, str] = {
-    "eingegangen": "Eingegangen",
+    "incoming": "Eingegangen",
     "reko": "Reko",
     "reko_done": "Reko abgeschlossen",
-    "disponiert": "Disponiert",
-    "einsatz": "Einsatz",
-    "einsatz_beendet": "Einsatz beendet",
-    "abschluss": "Abschluss",
+    "enroute": "Disponiert",
+    "active": "Einsatz",
+    "returning": "Einsatz beendet",
+    "complete": "Abschluss",
 }
 
 TYPE_LABELS: dict[str, str] = {
@@ -544,9 +544,9 @@ def _reaction_times_table(data: EventReportData, styles: dict) -> Table:
                 _p(str(idx), styles["cell"]),
                 _p(_or_none(inc.title), styles["cell"]),
                 _p(delta(inc, "reko"), styles["cell"]),
-                _p(delta(inc, "disponiert"), styles["cell"]),
-                _p(delta(inc, "einsatz"), styles["cell"]),
-                _p(delta(inc, "abschluss"), styles["cell"]),
+                _p(delta(inc, "enroute"), styles["cell"]),
+                _p(delta(inc, "active"), styles["cell"]),
+                _p(delta(inc, "complete"), styles["cell"]),
             ]
         )
 
@@ -669,7 +669,7 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
             # No user is recorded for the release — leave the actor empty.
             entries.append(JournalEntry(a.unassigned_at, ref, LABELS["journal_unassigned"].format(name=name), ""))
 
-    # Reko reports (submitted only — drafts are not yet "eingegangen")
+    # Reko reports (submitted only — drafts are not yet "incoming")
     for reko in data.reko_reports:
         if reko.is_draft or reko.submitted_at is None:
             continue

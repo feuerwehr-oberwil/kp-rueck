@@ -56,7 +56,7 @@ Each job carries a `job_type` and a structured JSON `payload`. The agent decides
 Auto-printing triggers when:
 - Printer is enabled in settings (`printer.enabled = true`)
 - Auto-print is enabled (`printer.auto_anfahrt = true`)
-- An incident status changes to `disponiert` or `einsatz`
+- An incident status changes to `enroute` or `active`
 
 A 30-second deduplication window prevents duplicate prints for the same incident.
 

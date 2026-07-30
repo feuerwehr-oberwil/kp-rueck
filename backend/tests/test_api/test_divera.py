@@ -821,7 +821,7 @@ async def test_webhook_auto_attaches_to_flagged_event(
     assert incident.title == "FEUER Dachstock"
     assert incident.type == "brandbekaempfung"
     assert incident.priority == "high"
-    assert incident.status == "eingegangen"
+    assert incident.status == "incoming"
 
     emergency = (
         await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 555001))
@@ -930,4 +930,4 @@ async def test_training_emergency_attaches_to_training_event(
     assert response.status_code == 201
     data = response.json()
     assert data["title"] == "Wassereinbruch Keller"
-    assert data["status"] == "eingegangen"
+    assert data["status"] == "incoming"

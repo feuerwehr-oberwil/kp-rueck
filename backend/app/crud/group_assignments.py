@@ -161,7 +161,7 @@ async def auto_release_group_resources_if_last_stop(
     """Release an Auftrag's shared resources once its LAST stop is completed.
 
     Route resources belong to the whole Auftrag, so they must not be released
-    when a single stop closes — only when the incident just moved to ``abschluss``
+    when a single stop closes — only when the incident just moved to ``complete``
     is the last still-open stop of its group. Mirrors the per-incident auto-release
     (``exclude_materials``): vehicles + personnel are released, materials stay on
     site for manual return. Flushes only — the caller owns the commit.
@@ -188,7 +188,7 @@ async def auto_release_group_resources_if_last_stop(
             Incident.group_id == incident.group_id,
             Incident.id != incident.id,
             Incident.deleted_at.is_(None),
-            Incident.status != "abschluss",
+            Incident.status != "complete",
         )
     )
     if (other_open.scalar() or 0) > 0:

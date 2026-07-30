@@ -22,15 +22,15 @@ import { buildSituationData, viewerGroupsToIncidentGroups, type SituationData } 
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { cn } from "@/lib/utils"
 
-const STATUS_ORDER = ["incoming", "ready", "rekoDone", "enroute", "active", "returning"]
+const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
 
 /** Per-device fold state for this display (see useCollapsedSections). */
 const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
 
 const STATUS_BORDER: Record<string, string> = {
   incoming: "border-l-slate-500",
-  ready: "border-l-emerald-500",
-  rekoDone: "border-l-teal-500",
+  reko: "border-l-emerald-500",
+  reko_done: "border-l-teal-500",
   enroute: "border-l-blue-500",
   active: "border-l-orange-500",
   returning: "border-l-sky-500",
@@ -38,8 +38,8 @@ const STATUS_BORDER: Record<string, string> = {
 
 const STATUS_BG: Record<string, string> = {
   incoming: "bg-muted/30",
-  ready: "bg-muted/30",
-  rekoDone: "bg-muted/30",
+  reko: "bg-muted/30",
+  reko_done: "bg-muted/30",
   enroute: "bg-muted/30",
   active: "bg-muted/30",
   returning: "bg-muted/30",

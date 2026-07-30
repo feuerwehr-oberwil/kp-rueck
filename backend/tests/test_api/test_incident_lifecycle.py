@@ -168,7 +168,7 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, resources
     incident_id = incident["id"]
 
     # Verify initial status
-    assert incident["status"] == "eingegangen"
+    assert incident["status"] == "incoming"
 
     # ========================================
     # Step 3: Assign Resources
@@ -209,11 +209,11 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, resources
     # Step 4: Progress Through Status Transitions
     # ========================================
     status_transitions = [
-        ("eingegangen", "reko", "Reko-Team ausgerückt"),
-        ("reko", "disponiert", "Einsatzkräfte alarmiert"),
-        ("disponiert", "einsatz", "Einsatz läuft"),
-        ("einsatz", "einsatz_beendet", "Brand gelöscht, Nachlöscharbeiten"),
-        ("einsatz_beendet", "abschluss", "Einsatz abgeschlossen"),
+        ("incoming", "reko", "Reko-Team ausgerückt"),
+        ("reko", "enroute", "Einsatzkräfte alarmiert"),
+        ("enroute", "active", "Einsatz läuft"),
+        ("active", "returning", "Brand gelöscht, Nachlöscharbeiten"),
+        ("returning", "complete", "Einsatz abgeschlossen"),
     ]
 
     for from_status, to_status, notes in status_transitions:
@@ -253,7 +253,7 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, resources
     final_incident_response = await editor_client.get(f"/api/incidents/{incident_id}")
     assert final_incident_response.status_code == 200
     final_incident = final_incident_response.json()
-    assert final_incident["status"] == "abschluss"
+    assert final_incident["status"] == "complete"
 
     # ========================================
     # Step 7: Release All Resources
@@ -323,16 +323,16 @@ async def test_incident_with_reko_workflow(editor_client: AsyncClient, resources
     # Move to reko status
     status_response = await editor_client.post(
         f"/api/incidents/{incident_id}/status",
-        json={"from_status": "eingegangen", "to_status": "reko", "notes": "Reko-Fahrt"},
+        json={"from_status": "incoming", "to_status": "reko", "notes": "Reko-Fahrt"},
     )
     assert status_response.status_code == 200
 
-    # After reko assessment, escalate to disponiert
+    # After reko assessment, escalate to enroute
     status_response = await editor_client.post(
         f"/api/incidents/{incident_id}/status",
         json={
             "from_status": "reko",
-            "to_status": "disponiert",
+            "to_status": "enroute",
             "notes": "Wasserschaden bestätigt, Pumpen benötigt",
         },
     )
@@ -341,13 +341,13 @@ async def test_incident_with_reko_workflow(editor_client: AsyncClient, resources
     # Verify we can skip directly to einsatz if needed
     status_response = await editor_client.post(
         f"/api/incidents/{incident_id}/status",
-        json={"from_status": "disponiert", "to_status": "einsatz"},
+        json={"from_status": "enroute", "to_status": "active"},
     )
     assert status_response.status_code == 200
 
     # Verify final status
     incident = await editor_client.get(f"/api/incidents/{incident_id}")
-    assert incident.json()["status"] == "einsatz"
+    assert incident.json()["status"] == "active"
 
 
 @pytest.mark.asyncio
@@ -413,17 +413,17 @@ async def test_multiple_incidents_in_event(editor_client: AsyncClient, resources
 
     # Progress incident 1 to completion
     for from_status, to_status in [
-        ("eingegangen", "disponiert"),
-        ("disponiert", "einsatz"),
-        ("einsatz", "einsatz_beendet"),
-        ("einsatz_beendet", "abschluss"),
+        ("incoming", "enroute"),
+        ("enroute", "active"),
+        ("active", "returning"),
+        ("returning", "complete"),
     ]:
         await editor_client.post(
             f"/api/incidents/{incident1_id}/status",
             json={"from_status": from_status, "to_status": to_status},
         )
 
-    # Incident 2 stays in eingegangen
+    # Incident 2 stays in incoming
     # Verify both incidents have correct status
     list_response = await editor_client.get(f"/api/incidents/?event_id={event_id}")
     assert list_response.status_code == 200
@@ -433,8 +433,8 @@ async def test_multiple_incidents_in_event(editor_client: AsyncClient, resources
     # Find incidents by ID and verify status
     incident1 = next(i for i in incidents if i["id"] == incident1_id)
     incident2 = next(i for i in incidents if i["id"] == incident2_id)
-    assert incident1["status"] == "abschluss"
-    assert incident2["status"] == "eingegangen"
+    assert incident1["status"] == "complete"
+    assert incident2["status"] == "incoming"
 
     # Verify assignments by event returns correct data
     assignments_response = await editor_client.get(f"/api/assignments/by-event/{event_id}")
