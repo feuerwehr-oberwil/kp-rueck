@@ -89,7 +89,7 @@ async def _enable_return(db: AsyncSession) -> None:
 
 
 @pytest_asyncio.fixture
-async def disponiert_incident(db_session: AsyncSession, test_user: User, test_event: Event) -> Incident:
+async def enroute_incident(db_session: AsyncSession, test_user: User, test_event: Event) -> Incident:
     incident = Incident(
         id=uuid.uuid4(),
         title="Test Brand",
@@ -98,7 +98,7 @@ async def disponiert_incident(db_session: AsyncSession, test_user: User, test_ev
         location_address="Hauptstrasse 1",
         location_lat=INC_LAT,
         location_lng=INC_LNG,
-        status="disponiert",
+        status="enroute",
         event_id=test_event.id,
         created_by=test_user.id,
     )
@@ -109,13 +109,13 @@ async def disponiert_incident(db_session: AsyncSession, test_user: User, test_ev
 
 
 @pytest_asyncio.fixture
-async def assigned_vehicle(db_session: AsyncSession, disponiert_incident: Incident, test_user: User):
+async def assigned_vehicle(db_session: AsyncSession, enroute_incident: Incident, test_user: User):
     vehicle = Vehicle(id=uuid.uuid4(), name="TLF-1", type="TLF", status="available")
     db_session.add(vehicle)
     await db_session.flush()
     assignment = IncidentAssignment(
         id=uuid.uuid4(),
-        incident_id=disponiert_incident.id,
+        incident_id=enroute_incident.id,
         resource_type="vehicle",
         resource_id=vehicle.id,
         assigned_by=test_user.id,
@@ -172,7 +172,7 @@ async def _tick(db, clock: _Clock, positions, advance: float = 30.0):
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_arrival_advances_after_n_fixes(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
     await _enable_arrival(db_session)
     clock = _Clock(datetime.now(UTC))
@@ -180,18 +180,16 @@ async def test_arrival_advances_after_n_fixes(
     # Two confirming fixes within 30s: not yet enough (need N=3 spanning >=60s).
     await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=30)
     await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "enroute"
 
     # Third fix past the 60s span -> fires.
     await _tick(db_session, clock, _fresh_at_incident(clock.now()))
-    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    assert await _status(db_session, enroute_incident.id) == "active"
 
     # A status transition attributed to the system actor exists.
-    tx = await db_session.execute(
-        select(StatusTransition).where(StatusTransition.incident_id == disponiert_incident.id)
-    )
+    tx = await db_session.execute(select(StatusTransition).where(StatusTransition.incident_id == enroute_incident.id))
     transitions = list(tx.scalars().all())
-    assert any(t.to_status == "einsatz" and t.notes == gps_automation.ARRIVAL_NOTE for t in transitions)
+    assert any(t.to_status == "active" and t.notes == gps_automation.ARRIVAL_NOTE for t in transitions)
     actor = await db_session.execute(select(User).where(User.id == gps_automation.GPS_SYSTEM_USER_ID))
     assert actor.scalar_one().username == gps_automation.GPS_SYSTEM_USERNAME
 
@@ -200,7 +198,7 @@ async def test_arrival_advances_after_n_fixes(
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_arrival_confirm_default_prompts_without_advancing(
-    _bc, bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+    _bc, bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
     """Default (silent=false): arrival emits a confirm prompt and does NOT change status."""
     _vehicle, _assignment = assigned_vehicle
@@ -216,30 +214,30 @@ async def test_arrival_confirm_default_prompts_without_advancing(
     bc_msg.assert_awaited_once()
     payload = bc_msg.await_args.args[0]
     assert payload["type"] == "gps_arrival_prompt"
-    assert payload["incident_id"] == str(disponiert_incident.id)
+    assert payload["incident_id"] == str(enroute_incident.id)
     assert payload["vehicle_name"] == "TLF-1"
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "enroute"
 
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_arrival_silent_opt_in_advances(
-    _bc, bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+    _bc, bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
-    """Opt-in (silent=true): arrival advances disponiert -> einsatz with no prompt."""
+    """Opt-in (silent=true): arrival advances enroute -> active with no prompt."""
     await _enable_arrival(db_session, silent=True)
     clock = _Clock(datetime.now(UTC))
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    assert await _status(db_session, enroute_incident.id) == "active"
     bc_msg.assert_not_called()
 
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_route_level_vehicle_advances_stop_on_arrival(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, test_user: User, test_event: Event
+    _bc, db_session: AsyncSession, enroute_incident: Incident, test_user: User, test_event: Event
 ):
     """A vehicle assigned to the AUFTRAG (not the stop) still advances each stop it reaches.
 
@@ -248,11 +246,11 @@ async def test_route_level_vehicle_advances_stop_on_arrival(
     """
     await _enable_arrival(db_session, silent=True)
 
-    # Auftrag containing the disponiert stop, carrying a route-level vehicle.
+    # Auftrag containing the enroute stop, carrying a route-level vehicle.
     group = IncidentGroup(id=uuid.uuid4(), event_id=test_event.id, name="Route", created_by=test_user.id)
     db_session.add(group)
     await db_session.flush()
-    disponiert_incident.group_id = group.id
+    enroute_incident.group_id = group.id
 
     vehicle = Vehicle(id=uuid.uuid4(), name="TLF-1", type="TLF", status="available")
     db_session.add(vehicle)
@@ -271,35 +269,33 @@ async def test_route_level_vehicle_advances_stop_on_arrival(
     clock = _Clock(datetime.now(UTC))
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    assert await _status(db_session, enroute_incident.id) == "active"
 
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_one_shot_does_not_refire(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_user: User
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle, test_user: User
 ):
     """After auto-advancing once, the incident must not be re-acted on."""
     await _enable_arrival(db_session)
     clock = _Clock(datetime.now(UTC))
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    assert await _status(db_session, enroute_incident.id) == "active"
 
-    # Operator drags it back to disponiert (reversibility). The latch is still set, so
+    # Operator drags it back to enroute (reversibility). The latch is still set, so
     # automation must NOT re-advance even though the vehicle is still on site.
-    disponiert_incident.status = "disponiert"
+    enroute_incident.status = "enroute"
     await db_session.commit()
     for _ in range(4):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "enroute"
 
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
-async def test_stale_fix_resets_debounce(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
-):
+async def test_stale_fix_resets_debounce(_bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle):
     await _enable_arrival(db_session)
     clock = _Clock(datetime.now(UTC))
 
@@ -308,51 +304,49 @@ async def test_stale_fix_resets_debounce(
     # A stale fix (last_update 5 min old) must NOT count and must reset the counter.
     stale = [FakePos("TLF-1", INC_LAT, INC_LNG, 0.0, clock.now() - timedelta(minutes=5))]
     await _tick(db_session, clock, stale, advance=30)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "enroute"
 
     # Missing position (empty list) also resets.
     await _tick(db_session, clock, [], advance=30)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "enroute"
 
     # After the reset it takes a full fresh streak again.
     await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=30)
     await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "enroute"
     await _tick(db_session, clock, _fresh_at_incident(clock.now()))
-    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    assert await _status(db_session, enroute_incident.id) == "active"
 
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_moving_vehicle_does_not_advance(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
     await _enable_arrival(db_session)
     clock = _Clock(datetime.now(UTC))
     # In radius but driving (speed > gate) -> never confirms.
     for _ in range(4):
         await _tick(db_session, clock, _fresh_at_incident(clock.now(), speed=30.0), advance=40)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "enroute"
 
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
-async def test_disabled_master_switch_noop(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
-):
+async def test_disabled_master_switch_noop(_bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle):
     # Rule enabled but master off -> nothing happens.
     await _set(db_session, "gps.automation_enabled", "false")
     await _set(db_session, "gps.rule_arrival_enabled", "true")
     clock = _Clock(datetime.now(UTC))
     for _ in range(4):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=40)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "enroute"
 
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_training_event_included(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_event: Event
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle, test_event: Event
 ):
     # Training events are deliberately NOT excluded — they're the natural place
     # to exercise the GPS rules (Übungen with real vehicles in the field).
@@ -362,13 +356,13 @@ async def test_training_event_included(
     clock = _Clock(datetime.now(UTC))
     for _ in range(4):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=40)
-    assert await _status(db_session, disponiert_incident.id) == "einsatz"
+    assert await _status(db_session, enroute_incident.id) == "active"
 
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 async def test_sparse_parked_fixes_still_fire(
-    bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+    bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
     """Regression (2026-07-06 field test): a parked Traccar client throttles to one fix
     every ~30-100s. With freshness decoupled from dwell, ticks that re-see the SAME
@@ -403,12 +397,12 @@ async def test_sparse_parked_fixes_still_fire(
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 async def test_return_skips_completed_incident(
-    bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+    bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
     # Operator already closed the incident out -> no release modal, only the
     # regular bell notification path.
     await _enable_return(db_session)
-    disponiert_incident.status = "abschluss"
+    enroute_incident.status = "complete"
     await db_session.commit()
     clock = _Clock(datetime.now(UTC))
     for _ in range(4):
@@ -424,7 +418,7 @@ async def test_return_skips_completed_incident(
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 async def test_return_emits_prompt_not_release(
-    bc_msg, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle
+    bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
     _vehicle, assignment = assigned_vehicle
     await _enable_return(db_session)
@@ -449,13 +443,13 @@ async def test_return_emits_prompt_not_release(
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 async def test_route_vehicle_return_emits_group_release_prompt(
-    bc_msg, db_session: AsyncSession, disponiert_incident: Incident, test_user: User, test_event: Event
+    bc_msg, db_session: AsyncSession, enroute_incident: Incident, test_user: User, test_event: Event
 ):
     await _enable_return(db_session)
     group = IncidentGroup(id=uuid.uuid4(), event_id=test_event.id, name="Route", created_by=test_user.id)
     db_session.add(group)
     await db_session.flush()
-    disponiert_incident.group_id = group.id
+    enroute_incident.group_id = group.id
     vehicle = Vehicle(id=uuid.uuid4(), name="TLF-1", type="TLF", status="available")
     db_session.add(vehicle)
     await db_session.flush()
@@ -499,7 +493,7 @@ INC2_LNG = INC_LNG
 async def _add_second_stop(
     db: AsyncSession, event: Event, user: User, vehicle: Vehicle, *, lat: float = INC2_LAT, lng: float = INC2_LNG
 ) -> Incident:
-    """Create a second disponiert stop and assign the SAME vehicle to it.
+    """Create a second enroute stop and assign the SAME vehicle to it.
 
     Models one squad ("Auftrag") assigned across multiple route stops.
     """
@@ -511,7 +505,7 @@ async def _add_second_stop(
         location_address="Hauptstrasse 3",
         location_lat=lat,
         location_lng=lng,
-        status="disponiert",
+        status="enroute",
         event_id=event.id,
         created_by=user.id,
     )
@@ -538,7 +532,7 @@ def _fresh_at_second(now: datetime, speed: float = 0.0) -> list[FakePos]:
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_clustered_stops_only_nearest_advances_silent(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_event: Event, test_user: User
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle, test_event: Event, test_user: User
 ):
     """Silent mode: two in-radius stops of one vehicle -> only the NEARER advances."""
     vehicle, _assignment = assigned_vehicle
@@ -550,14 +544,14 @@ async def test_clustered_stops_only_nearest_advances_silent(
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
 
-    assert await _status(db_session, disponiert_incident.id) == "einsatz"
-    assert await _status(db_session, second.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "active"
+    assert await _status(db_session, second.id) == "enroute"
 
     # The farther stop's debounce never latched: once the vehicle sits on IT (now
-    # the only in-radius disponiert stop), it advances normally on a later tick.
+    # the only in-radius enroute stop), it advances normally on a later tick.
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_second(clock.now()), advance=35)
-    assert await _status(db_session, second.id) == "einsatz"
+    assert await _status(db_session, second.id) == "active"
 
 
 @pytest.mark.asyncio
@@ -567,7 +561,7 @@ async def test_clustered_stops_only_nearest_prompts_default(
     _bc,
     bc_msg,
     db_session: AsyncSession,
-    disponiert_incident: Incident,
+    enroute_incident: Incident,
     assigned_vehicle,
     test_event: Event,
     test_user: User,
@@ -584,9 +578,9 @@ async def test_clustered_stops_only_nearest_prompts_default(
     # Exactly one prompt, for the nearer stop; neither status changed.
     bc_msg.assert_awaited_once()
     assert bc_msg.await_args.args[0]["type"] == "gps_arrival_prompt"
-    assert bc_msg.await_args.args[0]["incident_id"] == str(disponiert_incident.id)
-    assert await _status(db_session, disponiert_incident.id) == "disponiert"
-    assert await _status(db_session, second.id) == "disponiert"
+    assert bc_msg.await_args.args[0]["incident_id"] == str(enroute_incident.id)
+    assert await _status(db_session, enroute_incident.id) == "enroute"
+    assert await _status(db_session, second.id) == "enroute"
 
     # The farther stop did not latch: it prompts later when the vehicle sits on it.
     for _ in range(3):
@@ -598,7 +592,7 @@ async def test_clustered_stops_only_nearest_prompts_default(
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_clustered_guard_noop_for_single_in_radius(
-    _bc, db_session: AsyncSession, disponiert_incident: Incident, assigned_vehicle, test_event: Event, test_user: User
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle, test_event: Event, test_user: User
 ):
     """Guard is a no-op when only one of the vehicle's stops is in radius.
 
@@ -614,5 +608,5 @@ async def test_clustered_guard_noop_for_single_in_radius(
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
 
-    assert await _status(db_session, disponiert_incident.id) == "einsatz"
-    assert await _status(db_session, far.id) == "disponiert"
+    assert await _status(db_session, enroute_incident.id) == "active"
+    assert await _status(db_session, far.id) == "enroute"

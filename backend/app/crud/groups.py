@@ -20,7 +20,7 @@ from . import events as events_crud
 from . import group_assignments as group_assignments_crud
 
 # Stops in these statuses count as "erledigt" for the derived progress roll-up.
-_DONE_STATUSES = ("einsatz_beendet", "abschluss")
+_DONE_STATUSES = ("returning", "complete")
 
 
 async def _get_group(db: AsyncSession, group_id: uuid.UUID) -> IncidentGroup | None:

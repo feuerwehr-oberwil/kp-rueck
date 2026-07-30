@@ -138,7 +138,7 @@ async def release_all_resources(
     """
     Release all resources from incident.
 
-    Called when incident completes (moves to 'abschluss').
+    Called when incident completes (moves to 'complete').
     """
     await crud.auto_release_incident_resources(
         db=db,

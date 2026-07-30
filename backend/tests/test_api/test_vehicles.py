@@ -335,7 +335,7 @@ async def test_incident_for_vehicle(db_session: AsyncSession, test_event: "Event
         title="Vehicle Test Incident",
         type="brandbekaempfung",
         priority="medium",
-        status="einsatz",
+        status="active",
         location_address="Hauptstrasse 123",
         created_by=test_editor.id,
     )

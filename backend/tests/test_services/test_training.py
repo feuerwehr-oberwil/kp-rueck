@@ -341,7 +341,7 @@ class TestEmergencyGeneration:
         assert incident is not None
         assert incident.id is not None
         assert incident.event_id == training_event.id
-        assert incident.status == "eingegangen"
+        assert incident.status == "incoming"
 
     @pytest.mark.asyncio
     async def test_generate_emergency_with_normal_category(

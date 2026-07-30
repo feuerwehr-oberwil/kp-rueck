@@ -99,7 +99,7 @@ class TestCreateAlarm:
         assert incident.event_id == test_event.id
         assert incident.source == "intake"
         assert incident.created_by is None
-        assert incident.status == "eingegangen"
+        assert incident.status == "incoming"
         assert incident.title == VALID_ALARM["title"]
         assert incident.contact == VALID_ALARM["contact"]
 

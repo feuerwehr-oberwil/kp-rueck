@@ -102,7 +102,7 @@ async def notif_incident(db_session: AsyncSession, notif_event: Event, notif_use
         title="Notification Test Incident",
         type="brandbekaempfung",
         priority="high",
-        status="eingegangen",
+        status="incoming",
         event_id=notif_event.id,
         created_by=notif_user.id,
     )
@@ -257,13 +257,13 @@ class TestCheckTimeBasedAlerts:
         self, db_session: AsyncSession, notif_event: Event, notif_user: User, default_settings: NotificationSettings
     ):
         """Test alert generated for incident in status too long."""
-        # Create incident that's been in eingegangen for 2 hours (threshold is 60 min)
+        # Create incident that's been in incoming for 2 hours (threshold is 60 min)
         old_incident = Incident(
             id=uuid4(),
             title="Old Incident",
             type="brandbekaempfung",
             priority="high",
-            status="eingegangen",
+            status="incoming",
             event_id=notif_event.id,
             created_by=notif_user.id,
             created_at=datetime.now(UTC) - timedelta(hours=2),
@@ -292,7 +292,7 @@ class TestCheckTimeBasedAlerts:
             title="Training Incident",
             type="brandbekaempfung",
             priority="high",
-            status="eingegangen",
+            status="incoming",
             event_id=training_event.id,
             created_by=notif_user.id,
             created_at=datetime.now(UTC) - timedelta(minutes=70),
@@ -319,7 +319,7 @@ class TestCheckTimeBasedAlerts:
             title="Completed Not Archived",
             type="brandbekaempfung",
             priority="high",
-            status="einsatz_beendet",
+            status="returning",
             event_id=notif_event.id,
             created_by=notif_user.id,
             completed_at=datetime.now(UTC) - timedelta(hours=2),  # Completed 2 hours ago
@@ -599,14 +599,14 @@ class TestCheckDataQualityAlerts:
 
     @pytest.mark.asyncio
     async def test_missing_location_alert(self, db_session: AsyncSession, notif_event: Event, notif_user: User):
-        """Test alert for incident without geocoded location in disponiert status."""
-        # Create incident in disponiert status without location
+        """Test alert for incident without geocoded location in enroute status."""
+        # Create incident in enroute status without location
         incident = Incident(
             id=uuid4(),
             title="No Location Incident",
             type="brandbekaempfung",
             priority="high",
-            status="disponiert",  # In disponiert - needs location
+            status="enroute",  # In enroute - needs location
             event_id=notif_event.id,
             created_by=notif_user.id,
             location_lat=None,
@@ -622,14 +622,14 @@ class TestCheckDataQualityAlerts:
         assert "keine geokodierte Position" in notifications[0].message
 
     @pytest.mark.asyncio
-    async def test_no_alert_for_eingegangen_without_location(
+    async def test_no_alert_for_incoming_without_location(
         self, db_session: AsyncSession, notif_event: Event, notif_incident: Incident
     ):
-        """Test no alert for incident in eingegangen status without location."""
-        # notif_incident is in eingegangen status and has no location
+        """Test no alert for incident in incoming status without location."""
+        # notif_incident is in incoming status and has no location
         notifications = await _check_data_quality_alerts(db_session, notif_event.id)
 
-        # Should not alert - location not required for eingegangen
+        # Should not alert - location not required for incoming
         assert not any(n.incident_id == notif_incident.id for n in notifications)
 
 
@@ -1037,19 +1037,19 @@ class TestEvaluateNotifications:
 class TestNotificationSettingsGetThresholdMinutes:
     """Tests for NotificationSettings.get_threshold_minutes method."""
 
-    def test_live_mode_eingegangen(self, default_settings: NotificationSettings):
-        """Test live mode threshold for eingegangen status."""
-        threshold = default_settings.get_threshold_minutes("eingegangen", is_training=False)
+    def test_live_mode_incoming(self, default_settings: NotificationSettings):
+        """Test live mode threshold for incoming status."""
+        threshold = default_settings.get_threshold_minutes("incoming", is_training=False)
         assert threshold == 60  # Default is 60 minutes
 
-    def test_training_mode_eingegangen(self, default_settings: NotificationSettings):
-        """Test training mode threshold for eingegangen status."""
-        threshold = default_settings.get_threshold_minutes("eingegangen", is_training=True)
+    def test_training_mode_incoming(self, default_settings: NotificationSettings):
+        """Test training mode threshold for incoming status."""
+        threshold = default_settings.get_threshold_minutes("incoming", is_training=True)
         assert threshold == 90  # Training default is 90 minutes
 
     def test_einsatz_converts_hours_to_minutes(self, default_settings: NotificationSettings):
         """Test einsatz threshold converts hours to minutes."""
-        threshold = default_settings.get_threshold_minutes("einsatz", is_training=False)
+        threshold = default_settings.get_threshold_minutes("active", is_training=False)
         assert threshold == 120  # 2 hours * 60 = 120 minutes
 
     def test_unknown_status_returns_default(self, default_settings: NotificationSettings):
@@ -1107,7 +1107,7 @@ class TestNotificationEdgeCases:
             title="Second Incident",
             type="brandbekaempfung",
             priority="high",
-            status="eingegangen",
+            status="incoming",
             event_id=notif_event.id,
             created_by=notif_user.id,
         )

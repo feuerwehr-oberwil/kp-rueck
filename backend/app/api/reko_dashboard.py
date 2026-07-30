@@ -177,9 +177,9 @@ async def assign_reko_personnel(
     await db.commit()
     await db.refresh(db_assignment)
 
-    # Auto-move incident from "eingegangen" to "reko" when reko personnel is assigned
+    # Auto-move incident from "incoming" to "reko" when reko personnel is assigned
     incident = await incidents_crud.get_incident(db, incident_id)
-    if incident and incident.status == "eingegangen":
+    if incident and incident.status == "incoming":
         await incidents_crud.update_incident_status(
             db=db,
             incident_id=incident_id,
@@ -190,7 +190,7 @@ async def assign_reko_personnel(
         )
         await db.commit()
         logger.info(
-            "Auto-moved incident %s from eingegangen to reko after reko assignment",
+            "Auto-moved incident %s from incoming to reko after reko assignment",
             incident_id,
         )
         # Broadcast incident update for the status change
@@ -283,7 +283,7 @@ async def transfer_reko_assignments(
     transferred: list[str] = []
     for assignment in assignments:
         incident = await incidents_crud.get_incident(db, assignment["incident_id"])
-        if incident and incident.status in ("eingegangen", "reko"):
+        if incident and incident.status in ("incoming", "reko"):
             # Unassign old person
             await crud.unassign_reko_personnel_from_incident(db, assignment["incident_id"], from_personnel_id)
             # Assign new person

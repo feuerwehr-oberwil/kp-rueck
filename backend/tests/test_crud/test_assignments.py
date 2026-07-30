@@ -72,7 +72,7 @@ async def test_incident(db_session: AsyncSession, test_user: User, test_event: E
         type="brandbekaempfung",
         priority="high",
         location_address="Test Street 1",
-        status="eingegangen",
+        status="incoming",
         event_id=test_event.id,
         created_by=test_user.id,
     )
@@ -91,7 +91,7 @@ async def second_incident(db_session: AsyncSession, test_user: User, test_event:
         type="strassenrettung",
         priority="medium",
         location_address="Test Street 2",
-        status="eingegangen",
+        status="incoming",
         event_id=test_event.id,
         created_by=test_user.id,
     )

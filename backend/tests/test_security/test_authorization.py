@@ -48,7 +48,7 @@ async def test_incident(db_session: AsyncSession, test_event: Event, test_editor
         title="Auth Test Incident",
         type="brandbekaempfung",
         priority="medium",
-        status="eingegangen",
+        status="incoming",
         location_address="Test Street 123",
         created_by=test_editor.id,
     )
@@ -277,7 +277,7 @@ async def test_viewer_cannot_delete_incident(viewer_client: AsyncClient, test_in
 async def test_viewer_cannot_update_incident_status(viewer_client: AsyncClient, test_incident: Incident):
     """Test that viewers cannot update incident status."""
     status_data = {
-        "from_status": "eingegangen",
+        "from_status": "incoming",
         "to_status": "reko",
     }
     response = await viewer_client.post(f"/api/incidents/{test_incident.id}/status", json=status_data)

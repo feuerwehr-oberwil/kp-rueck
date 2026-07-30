@@ -43,7 +43,7 @@ async def test_incident(db_session: AsyncSession, test_event: Event, test_editor
         title="Assignment Test Incident",
         type="brandbekaempfung",
         priority="medium",
-        status="eingegangen",
+        status="incoming",
         created_by=test_editor.id,
     )
     db_session.add(incident)
@@ -61,7 +61,7 @@ async def second_incident(db_session: AsyncSession, test_event: Event, test_edit
         title="Second Test Incident",
         type="elementarereignis",
         priority="high",
-        status="disponiert",
+        status="enroute",
         created_by=test_editor.id,
     )
     db_session.add(incident)

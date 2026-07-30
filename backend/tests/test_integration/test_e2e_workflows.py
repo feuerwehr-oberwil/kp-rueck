@@ -119,7 +119,7 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, db_sessio
     assert response.status_code == 201
     incident = response.json()
     incident_id = incident["id"]
-    assert incident["status"] == "eingegangen"
+    assert incident["status"] == "incoming"
 
     # Step 3: Assign resources
     # Assign personnel
@@ -154,11 +154,11 @@ async def test_complete_incident_lifecycle(editor_client: AsyncClient, db_sessio
 
     # Step 4: Progress through status transitions
     status_flow = [
-        ("eingegangen", "reko"),
-        ("reko", "disponiert"),
-        ("disponiert", "einsatz"),
-        ("einsatz", "einsatz_beendet"),
-        ("einsatz_beendet", "abschluss"),
+        ("incoming", "reko"),
+        ("reko", "enroute"),
+        ("enroute", "active"),
+        ("active", "returning"),
+        ("returning", "complete"),
     ]
 
     for from_status, to_status in status_flow:
@@ -226,9 +226,9 @@ async def test_incident_status_history_tracking(editor_client: AsyncClient, db_s
 
     # Make multiple status transitions
     transitions = [
-        ("eingegangen", "reko", "Starting reconnaissance"),
-        ("reko", "disponiert", "Resources assigned"),
-        ("disponiert", "einsatz", "Team en route"),
+        ("incoming", "reko", "Starting reconnaissance"),
+        ("reko", "enroute", "Resources assigned"),
+        ("enroute", "active", "Team en route"),
     ]
 
     for from_s, to_s, notes in transitions:
@@ -516,15 +516,15 @@ async def test_multiple_incidents_in_event(editor_client: AsyncClient, db_sessio
         incident_ids.append(response.json()["id"])
 
     # Progress each to different status
-    statuses = ["eingegangen", "reko", "disponiert", "einsatz", "einsatz_beendet"]
+    statuses = ["incoming", "reko", "enroute", "active", "returning"]
     for incident_id, target_status in zip(incident_ids, statuses, strict=False):
-        if target_status != "eingegangen":
+        if target_status != "incoming":
             # Get current status
             response = await editor_client.get(f"/api/incidents/{incident_id}")
             current_status = response.json()["status"]
 
             # Progress to target status
-            status_flow = ["eingegangen", "reko", "disponiert", "einsatz", "einsatz_beendet"]
+            status_flow = ["incoming", "reko", "enroute", "active", "returning"]
             current_idx = status_flow.index(current_status)
             target_idx = status_flow.index(target_status)
 

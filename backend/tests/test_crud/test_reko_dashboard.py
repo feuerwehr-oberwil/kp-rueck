@@ -26,7 +26,7 @@ async def _make_incident(db: AsyncSession, event: Event, user: User, title: str)
         location_address="Teststrasse 1",
         location_lat=47.5,
         location_lng=7.5,
-        status="eingegangen",
+        status="incoming",
         event_id=event.id,
         created_by=user.id,
     )

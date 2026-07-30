@@ -107,7 +107,7 @@ async def sync_incident(db_session: AsyncSession, sync_event: Event, sync_user: 
         title="Sync Test Incident",
         type="brandbekaempfung",
         priority="high",
-        status="eingegangen",
+        status="incoming",
         event_id=sync_event.id,
         created_by=sync_user.id,
     )
@@ -583,7 +583,7 @@ class TestApplyDelta:
                     "title": "Bad Incident",
                     "type": "brandbekaempfung",
                     "priority": "high",
-                    "status": "eingegangen",
+                    "status": "incoming",
                     "event_id": str(fake_event_id),  # Non-existent
                     "created_by": str(sync_user.id),
                     "updated_at": datetime.now(UTC).isoformat(),

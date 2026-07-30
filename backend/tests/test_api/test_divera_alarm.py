@@ -42,7 +42,7 @@ async def alarm_incident(db_session: AsyncSession, alarm_event: Event) -> Incide
         type="brandbekaempfung",
         priority="high",
         location_address="Musterstrasse 1",
-        status="disponiert",
+        status="enroute",
     )
     db_session.add(incident)
     await db_session.commit()
@@ -142,7 +142,7 @@ async def test_alarm_simulated_for_training_event(editor_client: AsyncClient, db
         title="Test",
         type="brandbekaempfung",
         priority="low",
-        status="disponiert",
+        status="enroute",
     )
     db_session.add(incident)
     await db_session.commit()

@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class GroupProgress(BaseModel):
     """Derived checklist roll-up of an Auftrag's member stops.
 
-    `done` counts stops in ``einsatz_beendet`` / ``abschluss``.
+    `done` counts stops in ``returning`` / ``complete``.
     """
 
     total: int = 0
