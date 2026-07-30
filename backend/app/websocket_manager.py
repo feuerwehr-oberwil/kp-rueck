@@ -419,6 +419,18 @@ async def broadcast_assignment_update(assignment_data: dict[str, Any], action: s
     )
 
 
+async def broadcast_print_job_update(job_data: dict[str, Any], action: str = "update") -> None:
+    """Broadcast print job status changes to all clients in operations room.
+
+    This is what turns "Druckauftrag gesendet" into an answer: the client that
+    queued a slip keeps its toast on screen until the agent reports the job
+    `completed` or `failed`, and a failure carries the agent's own message
+    ("Papier leer", "Drucker nicht erreichbar") to the person standing at the
+    printer instead of parking it under Einstellungen → Drucker.
+    """
+    await ws_manager.broadcast_update("print_job_update", {"action": action, "data": job_data}, room="operations")
+
+
 async def broadcast_notification_update(notification_data: dict[str, Any], action: str = "create") -> None:
     """Broadcast notification updates to all clients in operations room."""
     await ws_manager.broadcast_update(

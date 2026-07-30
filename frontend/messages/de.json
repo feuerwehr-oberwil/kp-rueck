@@ -1817,6 +1817,23 @@
     }
   },
   "print": {
+    "toasts": {
+      "completed": "Gedruckt",
+      "failed": "Druck fehlgeschlagen",
+      "failedRetry": "Druck fehlgeschlagen – neuer Versuch läuft",
+      "unknownError": "Grund unbekannt",
+      "notPickedUp": "Druckdienst antwortet nicht",
+      "notPickedUpHint": "Der Auftrag wartet in der Warteschlange – läuft der Print-Agent?",
+      "offline": "Druckergebnis unbekannt",
+      "offlineHint": "Keine Echtzeitverbindung zum Server – bitte am Drucker nachsehen.",
+      "noResult": "Keine Rückmeldung vom Drucker",
+      "noResultHint": "Der Auftrag wurde abgeholt, aber nicht bestätigt – bitte am Drucker nachsehen.",
+      "checkPrinter": "Drucker prüfen",
+      "subjectSlip": "Einsatzzettel",
+      "subjectBoard": "Board-Snapshot",
+      "subjectQr": "QR-Code",
+      "subjectTest": "Testdruck"
+    },
     "common": {
       "incidentList": "Einsatzliste",
       "completedIncidents": "Beendete Einsätze",

@@ -50,6 +50,7 @@ import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
+import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns, findAuftragForStop } from "@/lib/kanban-utils"
@@ -230,6 +231,8 @@ export default function FireStationDashboard() {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
   const tRes = useTranslations('kanban.resources')
+  const tPrint = useTranslations('print.toasts')
+  const trackPrint = usePrintJobToast()
 
   // Ref for highlight timeout cleanup
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -570,39 +573,39 @@ export default function FireStationDashboard() {
     if (!selectedEvent || isPrintingBoard) return
     setIsPrintingBoard(true)
     try {
-      await apiClient.queueBoardPrint(selectedEvent.id, options ? {
+      const job = await apiClient.queueBoardPrint(selectedEvent.id, options ? {
         include_incidents: options.includeIncidents,
         include_completed: options.includeCompleted,
         include_vehicles: options.includeVehicles,
         include_personnel: options.includePersonnel,
       } : undefined)
-      toast.success(tDash('boardPrintSent'))
+      trackPrint(job.id, { sentTitle: tDash('boardPrintSent'), subject: tPrint('subjectBoard') })
       setActiveFooterSheet(null)
     } catch {
       toast.error(tCommon('printFailed'))
     } finally {
       setIsPrintingBoard(false)
     }
-  }, [selectedEvent, isPrintingBoard, tCommon, tDash])
+  }, [selectedEvent, isPrintingBoard, tCommon, tDash, tPrint, trackPrint])
 
   // Handle thermal QR-code slip print (Check-In / Reko / Viewer / Walk-In links)
   const handlePrintQR = useCallback(async (qrContent: string, title: string, subtitle?: string) => {
     if (!printerEnabled || !qrContent || isPrintingQR) return
     setIsPrintingQR(true)
     try {
-      await apiClient.queueQRCodePrint({
+      const job = await apiClient.queueQRCodePrint({
         qr_content: qrContent,
         title,
         subtitle,
         event_id: selectedEvent?.id,
       })
-      toast.success(tDash('qrPrintSent'))
+      trackPrint(job.id, { sentTitle: tDash('qrPrintSent'), subject: tPrint('subjectQr') })
     } catch {
       toast.error(tCommon('printFailed'))
     } finally {
       setIsPrintingQR(false)
     }
-  }, [printerEnabled, isPrintingQR, selectedEvent, tCommon, tDash])
+  }, [printerEnabled, isPrintingQR, selectedEvent, tCommon, tDash, tPrint, trackPrint])
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
