@@ -81,7 +81,7 @@ export default function RekoDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, t])
 
   const loadAssignments = useCallback(async (personnelId: string) => {
     if (!token) return
@@ -107,7 +107,7 @@ export default function RekoDashboardPage() {
     }
 
     loadPersonnel()
-  }, [token, loadPersonnel])
+  }, [token, loadPersonnel, t])
 
   // Restore selected person from cookie after personnel loads
   useEffect(() => {

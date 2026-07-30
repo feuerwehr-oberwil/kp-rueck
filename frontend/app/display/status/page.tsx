@@ -192,7 +192,7 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
       roleMap.get(role)!.push(p)
     }
     return groups
-  }, [personnel])
+  }, [personnel, t])
 
   const groupedMaterials = useMemo(() => {
     const sorted = [...materials].sort((a, b) => {

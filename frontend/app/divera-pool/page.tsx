@@ -119,7 +119,7 @@ export default function DiveraPoolPage() {
       },
     );
     return () => unsubscribe();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, t]);
 
   const toggleSelection = (emergencyId: string) => {
     const newSelection = new Set(selectedEmergencies);

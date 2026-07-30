@@ -48,7 +48,7 @@ export function MobilePersonnelSheet({
       groups[role].push(person)
     })
     return groups
-  }, [filteredPersonnel])
+  }, [filteredPersonnel, t])
 
   // Find which incident a person is assigned to
   const getAssignedIncident = (person: Person): string | null => {
