@@ -85,15 +85,27 @@ Einsatz is an `incident`, and an `event` is the Lage that contains several of th
 ```bash
 uv run pytest                 # needs a Postgres test database
 uv run pytest -k auth         # one area
+uv run pytest -n 4            # the same suite in parallel, ~3x faster
 ```
 
 `TEST_DATABASE_URL` selects the database (default
 `postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test`). The suite drops and
 recreates the schema once per session, so point it at a scratch database, never a real one.
+It is the ONE place a database URL is configured — every test derives from it, including the
+migration-drift test, so moving the port moves the whole suite.
 
-`tests/test_database/test_migration_drift.py` asserts that the migrations and the models agree.
-It builds its own connection to `localhost:5433`, so it runs on the host rather than inside the
-backend container.
+**Parallel runs** (`-n`, pytest-xdist) give each worker **its own database** — `kprueck_test_gw0`,
+`kprueck_test_gw1`, … — created from the configured one at session start and dropped at the end.
+Sharing a single database between concurrent workers is how a reliable suite becomes a flaky one,
+and a flaky suite is worse than a slow one. `-n` stays opt-in: plain `uv run pytest` still uses the
+single configured database and needs no extra privileges. The user does need `CREATEDB` for `-n`.
+
+Avoid `-n auto` — it picks one worker per core, and past ~4 the suite is waiting on Postgres
+round-trips rather than on CPU, so the extra workers only add contention. See the measurements in
+`.github/workflows/ci.yml` next to the flag.
+
+`tests/test_database/test_migration_drift.py` asserts that the migrations and the models agree by
+building a second scratch database (`kprueck_test_drift`, likewise per worker) purely from Alembic.
 
 ## Lint, format, types
 

@@ -1,5 +1,6 @@
 """Pytest configuration and fixtures for testing."""
 
+import contextlib
 import os
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -8,7 +9,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import make_url, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth.dependencies import get_current_user
@@ -29,9 +30,79 @@ from app.models import (
 # Test database URL - use a separate test database. Default targets the host-mapped
 # port; override via env when running inside the dev container (where the db service
 # is reachable as postgres:5432 instead of localhost:5433).
+#
+# This is the ONE place a database URL is written down. Anything under tests/ that needs a
+# database — including the scratch database the migration-drift test builds — derives it from
+# here via `worker_database_url()`, so that pointing TEST_DATABASE_URL at another host or port
+# moves the whole suite and not just most of it.
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test"
 )
+
+# Which pytest-xdist worker this process is (`gw0`, `gw1`, …), or None when running serially.
+# Set by xdist in every worker subprocess; the controller process never runs tests.
+XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER")
+
+
+def worker_database_url(suffix: str = "") -> str:
+    """The database URL this process should use, isolated per xdist worker.
+
+    Serially this is exactly TEST_DATABASE_URL (plus `suffix`), so a developer running plain
+    `uv run pytest` still gets the single `kprueck_test` database and needs no extra
+    privileges. Under `-n`, the worker id is appended — `kprueck_test_gw0`, `kprueck_test_gw1`
+    — because workers are separate processes hammering the same tables otherwise, which is how
+    a reliable suite becomes a flaky one.
+
+    `suffix` exists for the migration-drift test, which needs a second scratch database of its
+    own (`kprueck_test_drift`) built purely from Alembic.
+    """
+    url = make_url(TEST_DATABASE_URL)
+    name = f"{url.database}{suffix}"
+    if XDIST_WORKER:
+        name = f"{name}_{XDIST_WORKER}"
+    return url.set(database=name).render_as_string(hide_password=False)
+
+
+def admin_database_url() -> str:
+    """A connection used only to CREATE/DROP the per-worker databases.
+
+    CREATE DATABASE cannot run from inside the database being created, so this points at the
+    configured test database itself — the one database on that server we know exists, because
+    serial runs use it. Derived from TEST_DATABASE_URL, never hardcoded.
+    """
+    return TEST_DATABASE_URL
+
+
+async def run_admin_statements(*statements: str) -> None:
+    """Execute DDL that must not run in a transaction (CREATE/DROP DATABASE)."""
+    engine = create_async_engine(admin_database_url(), isolation_level="AUTOCOMMIT")
+    try:
+        async with engine.connect() as conn:
+            for statement in statements:
+                await conn.execute(text(statement))
+    finally:
+        await engine.dispose()
+
+
+async def create_scratch_database(url: str) -> None:
+    """(Re-)create the database named in `url`, from an admin connection elsewhere."""
+    name = make_url(url).database
+    await run_admin_statements(
+        f'DROP DATABASE IF EXISTS "{name}" (FORCE)',
+        f'CREATE DATABASE "{name}"',
+    )
+
+
+async def drop_scratch_database(url: str) -> None:
+    """Best-effort teardown. A leaked database is harmless — the next run drops it first —
+    so a failure here must never mask the actual test result."""
+    name = make_url(url).database
+    with contextlib.suppress(Exception):
+        await run_admin_statements(f'DROP DATABASE IF EXISTS "{name}" (FORCE)')
+
+
+# The database this worker actually runs against.
+WORKER_DATABASE_URL = worker_database_url()
 
 # Standard test password (>= 12 chars to satisfy MIN_PASSWORD_LENGTH)
 TEST_PASSWORD = "testpassword1234"
@@ -47,12 +118,18 @@ def disable_rate_limiting():
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
-    """Provide a test database engine, created once per session.
+    """Provide a test database engine, created once per session (i.e. once per xdist worker).
 
-    Drops and recreates all tables once at the start of the test session.
+    Under `-n`, each worker first creates its own database (`kprueck_test_gw0`, …) and drops it
+    again at the end; serially there is nothing to create and the configured database is used
+    directly, exactly as before. Either way the schema is then wiped and rebuilt from
+    Base.metadata by the same code — one way of preparing a test schema, not two.
     """
+    if XDIST_WORKER:
+        await create_scratch_database(WORKER_DATABASE_URL)
+
     engine = create_async_engine(
-        TEST_DATABASE_URL,
+        WORKER_DATABASE_URL,
         echo=False,
         pool_size=5,
         max_overflow=5,
@@ -70,6 +147,9 @@ async def test_engine():
     yield engine
 
     await engine.dispose()
+
+    if XDIST_WORKER:
+        await drop_scratch_database(WORKER_DATABASE_URL)
 
 
 @pytest_asyncio.fixture
@@ -153,6 +233,27 @@ async def _bind_token_blocklist_to_test_db(test_engine):
             await session.commit()
     finally:
         token_blocklist._session_factory = original
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _bind_audit_logging_to_test_db(test_engine, monkeypatch):
+    """Point the audit middleware's own session factory at the test database.
+
+    `app/database.py` builds `audit_engine` from `settings.database_url` at import time — a
+    deliberately separate pool so audit writes can't exhaust the request pool. In tests the
+    middleware normally logs through the injected `app.state.test_db_session` and never
+    touches it, but any request that reaches the app WITHOUT the `client` fixture takes the
+    production branch and fires an audit task at whatever `DATABASE_URL` points at: on a
+    developer's machine, their live `kprueck` database.
+
+    Same reasoning as the blocklist fixture above, and autouse for the same reason — a test
+    that forgets to ask would silently write somewhere else. Under `-n` it matters more:
+    every worker would aim at that one database at once.
+    """
+    monkeypatch.setattr(
+        "app.middleware.audit.audit_session_maker",
+        async_sessionmaker(bind=test_engine, expire_on_commit=False),
+    )
 
 
 # ============================================
