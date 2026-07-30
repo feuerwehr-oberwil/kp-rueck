@@ -198,6 +198,11 @@ dev = [
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
+    # Parallel test runs. Deliberately NOT in addopts: `-n` stays opt-in so that plain
+    # `uv run pytest` keeps working against the single configured database, and a failure
+    # is reported against one linear run rather than interleaved worker output. CI passes
+    # `-n` explicitly (see .github/workflows/ci.yml, backend-test).
+    "pytest-xdist>=3.6.1",
     "httpx>=0.28.1",
     "bandit>=1.7.0",
     "pypdf>=6.14.2",

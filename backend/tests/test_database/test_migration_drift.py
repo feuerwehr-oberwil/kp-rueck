@@ -12,28 +12,23 @@ from pathlib import Path
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import command
 from app import models  # noqa: F401 — register all models on Base.metadata
 from app.config import settings as app_settings
 from app.database import Base
+from tests.conftest import create_scratch_database, drop_scratch_database, worker_database_url
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-ADMIN_URL = "postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test"
-DRIFT_DB = "kprueck_test_drift"
-DRIFT_URL = f"postgresql+asyncpg://kprueck:kprueck@localhost:5433/{DRIFT_DB}"
 
-
-async def _recreate_drift_database() -> None:
-    engine = create_async_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
-    try:
-        async with engine.connect() as conn:
-            await conn.execute(text(f'DROP DATABASE IF EXISTS "{DRIFT_DB}" (FORCE)'))
-            await conn.execute(text(f'CREATE DATABASE "{DRIFT_DB}"'))
-    finally:
-        await engine.dispose()
+# Derived from TEST_DATABASE_URL, never hardcoded: this test used to pin
+# localhost:5433, so every run against a Postgres on any other port failed HERE and read
+# like real schema drift until someone opened the file. The `_drift` suffix keeps the
+# scratch database separate from the one the rest of the suite uses, and under pytest-xdist
+# the worker id is appended too (`kprueck_test_drift_gw0`) so parallel workers do not each
+# drop the database another one is migrating.
+DRIFT_URL = worker_database_url(suffix="_drift")
 
 
 def _diff_against_models(sync_conn) -> list:
@@ -61,7 +56,7 @@ def _is_relevant(diff) -> bool:
 # Intentionally a SYNC test: alembic's async env.py calls asyncio.run(),
 # which would blow up inside an already-running pytest-asyncio loop.
 def test_migrations_match_models(monkeypatch):
-    asyncio.run(_recreate_drift_database())
+    asyncio.run(create_scratch_database(DRIFT_URL))
 
     # alembic/env.py builds its engine from app settings — point it at the
     # scratch database for the upgrade run. Config() WITHOUT the ini file:
@@ -70,9 +65,12 @@ def test_migrations_match_models(monkeypatch):
     monkeypatch.setattr(app_settings, "database_url", DRIFT_URL)
     cfg = Config()
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    command.upgrade(cfg, "head")
-
-    diffs = [d for d in asyncio.run(_collect_diffs()) if _is_relevant(d)]
+    try:
+        command.upgrade(cfg, "head")
+        diffs = [d for d in asyncio.run(_collect_diffs()) if _is_relevant(d)]
+    finally:
+        # Under -n this would otherwise leave one scratch database per worker behind.
+        asyncio.run(drop_scratch_database(DRIFT_URL))
 
     assert diffs == [], (
         "Schema drift between migrations and models detected. Every model "
