@@ -1,6 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
-import { MainPage } from '../../pages/main.page';
+import { setupBoard } from '../../helpers/api.helper';
 
 /**
  * Undo Incident Deletion (Plan 08)
@@ -11,19 +10,12 @@ import { MainPage } from '../../pages/main.page';
 
 /** Create a fresh event, select it, and add one incident tagged for lookup. */
 async function setupIncident(page: import('@playwright/test').Page, tag: string) {
-  const eventsPage = new EventsPage(page);
-  await eventsPage.goto();
-  await eventsPage.createEvent(`Undo Event ${tag}`);
-  await eventsPage.goto();
-  await eventsPage.selectEvent(`Undo Event ${tag}`);
-  await expect(page).toHaveURL('/');
-  await page.waitForTimeout(500);
-
-  const mainPage = new MainPage(page);
   // The tag lives in the street name so it survives home-city display formatting.
-  await mainPage.createIncident(`${tag}strasse 1, Basel`);
-  await page.waitForTimeout(500);
-  const card = page.locator('[data-testid="incident-card"]').filter({ hasText: tag }).first();
+  const board = await setupBoard(page, tag);
+  const card = page
+    .locator('[data-testid="incident-card"]')
+    .filter({ hasText: board.address })
+    .first();
   await expect(card).toBeVisible({ timeout: 8000 });
   return card;
 }
@@ -35,7 +27,10 @@ async function deleteViaCard(
   await card.click();
   const detail = page.locator('[role="dialog"]');
   await expect(detail).toBeVisible();
-  await detail.getByRole('button', { name: 'Löschen' }).first().click();
+  // `exact`, because the detail modal also carries a disabled "Standort löschen"
+  // and a substring match picked that one — invisible for as long as this suite
+  // was skipped.
+  await detail.getByRole('button', { name: 'Löschen', exact: true }).first().click();
 
   // Confirm in the delete-confirm dialog.
   const confirm = page.locator('[role="alertdialog"]');
@@ -43,13 +38,12 @@ async function deleteViaCard(
   await confirm.getByRole('button', { name: 'Löschen' }).click();
 }
 
-// SKIPPED: setup needs a created incident, but the board's "Neuer Einsatz" modal
-// keeps its submit button disabled until the typed address is geocoded (coords
-// resolved via the external geocoder) — a flaky interaction to drive in E2E. The
-// undo/restore feature itself is covered by backend tests (test_api/test_crud) and
-// a live API smoke (DELETE→restore→409). Re-enable once a coordinate-free incident
-// factory (or an address-autocomplete helper) exists in the E2E harness.
-test.describe.skip('Undo incident deletion', () => {
+// Was skipped because setup needed a created incident and the board's "Neuer
+// Einsatz" modal keeps its submit button disabled until the typed address has been
+// geocoded by the external geocoder. That is exactly the coordinate-free incident
+// factory the old comment asked for: `setupBoard` posts the incident with its
+// coordinates, so nothing here touches the geocoder and the suite runs again.
+test.describe('Undo incident deletion', () => {
   test('delete shows the "Einsatz gelöscht" toast with a "Rückgängig" action', async ({ authenticatedPage }) => {
     const tag = `UndoA${Date.now()}`;
     const card = await setupIncident(authenticatedPage, tag);
