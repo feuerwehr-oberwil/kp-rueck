@@ -20,10 +20,6 @@ export class MainPage extends BasePage {
   readonly newIncidentButton: Locator;
   readonly incidentModal: Locator;
 
-  // Role Badge Elements
-  readonly roleBadge: Locator;
-  readonly roleBadgeTooltip: Locator;
-
   // Modal Elements
   readonly modalLocationInput: Locator;
   readonly modalNotesInput: Locator;
@@ -46,12 +42,6 @@ export class MainPage extends BasePage {
     // matched two elements and every use died on a strict-mode violation. `data-slot` is what
     // actually distinguishes them: dialog-content vs popover-content.
     this.incidentModal = page.locator('[role="dialog"][data-slot="dialog-content"][data-state="open"]');
-
-    // Role Badge Elements
-    this.roleBadge = page.locator('[class*="badge"]').filter({
-      has: page.locator('svg[class*="lucide-shield"], svg[class*="lucide-eye"]')
-    }).first();
-    this.roleBadgeTooltip = page.locator('[role="tooltip"]');
 
     // Modal Elements
     this.modalLocationInput = page.locator('[role="dialog"] input[placeholder*="Adresse"]');
@@ -162,36 +152,11 @@ export class MainPage extends BasePage {
     }
   }
 
-  /**
-   * Hover over role badge to show tooltip
-   */
-  async hoverRoleBadge() {
-    await this.roleBadge.hover();
-    await this.page.waitForTimeout(500);
-  }
-
-  /**
-   * Get role badge text (Editor/Viewer)
-   */
-  async getRoleBadgeText(): Promise<string | null> {
-    return await this.roleBadge.textContent();
-  }
-
-  /**
-   * Check if role badge has shield icon (Editor)
-   */
-  async hasShieldIcon(): Promise<boolean> {
-    const icon = this.roleBadge.locator('svg[class*="lucide-shield"]');
-    return await icon.isVisible().catch(() => false);
-  }
-
-  /**
-   * Check if role badge has eye icon (Viewer)
-   */
-  async hasEyeIcon(): Promise<boolean> {
-    const icon = this.roleBadge.locator('svg[class*="lucide-eye"]');
-    return await icon.isVisible().catch(() => false);
-  }
+  // The role-badge helpers that used to sit here were dead and broken: nothing
+  // called them, and their `[class*="badge"]` locator matched nothing at all
+  // (the shadcn Badge emits utility classes, none containing "badge"). The
+  // badge now lives inside the UserMenu dropdown; 06-role-badge locates it
+  // there via `data-slot="badge"`.
 
   /**
    * Check if button has lock icon (viewer restriction)
