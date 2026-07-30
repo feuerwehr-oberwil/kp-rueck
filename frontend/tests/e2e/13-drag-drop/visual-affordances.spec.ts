@@ -105,6 +105,12 @@ test.describe('Drag-Drop Visual Affordances - Hover States', () => {
     expect(hasHoverClasses).toBeTruthy();
   });
 
+  // FLAKY, seen 2026-07-30: passed in two of three identical full runs and failed in
+  // the third — the only test in the suite that changed result between two runs of an
+  // unchanged tree. It reads `className` off whatever card is first at that instant,
+  // with nothing waiting for the card to have settled. Not `@smoke` (nothing here is),
+  // so it keeps running nightly and keeps reporting; it must not be promoted into the
+  // gate until it waits for a condition instead of sampling one.
   test('incident cards have transition for smooth hover', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
