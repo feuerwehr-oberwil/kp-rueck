@@ -159,7 +159,7 @@ async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID |
     return setting
 
 
-async def initialize_default_settings(db: AsyncSession):
+async def initialize_default_settings(db: AsyncSession) -> None:
     """Create default settings if they don't exist."""
     import logging
 

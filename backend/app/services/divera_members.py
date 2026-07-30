@@ -6,10 +6,15 @@ to produce a sync preview and execute synchronization.
 
 import logging
 import unicodedata
+from collections.abc import Sequence
+from typing import Any
 
 import httpx
+from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
+from ..models import Personnel, User
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +50,7 @@ def _format_name(stdformat_name: str, firstname: str, lastname: str) -> str | No
     return None
 
 
-async def fetch_divera_members() -> list[dict]:
+async def fetch_divera_members() -> list[dict[str, Any]]:
     """Fetch member names from Divera pull API.
 
     Returns list of dicts with keys: divera_id, name
@@ -66,7 +71,7 @@ async def fetch_divera_members() -> list[dict]:
 
     cluster_data = data.get("data", {}).get("cluster", {})
     consumer_data = cluster_data.get("consumer", {})
-    members = []
+    members: list[dict[str, Any]] = []
 
     for member_id_str, member_info in consumer_data.items():
         if not isinstance(member_info, dict):
@@ -97,13 +102,13 @@ async def fetch_divera_members() -> list[dict]:
     return members
 
 
-def build_sync_preview(divera_members: list[dict], existing_personnel: list) -> dict:
+def build_sync_preview(divera_members: list[dict[str, Any]], existing_personnel: Sequence[Personnel]) -> dict[str, Any]:
     """Compare Divera member names with existing personnel.
 
     Returns dict with keys: new, unchanged, not_in_divera
     """
     # Build lookup by normalized name for existing personnel
-    existing_by_name: dict[str, list] = {}
+    existing_by_name: dict[str, list[Personnel]] = {}
     for person in existing_personnel:
         key = _normalize_name(person.name)
         existing_by_name.setdefault(key, []).append(person)
@@ -168,7 +173,13 @@ def build_sync_preview(divera_members: list[dict], existing_personnel: list) -> 
     }
 
 
-async def execute_sync(db, preview: dict, remove_stale: bool, current_user, request) -> dict:
+async def execute_sync(
+    db: AsyncSession,
+    preview: dict[str, Any],
+    remove_stale: bool,
+    current_user: User,
+    request: Request,
+) -> dict[str, int]:
     """Execute the sync based on preview data.
 
     Creates new personnel and optionally deletes stale ones.
@@ -209,10 +220,10 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
         existing_id = item.get("existing_id")
         if not divera_id or not existing_id:
             continue
-        person = await personnel_crud.get_personnel(db, UUID(existing_id))
-        if person is not None and person.divera_user_id != divera_id:
-            person.divera_user_id = divera_id
-            await identities_crud.set_identity(db, person.id, "divera", str(divera_id))
+        existing_person = await personnel_crud.get_personnel(db, UUID(existing_id))
+        if existing_person is not None and existing_person.divera_user_id != divera_id:
+            existing_person.divera_user_id = divera_id
+            await identities_crud.set_identity(db, existing_person.id, "divera", str(divera_id))
             linked += 1
 
     # Delete stale personnel

@@ -10,7 +10,7 @@ import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
 
-from ..traccar import traccar_client
+from ..traccar import VehiclePosition, traccar_client
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +22,9 @@ TRAILS_HISTORY_MINUTES = 30
 class TraccarPoller:
     """Polls Traccar for positions/trails and broadcasts via WebSocket."""
 
-    def __init__(self):
-        self._positions_task: asyncio.Task | None = None
-        self._trails_task: asyncio.Task | None = None
+    def __init__(self) -> None:
+        self._positions_task: asyncio.Task[None] | None = None
+        self._trails_task: asyncio.Task[None] | None = None
         self._should_poll = False
 
     @property
@@ -53,7 +53,7 @@ class TraccarPoller:
             "Started Traccar polling (positions: %ds, trails: %ds)", POSITIONS_INTERVAL_SECONDS, TRAILS_INTERVAL_SECONDS
         )
 
-    async def stop_polling(self):
+    async def stop_polling(self) -> None:
         """Stop polling."""
         self._should_poll = False
         for task in (self._positions_task, self._trails_task):
@@ -65,7 +65,7 @@ class TraccarPoller:
         self._trails_task = None
         logger.info("Stopped Traccar polling")
 
-    async def _poll_positions(self):
+    async def _poll_positions(self) -> None:
         """Poll vehicle positions and broadcast."""
         from ..websocket_manager import broadcast_vehicle_positions
 
@@ -102,7 +102,7 @@ class TraccarPoller:
             except asyncio.CancelledError:
                 break
 
-    async def _run_automation(self, positions: list) -> None:
+    async def _run_automation(self, positions: list[VehiclePosition]) -> None:
         """Run the GPS automation rules in their own DB session, per tick."""
         from ..database import async_session_maker
         from .gps_automation import run_automation_tick
@@ -113,7 +113,7 @@ class TraccarPoller:
         except Exception as e:
             logger.debug("GPS automation invocation failed: %s", e)
 
-    async def _poll_trails(self):
+    async def _poll_trails(self) -> None:
         """Poll vehicle trails and broadcast."""
         from ..websocket_manager import broadcast_vehicle_trails
 
