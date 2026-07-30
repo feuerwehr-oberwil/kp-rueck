@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
+import { setupBoard } from '../../helpers/api.helper';
 import { MainPage } from '../../pages/main.page';
 
 /**
@@ -19,13 +19,15 @@ import { MainPage } from '../../pages/main.page';
  * tests — an auto-retrying assertion would simply wait the bug away.
  */
 
-async function openBoard(page: import('@playwright/test').Page, tag: string) {
-  const eventsPage = new EventsPage(page);
-  await eventsPage.goto();
-  await eventsPage.createEvent(`Overlay Event ${tag}`);
-  await eventsPage.goto();
-  await eventsPage.selectEvent(`Overlay Event ${tag}`);
-  await expect(page).toHaveURL('/');
+/**
+ * Open a board with `incidents` incidents on it.
+ *
+ * The event and its incidents are arranged over REST: this suite is about what a
+ * dismissed Radix layer leaves behind, and the only modal it needs to *drive* is
+ * the one it is asserting on.
+ */
+async function openBoard(page: import('@playwright/test').Page, tag: string, incidents = 0) {
+  await setupBoard(page, `Overlay ${tag}`, { count: incidents });
   return new MainPage(page);
 }
 
@@ -70,8 +72,7 @@ test.describe('Dismissed modal layers', () => {
     authenticatedPage: page,
   }) => {
     const tag = `B${Date.now()}`;
-    const mainPage = await openBoard(page, tag);
-    await mainPage.createIncident(`${tag}strasse 1, Basel`);
+    await openBoard(page, tag, 1);
 
     const card = page.locator('[data-testid="incident-card"]').first();
     await card.waitFor({ state: 'visible' });

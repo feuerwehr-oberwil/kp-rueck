@@ -1,274 +1,295 @@
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
+
 /**
- * API Helper for E2E Tests
- * Provides utilities for setting up test data via backend API
+ * REST setup for E2E tests.
+ *
+ * Arranging state through the interface is what made this suite slow: creating one
+ * incident through the board's "Neuer Einsatz" modal commits its address through a
+ * LocationInput popover backed by the *external* Nominatim geocoder, so every test
+ * that merely needed an incident to exist paid a network round trip to
+ * openstreetmap.org — and inherited its rate limiting as flake. Specs whose subject
+ * IS the modal still drive it; everything else arranges here.
+ *
+ * The shapes below are the backend's, checked against `docs/openapi.json`. The
+ * previous version of this file described an API that never existed — `location` /
+ * `address` / `criticality` fields, a `'new' | 'in_progress' | 'done'` status
+ * vocabulary, `PUT /api/incidents/{id}`, and separate `/personnel`, `/vehicles`,
+ * `/materials` assignment endpoints. Nothing imported it, so nothing ever failed.
  */
 
-export interface TestUser {
-  username: string;
-  password: string;
-  role: 'editor' | 'viewer';
-}
+export const API_BASE = process.env.API_BASE_URL || 'http://localhost:8000';
+
+/** EventContext reads the current event from this localStorage key. */
+export const SELECTED_EVENT_KEY = 'kp-rueck-selected-event';
+
+/** `IncidentStatus` in backend/app/schemas/incidents.py — the kanban columns. */
+export type TestIncidentStatus =
+  | 'incoming'
+  | 'reko'
+  | 'reko_done'
+  | 'enroute'
+  | 'active'
+  | 'returning'
+  | 'complete';
+
+/** `IncidentPriority`. */
+export type TestIncidentPriority = 'low' | 'medium' | 'high';
+
+/** `IncidentType` — the subset the tests use; the enum has 13 members. */
+export type TestIncidentType =
+  | 'brandbekaempfung'
+  | 'elementarereignis'
+  | 'strassenrettung'
+  | 'technische_hilfeleistung';
 
 export interface TestEvent {
-  id?: string;
+  id: string;
   name: string;
   training_flag: boolean;
-  auto_attach_divera?: boolean;
 }
 
 export interface TestIncident {
-  id?: string;
+  id: string;
   event_id: string;
-  location: string;
-  address?: string;
-  criticality?: 'normal' | 'critical';
-  type?: string;
-  status?: 'new' | 'in_progress' | 'done';
+  title: string;
+  type: TestIncidentType;
+  priority: TestIncidentPriority;
+  status: TestIncidentStatus;
+  location_address?: string | null;
+  description?: string | null;
+}
+
+/** Serialise a page's session cookies so REST calls run as that page's user. */
+export async function cookieHeaderFor(page: Page): Promise<string> {
+  const cookies = await page.context().cookies();
+  return cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+}
+
+function jsonHeaders(cookieHeader: string) {
+  return { 'Content-Type': 'application/json', cookie: cookieHeader };
+}
+
+export async function createEvent(
+  request: APIRequestContext,
+  cookieHeader: string,
+  name: string,
+  options: { training_flag?: boolean; auto_attach_divera?: boolean } = {},
+): Promise<TestEvent> {
+  const response = await request.post(`${API_BASE}/api/events/`, {
+    headers: jsonHeaders(cookieHeader),
+    data: {
+      name,
+      training_flag: options.training_flag ?? true,
+      auto_attach_divera: options.auto_attach_divera ?? false,
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
 }
 
 /**
- * Resources come back from the backend with more fields than the tests touch;
- * these describe the parts assertions actually read.
+ * Create one incident.
+ *
+ * The defaults reproduce exactly what the "Neuer Einsatz" modal submits
+ * (`components/kanban/new-emergency-modal.tsx`: type `elementarereignis`,
+ * priority `low`, status `incoming`, and `title === location_address`, per
+ * `operations-context.tsx`). Specs converted from UI setup therefore see the same
+ * card they saw before — the arrangement changed, the subject did not.
  */
-export interface TestResource {
-  id: string;
-  name: string;
-  [key: string]: unknown;
+export async function createIncident(
+  request: APIRequestContext,
+  cookieHeader: string,
+  eventId: string,
+  overrides: Partial<Omit<TestIncident, 'id' | 'event_id'>> & { location_address?: string } = {},
+): Promise<TestIncident> {
+  const address = overrides.location_address ?? overrides.title ?? 'Teststrasse 1, 4104 Oberwil';
+  const response = await request.post(`${API_BASE}/api/incidents/`, {
+    headers: jsonHeaders(cookieHeader),
+    data: {
+      event_id: eventId,
+      title: overrides.title ?? address,
+      type: overrides.type ?? 'elementarereignis',
+      priority: overrides.priority ?? 'low',
+      status: overrides.status ?? 'incoming',
+      location_address: address,
+      // Oberwil BL, the seed's home city — coordinates the modal would have got
+      // back from the geocoder, supplied directly so no geocoder is involved.
+      location_lat: 47.4989,
+      location_lng: 7.5567,
+      description: overrides.description ?? null,
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
 }
 
-export interface TestSetting {
-  key: string;
-  value: string;
-  [key: string]: unknown;
+/**
+ * Point a page at `eventId` and land it on `path`.
+ *
+ * The obvious shape — load the page, write localStorage, load it again — costs two
+ * full navigations per test because EventContext reads the key on mount and cannot
+ * see a value written after it. `addInitScript` runs before the page's own scripts,
+ * so the key is already there the first time EventContext looks, and one navigation
+ * does. In a Next dev server that is the single most expensive thing a setup does.
+ */
+export async function selectEvent(page: Page, path: string, eventId: string) {
+  await page.addInitScript(
+    ([key, id]) => window.localStorage.setItem(key, id),
+    [SELECTED_EVENT_KEY, eventId] as const,
+  );
+  await page.goto(path);
 }
 
-export class APIHelper {
-  private baseURL: string;
-  private cookies?: string;
-
-  constructor(baseURL: string = 'http://localhost:8000', cookies?: string) {
-    this.baseURL = baseURL;
-    this.cookies = cookies;
-  }
-
-  /**
-   * Set authentication cookies
-   */
-  setCookies(cookies: string) {
-    this.cookies = cookies;
-  }
-
-  /**
-   * Make authenticated API request
-   */
-  private async request(endpoint: string, options: RequestInit = {}) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': this.cookies || '',
-        ...options.headers,
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`API request failed: ${response.status} ${text}`);
+/**
+ * Close anything floating over the board.
+ *
+ * The Setup-Checkliste popover opens itself once per newly selected event
+ * (`autoOpenedEventRef` in app/page.tsx), and every test here selects a fresh one,
+ * so on the editor board it is always up and it swallows clicks on the cards
+ * behind it. Retried rather than "press Escape and hope": the popover appears on
+ * mount, so a single blind keypress could land before it.
+ */
+export async function dismissOverlays(page: Page) {
+  const poppers = page.locator('[data-radix-popper-content-wrapper]');
+  await expect(async () => {
+    if (await poppers.count()) {
+      await page.keyboard.press('Escape');
     }
+    // Twice, half a second apart. Once is not enough: the checklist mounts a tick
+    // after the board does, so a single reading of 0 can simply be early — which is
+    // how "0 Personen eingecheckt" ended up intercepting card clicks in the suites
+    // that arrange over REST and therefore reach the board sooner than a UI setup did.
+    expect(await poppers.count()).toBe(0);
+    await page.waitForTimeout(500);
+    expect(await poppers.count()).toBe(0);
+  }).toPass({ timeout: 20_000 });
+}
 
-    return response.json();
-  }
+export interface BoardFixture {
+  eventId: string;
+  /** Street part of the address — unique per fixture, safe to assert on. */
+  address: string;
+  incidents: TestIncident[];
+}
 
-  // ============================================
-  // EVENT MANAGEMENT
-  // ============================================
+/**
+ * Wait until the board has caught up with what REST just wrote.
+ *
+ * An incident created over REST reaches an open board through the Socket.IO push,
+ * or through the ~5s polling fallback if the socket is down — so this is the one
+ * place the conversion still has to wait for something, and it waits for the
+ * condition rather than for a duration.
+ */
+export async function expectCardCount(page: Page, atLeast: number) {
+  await expect
+    .poll(() => page.getByTestId('incident-card').count(), { timeout: 20_000 })
+    .toBeGreaterThanOrEqual(atLeast);
+}
 
-  async createEvent(data: Partial<TestEvent>): Promise<TestEvent> {
-    return this.request('/api/events/', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: data.name || `Test Event ${Date.now()}`,
-        training_flag: data.training_flag ?? false,
-        auto_attach_divera: data.auto_attach_divera ?? false,
+/**
+ * Add `count` more incidents to an already-open board, over REST.
+ *
+ * For tests that need incidents to appear *while* the board is up; `setupBoard`
+ * covers the commoner case of wanting them there from the start.
+ */
+export async function addIncidents(
+  page: Page,
+  board: BoardFixture,
+  count: number,
+  prefix = 'Nachschub',
+): Promise<TestIncident[]> {
+  const cookieHeader = await cookieHeaderFor(page);
+  const before = board.incidents.length;
+  const added: TestIncident[] = [];
+  for (let i = 0; i < count; i += 1) {
+    added.push(
+      await createIncident(page.request, cookieHeader, board.eventId, {
+        location_address: `${prefix}weg ${before + i + 1} ${Date.now()}, 4104 Oberwil`,
       }),
-    });
+    );
+  }
+  board.incidents.push(...added);
+  await expectCardCount(page, before + count);
+  return added;
+}
+
+/**
+ * The whole arrangement most specs need: a fresh training event with `count`
+ * incidents in it, selected, with the board open and nothing covering it.
+ *
+ * A fresh event per test rather than a shared one: the suite runs against one
+ * database, so per-column counts are only stable when nothing else writes into the
+ * event under assertion.
+ */
+export async function setupBoard(
+  page: Page,
+  prefix: string,
+  options: { count?: number; path?: string; incidents?: Partial<TestIncident>[] } = {},
+): Promise<BoardFixture> {
+  const cookieHeader = await cookieHeaderFor(page);
+  const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const event = await createEvent(page.request, cookieHeader, `${prefix} ${stamp}`);
+
+  const address = `${prefix}strasse ${stamp}`;
+  const specs: Partial<TestIncident>[] =
+    options.incidents ?? Array.from({ length: options.count ?? 1 }, () => ({}));
+  const incidents: TestIncident[] = [];
+  for (const [index, spec] of specs.entries()) {
+    incidents.push(
+      await createIncident(page.request, cookieHeader, event.id, {
+        ...spec,
+        location_address:
+          spec.location_address ?? `${address}${specs.length > 1 ? ` ${index + 1}` : ''}, 4104 Oberwil`,
+      }),
+    );
   }
 
-  async getEvents(): Promise<TestEvent[]> {
-    return this.request('/api/events/');
+  const path = options.path ?? '/';
+  await selectEvent(page, path, event.id);
+
+  // Wait for the event to actually be the selected one, by its name in the page
+  // heading. Nothing waited for this before, because arranging through the events
+  // page took long enough to hide it; REST setup arrives while the app is still
+  // mounting, and the specs then assert against an empty board.
+  //
+  // The heading rather than the kanban columns: `[data-column]` does not exist at
+  // all on a 375px viewport, so a column-based check cost `08-navigation` a 20s
+  // timeout on every one of its mobile tests. The event name is on every layout.
+  await expect(page.getByRole('heading', { name: event.name }).first()).toBeVisible({
+    timeout: 20_000,
+  });
+  if (incidents.length) {
+    await expectCardCount(page, incidents.length);
   }
+  // After the cards, not before: the checklist popover mounts alongside the board,
+  // so dismissing it is only meaningful once the board itself has rendered.
+  await dismissOverlays(page);
 
-  async deleteEvent(eventId: string): Promise<void> {
-    await this.request(`/api/events/${eventId}`, { method: 'DELETE' });
-  }
+  return { eventId: event.id, address, incidents };
+}
 
-  // ============================================
-  // INCIDENT MANAGEMENT
-  // ============================================
-
-  async createIncident(data: Partial<TestIncident>): Promise<TestIncident> {
-    return this.request('/api/incidents/', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getIncidents(eventId?: string): Promise<TestIncident[]> {
-    const url = eventId ? `/api/incidents/?event_id=${eventId}` : '/api/incidents/';
-    return this.request(url);
-  }
-
-  async updateIncident(incidentId: string, data: Partial<TestIncident>): Promise<TestIncident> {
-    return this.request(`/api/incidents/${incidentId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deleteIncident(incidentId: string): Promise<void> {
-    await this.request(`/api/incidents/${incidentId}`, { method: 'DELETE' });
-  }
-
-  // ============================================
-  // RESOURCE MANAGEMENT
-  // ============================================
-
-  async getPersonnel(eventId?: string): Promise<TestResource[]> {
-    const url = eventId ? `/api/personnel/?event_id=${eventId}` : '/api/personnel/';
-    return this.request(url);
-  }
-
-  async getPersonnelByName(name: string, eventId?: string): Promise<TestResource | undefined> {
-    const personnel = await this.getPersonnel(eventId);
-    return personnel.find((p) => p.name === name);
-  }
-
-  async getVehicles(eventId?: string): Promise<TestResource[]> {
-    const url = eventId ? `/api/vehicles/?event_id=${eventId}` : '/api/vehicles/';
-    return this.request(url);
-  }
-
-  async getVehicleByName(name: string, eventId?: string): Promise<TestResource | undefined> {
-    const vehicles = await this.getVehicles(eventId);
-    return vehicles.find((v) => v.name === name);
-  }
-
-  async getMaterials(eventId?: string): Promise<TestResource[]> {
-    const url = eventId ? `/api/materials/?event_id=${eventId}` : '/api/materials/';
-    return this.request(url);
-  }
-
-  async getMaterialByName(name: string, eventId?: string): Promise<TestResource | undefined> {
-    const materials = await this.getMaterials(eventId);
-    return materials.find((m) => m.name === name);
-  }
-
-  // ============================================
-  // RESOURCE ASSIGNMENT
-  // ============================================
-
-  async assignPersonnelToIncident(incidentId: string, personnelId: string): Promise<void> {
-    await this.request(`/api/incidents/${incidentId}/personnel`, {
-      method: 'POST',
-      body: JSON.stringify({ personnel_id: personnelId }),
-    });
-  }
-
-  async assignVehicleToIncident(incidentId: string, vehicleId: string): Promise<void> {
-    await this.request(`/api/incidents/${incidentId}/vehicles`, {
-      method: 'POST',
-      body: JSON.stringify({ vehicle_id: vehicleId }),
-    });
-  }
-
-  async assignMaterialToIncident(incidentId: string, materialId: string): Promise<void> {
-    await this.request(`/api/incidents/${incidentId}/materials`, {
-      method: 'POST',
-      body: JSON.stringify({ material_id: materialId }),
-    });
-  }
-
-  /**
-   * Create incident with pre-assigned resources
-   */
-  async createIncidentWithResources(data: {
-    event_id: string;
-    location: string;
-    personnel?: string[];
-    vehicles?: string[];
-    materials?: string[];
-  }): Promise<TestIncident> {
-    // Create incident
-    const incident = await this.createIncident({
-      event_id: data.event_id,
-      location: data.location,
-      address: data.location,
-    });
-
-    // Assign resources
-    if (data.personnel) {
-      for (const name of data.personnel) {
-        const person = await this.getPersonnelByName(name, data.event_id);
-        if (person) {
-          await this.assignPersonnelToIncident(incident.id!, person.id);
-        }
-      }
-    }
-
-    if (data.vehicles) {
-      for (const name of data.vehicles) {
-        const vehicle = await this.getVehicleByName(name, data.event_id);
-        if (vehicle) {
-          await this.assignVehicleToIncident(incident.id!, vehicle.id);
-        }
-      }
-    }
-
-    if (data.materials) {
-      for (const name of data.materials) {
-        const material = await this.getMaterialByName(name, data.event_id);
-        if (material) {
-          await this.assignMaterialToIncident(incident.id!, material.id);
-        }
-      }
-    }
-
-    return incident;
-  }
-
-  // ============================================
-  // SETTINGS
-  // ============================================
-
-  async getSetting(key: string): Promise<TestSetting | undefined> {
-    const settings: TestSetting[] = await this.request('/api/settings/');
-    return settings.find((s) => s.key === key);
-  }
-
-  async updateSetting(key: string, value: string): Promise<void> {
-    await this.request('/api/settings/', {
-      method: 'PUT',
-      body: JSON.stringify({ key, value }),
-    });
-  }
-
-  // ============================================
-  // CLEANUP
-  // ============================================
-
-  /**
-   * Delete all test data (use with caution!)
-   */
-  async cleanupTestData(eventId?: string): Promise<void> {
-    if (eventId) {
-      // Delete all incidents for this event
-      const incidents = await this.getIncidents(eventId);
-      for (const incident of incidents) {
-        await this.deleteIncident(incident.id!);
-      }
-      // Delete the event
-      await this.deleteEvent(eventId);
-    }
-  }
+/**
+ * Create a training event with exactly one active incident.
+ *
+ * Kept as its own name because the viewer-role specs read better with it, and
+ * because `status: 'active'` (not the modal's `incoming`) is load-bearing there:
+ * those specs assert on the "Aktiv (1)" column.
+ */
+export async function createEventWithIncident(
+  request: APIRequestContext,
+  cookieHeader: string,
+  prefix: string,
+): Promise<BoardFixture> {
+  const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const event = await createEvent(request, cookieHeader, `${prefix} ${stamp}`);
+  const address = `${prefix}strasse ${stamp}`;
+  const incident = await createIncident(request, cookieHeader, event.id, {
+    title: `${prefix} Brand`,
+    type: 'brandbekaempfung',
+    priority: 'high',
+    status: 'active',
+    location_address: `${address}, 4104 Oberwil`,
+    description: `${prefix} Lagemeldung`,
+  });
+  return { eventId: event.id, address, incidents: [incident] };
 }

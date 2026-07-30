@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
+import { setupBoard } from '../../helpers/api.helper';
 
 /**
  * Mobile Bottom Navigation Tests
@@ -8,25 +8,11 @@ import { EventsPage } from '../../pages/events.page';
  */
 
 test.describe('Mobile Bottom Navigation - Visibility', () => {
-  let eventsPage: EventsPage;
-  let testEventName: string;
-
   test('bottom navigation is visible on mobile viewport', async ({ authenticatedPage }) => {
     // Set mobile viewport
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    eventsPage = new EventsPage(authenticatedPage);
-    testEventName = `Mobile Nav Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-
-    // Wait for page to load
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Verify bottom navigation is visible
+    await setupBoard(authenticatedPage, 'Mobile Nav Test', { count: 0 });
     const bottomNav = authenticatedPage.locator('nav.fixed.bottom-0');
     await expect(bottomNav).toBeVisible();
 
@@ -41,18 +27,7 @@ test.describe('Mobile Bottom Navigation - Visibility', () => {
     // Set desktop viewport
     await authenticatedPage.setViewportSize({ width: 1920, height: 1080 });
 
-    eventsPage = new EventsPage(authenticatedPage);
-    testEventName = `Desktop Nav Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-
-    // Wait for page to load
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Verify bottom navigation is NOT visible (md:hidden class)
+    await setupBoard(authenticatedPage, 'Desktop Nav Test', { count: 0 });
     const bottomNav = authenticatedPage.locator('nav.fixed.bottom-0');
     // On desktop, the element exists but should not be visible due to md:hidden
     const isHidden = await bottomNav.evaluate(el => {
@@ -66,16 +41,7 @@ test.describe('Mobile Bottom Navigation - Visibility', () => {
     // Set mobile viewport
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    eventsPage = new EventsPage(authenticatedPage);
-    testEventName = `Safe Area Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Check that safe area inset is applied
+    await setupBoard(authenticatedPage, 'Safe Area Test', { count: 0 });
     const bottomNav = authenticatedPage.locator('nav.fixed.bottom-0');
     const hasSafeArea = await bottomNav.evaluate(el => {
       const style = el.getAttribute('style');
@@ -86,21 +52,11 @@ test.describe('Mobile Bottom Navigation - Visibility', () => {
 });
 
 test.describe('Mobile Bottom Navigation - Tab Navigation', () => {
-  let eventsPage: EventsPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
     // Set mobile viewport
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    eventsPage = new EventsPage(authenticatedPage);
-    testEventName = `Tab Nav Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Tab Nav Test', { count: 0 });
   });
 
   test('kanban tab navigates to root page', async ({ authenticatedPage }) => {
@@ -148,20 +104,10 @@ test.describe('Mobile Bottom Navigation - Tab Navigation', () => {
 });
 
 test.describe('Mobile Bottom Navigation - Active Tab Highlighting', () => {
-  let eventsPage: EventsPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    eventsPage = new EventsPage(authenticatedPage);
-    testEventName = `Active Tab Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Active Tab Test', { count: 0 });
   });
 
   test('kanban tab is highlighted when on root page', async ({ authenticatedPage }) => {
@@ -200,20 +146,10 @@ test.describe('Mobile Bottom Navigation - Active Tab Highlighting', () => {
 });
 
 test.describe('Mobile Bottom Navigation - More Sheet', () => {
-  let eventsPage: EventsPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    eventsPage = new EventsPage(authenticatedPage);
-    testEventName = `More Sheet Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'More Sheet Test', { count: 0 });
   });
 
   test('more button opens bottom sheet', async ({ authenticatedPage }) => {
@@ -352,20 +288,10 @@ test.describe('Mobile Bottom Navigation - Disabled States', () => {
 });
 
 test.describe('Mobile Bottom Navigation - Touch Targets', () => {
-  let eventsPage: EventsPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    eventsPage = new EventsPage(authenticatedPage);
-    testEventName = `Touch Target Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Touch Target Test', { count: 0 });
   });
 
   test('all tabs have minimum 44px touch target', async ({ authenticatedPage }) => {
@@ -389,20 +315,10 @@ test.describe('Mobile Bottom Navigation - Touch Targets', () => {
 });
 
 test.describe('Mobile Bottom Navigation - Accessibility', () => {
-  let eventsPage: EventsPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    eventsPage = new EventsPage(authenticatedPage);
-    testEventName = `A11y Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'A11y Test', { count: 0 });
   });
 
   test('tabs have aria-label attributes', async ({ authenticatedPage }) => {
