@@ -338,9 +338,23 @@ enough — the Content-Security-Policy follows `API_URL` per request and no long
 rebuild to allow a custom backend domain.
 
 **Mobile login fails with "Sitzung abgelaufen", desktop works.**
-`NEXT_PUBLIC_API_URL` is set on the frontend service. Delete it and redeploy — it must be
-rebuilt without the variable, since it is inlined at build time. Nothing else depends on it:
-the socket takes its address from `API_URL`, and so does the Content-Security-Policy.
+`NEXT_PUBLIC_API_URL` is set on the frontend service. Delete it — and then **force a rebuild**,
+because two things that look like they would work do not:
+
+```bash
+railway variable delete NEXT_PUBLIC_API_URL --service frontend
+railway redeploy --service frontend --from-source --yes    # NOT plain redeploy
+```
+
+Deleting the variable triggers no deploy on its own, and a plain `railway redeploy` re-deploys
+the existing *build artifact* with the old value still baked in. Only `--from-source` pulls the
+commit and rebuilds. Because the value only matters at build time, every check short of the
+rebuild — page loads, health, even the CSP header — comes back green while nothing has actually
+changed. Confirm it took by fetching the page and grepping the `/_next/static/chunks/*.js` for
+your backend host: zero hits means the inlining is gone.
+
+Nothing else depends on the variable: the socket takes its address from `API_URL`, and so does
+the Content-Security-Policy.
 
 **Backend crash-loops on first deploy.**
 Read the logs. Production refuses weak or missing secrets by design, and the error names the
