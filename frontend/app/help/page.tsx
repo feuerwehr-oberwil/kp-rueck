@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Search, X } from 'lucide-react';
 import { PageNavigation } from '@/components/page-navigation';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -24,28 +24,41 @@ interface TocItem {
 
 // Extract plain text from React children (which may contain nested <mark>
 // elements once search highlighting is applied) so heading ids stay stable.
-function getNodeText(node: any): string {
+function getNodeText(node: unknown): string {
   if (node == null) return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(getNodeText).join('');
-  if (typeof node === 'object' && node.props) return getNodeText(node.props.children);
+  if (typeof node === 'object' && 'props' in node) {
+    const { props } = node as { props?: { children?: unknown } };
+    return props ? getNodeText(props.children) : '';
+  }
   return '';
+}
+
+// Minimal structural view of a hast node – `@types/hast` is not a direct
+// dependency here, and the plugin only ever touches these four fields.
+interface HastNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
 }
 
 // rehype plugin: wrap case-insensitive matches of `query` in <mark> elements,
 // skipping code/pre so keyboard shortcuts and code stay untouched.
 function rehypeHighlight(options: { query?: string }) {
   const query = (options?.query ?? '').toLowerCase();
-  return (tree: any) => {
+  return (tree: HastNode) => {
     if (query.length < 2) return;
 
-    const visit = (node: any) => {
+    const visit = (node: HastNode) => {
       if (!node.children || node.children.length === 0) return;
       if (node.tagName === 'code' || node.tagName === 'pre') return;
 
-      const next: any[] = [];
+      const next: HastNode[] = [];
       for (const child of node.children) {
-        if (child.type === 'text' && child.value.toLowerCase().includes(query)) {
+        if (child.type === 'text' && child.value?.toLowerCase().includes(query)) {
           const value: string = child.value;
           const lower = value.toLowerCase();
           let i = 0;
@@ -183,9 +196,9 @@ export default function HelpPage() {
   };
 
   // Markdown components configuration
-  const markdownComponents = {
+  const markdownComponents: Components = {
     // Code blocks (for kbd styling)
-    code: ({ className, children, ...props }: any) => {
+    code: ({ className, children, ...props }) => {
       const isInline = !className;
       if (isInline) {
         return (
@@ -201,46 +214,46 @@ export default function HelpPage() {
       );
     },
     // Tables
-    table: ({ children, ...props }: any) => (
+    table: ({ children, ...props }) => (
       <div className="overflow-x-auto my-6">
         <table className="min-w-full border-collapse border border-border rounded-lg" {...props}>
           {children}
         </table>
       </div>
     ),
-    thead: ({ children, ...props }: any) => (
+    thead: ({ children, ...props }) => (
       <thead className="bg-muted/50" {...props}>
         {children}
       </thead>
     ),
-    th: ({ children, ...props }: any) => (
+    th: ({ children, ...props }) => (
       <th className="border border-border px-4 py-2 text-left font-semibold text-sm" {...props}>
         {children}
       </th>
     ),
-    td: ({ children, ...props }: any) => (
+    td: ({ children, ...props }) => (
       <td className="border border-border px-4 py-2 text-sm" {...props}>
         {children}
       </td>
     ),
     // Lists
-    ul: ({ children, ...props }: any) => (
+    ul: ({ children, ...props }) => (
       <ul className="space-y-1 my-4 list-disc pl-6" {...props}>
         {children}
       </ul>
     ),
-    ol: ({ children, ...props }: any) => (
+    ol: ({ children, ...props }) => (
       <ol className="space-y-1 my-4 list-decimal pl-6" {...props}>
         {children}
       </ol>
     ),
-    li: ({ children, ...props }: any) => (
+    li: ({ children, ...props }) => (
       <li className="leading-relaxed" {...props}>
         {children}
       </li>
     ),
     // Links
-    a: ({ href, children, ...props }: any) => (
+    a: ({ href, children, ...props }) => (
       <a
         href={href}
         className="text-primary hover:underline font-medium"
@@ -250,12 +263,12 @@ export default function HelpPage() {
       </a>
     ),
     // Headings with IDs for navigation
-    h1: ({ children, ...props }: any) => (
+    h1: ({ children, ...props }) => (
       <h1 className="text-3xl font-bold mt-8 mb-4 pb-2 border-b first:mt-0" {...props}>
         {children}
       </h1>
     ),
-    h2: ({ children, ...props }: any) => {
+    h2: ({ children, ...props }) => {
       const text = getNodeText(children);
       const id = text
         .toLowerCase()
@@ -269,7 +282,7 @@ export default function HelpPage() {
         </h2>
       );
     },
-    h3: ({ children, ...props }: any) => {
+    h3: ({ children, ...props }) => {
       const text = getNodeText(children);
       const id = text
         .toLowerCase()
@@ -284,23 +297,23 @@ export default function HelpPage() {
       );
     },
     // Paragraphs
-    p: ({ children, ...props }: any) => (
+    p: ({ children, ...props }) => (
       <p className="my-3 leading-relaxed text-foreground" {...props}>
         {children}
       </p>
     ),
     // Horizontal rule
-    hr: ({ ...props }: any) => (
+    hr: ({ ...props }) => (
       <hr className="my-8 border-border" {...props} />
     ),
     // Strong/Bold
-    strong: ({ children, ...props }: any) => (
+    strong: ({ children, ...props }) => (
       <strong className="font-semibold" {...props}>
         {children}
       </strong>
     ),
     // Search highlight
-    mark: ({ children, ...props }: any) => (
+    mark: ({ children, ...props }) => (
       <mark className="bg-primary/25 text-foreground rounded px-0.5" {...props}>
         {children}
       </mark>

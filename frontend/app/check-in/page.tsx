@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { CheckCircle, Circle, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
-import { wsClient, type WebSocketUpdate } from '@/lib/websocket-client'
+import { wsClient } from '@/lib/websocket-client'
 import { RESOURCE_STATE_DOT_CLASSES } from '@/lib/resource-status'
 import { cn } from '@/lib/utils'
 
@@ -67,7 +67,7 @@ export default function CheckInPage() {
     wsClient.connect()
 
     // Listen for personnel updates
-    const unsubscribePersonnel = wsClient.on('personnel_update', (update: WebSocketUpdate) => {
+    const unsubscribePersonnel = wsClient.on('personnel_update', () => {
       // Skip refresh if we just made a local change (prevents scroll reset)
       if (skipNextRefreshRef.current) {
         skipNextRefreshRef.current = false

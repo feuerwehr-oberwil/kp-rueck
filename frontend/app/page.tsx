@@ -174,7 +174,6 @@ export default function FireStationDashboard() {
     changeStatusToTop,
     setBoardDragging,
     createOperation,
-    getNextOperationId,
     assignPersonToOperation,
     assignRekoPersonToOperation,
     assignMaterialToOperation,
@@ -690,9 +689,9 @@ export default function FireStationDashboard() {
       await apiClient.transferAssignments(transferSourceOp.id, targetIncidentId)
       setTransferSourceOp(null)
       toast.success(tCommon('transferResources'))
-    } catch (error: any) {
+    } catch (error) {
       toast.error(tCommon('transferFailed'), {
-        description: error?.message || tCommon('transferFailedDescription'),
+        description: (error instanceof Error && error.message) || tCommon('transferFailedDescription'),
       })
     } finally {
       setIsTransferring(false)
@@ -1327,7 +1326,7 @@ export default function FireStationDashboard() {
       setCopied(true)
       toast.success(tCommon('linkCopied'))
       setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
+    } catch {
       toast.error(tCommon('copyFailed'))
     }
   }
@@ -1651,7 +1650,6 @@ export default function FireStationDashboard() {
 
               <PageNavigation
                 currentPage="kanban"
-                vehicleTypes={vehicleTypes}
                 hasSelectedEvent={!!selectedEvent}
               />
             </div>
@@ -1664,9 +1662,6 @@ export default function FireStationDashboard() {
             operations={filteredOperations}
             materials={materials}
             formatLocation={formatLocation}
-            onRefresh={refreshOperations}
-            onCheckIn={generateCheckInQR}
-            onVehicleStatus={() => setActiveFooterSheet('vehicles')}
             onUpdateOperation={updateOperation}
             isEditor={isEditor}
             isTraining={selectedEvent?.training_flag}
@@ -1852,7 +1847,6 @@ export default function FireStationDashboard() {
             panToNonce={panToNonce}
             operations={filteredOperations}
             materials={materials}
-            formatLocation={formatLocation}
             onSelectOperation={(op) => {
               setSelectedOperationId(op.id)
               setDetailModalOpen(false)
@@ -2228,7 +2222,6 @@ export default function FireStationDashboard() {
           if (!open) setNewEmergencyGroupId(null)
         }}
         onCreateOperation={createOperation}
-        nextOperationId={getNextOperationId()}
         defaultGroupId={newEmergencyGroupId}
       />
 

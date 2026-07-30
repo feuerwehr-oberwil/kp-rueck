@@ -20,7 +20,6 @@ interface SidePanelProps extends Omit<OperationDetailContentProps, 'operation' |
   onModeChange: (mode: 'detail' | 'map' | 'collapsed') => void
   selectedOperation: Operation | null
   operations: Operation[]
-  formatLocation: (address: string) => string
   onSelectOperation: (operation: Operation) => void
   panToNonce?: number
 }
@@ -30,7 +29,6 @@ export function SidePanel({
   onModeChange,
   selectedOperation,
   operations,
-  formatLocation,
   onSelectOperation,
   panToNonce,
   ...detailProps
@@ -131,7 +129,6 @@ export function SidePanel({
               onSelectOperation(operation)
               onModeChange('detail')
             }}
-            formatLocation={formatLocation}
           />
         )}
       </div>
@@ -157,14 +154,12 @@ function SidePanelMap({
   panToNonce,
   onSelectOperation,
   onSwitchToDetail,
-  formatLocation,
 }: {
   operations: Operation[]
   selectedOperation: Operation | null
   panToNonce?: number
   onSelectOperation: (operation: Operation) => void
   onSwitchToDetail: (operation: Operation) => void
-  formatLocation: (address: string) => string
 }) {
   return (
     <div className="h-full">
@@ -174,7 +169,6 @@ function SidePanelMap({
         panToNonce={panToNonce}
         onSelectOperation={onSelectOperation}
         onSwitchToDetail={onSwitchToDetail}
-        formatLocation={formatLocation}
       />
     </div>
   )

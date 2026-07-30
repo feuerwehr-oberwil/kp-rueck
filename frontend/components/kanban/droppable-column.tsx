@@ -329,7 +329,6 @@ export const DroppableColumn = memo(function DroppableColumn({
             >
               <DraggableOperation
                 operation={operation}
-                columnColor={column.color}
                 onRemoveCrew={(crewName) => onRemoveCrew(operation.id, crewName)}
                 onRemoveMaterial={(materialId) => onRemoveMaterial(operation.id, materialId)}
                 onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
@@ -344,7 +343,6 @@ export const DroppableColumn = memo(function DroppableColumn({
                 isDraggingRef={isDraggingRef}
                 materials={materials}
                 index={index}
-                columnOperations={operations}
                 formatLocation={formatLocation}
                 onAssignResource={onAssignResource}
                 onAssignReko={onAssignReko ? () => onAssignReko(operation.id) : undefined}

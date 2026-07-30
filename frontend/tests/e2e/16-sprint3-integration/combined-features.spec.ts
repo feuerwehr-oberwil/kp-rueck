@@ -464,8 +464,6 @@ test.describe('Sprint 3 Integration - Accessibility', () => {
   });
 
   test('Sprint 3 features dont break keyboard navigation', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
     // Tab to card
     await authenticatedPage.keyboard.press('Tab');
     await authenticatedPage.keyboard.press('Tab');
@@ -473,8 +471,6 @@ test.describe('Sprint 3 Integration - Accessibility', () => {
     // Card should still be clickable with Enter
     await authenticatedPage.keyboard.press('Enter');
     await authenticatedPage.waitForTimeout(500);
-
-    const modal = authenticatedPage.locator('[role="dialog"]');
 
     // Modal may or may not open depending on focus - just verify no errors
     expect(true).toBeTruthy();

@@ -55,7 +55,11 @@ export default function DiveraPoolPage() {
 
   const playAlertSound = () => {
     if (!audioRef.current) {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextCtor =
+        window.AudioContext ??
+        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      const audioContext = new AudioContextCtor();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       oscillator.connect(gainNode);
@@ -76,8 +80,8 @@ export default function DiveraPoolPage() {
       setEmergencies(emergenciesData.emergencies);
       const eventsData = await apiClient.getEvents(false);
       setActiveEvents(eventsData.events);
-    } catch (error: any) {
-      if (!error.message?.includes('Verbindung zum Server')) {
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('Verbindung zum Server')) {
         console.error('Failed to load Divera pool:', error);
       }
     } finally {
@@ -95,22 +99,25 @@ export default function DiveraPoolPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
     wsClient.connect();
-    const unsubscribe = wsClient.on('divera_emergency_received', (data: any) => {
-      const emergency = data.emergency as ApiDiveraEmergency;
-      // Neutral, not a success: an incoming alarm is news, not something that went well.
-      toast(emergency.is_training
-          ? t('newAlarmTraining')
-          : emergency.source && emergency.source !== 'divera'
-            ? t('newAlarmGeneric')
-            : t('newEmergency'), {
-        description: data.auto_attached
-          ? t('autoAttached', { title: emergency.title })
-          : emergency.title,
-        duration: 10000,
-      });
-      playAlertSound();
-      loadData();
-    });
+    const unsubscribe = wsClient.on(
+      'divera_emergency_received',
+      (data: { emergency: ApiDiveraEmergency; auto_attached?: boolean }) => {
+        const emergency = data.emergency;
+        // Neutral, not a success: an incoming alarm is news, not something that went well.
+        toast(emergency.is_training
+            ? t('newAlarmTraining')
+            : emergency.source && emergency.source !== 'divera'
+              ? t('newAlarmGeneric')
+              : t('newEmergency'), {
+          description: data.auto_attached
+            ? t('autoAttached', { title: emergency.title })
+            : emergency.title,
+          duration: 10000,
+        });
+        playAlertSound();
+        loadData();
+      },
+    );
     return () => unsubscribe();
   }, [isAuthenticated]);
 

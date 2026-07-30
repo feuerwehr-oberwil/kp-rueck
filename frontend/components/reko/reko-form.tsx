@@ -83,7 +83,9 @@ export default function RekoForm() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [relevantMissing, setRelevantMissing] = useState(false)
-  const [isTraining, setIsTraining] = useState(false)
+  // Constant until the backend returns the event's training_flag on the Reko form
+  // response (see the NOTE in the loader below); the dummy generator stays hidden.
+  const isTraining = false
   // Local text mirror for the duration field: a controlled number input coerces
   // "0"/"0." to falsy and clears the field mid-typing, so we keep the raw string
   // and sync it back only when the stored number changes elsewhere (quick-fill).
@@ -280,11 +282,10 @@ export default function RekoForm() {
         // Set assigned personnel name if available
         setAssignedPersonnelName(data.submitted_by_personnel_name || null)
 
-        // NOTE: When backend is implemented, the getRekoForm response should include
-        // the event's training_flag so we can enable training features
-        // For now, this will be false (production mode)
-        // Backend should add: event_training_flag: boolean to ApiRekoFormResponse
-        // setIsTraining(data.event_training_flag || false)
+        // NOTE: When the backend implements it, the getRekoForm response should
+        // include the event's training_flag so training features can be enabled
+        // (add `event_training_flag: boolean` to ApiRekoFormResponse and turn the
+        // `isTraining` constant above back into state).
 
         // Set arrivedAt if already marked
         if (data.arrived_at) {
