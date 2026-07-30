@@ -14,9 +14,9 @@ export const OPERATION_STATUS_LABELS: Record<OperationStatus, string> = {
   incoming: "Eingegangen",
   reko: "Reko",
   reko_done: "Reko abgeschlossen",
-  enroute: "Disponiert",
+  enroute: "Disponiert / Anfahrt",
   active: "Einsatz",
-  returning: "Rückfahrt",
+  returning: "Beendet / Rückfahrt",
   complete: "Abgeschlossen",
 }
 

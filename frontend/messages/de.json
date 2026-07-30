@@ -195,10 +195,10 @@
       "incoming": "Eingegangen",
       "reko": "Reko",
       "reko_done": "Reko abgeschlossen",
-      "enroute": "Disponiert",
+      "enroute": "Disponiert / Anfahrt",
       "active": "Einsatz",
-      "returning": "Einsatz beendet",
-      "complete": "Abschluss"
+      "returning": "Beendet / Rückfahrt",
+      "complete": "Abgeschlossen"
     },
     "resources": {
       "crew": "Personal",
@@ -729,9 +729,9 @@
       "incoming": "Eingegangen",
       "reko": "Reko",
       "reko_done": "Reko abgeschlossen",
-      "enroute": "Disponiert",
+      "enroute": "Disponiert / Anfahrt",
       "active": "Einsatz",
-      "returning": "Rückfahrt",
+      "returning": "Beendet / Rückfahrt",
       "complete": "Abgeschlossen"
     },
     "columns": {
@@ -740,8 +740,8 @@
       "reko_done": "REKO ABGESCHLOSSEN",
       "enroute": "DISPONIERT / ANFAHRT",
       "active": "EINSATZ",
-      "returning": "EINSATZ BEENDET",
-      "complete": "ABSCHLUSS"
+      "returning": "BEENDET / RÜCKFAHRT",
+      "complete": "ABGESCHLOSSEN"
     },
     "assignReko": {
       "title": "Reko-Personal zuweisen",
@@ -1859,7 +1859,7 @@
         "incoming": "EINGEGANGEN",
         "reko": "REKO",
         "reko_done": "REKO ABGESCHLOSSEN",
-        "enroute": "DISPONIERT",
+        "enroute": "DISPONIERT / ANFAHRT",
         "active": "EINSATZ",
         "returning": "BEENDET / RÜCKFAHRT",
         "complete": "ABGESCHLOSSEN"
