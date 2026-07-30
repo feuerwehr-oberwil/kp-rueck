@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
@@ -27,7 +28,7 @@ async def generate_reko_dashboard_link(
     request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for Reko Dashboard"),
-):
+) -> dict[str, str]:
     """
     Generate Reko Dashboard link (editor only).
 
@@ -51,7 +52,7 @@ async def generate_reko_dashboard_link(
 async def list_reko_personnel(
     token: str = Query(..., description="Access token from generated link"),
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.RekoDashboardPersonnelListResponse:
     """
     Get list of Reko personnel for the dashboard.
 
@@ -81,7 +82,7 @@ async def get_reko_assignments(
     personnel_id: uuid.UUID,
     token: str = Query(..., description="Access token"),
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.RekoDashboardAssignmentsResponse:
     """
     Get active incident assignments for a Reko personnel.
 
@@ -115,7 +116,7 @@ async def get_available_reko_personnel(
     incident_id: uuid.UUID,
     current_user: CurrentEditor,  # Editor only
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.AvailableRekoPersonnelResponse:
     """
     Get available Reko personnel for assignment to an incident.
 
@@ -142,7 +143,7 @@ async def assign_reko_personnel(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,  # Editor only
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.AssignmentResponse:
     """
     Assign Reko personnel to an incident.
 
@@ -225,7 +226,7 @@ async def unassign_reko_personnel(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,  # Editor only
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """
     Unassign Reko personnel from an incident.
 
@@ -253,16 +254,23 @@ async def unassign_reko_personnel(
 @router.post(
     "/transfer-rekos",
     status_code=status.HTTP_200_OK,
+    response_model=None,
 )
 async def transfer_reko_assignments(
     from_personnel_id: uuid.UUID = Query(..., description="Personnel ID to transfer from"),
     to_personnel_id: uuid.UUID = Query(..., description="Personnel ID to transfer to"),
     event_id: uuid.UUID = Query(..., description="Event ID"),
-    request: Request = None,
-    background_tasks: BackgroundTasks = None,
-    current_user: CurrentEditor = None,
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    request: Request = None,  # type: ignore[assignment]
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    current_user: CurrentEditor = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Transfer all open reko assignments from one person to another.
 
@@ -272,7 +280,7 @@ async def transfer_reko_assignments(
     assignments = await crud.get_reko_assignments_for_personnel(db, event_id, from_personnel_id)
 
     # Filter to only open assignments (incidents in reko status, not reko_done or later)
-    transferred = []
+    transferred: list[str] = []
     for assignment in assignments:
         incident = await incidents_crud.get_incident(db, assignment["incident_id"])
         if incident and incident.status in ("eingegangen", "reko"):

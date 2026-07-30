@@ -16,13 +16,13 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 
 @router.get("/", response_model=dict[str, str])
-async def get_all_settings(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def get_all_settings(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     """Get all settings (any authenticated user)."""
     return await settings_service.get_all_settings(db)
 
 
 @router.get("/{key}", response_model=schemas.Setting)
-async def get_setting(key: str, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def get_setting(key: str, current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> Setting:
     """Get single setting."""
     result = await db.execute(select(Setting).where(Setting.key == key))
     setting = result.scalar_one_or_none()
@@ -39,8 +39,10 @@ async def update_setting(
     update: schemas.SettingUpdate,
     current_user: CurrentEditor,  # Editor only
     db: AsyncSession = Depends(get_db),
-    request: Request = None,
-):
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    request: Request = None,  # type: ignore[assignment]
+) -> Setting:
     """Update setting (editor only)."""
     # Only allow updates to known settings keys. The underlying service creates a
     # row for any key, so without this guard an editor could inject arbitrary keys

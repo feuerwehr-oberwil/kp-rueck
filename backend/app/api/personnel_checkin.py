@@ -24,7 +24,7 @@ async def generate_checkin_link(
     request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for check-in"),
-):
+) -> dict[str, str]:
     """
     Generate check-in link with QR code (editor only).
 
@@ -50,7 +50,7 @@ async def list_personnel_for_checkin(
     token: str = Query(..., description="Access token from QR code"),
     checked_in_only: bool = Query(default=False, description="Only show checked-in personnel"),
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.CheckInListResponse:
     """
     Get list of personnel for check-in interface with event information.
 
@@ -75,7 +75,9 @@ async def list_personnel_for_checkin(
     )
 
     return schemas.CheckInListResponse(
-        personnel=personnel,
+        # Pydantic validates each PersonnelCheckInResponse into the narrower PersonnelListItem
+        # by attribute (from_attributes=True); mypy cannot express that model-to-model coercion.
+        personnel=personnel,  # type: ignore[arg-type]
         event_id=event.id,
         event_name=event.name,
     )
@@ -85,10 +87,14 @@ async def list_personnel_for_checkin(
 async def check_in(
     personnel_id: uuid.UUID,
     token: str = Query(..., description="Access token"),
-    background_tasks: BackgroundTasks = None,
-    request: Request = None,
+    # FastAPI injects these two by type, so the `= None` defaults never apply. They cannot be
+    # dropped (they precede other defaulted params) and must NOT become `X | None`: FastAPI only
+    # special-cases the bare classes, so a Union turns them into body params and the app fails
+    # to import.
+    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
+    request: Request = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.PersonnelCheckInResponse:
     """
     Check in a person (mark as present for the event).
 
@@ -136,10 +142,11 @@ async def check_in(
 async def check_out(
     personnel_id: uuid.UUID,
     token: str = Query(..., description="Access token"),
-    background_tasks: BackgroundTasks = None,
-    request: Request = None,
+    # Same as check_in above: injected by type, `= None` is dead, `X | None` would break FastAPI.
+    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
+    request: Request = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.PersonnelCheckInResponse:
     """
     Check out a person from the event (mark as left).
 
@@ -183,7 +190,7 @@ async def check_out(
 async def get_checkin_stats(
     token: str = Query(..., description="Access token"),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, int]:
     """
     Get check-in statistics for the event.
 

@@ -31,6 +31,11 @@ class ProviderCapability(BaseModel):
     capabilities: list[str] = Field(default_factory=list)
 
 
+def _default_builtin_alarm_paths() -> list[Literal["generic-webhook", "manual-intake", "operator"]]:
+    """Default value for ``IntegrationsResponse.builtin_alarm_paths``."""
+    return ["generic-webhook", "manual-intake", "operator"]
+
+
 class IntegrationsResponse(BaseModel):
     """Per-domain provider capabilities."""
 
@@ -44,7 +49,7 @@ class IntegrationsResponse(BaseModel):
     vehicles: ProviderCapability
     # Always-available built-in ingest paths (not providers)
     builtin_alarm_paths: list[Literal["generic-webhook", "manual-intake", "operator"]] = Field(
-        default_factory=lambda: ["generic-webhook", "manual-intake", "operator"]
+        default_factory=_default_builtin_alarm_paths
     )
 
 
@@ -83,6 +88,6 @@ def integrations() -> IntegrationsResponse:
 
 
 @router.get("", response_model=IntegrationsResponse)
-async def get_integrations(current_user: CurrentUser):
+async def get_integrations(current_user: CurrentUser) -> IntegrationsResponse:
     """Which providers are configured, per domain (viewer-readable)."""
     return integrations()

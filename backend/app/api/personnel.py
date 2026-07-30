@@ -1,6 +1,7 @@
 """Personnel management API endpoints."""
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import update
@@ -22,7 +23,7 @@ async def list_personnel(
     db: AsyncSession = Depends(get_db),
     checked_in_only: bool = False,
     event_id: uuid.UUID | None = None,
-):
+) -> list[Personnel]:
     """
     List all personnel.
 
@@ -36,7 +37,7 @@ async def get_personnel(
     personnel_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> Personnel:
     """Get single personnel by ID."""
     personnel = await crud.get_personnel(db, personnel_id)
     if not personnel:
@@ -51,7 +52,7 @@ async def create_personnel(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.Personnel:
     """Create new personnel (editor only)."""
     new_personnel = await crud.create_personnel(db, personnel, current_user, request)
 
@@ -70,7 +71,7 @@ async def update_personnel(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> schemas.Personnel:
     """Update personnel (editor only)."""
     updated = await crud.update_personnel(db, personnel_id, personnel, current_user, request)
     if not updated:
@@ -90,7 +91,7 @@ async def delete_personnel(
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """Delete personnel (editor only) - soft delete."""
     success = await crud.delete_personnel(db, personnel_id, current_user, request)
     if not success:
@@ -100,12 +101,15 @@ async def delete_personnel(
     background_tasks.add_task(broadcast_personnel_update, {"id": str(personnel_id)}, "delete")
 
 
-@router.post("/categories/sort-order", status_code=status.HTTP_200_OK)
+# response_model=None keeps the untyped `{}` response schema this route has always published:
+# without it FastAPI would derive a response model from the new return annotation and drift
+# docs/openapi.json.
+@router.post("/categories/sort-order", response_model=None, status_code=status.HTTP_200_OK)
 async def update_role_sort_orders(
     sort_update: schemas.BulkCategorySortOrderUpdate,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Update sort orders for personnel role categories (editor only).
 

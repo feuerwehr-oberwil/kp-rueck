@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 
-async def trigger_sync_background():
+async def trigger_sync_background() -> None:
     """Trigger immediate sync in background (event-based sync).
 
     When an incident is created/updated locally, we push changes TO Railway.
@@ -75,7 +75,7 @@ async def list_incidents(
     status: str | None = None,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
-):
+) -> list[schemas.IncidentResponse]:
     """
     List incidents for a specific event.
 
@@ -95,12 +95,18 @@ async def list_incidents(
     return await incident_display.incidents_with_display(db, incidents)
 
 
-@router.get("/sync-version")
+# response_model=None keeps the untyped `{}` response schema this route has always published:
+# without it FastAPI would derive a response model from the new return annotation and drift
+# docs/openapi.json.
+@router.get("/sync-version", response_model=None)
 async def get_sync_version(
     event_id: str = Query(...),
-    current_user: CurrentUser = None,
+    # The `= None` default is dead: the Annotated `Depends` in CurrentUser always injects a
+    # User. It cannot be dropped (it precedes other defaulted params) and it must NOT become
+    # `CurrentUser | None` — FastAPI stops seeing the Depends inside a Union and fails at import.
+    current_user: CurrentUser = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, str]:
     """Return a quick hash of the current state for change detection.
 
     Lightweight endpoint that returns a version string based on incident count
@@ -186,7 +192,7 @@ async def get_incident(
     incident_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> schemas.IncidentResponse:
     """Get incident by ID."""
     incident = await crud.get_incident(db, incident_id)
     if not incident:
@@ -201,7 +207,7 @@ async def create_incident(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.IncidentResponse:
     """
     Create new incident (editor only).
 
@@ -257,7 +263,7 @@ async def update_incident(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
     expected_updated_at: datetime | None = None,
-):
+) -> schemas.IncidentResponse:
     """
     Update incident (editor only).
 
@@ -302,7 +308,7 @@ async def reorder_incidents(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """Persist the manual top-to-bottom card order for a status column (editor only).
 
     `ordered_ids` lists the column's cards in their new order; each card's
@@ -330,7 +336,7 @@ async def update_status(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.IncidentResponse:
     """
     Update incident status (Kanban drag-and-drop).
 
@@ -368,7 +374,7 @@ async def get_status_history(
     incident_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> list[models.StatusTransition]:
     """Get status transition history for incident."""
     return await crud.get_incident_status_history(db, incident_id)
 
@@ -378,7 +384,7 @@ async def get_incident_timeline(
     incident_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> schemas.IncidentTimelineResponse:
     """Get the merged event timeline for an incident.
 
     Combines status transitions and resource assignments (assign + unassign)
@@ -486,7 +492,7 @@ async def get_incident_timeline(
     # is treated as one event. Covers cascading unassigns on completion plus
     # bursty re-clicks. Real re-assignments minutes apart are kept.
     dedup_window_seconds = 10
-    last_seen: dict[tuple, datetime] = {}
+    last_seen: dict[tuple[str, str | None, str | None, str | None, str | None, str | None], datetime] = {}
     deduped: list[schemas.IncidentTimelineEvent] = []
     for event in events:
         payload_key = (
@@ -516,7 +522,7 @@ async def delete_incident(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """Delete incident (hard delete for training, soft delete for live)."""
     success = await crud.delete_incident(
         db=db,
@@ -539,7 +545,7 @@ async def restore_incident(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.IncidentResponse:
     """Restore a soft-deleted incident (editor only).
 
     Powers the "Rückgängig" undo affordance. Idempotency guard: restoring an
@@ -586,7 +592,7 @@ async def transfer_assignments(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.TransferAssignmentsResponse:
     """
     Transfer all active assignments from this incident to another incident (editor only).
 
@@ -620,7 +626,7 @@ async def transfer_assignments(
             raise HTTPException(status_code=400, detail=msg) from e
 
     # Get event_id for WebSocket broadcast
-    incident_result = await db.execute(select(crud.Incident).where(crud.Incident.id == incident_id))
+    incident_result = await db.execute(select(models.Incident).where(models.Incident.id == incident_id))
     incident = incident_result.scalar_one()
     event_id = incident.event_id
 

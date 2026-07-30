@@ -25,7 +25,7 @@ async def list_events(
     include_archived: bool = False,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
-):
+) -> schemas.EventListResponse:
     """
     List all events (excluding archived by default).
 
@@ -64,7 +64,7 @@ async def get_event(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> schemas.EventResponse:
     """Get a single event by ID."""
     event = await crud.get_event_by_id(db, event_id)
     if not event:
@@ -91,7 +91,7 @@ async def create_event(
     event_data: schemas.EventCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,  # Only editors can create
-):
+) -> schemas.EventResponse:
     """Create a new event (editor only)."""
     event = await crud.create_event(db, event_data)
 
@@ -116,7 +116,7 @@ async def update_event(
     event_data: schemas.EventUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.EventResponse:
     """Update an event (editor only)."""
     event = await crud.update_event(db, event_id, event_data)
     if not event:
@@ -143,7 +143,7 @@ async def archive_event(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.EventResponse:
     """Archive an event (soft delete, editor only)."""
     event = await crud.archive_event(db, event_id)
     if not event:
@@ -170,7 +170,7 @@ async def unarchive_event(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.EventResponse:
     """Unarchive an event (restore from archive, editor only)."""
     event = await crud.unarchive_event(db, event_id)
     if not event:
@@ -197,7 +197,7 @@ async def delete_event(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """
     Permanently delete an event (editor only).
 

@@ -2,6 +2,8 @@
 
 import logging
 import uuid
+from collections.abc import Sequence
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -24,7 +26,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def list_users(
     current_user: CurrentAdmin,
     db: AsyncSession = Depends(get_db),
-):
+) -> Sequence[User]:
     """
     List all users (admin only).
 
@@ -40,7 +42,7 @@ async def get_user(
     user_id: uuid.UUID,
     current_user: CurrentAdmin,
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     """
     Get a specific user by ID (admin only).
     """
@@ -59,7 +61,7 @@ async def create_user(
     current_user: CurrentAdmin,
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     """
     Create a new user (admin only).
 
@@ -116,7 +118,7 @@ async def update_user(
     current_user: CurrentAdmin,
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     """
     Update a user (admin only).
 
@@ -156,7 +158,7 @@ async def update_user(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ungültige Rolle. Erlaubt: admin, editor")
 
     # Track changes for audit log
-    changes = {}
+    changes: dict[str, dict[str, Any]] = {}
     update_data = user_data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         old_value = getattr(user, key)
@@ -188,7 +190,7 @@ async def reset_user_password(
     current_user: CurrentAdmin,
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     """
     Reset a user's password (admin only).
 
@@ -230,7 +232,7 @@ async def delete_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
     permanent: bool = False,
-):
+) -> None:
     """
     Deactivate or permanently delete a user (admin only).
 

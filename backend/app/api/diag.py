@@ -20,6 +20,7 @@ becomes a source of errors is worse than no sink.
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -134,7 +135,7 @@ async def submit_problem_report(
     request: Request,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """Queue a manual problem report. Pressing send IS the consent — see telemetry/consent.py.
 
     Returns the sanitised payload so the UI can show, after the fact, exactly what was queued.
@@ -174,7 +175,7 @@ class ConsentUpdate(BaseModel):
 
 
 @router.get("/telemetry")
-async def telemetry_status(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+async def telemetry_status(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Everything the admin screen needs to answer "what is this instance sending".
 
     Includes the last few payloads verbatim. The queue is the honest answer to that question
@@ -213,7 +214,9 @@ async def telemetry_status(current_user: CurrentAdmin, db: AsyncSession = Depend
 
 
 @router.put("/telemetry/consent")
-async def update_consent(body: ConsentUpdate, current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+async def update_consent(
+    body: ConsentUpdate, current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
     """Turn the background channel on or off. Off also discards whatever is still queued."""
     try:
         value = await consent_mod.set_consent(db, body.consent)
@@ -227,7 +230,7 @@ async def update_consent(body: ConsentUpdate, current_user: CurrentAdmin, db: As
 
 
 @router.post("/telemetry/install-id")
-async def rotate_install_id(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+async def rotate_install_id(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Mint a fresh install id, cutting the link to everything sent so far."""
     new_id = await consent_mod.regenerate_install_id(db)
     await db.commit()

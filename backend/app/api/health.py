@@ -3,10 +3,12 @@
 import logging
 import secrets
 from datetime import datetime
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.pool import QueuePool
 
 from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
@@ -23,10 +25,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
 
-def _get_pool_stats(eng) -> dict:
+def _get_pool_stats(eng: AsyncEngine) -> dict[str, Any]:
     """Get connection pool statistics for an engine."""
     try:
-        pool = eng.pool
+        # SQLAlchemy types ``.pool`` as the base ``Pool``; size/checkedin/checkedout/
+        # overflow only exist on QueuePool, which is what both engines get (they are
+        # created with pool_size/max_overflow). The except below is the safety net.
+        pool = cast(QueuePool, eng.pool)
         return {
             "size": pool.size(),
             "checked_in": pool.checkedin(),
@@ -37,8 +42,8 @@ def _get_pool_stats(eng) -> dict:
         return {"error": "unable to retrieve pool stats"}
 
 
-@router.get("/health")
-async def health_check(db: AsyncSession = Depends(get_db)):
+@router.get("/health", response_model=None)
+async def health_check(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     """
     Simple health check endpoint for load balancers.
 
@@ -59,8 +64,8 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         ) from None
 
 
-@router.get("/health/detailed")
-async def detailed_health_check(db: AsyncSession = Depends(get_db)):
+@router.get("/health/detailed", response_model=None)
+async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """
     Detailed health check with component status.
 
@@ -69,7 +74,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
     """
     if settings.is_production:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    health_status = {
+    health_status: dict[str, Any] = {
         "status": "healthy",
         "components": {},
     }
@@ -155,8 +160,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)):
     return health_status
 
 
-@router.get("/api/demo/status")
-async def demo_status():
+@router.get("/api/demo/status", response_model=None)
+async def demo_status() -> dict[str, Any]:
     """
     Get demo mode status and next reset time.
 
@@ -180,13 +185,13 @@ async def demo_status():
     }
 
 
-@router.post("/api/demo/sandbox")
+@router.post("/api/demo/sandbox", response_model=None)
 @limiter.limit(RateLimits.DEMO_SANDBOX)
 async def create_demo_sandbox(
     request: Request,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Create a fresh per-visitor sandbox event with the demo scenario.
 
     Each demo visitor gets their own board so simultaneous visitors don't
@@ -204,12 +209,12 @@ async def create_demo_sandbox(
 
     sandbox_filter = Event.name.startswith(DEMO_SANDBOX_PREFIX) & Event.archived_at.is_(None)
 
-    result = await db.execute(select(func.count(Event.id)).where(sandbox_filter))
-    sandbox_count = result.scalar() or 0
+    count_result = await db.execute(select(func.count(Event.id)).where(sandbox_filter))
+    sandbox_count = count_result.scalar() or 0
 
     if sandbox_count >= DEMO_SANDBOX_MAX:
-        result = await db.execute(select(Event).where(sandbox_filter).order_by(Event.created_at).limit(1))
-        oldest = result.scalar_one()
+        oldest_result = await db.execute(select(Event).where(sandbox_filter).order_by(Event.created_at).limit(1))
+        oldest = oldest_result.scalar_one()
         return {"event_id": str(oldest.id), "name": oldest.name, "reused": True}
 
     from ..seed_demo import seed_demo_event_content
@@ -226,9 +231,9 @@ async def create_demo_sandbox(
     return {"event_id": str(event.id), "name": event.name, "reused": False}
 
 
-@router.post("/api/demo/reset")
+@router.post("/api/demo/reset", response_model=None)
 @limiter.limit(RateLimits.DEMO_RESET)
-async def demo_reset(request: Request, current_user: CurrentAdmin):
+async def demo_reset(request: Request, current_user: CurrentAdmin) -> dict[str, str]:
     """Manually trigger a demo reset. Only available in demo mode, admin only.
 
     Requires admin auth: every demo visitor shares the demo-editor account, so

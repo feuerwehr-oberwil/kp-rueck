@@ -4,7 +4,7 @@ import asyncio
 import logging
 import random
 from datetime import UTC, datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -63,6 +63,11 @@ from ..websocket_manager import (
     broadcast_vehicle_update,
 )
 
+if TYPE_CHECKING:
+    # Imported lazily at runtime inside the endpoints below (circular import), so the
+    # annotation-only reference lives here.
+    from ..services.gps_simulation import SimulatedDrive
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/training", tags=["training"])
@@ -92,7 +97,7 @@ async def generate_emergencies(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> list[IncidentResponse]:
     """
     Manually generate training emergencies.
 
@@ -124,9 +129,13 @@ async def generate_emergencies(
     # Generate emergencies. If the training template/location pool was never seeded
     # the generator raises ValueError — surface that as a clean 503 (with CORS headers,
     # so the browser shows the message instead of an opaque NetworkError) rather than a 500.
+    # The request schema types `category` as a plain `str | None` (API contract), the
+    # generator wants the Literal — the check above is what makes them the same thing.
+    category = cast(Literal["normal", "critical"] | None, request.category)
+
     try:
         incidents = await generate_training_emergency(
-            db, event_id, category=request.category, count=request.count, source=request.source
+            db, event_id, category=category, count=request.count, source=request.source
         )
     except ValueError as exc:
         raise HTTPException(
@@ -152,7 +161,7 @@ async def manual_dispatch(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> IncidentResponse:
     """Trainer-driven dispatch: place a specific template at a specific location.
 
     Unlike `/generate/` (random template, random location), the trainer picks
@@ -195,7 +204,9 @@ async def manual_dispatch(
 
 
 @router.get("/templates/", response_model=list[EmergencyTemplateResponse])
-async def list_templates(current_user: CurrentUser, category: str | None = None, db: AsyncSession = Depends(get_db)):
+async def list_templates(
+    current_user: CurrentUser, category: str | None = None, db: AsyncSession = Depends(get_db)
+) -> list[EmergencyTemplateResponse]:
     """List all emergency templates, optionally filtered by category."""
     query = select(EmergencyTemplate).where(EmergencyTemplate.is_active)
 
@@ -213,7 +224,9 @@ async def list_templates(current_user: CurrentUser, category: str | None = None,
 
 
 @router.get("/locations/", response_model=list[TrainingLocationResponse])
-async def list_locations(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+async def list_locations(
+    current_user: CurrentUser, db: AsyncSession = Depends(get_db)
+) -> list[TrainingLocationResponse]:
     """List all training locations."""
     result = await db.execute(select(TrainingLocation).where(TrainingLocation.is_active))
     locations = result.scalars().all()
@@ -229,10 +242,10 @@ async def list_locations(current_user: CurrentUser, db: AsyncSession = Depends(g
 # One trickle task per event at most; module-level so requests share the guard
 # and the task isn't garbage-collected mid-run. In-memory only — a backend
 # restart drops pending trickles, which is fine for an exercise aid.
-_trickle_tasks: dict[UUID, asyncio.Task] = {}
+_trickle_tasks: dict[UUID, asyncio.Task[None]] = {}
 
 
-async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], window_seconds: float):
+async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], window_seconds: float) -> None:
     """Check `people` in one by one at random offsets across the window."""
     offsets = sorted(random.uniform(window_seconds * 0.05, window_seconds) for _ in people)
     elapsed = 0.0
@@ -255,7 +268,7 @@ async def simulate_checkin(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> SimulateCheckinResponse:
     """
     Simulate personnel check-in for a training event.
 
@@ -330,7 +343,7 @@ async def simulate_field_complete(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> IncidentResponse:
     """Field crew reports the incident finished ("Einsatz beendet").
 
     Informational only: stamps ``field_complete_reported_at`` so the operator
@@ -366,7 +379,7 @@ async def simulate_reko_arrived(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> IncidentResponse:
     """Mark the Reko crew as "vor Ort" (arrived on scene) for a training incident.
 
     This is the first half of the Reko arc — it sets ``arrived_at`` without
@@ -406,7 +419,7 @@ async def simulate_reko(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> RekoReportResponse:
     """
     Simulate a reko report submission for a training incident.
 
@@ -495,7 +508,7 @@ async def simulate_divera_alarm(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> DiveraEmergencyResponse:
     """Inject a simulated Divera alarm into the emergency pool.
 
     Trainees then run the real alarm-intake workflow: alert sound and toast on
@@ -508,7 +521,9 @@ async def simulate_divera_alarm(
     if request.category and request.category not in ["normal", "critical"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category must be 'normal' or 'critical'")
 
-    emergency = await generate_training_divera_emergency(db, event_id, category=request.category)
+    # Same Literal-vs-str gap as in `generate_emergencies`: the check above is the guarantee.
+    category = cast(Literal["normal", "critical"] | None, request.category)
+    emergency = await generate_training_divera_emergency(db, event_id, category=category)
 
     response = DiveraEmergencyResponse.model_validate(emergency)
     background_tasks.add_task(broadcast_emergency_received, response.model_dump(mode="json"))
@@ -522,7 +537,7 @@ async def simulate_escalation(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> IncidentResponse:
     """Inject "Lage verschärft sich": the field reports a worsening situation.
 
     Bumps the incident to high priority, appends the Lagemeldung to the
@@ -566,7 +581,7 @@ async def simulate_reinforcement_request(
     incident_id: UUID,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> SimulateInjectResponse:
     """Inject "Feld fordert Verstärkung": the crew on scene asks for more.
 
     Notification only — what (and whether) to send is the trainee's decision
@@ -608,7 +623,7 @@ async def simulate_vehicle_breakdown(
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-):
+) -> SimulateVehicleBreakdownResponse:
     """Inject "Fahrzeug fällt aus": a random assigned vehicle becomes unavailable.
 
     Stops the vehicle's simulated GPS drive (if any) and raises a critical
@@ -705,7 +720,7 @@ class GpsSimDriveResponse(BaseModel):
     started_at: datetime
 
 
-def _drive_response(drive, now: datetime) -> GpsSimDriveResponse:
+def _drive_response(drive: "SimulatedDrive", now: datetime) -> GpsSimDriveResponse:
     return GpsSimDriveResponse(
         vehicle_id=drive.vehicle_id,
         vehicle_name=drive.vehicle_name,
@@ -719,7 +734,7 @@ def _drive_response(drive, now: datetime) -> GpsSimDriveResponse:
 
 
 @router.get("/gps-sim/", response_model=list[GpsSimDriveResponse])
-async def list_gps_simulations(current_user: CurrentUser):
+async def list_gps_simulations(current_user: CurrentUser) -> list[GpsSimDriveResponse]:
     """List active simulated drives."""
     from ..services.gps_simulation import gps_simulation
 
@@ -732,7 +747,7 @@ async def start_gps_simulation(
     request: GpsSimStartRequest,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> GpsSimDriveResponse:
     """Start a simulated GPS drive for a vehicle (training use).
 
     The simulated positions feed the exact same pipeline as real Traccar data,
@@ -853,7 +868,7 @@ async def set_gps_simulation_speed(
     request: GpsSimSpeedRequest,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> GpsSimDriveResponse:
     """Change the cruise speed of a vehicle's active simulated drive."""
     from ..services.gps_simulation import gps_simulation
 
@@ -867,12 +882,12 @@ async def set_gps_simulation_speed(
     return _drive_response(drive, datetime.now(UTC))
 
 
-@router.post("/gps-sim/stop")
+@router.post("/gps-sim/stop", response_model=None)
 async def stop_gps_simulation(
     request: GpsSimStopRequest,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, int]:
     """Stop one vehicle's simulated drive, or all of them."""
     from ..services.gps_simulation import gps_simulation
 
