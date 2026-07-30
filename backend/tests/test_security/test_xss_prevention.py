@@ -172,7 +172,7 @@ async def test_personnel_name_xss_stored_safely(editor_client: AsyncClient, payl
     """Test that XSS payloads in personnel name are stored as literal text."""
     personnel_data = {
         "name": payload,
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
 
@@ -193,7 +193,7 @@ async def test_personnel_role_xss_stored_safely(editor_client: AsyncClient, payl
     personnel_data = {
         "name": "XSS Test Person",
         "role": payload,
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
 

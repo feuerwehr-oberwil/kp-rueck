@@ -45,7 +45,7 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken, isNameTaken }: 
     try {
       const newPerson: ApiPersonnelCreate = {
         name: newPersonName.trim(),
-        availability: 'available',
+        status: 'available',
       }
       const createdPerson = await apiClient.createPersonnel(newPerson)
 

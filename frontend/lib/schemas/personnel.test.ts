@@ -9,7 +9,7 @@ describe("personnelFormSchema", () => {
     const result = personnelFormSchema.safeParse({
       name: "Müller Stefan",
       role: "Offizier",
-      availability: "available",
+      status: "available",
       tags: [],
     });
     expect(result.success).toBe(true);
@@ -19,7 +19,7 @@ describe("personnelFormSchema", () => {
     const result = personnelFormSchema.safeParse({
       name: "Müller Stefan",
       role: "Offizier",
-      availability: "available",
+      status: "available",
       tags: ["Atemschutz", "Maschinist"],
     });
     expect(result.success).toBe(true);
@@ -49,12 +49,12 @@ describe("personnelFormSchema", () => {
     }
   });
 
-  it("rejects unknown availability values", () => {
+  it("rejects unknown status values", () => {
     const result = personnelFormSchema.safeParse({
       ...personnelFormDefaults,
       name: "Müller Stefan",
       role: "Offizier",
-      availability: "checked_in",
+      status: "checked_in",
     });
     expect(result.success).toBe(false);
   });

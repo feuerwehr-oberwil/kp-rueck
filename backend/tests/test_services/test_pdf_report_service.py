@@ -85,7 +85,7 @@ class TestGoldenContent:
     """Full report with incident, assignments, transition, reko report."""
 
     def test_golden_report_contains_expected_text(self, simple_event: Event, simple_incident: Incident):
-        personnel = Personnel(id=uuid4(), name="Max Mustermann", role="Gruppenführer", availability="available")
+        personnel = Personnel(id=uuid4(), name="Max Mustermann", role="Gruppenführer", status="available")
         vehicle = Vehicle(id=uuid4(), name="TLF 1", type="TLF", status="available", radio_call_sign="Florian-1")
         pers_assignment = IncidentAssignment(
             id=uuid4(),
@@ -491,7 +491,7 @@ class TestReactionTimes:
 def _journal_fixture_data(simple_event: Event, simple_incident: Incident) -> EventReportData:
     """Event with a full mix of journal sources, deliberately out of order."""
     user = User(id=uuid4(), username="disponent1", display_name="Dispo Eins", password_hash="x", role="editor")
-    personnel = Personnel(id=uuid4(), name="Max Mustermann", role="Gruppenführer", availability="available")
+    personnel = Personnel(id=uuid4(), name="Max Mustermann", role="Gruppenführer", status="available")
     vehicle = Vehicle(id=uuid4(), name="TLF 1", type="TLF", status="available", radio_call_sign="Florian-1")
 
     assignment = IncidentAssignment(

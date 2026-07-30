@@ -270,7 +270,7 @@ async def simulate_checkin(
 
     # Get available personnel
     all_personnel = await db.execute(
-        select(Personnel).where(Personnel.availability != "unavailable").order_by(Personnel.name.asc())
+        select(Personnel).where(Personnel.status != "unavailable").order_by(Personnel.name.asc())
     )
     personnel_list = list(all_personnel.scalars().all())
 

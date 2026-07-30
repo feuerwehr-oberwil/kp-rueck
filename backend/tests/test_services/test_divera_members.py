@@ -67,7 +67,7 @@ async def test_sync_new_person_writes_identity(db_session: AsyncSession, sync_us
 @pytest.mark.asyncio
 async def test_sync_backfills_identity_for_existing_match(db_session: AsyncSession, sync_user: User, mock_request):
     """An existing person without a link gets an identity row on sync."""
-    person = Personnel(id=uuid4(), name="Bestand Person", availability="available")
+    person = Personnel(id=uuid4(), name="Bestand Person", status="available")
     db_session.add(person)
     await db_session.commit()
     await db_session.refresh(person)
@@ -96,7 +96,7 @@ async def test_sync_backfills_identity_for_existing_match(db_session: AsyncSessi
 @pytest.mark.asyncio
 async def test_sync_updates_identity_when_divera_id_changes(db_session: AsyncSession, sync_user: User, mock_request):
     """Re-linking a person to a new Divera id updates the identity row (upsert)."""
-    person = Personnel(id=uuid4(), name="Wechsel Person", availability="available", divera_user_id=700000)
+    person = Personnel(id=uuid4(), name="Wechsel Person", status="available", divera_user_id=700000)
     db_session.add(person)
     await db_session.commit()
     await db_session.refresh(person)

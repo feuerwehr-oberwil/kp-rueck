@@ -16,8 +16,13 @@ from ..models import Material, Personnel, Vehicle
 PERSONNEL_COLUMNS = [
     ("name", True),  # (column_name, required)
     ("role", False),
-    ("availability", False),
+    ("status", False),
 ]
+
+# The personnel column was called "availability" until the field was renamed to
+# match Vehicle.status / Material.status. Workbooks exported before that are still
+# accepted on import; only the header differs, the values never did.
+LEGACY_PERSONNEL_COLUMNS = [("availability" if name == "status" else name) for name, _ in PERSONNEL_COLUMNS]
 
 VEHICLE_COLUMNS = [
     ("name", True),
@@ -112,6 +117,8 @@ def validate_and_parse_excel(
         headers = [cell.value for cell in ws[1]]
         expected_headers = [col[0] for col in PERSONNEL_COLUMNS]
 
+        if headers == LEGACY_PERSONNEL_COLUMNS:
+            headers = expected_headers
         if headers != expected_headers:
             raise ExcelImportError(f"Personnel sheet: Expected columns {expected_headers}, got {headers}")
 
@@ -126,15 +133,15 @@ def validate_and_parse_excel(
                 raise ExcelImportError(f"Personnel row {row_idx}: 'name' is required")
 
             # Validate enum values
-            if row_data.get("availability") and row_data["availability"] not in PERSONNEL_STATUSES:
+            if row_data.get("status") and row_data["status"] not in PERSONNEL_STATUSES:
                 raise ExcelImportError(
-                    f"Personnel row {row_idx}: Invalid availability '{row_data['availability']}'. "
+                    f"Personnel row {row_idx}: Invalid status '{row_data['status']}'. "
                     f"Must be one of: {PERSONNEL_STATUSES}"
                 )
 
             # Set defaults
-            if not row_data.get("availability"):
-                row_data["availability"] = "unavailable"
+            if not row_data.get("status"):
+                row_data["status"] = "unavailable"
 
             result["personnel"].append(row_data)
 
@@ -288,7 +295,7 @@ def _build_export_workbook(personnel: list, vehicles: list, materials: list) -> 
             [
                 person.name,
                 person.role or "",
-                person.availability,
+                person.status,
             ]
         )
 

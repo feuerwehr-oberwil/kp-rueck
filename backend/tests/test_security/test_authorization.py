@@ -65,7 +65,7 @@ async def test_personnel(db_session: AsyncSession) -> Personnel:
         id=uuid4(),
         name="Auth Test Person",
         role="Gruppenführer",
-        availability="available",
+        status="available",
     )
     db_session.add(personnel)
     await db_session.commit()
@@ -290,7 +290,7 @@ async def test_viewer_cannot_create_personnel(viewer_client: AsyncClient):
     """Test that viewers cannot create personnel."""
     personnel_data = {
         "name": "Viewer Created Person",
-        "availability": "available",
+        "status": "available",
     }
     response = await viewer_client.post("/api/personnel/", json=personnel_data)
     assert response.status_code == 403
@@ -439,7 +439,7 @@ async def test_editor_can_create_personnel(editor_client: AsyncClient):
     """Test that editors can create personnel."""
     personnel_data = {
         "name": "Editor Created Person",
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
     assert response.status_code == 201

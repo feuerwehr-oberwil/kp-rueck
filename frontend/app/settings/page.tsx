@@ -1035,7 +1035,7 @@ export default function SettingsPage() {
                           <TableRow key={idx}>
                             <TableCell>{row.name}</TableCell>
                             <TableCell>{row.role || '-'}</TableCell>
-                            <TableCell>{row.availability}</TableCell>
+                            <TableCell>{row.status}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

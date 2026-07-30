@@ -718,7 +718,7 @@ async def test_personnel_for_sync(db_session: AsyncSession):
         id=uuid4(),
         name="Delta Test Person",
         role="Gruppenführer",
-        availability="available",
+        status="available",
     )
     db_session.add(personnel)
     await db_session.commit()
@@ -766,7 +766,7 @@ async def test_apply_delta_with_records(sync_admin_client: AsyncClient):
             "id": str(uuid4()),
             "name": "New Applied Personnel",
             "role": "Mannschaft",
-            "availability": "available",
+            "status": "available",
         }
     ]
 

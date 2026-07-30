@@ -70,7 +70,7 @@ async def resources(db_session: AsyncSession) -> dict:
         id=uuid4(),
         name="Hans Müller",
         role="Gruppenführer",
-        availability="available",
+        status="available",
     )
     vehicle = Vehicle(
         id=uuid4(),

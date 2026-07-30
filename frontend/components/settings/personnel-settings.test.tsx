@@ -10,7 +10,7 @@ const apiPerson = (overrides: Partial<ApiPersonnel> = {}): ApiPersonnel => ({
   name: "Müller Stefan",
   role: "Offizier",
   role_sort_order: 0,
-  availability: "available",
+  status: "available",
   tags: [],
   checked_in: true,
   checked_in_at: "2026-05-01T00:00:00Z",
@@ -75,7 +75,7 @@ describe("PersonnelSettings", () => {
       expect.objectContaining({
         name: "Müller Stefan",
         role: "Offizier",
-        availability: "available",
+        status: "available",
         tags: [],
       }),
     );

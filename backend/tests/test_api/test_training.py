@@ -720,7 +720,7 @@ async def test_simulate_checkin_trickle_schedules(
     from app.models import Personnel
 
     for i in range(3):
-        db_session.add(Personnel(id=uuid4(), name=f"AdF Trickle {i}", availability="available"))
+        db_session.add(Personnel(id=uuid4(), name=f"AdF Trickle {i}", status="available"))
     await db_session.commit()
 
     try:
