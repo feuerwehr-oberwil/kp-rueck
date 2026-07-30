@@ -24,10 +24,15 @@ class TestGetClientIdentifier:
         request = MockRequest(headers={"X-Forwarded-For": "192.168.1.100"})
         assert get_client_identifier(request) == "192.168.1.100"
 
-    def test_uses_first_ip_from_forwarded_chain(self):
-        """Should use first IP when multiple IPs in X-Forwarded-For chain."""
+    def test_uses_the_hop_our_own_proxy_appended_not_the_first(self):
+        """Should use the entry the trusted proxy added, NOT the caller-supplied first one.
+
+        This test previously asserted the opposite ("use the first IP"), which is what made
+        the throttle and the audit trail forgeable: everything left of our own proxy's entry
+        is written by whoever sent the request. See tests/test_middleware/test_client_ip.py.
+        """
         request = MockRequest(headers={"X-Forwarded-For": "192.168.1.100, 10.0.0.1, 172.16.0.1"})
-        assert get_client_identifier(request) == "192.168.1.100"
+        assert get_client_identifier(request) == "172.16.0.1"
 
     def test_strips_whitespace_from_forwarded_ip(self):
         """Should strip whitespace from extracted IP."""
