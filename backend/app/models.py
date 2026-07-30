@@ -790,8 +790,15 @@ class Setting(Base):
 
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
+    # `clock_timestamp()`, not `now()`. `now()` is CURRENT_TIMESTAMP — the *transaction start*
+    # time — so a row inserted and updated inside one transaction keeps an unchanged
+    # `updated_at`, and "did this setting change?" cannot be answered. `clock_timestamp()`
+    # reads the real clock at statement time and still comes from the DATABASE, which is the
+    # point: `updated_at` used to be stamped from Python while the insert default came from
+    # Postgres, so on a host whose clock trailed the database's, a settings change could land
+    # *before* its own creation time.
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.clock_timestamp()
     )
     updated_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
