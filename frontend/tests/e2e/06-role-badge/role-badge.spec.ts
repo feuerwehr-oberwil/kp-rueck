@@ -1,295 +1,194 @@
 import { test, expect } from '../../fixtures/auth.fixture';
+import type { Locator, Page } from '@playwright/test';
+import { dismissOverlays } from '../07-viewer-role/viewer-role.helpers';
 
 /**
  * Role Badge Tests
  * Tests the role badge component that displays Editor/Viewer status
+ * (`components/auth/role-badge.tsx`).
+ *
+ * The badge is NOT in the navigation bar. It lives in two dropdowns, both of
+ * which Radix keeps unmounted while closed:
+ *   - desktop: inside the UserMenu dropdown (`components/user-menu.tsx`)
+ *   - mobile:  inside the bottom navigation's "Mehr" sheet
+ *              (`components/mobile-bottom-navigation.tsx`)
+ * Every assertion below therefore has to open the containing menu first.
+ *
+ * These tests used to locate the badge with `[class*="badge"]`, which never
+ * matched anything at all — the shadcn Badge emits utility classes, none of
+ * which contain the string "badge". Locate it by its `data-slot="badge"`
+ * contract instead, scoped to the menu it lives in.
  */
+
+// These tests are the first thing in a run to touch /events, /settings and
+// /help, and a cold Next dev server compiles a route on first visit — which on
+// its own ate more than the 30 s default. Triple the budget rather than let a
+// compile masquerade as a missing badge. No assertion is relaxed by this.
+test.beforeEach(() => {
+  test.slow();
+});
+
+const USER_MENU_TRIGGER = 'Benutzermenü öffnen';
+const MOBILE_MORE_TRIGGER = 'Mehr Optionen';
+const MOBILE_VIEWPORT = { width: 375, height: 667 };
+
+/** Opens the desktop UserMenu dropdown and returns it. */
+async function openUserMenu(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: USER_MENU_TRIGGER }).click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+/** Opens the mobile bottom-navigation "Mehr" sheet and returns it. */
+async function openMobileMoreSheet(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: MOBILE_MORE_TRIGGER }).click();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+/**
+ * A role badge is the one badge carrying a Shield (editor) or Eye (viewer)
+ * icon — specific enough not to collide with any other badge on the page.
+ */
+const ROLE_BADGE =
+  '[data-slot="badge"]:has(svg[class*="lucide-shield"], svg[class*="lucide-eye"])';
+
+const roleBadge = (container: Locator | Page): Locator =>
+  container.locator(ROLE_BADGE);
+
+/**
+ * `/` renders an "Ereignis auswählen" empty state — with no navigation and so
+ * no user menu — until an event is picked. Pick whichever one the seed left
+ * behind; nothing here cares which. Read-only for the viewer too: the choice
+ * is client-side.
+ */
+async function selectAnyEvent(page: Page): Promise<void> {
+  await page.goto('/events');
+  await page.getByRole('button', { name: 'Auswählen' }).first().click();
+  await page.waitForURL('/');
+  // The Setup-Checkliste popover opens itself on a freshly selected event and
+  // would swallow the click on the user-menu trigger behind it.
+  await dismissOverlays(page);
+}
 
 test.describe('Role Badge - Editor', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    // Navigate to main page (login as admin/editor by default)
-    await authenticatedPage.goto('/');
-    await authenticatedPage.waitForTimeout(1000);
+    await selectAnyEvent(authenticatedPage);
   });
 
-  test('shows editor badge in navigation', async ({ authenticatedPage }) => {
-    // Verify badge is visible
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      hasText: 'Editor'
-    });
+  test('editor badge lives in the user menu, not in the navigation bar', async ({
+    authenticatedPage,
+  }) => {
+    // Radix keeps the dropdown unmounted while closed, so the badge is not in
+    // the DOM at all until the menu opens — the move this suite previously
+    // failed to notice.
+    await expect(roleBadge(authenticatedPage)).toHaveCount(0);
 
-    // Badge might be text-only on desktop, check for either text or icon
-    const hasEditorText = await badge.isVisible().catch(() => false);
-
-    // Alternative: Check for Shield icon only (mobile)
-    const shieldIcon = authenticatedPage.locator('svg[class*="lucide-shield"]');
-    const hasShieldIcon = await shieldIcon.isVisible().catch(() => false);
-
-    // Either badge text or shield icon should be visible
-    expect(hasEditorText || hasShieldIcon).toBeTruthy();
+    const menu = await openUserMenu(authenticatedPage);
+    await expect(roleBadge(menu)).toHaveText('Editor');
   });
 
   test('editor badge shows Shield icon', async ({ authenticatedPage }) => {
-    // Find badge with Editor text or Shield icon
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
+    const menu = await openUserMenu(authenticatedPage);
+    const badge = roleBadge(menu);
 
     await expect(badge).toBeVisible();
-
-    // Verify Shield icon is present
     await expect(badge.locator('svg[class*="lucide-shield"]')).toBeVisible();
+    await expect(badge.locator('svg[class*="lucide-eye"]')).toHaveCount(0);
   });
 
-  test('editor badge has correct styling', async ({ authenticatedPage }) => {
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
+  test('editor badge uses the default (primary) variant', async ({
+    authenticatedPage,
+  }) => {
+    const menu = await openUserMenu(authenticatedPage);
+    const badge = roleBadge(menu);
 
-    // Verify badge has default variant (blue/green styling)
-    const isDefaultVariant = await badge.evaluate(el =>
-      el.className.includes('badge') && !el.className.includes('secondary')
-    );
-    expect(isDefaultVariant).toBeTruthy();
-
-    // Verify badge has animation
-    const hasAnimation = await badge.evaluate(el =>
-      el.className.includes('animate-scale-in')
-    );
-    expect(hasAnimation).toBeTruthy();
-  });
-
-  test('editor badge has tooltip with superpowers message', async ({ authenticatedPage }) => {
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    // Hover over badge
-    await badge.hover();
-
-    // Wait for tooltip to appear
-    await authenticatedPage.waitForTimeout(500);
-
-    // Verify tooltip appears with superpowers message
-    const tooltip = authenticatedPage.locator('[role="tooltip"]');
-    await expect(tooltip).toBeVisible({ timeout: 3000 });
-
-    // Verify tooltip contains superpowers message
-    await expect(tooltip.filter({ hasText: 'Superkraft' })).toBeVisible();
-    await expect(tooltip.filter({ hasText: 'Erstellen und Bearbeiten' })).toBeVisible();
-  });
-
-  test('editor badge tooltip shows pro tip', async ({ authenticatedPage }) => {
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    // Hover over badge
-    await badge.hover();
-    await authenticatedPage.waitForTimeout(500);
-
-    // Verify pro tip is in tooltip
-    const tooltip = authenticatedPage.locator('[role="tooltip"]');
-    await expect(tooltip.filter({ hasText: 'Tipp:' })).toBeVisible();
-    await expect(tooltip.filter({ hasText: 'Drag & Drop' })).toBeVisible();
-  });
-
-  test('editor badge tooltip has sparkles icon', async ({ authenticatedPage }) => {
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    // Hover over badge
-    await badge.hover();
-    await authenticatedPage.waitForTimeout(500);
-
-    // Verify tooltip has sparkles icon
-    const tooltip = authenticatedPage.locator('[role="tooltip"]');
-    await expect(tooltip.locator('svg[class*="lucide-sparkles"]')).toBeVisible();
-  });
-
-  test('editor badge has cursor-help styling', async ({ authenticatedPage }) => {
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    // Verify cursor-help class is present
-    const hasCursorHelp = await badge.evaluate(el =>
-      el.className.includes('cursor-help')
-    );
-    expect(hasCursorHelp).toBeTruthy();
-  });
-
-  test('editor badge has hover scale effect', async ({ authenticatedPage }) => {
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    // Verify hover scale class is present
-    const hasHoverScale = await badge.evaluate(el =>
-      el.className.includes('hover:scale-105')
-    );
-    expect(hasHoverScale).toBeTruthy();
+    // Editor = <Badge variant="default">, viewer = variant="secondary".
+    // The variant is what carries the "you may change things" signal.
+    await expect(badge).toHaveClass(/bg-primary/);
+    await expect(badge).not.toHaveClass(/bg-secondary/);
   });
 });
 
 test.describe('Role Badge - Editor on Multiple Pages', () => {
-  test('editor badge is visible on events page', async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/events');
-    await authenticatedPage.waitForTimeout(1000);
+  // `/resources` used to be in this list; it is a redirect stub to
+  // /settings?section=personnel, so it only ever tested /settings by accident.
+  for (const path of ['/', '/events', '/settings']) {
+    test(`editor badge is reachable on ${path}`, async ({ authenticatedPage }) => {
+      await selectAnyEvent(authenticatedPage);
+      await authenticatedPage.goto(path);
 
-    // Verify badge is visible
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    await expect(badge).toBeVisible();
-  });
-
-  test('editor badge is visible on main page', async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Verify badge is visible
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    await expect(badge).toBeVisible();
-  });
-
-  test('editor badge is visible on resources page', async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/resources');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Verify badge is visible (or page doesn't exist yet)
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    const isVisible = await badge.isVisible().catch(() => false);
-    // Page might not exist, so we just check if badge appears when page exists
-    if (await authenticatedPage.locator('nav').isVisible()) {
-      expect(isVisible).toBeTruthy();
-    }
-  });
+      const menu = await openUserMenu(authenticatedPage);
+      await expect(roleBadge(menu)).toHaveText('Editor');
+    });
+  }
 });
 
 test.describe('Role Badge - Mobile Behavior', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    // Set mobile viewport
-    await authenticatedPage.setViewportSize({ width: 375, height: 667 });
-    await authenticatedPage.goto('/');
-    await authenticatedPage.waitForTimeout(1000);
+    await authenticatedPage.setViewportSize(MOBILE_VIEWPORT);
+    await selectAnyEvent(authenticatedPage);
   });
 
-  test('editor badge shows icon-only on mobile', async ({ authenticatedPage }) => {
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
+  test('editor badge shows icon-only in the mobile "Mehr" sheet', async ({
+    authenticatedPage,
+  }) => {
+    // The desktop nav (and with it the UserMenu) is `hidden md:flex`, so on a
+    // phone the badge is only reachable through the bottom navigation.
+    await expect(
+      authenticatedPage.getByRole('button', { name: USER_MENU_TRIGGER }),
+    ).toBeHidden();
+
+    const sheet = await openMobileMoreSheet(authenticatedPage);
+    const badge = roleBadge(sheet);
 
     await expect(badge).toBeVisible();
-
-    // Verify icon is visible
     await expect(badge.locator('svg[class*="lucide-shield"]')).toBeVisible();
 
-    // Verify text is hidden on mobile (has sm:inline-block class)
-    const roleText = badge.locator('span:has-text("Editor")');
-    if (await roleText.isVisible()) {
-      const isHiddenOnMobile = await roleText.evaluate(el =>
-        el.className.includes('hidden') && el.className.includes('sm:inline-block')
-      );
-      expect(isHiddenOnMobile).toBeTruthy();
-    }
-  });
-
-  test('editor badge tooltip still works on mobile', async ({ authenticatedPage }) => {
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    // Tap badge (mobile interaction)
-    await badge.tap();
-    await authenticatedPage.waitForTimeout(500);
-
-    // On mobile, tooltips might not show on tap, which is okay
-    // We just verify the badge exists and is tappable
-    expect(await badge.isVisible()).toBeTruthy();
+    // The label is `hidden sm:inline-block`: below 640px only the icon shows.
+    await expect(badge.getByText('Editor')).toBeHidden();
   });
 });
 
-// Note: Viewer role tests require a viewer user account
-// These tests are placeholders and will need actual viewer credentials
-
-test.describe('Role Badge - Viewer (Placeholder)', () => {
-  test.skip('shows viewer badge with Eye icon', async () => {
-    // This test requires viewer credentials
-    // Skipped until viewer test account is available
+/**
+ * Viewers are bounced to /display/board by `ProtectedRoute`, and the display
+ * pages carry no UserMenu — so the badge's viewer branch is only reachable on
+ * `/help`, the one nav-bearing page that is not behind ProtectedRoute.
+ */
+test.describe('Role Badge - Viewer', () => {
+  test.beforeEach(async ({ viewerPage }) => {
+    await viewerPage.goto('/help');
   });
 
-  test.skip('viewer badge has secondary styling', async () => {
-    // This test requires viewer credentials
-    // Skipped until viewer test account is available
+  test('shows viewer badge with Eye icon', async ({ viewerPage }) => {
+    const menu = await openUserMenu(viewerPage);
+    const badge = roleBadge(menu);
+
+    await expect(badge).toHaveText('Viewer');
+    await expect(badge.locator('svg[class*="lucide-eye"]')).toBeVisible();
+    await expect(badge.locator('svg[class*="lucide-shield"]')).toHaveCount(0);
   });
 
-  test.skip('viewer badge shows supportive tooltip', async () => {
-    // This test requires viewer credentials
-    // Skipped until viewer test account is available
+  test('viewer badge uses the secondary variant', async ({ viewerPage }) => {
+    const menu = await openUserMenu(viewerPage);
+    const badge = roleBadge(menu);
+
+    await expect(badge).toHaveClass(/bg-secondary/);
+    await expect(badge).not.toHaveClass(/bg-primary/);
   });
 });
 
 test.describe('Role Badge - Unauthenticated User', () => {
   test('badge does not show when not logged in', async ({ page }) => {
-    // Navigate to login page (not authenticated)
-    await page.goto('http://localhost:3000/login');
-    await page.waitForTimeout(1000);
+    await page.goto('/login');
 
-    // Verify badge is NOT visible
-    const badge = page.locator('[class*="badge"]').filter({
-      has: page.locator('svg[class*="lucide-shield"], svg[class*="lucide-eye"]')
-    }).first();
-
-    const isVisible = await badge.isVisible().catch(() => false);
-    expect(isVisible).toBeFalsy();
-  });
-});
-
-test.describe('Role Badge - Accessibility', () => {
-  test('badge has proper tooltip trigger', async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Find badge
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"]')
-    }).first();
-
-    // Badge should be accessible
-    await expect(badge).toBeVisible();
-  });
-
-  test('badge text is readable', async ({ authenticatedPage }) => {
-    await authenticatedPage.goto('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Find badge with Editor text
-    const badge = authenticatedPage.locator('[class*="badge"]').filter({
-      hasText: 'Editor'
-    });
-
-    // If badge text is visible, verify it's readable
-    const isVisible = await badge.isVisible().catch(() => false);
-    if (isVisible) {
-      const textContent = await badge.textContent();
-      expect(textContent).toContain('Editor');
-    }
+    // No user, no badge — RoleBadge returns null. And nothing on the login
+    // page opens a menu that could contain one.
+    await expect(roleBadge(page)).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: USER_MENU_TRIGGER }),
+    ).toHaveCount(0);
   });
 });
