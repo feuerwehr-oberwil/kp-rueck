@@ -4,12 +4,12 @@ Runs once per Traccar poll tick (invoked from ``traccar_poller``) and implements
 two rules, both opt-in behind ``gps.automation_enabled`` (default OFF):
 
 - **Rule A — Arrival:** when an assigned vehicle's GPS device is confirmed at the
-  incident location, advance the incident ``disponiert → einsatz``. By DEFAULT this only
+  incident location, advance the incident ``enroute → active``. By DEFAULT this only
   PROMPTS the operator to confirm (``gps_arrival_prompt``); silent auto-advance is an
   explicit opt-in via ``gps.rule_arrival_silent``. The anti-jitter guards are hard either
   way: ``N`` consecutive FRESH fixes spanning ``>= gps.min_dwell_seconds``, speed gate,
   stale/404 fixes are ignored and RESET the debounce counter, only from status exactly
-  ``disponiert``, one-shot per incident, fully reversible (an operator can drag it back).
+  ``enroute``, one-shot per incident, fully reversible (an operator can drag it back).
 
 - **Rule B — Return to magazin (CONFIRM-release):** when an assigned vehicle's device
   enters the magazin geofence (confirmed with the same guards), PROMPT the operator
@@ -135,7 +135,7 @@ class _AutomationState:
         """Drop debounce entries whose target is no longer relevant.
 
         Clearing the entry also clears the one-shot ``fired`` latch, which is correct:
-        once an incident leaves ``disponiert`` (Rule A) or an assignment is released
+        once an incident leaves ``enroute`` (Rule A) or an assignment is released
         (Rule B), the target is gone and a brand-new one may legitimately fire later.
         """
         for key in list(self.arrival.keys()):
@@ -302,7 +302,7 @@ def _suppressed_arrival_keys(
     for t in targets:
         if (
             not cfg.rule_arrival_enabled
-            or t["incident_status"] != "disponiert"
+            or t["incident_status"] != "enroute"
             or t["incident_lat"] is None
             or t["incident_lng"] is None
         ):
@@ -331,7 +331,7 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
     """Expand active route-level (Auftrag) vehicle assignments into arrival targets.
 
     A vehicle assigned to an Auftrag covers every stop of that Auftrag. Each such
-    assignment expands into one target per active, located, ``disponiert`` stop of
+    assignment expands into one target per active, located, ``enroute`` stop of
     the group, so the route vehicle advances each stop it physically reaches. The
     target dict matches the per-incident shape but is flagged ``is_group=True`` so
     return prompts point at the Auftrag unassign endpoint. Training events are
@@ -360,7 +360,7 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict]:
 
     group_ids = {row[3] for row in group_rows}
 
-    # All active stops are needed: disponiert stops feed arrival; one representative
+    # All active stops are needed: enroute stops feed arrival; one representative
     # stop per assignment supplies context for the route-level return prompt.
     stops_result = await db.execute(
         select(
@@ -491,10 +491,10 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
         for t in targets:
             vp = position_by_name.get(t["vehicle_name"].lower())
 
-            # ---- Rule A: arrival -> disponiert -> einsatz (silent) ----
+            # ---- Rule A: arrival -> enroute -> active (silent) ----
             if (
                 cfg.rule_arrival_enabled
-                and t["incident_status"] == "disponiert"
+                and t["incident_status"] == "enroute"
                 and t["incident_lat"] is not None
                 and t["incident_lng"] is not None
             ):
@@ -529,7 +529,7 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list) -> None
                 and t.get("return_eligible", True)
                 and cfg.station_lat is not None
                 and cfg.station_lng is not None
-                and t["incident_status"] != "abschluss"
+                and t["incident_status"] != "complete"
             ):
                 r_key = t["assignment_id"]
                 return_keys.add(r_key)
@@ -676,7 +676,7 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
 
 
 async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: str, actor: User) -> None:
-    """Silently advance the incident disponiert -> einsatz via the normal CRUD path."""
+    """Silently advance the incident enroute -> active via the normal CRUD path."""
     logger.info(
         "GPS automation: auto-advancing incident %s to einsatz (vehicle %s at location)",
         incident_id,
@@ -686,12 +686,12 @@ async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: 
     await incidents_crud.update_incident_status(
         db=db,
         incident_id=incident_id,
-        new_status="einsatz",
+        new_status="active",
         current_user=actor,
         request=None,
         notes=ARRIVAL_NOTE,
     )
-    await broadcast_incident_update({"id": str(incident_id), "status": "einsatz"}, "update")
+    await broadcast_incident_update({"id": str(incident_id), "status": "active"}, "update")
 
 
 async def _fire_arrival_prompt(

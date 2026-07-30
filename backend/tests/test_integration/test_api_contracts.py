@@ -46,7 +46,7 @@ async def test_incident(db_session: AsyncSession, test_event: Event, test_editor
         title="Contract Test Incident",
         type="brandbekaempfung",
         priority="high",
-        status="eingegangen",
+        status="incoming",
         location_address="Hauptstrasse 123, Basel",
         location_lat=Decimal("47.5596"),
         location_lng=Decimal("7.5886"),
@@ -299,7 +299,7 @@ async def test_incident_enum_values(editor_client: AsyncClient, test_event: Even
 async def test_incident_status_response_contract(editor_client: AsyncClient, test_incident: Incident):
     """Test that status update response matches schema."""
     status_data = {
-        "from_status": "eingegangen",
+        "from_status": "incoming",
         "to_status": "reko",
         "notes": "Sending reko team",
     }
@@ -318,7 +318,7 @@ async def test_incident_status_response_contract(editor_client: AsyncClient, tes
 async def test_status_history_response_contract(editor_client: AsyncClient, test_incident: Incident):
     """Test that status history response matches schema."""
     # First make a status transition
-    status_data = {"from_status": "eingegangen", "to_status": "reko"}
+    status_data = {"from_status": "incoming", "to_status": "reko"}
     await editor_client.post(f"/api/incidents/{test_incident.id}/status", json=status_data)
 
     # Get history

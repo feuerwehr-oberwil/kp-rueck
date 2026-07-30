@@ -43,7 +43,7 @@ async def get_event_stats(
 
     # Count incidents by status
     status_counts = {}
-    incident_statuses = ["eingegangen", "reko", "reko_done", "disponiert", "einsatz", "einsatz_beendet", "abschluss"]
+    incident_statuses = ["incoming", "reko", "reko_done", "enroute", "active", "returning", "complete"]
     for status_value in incident_statuses:
         count = sum(1 for i in incidents if i.status == status_value)
         status_counts[status_value] = count

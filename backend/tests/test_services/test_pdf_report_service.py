@@ -63,7 +63,7 @@ def simple_incident(simple_event: Event) -> Incident:
         title="Wohnungsbrand Hauptstrasse",
         type="brandbekaempfung",
         priority="high",
-        status="einsatz_beendet",
+        status="returning",
         location_address="Hauptstrasse 123, Basel",
         description="Brand in Mehrfamilienhaus mit Rauchentwicklung.",
         contact="Meldung via 118",
@@ -105,8 +105,8 @@ class TestGoldenContent:
         transition = StatusTransition(
             id=uuid4(),
             incident_id=simple_incident.id,
-            from_status="eingegangen",
-            to_status="einsatz",
+            from_status="incoming",
+            to_status="active",
             timestamp=datetime(2026, 6, 1, 9, 25, tzinfo=UTC),
         )
         reko = RekoReport(
@@ -214,7 +214,7 @@ class TestNullTolerance:
             title="Minimal",
             type="diverse_einsaetze",
             priority="low",
-            status="eingegangen",
+            status="incoming",
             # all optional fields left as their defaults / None
             location_address=None,
             description=None,
@@ -254,7 +254,7 @@ class TestLongText:
             title="Grossbrand",
             type="brandbekaempfung",
             priority="high",
-            status="einsatz",
+            status="active",
             description=long_desc,
             nachbarhilfe=False,
             am_warten=False,
@@ -287,7 +287,7 @@ class TestSpecialCharacters:
             title="Brand & Rauch <Halle 3>",
             type="brandbekaempfung",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             description="Gefahr durch <Chemikalien> & Hitze",
             nachbarhilfe=False,
             am_warten=False,
@@ -322,7 +322,7 @@ async def event_with_full_data(
         title="DB Wohnungsbrand",
         type="brandbekaempfung",
         priority="high",
-        status="einsatz_beendet",
+        status="returning",
         location_address="Teststrasse 1",
         description="DB test incident",
         created_by=test_user.id,
@@ -344,8 +344,8 @@ async def event_with_full_data(
         StatusTransition(
             id=uuid4(),
             incident_id=incident.id,
-            from_status="eingegangen",
-            to_status="einsatz",
+            from_status="incoming",
+            to_status="active",
             user_id=test_user.id,
             notes="DB transition",
         )
@@ -443,16 +443,16 @@ class TestReactionTimes:
         transition = StatusTransition(
             id=uuid4(),
             incident_id=simple_incident.id,
-            from_status="disponiert",
-            to_status="einsatz",
+            from_status="enroute",
+            to_status="active",
             timestamp=datetime(2026, 6, 1, 9, 25, tzinfo=UTC),
         )
         # A later re-entry into the same status must NOT override the first one.
         later = StatusTransition(
             id=uuid4(),
             incident_id=simple_incident.id,
-            from_status="einsatz_beendet",
-            to_status="einsatz",
+            from_status="returning",
+            to_status="active",
             timestamp=datetime(2026, 6, 1, 10, 45, tzinfo=UTC),
         )
         data = EventReportData(
@@ -506,8 +506,8 @@ def _journal_fixture_data(simple_event: Event, simple_incident: Incident) -> Eve
     transition = StatusTransition(
         id=uuid4(),
         incident_id=simple_incident.id,
-        from_status="eingegangen",
-        to_status="disponiert",
+        from_status="incoming",
+        to_status="enroute",
         timestamp=datetime(2026, 6, 1, 9, 25, tzinfo=UTC),
         user_id=user.id,
     )
@@ -601,7 +601,7 @@ class TestEinsatztagebuch:
             title="Wassereinbruch Keller",
             type="elementarereignis",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             source="intake",
             nachbarhilfe=False,
             am_warten=False,
@@ -645,7 +645,7 @@ class TestEinsatztagebuch:
             title="Sturmschaden Tag 2",
             type="elementarereignis",
             priority="low",
-            status="eingegangen",
+            status="incoming",
             nachbarhilfe=False,
             am_warten=False,
             zu_fuss=False,
@@ -669,8 +669,8 @@ class TestEinsatztagebuch:
             StatusTransition(
                 id=uuid4(),
                 incident_id=simple_incident.id,
-                from_status="eingegangen",
-                to_status="disponiert",
+                from_status="incoming",
+                to_status="enroute",
                 timestamp=datetime(2026, 6, 1, 9, 0, tzinfo=UTC) + timedelta(minutes=i),
             )
             for i in range(150)

@@ -217,7 +217,7 @@ async def _build_board_payload(
     # Check which vehicles are assigned to active incidents
     assigned_vehicle_ids: set[uuid.UUID] = set()
     for inc in incidents:
-        if inc.status not in ("abschluss",):
+        if inc.status not in ("complete",):
             for a in inc.assignments:
                 if a.resource_type == "vehicle" and a.unassigned_at is None:
                     assigned_vehicle_ids.add(a.resource_id)
@@ -264,7 +264,7 @@ async def _build_board_payload(
             # Determine if this person is assigned to any active incident
             is_assigned = False
             for inc in incidents:
-                if inc.status in ("abschluss",):
+                if inc.status in ("complete",):
                     continue
                 for a in inc.assignments:
                     if a.resource_type == "personnel" and a.resource_id == p.id and a.unassigned_at is None:

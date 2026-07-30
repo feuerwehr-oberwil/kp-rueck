@@ -547,7 +547,7 @@ async def simulate_escalation(
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
 
-    if incident.status == "abschluss" or incident.completed_at is not None:
+    if incident.status == "complete" or incident.completed_at is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Abgeschlossene Einsätze können nicht eskaliert werden",
@@ -590,7 +590,7 @@ async def simulate_reinforcement_request(
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
 
-    if incident.status == "abschluss" or incident.completed_at is not None:
+    if incident.status == "complete" or incident.completed_at is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Abgeschlossene Einsätze können keine Verstärkung anfordern",

@@ -37,13 +37,13 @@ class IncidentPriority(str, Enum):
 class IncidentStatus(str, Enum):
     """Incident status enumeration."""
 
-    EINGEGANGEN = "eingegangen"
+    INCOMING = "incoming"
     REKO = "reko"
     REKO_DONE = "reko_done"
-    DISPONIERT = "disponiert"
-    EINSATZ = "einsatz"
-    EINSATZ_BEENDET = "einsatz_beendet"
-    ABSCHLUSS = "abschluss"
+    ENROUTE = "enroute"
+    ACTIVE = "active"
+    RETURNING = "returning"
+    COMPLETE = "complete"
 
 
 class IncidentBase(BaseModel):
@@ -55,7 +55,7 @@ class IncidentBase(BaseModel):
     location_address: str | None = None
     location_lat: str | Decimal | None = None
     location_lng: str | Decimal | None = None
-    status: IncidentStatus = IncidentStatus.EINGEGANGEN
+    status: IncidentStatus = IncidentStatus.INCOMING
     description: str | None = None
     contact: str | None = None
     contact_phone: str | None = None
@@ -128,7 +128,7 @@ class PublicIncidentCreate(BaseModel):
     """Lean schema for alarms created via the public token-gated intake form.
 
     Intentionally narrow: a phone operator / walk-in only provides the essentials.
-    The event comes from the token, status is forced to ``eingegangen`` and
+    The event comes from the token, status is forced to ``incoming`` and
     operator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later
     by an editor on the board. Validators mirror ``IncidentBase``.
     """

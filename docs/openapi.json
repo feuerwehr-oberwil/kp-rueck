@@ -5629,7 +5629,7 @@
           "assignments"
         ],
         "summary": "Release All Resources",
-        "description": "Release all resources from incident.\n\nCalled when incident completes (moves to 'abschluss').",
+        "description": "Release all resources from incident.\n\nCalled when incident completes (moves to 'complete').",
         "operationId": "release_all_resources_api_incidents__incident_id__release_all_post",
         "parameters": [
           {
@@ -16206,7 +16206,7 @@
         },
         "type": "object",
         "title": "GroupProgress",
-        "description": "Derived checklist roll-up of an Auftrag's member stops.\n\n`done` counts stops in ``einsatz_beendet`` / ``abschluss``."
+        "description": "Derived checklist roll-up of an Auftrag's member stops.\n\n`done` counts stops in ``returning`` / ``complete``."
       },
       "GroupStopsReorder": {
         "properties": {
@@ -16300,7 +16300,7 @@
           },
           "status": {
             "$ref": "#/components/schemas/IncidentStatus",
-            "default": "eingegangen"
+            "default": "incoming"
           },
           "description": {
             "anyOf": [
@@ -16735,7 +16735,7 @@
           },
           "status": {
             "$ref": "#/components/schemas/IncidentStatus",
-            "default": "eingegangen"
+            "default": "incoming"
           },
           "description": {
             "anyOf": [
@@ -16977,13 +16977,13 @@
       "IncidentStatus": {
         "type": "string",
         "enum": [
-          "eingegangen",
+          "incoming",
           "reko",
           "reko_done",
-          "disponiert",
-          "einsatz",
-          "einsatz_beendet",
-          "abschluss"
+          "enroute",
+          "active",
+          "returning",
+          "complete"
         ],
         "title": "IncidentStatus",
         "description": "Incident status enumeration."
@@ -19345,7 +19345,7 @@
           "priority"
         ],
         "title": "PublicIncidentCreate",
-        "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``eingegangen`` and\noperator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later\nby an editor on the board. Validators mirror ``IncidentBase``."
+        "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and\noperator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later\nby an editor on the board. Validators mirror ``IncidentBase``."
       },
       "RekoDashboardAssignment": {
         "properties": {

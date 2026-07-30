@@ -19,7 +19,7 @@ class TestIncidentModel:
             title="Test Incident",
             type="brandbekaempfung",
             priority="medium",
-            status="eingegangen",
+            status="incoming",
             event_id=test_event.id,
             created_by=test_user.id,
         )
@@ -31,7 +31,7 @@ class TestIncidentModel:
         assert incident.title == "Test Incident"
         assert incident.type == "brandbekaempfung"
         assert incident.priority == "medium"
-        assert incident.status == "eingegangen"
+        assert incident.status == "incoming"
         assert incident.event_id == test_event.id
         assert incident.created_at is not None
         assert incident.updated_at is not None
@@ -46,7 +46,7 @@ class TestIncidentModel:
             location_address="Main Street 123",
             location_lat=47.5596,
             location_lng=7.5886,
-            status="eingegangen",
+            status="incoming",
             event_id=test_event.id,
             created_by=test_user.id,
         )
@@ -69,7 +69,7 @@ class TestIncidentModel:
             priority="low",
             location_lat=47.5596,
             location_lng=None,  # Missing lng
-            status="eingegangen",
+            status="incoming",
             event_id=test_event.id,
             created_by=test_user.id,
         )
@@ -85,7 +85,7 @@ class TestIncidentModel:
             title="Invalid Priority",
             type="brandbekaempfung",
             priority="urgent",  # Invalid priority
-            status="eingegangen",
+            status="incoming",
             event_id=test_event.id,
             created_by=test_user.id,
         )
@@ -117,7 +117,7 @@ class TestIncidentModel:
             title="No Event Test",
             type="brandbekaempfung",
             priority="low",
-            status="eingegangen",
+            status="incoming",
             created_by=test_user.id,
         )
         db_session.add(incident)
@@ -131,4 +131,4 @@ class TestIncidentModel:
         assert test_incident.title == "Wohnungsbrand"
         assert test_incident.type == "brandbekaempfung"
         assert test_incident.priority == "high"
-        assert test_incident.status == "eingegangen"
+        assert test_incident.status == "incoming"

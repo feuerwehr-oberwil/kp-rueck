@@ -52,7 +52,7 @@ async def test_incident(db_session: AsyncSession, test_event: Event, test_editor
         title="Board Stop",
         type="brandbekaempfung",
         priority="medium",
-        status="eingegangen",
+        status="incoming",
         location_address="Test Street 123",
         created_by=test_editor.id,
     )
@@ -70,7 +70,7 @@ async def second_incident(db_session: AsyncSession, test_event: Event, test_edit
         title="Board Stop 2",
         type="strassenrettung",
         priority="medium",
-        status="eingegangen",
+        status="incoming",
         location_address="Test Street 456",
         created_by=test_editor.id,
     )
@@ -332,7 +332,7 @@ async def test_add_stops_cross_event_rejected(
         title="Foreign",
         type="brandbekaempfung",
         priority="low",
-        status="eingegangen",
+        status="incoming",
         location_address="Elsewhere 1",
         created_by=test_editor.id,
     )
@@ -464,7 +464,7 @@ async def test_create_incident_with_group_id_attaches(
             "title": "Streamlined Stop",
             "type": "brandbekaempfung",
             "priority": "medium",
-            "status": "eingegangen",
+            "status": "incoming",
             "location_address": "New Street 9",
             "event_id": str(test_event.id),
             "group_id": group["id"],
@@ -488,7 +488,7 @@ async def test_create_incident_without_group_id_unchanged(editor_client: AsyncCl
             "title": "Ungrouped",
             "type": "brandbekaempfung",
             "priority": "medium",
-            "status": "eingegangen",
+            "status": "incoming",
             "location_address": "Somewhere 1",
             "event_id": str(test_event.id),
         },
@@ -504,7 +504,7 @@ def _incident_payload(event_id, group_id) -> dict:
         "title": "Validated Stop",
         "type": "brandbekaempfung",
         "priority": "medium",
-        "status": "eingegangen",
+        "status": "incoming",
         "event_id": str(event_id),
         "group_id": str(group_id),
     }
@@ -575,7 +575,7 @@ async def test_final_stop_release_broadcasts_group_refresh(
     with patch("app.api.incidents.broadcast_group_update", new_callable=AsyncMock) as broadcast:
         response = await editor_client.post(
             f"/api/incidents/{test_incident.id}/status",
-            json={"from_status": "eingegangen", "to_status": "abschluss"},
+            json={"from_status": "incoming", "to_status": "complete"},
         )
 
     assert response.status_code == 200

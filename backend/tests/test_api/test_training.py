@@ -184,7 +184,7 @@ async def test_generate_emergencies_success_in_demo_mode(
             event_id=training_event.id,
             title="Generated Emergency",
             type="brandbekaempfung",
-            status="eingegangen",
+            status="incoming",
             priority="medium",
             location_address="Test Street",
             nachbarhilfe=False,
@@ -222,7 +222,7 @@ async def test_generate_emergencies_with_category(
             event_id=training_event.id,
             title="Critical Emergency",
             type="brandbekaempfung",
-            status="eingegangen",
+            status="incoming",
             priority="high",
             location_address="Test Street",
             nachbarhilfe=False,
@@ -293,7 +293,7 @@ async def test_generate_multiple_emergencies(
                 event_id=training_event.id,
                 title=f"Emergency {i}",
                 type="brandbekaempfung",
-                status="eingegangen",
+                status="incoming",
                 priority="medium",
                 location_address=f"Street {i}",
                 nachbarhilfe=False,
@@ -571,7 +571,7 @@ async def active_incident(db_session: AsyncSession, training_event: Event) -> In
         title="Wassereinbruch Keller",
         type="elementarereignis",
         priority="low",
-        status="einsatz",
+        status="active",
         location_address="Hauptstrasse 1, 4104 Oberwil",
         description="Ca. 20cm Wasser im Keller.",
     )
@@ -613,7 +613,7 @@ async def test_simulate_escalation_bumps_priority_and_notifies(
 async def test_simulate_escalation_rejects_completed_incident(
     editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
 ):
-    active_incident.status = "abschluss"
+    active_incident.status = "complete"
     active_incident.completed_at = datetime.now(UTC)
     await db_session.commit()
 

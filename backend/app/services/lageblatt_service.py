@@ -160,8 +160,8 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
     reko_by = ""
     if reko and reko.submitted_by_personnel_id in data.personnel_map:
         reko_by = data.personnel_map[reko.submitted_by_personnel_id].name
-    dispo = _first_transition_to(data, inc.id, {"disponiert", "einsatz"})
-    done = inc.status in ("einsatz_beendet", "abschluss") or inc.completed_at is not None
+    dispo = _first_transition_to(data, inc.id, {"enroute", "active"})
+    done = inc.status in ("returning", "complete") or inc.completed_at is not None
     crew, vehicles, _materials = _active_resources(data, inc.id)
 
     return [
