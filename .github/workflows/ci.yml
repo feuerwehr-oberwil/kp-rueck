@@ -321,16 +321,58 @@ jobs:
             sleep 2
           done
 
+      # `-n 3` (pytest-xdist), NOT `-n auto`, and the number is measured, not guessed.
+      #
+      # This job used to be the whole gate's critical path: 1881 tests on one worker, ~8 min,
+      # while every other job bar e2e-smoke finished inside a minute. It also grows with the
+      # suite, so it only ever got worse.
+      #
+      # Measured on a container pinned to 4 vCPU (what a GitHub-hosted ubuntu-latest gives a
+      # public repo), same suite, coverage on, one run each:
+      #
+      #   serial   305s      -n 3    132s   <- knee
+      #   -n 2     178s      -n 4    138s
+      #                      -n 6    140s
+      #                      -n 8    142s
+      #
+      # Past three workers the curve is flat and then slightly negative: the suite spends its
+      # time on Postgres round-trips, not on CPU, so extra workers buy nothing and start
+      # costing context switches. `-n auto` is the trap — it reads the CORE COUNT, which is 4
+      # here (and 10 on a developer's laptop, and 10 inside a `--cpus=4` container, because a
+      # CPU quota does not change nproc). It would pick 4: measurably slower than 3, and on
+      # other machines much worse.
+      #
+      # Three rather than four also leaves a core for the Postgres service container, which on
+      # a real runner shares these same 4 vCPUs. The measurement above was, if anything,
+      # generous to the higher numbers: Postgres ran outside the CPU budget.
+      #
+      # Each worker gets its OWN database (`kprueck_test_gw0`, …), created and dropped by
+      # backend/tests/conftest.py. Concurrent workers on one database is how a reliable suite
+      # becomes a flaky one, and a flaky suite is worse than a slow one. `-n` is deliberately
+      # not in addopts: plain `uv run pytest` still runs serially against the single database.
+      #
+      # `-v` is gone: with three workers interleaving output it printed 1881 lines in a
+      # meaningless order. The failure summary is what anyone reads anyway.
+      #
+      # pytest-cov combines the per-worker coverage data itself, so --cov-fail-under still
+      # measures the whole suite.
       - name: Run tests with coverage
-        run: uv run pytest --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=35 -v
+        run: uv run pytest -n 3 --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=35
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test
+          # Explicit rather than relying on the conftest default. Every database the suite
+          # touches — the per-worker ones and the migration-drift scratch database — is
+          # derived from THIS url, so it is the single knob for pointing the suite elsewhere.
+          TEST_DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test
           SECRET_KEY: ci-test-secret-key-not-for-production-use-1234567890
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v7
         with:
-          file: backend/coverage.xml
+          # `files` (plural). v7 dropped the old singular `file`, which it had been silently
+          # ignoring while warning in the log — so the upload was going up with no report
+          # attached. Nothing about the job turned red, which is exactly why it survived.
+          files: backend/coverage.xml
           flags: backend
           fail_ci_if_error: false
         continue-on-error: true
