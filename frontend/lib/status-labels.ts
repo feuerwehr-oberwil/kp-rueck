@@ -12,8 +12,8 @@ import { translateOutsideReact } from "@/lib/i18n-messages"
 
 export const OPERATION_STATUS_LABELS: Record<OperationStatus, string> = {
   incoming: "Eingegangen",
-  ready: "Reko",
-  rekoDone: "Reko abgeschlossen",
+  reko: "Reko",
+  reko_done: "Reko abgeschlossen",
   enroute: "Disponiert",
   active: "Einsatz",
   returning: "Rückfahrt",

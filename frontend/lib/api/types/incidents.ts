@@ -22,13 +22,13 @@ export type IncidentType =
 export type IncidentPriority = 'low' | 'medium' | 'high'
 
 export type IncidentStatus =
-  | 'eingegangen'
+  | 'incoming'
   | 'reko'
   | 'reko_done'
-  | 'disponiert'
-  | 'einsatz'
-  | 'einsatz_beendet'
-  | 'abschluss'
+  | 'enroute'
+  | 'active'
+  | 'returning'
+  | 'complete'
 
 export interface ApiIncident {
   id: string // UUID

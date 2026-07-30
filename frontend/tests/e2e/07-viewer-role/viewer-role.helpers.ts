@@ -56,7 +56,7 @@ export async function createEventWithIncident(
       title: `${prefix} Brand`,
       type: 'brandbekaempfung',
       priority: 'high',
-      status: 'einsatz',
+      status: 'active',
       location_address: `${address}, 4104 Oberwil`,
       location_lat: 47.4989,
       location_lng: 7.5567,

@@ -10,7 +10,6 @@ import { columns, getTimeSince, ageChipClass, ageLevel } from '@/lib/kanban-util
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
-import { type OperationStatus } from '@/lib/contexts/operations-context'
 import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
 import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
 
@@ -21,19 +20,6 @@ import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
 
 /** Per-device fold state for the share-link board (see useCollapsedSections). */
 const TOKEN_BOARD_COLLAPSE_KEY = 'kp-display-token-board-collapsed'
-
-function mapApiStatus(apiStatus: string): OperationStatus {
-  const statusMap: Record<string, OperationStatus> = {
-    eingegangen: 'incoming',
-    reko: 'ready',
-    reko_done: 'rekoDone',
-    disponiert: 'enroute',
-    einsatz: 'active',
-    einsatz_beendet: 'returning',
-    abschluss: 'complete',
-  }
-  return statusMap[apiStatus] || 'incoming'
-}
 
 const priorityStyles = {
   high: { icon: 'text-red-400', card: 'border-l-2 border-l-red-400/50' },
@@ -292,8 +278,7 @@ export function TokenBoard({ token }: { token: string }) {
     const grouped: Record<string, ApiIncident[]> = {}
     columns.forEach((col) => { grouped[col.id] = [] })
     incidents.forEach((incident) => {
-      const status = mapApiStatus(incident.status)
-      const column = columns.find((col) => col.status.includes(status))
+      const column = columns.find((col) => col.status.includes(incident.status))
       if (column) grouped[column.id].push(incident)
     })
     return grouped

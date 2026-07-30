@@ -54,7 +54,7 @@ interface MobileIncidentDetailSheetProps {
   isEditor?: boolean
 }
 
-const statusKeys: OperationStatus[] = ["incoming", "ready", "enroute", "active", "returning", "complete"]
+const statusKeys: OperationStatus[] = ["incoming", "reko", "enroute", "active", "returning", "complete"]
 
 export function MobileIncidentDetailSheet({
   operation,

@@ -56,12 +56,22 @@ describe('label coverage', () => {
       cur && typeof cur === 'object' && part in cur ? (cur as Record<string, unknown>)[part] : undefined
     ), de)
 
-  // Mirrors the DB constraint in backend/app/models.py
+  // Mirrors the DB constraint in backend/app/models.py, the IncidentStatus union in
+  // lib/api/types/incidents.ts AND the board columns in lib/kanban-utils.ts — since the
+  // rename there is only ONE status vocabulary, shared by database, API and board.
   const INCIDENT_STATUSES = [
-    'eingegangen', 'reko', 'reko_done', 'disponiert', 'einsatz', 'einsatz_beendet', 'abschluss',
+    'incoming', 'reko', 'reko_done', 'enroute', 'active', 'returning', 'complete',
   ]
-  // Mirrors OperationStatus / the board columns in lib/kanban-utils.ts
-  const BOARD_COLUMNS = ['incoming', 'ready', 'rekoDone', 'enroute', 'active', 'returning', 'complete']
+  // Every message block reached by a DYNAMIC lookup keyed on a status value. Those
+  // resolve at runtime, so neither tsc nor a render test notices when a key and a status
+  // drift apart — the board just prints the raw key. Enumerated here so they cannot.
+  const STATUS_KEYED_BLOCKS = [
+    'kanban.statusLabels', // t(`statusLabels.${status}`) — map search, timeline popover
+    'kanban.columns', // t(`columns.${column.id}`) — board, display board/status, hover card
+    'incidents.status', // t(`status.${…}`) + translateOutsideReact(`incidents.status.${…}`)
+    'incidents.columns', // the ALL-CAPS variant for /display/*
+    'print.view.statusHeading', // t(`statusHeading.${status}`) — print view
+  ]
   // Mirrors incidentTypeLabels in lib/incident-types.ts
   const INCIDENT_TYPES = [
     'brandbekaempfung', 'elementarereignis', 'strassenrettung', 'technische_hilfeleistung',
@@ -69,12 +79,15 @@ describe('label coverage', () => {
     'dienstleistungen', 'diverse_einsaetze', 'gerettete_menschen', 'gerettete_tiere',
   ]
 
-  it.each(INCIDENT_STATUSES)('has a German label for incident status %s', (status) => {
-    expect(at(`kanban.statusLabels.${status}`)).toEqual(expect.any(String))
-  })
-
-  it.each(BOARD_COLUMNS)('has a German label for board column %s', (column) => {
-    expect(at(`kanban.columns.${column}`)).toEqual(expect.any(String))
+  it.each(STATUS_KEYED_BLOCKS)('%s is keyed on exactly the status vocabulary', (block) => {
+    const node = at(block)
+    expect(node).toEqual(expect.any(Object))
+    // Both directions: no status without a label, and no label left behind under a
+    // status name that no longer exists.
+    expect(Object.keys(node as Record<string, unknown>).sort()).toEqual([...INCIDENT_STATUSES].sort())
+    for (const status of INCIDENT_STATUSES) {
+      expect(at(`${block}.${status}`)).toEqual(expect.any(String))
+    }
   })
 
   it.each(INCIDENT_TYPES)('has a German label for incident type %s', (type) => {
