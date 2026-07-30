@@ -4,6 +4,7 @@ Help Documentation API
 Provides endpoints for help documentation, including PDF export.
 """
 
+import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -140,7 +141,10 @@ async def export_help_pdf(current_user: CurrentUser) -> StreamingResponse | dict
                     continue
                 # Bold text (simplified)
                 elif "**" in line:
-                    clean_line = line.replace("**", "<b>").replace("**", "</b>")
+                    # Pairwise, not two replaces: the first `.replace("**", "<b>")` consumed
+                    # every marker, so the closing one never matched and reportlab rejected
+                    # the unbalanced <b> — raising out of a branch that has no except.
+                    clean_line = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", line)
                     elements.append(Paragraph(clean_line, styles["Normal"]))
                 # Regular text
                 else:
