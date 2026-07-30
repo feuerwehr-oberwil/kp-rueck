@@ -44,38 +44,15 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'date-fns'],
   },
 
-  // Security headers for all routes
+  // Security headers for all routes.
+  //
+  // The Content-Security-Policy is NOT here: Next serialises this block into the route manifest
+  // during `next build`, so a header written here is fixed for the life of the image — and the
+  // CSP's `connect-src` has to name a backend that is only known at runtime (`API_URL`). It is
+  // built per request in `middleware.ts` instead; see `buildContentSecurityPolicy()` in
+  // `lib/env.ts`. The headers below have no such dependency, and keeping them here keeps them
+  // on every response, including the static assets the middleware matcher skips.
   async headers() {
-    // CSP directives - allow maps, inline styles (Tailwind), and Next.js hydration
-    const cspDirectives = [
-      "default-src 'self'",
-      // Scripts: self + inline (Next.js hydration) + eval (dev hot reload)
-      process.env.NODE_ENV === 'production'
-        ? "script-src 'self' 'unsafe-inline'"
-        : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      // Styles: self + inline (Tailwind CSS)
-      "style-src 'self' 'unsafe-inline'",
-      // Images: self + data URIs + blob + map tile servers
-      "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080",
-      // Fonts: self + data URIs
-      "font-src 'self' data:",
-      // Connect: self + API + map tiles + local tile server + WebSocket
-      // Dynamically include backend URL from env (supports custom domains like kp-api.fwo.li)
-      // A self-hosted deployment needs no entry of its own: it is served from ONE origin, so
-      // the API (/backend-api), the tiles (/tiles) and the WebSocket all fall under 'self' —
-      // which per CSP3 covers same-origin ws:/wss: too. The explicit hosts below are for the
-      // split-origin Railway deployment and for local development.
-      `connect-src 'self' http://localhost:8000 https://*.railway.app ${process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : ''} ${process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/^https?/, 'wss') : ''} https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080 ws://localhost:* wss://*.railway.app`,
-      // Frame ancestors: prevent clickjacking
-      "frame-ancestors 'none'",
-      // Form actions: only to self
-      "form-action 'self'",
-      // Base URI: only self
-      "base-uri 'self'",
-      // Object sources: none (no plugins)
-      "object-src 'none'",
-    ].join('; ')
-
     return [
       {
         // Apply to all routes
@@ -94,8 +71,6 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(self), microphone=(), geolocation=(self), payment=()',
           },
-          // Content Security Policy
-          { key: 'Content-Security-Policy', value: cspDirectives },
         ],
       },
     ]

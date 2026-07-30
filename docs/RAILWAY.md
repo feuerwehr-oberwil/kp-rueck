@@ -59,13 +59,13 @@ name the domains whatever you like, custom domains included.
 > needs a redeploy, and it ties an image to one station. `API_URL` supersedes it. Set it only if
 > your socket endpoint is genuinely somewhere other than `API_URL`.
 
-> **A custom domain on the *backend* has one more hurdle.** The frontend ships a
-> Content-Security-Policy whose `connect-src` is fixed when the image is built, and it lists the
-> app's own origin, `localhost` and `*.railway.app` — nothing else. The browser now aims the
-> socket at the right host, but the CSP refuses the connection to `wss://kp-api.example.ch`.
-> Unlike the fallback above this one is *not* silent: it is a CSP violation in the browser
-> console. Keeping the backend on `*.up.railway.app` avoids it; a custom domain on the
-> **frontend** is unaffected either way.
+> **A custom domain on the *backend* works too, and needs nothing extra.** It used to need a
+> rebuild: the frontend's Content-Security-Policy was written into the image at build time, and
+> its `connect-src` knew only the app's own origin, `localhost` and `*.railway.app` — so the
+> browser aimed the socket at `wss://kp-api.example.ch` correctly and then refused to open it.
+> The policy is now assembled per request in `frontend/middleware.ts`, from the same runtime
+> `API_URL`, so whatever you set in §1.1 is also what the browser is allowed to talk to. Set the
+> variable, restart the frontend; there is nothing to rebuild and no second variable.
 
 ---
 
@@ -333,12 +333,14 @@ The WebSocket is not connecting and it has fallen back to polling. Check, in thi
 `API_URL` is set on the frontend service and names the backend's **public** origin (a
 `*.railway.internal` address or a bare service name is deliberately ignored — the browser
 cannot reach it); the frontend has been **restarted** since you set it; `CORS_ORIGINS` on the
-backend matches the frontend origin exactly. If the backend is on a custom domain, look for a
-Content-Security-Policy violation in the browser console — see the second note in §1.2.
+backend matches the frontend origin exactly. All three are runtime values, so a **restart** is
+enough — the Content-Security-Policy follows `API_URL` per request and no longer needs a
+rebuild to allow a custom backend domain.
 
 **Mobile login fails with "Sitzung abgelaufen", desktop works.**
 `NEXT_PUBLIC_API_URL` is set on the frontend service. Delete it and redeploy — it must be
-rebuilt without the variable, since it is inlined at build time.
+rebuilt without the variable, since it is inlined at build time. Nothing else depends on it:
+the socket takes its address from `API_URL`, and so does the Content-Security-Policy.
 
 **Backend crash-loops on first deploy.**
 Read the logs. Production refuses weak or missing secrets by design, and the error names the
