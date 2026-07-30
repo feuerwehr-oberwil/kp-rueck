@@ -64,7 +64,7 @@ export function GpsArrivalPrompt() {
       // notification is enough — don't interrupt with a stale modal.
       try {
         const incident = await apiClient.getIncident(payload.incident_id)
-        if (incident.status !== "disponiert") return
+        if (incident.status !== "enroute") return
         incidentLabel = getIncidentRefLabel({
           location: incident.location_address || incident.title,
           incidentType: incident.type ?? undefined,
@@ -93,7 +93,7 @@ export function GpsArrivalPrompt() {
       "incident_update",
       (msg: { action?: string; data?: { id?: string; status?: string } }) => {
         if (msg?.data?.id !== prompt.incidentId) return
-        if (msg.data.status && msg.data.status !== "disponiert") setPrompt(null)
+        if (msg.data.status && msg.data.status !== "enroute") setPrompt(null)
       },
     )
     return () => unsubscribe()
@@ -105,7 +105,7 @@ export function GpsArrivalPrompt() {
     setAdvancing(true)
     try {
       // Rule A only fires from status exactly `disponiert`, so that is the from-status.
-      await apiClient.updateIncidentStatus(prompt.incidentId, "disponiert", "einsatz")
+      await apiClient.updateIncidentStatus(prompt.incidentId, "enroute", "active")
       toast.success(t('movedToActive', { label: prompt.incidentLabel }))
       setPrompt(null)
     } catch {

@@ -73,7 +73,7 @@ const DUE = {
  */
 export function nextActions(op: Operation, opts?: { gpsSim?: boolean }): NextAction[] {
   switch (op.status) {
-    case "ready":
+    case "reko":
       if (!op.rekoArrivedAt) {
         return [{ key: "reko_arrived", label: translateOutsideReact('notifications.trainingActions.rekoArrived'), kind: "reko_arrived", dueAfterSec: DUE.rekoArrived }]
       }
@@ -106,10 +106,10 @@ export function nextActions(op: Operation, opts?: { gpsSim?: boolean }): NextAct
         return [{ key: "drive_to_magazin", label: translateOutsideReact('notifications.trainingActions.driveToMagazin'), kind: "gps_return", dueAfterSec: DUE.driveStart }]
       }
       return []
-    // "incoming" (operator tasks Reko) and "rekoDone" (operator disponiert) are
+    // "incoming" (operator tasks Reko) and "reko_done" (operator disponiert) are
     // command-post decisions — no field action. "complete" is done.
     case "incoming":
-    case "rekoDone":
+    case "reko_done":
     case "complete":
     default:
       return []
@@ -123,7 +123,7 @@ export function nextActions(op: Operation, opts?: { gpsSim?: boolean }): NextAct
  * status change. Null when no timestamp is known yet (freshly created).
  */
 export function stepStartedAt(op: Operation): Date | null {
-  if (op.status === "ready" && op.rekoArrivedAt) return op.rekoArrivedAt
+  if (op.status === "reko" && op.rekoArrivedAt) return op.rekoArrivedAt
   if (op.status === "active" && op.fieldCompleteReportedAt) return op.fieldCompleteReportedAt
   return op.statusChangedAt
 }

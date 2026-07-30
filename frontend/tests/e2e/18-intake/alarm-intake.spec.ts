@@ -58,7 +58,7 @@ test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
     expect(created).toBeTruthy();
     expect(created.source).toBe('intake');
     expect(created.created_by).toBeNull();
-    expect(created.status).toBe('eingegangen');
+    expect(created.status).toBe('incoming');
 
     // Cleanup.
     await authenticatedPage.request.delete(`${BACKEND}/api/events/${event.id}`);

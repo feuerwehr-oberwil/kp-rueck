@@ -10,7 +10,7 @@
 
 import { type ApiViewerData, type ApiIncident } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
-import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
+import { type Operation } from "@/lib/contexts/operations-context"
 import { type Person, type PersonStatus } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { type IncidentGroup } from "@/lib/types/groups"
@@ -27,16 +27,6 @@ export interface SituationData {
   materials: Material[]
 }
 
-const API_STATUS_TO_INTERNAL: Record<string, OperationStatus> = {
-  eingegangen: "incoming",
-  reko: "ready",
-  reko_done: "rekoDone",
-  disponiert: "enroute",
-  einsatz: "active",
-  einsatz_beendet: "returning",
-  abschluss: "complete",
-}
-
 /** Map an API incident (from the share-token payload) onto an Operation. */
 export function viewerIncidentToOperation(a: ApiIncident): Operation {
   return {
@@ -49,7 +39,7 @@ export function viewerIncidentToOperation(a: ApiIncident): Operation {
     dispatchTime: new Date(a.created_at),
     crew: [],
     priority: a.priority,
-    status: API_STATUS_TO_INTERNAL[a.status] ?? "incoming",
+    status: a.status,
     coordinates: apiCoordinatesToTuple(a.location_lat, a.location_lng),
     materials: [],
     notes: a.description ?? "",

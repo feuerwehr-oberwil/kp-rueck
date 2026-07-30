@@ -184,28 +184,21 @@
   "kanban": {
     "columns": {
       "incoming": "Eingegangen",
-      "ready": "Reko",
-      "rekoDone": "Reko abgeschlossen",
+      "reko": "Reko",
+      "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert / Anfahrt",
       "active": "Einsatz",
       "returning": "Beendet / Rückfahrt",
-      "complete": "Abgeschlossen",
-      "eingegangen": "Eingegangen",
-      "reko": "Reko",
-      "reko_done": "Reko abgeschlossen",
-      "disponiert": "Disponiert / Anfahrt",
-      "einsatz": "Einsatz",
-      "einsatz_beendet": "Einsatz beendet",
-      "abschluss": "Abschluss"
+      "complete": "Abgeschlossen"
     },
     "statusLabels": {
-      "eingegangen": "Eingegangen",
+      "incoming": "Eingegangen",
       "reko": "Reko",
       "reko_done": "Reko abgeschlossen",
-      "disponiert": "Disponiert",
-      "einsatz": "Einsatz",
-      "einsatz_beendet": "Einsatz beendet",
-      "abschluss": "Abschluss"
+      "enroute": "Disponiert",
+      "active": "Einsatz",
+      "returning": "Einsatz beendet",
+      "complete": "Abschluss"
     },
     "resources": {
       "crew": "Personal",
@@ -734,28 +727,21 @@
     },
     "status": {
       "incoming": "Eingegangen",
-      "ready": "Reko",
-      "rekoDone": "Reko abgeschlossen",
+      "reko": "Reko",
+      "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert",
       "active": "Einsatz",
       "returning": "Rückfahrt",
-      "complete": "Abgeschlossen",
-      "eingegangen": "Eingegangen",
-      "reko": "Reko",
-      "reko_done": "Reko abgeschlossen",
-      "disponiert": "Disponiert",
-      "einsatz": "Einsatz",
-      "einsatz_beendet": "Einsatz beendet",
-      "abschluss": "Abschluss"
+      "complete": "Abgeschlossen"
     },
     "columns": {
-      "eingegangen": "EINGEGANGEN",
+      "incoming": "EINGEGANGEN",
       "reko": "REKO",
       "reko_done": "REKO ABGESCHLOSSEN",
-      "disponiert": "DISPONIERT / ANFAHRT",
-      "einsatz": "EINSATZ",
-      "einsatz_beendet": "EINSATZ BEENDET",
-      "abschluss": "ABSCHLUSS"
+      "enroute": "DISPONIERT / ANFAHRT",
+      "active": "EINSATZ",
+      "returning": "EINSATZ BEENDET",
+      "complete": "ABSCHLUSS"
     },
     "assignReko": {
       "title": "Reko-Personal zuweisen",
@@ -1871,8 +1857,8 @@
       "mapOverview": "EINSATZÜBERSICHT KARTE",
       "statusHeading": {
         "incoming": "EINGEGANGEN",
-        "ready": "REKO",
-        "rekoDone": "REKO ABGESCHLOSSEN",
+        "reko": "REKO",
+        "reko_done": "REKO ABGESCHLOSSEN",
         "enroute": "DISPONIERT",
         "active": "EINSATZ",
         "returning": "BEENDET / RÜCKFAHRT",

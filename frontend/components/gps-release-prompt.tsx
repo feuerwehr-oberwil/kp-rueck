@@ -62,7 +62,7 @@ export function GpsReleasePrompt() {
       // no modal, the bell notification is enough.
       try {
         const incident = await apiClient.getIncident(payload.incident_id)
-        if (incident.status === "abschluss") return
+        if (incident.status === "complete") return
       } catch {
         // Can't verify — show the prompt; the unassign endpoint is the backstop.
       }
@@ -85,7 +85,7 @@ export function GpsReleasePrompt() {
       "incident_update",
       (msg: { action?: string; data?: { id?: string; status?: string } }) => {
         if (msg?.data?.id !== prompt.incidentId) return
-        if (msg.data.status === "abschluss" || msg.action === "delete") setPrompt(null)
+        if (msg.data.status === "complete" || msg.action === "delete") setPrompt(null)
       },
     )
     return () => unsubscribe()
@@ -112,8 +112,8 @@ export function GpsReleasePrompt() {
     setReleasing(true)
     try {
       const incident = await apiClient.getIncident(prompt.incidentId)
-      if (incident.status !== "abschluss") {
-        await apiClient.updateIncidentStatus(prompt.incidentId, incident.status, "abschluss")
+      if (incident.status !== "complete") {
+        await apiClient.updateIncidentStatus(prompt.incidentId, incident.status, "complete")
       }
       toast.success(t('completed', { label: prompt.incidentLabel }))
       setPrompt(null)
