@@ -13,6 +13,7 @@ import {
 import { X, ClipboardCheck, Check, MessageCircle, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
+import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getTileBaseUrl } from '@/lib/env'
 import {
   generateChecklistTasks,
@@ -39,6 +40,8 @@ interface EventSetupChecklistProps {
 
 export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, onChecklistLoaded }: EventSetupChecklistProps) {
   const t = useTranslations('checklist.setup')
+  const tPrint = useTranslations('print.toasts')
+  const trackPrint = usePrintJobToast()
   const [tasks, setTasks] = useState<ChecklistTaskState[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [overrides, setOverrides] = useState<Record<string, boolean>>({})
@@ -108,9 +111,13 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
 
   const handleTestPrint = async () => {
     try {
-      await apiClient.queueTestPrint()
-      toast.info(t('testPrintQueued'), {
-        description: t('testPrintQueuedDescription'),
+      const job = await apiClient.queueTestPrint()
+      // "Der Drucker-Status wird automatisch aktualisiert" only became true here:
+      // the toast is now followed to completed/failed instead of ending at "queued".
+      trackPrint(job.id, {
+        sentTitle: t('testPrintQueued'),
+        sentDescription: t('testPrintQueuedDescription'),
+        subject: tPrint('subjectTest'),
       })
     } catch (error) {
       console.error('Failed to queue test print:', error)
