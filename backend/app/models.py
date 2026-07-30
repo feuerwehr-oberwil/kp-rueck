@@ -120,7 +120,7 @@ class Personnel(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     role_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    availability: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
     tags: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True, default=list)
 
     # DEPRECATED dual-write: superseded by PersonnelExternalIdentity
@@ -140,16 +140,16 @@ class Personnel(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "availability IN ('available', 'unavailable')",
-            name="valid_personnel_availability",
+            "status IN ('available', 'unavailable')",
+            name="valid_personnel_status",
         ),
         # Check-in only allowed if not unavailable
         CheckConstraint(
-            "(checked_in = false) OR (checked_in = true AND availability != 'unavailable')",
-            name="valid_checkin_availability",
+            "(checked_in = false) OR (checked_in = true AND status != 'unavailable')",
+            name="valid_checkin_status",
         ),
         Index("idx_personnel_checked_in", "checked_in"),
-        Index("idx_personnel_availability", "availability"),
+        Index("idx_personnel_status", "status"),
         Index("idx_personnel_role_sort_order", "role_sort_order"),
     )
 

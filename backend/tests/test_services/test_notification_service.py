@@ -119,7 +119,7 @@ async def notif_personnel(db_session: AsyncSession) -> Personnel:
         id=uuid4(),
         name="Test Person",
         role="Atemschutz",
-        availability="available",
+        status="available",
     )
     db_session.add(personnel)
     await db_session.commit()

@@ -18406,9 +18406,9 @@
             "title": "Role Sort Order",
             "default": 0
           },
-          "availability": {
+          "status": {
             "type": "string",
-            "title": "Availability"
+            "title": "Status"
           },
           "tags": {
             "anyOf": [
@@ -18483,7 +18483,7 @@
         "type": "object",
         "required": [
           "name",
-          "availability",
+          "status",
           "id",
           "created_at",
           "updated_at"
@@ -18513,9 +18513,9 @@
             ],
             "title": "Role"
           },
-          "availability": {
+          "status": {
             "type": "string",
-            "title": "Availability"
+            "title": "Status"
           },
           "active_duration_minutes": {
             "type": "integer",
@@ -18553,7 +18553,7 @@
         "required": [
           "personnel_id",
           "name",
-          "availability",
+          "status",
           "active_duration_minutes",
           "assignment_count"
         ],
@@ -18582,9 +18582,9 @@
             ],
             "title": "Role"
           },
-          "availability": {
+          "status": {
             "type": "string",
-            "title": "Availability"
+            "title": "Status"
           },
           "tags": {
             "anyOf": [
@@ -18638,7 +18638,7 @@
         "required": [
           "id",
           "name",
-          "availability",
+          "status",
           "checked_in"
         ],
         "title": "PersonnelCheckInResponse",
@@ -18666,9 +18666,9 @@
             "title": "Role Sort Order",
             "default": 0
           },
-          "availability": {
+          "status": {
             "type": "string",
-            "title": "Availability"
+            "title": "Status"
           },
           "tags": {
             "anyOf": [
@@ -18688,7 +18688,7 @@
         "type": "object",
         "required": [
           "name",
-          "availability"
+          "status"
         ],
         "title": "PersonnelCreate",
         "description": "Schema for creating personnel."
@@ -18783,7 +18783,7 @@
             ],
             "title": "Role Sort Order"
           },
-          "availability": {
+          "status": {
             "anyOf": [
               {
                 "type": "string"
@@ -18792,7 +18792,7 @@
                 "type": "null"
               }
             ],
-            "title": "Availability"
+            "title": "Status"
           },
           "tags": {
             "anyOf": [

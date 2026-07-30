@@ -270,7 +270,7 @@ export function DriverAssignmentDialog({
     }
     setIsAddingPerson(true)
     try {
-      const created = await apiClient.createPersonnel({ name, availability: 'available', tags: ['F'] })
+      const created = await apiClient.createPersonnel({ name, status: 'available', tags: ['F'] })
       try {
         const { token } = await apiClient.generateCheckInLink(eventId)
         await apiClient.checkInPersonnel(created.id, token)

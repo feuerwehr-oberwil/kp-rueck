@@ -40,7 +40,7 @@ async def test_personnel(db_session: AsyncSession) -> Personnel:
         id=uuid4(),
         name="Test Person SF",
         role="atemschutz",
-        availability="available",
+        status="available",
     )
     db_session.add(person)
     await db_session.commit()

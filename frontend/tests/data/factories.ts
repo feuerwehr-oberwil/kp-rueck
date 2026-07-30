@@ -86,7 +86,7 @@ export const PersonnelFactory = {
   default: (index: number) => ({
     name: `Test Person ${index}`,
     role: 'Feuerwehrmann',
-    availability: 'available' as const,
+    status: 'available' as const,
   }),
 
   /**
@@ -95,7 +95,7 @@ export const PersonnelFactory = {
   driver: (index: number) => ({
     name: `Driver ${index}`,
     role: 'Fahrer',
-    availability: 'available' as const,
+    status: 'available' as const,
   }),
 };
 
@@ -106,7 +106,7 @@ export const VehicleFactory = {
   default: (index: number) => ({
     name: `TLF ${index}`,
     type: 'TLF',
-    availability: 'available' as const,
+    status: 'available' as const,
   }),
 };
 
@@ -116,6 +116,6 @@ export const MaterialFactory = {
    */
   default: (index: number) => ({
     name: `Atemschutz ${index}`,
-    availability: 'available' as const,
+    status: 'available' as const,
   }),
 };

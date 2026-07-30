@@ -85,7 +85,7 @@ async def test_personnel(db_session: AsyncSession) -> Personnel:
         id=uuid4(),
         name="Test Firefighter",
         role="atemschutz",
-        availability="available",
+        status="available",
     )
     db_session.add(personnel)
     await db_session.commit()
@@ -100,7 +100,7 @@ async def unavailable_personnel(db_session: AsyncSession) -> Personnel:
         id=uuid4(),
         name="Unavailable Person",
         role="firefighter",
-        availability="unavailable",
+        status="unavailable",
     )
     db_session.add(personnel)
     await db_session.commit()
@@ -112,12 +112,12 @@ async def unavailable_personnel(db_session: AsyncSession) -> Personnel:
 async def multiple_personnel(db_session: AsyncSession) -> list[Personnel]:
     """Create multiple test personnel."""
     personnel_list = []
-    for i, availability in enumerate(["available", "available", "available", "unavailable"]):
+    for i, status in enumerate(["available", "available", "available", "unavailable"]):
         person = Personnel(
             id=uuid4(),
             name=f"Person {i}",
             role="firefighter",
-            availability=availability,
+            status=status,
         )
         db_session.add(person)
         personnel_list.append(person)
@@ -544,8 +544,8 @@ class TestCheckOutPersonnel:
 # ============================================
 
 
-class TestAvailabilityGatesCheckIn:
-    """`availability` decides who is OFFERED a check-in. That is its whole job.
+class TestStatusGatesCheckIn:
+    """`status` decides who is OFFERED a check-in. That is its whole job.
 
     It is deliberately not retroactive: somebody already checked in and working an Einsatz
     stays there when an officer flips the roster flag. Pulling a person off a running Einsatz
@@ -554,7 +554,7 @@ class TestAvailabilityGatesCheckIn:
     not here".
 
     Both directions below already worked; they are pinned here because nothing did so before,
-    and because the honest answer to "why does availability not affect the board?" is easier to
+    and because the honest answer to "why does the roster flag not affect the board?" is easier to
     trust with a test next to it.
     """
 
@@ -615,7 +615,7 @@ class TestAvailabilityGatesCheckIn:
         await personnel_crud.update_personnel(
             db=db_session,
             personnel_id=test_personnel.id,
-            personnel_data=schemas.PersonnelUpdate(availability="unavailable"),
+            personnel_data=schemas.PersonnelUpdate(status="unavailable"),
             current_user=test_user,
             request=MagicMock(client=MagicMock(host="127.0.0.1"), headers={}),
         )

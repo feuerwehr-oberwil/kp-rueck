@@ -192,7 +192,7 @@ async def execute_sync(db, preview: dict, remove_stale: bool, current_user, requ
         member = item["member"]
         personnel_data = schemas.PersonnelCreate(
             name=member["name"],
-            availability="available",
+            status="available",
         )
         person = await personnel_crud.create_personnel(db, personnel_data, current_user, request)
         created += 1

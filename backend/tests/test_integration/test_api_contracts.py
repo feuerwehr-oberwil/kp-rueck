@@ -69,7 +69,7 @@ async def test_personnel(db_session: AsyncSession) -> Personnel:
         name="Max Mustermann",
         role="Gruppenführer",
         role_sort_order=1,
-        availability="available",
+        status="available",
         tags=["ADL", "Funk"],
     )
     db_session.add(personnel)
@@ -363,7 +363,7 @@ async def test_personnel_response_contract(editor_client: AsyncClient, test_pers
 
     assert isinstance(personnel_response.id, UUID)
     assert isinstance(personnel_response.name, str)
-    assert isinstance(personnel_response.availability, str)
+    assert isinstance(personnel_response.status, str)
     assert isinstance(personnel_response.role_sort_order, int)
     assert isinstance(personnel_response.checked_in, bool)
     assert isinstance(personnel_response.created_at, datetime)

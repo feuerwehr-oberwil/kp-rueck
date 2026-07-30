@@ -61,7 +61,7 @@ async def sync_personnel(db_session: AsyncSession) -> Personnel:
         id=uuid4(),
         name="Sync Test Person",
         role="Einsatzleiter",
-        availability="available",
+        status="available",
     )
     db_session.add(personnel)
     await db_session.commit()
@@ -490,7 +490,7 @@ class TestApplyDelta:
                     "id": str(new_id),
                     "name": "New Person",
                     "role": "Atemschutz",
-                    "availability": "available",
+                    "status": "available",
                     "updated_at": datetime.now(UTC).isoformat(),
                     "created_at": datetime.now(UTC).isoformat(),
                 }
@@ -519,7 +519,7 @@ class TestApplyDelta:
                     "id": str(sync_personnel.id),
                     "name": "Updated Name",
                     "role": sync_personnel.role,
-                    "availability": "unavailable",
+                    "status": "unavailable",
                     "updated_at": newer_time.isoformat(),
                     "created_at": sync_personnel.created_at.isoformat(),
                 }
@@ -542,7 +542,7 @@ class TestApplyDelta:
                     "id": str(sync_personnel.id),
                     "name": "Should Not Update",
                     "role": sync_personnel.role,
-                    "availability": sync_personnel.availability,
+                    "status": sync_personnel.status,
                     "updated_at": same_time.isoformat(),
                     "created_at": sync_personnel.created_at.isoformat(),
                 }
@@ -561,7 +561,7 @@ class TestApplyDelta:
                 {
                     "name": "No ID Person",
                     "role": "Test",
-                    "availability": "available",
+                    "status": "available",
                 }
             ]
         )
@@ -841,7 +841,7 @@ class TestSyncEdgeCases:
                     "id": str(new_id),
                     "name": "DateTime Test",
                     "role": "Test",
-                    "availability": "available",
+                    "status": "available",
                     "updated_at": now.isoformat(),
                     "created_at": now.isoformat(),
                 }

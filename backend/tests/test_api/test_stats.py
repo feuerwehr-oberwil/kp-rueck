@@ -84,12 +84,12 @@ async def test_event_with_personnel(db_session: AsyncSession, test_event: Event)
 
     # Create personnel with different base availability states
     # Note: "assigned" is now a runtime status based on incident_assignments, not a base status
-    for i, availability in enumerate(["available", "available", "available", "unavailable"]):
+    for i, status in enumerate(["available", "available", "available", "unavailable"]):
         person = Personnel(
             id=uuid4(),
             name=f"Person {i}",
             role="atemschutz",
-            availability=availability,
+            status=status,
         )
         db_session.add(person)
         personnel_list.append(person)
@@ -378,7 +378,7 @@ async def test_get_stats_utilization_rounded(
             id=uuid4(),
             name=f"Person {i}",
             role="atemschutz",
-            availability="available",  # All have base availability "available"
+            status="available",  # All have base availability "available"
         )
         db_session.add(person)
         personnel_list.append(person)

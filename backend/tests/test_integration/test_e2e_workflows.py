@@ -29,7 +29,7 @@ async def resources(db_session: AsyncSession) -> dict:
             id=uuid4(),
             name=f"Firefighter {i + 1}",
             role="Gruppenführer" if i == 0 else "Feuerwehrmann",
-            availability="available",
+            status="available",
         )
         db_session.add(personnel)
         personnel_list.append(personnel)
