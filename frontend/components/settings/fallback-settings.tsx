@@ -84,7 +84,7 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
       .finally(() => setLoaded(true));
     setAutoDownload(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true');
     setDownloadInterval(String(readLageblattInterval()));
-  }, []);
+  }, [t]);
 
   const saveSetting = async (key: string, value: string): Promise<boolean> => {
     setSaving(key);

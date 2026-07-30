@@ -71,7 +71,7 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
       return
     }
     map.fitBounds(L.latLngBounds(positions), { padding: [48, 48], maxZoom: 16 })
-  }, [map, positions])
+  }, [map, positions, L])
   return null
 }
 
