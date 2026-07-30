@@ -5,13 +5,19 @@ import { MainPage } from '../../pages/main.page';
 /**
  * Regressions for the vehicle "Hinzufügen" popover in the incident detail modal.
  *
- * The popover rendered the whole fleet as one unbounded column: Radix grew the
- * popper to fit its content and then shifted it to fit the viewport, so at
- * 1280x720 with the seeded fleet it opened at y = -348 — the first six entries
- * ("Zu Fuss" among them) sat above the top edge with nothing to scroll.
+ * Two defects lived here, both in a flow an operator touches constantly:
  *
- * That is a geometry fact, so it is asserted against real bounding boxes rather
- * than against classnames.
+ *  1. The popover rendered the whole fleet as one unbounded column: Radix grew
+ *     the popper to fit its content and then shifted it to fit the viewport, so
+ *     at 1280x720 with the seeded fleet it opened at y = -348 — the first six
+ *     entries ("Zu Fuss" among them) sat above the top edge with nothing to
+ *     scroll.
+ *  2. The dismissed popover stayed mounted for the length of its exit animation
+ *     and went on receiving pointer events, so the next click landed in an
+ *     invisible panel instead of on what it was aimed at.
+ *
+ * Both are geometry/pointer facts, so they are asserted against real bounding
+ * boxes and hit tests rather than against classnames.
  */
 
 const VEHICLE_ADD_BUTTON = 'button[title="Fahrzeug zuweisen"]';
@@ -75,6 +81,61 @@ test.describe('Vehicle assignment popover', () => {
         `row ${i} is below the viewport`,
       ).toBeLessThanOrEqual(viewport!.height);
     }
+  });
+
+  test('a dismissed popover leaves no invisible layer behind', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.locator(VEHICLE_ADD_BUTTON).click();
+    await expect(page.locator('[data-slot="popover-content"][data-state="open"]')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+
+    // Deliberately a non-retrying count(): the old behaviour kept the closed
+    // content mounted (and hit-testable) for the length of its exit animation,
+    // so an auto-retrying assertion would simply have waited the bug away.
+    expect(await page.locator('[data-slot="popover-content"]').count()).toBe(0);
+  });
+
+  test('the click after dismissing the popover reaches what it was aimed at', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.locator(VEHICLE_ADD_BUTTON).click();
+    const popover = page.locator('[data-slot="popover-content"][data-state="open"]');
+    await expect(popover).toBeVisible();
+
+    // Aim at the middle of the panel itself — whatever the popover happens to
+    // overlap, that point is by definition where a dismissed-but-still-mounted
+    // layer would intercept. Deriving it from the live box keeps the test honest
+    // when the modal's layout moves.
+    const popoverBox = await popover.boundingBox();
+    expect(popoverBox).not.toBeNull();
+    const targetX = popoverBox!.x + popoverBox!.width / 2;
+    const targetY = popoverBox!.y + popoverBox!.height / 2;
+
+    await page.keyboard.press('Escape');
+
+    // Non-retrying hit test, taken straight after the dismissal: the old
+    // behaviour left the closed panel mounted and hit-testable for the length of
+    // its exit animation, so this reported the popover instead of the modal.
+    const ownerAfterDismiss = await page.evaluate(
+      ([x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return 'nothing';
+        if (el.closest('[data-slot="popover-content"]')) return 'popover';
+        if (el.closest('[data-slot="dialog-content"]')) return 'modal';
+        return 'other';
+      },
+      [targetX, targetY],
+    );
+    expect(ownerAfterDismiss).toBe('modal');
+
+    // page.mouse.click, not locator.click: a locator click re-tries until the
+    // element is hittable, which would paper over precisely the swallowed click
+    // this test exists to catch. One click, one chance — and it must land in the
+    // modal, not read as a stray click outside it.
+    await page.mouse.click(targetX, targetY);
+    await expect(detailModal(page)).toBeVisible();
   });
 });
 
