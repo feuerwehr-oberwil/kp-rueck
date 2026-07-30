@@ -3,7 +3,7 @@
 Tests cover:
 - assign_resource: Create resource assignments to incidents
 - unassign_resource: Release resources from incidents
-- update_resource_status: Update availability status
+- update_resource_status: Update the duty status field
 - get_incident_assignments: Get all active assignments
 - get_assignments_by_event: Batch load assignments for an event
 - check_resource_conflicts: Check if resource is assigned elsewhere
@@ -123,7 +123,7 @@ async def test_personnel(db_session: AsyncSession) -> Personnel:
         id=uuid4(),
         name="Test Person",
         role="firefighter",
-        availability="available",
+        status="available",
     )
     db_session.add(personnel)
     await db_session.commit()
@@ -215,9 +215,9 @@ class TestAssignResource:
         assert assignment is not None
         assert assignment.resource_type == "personnel"
 
-        # Note: Base availability is NOT updated - assignment is tracked via incident_assignments table
+        # Note: Base status is NOT updated - assignment is tracked via incident_assignments table
         await db_session.refresh(test_personnel)
-        assert test_personnel.availability == "available"  # Base status unchanged
+        assert test_personnel.status == "available"  # Base status unchanged
 
     async def test_assign_material_to_incident(
         self,
@@ -374,7 +374,7 @@ class TestUpdateResourceStatus:
         db_session: AsyncSession,
         test_personnel: Personnel,
     ):
-        """Test updating personnel availability status."""
+        """Test updating personnel duty status."""
         await assignment_crud.update_resource_status(
             db=db_session,
             resource_type="personnel",
@@ -385,7 +385,7 @@ class TestUpdateResourceStatus:
         await db_session.commit()
 
         await db_session.refresh(test_personnel)
-        assert test_personnel.availability == "unavailable"
+        assert test_personnel.status == "unavailable"
 
     async def test_update_vehicle_status(
         self,

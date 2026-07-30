@@ -3,8 +3,8 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import jwt
 import pytest
-from jose import JWTError, jwt
 
 from app.auth.config import auth_settings
 from app.auth.security import (
@@ -295,7 +295,7 @@ def test_decode_token_expired():
     # Create already-expired token
     expired_token = create_access_token(data, expires_delta=timedelta(seconds=-1))
 
-    with pytest.raises(JWTError) as exc_info:
+    with pytest.raises(jwt.PyJWTError) as exc_info:
         decode_token(expired_token)
 
     assert "Token validation failed" in str(exc_info.value)
@@ -305,7 +305,7 @@ def test_decode_token_malformed():
     """Test decoding a malformed token raises error."""
     malformed_token = "not.a.valid.jwt"
 
-    with pytest.raises(JWTError) as exc_info:
+    with pytest.raises(jwt.PyJWTError) as exc_info:
         decode_token(malformed_token)
 
     assert "Token validation failed" in str(exc_info.value)
@@ -322,7 +322,7 @@ def test_decode_token_invalid_signature():
     pos = token.rindex(".") + 5
     tampered_token = token[:pos] + ("X" if token[pos] != "X" else "Y") + token[pos + 1 :]
 
-    with pytest.raises(JWTError) as exc_info:
+    with pytest.raises(jwt.PyJWTError) as exc_info:
         decode_token(tampered_token)
 
     assert "Token validation failed" in str(exc_info.value)
@@ -335,7 +335,7 @@ def test_decode_token_wrong_algorithm():
     # Create token with different algorithm
     wrong_algo_token = jwt.encode(data, "wrong_secret", algorithm="HS512")
 
-    with pytest.raises(JWTError) as exc_info:
+    with pytest.raises(jwt.PyJWTError) as exc_info:
         decode_token(wrong_algo_token)
 
     assert "Token validation failed" in str(exc_info.value)
@@ -347,7 +347,7 @@ def test_decode_token_no_expiration():
     data = {"sub": str(uuid.uuid4())}
     token_without_exp = jwt.encode(data, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
 
-    # python-jose should allow this (exp is optional in JWT spec)
+    # PyJWT allows this (exp is optional in JWT spec)
     # but our tokens should always have exp
     payload = decode_token(token_without_exp)
     assert "sub" in payload

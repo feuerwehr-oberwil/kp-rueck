@@ -65,7 +65,7 @@ async def create_personnel(
         name=personnel_data.name,
         role=personnel_data.role,
         role_sort_order=personnel_data.role_sort_order,
-        availability=personnel_data.availability or "available",
+        status=personnel_data.status or "available",
         tags=personnel_data.tags,
     )
     db.add(personnel)
@@ -81,7 +81,7 @@ async def create_personnel(
         changes={
             "name": personnel_data.name,
             "role": personnel_data.role,
-            "availability": personnel_data.availability,
+            "status": personnel_data.status,
             "tags": personnel_data.tags,
         },
         request=request,
@@ -110,7 +110,7 @@ async def update_personnel(
     before_state = {
         "name": personnel.name,
         "role": personnel.role,
-        "availability": personnel.availability,
+        "status": personnel.status,
     }
 
     # Apply updates
@@ -124,7 +124,7 @@ async def update_personnel(
     after_state = {
         "name": personnel.name,
         "role": personnel.role,
-        "availability": personnel.availability,
+        "status": personnel.status,
     }
 
     # Calculate changes

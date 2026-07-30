@@ -32,7 +32,7 @@ async def assign_resource(
     check-and-create operations.
 
     Checks for conflicts (resource already assigned elsewhere).
-    Updates resource availability status.
+    Updates the resource status field.
 
     Returns:
         Created assignment
@@ -173,11 +173,11 @@ async def unassign_resource(
 
 
 async def update_resource_status(db: AsyncSession, resource_type: str, resource_id: uuid.UUID, new_status: str) -> None:
-    """Update resource availability/status field."""
+    """Update a resource's duty status field."""
     if resource_type == "personnel":
         person = (await db.execute(select(Personnel).where(Personnel.id == resource_id))).scalar_one_or_none()
         if person:
-            person.availability = new_status
+            person.status = new_status
             person.updated_at = datetime.utcnow()
 
     elif resource_type == "vehicle":

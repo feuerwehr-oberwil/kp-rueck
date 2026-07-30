@@ -51,7 +51,7 @@ async def alarm_incident(db_session: AsyncSession, alarm_event: Event) -> Incide
 
 
 async def _make_person(db_session, name, divera_user_id=None):
-    person = Personnel(id=uuid4(), name=name, availability="available", divera_user_id=divera_user_id)
+    person = Personnel(id=uuid4(), name=name, status="available", divera_user_id=divera_user_id)
     db_session.add(person)
     await db_session.commit()
     await db_session.refresh(person)

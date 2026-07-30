@@ -381,7 +381,7 @@ async def test_vehicle(db_session: AsyncSession) -> Vehicle:
 
 @pytest_asyncio.fixture
 async def person_a(db_session: AsyncSession) -> Personnel:
-    p = Personnel(id=uuid4(), name="Anna", role="Truppmann", availability="available")
+    p = Personnel(id=uuid4(), name="Anna", role="Truppmann", status="available")
     db_session.add(p)
     await db_session.commit()
     await db_session.refresh(p)
@@ -390,7 +390,7 @@ async def person_a(db_session: AsyncSession) -> Personnel:
 
 @pytest_asyncio.fixture
 async def person_b(db_session: AsyncSession) -> Personnel:
-    p = Personnel(id=uuid4(), name="Bruno", role="Truppmann", availability="available")
+    p = Personnel(id=uuid4(), name="Bruno", role="Truppmann", status="available")
     db_session.add(p)
     await db_session.commit()
     await db_session.refresh(p)

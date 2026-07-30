@@ -123,7 +123,7 @@ async def test_personnel_name_sql_injection(editor_client: AsyncClient, payload:
     """Test that SQL injection in personnel name is safely handled."""
     personnel_data = {
         "name": payload,
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
 
@@ -143,7 +143,7 @@ async def test_personnel_role_sql_injection(editor_client: AsyncClient, payload:
     personnel_data = {
         "name": "Test Person",
         "role": payload,
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
 

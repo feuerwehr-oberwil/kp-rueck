@@ -12,7 +12,7 @@ class PersonnelBase(BaseModel):
     name: str
     role: str | None = None
     role_sort_order: int = 0
-    availability: str  # 'available', 'unavailable'
+    status: str  # 'available', 'unavailable'
     tags: list[str] | None = None
 
     @field_validator("name")
@@ -25,10 +25,10 @@ class PersonnelBase(BaseModel):
             raise ValueError("Name must be 100 characters or less")
         return " ".join(v.split())
 
-    @field_validator("availability")
+    @field_validator("status")
     @classmethod
-    def validate_availability(cls, v: str) -> str:
-        """Validate availability status."""
+    def validate_status(cls, v: str) -> str:
+        """Validate duty status."""
         valid_statuses = {"available", "unavailable"}
         status_mapping = {
             "assigned": "available",
@@ -38,7 +38,7 @@ class PersonnelBase(BaseModel):
         if v in status_mapping:
             return status_mapping[v]
         if v not in valid_statuses:
-            raise ValueError(f"Availability must be one of: {', '.join(valid_statuses)}")
+            raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
         return v
 
     @field_validator("role_sort_order")
@@ -60,7 +60,7 @@ class PersonnelUpdate(BaseModel):
     name: str | None = None
     role: str | None = None
     role_sort_order: int | None = None
-    availability: str | None = None
+    status: str | None = None
     tags: list[str] | None = None
     divera_user_id: int | None = None
 
@@ -95,7 +95,7 @@ class PersonnelCheckInResponse(BaseModel):
     id: UUID
     name: str
     role: str | None = None
-    availability: str
+    status: str
     tags: list[str] | None = None
     checked_in: bool
     checked_in_at: datetime | None = None
@@ -130,7 +130,7 @@ class PersonnelActivity(BaseModel):
     personnel_id: UUID
     name: str
     role: str | None = None
-    availability: str
+    status: str
     active_duration_minutes: int  # Time since checked in (for assigned personnel)
     assignment_count: int  # Number of incidents assigned to
     current_incident_title: str | None = None  # Current incident title if assigned

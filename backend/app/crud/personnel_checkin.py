@@ -67,7 +67,7 @@ async def get_available_personnel(
         List of personnel with event-specific check-in status
     """
     # Get all available personnel
-    query = select(Personnel).where(Personnel.availability != "unavailable").order_by(Personnel.name.asc())
+    query = select(Personnel).where(Personnel.status != "unavailable").order_by(Personnel.name.asc())
 
     result = await db.execute(query)
     personnel_list = list(result.scalars().all())
@@ -121,7 +121,7 @@ async def get_available_personnel(
                 id=person.id,
                 name=person.name,
                 role=person.role,
-                availability=person.availability,
+                status=person.status,
                 checked_in=checked_in,
                 checked_in_at=attendance.checked_in_at if attendance else None,
                 checked_out_at=attendance.checked_out_at if attendance else None,
@@ -163,7 +163,7 @@ async def check_in_personnel(
         return None
 
     # Can't check in if unavailable
-    if person.availability == "unavailable":
+    if person.status == "unavailable":
         raise ValueError("Cannot check in unavailable personnel")
 
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
@@ -185,7 +185,7 @@ async def check_in_personnel(
                 id=person.id,
                 name=person.name,
                 role=person.role,
-                availability=person.availability,
+                status=person.status,
                 checked_in=True,
                 checked_in_at=attendance.checked_in_at,
                 checked_out_at=attendance.checked_out_at,
@@ -224,7 +224,7 @@ async def check_in_personnel(
         id=person.id,
         name=person.name,
         role=person.role,
-        availability=person.availability,
+        status=person.status,
         checked_in=attendance.checked_in,
         checked_in_at=attendance.checked_in_at,
         checked_out_at=attendance.checked_out_at,
@@ -282,7 +282,7 @@ async def check_out_personnel(
                 id=person.id,
                 name=person.name,
                 role=person.role,
-                availability=person.availability,
+                status=person.status,
                 checked_in=False,
                 checked_in_at=attendance.checked_in_at,
                 checked_out_at=attendance.checked_out_at,
@@ -322,7 +322,7 @@ async def check_out_personnel(
         id=person.id,
         name=person.name,
         role=person.role,
-        availability=person.availability,
+        status=person.status,
         checked_in=attendance.checked_in,
         checked_in_at=attendance.checked_in_at,
         checked_out_at=attendance.checked_out_at,

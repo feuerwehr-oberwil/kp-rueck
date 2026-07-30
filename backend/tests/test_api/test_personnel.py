@@ -28,7 +28,7 @@ async def test_personnel(db_session: AsyncSession) -> Personnel:
         id=uuid4(),
         name="Hans Müller",
         role="Gruppenführer",
-        availability="available",
+        status="available",
         tags=["Atemschutz", "Maschinisten"],
     )
     db_session.add(personnel)
@@ -103,7 +103,7 @@ async def test_get_personnel_success(editor_client: AsyncClient, test_personnel:
     assert data["id"] == str(test_personnel.id)
     assert data["name"] == test_personnel.name
     assert data["role"] == test_personnel.role
-    assert data["availability"] == test_personnel.availability
+    assert data["status"] == test_personnel.status
     assert data["tags"] == test_personnel.tags
 
 
@@ -147,14 +147,14 @@ async def test_create_personnel_success(editor_client: AsyncClient):
     personnel_data = {
         "name": "Anna Schmidt",
         "role": "Zugführer",
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Anna Schmidt"
     assert data["role"] == "Zugführer"
-    assert data["availability"] == "available"
+    assert data["status"] == "available"
     assert "id" in data
 
 
@@ -163,16 +163,16 @@ async def test_create_personnel_success(editor_client: AsyncClient):
 async def test_create_personnel_minimal(editor_client: AsyncClient):
     """Test creating personnel with required data.
 
-    Required fields: name, availability
+    Required fields: name, status
     """
     response = await editor_client.post(
         "/api/personnel/",
-        json={"name": "Basic Person", "availability": "available"},
+        json={"name": "Basic Person", "status": "available"},
     )
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Basic Person"
-    assert data["availability"] == "available"
+    assert data["status"] == "available"
 
 
 @pytest.mark.asyncio
@@ -202,13 +202,13 @@ async def test_update_personnel_success(editor_client: AsyncClient, test_personn
     """Test updating personnel successfully."""
     update_data = {
         "name": "Hans Müller Updated",
-        "availability": "unavailable",
+        "status": "unavailable",
     }
     response = await editor_client.put(f"/api/personnel/{test_personnel.id}", json=update_data)
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Hans Müller Updated"
-    assert data["availability"] == "unavailable"
+    assert data["status"] == "unavailable"
 
 
 @pytest.mark.asyncio
@@ -217,12 +217,12 @@ async def test_update_personnel_partial(editor_client: AsyncClient, test_personn
     """Test partial update of personnel."""
     response = await editor_client.put(
         f"/api/personnel/{test_personnel.id}",
-        json={"availability": "unavailable"},
+        json={"status": "unavailable"},
     )
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == test_personnel.name  # Unchanged
-    assert data["availability"] == "unavailable"
+    assert data["status"] == "unavailable"
 
 
 @pytest.mark.asyncio
@@ -348,7 +348,7 @@ async def test_personnel_response_structure(editor_client: AsyncClient, test_per
     assert response.status_code == 200
     data = response.json()
 
-    expected_fields = ["id", "name", "role", "availability", "tags"]
+    expected_fields = ["id", "name", "role", "status", "tags"]
     for field in expected_fields:
         assert field in data, f"Missing field: {field}"
 
@@ -368,7 +368,7 @@ async def test_list_multiple_personnel(editor_client: AsyncClient, db_session: A
             id=uuid4(),
             name=f"Firefighter {i}",
             role="Truppmann",
-            availability="available",
+            status="available",
         )
         db_session.add(personnel)
     await db_session.commit()
