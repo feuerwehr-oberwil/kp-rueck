@@ -7,7 +7,7 @@ export interface ApiPersonnel {
   name: string
   role?: string | null // e.g., "Firefighter", "Paramedic", "Driver"
   role_sort_order: number // Sort order for grouping by role
-  availability: string // available, assigned, unavailable
+  status: string // available, unavailable
   tags?: string[] | null
   /** Divera user_cluster_relation id — present only when linked to Divera. */
   divera_user_id?: number | null
@@ -32,7 +32,7 @@ export interface ApiPersonnelCreate {
   name: string
   role?: string | null
   role_sort_order?: number
-  availability: string
+  status: string
   tags?: string[] | null
 }
 
@@ -40,6 +40,6 @@ export interface ApiPersonnelUpdate {
   name?: string
   role?: string | null
   role_sort_order?: number
-  availability?: string
+  status?: string
   tags?: string[] | null
 }

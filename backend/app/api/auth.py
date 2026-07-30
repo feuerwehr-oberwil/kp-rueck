@@ -5,9 +5,9 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Literal, NotRequired, TypedDict, cast
 
+import jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import JWTError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -188,7 +188,7 @@ async def refresh_token(
 
         user_id = uuid.UUID(payload.get("sub"))
 
-    except JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Refresh-Token") from None
 
     # Load user
@@ -262,7 +262,7 @@ async def logout(
                 # Convert exp timestamp to datetime
                 expires_at = datetime.fromtimestamp(exp, tz=UTC)
                 await token_blocklist.revoke(jti, expires_at)
-        except JWTError:
+        except jwt.PyJWTError:
             # Token already invalid, no need to revoke
             pass
 
@@ -275,7 +275,7 @@ async def logout(
             if jti and exp:
                 expires_at = datetime.fromtimestamp(exp, tz=UTC)
                 await token_blocklist.revoke(jti, expires_at)
-        except JWTError:
+        except jwt.PyJWTError:
             # Token already invalid, no need to revoke
             pass
 

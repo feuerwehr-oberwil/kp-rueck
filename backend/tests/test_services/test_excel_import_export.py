@@ -55,9 +55,9 @@ async def sample_personnel(db_session: AsyncSession) -> list[Personnel]:
     """Create sample personnel for export tests."""
     # Note: Database constraint uses 'unavailable' not 'not-available'
     personnel_list = [
-        Personnel(id=uuid4(), name="Alice Test", role="Fahrer", availability="available"),
-        Personnel(id=uuid4(), name="Bob Test", role="Atemschutz", availability="unavailable"),
-        Personnel(id=uuid4(), name="Charlie Test", availability="available"),
+        Personnel(id=uuid4(), name="Alice Test", role="Fahrer", status="available"),
+        Personnel(id=uuid4(), name="Bob Test", role="Atemschutz", status="unavailable"),
+        Personnel(id=uuid4(), name="Charlie Test", status="available"),
     ]
     for p in personnel_list:
         db_session.add(p)
@@ -125,7 +125,7 @@ def create_valid_excel_bytes(
     ws_personnel = wb.create_sheet("Personnel")
     ws_personnel.append([col[0] for col in PERSONNEL_COLUMNS])
     for row in personnel or []:
-        ws_personnel.append([row.get("name"), row.get("role"), row.get("availability")])
+        ws_personnel.append([row.get("name"), row.get("role"), row.get("status")])
 
     # Vehicles sheet
     ws_vehicles = wb.create_sheet("Vehicles")
@@ -254,14 +254,14 @@ class TestValidateAndParseExcel:
         """Test parses Personnel data correctly."""
         file_bytes = create_valid_excel_bytes(
             personnel=[
-                {"name": "Test Person", "role": "Fahrer", "availability": "available"},
+                {"name": "Test Person", "role": "Fahrer", "status": "available"},
             ]
         )
         result = validate_and_parse_excel(file_bytes)
         assert len(result["personnel"]) == 1
         assert result["personnel"][0]["name"] == "Test Person"
         assert result["personnel"][0]["role"] == "Fahrer"
-        assert result["personnel"][0]["availability"] == "available"
+        assert result["personnel"][0]["status"] == "available"
 
     def test_parses_vehicles_data(self):
         """Test parses Vehicles data correctly."""
@@ -302,7 +302,7 @@ class TestValidateAndParseExcel:
         wb = Workbook()
         wb.remove(wb.active)
         ws = wb.create_sheet("Personnel")
-        ws.append(["name", "role", "availability"])
+        ws.append(["name", "role", "status"])
         ws.append(["Person 1", "Role", "available"])
         ws.append([None, None, None])  # Empty row
         ws.append(["Person 2", "Role", "available"])
@@ -320,25 +320,45 @@ class TestValidateAndParseExcel:
         result = validate_and_parse_excel(file_bytes)
         assert len(result["personnel"]) == 2
 
+    def test_accepts_legacy_availability_header(self):
+        """A workbook exported before the rename still imports.
+
+        The personnel column was called "availability" until the field was renamed to
+        `status`; a station with an older export sitting in its Downloads folder must not
+        get "Expected columns" thrown at it.
+        """
+        wb = Workbook()
+        wb.remove(wb.active)
+        ws = wb.create_sheet("Personnel")
+        ws.append(["name", "role", "availability"])
+        ws.append(["Alte Datei", "Mannschaft", "available"])
+
+        wb.create_sheet("Vehicles").append(["name", "type", "display_order", "status", "radio_call_sign"])
+        wb.create_sheet("Materials").append(["name", "type", "location", "description"])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+
+        result = validate_and_parse_excel(buffer.getvalue())
+        assert result["personnel"] == [{"name": "Alte Datei", "role": "Mannschaft", "status": "available"}]
+
     def test_validates_personnel_name_required(self):
         """Test validates Personnel name is required."""
-        file_bytes = create_valid_excel_bytes(personnel=[{"name": None, "role": "Test", "availability": "available"}])
+        file_bytes = create_valid_excel_bytes(personnel=[{"name": None, "role": "Test", "status": "available"}])
         with pytest.raises(ExcelImportError, match="'name' is required"):
             validate_and_parse_excel(file_bytes)
 
-    def test_validates_personnel_availability_enum(self):
-        """Test validates Personnel availability is valid enum."""
-        file_bytes = create_valid_excel_bytes(
-            personnel=[{"name": "Test", "role": "Test", "availability": "invalid_status"}]
-        )
-        with pytest.raises(ExcelImportError, match="Invalid availability"):
+    def test_validates_personnel_status_enum(self):
+        """Test validates Personnel status is valid enum."""
+        file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test", "role": "Test", "status": "invalid_status"}])
+        with pytest.raises(ExcelImportError, match="Invalid status"):
             validate_and_parse_excel(file_bytes)
 
-    def test_sets_default_personnel_availability(self):
-        """Test sets default availability to 'unavailable' when empty."""
-        file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test Person", "role": "Test", "availability": None}])
+    def test_sets_default_personnel_status(self):
+        """Test sets default status to 'unavailable' when empty."""
+        file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test Person", "role": "Test", "status": None}])
         result = validate_and_parse_excel(file_bytes)
-        assert result["personnel"][0]["availability"] == "unavailable"
+        assert result["personnel"][0]["status"] == "unavailable"
 
     def test_validates_vehicle_required_fields(self):
         """Test validates all Vehicle required fields."""
@@ -445,7 +465,7 @@ class TestImportData:
 
         # Import new data with replace mode
         parsed_data = {
-            "personnel": [{"name": "New Person", "role": "Test", "availability": "available"}],
+            "personnel": [{"name": "New Person", "role": "Test", "status": "available"}],
             "vehicles": [],
             "materials": [],
         }
@@ -471,7 +491,7 @@ class TestImportData:
 
         # Import new data with append mode
         parsed_data = {
-            "personnel": [{"name": "New Person", "role": "Test", "availability": "available"}],
+            "personnel": [{"name": "New Person", "role": "Test", "status": "available"}],
             "vehicles": [],
             "materials": [],
         }
@@ -490,7 +510,7 @@ class TestImportData:
     ):
         """Test merge mode currently acts as replace."""
         parsed_data = {
-            "personnel": [{"name": "Merged Person", "role": "Test", "availability": "available"}],
+            "personnel": [{"name": "Merged Person", "role": "Test", "status": "available"}],
             "vehicles": [],
             "materials": [],
         }
@@ -548,8 +568,8 @@ class TestImportData:
         """Test import returns correct counts."""
         parsed_data = {
             "personnel": [
-                {"name": "Person 1", "role": "Test", "availability": "available"},
-                {"name": "Person 2", "role": "Test", "availability": "available"},
+                {"name": "Person 1", "role": "Test", "status": "available"},
+                {"name": "Person 2", "role": "Test", "status": "available"},
             ],
             "vehicles": [
                 {
@@ -772,7 +792,7 @@ class TestEdgeCases:
     def test_handles_special_characters(self):
         """Test handles special characters in data."""
         file_bytes = create_valid_excel_bytes(
-            personnel=[{"name": "Müller Jürgen", "role": "Führungskraft", "availability": "available"}],
+            personnel=[{"name": "Müller Jürgen", "role": "Führungskraft", "status": "available"}],
             materials=[{"name": "Schläuche", "type": "Schläuche", "location": "TLF", "description": ""}],
         )
         result = validate_and_parse_excel(file_bytes)
@@ -782,9 +802,7 @@ class TestEdgeCases:
     def test_handles_very_long_strings(self):
         """Test handles very long text values."""
         long_name = "A" * 1000
-        file_bytes = create_valid_excel_bytes(
-            personnel=[{"name": long_name, "role": "Test", "availability": "available"}]
-        )
+        file_bytes = create_valid_excel_bytes(personnel=[{"name": long_name, "role": "Test", "status": "available"}])
         result = validate_and_parse_excel(file_bytes)
         assert result["personnel"][0]["name"] == long_name
 
@@ -793,7 +811,7 @@ class TestEdgeCases:
         """Test importing a large dataset."""
         # Create data for 100 items of each type
         parsed_data = {
-            "personnel": [{"name": f"Person {i}", "role": "Test", "availability": "available"} for i in range(100)],
+            "personnel": [{"name": f"Person {i}", "role": "Test", "status": "available"} for i in range(100)],
             "vehicles": [
                 {
                     "name": f"Vehicle {i}",
@@ -815,9 +833,9 @@ class TestEdgeCases:
     def test_validates_all_personnel_statuses(self):
         """Test all valid personnel statuses are accepted by parser."""
         for status in PERSONNEL_STATUSES:
-            file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test", "role": "Test", "availability": status}])
+            file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test", "role": "Test", "status": status}])
             result = validate_and_parse_excel(file_bytes)
-            assert result["personnel"][0]["availability"] == status
+            assert result["personnel"][0]["status"] == status
 
     def test_validates_all_vehicle_statuses(self):
         """Test all valid vehicle statuses are accepted."""

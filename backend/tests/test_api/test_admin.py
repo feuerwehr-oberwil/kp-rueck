@@ -27,7 +27,7 @@ async def test_data(db_session: AsyncSession):
         id=uuid4(),
         name="Test Person",
         role="atemschutz",
-        availability="available",
+        status="available",
     )
     db_session.add(personnel)
 

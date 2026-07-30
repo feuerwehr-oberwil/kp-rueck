@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
 
 from .config import auth_settings
 
@@ -135,10 +135,10 @@ def decode_token(token: str) -> dict[str, Any]:
         Decoded payload
 
     Raises:
-        JWTError: If token is invalid, expired, or malformed
+        jwt.InvalidTokenError: If token is invalid, expired, or malformed
     """
     try:
         payload: dict[str, Any] = jwt.decode(token, auth_settings.SECRET_KEY, algorithms=[auth_settings.ALGORITHM])
         return payload
-    except JWTError as e:
-        raise JWTError(f"Token validation failed: {e!s}") from e
+    except jwt.PyJWTError as e:
+        raise jwt.InvalidTokenError(f"Token validation failed: {e!s}") from e

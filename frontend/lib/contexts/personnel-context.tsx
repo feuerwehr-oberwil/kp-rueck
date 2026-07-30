@@ -9,7 +9,18 @@ import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 
 // Types
-export type PersonStatus = "available" | "assigned"
+/**
+ * The three states a person can be in on the board.
+ *
+ * `available` / `unavailable` is what the API stores on `Personnel.status` — «im Dienst /
+ * nicht im Dienst», the same field vehicles and materials have. `assigned` is never stored:
+ * it is derived per event from `incident_assignments` and written onto the person by
+ * operations-context.
+ *
+ * `unavailable` used to be missing here while the API mapping cast the raw field to this
+ * type anyway — so an off-duty person carried a value the type said could not exist.
+ */
+export type PersonStatus = "available" | "assigned" | "unavailable"
 export type PersonRole = string
 
 export interface Person {
@@ -36,7 +47,7 @@ interface PersonnelContextType {
    * Fetch personnel from the API.
    * @param options.skipStateUpdate When true, returns the list without writing
    *   to local state — used by operations-context to avoid a flicker where
-   *   raw API personnel (availability-based) is briefly shown before the
+   *   raw API personnel (duty-status-based) is briefly shown before the
    *   reconciled event-scoped status is applied.
    */
   refreshPersonnel: (options?: { skipStateUpdate?: boolean }) => Promise<Person[]>
@@ -49,7 +60,7 @@ const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
   id: String(apiPerson.id),
   name: apiPerson.name,
   role: apiPerson.role as PersonRole,
-  status: apiPerson.availability as PersonStatus,
+  status: apiPerson.status === "unavailable" ? "unavailable" : "available",
   tags: apiPerson.tags || [],
   roleSortOrder: apiPerson.role_sort_order,
   diveraUserId: apiPerson.divera_user_id ?? null,

@@ -118,7 +118,7 @@ async def test_get_current_user_missing_sub_claim(db_session: AsyncSession, mock
     # Manually create token without 'sub' claim
     from datetime import datetime
 
-    from jose import jwt
+    import jwt
 
     from app.auth.config import auth_settings
 
@@ -136,7 +136,7 @@ async def test_get_current_user_invalid_uuid_format(db_session: AsyncSession, mo
     """Test get_current_user raises 401 when 'sub' is not valid UUID."""
     from datetime import datetime
 
-    from jose import jwt
+    import jwt
 
     from app.auth.config import auth_settings
 
@@ -366,7 +366,7 @@ async def test_revoked_token_is_rejected(db_session: AsyncSession, mock_request)
     """Test that revoked tokens are rejected."""
     from datetime import datetime, timedelta
 
-    from jose import jwt
+    import jwt
 
     from app.auth.config import auth_settings
     from app.auth.token_blocklist import token_blocklist

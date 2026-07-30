@@ -48,7 +48,7 @@ async def test_personnel(db_session: AsyncSession) -> list[Personnel]:
             id=uuid4(),
             name=f"Person {i}",
             role="atemschutz",
-            availability="available" if i < 4 else "unavailable",
+            status="available" if i < 4 else "unavailable",
         )
         db_session.add(person)
         personnel_list.append(person)

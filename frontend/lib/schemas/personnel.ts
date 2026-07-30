@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { translateOutsideReact } from "@/lib/i18n-messages";
 
-export const personnelAvailabilitySchema = z.enum([
+export const personnelStatusSchema = z.enum([
   "available",
   "unavailable",
 ]);
@@ -17,7 +17,7 @@ export const personnelFormSchema = z.object({
     .trim()
     .min(1, translateOutsideReact("settings.validation.roleRequired"))
     .max(80, translateOutsideReact("settings.validation.max80")),
-  availability: personnelAvailabilitySchema,
+  status: personnelStatusSchema,
   tags: z.array(z.string().trim().min(1).max(40)),
 });
 
@@ -27,6 +27,6 @@ export type PersonnelFormOutput = z.output<typeof personnelFormSchema>;
 export const personnelFormDefaults: PersonnelFormValues = {
   name: "",
   role: "",
-  availability: "available",
+  status: "available",
   tags: [],
 };

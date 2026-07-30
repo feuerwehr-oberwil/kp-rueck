@@ -68,7 +68,7 @@ async def get_event_stats(
     else:
         personnel = []
 
-    available = sum(1 for p in personnel if p.availability == "available")
+    available = sum(1 for p in personnel if p.status == "available")
     total_personnel = len(personnel)
 
     # Calculate average duration for completed incidents

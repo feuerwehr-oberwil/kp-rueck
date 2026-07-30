@@ -64,7 +64,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   const [newTag, setNewTag] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personnelToDelete, setPersonnelToDelete] = useState<ApiPersonnel | null>(null);
-  const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'availability'>('name');
+  const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'status'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Divera sync state
@@ -170,9 +170,9 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
     form.reset({
       name: person.name,
       role: person.role || '',
-      availability:
-        person.availability === 'available' || person.availability === 'unavailable'
-          ? person.availability
+      status:
+        person.status === 'available' || person.status === 'unavailable'
+          ? person.status
           : 'available',
       tags: person.tags || [],
     });
@@ -220,7 +220,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   };
 
   // Handle column header click for sorting
-  const handleSort = (column: 'name' | 'role' | 'availability') => {
+  const handleSort = (column: 'name' | 'role' | 'status') => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -244,9 +244,9 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
           aVal = (a.role || '').toLowerCase();
           bVal = (b.role || '').toLowerCase();
           break;
-        case 'availability':
-          aVal = a.availability;
-          bVal = b.availability;
+        case 'status':
+          aVal = a.status;
+          bVal = b.status;
           break;
         default:
           return 0;
@@ -259,7 +259,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   }, [personnel, sortColumn, sortDirection]);
 
   // Render sort indicator
-  const SortIndicator = ({ column }: { column: 'name' | 'role' | 'availability' }) => {
+  const SortIndicator = ({ column }: { column: 'name' | 'role' | 'status' }) => {
     if (sortColumn !== column) return null;
     return sortDirection === 'asc' ? (
       <ArrowUp className="ml-1 h-3 w-3 inline" />
@@ -387,9 +387,9 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                 <TableHead>{t('personnel.tags')}</TableHead>
                 <TableHead
                   className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('availability')}
+                  onClick={() => handleSort('status')}
                 >
-                  {t('personnel.availability')}<SortIndicator column="availability" />
+                  {t('personnel.availability')}<SortIndicator column="status" />
                 </TableHead>
                 <TableHead className="text-right">{t('common.actions')}</TableHead>
               </TableRow>
@@ -420,12 +420,12 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                   <TableCell>
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
-                        person.availability === 'available'
+                        person.status === 'available'
                           ? 'bg-success/10 text-success'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
-                      {person.availability === 'available' ? t('common.available') : t('common.unavailable')}
+                      {person.status === 'available' ? t('common.available') : t('common.unavailable')}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -574,7 +574,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
 
               <FormField
                 control={form.control}
-                name="availability"
+                name="status"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-semibold text-muted-foreground">{t('personnel.availability')}</FormLabel>

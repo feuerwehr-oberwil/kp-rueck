@@ -122,7 +122,7 @@ async def test_personnel_name_empty_rejected(editor_client: AsyncClient):
     """Test that empty personnel name is rejected."""
     personnel_data = {
         "name": "",
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
     assert response.status_code == 422
@@ -135,7 +135,7 @@ async def test_personnel_name_max_length(editor_client: AsyncClient):
     long_name = "A" * 100
     personnel_data = {
         "name": long_name,
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
     assert response.status_code == 201
@@ -148,7 +148,7 @@ async def test_personnel_name_exceeds_max_length(editor_client: AsyncClient):
     long_name = "A" * 101
     personnel_data = {
         "name": long_name,
-        "availability": "available",
+        "status": "available",
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
     assert response.status_code == 422
@@ -287,11 +287,11 @@ async def test_incident_invalid_status_rejected(editor_client: AsyncClient, test
 
 @pytest.mark.asyncio
 @pytest.mark.security
-async def test_personnel_invalid_availability_rejected(editor_client: AsyncClient):
-    """Test that invalid personnel availability is rejected."""
+async def test_personnel_invalid_status_rejected(editor_client: AsyncClient):
+    """Test that an invalid personnel status is rejected."""
     personnel_data = {
         "name": "Test Person",
-        "availability": "maybe",  # Not a valid availability
+        "status": "maybe",  # Not a valid status
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
     assert response.status_code == 422
@@ -372,7 +372,7 @@ async def test_string_in_numeric_field(editor_client: AsyncClient):
     """Test that string in numeric field is rejected."""
     personnel_data = {
         "name": "Test Person",
-        "availability": "available",
+        "status": "available",
         "role_sort_order": "not_a_number",  # Should be int
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
@@ -385,7 +385,7 @@ async def test_negative_sort_order_rejected(editor_client: AsyncClient):
     """Test that negative sort order is rejected."""
     personnel_data = {
         "name": "Test Person",
-        "availability": "available",
+        "status": "available",
         "role_sort_order": -1,
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
@@ -540,7 +540,7 @@ async def test_personnel_tags_valid_array(editor_client: AsyncClient):
     """Test that valid tags array is accepted."""
     personnel_data = {
         "name": "Test Person",
-        "availability": "available",
+        "status": "available",
         "tags": ["driver", "medic", "leader"],
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
@@ -554,7 +554,7 @@ async def test_personnel_tags_empty_array(editor_client: AsyncClient):
     """Test that empty tags array is accepted."""
     personnel_data = {
         "name": "Test Person",
-        "availability": "available",
+        "status": "available",
         "tags": [],
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
@@ -567,7 +567,7 @@ async def test_personnel_tags_null_accepted(editor_client: AsyncClient):
     """Test that null tags is accepted."""
     personnel_data = {
         "name": "Test Person",
-        "availability": "available",
+        "status": "available",
         "tags": None,
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)

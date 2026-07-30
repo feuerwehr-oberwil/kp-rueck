@@ -1,6 +1,6 @@
 """Tests for authentication API endpoints."""
 
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -274,6 +274,40 @@ async def test_expired_token_rejected(client: AsyncClient, test_editor_user: Use
     response = await client.get("/api/auth/me", cookies={"access_token": expired_token})
 
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_token_failure_modes_share_one_401(client: AsyncClient, test_editor_user: User):
+    """Expired, wrong-key and malformed tokens must all yield the same 401.
+
+    The three failure modes come out of three different JWT exception classes; this
+    pins that none of them leaks a distinguishable response (status, body or headers)
+    that would tell an attacker which check failed.
+    """
+    import jwt
+
+    from app.auth.config import auth_settings
+
+    expired = create_access_token(data={"sub": str(test_editor_user.id)}, expires_delta=timedelta(minutes=-1))
+    wrong_key = jwt.encode(
+        {
+            "sub": str(test_editor_user.id),
+            "exp": datetime.now(UTC) + timedelta(minutes=15),
+            "type": "access",
+        },
+        "definitely-not-the-server-secret",
+        algorithm=auth_settings.ALGORITHM,
+    )
+    malformed = "not.a.valid.jwt"
+
+    responses = [
+        await client.get("/api/auth/me", cookies={"access_token": token}) for token in (expired, wrong_key, malformed)
+    ]
+
+    for response in responses:
+        assert response.status_code == 401
+        assert response.headers["www-authenticate"] == "Bearer"
+    assert len({response.json()["detail"] for response in responses}) == 1
 
 
 @pytest.mark.asyncio

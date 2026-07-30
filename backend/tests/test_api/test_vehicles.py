@@ -354,7 +354,7 @@ async def test_personnel_driver(db_session: AsyncSession) -> "Personnel":
         id=uuid4(),
         name="Hans Driver",
         role="Maschinist",
-        availability="available",
+        status="available",
     )
     db_session.add(personnel)
     await db_session.commit()

@@ -112,7 +112,7 @@ async def get_viewer_data(
     # Checked-in roster for this event (same scoping as the logged-in display),
     # plus materials/vehicles and live GPS. Assignments + special functions let
     # the client derive event-scoped availability (assigned vs. available) —
-    # the raw Personnel.availability field never reflects incident assignments.
+    # the raw Personnel.status field never reflects incident assignments.
     personnel = await personnel_crud.get_all_personnel(db, checked_in_only=True, event_id=event_id)
     materials = await materials_crud.get_all_materials(db)
     vehicles = await vehicles_crud.get_all_vehicles(db)
