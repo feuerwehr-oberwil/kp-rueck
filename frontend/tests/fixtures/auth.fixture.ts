@@ -10,6 +10,7 @@ import { DashboardPage } from '../pages/dashboard.page';
 
 type AuthFixtures = {
   authenticatedPage: Page;
+  viewerPage: Page;
   loginPage: LoginPage;
   dashboardPage: DashboardPage;
 };
@@ -22,6 +23,13 @@ type AuthWorkerFixtures = {
    * rate-limits aggressive login bursts.
    */
   authCookies: Cookie[];
+
+  /**
+   * Same, for the seeded read-only `viewer` account (backend/app/seed.py).
+   * Password comes from VIEWER_PASSWORD, which both CI workflows already
+   * set; the dev seed default is `viewer`.
+   */
+  viewerCookies: Cookie[];
 };
 
 /**
@@ -48,6 +56,23 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
     { scope: 'worker' },
   ],
 
+  viewerCookies: [
+    async ({ browser }, use) => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const loginPage = new LoginPage(page);
+      await loginPage.goto();
+
+      await loginPage.login('viewer', process.env.VIEWER_PASSWORD || 'viewer');
+      await loginPage.waitForLoginSuccess();
+
+      const cookies = await context.cookies();
+      await context.close();
+      await use(cookies);
+    },
+    { scope: 'worker' },
+  ],
+
   /**
    * Provides a page that is already authenticated by replaying the
    * worker-scoped session cookies — no per-test login.
@@ -56,6 +81,25 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
     await page.context().addCookies(authCookies);
     // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
+  },
+
+  /**
+   * A page logged in as the read-only `viewer` account.
+   *
+   * Deliberately its own browser context rather than the shared `page`:
+   * the session lives in one `access_token` cookie, so an editor page and a
+   * viewer page in the same context would overwrite each other. Separate
+   * contexts let a single test hold both roles at once, which is what makes
+   * "editor sees it / viewer does not" one assertion instead of two specs
+   * that can drift apart (and a lone negative that passes trivially).
+   */
+  viewerPage: async ({ browser, viewerCookies }, use) => {
+    const context = await browser.newContext();
+    await context.addCookies(viewerCookies);
+    const page = await context.newPage();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    await use(page);
+    await context.close();
   },
 
   /**
