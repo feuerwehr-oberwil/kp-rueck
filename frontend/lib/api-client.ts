@@ -126,7 +126,7 @@ class ApiClient {
   /**
    * Main request method with retry logic and error notifications
    */
-  private async request<T>(endpoint: string, options?: RequestInit & { skipToast?: boolean; maxRetries?: number }): Promise<T> {
+  private async request<T>(endpoint: string, options?: RequestInit & { skipToast?: boolean; maxRetries?: number; onHeaders?: (headers: Headers) => void }): Promise<T> {
     const baseUrl = this.getBaseUrl()
     const url = `${baseUrl}${endpoint}`
     const method = options?.method || 'GET'
@@ -213,6 +213,11 @@ class ApiClient {
           }
           throw error
         }
+
+        // Response metadata the parsed body can't carry (e.g. X-Total-Count, which tells
+        // the board whether it is showing everything). Non-breaking on purpose: the return
+        // type stays the parsed body, so the ~85 existing call sites are untouched.
+        options?.onHeaders?.(response.headers)
 
         // Handle empty responses (e.g., DELETE operations with 204 No Content)
         const contentType = response.headers.get('content-type')
@@ -400,6 +405,42 @@ class ApiClient {
 
     const endpoint = `/api/incidents/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
     return this.request<ApiIncident[]>(endpoint)
+  }
+
+  /**
+   * Same as `getIncidents`, but also reports how many incidents exist in total.
+   *
+   * The board needs this to tell a complete list from a truncated one. A plain array looks
+   * identical either way, which is how 200 incidents could render as an arbitrary 100 with
+   * nothing on screen suggesting anything was missing.
+   *
+   * `total` is null when the header is absent (an older backend, or a proxy that strips it) —
+   * callers must treat null as "unknown", never as zero, or the banner would claim a full
+   * board is truncated.
+   */
+  async getIncidentsWithTotal(eventId: string, params?: {
+    status?: IncidentStatus
+    skip?: number
+    limit?: number
+  }): Promise<{ incidents: ApiIncident[]; total: number | null }> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('event_id', eventId)
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.skip !== undefined) queryParams.append('skip', String(params.skip))
+    if (params?.limit !== undefined) queryParams.append('limit', String(params.limit))
+
+    let total: number | null = null
+    const incidents = await this.request<ApiIncident[]>(
+      `/api/incidents/?${queryParams.toString()}`,
+      {
+        onHeaders: (headers) => {
+          const raw = headers.get('X-Total-Count')
+          const parsed = raw === null ? Number.NaN : Number(raw)
+          total = Number.isFinite(parsed) ? parsed : null
+        },
+      },
+    )
+    return { incidents: incidents ?? [], total }
   }
 
   async getIncident(id: string): Promise<ApiIncident> {

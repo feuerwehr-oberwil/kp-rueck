@@ -26,6 +26,9 @@
       "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund.",
       "reconnect": "Neu verbinden"
     },
+    "incidentTruncation": {
+      "message": "Es werden {shown} von {total} Einsätzen angezeigt — die Liste ist unvollständig."
+    },
     "copyButton": {
       "copiedTitle": "Kopiert",
       "copiedDescription": "Text wurde in die Zwischenablage kopiert.",
