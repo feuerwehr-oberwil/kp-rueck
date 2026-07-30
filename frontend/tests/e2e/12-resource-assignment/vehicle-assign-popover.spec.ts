@@ -1,6 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
-import { MainPage } from '../../pages/main.page';
+import { setupBoard } from '../../helpers/api.helper';
 
 /**
  * Regressions for the vehicle "Hinzufügen" popover in the incident detail modal.
@@ -23,23 +22,8 @@ import { MainPage } from '../../pages/main.page';
 const VEHICLE_ADD_BUTTON = 'button[title="Fahrzeug zuweisen"]';
 
 test.describe('Vehicle assignment popover', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    const eventName = `Vehicle Popover ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(eventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(eventName);
-    await expect(authenticatedPage).toHaveURL('/');
-
-    await mainPage.createIncident(`Fahrzeugstrasse ${Date.now()}`);
-
-    // Open the incident's detail modal — the popover lives in its resource column.
+    await setupBoard(authenticatedPage, 'Vehicle Popover');
     const card = authenticatedPage.locator('[data-testid="incident-card"]').first();
     await card.waitFor({ state: 'visible' });
     await card.click();

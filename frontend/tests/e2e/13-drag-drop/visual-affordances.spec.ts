@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { EventsPage } from '../../pages/events.page';
+import { setupBoard } from '../../helpers/api.helper';
 import { MainPage } from '../../pages/main.page';
 
 /**
@@ -9,25 +9,8 @@ import { MainPage } from '../../pages/main.page';
  */
 
 test.describe('Drag-Drop Visual Affordances - Cursor States', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Drag Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Create test incidents
-    await mainPage.createIncident(`Test Incident ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Drag Test');
   });
 
   test('draggable incident cards show grab cursor on hover', async ({ authenticatedPage }) => {
@@ -71,24 +54,8 @@ test.describe('Drag-Drop Visual Affordances - Cursor States', () => {
 });
 
 test.describe('Drag-Drop Visual Affordances - Drop Zones', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Drop Zone Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Test Incident ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Drop Zone Test');
   });
 
   test('empty columns show drop zone affordance', async ({ authenticatedPage }) => {
@@ -122,24 +89,8 @@ test.describe('Drag-Drop Visual Affordances - Drop Zones', () => {
 });
 
 test.describe('Drag-Drop Visual Affordances - Hover States', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Hover Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Test Incident ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Hover Test');
   });
 
   test('incident cards show hover effect', async ({ authenticatedPage }) => {
@@ -154,6 +105,12 @@ test.describe('Drag-Drop Visual Affordances - Hover States', () => {
     expect(hasHoverClasses).toBeTruthy();
   });
 
+  // FLAKY, seen 2026-07-30: passed in two of three identical full runs and failed in
+  // the third — the only test in the suite that changed result between two runs of an
+  // unchanged tree. It reads `className` off whatever card is first at that instant,
+  // with nothing waiting for the card to have settled. Not `@smoke` (nothing here is),
+  // so it keeps running nightly and keeps reporting; it must not be promoted into the
+  // gate until it waits for a condition instead of sampling one.
   test('incident cards have transition for smooth hover', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
@@ -167,27 +124,8 @@ test.describe('Drag-Drop Visual Affordances - Hover States', () => {
 });
 
 test.describe('Drag-Drop Visual Affordances - Drop Indicators', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Drop Indicator Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Create multiple incidents for reordering
-    await mainPage.createIncident(`First Incident ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(500);
-    await mainPage.createIncident(`Second Incident ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Drop Indicator Test', { count: 2 });
   });
 
   test('multiple incidents exist in same column for reordering', async ({ authenticatedPage }) => {
@@ -216,24 +154,8 @@ test.describe('Drag-Drop Visual Affordances - Drop Indicators', () => {
 });
 
 test.describe('Drag-Drop Visual Affordances - Accessibility', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `A11y Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Test Incident ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'A11y Test');
   });
 
   test('incident cards have data-incident-id attribute', async ({ authenticatedPage }) => {
@@ -274,20 +196,7 @@ test.describe('Drag-Drop Visual Affordances - Mobile', () => {
   test('incident cards are tappable on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const mainPage = new MainPage(authenticatedPage);
-    const testEventName = `Mobile Drag Test ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Mobile Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
-
+    await setupBoard(authenticatedPage, 'Mobile Drag Test');
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
     // Should be visible and tappable
@@ -304,41 +213,15 @@ test.describe('Drag-Drop Visual Affordances - Mobile', () => {
   test('columns are horizontally scrollable on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
-    const eventsPage = new EventsPage(authenticatedPage);
-    const testEventName = `Mobile Scroll Test ${Date.now()}`;
-
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    // Check for horizontal scroll container
+    await setupBoard(authenticatedPage, 'Mobile Scroll Test', { count: 0 });
     const scrollContainer = authenticatedPage.locator('[class*="overflow-x-auto"]').first();
     await expect(scrollContainer).toBeVisible();
   });
 });
 
 test.describe('Drag-Drop Visual Affordances - Animation', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Animation Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Animation Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Animation Test');
   });
 
   test('incident cards have smooth transitions', async ({ authenticatedPage }) => {
@@ -352,37 +235,27 @@ test.describe('Drag-Drop Visual Affordances - Animation', () => {
     expect(hasTransition).toBeTruthy();
   });
 
+  // Deliberately still driven through the "Neuer Einsatz" modal, unlike the rest of
+  // this suite: here the *subject* is that creating an incident puts a card on the
+  // board, so arranging it over REST would leave the modal — the operator's actual
+  // path, geocoder popover and all — covered by nothing.
   test('newly created incidents appear smoothly', async ({ authenticatedPage }) => {
+    const mainPage = new MainPage(authenticatedPage);
     const initialCount = await authenticatedPage.locator('[data-testid="incident-card"]').count();
 
     // Create new incident
     await mainPage.createIncident(`New Incident ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
 
-    const newCount = await authenticatedPage.locator('[data-testid="incident-card"]').count();
-    expect(newCount).toBe(initialCount + 1);
+    await expect(authenticatedPage.locator('[data-testid="incident-card"]')).toHaveCount(
+      initialCount + 1,
+      { timeout: 15_000 },
+    );
   });
 });
 
 test.describe('Drag-Drop Visual Affordances - Visual Feedback', () => {
-  let eventsPage: EventsPage;
-  let mainPage: MainPage;
-  let testEventName: string;
-
   test.beforeEach(async ({ authenticatedPage }) => {
-    eventsPage = new EventsPage(authenticatedPage);
-    mainPage = new MainPage(authenticatedPage);
-
-    testEventName = `Feedback Test ${Date.now()}`;
-    await eventsPage.goto();
-    await eventsPage.createEvent(testEventName);
-    await eventsPage.goto();
-    await eventsPage.selectEvent(testEventName);
-    await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
-
-    await mainPage.createIncident(`Feedback Test ${Date.now()}`);
-    await authenticatedPage.waitForTimeout(1000);
+    await setupBoard(authenticatedPage, 'Feedback Test');
   });
 
   test('incident cards have border for visual separation', async ({ authenticatedPage }) => {
