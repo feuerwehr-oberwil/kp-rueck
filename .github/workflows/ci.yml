@@ -10,11 +10,12 @@ name: CI
 #   kp-front; the in-repo hash test cannot see the other repository. Add it to the required
 #   list on main once it has run a few times (it depends on a sibling repo being reachable).
 #
-# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-26:
-#   backend-typecheck  mypy, second step – 526 errors in 59 files across the packages NOT in
+# ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-30:
+#   backend-typecheck  mypy, second step – 241 errors in 28 files across the packages NOT in
 #                      the blocking subset (was 711 in 79 before app/crud, app/background,
-#                      websocket_manager.py, models.py and traccar.py were cleared and moved
-#                      into the blocking step). Still a project, not a cleanup:
+#                      websocket_manager.py, models.py, traccar.py and now app/api were
+#                      cleared and moved into the blocking step). What is left is app/services,
+#                      app/main and the seed scripts. Still a project, not a cleanup:
 #                      progress = moving one more package into the blocking step, at zero.
 #   codecov upload   – never worth failing a build over.
 #
@@ -135,14 +136,15 @@ jobs:
         run: uv sync --dev
 
       # Blocking for the modules that are clean, advisory for the rest. Splitting it this way
-      # is the point: one gate over the whole tree could only ever be advisory (526 findings
+      # is the point: one gate over the whole tree could only ever be advisory (241 findings
       # left), and an advisory gate is one nobody reads.
       # These paths are at zero and must stay there.
       - name: Type check with mypy (blocking subset)
         run: >-
           uv run mypy
           app/auth app/middleware app/schemas app/services/alerting
-          app/crud app/background app/websocket_manager.py app/models.py app/traccar.py
+          app/crud app/background app/api
+          app/websocket_manager.py app/models.py app/traccar.py
           --ignore-missing-imports
 
       # The rest, as a report. Moving a package out of here and into the step above is the

@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/viewer", tags=["viewer"])
 
 
-async def _viewer_vehicle_positions() -> list[dict]:
+async def _viewer_vehicle_positions() -> list[dict[str, Any]]:
     """Current GPS positions for the read-only display, best-effort.
 
     Returns [] instead of raising when Traccar is unconfigured or unreachable,
@@ -63,7 +64,7 @@ async def generate_viewer_link(
     request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for viewer access"),
-):
+) -> dict[str, str]:
     """
     Generate viewer link (editor only).
 
@@ -88,7 +89,7 @@ async def generate_viewer_link(
 async def get_viewer_data(
     token: str = Query(..., description="Access token from generated link"),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Get read-only event data for viewer.
 

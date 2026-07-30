@@ -4,8 +4,10 @@ Help Documentation API
 Provides endpoints for help documentation, including PDF export.
 """
 
+import re
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 import markdown
 from fastapi import APIRouter
@@ -16,8 +18,10 @@ from app.auth.dependencies import CurrentUser
 router = APIRouter(prefix="/help", tags=["help"])
 
 
-@router.post("/export-pdf")
-async def export_help_pdf(current_user: CurrentUser):
+# response_model=None: the return annotation exists for mypy only. Without it FastAPI would
+# try to build a response model from it and change (here: reject) the documented contract.
+@router.post("/export-pdf", response_model=None)
+async def export_help_pdf(current_user: CurrentUser) -> StreamingResponse | dict[str, str]:
     """
     Export all help documentation as PDF.
 
@@ -47,7 +51,7 @@ async def export_help_pdf(current_user: CurrentUser):
         )
 
         # Container for the 'Flowable' objects
-        elements = []
+        elements: list[Any] = []
 
         # Define styles
         styles = getSampleStyleSheet()
@@ -137,7 +141,10 @@ async def export_help_pdf(current_user: CurrentUser):
                     continue
                 # Bold text (simplified)
                 elif "**" in line:
-                    clean_line = line.replace("**", "<b>").replace("**", "</b>")
+                    # Pairwise, not two replaces: the first `.replace("**", "<b>")` consumed
+                    # every marker, so the closing one never matched and reportlab rejected
+                    # the unbalanced <b> — raising out of a branch that has no except.
+                    clean_line = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", line)
                     elements.append(Paragraph(clean_line, styles["Normal"]))
                 # Regular text
                 else:
@@ -168,8 +175,8 @@ async def export_help_pdf(current_user: CurrentUser):
         return {"error": f"Failed to generate PDF: {e!s}"}
 
 
-@router.get("/topics")
-async def get_help_topics():
+@router.get("/topics", response_model=None)
+async def get_help_topics() -> dict[str, list[dict[str, str]]]:
     """
     Get list of available help topics.
     """

@@ -7,7 +7,7 @@ broadcast a ``group_update`` WS event; membership changes additionally emit an
 
 import logging
 import uuid
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +18,7 @@ from ..crud import events as events_crud
 from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
 from ..database import get_db
+from ..models import IncidentGroup, IncidentGroupAssignment
 from ..websocket_manager import (
     broadcast_assignment_update,
     broadcast_group_update,
@@ -34,7 +35,7 @@ async def list_groups(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
     event_id: uuid.UUID,
-):
+) -> list[schemas.IncidentGroupResponse]:
     """List the Aufträge for an event, with derived stop_ids + progress."""
     return await crud.list_groups_by_event(db, event_id)
 
@@ -46,7 +47,7 @@ async def create_group(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.IncidentGroupResponse:
     """Create a new Auftrag (editor only). Verifies the event exists."""
     event = await events_crud.get_event_by_id(db, group.event_id)
     if not event:
@@ -65,7 +66,7 @@ async def reorder_groups(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """Persist the manual order of an event's Aufträge (editor only)."""
     updated = await crud.reorder_groups(db, reorder.event_id, reorder.ordered_ids)
 
@@ -85,7 +86,7 @@ async def update_group(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.IncidentGroupResponse:
     """Update an Auftrag's name/color/notes (editor only)."""
     group = await crud.update_group(db, group_id, group_update, current_user, request)
     if not group:
@@ -103,7 +104,7 @@ async def record_group_announcement(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.IncidentGroupResponse:
     """Record the Funkdurchsage that was just made for an Auftrag (editor only).
 
     The next stop of the same Auftrag reads this back to decide between the full
@@ -126,7 +127,7 @@ async def delete_group(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """Soft-delete an Auftrag (editor only); its stops stay on the board, ungrouped."""
     group = await crud.soft_delete_group(db, group_id, current_user, request)
     if not group:
@@ -145,7 +146,7 @@ async def reorder_stops(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """Persist the manual order of the stops within one Auftrag (editor only)."""
     group = await crud.get_group(db, group_id)
     if not group:
@@ -175,7 +176,7 @@ async def add_stops(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.IncidentGroupResponse:
     """Attach existing incidents to an Auftrag as stops (editor only)."""
     try:
         attached = await crud.add_stops_to_group(db, group_id, body.incident_ids, current_user, request)
@@ -186,7 +187,8 @@ async def add_stops(
     if attached is None:
         raise HTTPException(status_code=404, detail="Auftrag not found")
 
-    group = await crud.get_group(db, group_id)
+    # add_stops_to_group returned a non-None result, so the Auftrag exists.
+    group = cast(IncidentGroup, await crud.get_group(db, group_id))
     response = await crud.build_group_response(db, group)
 
     background_tasks.add_task(broadcast_group_update, response.model_dump(mode="json"), "update")
@@ -202,7 +204,7 @@ async def remove_stop(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """Detach a stop from an Auftrag (editor only); the incident stays on the board."""
     group = await crud.get_group(db, group_id)
     if not group:
@@ -225,7 +227,7 @@ async def assign_group_resource(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> schemas.GroupAssignmentResponse:
     """Assign a resource directly to an Auftrag (editor only).
 
     The resource is shared across ALL the Auftrag's stops and may be assigned
@@ -275,7 +277,7 @@ async def unassign_group_resource(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-):
+) -> None:
     """Release a route-level resource from an Auftrag (editor only)."""
     group = await crud.get_group(db, group_id)
     if not group:
@@ -299,6 +301,6 @@ async def get_group_assignments(
     group_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
-):
+) -> list[IncidentGroupAssignment]:
     """List an Auftrag's active route-level assignments."""
     return await ga_crud.get_group_assignments(db, group_id)

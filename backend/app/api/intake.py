@@ -9,6 +9,7 @@ operators can verify them on the board.
 
 import logging
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func as sa_func
@@ -37,7 +38,7 @@ async def generate_alarm_link(
     request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for alarm intake"),
-):
+) -> dict[str, str]:
     """
     Generate a public alarm-intake link with QR code (editor only).
 
@@ -61,7 +62,7 @@ async def generate_alarm_link(
 async def get_intake_context(
     token: str = Query(..., description="Access token from generated link"),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Get minimal event context for the public intake form.
 
@@ -93,7 +94,7 @@ async def create_intake_alarm(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     token: str = Query(..., description="Access token from generated link"),
-):
+) -> dict[str, str]:
     """
     Create an alarm from the public intake form (no authentication, token only).
 

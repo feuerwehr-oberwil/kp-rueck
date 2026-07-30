@@ -1,6 +1,7 @@
 """Audit log query endpoints."""
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,7 +28,7 @@ async def query_audit_log(
     end_date: str | None = None,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
-):
+) -> list[AuditLog]:
     """
     Query audit log with filters.
 
@@ -107,7 +108,7 @@ async def get_resource_history(
     resource_id: uuid.UUID,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-):
+) -> Sequence[AuditLog]:
     """
     Get complete history for a specific resource.
 

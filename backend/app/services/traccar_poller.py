@@ -35,7 +35,7 @@ class TraccarPoller:
     def is_polling(self) -> bool:
         return self._positions_task is not None and not self._positions_task.done()
 
-    async def start_polling(self):
+    async def start_polling(self) -> None:
         """Start polling for positions and trails."""
         from .gps_simulation import gps_simulation
 
