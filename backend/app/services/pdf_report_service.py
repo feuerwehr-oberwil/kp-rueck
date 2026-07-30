@@ -11,9 +11,12 @@ Swiss spelling) so plan 06 (i18n) can localise later by swapping the dict.
 """
 
 import re
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
+from typing import Any
 from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
 
@@ -32,6 +35,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from ..models import Incident, IncidentAssignment
 from .audit_export_service import EventReportData
 
 # ---------------------------------------------------------------------------
@@ -244,24 +248,24 @@ class NumberedCanvas:
     ``save`` draw the footer once the total page count is known.
     """
 
-    def __init__(self, *args, footer_left: str = "", footer_date: str = "", **kwargs):
+    def __init__(self, *args: Any, footer_left: str = "", footer_date: str = "", **kwargs: Any) -> None:
         from reportlab.pdfgen import canvas as _canvas
 
         self._canvas_cls = _canvas.Canvas
         self._canvas = _canvas.Canvas(*args, **kwargs)
-        self._saved_page_states: list[dict] = []
+        self._saved_page_states: list[dict[str, Any]] = []
         self._footer_left = footer_left
         self._footer_date = footer_date
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         # Delegate everything else to the wrapped canvas.
         return getattr(self._canvas, name)
 
-    def showPage(self):  # noqa: N802 (reportlab API name)
+    def showPage(self) -> None:  # noqa: N802 (reportlab API name)
         self._saved_page_states.append(dict(self._canvas.__dict__))
         self._canvas._startPage()
 
-    def save(self):
+    def save(self) -> None:
         total = len(self._saved_page_states)
         for state in self._saved_page_states:
             self._canvas.__dict__.update(state)
@@ -269,7 +273,7 @@ class NumberedCanvas:
             self._canvas_cls.showPage(self._canvas)
         self._canvas_cls.save(self._canvas)
 
-    def _draw_footer(self, total: int):
+    def _draw_footer(self, total: int) -> None:
         page_num = self._canvas.getPageNumber()
         width = A4[0]
         y = 10 * mm
@@ -285,10 +289,10 @@ class NumberedCanvas:
         self._canvas.drawRightString(width - _PAGE_MARGIN, y, page_label)
 
 
-def _make_canvas_factory(footer_left: str, footer_date: str):
+def _make_canvas_factory(footer_left: str, footer_date: str) -> Callable[..., "NumberedCanvas"]:
     """Build a canvasmaker callable that injects the footer strings."""
 
-    def factory(*args, **kwargs):
+    def factory(*args: Any, **kwargs: Any) -> NumberedCanvas:
         return NumberedCanvas(*args, footer_left=footer_left, footer_date=footer_date, **kwargs)
 
     return factory
@@ -403,10 +407,10 @@ def _p(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(escape(str(text)), style)
 
 
-def _cover(data: EventReportData, generated_by: str, funkrufname: str, styles: dict) -> list:
+def _cover(data: EventReportData, generated_by: str, funkrufname: str, styles: dict[str, ParagraphStyle]) -> list[Any]:
     """Build the cover/header flowables."""
     event = data.event
-    flow: list = [_p(LABELS["report_title"], styles["title"])]
+    flow: list[Any] = [_p(LABELS["report_title"], styles["title"])]
 
     if event.training_flag:
         badge = Table(
@@ -446,7 +450,7 @@ def _cover(data: EventReportData, generated_by: str, funkrufname: str, styles: d
     return flow
 
 
-def _resource_name(data: EventReportData, assignment) -> str:
+def _resource_name(data: EventReportData, assignment: IncidentAssignment) -> str:
     """Resolve a display name for an assignment's resource."""
     rid = assignment.resource_id
     if assignment.resource_type == "personnel":
@@ -463,7 +467,7 @@ def _resource_name(data: EventReportData, assignment) -> str:
     return str(rid)
 
 
-def _summary_table(data: EventReportData, styles: dict) -> Table:
+def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> Table:
     """Build the summary counts table."""
     incidents = data.incidents
     status_counts: dict[str, int] = {}
@@ -512,18 +516,18 @@ def _fmt_duration(seconds: float | None) -> str:
     return f"{minutes // 60} h {minutes % 60:02d}"
 
 
-def _reaction_times_table(data: EventReportData, styles: dict) -> Table:
+def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> Table:
     """Per-incident reaction metrics: time from Eingang to first reaching each
     key status. Feeds the debrief — "incident 3 sat unnoticed for 9 minutes"
     becomes a number instead of a feeling."""
     # First time each incident reached each status (transitions are per-incident).
-    first_reached: dict[tuple, datetime] = {}
+    first_reached: dict[tuple[uuid.UUID, str], datetime] = {}
     for t in data.transitions:
         key = (t.incident_id, t.to_status)
         if key not in first_reached or t.timestamp < first_reached[key]:
             first_reached[key] = t.timestamp
 
-    def delta(inc, status: str) -> str:
+    def delta(inc: Incident, status: str) -> str:
         reached = first_reached.get((inc.id, status))
         if reached is None or inc.created_at is None:
             return LABELS["none"]
@@ -594,7 +598,7 @@ def _truncate(text: str, limit: int = 80) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
-def _user_display(data: EventReportData, user_id) -> str:
+def _user_display(data: EventReportData, user_id: uuid.UUID | None) -> str:
     """Resolve a user's display name (falls back to username, then '')."""
     if not user_id:
         return ""
@@ -604,7 +608,9 @@ def _user_display(data: EventReportData, user_id) -> str:
     return user.display_name or user.username
 
 
-def _incident_ref(data: EventReportData, incident_id) -> str:
+def _incident_ref(data: EventReportData, incident_id: uuid.UUID | None) -> str:
+    if incident_id is None:
+        return LABELS["none"]
     inc = data.incident_map.get(incident_id)
     if inc is None or not inc.title:
         return LABELS["none"]
@@ -709,7 +715,7 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
     return entries
 
 
-def _journal_table(entries: list[JournalEntry], styles: dict) -> LongTable:
+def _journal_table(entries: list[JournalEntry], styles: dict[str, ParagraphStyle]) -> LongTable:
     """Dense, paginating journal table (LongTable so hundreds of rows split
     cleanly across pages; header repeats)."""
     # HH:MM is enough within one day; add the date when the event spans days.
@@ -753,7 +759,7 @@ def _journal_table(entries: list[JournalEntry], styles: dict) -> LongTable:
     return table
 
 
-def _incident_overview_table(data: EventReportData, styles: dict, home_city: str = "") -> Table:
+def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphStyle], home_city: str = "") -> Table:
     """One row per incident: nr, title, type, priority, status, address, times."""
     header = [
         _p(LABELS["col_nr"], styles["cell_header"]),
@@ -796,7 +802,7 @@ def _incident_overview_table(data: EventReportData, styles: dict, home_city: str
     return table
 
 
-def _field(label: str, value: str, styles: dict) -> Paragraph:
+def _field(label: str, value: str, styles: dict[str, ParagraphStyle]) -> Paragraph:
     """A single label/value line used inside incident detail blocks.
 
     Returns a Paragraph (not a Table) so very long values wrap and split across
@@ -805,7 +811,7 @@ def _field(label: str, value: str, styles: dict) -> Paragraph:
     return Paragraph(f"<b>{escape(label)}:</b> {escape(str(value))}", styles["body"])
 
 
-def _bullet_field(label: str, items: list[str], styles: dict) -> list:
+def _bullet_field(label: str, items: list[str], styles: dict[str, ParagraphStyle]) -> list[Any]:
     """A label line followed by one bullet per item.
 
     Falls back to an inline ``Label: —`` line when there are no items, so empty
@@ -813,15 +819,17 @@ def _bullet_field(label: str, items: list[str], styles: dict) -> list:
     """
     if not items:
         return [_field(label, LABELS["none"], styles)]
-    flow: list = [Paragraph(f"<b>{escape(label)}:</b>", styles["body"])]
+    flow: list[Any] = [Paragraph(f"<b>{escape(label)}:</b>", styles["body"])]
     for item in items:
         flow.append(Paragraph(escape(str(item)), styles["bullet"], bulletText="•"))
     return flow
 
 
-def _incident_detail(data: EventReportData, inc, index: int, styles: dict, home_city: str = "") -> list:
+def _incident_detail(
+    data: EventReportData, inc: Incident, index: int, styles: dict[str, ParagraphStyle], home_city: str = ""
+) -> list[Any]:
     """Build the detail block flowables for a single incident."""
-    block: list = []
+    block: list[Any] = []
     # Heading = address (the incident's "name"); fall back to title, then em dash.
     # Locations equal to the home city are hidden (redundant) → fall back to title.
     heading_name = format_location_for_display(inc.location_address, home_city) or inc.title or LABELS["none"]
@@ -936,7 +944,7 @@ def build_event_report_pdf(
         author=generated_by or "",
     )
 
-    story: list = []
+    story: list[Any] = []
     story.extend(_cover(data, generated_by, funkrufname, styles))
     story.append(Spacer(1, 10))
 

@@ -8,7 +8,9 @@ connected via WebSocket to avoid unnecessary API load.
 import asyncio
 import contextlib
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -17,12 +19,16 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
+# The alarm sink the poller hands each parsed alarm to; returns True when the alarm
+# was new (False = already seen via webhook).
+_AlarmCallback = Callable[[schemas.DiveraWebhookPayload], Awaitable[bool]]
+
 
 class DiveraPoller:
     """Polls Divera API for alarms when users are connected."""
 
-    def __init__(self):
-        self._polling_task: asyncio.Task | None = None
+    def __init__(self) -> None:
+        self._polling_task: asyncio.Task[None] | None = None
         self._should_poll = False
         self._http_client: httpx.AsyncClient | None = None
         self._last_poll_time: datetime | None = None
@@ -40,7 +46,7 @@ class DiveraPoller:
         return self._polling_task is not None and not self._polling_task.done()
 
     @property
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, Any]:
         """Get polling statistics."""
         return {
             "configured": self.is_configured,
@@ -50,7 +56,7 @@ class DiveraPoller:
             "error_count": self._error_count,
         }
 
-    async def start_polling(self, on_alarm_callback):
+    async def start_polling(self, on_alarm_callback: _AlarmCallback) -> None:
         """
         Start polling for alarms.
 
@@ -72,7 +78,7 @@ class DiveraPoller:
         self._polling_task = asyncio.create_task(self._poll_loop(on_alarm_callback))
         logger.info(f"Started Divera polling (interval: {settings.divera_poll_interval_seconds}s)")
 
-    async def stop_polling(self):
+    async def stop_polling(self) -> None:
         """Stop polling for alarms."""
         if not self.is_polling:
             return
@@ -91,7 +97,7 @@ class DiveraPoller:
 
         logger.info("Stopped Divera polling")
 
-    async def _poll_loop(self, on_alarm_callback):
+    async def _poll_loop(self, on_alarm_callback: _AlarmCallback) -> None:
         """Main polling loop."""
         while self._should_poll:
             try:
@@ -110,7 +116,7 @@ class DiveraPoller:
             except asyncio.CancelledError:
                 break
 
-    async def _fetch_and_process_alarms(self, on_alarm_callback):
+    async def _fetch_and_process_alarms(self, on_alarm_callback: _AlarmCallback) -> None:
         """Fetch alarms from Divera API and process new ones."""
         if not self._http_client:
             return
@@ -144,7 +150,7 @@ class DiveraPoller:
         if new_count > 0:
             logger.info(f"Divera poll: found {new_count} new alarm(s)")
 
-    def _parse_alarms_response(self, data: dict) -> list[schemas.DiveraWebhookPayload]:
+    def _parse_alarms_response(self, data: dict[str, Any]) -> list[schemas.DiveraWebhookPayload]:
         """
         Parse Divera API response into webhook payload format.
 
@@ -159,7 +165,7 @@ class DiveraPoller:
             }
         }
         """
-        alarms = []
+        alarms: list[schemas.DiveraWebhookPayload] = []
 
         if not data.get("success"):
             logger.warning("Divera API returned success=false")

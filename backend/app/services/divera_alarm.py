@@ -17,6 +17,7 @@ and nothing is sent. Installations that don't use Divera never reach this code.
 
 import asyncio
 import logging
+from typing import Any
 
 import httpx
 
@@ -46,14 +47,16 @@ def _truncate(value: str | None, limit: int) -> str | None:
     return value[:limit]
 
 
-def _validate(data: dict) -> None:
+def _validate(data: dict[str, Any]) -> None:
     """Divera returns HTTP 200 with ``success: false`` on rejection."""
     if not data.get("success", False):
         errors = data.get("errors") or data.get("message") or data
         raise DiveraAlarmError(f"Divera rejected the alarm: {errors}")
 
 
-async def _request_with_retry(method: str, url: str, *, params: dict, json_body: dict | None = None):
+async def _request_with_retry(
+    method: str, url: str, *, params: dict[str, Any], json_body: dict[str, Any] | None = None
+) -> Any:
     """One Divera HTTP call with retry + body-level validation.
 
     Returns the parsed ``data`` field (shape depends on the endpoint: an alarm
@@ -78,7 +81,7 @@ async def _request_with_retry(method: str, url: str, *, params: dict, json_body:
     raise DiveraAlarmError(f"Divera unreachable after retries: {last_exc}")
 
 
-def _extract_alarm_ids(list_data) -> list[int]:
+def _extract_alarm_ids(list_data: Any) -> list[int]:
     """Pull numeric alarm ids out of a v2 alarm-list ``data`` payload.
 
     Divera returns either ``{"items": {"<id>": {...}}}``, a bare ``{"<id>": {...}}``
@@ -130,7 +133,7 @@ async def send_alarm(
     send_sms: bool = False,
     send_call: bool = False,
     send_mail: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Create or update a Divera alarm targeting the given users.
 
     A stable ``foreign_id`` (e.g. ``kprueck-<incident_id>``) keeps re-sends on a
@@ -145,7 +148,7 @@ async def send_alarm(
     if not user_cluster_relation:
         raise DiveraAlarmError("No Divera recipients to alarm")
 
-    alarm: dict = {
+    alarm: dict[str, Any] = {
         "title": _truncate(title, MAX_TITLE) or "Alarm",
         "text": _truncate(text, MAX_TEXT) or "",
         "priority": bool(priority),

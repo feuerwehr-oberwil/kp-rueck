@@ -24,6 +24,10 @@ import math
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..traccar import VehiclePosition
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +138,7 @@ class SimulatedDrive:
 class GpsSimulation:
     """In-memory registry of active simulated drives, keyed by vehicle name."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._drives: dict[str, SimulatedDrive] = {}  # key: vehicle_name.lower()
         self._lock = asyncio.Lock()
 
@@ -207,7 +211,7 @@ class GpsSimulation:
             await self._broadcast_status()
         return removed
 
-    def overlay(self, positions: list) -> list:
+    def overlay(self, positions: list["VehiclePosition"]) -> list["VehiclePosition"]:
         """Mask real positions of simulated vehicles and append the simulated ones.
 
         Called from ``TraccarClient.get_vehicle_positions`` so every consumer

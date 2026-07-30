@@ -13,6 +13,7 @@ Two intake modes (``training_autogen_mode``):
 import asyncio
 import contextlib
 import logging
+import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
@@ -39,12 +40,12 @@ _SETTING_KEYS = [
 class TrainingAutoGenTask:
     """Manages auto-generation background task for training events."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.running = False
-        self.task = None
-        self.current_event_id = None
+        self.task: asyncio.Task[None] | None = None
+        self.current_event_id: uuid.UUID | None = None
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the background task monitoring loop."""
         if self.running:
             return
@@ -53,7 +54,7 @@ class TrainingAutoGenTask:
         self.task = asyncio.create_task(self._monitor_loop())
         logger.info("Training auto-generation task started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the background task."""
         self.running = False
         if self.task:
@@ -62,7 +63,7 @@ class TrainingAutoGenTask:
                 await self.task
         logger.info("Training auto-generation task stopped")
 
-    async def _monitor_loop(self):
+    async def _monitor_loop(self) -> None:
         """Monitor settings and manage auto-generation."""
         while self.running:
             try:
@@ -78,7 +79,7 @@ class TrainingAutoGenTask:
             # Check every 5 seconds
             await asyncio.sleep(5)
 
-    async def _check_and_run(self, db: AsyncSession):
+    async def _check_and_run(self, db: AsyncSession) -> None:
         """Check if auto-gen is enabled and run generation if needed."""
         # Get settings
         result = await db.execute(select(Setting).where(Setting.key.in_(_SETTING_KEYS)))
@@ -171,7 +172,7 @@ class TrainingAutoGenTask:
             except Exception as e:
                 logger.error("Failed to auto-generate emergency: %s", e)
 
-    async def _generate(self, db: AsyncSession, event: Event, settings: dict[str, str]):
+    async def _generate(self, db: AsyncSession, event: Event, settings: dict[str, str]) -> None:
         """Generate one alarm in the configured intake mode and broadcast it."""
         from app import schemas
         from app.services.divera_intake import broadcast_emergency_received
