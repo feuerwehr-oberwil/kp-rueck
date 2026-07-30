@@ -686,6 +686,11 @@ export function OperationDetailContent({
                            </div>
                          </button>
                         <div className="border-t border-border my-1" />
+                        {/* The fleet scrolls; the header and "Zu Fuss" stay pinned. A station's
+                            vehicle list only grows, and an unbounded column made Radix flip the
+                            whole popper off the top of the screen. max-h-64 ≈ 5 rows — dense
+                            enough for a desktop board, tall enough to show there is more. */}
+                        <div className="max-h-64 space-y-1 overflow-y-auto overscroll-contain">
                         {isLoadingVehicles ? (
                           <div className="px-2 py-3 text-xs text-muted-foreground text-center">
                             {t('detail.loadingVehicles')}
@@ -717,6 +722,7 @@ export function OperationDetailContent({
                               )
                             })
                         )}
+                        </div>
                       </div>
                     </PopoverContent>
                   </Popover>

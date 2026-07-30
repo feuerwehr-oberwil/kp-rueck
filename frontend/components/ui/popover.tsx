@@ -34,7 +34,25 @@ function PopoverContent({
         // Dismissing a toast must never dismiss the popover behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(
-          'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border p-4 shadow-md outline-hidden',
+          // NO exit animation, deliberately. Radix's `Presence` keeps a closed
+          // Content mounted until its `animate-out` has run, and `DismissableLayer`
+          // goes on writing an inline `pointer-events: auto` onto it for that whole
+          // time — so for ~150ms after dismissal an all-but-invisible, fully
+          // hit-testable panel sat over whatever was behind it and ate the
+          // operator's next click. Inside a dialog that click is the modal's own X,
+          // which is why closing it seemed to need two clicks.
+          // A `data-[state=closed]:pointer-events-none` class does NOT fix this:
+          // Radix's inline style wins over the stylesheet. Dropping the exit
+          // keyframes makes `animationName` resolve to `none`, so Presence unmounts
+          // the layer synchronously and the dead element never exists at all.
+          // The enter animation stays — it shows where the panel came from.
+          //
+          // max-h/overflow: without a clamp Radix grows the popper to fit its
+          // content and then shifts it to fit the viewport — a long list ends up
+          // starting at a negative y with its first rows off-screen and no way to
+          // scroll to them. Same clamp dropdown-menu, select and context-menu
+          // already carry, so every popover in the app stays reachable.
+          'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-popover-content-available-height) w-72 origin-(--radix-popover-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-4 shadow-md outline-hidden',
           className,
         )}
         {...props}
