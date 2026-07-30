@@ -14,60 +14,58 @@ parts that are genuinely Railway-specific are marked.
 
 ---
 
-## 1. Decide this before you click anything
-
-Two choices are hard to change later. Read this section first; it is the difference between a
-board that updates live and one that quietly lags five seconds behind.
-
-### 1.1 Service names decide whether real-time sync works
+## 1. How the two services find each other
 
 Railway has **no shared reverse proxy** in front of your services: the frontend and the backend
-are two separate hostnames. HTTP requests are fine — the frontend proxies them server-side
-through its own `/backend-api` route. **WebSockets cannot use that proxy**, because Next.js API
-routes handle HTTP, not socket upgrades.
+are two separate hostnames. Read this section first — it is short, and it is the difference
+between a board that updates live and one that quietly lags five seconds behind.
 
-So the browser has to address the backend directly, and it does so **by naming convention**
-(`frontend/lib/env.ts`, `getWsUrl()`): it takes the frontend's hostname, appends `-api` to the
-first label, and connects there.
+### 1.1 One variable does it: `API_URL`
 
-| Frontend public domain | Backend public domain it will look for |
+HTTP is easy — the frontend proxies it server-side through its own `/backend-api` route.
+**WebSockets cannot use that proxy**, because Next.js API routes handle HTTP, not socket
+upgrades, so the browser has to address the backend directly.
+
+It learns that address from **`API_URL` on the frontend service**, the same runtime variable
+the HTTP proxy already uses: the server passes it to the page, and `getWsUrl()`
+(`frontend/lib/env.ts`) prefers it over everything else. Set `API_URL` to your backend's public
+URL and real-time sync works — on a generated domain, on a custom domain, on any host.
+
+So the whole requirement is:
+
+- **frontend:** `API_URL=https://<your-backend-domain>`
+- **backend:** `CORS_ORIGINS=https://<your-frontend-domain>` — exact origin, scheme included,
+  no trailing slash.
+
+Both are read at **runtime**. Changing either takes a restart, not a rebuild.
+
+### 1.2 Domain names are tidiness, not a requirement
+
+If the browser is told nothing, it still guesses, and the guess is the old naming convention:
+frontend `kp-rueck.up.railway.app` → backend `kp-rueck-api.up.railway.app`, and same-origin for
+anything else.
+
+| Frontend public domain | Backend domain guessed if `API_URL` is missing |
 | --- | --- |
 | `kp-rueck.up.railway.app` | `kp-rueck-api.up.railway.app` |
-| `feuerwehr-musterhausen.up.railway.app` | `feuerwehr-musterhausen-api.up.railway.app` |
+| `kp.feuerwehr-musterhausen.ch` | *(same origin — nothing listens there)* |
 
-**Set both domains explicitly** under each service's Settings → Networking → Public Networking,
-rather than accepting whatever Railway generates. If the backend domain does not match the
-pattern, nothing errors visibly — the socket simply never connects and the board falls back to
-polling every 5 seconds (`POLLING_BASE_INTERVAL`, `operations-context.tsx`). Everything still
-works; it just stops feeling live, and you will not be told why.
+That fallback is why the `<name>` / `<name>-api` convention is worth keeping: it reads well and
+it makes the examples in this guide true. It is **no longer load-bearing**. With `API_URL` set,
+name the domains whatever you like, custom domains included.
 
-### 1.2 Custom domains break the convention
+> **`NEXT_PUBLIC_WS_URL` is an override almost nobody needs.** It still works, it is still a
+> build `ARG` in `frontend/Dockerfile`, and it is still inlined at build time — so changing it
+> needs a redeploy, and it ties an image to one station. `API_URL` supersedes it. Set it only if
+> your socket endpoint is genuinely somewhere other than `API_URL`.
 
-If you put a custom domain on the frontend (`kp.feuerwehr-musterhausen.ch`), the `-api` rule no
-longer applies — it is keyed on `.up.railway.app` — and the browser falls back to same-origin,
-where there is no Socket.IO listener. **Result: permanent polling fallback.**
-
-**The fix is one variable: set `NEXT_PUBLIC_WS_URL` on the frontend service** to the backend's
-WebSocket URL, scheme included:
-
-```
-NEXT_PUBLIC_WS_URL=wss://kp-api.feuerwehr-musterhausen.ch
-```
-
-`frontend/Dockerfile` declares it as a build `ARG`, and Railway passes service variables into
-Dockerfile builds — so it is inlined when the image is built. **Changing it requires a
-redeploy**, not just a restart, because like every `NEXT_PUBLIC_*` value it is baked in at
-build time rather than read at runtime.
-
-> Why this one is safe to bake in when `NEXT_PUBLIC_API_URL` is not: it names only the socket
-> endpoint. HTTP traffic still goes through `/backend-api` on the app's own origin, so session
-> cookies stay first-party and mobile logins keep working. `NEXT_PUBLIC_API_URL` is what moves
-> HTTP off-origin, and that is what breaks them.
-
-Alternatively, **keep the frontend on `*.up.railway.app`** and follow the `-api` convention from
-§1.1 — a custom domain on the *backend* alone changes nothing, since the browser only derives
-the socket host from the frontend's hostname. Put a custom domain on the backend and set
-`NEXT_PUBLIC_WS_URL` to match, and both work together.
+> **A custom domain on the *backend* has one more hurdle.** The frontend ships a
+> Content-Security-Policy whose `connect-src` is fixed when the image is built, and it lists the
+> app's own origin, `localhost` and `*.railway.app` — nothing else. The browser now aims the
+> socket at the right host, but the CSP refuses the connection to `wss://kp-api.example.ch`.
+> Unlike the fallback above this one is *not* silent: it is a CSP violation in the browser
+> console. Keeping the backend on `*.up.railway.app` avoids it; a custom domain on the
+> **frontend** is unaffected either way.
 
 ---
 
@@ -124,7 +122,7 @@ the socket host from the frontend's hostname. Put a custom domain on the backend
    ```
 
    `CORS_ORIGINS` you will only know after step 3.3 — set it then, or set it now if you already
-   fixed the frontend domain in §1.1.
+   fixed the frontend domain in §1.2.
 
 4. Deploy. `start.sh` runs `alembic upgrade head` on every boot, then seeds on first run.
 
@@ -146,10 +144,9 @@ the socket host from the frontend's hostname. Put a custom domain on the backend
    API_URL=https://<your-backend-domain>
    ```
 
-   `API_URL` is read **at runtime** by the server-side `/backend-api` proxy route.
-
-   Add `NEXT_PUBLIC_WS_URL=wss://<your-backend-domain>` **only** if the frontend runs on a
-   custom domain — see §1.2 for why, and note it is inlined at build time.
+   `API_URL` is read **at runtime**, both by the server-side `/backend-api` proxy route and by
+   the page that tells the browser where to open its WebSocket (§1.1). It is the only frontend
+   variable a normal deployment needs.
 
    > [!WARNING]
    > **Do not set `NEXT_PUBLIC_API_URL`.** It is inlined at *build* time and makes the browser
@@ -159,7 +156,8 @@ the socket host from the frontend's hostname. Put a custom domain on the backend
    > and deleting the variable is what fixed it. Leave it unset and the browser talks to
    > `/backend-api` on its own origin, keeping the cookie first-party.
 
-3. Set the public domains for both services now, per §1.1.
+3. Set the public domains for both services now (Settings → Networking → Public Networking),
+   so you have the exact origins for `API_URL` and `CORS_ORIGINS`. Any names work — see §1.2.
 
 4. Go back to the backend and set `CORS_ORIGINS` to the frontend's URL, exactly — scheme
    included, no trailing slash.
@@ -223,8 +221,8 @@ Optional, per integration: `DIVERA_ACCESS_KEY`, `TRACCAR_*`, `PRINT_AGENT_TOKEN`
 
 | Variable | Value | Notes |
 |---|---|---|
-| `API_URL` | `https://<backend>` | Read at **runtime** by the `/backend-api` proxy |
-| `NEXT_PUBLIC_WS_URL` | `wss://<backend>` | **Only** with a custom frontend domain (§1.2). Inlined at build time — changing it needs a redeploy |
+| `API_URL` | `https://<backend>` | Read at **runtime** — by the `/backend-api` proxy *and* as the WebSocket origin handed to the browser (§1.1). **Required** |
+| `NEXT_PUBLIC_WS_URL` | `wss://<backend>` | Optional override, needed by almost nobody since `API_URL` supersedes it (§1.2). Inlined at build time — changing it needs a redeploy |
 | `PORT` | `3000` | Railway sets this automatically |
 
 > `NEXT_PUBLIC_API_URL` must stay **unset** — see the warning in §3.3. The published frontend
@@ -240,7 +238,7 @@ Worth knowing before you commit, not after.
 |---|---|---|
 | **Internet outage** | Board and printing keep working on the LAN | Everything is unreachable |
 | **Offline map tiles** | Yes, tileserver behind `/tiles` | **No** — see below |
-| **Real-time sync** | Always (single origin routes `/socket.io`) | Only with the `-api` naming convention (§1.1) |
+| **Real-time sync** | Always (single origin routes `/socket.io`) | Yes, with `API_URL` set (§1.1) |
 | **Origins** | One, via Caddy | Two hostnames |
 | **Machine upkeep** | Yours | Railway's |
 | **Cost** | Hardware once | Monthly |
@@ -331,10 +329,12 @@ Then redeploy the backend: `start.sh` recreates the tables via Alembic and re-se
 ## 11. Troubleshooting
 
 **The board only updates every few seconds.**
-The WebSocket is not connecting and it has fallen back to polling. On `*.up.railway.app`, check
-the backend's public domain against §1.1 — it must be the frontend's first hostname label plus
-`-api`. On a custom frontend domain, set `NEXT_PUBLIC_WS_URL` (§1.2) and **redeploy**, since it
-is baked in at build time.
+The WebSocket is not connecting and it has fallen back to polling. Check, in this order:
+`API_URL` is set on the frontend service and names the backend's **public** origin (a
+`*.railway.internal` address or a bare service name is deliberately ignored — the browser
+cannot reach it); the frontend has been **restarted** since you set it; `CORS_ORIGINS` on the
+backend matches the frontend origin exactly. If the backend is on a custom domain, look for a
+Content-Security-Policy violation in the browser console — see the second note in §1.2.
 
 **Mobile login fails with "Sitzung abgelaufen", desktop works.**
 `NEXT_PUBLIC_API_URL` is set on the frontend service. Delete it and redeploy — it must be
@@ -372,7 +372,8 @@ The database itself stays small — incidents and personnel are text rows.
 
 ## 13. Checklist
 
-- [ ] Frontend and backend public domains follow the `<name>` / `<name>-api` convention (§1.1)
+- [ ] Frontend: `API_URL` points at the backend's public origin (§1.1) — this is what makes
+      real-time sync work; the `<name>` / `<name>-api` domain convention is only tidiness (§1.2)
 - [ ] Backend: `SECRET_KEY`, `AUTH_SECRET_KEY`, `ADMIN_SEED_PASSWORD`, `VIEWER_PASSWORD` set and strong
 - [ ] Backend: `DATABASE_URL` uses the `${{Postgres.DATABASE_URL}}` reference
 - [ ] Backend: volume mounted at `/mnt/data` and `PHOTOS_DIR=/mnt/data/photos`

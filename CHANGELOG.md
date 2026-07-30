@@ -80,6 +80,17 @@ by claim against the code, and four things turned out to be promises the code di
 - **The dev compose stack could not print either.** Its print-agent had no `AGENT_TOKEN` and
   the backend no `PRINT_AGENT_TOKEN`, which is a 403 by design; and it still passed
   `POLL_INTERVAL`, the dead variable no version of the agent has ever read.
+- **A split-origin deployment on a custom domain lost real-time updates without saying so.**
+  The browser worked out where to open its WebSocket from build-time variables and, failing
+  those, from the page's own hostname: `X.up.railway.app` → `X-api.up.railway.app`, and
+  same-origin for anything else. Same-origin is right behind Caddy and wrong on Railway, where
+  the frontend and the backend are two hosts — so a Railway install on a custom domain connected
+  to nothing, fell back to polling every five seconds, and reported no error at all. The server
+  now hands the browser its runtime `API_URL` — the same variable the `/backend-api` proxy
+  already uses — and that outranks every guess, so a domain name no longer decides whether the
+  board is live. An `API_URL` the browser cannot reach (`http://backend:8000` on the compose
+  stack, `*.railway.internal`) is withheld deliberately, leaving that path exactly as it was.
+  `NEXT_PUBLIC_WS_URL` still works and is now an override nobody needs.
 
 ### Changed
 - **A print job now reaches the printer in milliseconds instead of up to a minute.** The
