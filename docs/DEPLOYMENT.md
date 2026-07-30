@@ -340,3 +340,59 @@ So the *file format and the procedure* are continuously proven. What it cannot t
 box: volumes, permissions, disk space, the real photo files, and whether the copy that left the
 building is actually readable. That is what this drill is for, and why it stays half-yearly work
 for a human.
+
+---
+
+## 7. Knowing it broke before you need it
+
+Everything above is a check you have to remember to run. That is the gap: without the five
+minutes in this section, the way a station discovers the system is down is an operator opening
+the board during an Einsatz. Discovery is entirely reactive, and the one moment it fails is the
+one moment nobody has a spare hand.
+
+The backend already publishes what a monitor needs. `/health` runs a real `SELECT 1` against
+the database and answers **503** when it cannot (`backend/app/api/health.py`), and Caddy already
+exposes it on your domain. Nothing needs building — only pointing at.
+
+**Set this up once.** Any free uptime service will do (Uptime Kuma if you self-host, or a hosted
+one — the choice matters far less than having one):
+
+```
+URL:       https://<your domain>/health
+Interval:  5 minutes
+Healthy:   HTTP 200
+Alert:     after 2 consecutive failures, to a phone that is not in the server room
+```
+
+Two consecutive failures rather than one: a single miss during a reboot or an update is normal,
+and a monitor that cries wolf gets muted, at which point you are back where you started.
+
+**What this catches:** the backend process dead or crash-looping, Postgres unreachable, Caddy
+down, the host down, an expired certificate, a broken DNS record. In other words most of the
+ways the whole thing stops.
+
+**What it does not catch** — worth knowing, so it is not trusted for more than it is:
+
+| Not covered | Check instead |
+|---|---|
+| Backups failing | `docker compose ps backup` (§6) — a separate signal, deliberately |
+| Disk filling up | Nothing yet, and a full disk stops Postgres writing. Watch it. |
+| Print agent dead / printer offline | The board's own print status (`docs/PRINT_AGENT.md`) |
+| Tile server down | Map only; the board is unaffected |
+
+### The caveat that matters on a station box
+
+An external monitor answers *"can the internet reach this?"* — which on a compose deployment is
+**not** the same question as *"does the board work in the station."* That stack is deliberately
+built to survive an uplink outage: if your internet drops, the board, the map and the printer
+keep working on the LAN, and the monitor will alert anyway. The alert is not wrong, it is
+answering a different question. Read it as "the outside world lost us", then check the board
+locally before assuming an outage.
+
+The mirror image also holds: a station on a LAN-only deployment, with no public domain, cannot
+be watched from outside at all. There, run the monitor **inside** the network — Uptime Kuma on
+any always-on box on the same LAN, pointed at the stack's local address. That gives a real
+answer for the deployment where an external check has none.
+
+On Railway the distinction collapses: no internet means no application at all, so the external
+check and the real question are the same thing.
