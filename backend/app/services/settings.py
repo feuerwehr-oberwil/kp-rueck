@@ -1,7 +1,6 @@
 """Settings management service."""
 
 import secrets
-from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -149,7 +148,13 @@ async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID |
     if setting:
         setting.value = value
         setting.updated_by = user_id
-        setting.updated_at = datetime.now(UTC)
+        # `updated_at` is deliberately NOT set here. The column carries
+        # `server_default=func.now(), onupdate=func.now()`, so the database stamps it — and
+        # the database is also what stamps it on INSERT. Setting it from Python instead mixed
+        # two clocks on one column: with Postgres in a container or on a managed host, the
+        # application clock can be behind the database's, and a row's `updated_at` could land
+        # *before* its own creation time. It also made
+        # `test_update_setting_existing` fail whenever the two clocks drifted apart.
     else:
         setting = Setting(key=key, value=value, updated_by=user_id)
         db.add(setting)
