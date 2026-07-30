@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown } from "lucide-react"
 import { SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
+import { areOperationListsEqual, areOperationsEqual } from "@/lib/operation-equality"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,52 +89,19 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.showMeldung !== next.showMeldung ||
     prev.printerEnabled !== next.printerEnabled ||
     prev.materials !== next.materials ||
-    prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
     prev.canDrag !== next.canDrag ||
     prev.onSort !== next.onSort
   ) {
     return false
   }
 
-  // Deep compare operations array for this column
-  if (prev.operations.length !== next.operations.length) return false
-  for (let i = 0; i < prev.operations.length; i++) {
-    const a = prev.operations[i]
-    const b = next.operations[i]
-    if (
-      a.id !== b.id ||
-      a.status !== b.status ||
-      a.priority !== b.priority ||
-      a.location !== b.location ||
-      a.incidentType !== b.incidentType ||
-      a.crew.length !== b.crew.length ||
-      a.vehicles.length !== b.vehicles.length ||
-      a.materials.length !== b.materials.length ||
-      a.notes !== b.notes ||
-      a.contact !== b.contact ||
-      a.hasCompletedReko !== b.hasCompletedReko ||
-      a.nachbarhilfe !== b.nachbarhilfe ||
-      a.zuFuss !== b.zuFuss ||
-      a.assignedReko?.id !== b.assignedReko?.id
-    ) {
-      return false
-    }
-    // Check crew members changed
-    for (let j = 0; j < a.crew.length; j++) {
-      if (a.crew[j] !== b.crew[j]) return false
-    }
-    // Check vehicles changed
-    for (let j = 0; j < a.vehicles.length; j++) {
-      if (a.vehicles[j] !== b.vehicles[j]) return false
-      if (a.vehicleDriverStay?.get(a.vehicles[j]) !== b.vehicleDriverStay?.get(b.vehicles[j])) return false
-    }
-    // Check materials changed
-    for (let j = 0; j < a.materials.length; j++) {
-      if (a.materials[j] !== b.materials[j]) return false
-    }
-  }
+  // Compared by value: the conflict set is rebuilt on each sync, so an identity check
+  // reported "changed" on every poll and made the rest of this comparator moot.
+  if (!areOperationsEqual(prev.doubleBookedCrewNames, next.doubleBookedCrewNames)) return false
 
-  return true
+  // Structural compare (lib/operation-equality.ts) rather than a hand-written field list —
+  // the list this replaced omitted several fields the cards below actually render.
+  return areOperationListsEqual(prev.operations, next.operations)
 }
 
 export const DroppableColumn = memo(function DroppableColumn({

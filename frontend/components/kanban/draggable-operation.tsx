@@ -24,6 +24,7 @@ import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { getTimeSince, ageChipClass } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { areOperationsEqual } from "@/lib/operation-equality"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -735,50 +736,23 @@ function DraggableOperationBase({
   )
 }
 
-// Memoize the component to prevent unnecessary re-renders
-// Only re-render if props actually change (deep comparison)
+// Memoize the component to prevent unnecessary re-renders.
+//
+// The operation itself is compared structurally (lib/operation-equality.ts). This used to be
+// a hand-written list of ~20 fields, and five the card renders had fallen out of it —
+// incidentType, nachbarhilfeNote, vehicleCallsigns, dispatchTime and statusChangedAt — so
+// changing an incident's type left the card showing the old one, with no self-heal because
+// memo blocks the commit. A structural walk has no list to forget.
 export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextProps) => {
-  // Check if REKO summary has changed
-  const rekoSummaryChanged =
-    prevProps.operation.hasCompletedReko !== nextProps.operation.hasCompletedReko ||
-    prevProps.operation.rekoArrivedAt?.getTime() !== nextProps.operation.rekoArrivedAt?.getTime() ||
-    (prevProps.operation.rekoSummary?.hasDangers !== nextProps.operation.rekoSummary?.hasDangers) ||
-    (prevProps.operation.rekoSummary?.dangerTypes.length !== nextProps.operation.rekoSummary?.dangerTypes.length) ||
-    (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||
-    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration)
-
-  // Check if assigned reko has changed
-  const assignedRekoChanged =
-    prevProps.operation.assignedReko?.id !== nextProps.operation.assignedReko?.id
-
   return (
-    prevProps.operation.id === nextProps.operation.id &&
-    prevProps.operation.status === nextProps.operation.status &&
-    prevProps.operation.priority === nextProps.operation.priority &&
-    prevProps.operation.location === nextProps.operation.location &&
-    prevProps.operation.notes === nextProps.operation.notes &&
-    prevProps.operation.nachbarhilfe === nextProps.operation.nachbarhilfe &&
-    prevProps.operation.amWarten === nextProps.operation.amWarten &&
-    prevProps.operation.zuFuss === nextProps.operation.zuFuss &&
-    prevProps.operation.source === nextProps.operation.source &&
-    prevProps.operation.groupId === nextProps.operation.groupId &&
-    prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
-    prevProps.operation.crew.length === nextProps.operation.crew.length &&
-    prevProps.operation.crew.every((c, i) => c === nextProps.operation.crew[i]) &&
-    prevProps.operation.materials.length === nextProps.operation.materials.length &&
-    prevProps.operation.materials.every((m, i) => m === nextProps.operation.materials[i]) &&
-    prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
-    prevProps.operation.vehicles.every((v, i) => v === nextProps.operation.vehicles[i]) &&
-    prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleDriverStay?.get(v) === nextProps.operation.vehicleDriverStay?.get(v)) &&
+    areOperationsEqual(prevProps.operation, nextProps.operation) &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
     prevProps.index === nextProps.index &&
     prevProps.showMeldung === nextProps.showMeldung &&
-    !rekoSummaryChanged &&
-    !assignedRekoChanged &&
-    // Conflict set: identity check is enough — page.tsx memoizes the Set
-    // via useMemo, so a new reference means the underlying value changed.
-    prevProps.doubleBookedCrewNames === nextProps.doubleBookedCrewNames
+    // Compared by value: the conflict set is rebuilt on each sync, so an identity check
+    // reported "changed" on every poll and made the rest of this comparator moot.
+    areOperationsEqual(prevProps.doubleBookedCrewNames, nextProps.doubleBookedCrewNames)
   )
 })
