@@ -528,11 +528,7 @@ test.describe('Resource Assignment Dialog - Assignment Actions', () => {
       await firstResource.click();
       await authenticatedPage.waitForTimeout(500);
 
-      // Should now have Circle icon again
-      const circleIcon = firstResource.locator('svg[class*="lucide-circle"]').and(
-        authenticatedPage.locator('svg').filter({ hasNot: authenticatedPage.locator('[class*="check"]') })
-      );
-      // Icon should change back to unassigned state
+      // Icon should change back to the unassigned (plain Circle) state
     }
   });
 

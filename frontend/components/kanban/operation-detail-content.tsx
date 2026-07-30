@@ -82,7 +82,7 @@ export function OperationDetailContent({
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
-  const { formatLocation, setOperations, refreshOperations } = useOperations()
+  const { formatLocation, refreshOperations } = useOperations()
   const toggleDriverStay = useToggleDriverStay()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()

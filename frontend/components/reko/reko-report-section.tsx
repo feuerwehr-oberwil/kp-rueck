@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -273,15 +274,21 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
                     href={getPhotoUrl(filename)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block aspect-square rounded overflow-hidden hover:opacity-80 transition-opacity"
+                    className="relative block aspect-square rounded overflow-hidden hover:opacity-80 transition-opacity"
                     tabIndex={-1}
                   >
-                    <img
+                    {/* unoptimized: photos come from the backend at a
+                        runtime-determined origin, which Next's optimizer cannot
+                        resolve (hosts are configured at build time). */}
+                    <Image
                       src={getPhotoUrl(filename)}
                       alt={report.submitted_by_personnel_name
                         ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
                         : t('photoAlt', { number: index + 1 })}
-                      className="w-full h-full object-cover"
+                      fill
+                      sizes="33vw"
+                      unoptimized
+                      className="object-cover"
                     />
                   </a>
                 ))}
@@ -321,12 +328,8 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
 }
 
 // Compact version for previous reports
-function RekoReportCardCompact({ report, incidentId }: RekoReportCardProps) {
+function RekoReportCardCompact({ report }: RekoReportCardProps) {
   const t = useTranslations('reko.reportSection')
-  function getPhotoUrl(filename: string): string {
-    const apiUrl = getApiUrl()
-    return `${apiUrl}/api/photos/${incidentId}/${filename}`
-  }
 
   const hasDangers = report.dangers_json && (
     report.dangers_json.fire ||

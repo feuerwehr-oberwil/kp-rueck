@@ -152,7 +152,7 @@ class ApiClient {
           let errorText = ''
           try {
             errorText = await response.text()
-          } catch (e) {
+          } catch {
             errorText = translateOutsideReact('errors.api.noErrorDetails')
           }
 
@@ -175,7 +175,7 @@ class ApiClient {
             if (errorJson.detail) {
               errorMessage = errorJson.detail
             }
-          } catch (e) {
+          } catch {
             // Not JSON, use text error if available
             if (errorText && errorText.length < 200) {
               errorMessage = errorText

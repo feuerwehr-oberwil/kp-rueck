@@ -19,7 +19,7 @@ import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
-import { Wifi, WifiOff, RefreshCw, Maximize } from "lucide-react"
+import { Maximize } from "lucide-react"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -517,55 +517,6 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
   )
 }
 
-// Map mode indicator showing online/offline status
-function MapModeIndicator({
-  preferredMode,
-  effectiveMode,
-  isAuto,
-  onReset,
-}: {
-  preferredMode: string
-  effectiveMode: string
-  isAuto: boolean
-  onReset: () => void
-}) {
-  const t = useTranslations('map')
-  const isOnline = effectiveMode === 'online'
-  const showFallbackIndicator = isAuto && !isOnline
-
-  return (
-    <div className="absolute top-4 right-4 z-30 flex gap-2">
-      {/* Mode indicator */}
-      <div
-        className={`
-          flex items-center gap-2 px-3 py-2 rounded-lg shadow-md text-sm font-medium
-          ${isOnline
-            ? 'bg-success/15 border border-success text-success-foreground'
-            : 'bg-warning/15 border border-warning text-warning-foreground'
-          }
-        `}
-        title={t('view.modeTitle', { mode: preferredMode, status: isOnline ? t('common.online') : t('common.offline') })}
-      >
-        {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-        <span>{isOnline ? t('common.online') : t('common.offline')}</span>
-      </div>
-
-      {/* Retry button (shown when in auto mode and fell back to offline) */}
-      {showFallbackIndicator && (
-        <button
-          onClick={onReset}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg shadow-md text-sm font-medium bg-info/15 border border-info text-info-foreground hover:bg-info/25 transition-colors"
-          title={t('view.retryOnlineTitle')}
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span>{t('view.retry')}</span>
-        </button>
-      )}
-    </div>
-  )
-}
-
-
 /**
  * Vertical offset per label. Empty for all but one case: a label sits at its own
  * dot, full stop.
@@ -724,7 +675,6 @@ function LabelLeader({ dy }: { dy: number }) {
 interface MapViewProps {
   selectedIncidentId?: string | null
   onMarkerClick?: (incidentId: string) => void
-  onDetailsClick?: (incident: Incident) => void
   resetZoomTrigger?: number // Counter to trigger zoom reset
   panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
   statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
@@ -760,7 +710,6 @@ interface MapViewProps {
 export default function MapView({
   selectedIncidentId,
   onMarkerClick,
-  onDetailsClick,
   resetZoomTrigger = 0,
   panTrigger = 0,
   statusFilters = { open: true, active: true, completed: false },
@@ -787,7 +736,7 @@ export default function MapView({
 }: MapViewProps) {
   const t = useTranslations('map')
   const tokenMode = incidentsOverride !== undefined
-  const { incidents: contextIncidents, formatLocation } = useIncidents()
+  const { incidents: contextIncidents } = useIncidents()
   const incidents = incidentsOverride ?? contextIncidents
   const [firestationName, setFirestationName] = useState<string>(() => t('view.firestationFallback'))
   const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
@@ -826,11 +775,7 @@ export default function MapView({
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
   // Map mode management
   const {
-    preferredMode,
-    effectiveMode,
-    isAuto,
     handleTileError,
-    resetEffectiveMode,
     getTileUrl,
     getAttribution,
   } = useMapMode()
@@ -882,9 +827,9 @@ export default function MapView({
     try {
       const positions = await apiClient.getVehiclePositions()
       setVehiclePositions(positions)
-    } catch (error) {
-      // Silent fail - Traccar might not be configured
-      console.debug("Failed to fetch vehicle positions:", error)
+    } catch {
+      // Silent by design: Traccar is optional, and a station without it would
+      // otherwise get this on every poll tick.
     }
   }, [])
 
@@ -936,8 +881,8 @@ export default function MapView({
             }
           })
         }
-      } catch (error) {
-        console.debug("Traccar status check failed:", error)
+      } catch {
+        // Same reasoning as fetchVehiclePositions: no Traccar is a normal setup.
         setTraccarConfigured(false)
       }
     }

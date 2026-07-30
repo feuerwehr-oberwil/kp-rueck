@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useEvent } from '@/lib/contexts/event-context';
-import { apiClient, type ApiExcelImportPreview, type ApiExcelImportResult, type ApiAuditLog } from '@/lib/api-client';
+import { apiClient, type ApiExcelImportPreview, type ApiAuditLog } from '@/lib/api-client';
 import { ProtectedRoute } from '@/components/protected-route';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -60,8 +60,6 @@ import {
   CheckCircle,
   X,
   Save,
-  Filter,
-  Calendar,
   User,
   Sun,
   Moon,
@@ -122,6 +120,8 @@ const SECTIONS = [
 // Audit log constants
 const AUDIT_ACTION_TYPES = ['create', 'update', 'delete', 'assign', 'login_success', 'login_failure', 'logout'];
 const AUDIT_RESOURCE_TYPES = ['incident', 'personnel', 'vehicle', 'material', 'user', 'api'];
+/** How many audit rows the page asks for. Was component state, but nothing ever changed it. */
+const AUDIT_LOG_LIMIT = 100;
 
 type SectionId = typeof SECTIONS[number]['id'];
 
@@ -199,9 +199,6 @@ export default function SettingsPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
 
-  // Mobile sidebar state
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
   // Audit export state
   const [auditExportEventId, setAuditExportEventId] = useState<string>('');
   const [auditExportLoading, setAuditExportLoading] = useState(false);
@@ -219,7 +216,6 @@ export default function SettingsPage() {
   const [auditResourceFilter, setAuditResourceFilter] = useState<string>('all');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
-  const [auditLimit, setAuditLimit] = useState(100);
 
   const handleSyncComplete = () => {
     setHistoryRefreshTrigger((prev) => prev + 1);
@@ -230,7 +226,7 @@ export default function SettingsPage() {
     setAuditLoading(true);
     setAuditError(null);
     try {
-      const params: { limit: number; resource_type?: string; action_type?: string } = { limit: auditLimit };
+      const params: { limit: number; resource_type?: string; action_type?: string } = { limit: AUDIT_LOG_LIMIT };
       if (auditResourceFilter !== 'all') params.resource_type = auditResourceFilter;
       if (auditActionFilter !== 'all') params.action_type = auditActionFilter;
       const data = await apiClient.getAuditLogs(params);
@@ -248,12 +244,11 @@ export default function SettingsPage() {
     if (activeSection === 'audit' && isEditor) {
       fetchAuditLogs();
     }
-  }, [activeSection, isEditor, auditResourceFilter, auditActionFilter, auditLimit]);
+  }, [activeSection, isEditor, auditResourceFilter, auditActionFilter]);
 
   // Navigate to section
   const navigateToSection = (sectionId: SectionId) => {
     router.push(`/settings?section=${sectionId}`, { scroll: false });
-    setMobileSidebarOpen(false);
   };
 
   // Fetch general settings
@@ -382,7 +377,7 @@ export default function SettingsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err) {
+    } catch {
       toast.error(t('page.toasts.templateDownloadFailed'));
     } finally {
       setImportLoading(false);

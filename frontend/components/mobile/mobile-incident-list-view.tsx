@@ -13,15 +13,11 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
-import { columns } from "@/lib/kanban-utils"
 
 interface MobileIncidentListViewProps {
   operations: Operation[]
   materials: Material[]
   formatLocation: (address: string) => string
-  onRefresh: () => void
-  onCheckIn: () => void
-  onVehicleStatus: () => void
   onUpdateOperation?: (id: string, updates: Partial<Operation>) => void
   isEditor?: boolean
   isTraining?: boolean
@@ -51,9 +47,6 @@ export function MobileIncidentListView({
   operations,
   materials,
   formatLocation,
-  onRefresh,
-  onCheckIn,
-  onVehicleStatus,
   onUpdateOperation,
   isEditor = false,
   isTraining = false,

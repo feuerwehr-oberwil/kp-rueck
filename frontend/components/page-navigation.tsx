@@ -15,7 +15,6 @@ import Link from 'next/link';
 
 interface PageNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'training' | 'stats' | 'help' | 'divera';
-  vehicleTypes?: Array<{ key: string; name: string }>;
   hasSelectedEvent?: boolean;
   // Quick action callbacks (for Kanban page)
   onNewIncident?: () => void;
@@ -27,7 +26,6 @@ interface PageNavigationProps {
 
 export function PageNavigation({
   currentPage,
-  vehicleTypes = [],
   hasSelectedEvent = true,
   onNewIncident,
   onCheckIn,

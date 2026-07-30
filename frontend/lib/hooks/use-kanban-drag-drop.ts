@@ -5,6 +5,16 @@ import type { IncidentGroup } from '@/lib/types/groups'
 import type { GroupResourceType } from '@/lib/api-client'
 import { columns } from '@/lib/kanban-utils'
 
+// The pragmatic-drag-and-drop element adapter is require()d below (it touches
+// `document` at import time), so its payload types cannot be imported alongside
+// it. These are the fields this monitor reads; the payload's `data` bags are
+// untyped by design in the library too (`Record<string, unknown>`).
+type DragData = Record<string, unknown>
+interface DragMonitorPayload {
+  source: { data: DragData }
+  location: { current: { dropTargets: { data: DragData }[] } }
+}
+
 interface UseKanbanDragDropProps {
   isMounted: boolean
   canEdit?: boolean
@@ -62,7 +72,7 @@ export function useKanbanDragDrop({
     const { monitorForElements } = require('@atlaskit/pragmatic-drag-and-drop/element/adapter')
 
     return monitorForElements({
-      onDragStart({ source }: any) {
+      onDragStart({ source }: DragMonitorPayload) {
         if (!setDraggingItem) return
 
         const data = source.data
@@ -79,7 +89,7 @@ export function useKanbanDragDrop({
         }
       },
 
-      onDrop({ source, location }: any) {
+      onDrop({ source, location }: DragMonitorPayload) {
         if (setDraggingItem) {
           setDraggingItem(null)
         }

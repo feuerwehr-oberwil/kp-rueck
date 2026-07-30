@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 /**
  * Event Export Integration Tests
@@ -69,9 +69,6 @@ test.describe('Event Export', () => {
 
   test.describe('Export Button Visibility', () => {
     test('should display export button on active event cards', async ({ page }) => {
-      // Find active events section
-      const activeEventsSection = page.getByRole('heading', { name: 'Aktive Ereignisse' });
-
       // Check if there are any active events
       const activeEventCards = page.locator('[class*="border-2 border-red-600"], [class*="cursor-pointer transition-all hover:shadow-lg"]').first();
       const hasActiveEvents = await activeEventCards.isVisible().catch(() => false);

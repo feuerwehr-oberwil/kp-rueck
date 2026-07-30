@@ -102,7 +102,6 @@ describe("incident detail shells", () => {
         onModeChange={noop}
         selectedOperation={operation}
         operations={[operation]}
-        formatLocation={(value) => value}
         onSelectOperation={noop}
         {...sharedCapabilities}
       />,
@@ -134,7 +133,6 @@ describe("incident detail shells", () => {
         onModeChange={noop}
         selectedOperation={operation}
         operations={[operation]}
-        formatLocation={(value) => value}
         onSelectOperation={noop}
         {...sharedCapabilities}
       />,

@@ -26,6 +26,22 @@ export interface TestIncident {
   status?: 'new' | 'in_progress' | 'done';
 }
 
+/**
+ * Resources come back from the backend with more fields than the tests touch;
+ * these describe the parts assertions actually read.
+ */
+export interface TestResource {
+  id: string;
+  name: string;
+  [key: string]: unknown;
+}
+
+export interface TestSetting {
+  key: string;
+  value: string;
+  [key: string]: unknown;
+}
+
 export class APIHelper {
   private baseURL: string;
   private cookies?: string;
@@ -118,34 +134,34 @@ export class APIHelper {
   // RESOURCE MANAGEMENT
   // ============================================
 
-  async getPersonnel(eventId?: string): Promise<any[]> {
+  async getPersonnel(eventId?: string): Promise<TestResource[]> {
     const url = eventId ? `/api/personnel/?event_id=${eventId}` : '/api/personnel/';
     return this.request(url);
   }
 
-  async getPersonnelByName(name: string, eventId?: string): Promise<any> {
+  async getPersonnelByName(name: string, eventId?: string): Promise<TestResource | undefined> {
     const personnel = await this.getPersonnel(eventId);
-    return personnel.find((p: any) => p.name === name);
+    return personnel.find((p) => p.name === name);
   }
 
-  async getVehicles(eventId?: string): Promise<any[]> {
+  async getVehicles(eventId?: string): Promise<TestResource[]> {
     const url = eventId ? `/api/vehicles/?event_id=${eventId}` : '/api/vehicles/';
     return this.request(url);
   }
 
-  async getVehicleByName(name: string, eventId?: string): Promise<any> {
+  async getVehicleByName(name: string, eventId?: string): Promise<TestResource | undefined> {
     const vehicles = await this.getVehicles(eventId);
-    return vehicles.find((v: any) => v.name === name);
+    return vehicles.find((v) => v.name === name);
   }
 
-  async getMaterials(eventId?: string): Promise<any[]> {
+  async getMaterials(eventId?: string): Promise<TestResource[]> {
     const url = eventId ? `/api/materials/?event_id=${eventId}` : '/api/materials/';
     return this.request(url);
   }
 
-  async getMaterialByName(name: string, eventId?: string): Promise<any> {
+  async getMaterialByName(name: string, eventId?: string): Promise<TestResource | undefined> {
     const materials = await this.getMaterials(eventId);
-    return materials.find((m: any) => m.name === name);
+    return materials.find((m) => m.name === name);
   }
 
   // ============================================
@@ -225,9 +241,9 @@ export class APIHelper {
   // SETTINGS
   // ============================================
 
-  async getSetting(key: string): Promise<any> {
-    const settings = await this.request('/api/settings/');
-    return settings.find((s: any) => s.key === key);
+  async getSetting(key: string): Promise<TestSetting | undefined> {
+    const settings: TestSetting[] = await this.request('/api/settings/');
+    return settings.find((s) => s.key === key);
   }
 
   async updateSetting(key: string, value: string): Promise<void> {

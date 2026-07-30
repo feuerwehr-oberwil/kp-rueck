@@ -143,14 +143,9 @@ export function AssignmentLines({
 
       for (const vehicle of incident.assigned_vehicles) {
         const vp = findMatchingPosition(vehicle.name, byExact, byNormalized, vehiclePositions)
-        if (!vp) {
-          if (vehiclePositions.length > 0) {
-            console.debug(
-              `[AssignmentLines] No GPS match for vehicle "${vehicle.name}". Traccar devices: [${vehiclePositions.map(p => p.device_name).join(', ')}]`
-            )
-          }
-          continue
-        }
+        // No match is the normal case for a vehicle without a tracker, so it is
+        // silent: logging it fired once per vehicle per render.
+        if (!vp) continue
 
         result.push({
           vehicleName: vehicle.name,
