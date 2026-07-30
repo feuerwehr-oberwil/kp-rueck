@@ -50,12 +50,12 @@ async def client(db_session: AsyncSession) -> AsyncClient:
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_traccar_status_not_configured(client: AsyncClient):
+async def test_traccar_status_not_configured(viewer_client: AsyncClient):
     """Test status when Traccar is not configured."""
     with patch("app.api.traccar.traccar_client") as mock_client:
         mock_client.is_configured = False
 
-        response = await client.get("/api/traccar/status")
+        response = await viewer_client.get("/api/traccar/status")
         assert response.status_code == 200
 
         data = response.json()
@@ -65,13 +65,13 @@ async def test_traccar_status_not_configured(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_traccar_status_configured(client: AsyncClient):
+async def test_traccar_status_configured(viewer_client: AsyncClient):
     """Test status when Traccar is configured."""
     with patch("app.api.traccar.traccar_client") as mock_client, patch("app.api.traccar.settings") as mock_settings:
         mock_client.is_configured = True
         mock_settings.traccar_url = "https://traccar.example.com"
 
-        response = await client.get("/api/traccar/status")
+        response = await viewer_client.get("/api/traccar/status")
         assert response.status_code == 200
 
         data = response.json()
@@ -81,12 +81,12 @@ async def test_traccar_status_configured(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_traccar_status_no_auth_required(client: AsyncClient):
+async def test_traccar_status_no_auth_required(viewer_client: AsyncClient):
     """Test that status endpoint doesn't require authentication."""
     with patch("app.api.traccar.traccar_client") as mock_client:
         mock_client.is_configured = False
 
-        response = await client.get("/api/traccar/status")
+        response = await viewer_client.get("/api/traccar/status")
         assert response.status_code == 200
 
 
@@ -97,12 +97,12 @@ async def test_traccar_status_no_auth_required(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_positions_not_configured(client: AsyncClient):
+async def test_positions_not_configured(viewer_client: AsyncClient):
     """Test positions endpoint when Traccar is not configured."""
     with patch("app.api.traccar.traccar_client") as mock_client:
         mock_client.is_configured = False
 
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 503
 
         data = response.json()
@@ -111,7 +111,7 @@ async def test_positions_not_configured(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_positions_success(client: AsyncClient):
+async def test_positions_success(viewer_client: AsyncClient):
     """Test successful position retrieval."""
     mock_position = MagicMock()
     mock_position.device_id = 1
@@ -129,7 +129,7 @@ async def test_positions_success(client: AsyncClient):
         mock_client.is_configured = True
         mock_client.get_vehicle_positions = AsyncMock(return_value=[mock_position])
 
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 200
 
         data = response.json()
@@ -141,13 +141,13 @@ async def test_positions_success(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_positions_empty(client: AsyncClient):
+async def test_positions_empty(viewer_client: AsyncClient):
     """Test positions when no vehicles are tracked."""
     with patch("app.api.traccar.traccar_client") as mock_client:
         mock_client.is_configured = True
         mock_client.get_vehicle_positions = AsyncMock(return_value=[])
 
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 200
 
         data = response.json()
@@ -156,7 +156,7 @@ async def test_positions_empty(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_positions_multiple_vehicles(client: AsyncClient):
+async def test_positions_multiple_vehicles(viewer_client: AsyncClient):
     """Test positions with multiple tracked vehicles."""
     mock_positions = []
     for i in range(3):
@@ -177,7 +177,7 @@ async def test_positions_multiple_vehicles(client: AsyncClient):
         mock_client.is_configured = True
         mock_client.get_vehicle_positions = AsyncMock(return_value=mock_positions)
 
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 200
 
         data = response.json()
@@ -186,13 +186,13 @@ async def test_positions_multiple_vehicles(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_positions_traccar_error(client: AsyncClient):
+async def test_positions_traccar_error(viewer_client: AsyncClient):
     """Test positions when Traccar service fails."""
     with patch("app.api.traccar.traccar_client") as mock_client:
         mock_client.is_configured = True
         mock_client.get_vehicle_positions = AsyncMock(side_effect=Exception("Connection refused"))
 
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 502
 
         data = response.json()
@@ -202,13 +202,13 @@ async def test_positions_traccar_error(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_positions_no_auth_required(client: AsyncClient):
+async def test_positions_no_auth_required(viewer_client: AsyncClient):
     """Test that positions endpoint doesn't require authentication."""
     with patch("app.api.traccar.traccar_client") as mock_client:
         mock_client.is_configured = False
 
         # Should return 503 (not configured), not 401 (unauthorized)
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 503
 
 
@@ -219,7 +219,7 @@ async def test_positions_no_auth_required(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_position_response_format(client: AsyncClient):
+async def test_position_response_format(viewer_client: AsyncClient):
     """Test that position response has correct format."""
     mock_position = MagicMock()
     mock_position.device_id = 1
@@ -237,7 +237,7 @@ async def test_position_response_format(client: AsyncClient):
         mock_client.is_configured = True
         mock_client.get_vehicle_positions = AsyncMock(return_value=[mock_position])
 
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 200
 
         data = response.json()
@@ -257,7 +257,7 @@ async def test_position_response_format(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_position_optional_fields(client: AsyncClient):
+async def test_position_optional_fields(viewer_client: AsyncClient):
     """Test that optional fields can be null."""
     mock_position = MagicMock()
     mock_position.device_id = 1
@@ -275,7 +275,7 @@ async def test_position_optional_fields(client: AsyncClient):
         mock_client.is_configured = True
         mock_client.get_vehicle_positions = AsyncMock(return_value=[mock_position])
 
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 200
 
         data = response.json()
@@ -288,12 +288,12 @@ async def test_position_optional_fields(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_status_response_format(client: AsyncClient):
+async def test_status_response_format(viewer_client: AsyncClient):
     """Test that status response has correct format."""
     with patch("app.api.traccar.traccar_client") as mock_client:
         mock_client.is_configured = False
 
-        response = await client.get("/api/traccar/status")
+        response = await viewer_client.get("/api/traccar/status")
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
 
@@ -308,7 +308,7 @@ async def test_status_response_format(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_positions_with_zero_coordinates(client: AsyncClient):
+async def test_positions_with_zero_coordinates(viewer_client: AsyncClient):
     """Test positions with coordinates at 0,0 (valid but unusual)."""
     mock_position = MagicMock()
     mock_position.device_id = 1
@@ -326,9 +326,31 @@ async def test_positions_with_zero_coordinates(client: AsyncClient):
         mock_client.is_configured = True
         mock_client.get_vehicle_positions = AsyncMock(return_value=[mock_position])
 
-        response = await client.get("/api/traccar/positions")
+        response = await viewer_client.get("/api/traccar/positions")
         assert response.status_code == 200
 
         data = response.json()
         assert data[0]["latitude"] == 0.0
         assert data[0]["longitude"] == 0.0
+
+
+# ============================================
+# Authentication
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize("path", ["/api/traccar/status", "/api/traccar/positions", "/api/traccar/trails"])
+async def test_traccar_routes_require_authentication(client: AsyncClient, path: str):
+    """All three GPS routes were readable by anyone who knew the station's domain.
+
+    `deploy/Caddyfile` proxies `/api/*` directly to the backend, so these did not sit
+    behind the Next.js session proxy: live appliance positions, resolved street addresses
+    and two-hour movement trails were public on any internet-facing deployment.
+
+    The wall display is unaffected — it is token-scoped and receives positions as data
+    through `api/viewer.py`, never through this router.
+    """
+    response = await client.get(path)
+    assert response.status_code == 401

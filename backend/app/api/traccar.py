@@ -1,4 +1,16 @@
-"""Traccar GPS tracking API endpoints."""
+"""Traccar GPS tracking API endpoints.
+
+Every route here requires an authenticated session. These responses are the live
+positions, resolved street addresses and movement history of the brigade's appliances —
+i.e. where the fire service is right now — and `deploy/Caddyfile` proxies `/api/*`
+straight to this app, so an unauthenticated route here is readable by anyone who knows
+the station's domain. Until 2026-07 all three were open.
+
+The wall display and the viewer link do NOT come through here: they are token-scoped and
+receive positions as data (`api/viewer.py::_viewer_vehicle_positions`, surfaced to the map
+as `positionsOverride`). `components/map-view.tsx` already described this endpoint as
+"auth-only Traccar" — that assumption is now true.
+"""
 
 import logging
 from datetime import UTC, datetime, timedelta
@@ -6,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from app.auth.dependencies import CurrentUser
 from app.config import settings
 from app.services.gps_simulation import gps_simulation
 from app.traccar import traccar_client
@@ -38,7 +51,7 @@ class VehiclePositionResponse(BaseModel):
 
 
 @router.get("/status", response_model=TraccarStatusResponse)
-async def get_traccar_status() -> TraccarStatusResponse:
+async def get_traccar_status(current_user: CurrentUser) -> TraccarStatusResponse:
     """Get Traccar configuration status.
 
     Reports configured=true while a GPS simulation runs so the map subscribes to
@@ -51,7 +64,7 @@ async def get_traccar_status() -> TraccarStatusResponse:
 
 
 @router.get("/positions", response_model=list[VehiclePositionResponse])
-async def get_vehicle_positions() -> list[VehiclePositionResponse]:
+async def get_vehicle_positions(current_user: CurrentUser) -> list[VehiclePositionResponse]:
     """Get current GPS positions of all tracked vehicles."""
     if not traccar_client.is_configured and not gps_simulation.any_active():
         raise HTTPException(
@@ -103,6 +116,7 @@ class VehicleTrailResponse(BaseModel):
 
 @router.get("/trails", response_model=list[VehicleTrailResponse])
 async def get_vehicle_trails(
+    current_user: CurrentUser,
     minutes: int = Query(default=30, ge=5, le=120, description="Trail duration in minutes"),
 ) -> list[VehicleTrailResponse]:
     """Get recent position history (breadcrumb trails) for all tracked vehicles."""
