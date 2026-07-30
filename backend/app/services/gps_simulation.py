@@ -31,6 +31,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Strong references to in-flight status broadcasts; see the create_task call in overlay().
+_inflight_broadcast_tasks: set[asyncio.Task[None]] = set()
+
 # A drive vanishes this long after it was started — nobody should have to
 # remember to clean up a forgotten simulation.
 MAX_LIFETIME_SECONDS = 30 * 60
@@ -228,8 +231,14 @@ class GpsSimulation:
                 logger.info("GPS simulation: %s expired after 30min", drive.vehicle_name)
         if expired:
             # Fire-and-forget status update; overlay() runs inside async contexts.
+            # Strong reference until it finishes: asyncio keeps only a weak one, so an
+            # unreferenced task can be collected mid-flight and the "drive expired"
+            # broadcast is lost — leaving the Übungssteuerung showing a drive that is
+            # already gone until something else triggers a status push.
             with contextlib.suppress(RuntimeError):
-                asyncio.get_running_loop().create_task(self._broadcast_status())
+                task = asyncio.get_running_loop().create_task(self._broadcast_status())
+                _inflight_broadcast_tasks.add(task)
+                task.add_done_callback(_inflight_broadcast_tasks.discard)
 
         if not self._drives:
             return positions
