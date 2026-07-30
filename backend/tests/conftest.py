@@ -39,6 +39,31 @@ TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test"
 )
 
+
+def _assert_target_is_a_test_database(url: str) -> None:
+    """Refuse to run against a database whose name does not mark it as disposable.
+
+    The session fixture runs `DROP SCHEMA public CASCADE` on whatever TEST_DATABASE_URL
+    names, and that variable is routinely overridden — the documented recipe for running
+    the suite inside the dev container sets it, so "export it and forget" is a normal state
+    for this repo. Nothing checked what it pointed at.
+
+    A name check is the whole guard, and it is enough: every database this suite is allowed
+    to touch is one it creates itself (`kprueck_test`, `kprueck_test_gw0`,
+    `kprueck_test_drift`). A station's database is called `kprueck` or `railway`, and now
+    says so before the DROP rather than after.
+    """
+    name = make_url(url).database or ""
+    if "test" not in name.lower():
+        raise RuntimeError(
+            f"Refusing to run the test suite against database {name!r}: the name does not contain 'test'.\n"
+            "This suite DROPs and recreates the public schema, so it only ever runs against a\n"
+            "throwaway database. Check TEST_DATABASE_URL — it may still be pointing at a real one."
+        )
+
+
+_assert_target_is_a_test_database(TEST_DATABASE_URL)
+
 # Which pytest-xdist worker this process is (`gw0`, `gw1`, …), or None when running serially.
 # Set by xdist in every worker subprocess; the controller process never runs tests.
 XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER")

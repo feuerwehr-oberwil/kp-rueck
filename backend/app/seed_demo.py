@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import models
 from .database import async_session_maker
 from .seed_training import seed_training_data
+from .services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
 
 # Stable UUIDs for the demo users. The demo reset truncates + re-seeds the
 # users table every few hours; using fixed IDs (instead of uuid4()) means a
@@ -838,12 +839,33 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     await db.flush()
 
 
+async def _ensure_disposable_marker() -> None:
+    """Write the "this database is disposable" marker, idempotently.
+
+    The nightly reset refuses to truncate a database that does not carry it
+    (background/demo_reset.assert_disposable_database). Writing it here, OUTSIDE the
+    "already seeded" guard, means an existing demo deployment installs the marker on its
+    next boot instead of needing a hand-run INSERT — and a station that is not in demo
+    mode never gets here at all, because nothing calls the demo seeder.
+    """
+    async with async_session_maker() as db:
+        existing = await db.execute(select(models.Setting).where(models.Setting.key == DISPOSABLE_MARKER_KEY))
+        row = existing.scalars().first()
+        if row is None:
+            db.add(models.Setting(key=DISPOSABLE_MARKER_KEY, value=DISPOSABLE_MARKER_VALUE))
+        elif row.value != DISPOSABLE_MARKER_VALUE:
+            row.value = DISPOSABLE_MARKER_VALUE
+        await db.commit()
+
+
 async def seed_demo_database() -> None:
     """Seed the database with demo data for public demo deployment."""
     # Training controls depend on these global template/location pools. Keep
     # this outside the "already seeded" guard so existing demo deployments are
     # repaired on startup as well as after a full demo reset.
     await seed_training_data(skip_geocoding=True)
+
+    await _ensure_disposable_marker()
 
     async with async_session_maker() as db:
         try:
@@ -903,6 +925,9 @@ async def seed_demo_database() -> None:
                 ("map_mode", "online"),
                 ("auto_archive_timeout_hours", "24"),
                 ("notification_enabled", "false"),
+                # NB: the disposable-database marker is NOT seeded here. A full reset
+                # truncates `settings` too, so it is (re)written by
+                # _ensure_disposable_marker() on every call, outside this guard.
             ]
 
             for key, value in demo_settings:
