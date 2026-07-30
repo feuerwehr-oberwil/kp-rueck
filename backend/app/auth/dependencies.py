@@ -5,8 +5,8 @@ import uuid
 from datetime import UTC
 from typing import Annotated
 
+import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
-from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -109,7 +109,7 @@ async def get_current_user(
 
         user_id = uuid.UUID(user_id_str)
 
-    except JWTError:
+    except jwt.PyJWTError:
         logger.debug("JWT decoding failed")
         raise credentials_exception from None
     except ValueError:  # Invalid UUID
