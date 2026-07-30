@@ -27,6 +27,7 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 
 interface DraggableOperationProps {
@@ -118,6 +119,8 @@ function DraggableOperationBase({
   onDragActiveChange,
 }: DraggableOperationProps) {
   const t = useTranslations('kanban')
+  const tPrint = useTranslations('print.toasts')
+  const trackPrint = usePrintJobToast()
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isOver, setIsOver] = useState(false)
@@ -151,13 +154,14 @@ function DraggableOperationBase({
         .join(' · ')
     : ''
 
-  // Handle thermal print
+  // Handle thermal print. The "gesendet" toast is now the START of the story —
+  // trackPrintJob replaces it with what the printer actually did.
   const handlePrint = async () => {
     if (isPrinting) return
     setIsPrinting(true)
     try {
-      await apiClient.queueAssignmentPrint(operation.id)
-      toast.success(t('common.printJobSent'))
+      const job = await apiClient.queueAssignmentPrint(operation.id)
+      trackPrint(job.id, { sentTitle: t('common.printJobSent'), subject: tPrint('subjectSlip') })
     } catch (error) {
       console.error('Print failed:', error)
       toast.error(t('common.printFailed'))

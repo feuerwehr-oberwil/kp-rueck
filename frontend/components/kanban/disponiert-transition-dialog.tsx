@@ -17,6 +17,7 @@ import { getMessageTemplates } from "@/lib/message-template"
 import { copyToClipboard } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
+import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -52,6 +53,8 @@ export function DisponierTransitionDialog({
   onSendDivera,
 }: DisponiertTransitionDialogProps) {
   const t = useTranslations('kanban')
+  const tPrint = useTranslations('print.toasts')
+  const trackPrint = usePrintJobToast()
   const { groups, getGroupResources, recordAnnouncement } = useGroups()
   const { operations } = useOperations()
   const { selectedEvent } = useEvent()
@@ -141,8 +144,8 @@ export function DisponierTransitionDialog({
   const handlePrint = async () => {
     setIsPrinting(true)
     try {
-      await apiClient.queueAssignmentPrint(operation.id)
-      toast.success(t('common.printJobSent'))
+      const job = await apiClient.queueAssignmentPrint(operation.id)
+      trackPrint(job.id, { sentTitle: t('common.printJobSent'), subject: tPrint('subjectSlip') })
     } catch {
       toast.error(t('common.printFailed'))
     } finally {
