@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,11 +27,12 @@ from sqlalchemy.orm import selectinload
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings as app_settings
-from ..crud.print_jobs import build_assignment_payload, requeue_lost_jobs
+from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, build_assignment_payload, requeue_lost_jobs
 from ..database import get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
 from ..services import print_signal
 from ..services import settings as settings_service
+from ..websocket_manager import broadcast_print_job_update
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,29 @@ def _touch_agent_heartbeat() -> None:
     """Record that the print agent just contacted the backend."""
     global _agent_last_seen
     _agent_last_seen = datetime.now(UTC)
+
+
+def job_event_payload(job: PrintJob) -> dict[str, Any]:
+    """Status envelope broadcast on `print_job_update`.
+
+    Deliberately NOT the whole job: `payload` carries incident detail (crew names,
+    contact, internal notes) and this broadcast reaches the entire operations room,
+    viewers and wall displays included. Status, why it failed, and whether another
+    attempt is coming is everything the operator's toast needs.
+    """
+    return {
+        "id": str(job.id),
+        "job_type": job.job_type,
+        "status": job.status,
+        "incident_id": str(job.incident_id) if job.incident_id else None,
+        "event_id": str(job.event_id) if job.event_id else None,
+        "error_message": job.error_message,
+        "retry_count": job.retry_count,
+        # The reaper requeues a failed job while attempts remain, so `failed` is not
+        # yet final. Saying so is the difference between "go refill the paper" and
+        # "go refill the paper, a retry is already coming".
+        "will_retry": job.status == "failed" and job.retry_count < MAX_PRINT_ATTEMPTS,
+    }
 
 
 async def _load_incident_for_print(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
@@ -575,6 +599,7 @@ async def get_print_job(
 )
 async def claim_print_job(
     job_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> PrintJob:
     """
@@ -598,6 +623,11 @@ async def claim_print_job(
     await db.commit()
     await db.refresh(job)
 
+    # The claim is the only proof the agent is alive and took this particular job.
+    # Without it the client cannot tell "nobody is running the print service" from
+    # "the printer is chewing on it", and both would look like the same spinner.
+    background_tasks.add_task(broadcast_print_job_update, job_event_payload(job))
+
     logger.info(f"Print job {job_id} claimed by agent")
     return job
 
@@ -608,6 +638,7 @@ async def claim_print_job(
 async def complete_print_job(
     job_id: uuid.UUID,
     update: schemas.PrintJobUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> PrintJob:
     """
@@ -635,6 +666,10 @@ async def complete_print_job(
 
     await db.commit()
     await db.refresh(job)
+
+    # The whole point: a failure with "Papier leer" has to reach the person who is
+    # already walking to the printer, not only the Einstellungen → Drucker page.
+    background_tasks.add_task(broadcast_print_job_update, job_event_payload(job))
 
     logger.info(f"Print job {job_id} completed with status: {update.status.value}")
     return job
