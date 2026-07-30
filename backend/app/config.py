@@ -191,6 +191,13 @@ class Settings(BaseSettings):
     allowed_photo_extensions: list[str] = [".jpg", ".jpeg", ".png", ".webp"]
     max_excel_import_mb: int = 25  # Maximum size for Excel data imports
 
+    # How many reverse proxies sit in front of this app. Decides which X-Forwarded-For
+    # entry is trustworthy (see middleware/rate_limit.client_ip): the caller writes the
+    # left of that header, our own proxies append to the right. 1 covers both reference
+    # deployments — Caddy in the compose stack, Railway's edge on Railway. Set 0 when the
+    # app is exposed directly, which makes the header be ignored entirely.
+    trusted_proxy_count: int = 1
+
     # Sync Configuration
     railway_url: str = ""  # Railway production URL (empty = local mode, no sync)
     sync_interval_minutes: int = 2  # Periodic sync interval

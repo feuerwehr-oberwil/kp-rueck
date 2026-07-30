@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..middleware.rate_limit import client_ip
 from ..models import AuditLog, User
 
 # Fields that should never be logged for security reasons
@@ -108,15 +109,10 @@ async def log_action(
     user_agent = None
 
     if request:
-        # Get real IP (handle reverse proxy)
-        # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
-        # We want the first one (the original client)
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # Take only the first IP (client IP)
-            ip_address = forwarded_for.split(",")[0].strip()
-        else:
-            ip_address = request.client.host if request.client else None
+        # One shared implementation with the rate limiter — see middleware/rate_limit.py.
+        # Reading the leftmost X-Forwarded-For entry, as this used to, let any caller write
+        # their own address into the audit trail.
+        ip_address = client_ip(request)
         user_agent = request.headers.get("User-Agent")
 
     # Create log entry

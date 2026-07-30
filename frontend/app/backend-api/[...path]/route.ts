@@ -65,7 +65,23 @@ async function proxyRequest(request: NextRequest) {
 
   // Forward other headers (excluding problematic ones)
   // Skip content-length: fetch auto-sets it from the body (Blob)
-  const skipHeaders = ['host', 'cookie', 'connection', 'content-length']
+  //
+  // The x-forwarded-* headers are dropped rather than relayed: this route used to pass the
+  // browser's copy straight through, and the backend keyed its login throttle, its request
+  // rate limit and the audit log's IP attribution on it. Sending one header was enough to
+  // pick your own address for all three. The backend now reads the entry its own outermost
+  // proxy appended (middleware/rate_limit.client_ip), and not forwarding a client-supplied
+  // value keeps this hop from muddying that chain.
+  const skipHeaders = [
+    'host',
+    'cookie',
+    'connection',
+    'content-length',
+    'x-forwarded-for',
+    'x-forwarded-host',
+    'x-forwarded-proto',
+    'x-real-ip',
+  ]
   request.headers.forEach((value, key) => {
     if (!skipHeaders.includes(key.toLowerCase())) {
       headers.set(key, value)

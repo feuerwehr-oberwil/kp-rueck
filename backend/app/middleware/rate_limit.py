@@ -31,22 +31,40 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from ..config import settings
 
 
+def client_ip(request: Request) -> str | None:
+    """The caller's IP address, taken from X-Forwarded-For in a way a caller cannot forge.
+
+    This header is written by the client first and appended to by each proxy on the way in,
+    so its LEFTMOST entry is whatever the caller typed — reading that (which both this
+    function and the audit log used to do) meant anyone could pick their own IP by sending
+    `X-Forwarded-For: 1.2.3.4`. That defeated the login throttle, the request rate limit,
+    and the attribution in the audit trail all at once.
+
+    The trustworthy entry is the one OUR OWN outermost proxy appended, i.e. the
+    `trusted_proxy_count`-th from the right. With the reference deployments that is one hop
+    — Caddy in the compose stack, Railway's edge on Railway — and it holds for app traffic
+    too, because the Next.js `/backend-api` proxy forwards the header it received rather
+    than adding to it.
+
+    Set `TRUSTED_PROXY_COUNT=0` when the app is directly exposed with no proxy in front:
+    then the header is ignored entirely and only the socket address counts.
+    """
+    count = settings.trusted_proxy_count
+    if count > 0:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            hops = [part.strip() for part in forwarded.split(",") if part.strip()]
+            if len(hops) >= count:
+                return hops[-count]
+            # Fewer hops than configured: the request did not traverse the expected
+            # chain. Trust the socket instead of guessing.
+
+    return request.client.host if request.client else None
+
+
 def get_client_identifier(request: Request) -> str:
-    """
-    Get client identifier for rate limiting.
-
-    Uses X-Forwarded-For header when behind a proxy (Railway),
-    falls back to direct IP address otherwise.
-    """
-    # Check for forwarded header (common when behind proxy/load balancer)
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
-        # We want the first (client) IP
-        return forwarded.split(",")[0].strip()
-
-    # Fall back to direct remote address
-    return get_remote_address(request)
+    """Get client identifier for rate limiting."""
+    return client_ip(request) or get_remote_address(request)
 
 
 # Create limiter instance with custom key function
