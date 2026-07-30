@@ -3288,7 +3288,7 @@
           "incidents"
         ],
         "summary": "List Incidents",
-        "description": "List incidents for a specific event.\n\nArgs:\n    event_id: Event ID to filter incidents (required)\n    status: Optional status filter\n    skip: Pagination offset\n    limit: Max number of results (max 500)",
+        "description": "List incidents for a specific event.\n\nSets `X-Total-Count` to the number of incidents matching the filters before\nskip/limit, so the client can tell a complete board from a truncated one. Without it\na truncated board is indistinguishable from a small one — the client sees a plain\narray either way and has nothing to warn the operator with.\n\nArgs:\n    event_id: Event ID to filter incidents (required)\n    status: Optional status filter\n    skip: Pagination offset\n    limit: Max number of results (default 500, max 500)",
         "operationId": "list_incidents_api_incidents__get",
         "parameters": [
           {
@@ -3336,7 +3336,7 @@
               "type": "integer",
               "maximum": 500,
               "minimum": 1,
-              "default": 100,
+              "default": 500,
               "title": "Limit"
             }
           },

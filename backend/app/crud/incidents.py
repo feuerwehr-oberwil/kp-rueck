@@ -29,11 +29,34 @@ async def _validate_and_lock_group(db: AsyncSession, group_id: uuid.UUID, event_
     return group
 
 
+async def count_incidents(
+    db: AsyncSession,
+    event_id: uuid.UUID | None = None,
+    status: str | None = None,
+) -> int:
+    """
+    Total incidents matching the same filters `get_incidents` applies, ignoring skip/limit.
+
+    Exists so the board can say "showing 500 of 640" instead of silently rendering a
+    truncated list. Deliberately mirrors the filters above — if a filter is added there it
+    has to be added here too, or the count starts lying, which is worse than no count.
+    """
+    query = select(func.count()).select_from(Incident).where(Incident.deleted_at.is_(None))
+    if event_id is not None:
+        query = query.where(Incident.event_id == event_id)
+    if status:
+        query = query.where(Incident.status == status)
+    return int((await db.execute(query)).scalar_one())
+
+
 async def get_incidents(
     db: AsyncSession,
     event_id: uuid.UUID | None = None,
     skip: int = 0,
-    limit: int = 100,
+    # 500, not 100. Every production caller omits this, so the old default was a hard ceiling
+    # on what the board could ever show — at 200 incidents an arbitrary 100 were invisible
+    # with no banner and no count. That is the storm scenario, and no hardware helps.
+    limit: int = 500,
     status: str | None = None,
 ) -> list[Incident]:
     """

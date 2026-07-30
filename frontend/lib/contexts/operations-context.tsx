@@ -132,6 +132,12 @@ interface OperationsContextType {
   isLoaded: boolean
   /** Wall-clock time of the last successful operations load. null until the first load completes. */
   lastSyncAt: Date | null
+  /**
+   * Total incidents for the selected event, before the server's limit. Null when unknown
+   * (older backend, or header stripped by a proxy) — never treat null as zero. Compare
+   * against `operations.length` to tell whether the board is showing everything.
+   */
+  incidentTotal: number | null
   formatLocation: (fullAddress: string) => string
   refreshOperations: () => Promise<void>
   /** Resolves true when the removal was persisted (or ran local-only), false
@@ -215,6 +221,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setGlobalHomeCity(homeCity)
   }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
+  const [incidentTotal, setIncidentTotal] = useState<number | null>(null)
   // When a vehicle is assigned to an incident with no driver yet, hold it here so the
   // UI can open driver assignment. Null when there's nothing to prompt for.
   const [vehicleNeedingDriver, setVehicleNeedingDriver] = useState<{ vehicleId: string; vehicleName: string } | null>(null)
@@ -430,13 +437,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Fetch all data in parallel. skipStateUpdate keeps the raw personnel/material
       // list off the UI — we write reconciled, event-scoped state below in one go,
       // avoiding a flicker where every person briefly reads as "available".
-      const [apiIncidents, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
-        apiClient.getIncidents(selectedEvent.id),
+      const [incidentPage, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
+        apiClient.getIncidentsWithTotal(selectedEvent.id),
         refreshPersonnel({ skipStateUpdate: true }),
         refreshMaterials({ skipStateUpdate: true }),
         apiClient.getAllSettings().catch(() => ({ home_city: "" })),
         apiClient.getVehicles(),
       ])
+      const apiIncidents = incidentPage.incidents
+      setIncidentTotal(incidentPage.total)
 
       // Convert incidents to operations
       const ops = apiIncidents.map(apiIncidentToOperation)
@@ -634,13 +643,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         // Fetch all data in parallel. See refreshOperations for why we suppress
         // intermediate personnel/material writes.
-        const [apiIncidents, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
-          apiClient.getIncidents(eventId),
+        const [incidentPage, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
+          apiClient.getIncidentsWithTotal(eventId),
           refreshPersonnel({ skipStateUpdate: true }),
           refreshMaterials({ skipStateUpdate: true }),
           apiClient.getAllSettings().catch(() => ({ home_city: "" })),
           apiClient.getVehicles(),
         ])
+        const apiIncidents = incidentPage.incidents
+        setIncidentTotal(incidentPage.total)
 
         const ops = apiIncidents.map(apiIncidentToOperation)
 
@@ -1956,6 +1967,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         isLoading,
         isLoaded,
         lastSyncAt,
+        incidentTotal,
         formatLocation,
         refreshOperations,
         removeCrew,
