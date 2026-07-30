@@ -204,3 +204,60 @@ class TestUpdateSetting:
         result = await db_session.execute(select(Setting).where(Setting.key == "training_mode"))
         setting = result.scalar_one()
         assert setting.updated_by == test_editor.id
+
+
+# ============================================
+# Credential exposure through the generic settings endpoints
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_list_settings_masks_credentials_from_viewers(viewer_client: AsyncClient, db_session: AsyncSession):
+    """`GET /api/settings/` handed the whole table to any authenticated user.
+
+    Two rows in it are credentials: the shared alarm webhook secret, and a Postgres DSN
+    *with password* that decides where the sync service opens an outbound connection.
+    One route over, `api/sync.py` deliberately redacts that same DSN.
+    """
+    db_session.add(Setting(key="alarm_webhook_secret", value="s3cr3t-webhook"))
+    db_session.add(Setting(key="railway_database_url", value="postgresql://user:hunter2@db.example.com:5432/railway"))
+    db_session.add(Setting(key="funkrufname", value="Omega"))
+    await db_session.commit()
+
+    response = await viewer_client.get("/api/settings/")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert "s3cr3t-webhook" not in response.text
+    assert "hunter2" not in response.text
+    assert body["alarm_webhook_secret"] == "***"
+    assert body["railway_database_url"] == "***"
+    # Non-secret settings still come through untouched.
+    assert body["funkrufname"] == "Omega"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize("key", ["alarm_webhook_secret", "railway_database_url"])
+async def test_single_setting_endpoint_refuses_credentials(editor_client: AsyncClient, key: str):
+    """Masking the list would be pointless if this route served the value by name."""
+    response = await editor_client.get(f"/api/settings/{key}")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_target_cannot_be_repointed_through_generic_settings(editor_client: AsyncClient):
+    """`railway_database_url` was in DEFAULT_SETTINGS, so the allowlist admitted the exact
+    key its own comment claimed it protected — and the value is fed to create_async_engine.
+
+    Any editor could therefore make the backend push events, incidents, personnel,
+    vehicles, materials and settings to a host of their choosing. It has a dedicated
+    endpoint (PUT /api/sync/config) that validates and redacts it; that is now the only way.
+    """
+    response = await editor_client.patch(
+        "/api/settings/railway_database_url",
+        json={"value": "postgresql://attacker:pw@evil.example.com:5432/exfil"},
+    )
+    assert response.status_code == 403

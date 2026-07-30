@@ -29,9 +29,12 @@ seit 2026-07 genauso für den Divera-Adapter (`POST /api/divera/webhook`) — de
 Prüfung bei leerem Secret vorher übersprungen und war damit offen. Beide Wege gehen jetzt
 durch dieselbe Prüfung.
 
-Statt per SQL lässt sich das Secret auch in der Oberfläche unter *Einstellungen →
-Alarmierung* nachschlagen, oder mit `ALARM_WEBHOOK_SECRET` in der `.env` fest vorgeben
-(die Umgebungsvariable gewinnt über den Datenbankwert).
+Am einfachsten gibt man das Secret mit `ALARM_WEBHOOK_SECRET` in der `.env` fest vor —
+die Umgebungsvariable gewinnt über den Datenbankwert, und dann muss man es nirgends
+auslesen. Die API gibt es nicht heraus: `GET /api/settings/` maskiert es und
+`GET /api/settings/alarm_webhook_secret` antwortet mit `403`, weil sonst jeder
+angemeldete Benutzer — auch ein reiner Viewer — den Schlüssel mitlesen könnte, mit dem
+man Einsätze auf die Lage schreibt. Bleibt der Weg über die Datenbank (oben).
 
 ## Payload
 
