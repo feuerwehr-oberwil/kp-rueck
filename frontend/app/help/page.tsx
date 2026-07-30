@@ -118,7 +118,7 @@ export default function HelpPage() {
     };
 
     loadContent();
-  }, []);
+  }, [t]);
 
   // Extract table of contents from markdown (h2 only), capturing each
   // section's body text so search can match content, not just headings.

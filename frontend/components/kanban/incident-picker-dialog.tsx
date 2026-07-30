@@ -10,7 +10,7 @@
  * pre-selected; unchecking one detaches it from the route on confirm.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Search, Route as RouteIcon, Plus, List, MapPin } from "lucide-react"
 import {
@@ -58,7 +58,7 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
     // Generous padding on purpose: a marker hard against the frame has nowhere
     // to put its label, and the dialog's map clips at its border.
     map.fitBounds(L.latLngBounds(positions), { padding: [64, 80], maxZoom: 15 })
-  }, [map, positions])
+  }, [map, positions, L])
   return null
 }
 
@@ -186,14 +186,18 @@ export function IncidentPickerDialog({
     onOpenChange(next)
   }
 
-  const toggle = (id: string) => {
+  // useCallback, not a plain function: `toggle` is a dependency of the map
+  // useMemo below, and a fresh identity every render would rebuild the whole
+  // Leaflet map on each keystroke in the search box. The updater form reads the
+  // previous Set, so the only dependency is the (stable) state setter — [].
+  const toggle = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }
+  }, [])
 
   // Diff the current selection against the route's members: newly-checked ids are
   // added (via onConfirm → addStops), unchecked members are detached (removeStop).
