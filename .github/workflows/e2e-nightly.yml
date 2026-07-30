@@ -166,7 +166,7 @@ jobs:
       # comment; that is the cheaper mistake of the two.
       - name: Open or update an issue on failure
         if: failure() || cancelled()
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const title = 'Nightly E2E suite is failing'
