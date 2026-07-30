@@ -6,9 +6,11 @@ endpoints so all ingest paths derive the same incident from an emergency.
 
 import logging
 import re
+import secrets as _secrets
 import uuid
 from typing import Any
 
+from fastapi import HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,8 +18,35 @@ from .. import models, schemas
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from .audit import log_action
+from .settings import get_alarm_webhook_secret
 
 logger = logging.getLogger(__name__)
+
+
+async def check_webhook_secret(db: AsyncSession, request: Request | None, *, label: str) -> None:
+    """Validate the shared inbound-alarm secret, failing closed when none is configured.
+
+    Both inbound alarm endpoints — the provider-neutral POST /api/alarms and the Divera
+    adapter — must answer the same way, because they write to the same board. They did not:
+    the Divera one guarded with `if webhook_secret:`, so an unconfigured (or emptied) secret
+    skipped the check and left an unauthenticated write endpoint open. `alarm_webhook_secret`
+    is in the PATCH allowlist, so any editor could reach that state from the settings UI.
+
+    Fail-closed is the only safe direction here: a station that has not configured a secret
+    has not authorised anyone to create incidents on its board.
+    """
+    webhook_secret = await get_alarm_webhook_secret(db)
+    if not webhook_secret:
+        logger.warning("%s rejected: no alarm_webhook_secret configured", label)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    provided = ""
+    if request is not None:
+        provided = request.query_params.get("secret", "") or request.headers.get("X-Webhook-Secret", "")
+
+    if not provided or not _secrets.compare_digest(provided, webhook_secret):
+        logger.warning("%s rejected: invalid or missing secret", label)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
 
 # Incident type mapping from Divera title keywords to IncidentType enum
