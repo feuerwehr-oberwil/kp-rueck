@@ -165,7 +165,13 @@ a **PATCH** bump is fixes only and always safe; a **MINOR** bump adds features a
 automatically; a **MAJOR** bump needs you to read the notes first, because something requires
 operator action.
 
-- Database migrations run **automatically on boot** (`start.sh` → `alembic upgrade head`).
+- Database migrations run **automatically on boot** (`start.sh` → `alembic upgrade head`), and a
+  **snapshot is taken first** whenever there is actually a migration pending: `pg_dump -Fc` into
+  the `premigration` volume (`/mnt/data/backups` in the container), newest 5 kept. It is
+  deliberately best-effort — if it cannot be written the boot logs `WARNING: … migrating anyway,
+  with no way back` and continues, because a board that is down is worse than a migration without
+  a snapshot. Watch for that line in `docker compose logs backend` after an update. Turn it off
+  with `PREMIGRATION_BACKUP=false`; it is not a substitute for §6 and holds no photos.
 - **Rollback:** set `KP_RUECK_TAG` to the previous version and re-run the two commands.
   Migrations are kept backward-safe within a minor series.
 - **Postgres major upgrades** (e.g. 16→17) are *not* automatic – a 16 data volume won't be read
@@ -181,25 +187,78 @@ For contributors or a patched fork: comment out the `image:` line on the service
 
 ## 6. Backups
 
-Back up **two** things together, from the same moment:
+Turn the nightly backup on. It is off by default only because it writes to a path on **your**
+host and nobody else can pick that path for you:
 
 ```bash
-./scripts/backup.sh /var/backups/kp-rueck        # or: just backup
+# In .env — where the files land, and when
+BACKUP_HOST_DIR=/var/backups/kp-rueck
+BACKUP_AT=03:30
+
+docker compose --profile backup up -d
 ```
 
-That writes `db-<stamp>.sql.gz` and `photos-<stamp>.tar.gz` and keeps the newest 14 of each
-(`BACKUP_KEEP` to change that). Daily from cron on the docker host:
+That starts a small sidecar which, every night, writes **two** files from the same moment into
+`$BACKUP_HOST_DIR/daily/`:
 
-```cron
-30 3 * * * cd /opt/kp-rueck && ./scripts/backup.sh /var/backups/kp-rueck >> /var/log/kp-rueck-backup.log 2>&1
+```
+daily/db-2026-07-30-033000.dump        # pg_dump -Fc, verified readable
+daily/photos-2026-07-30-033000.tar.gz  # the Reko photo volume
+weekly/db-2026-W31.dump                # first backup of the ISO week, hardlinked
+last-backup.json                       # what happened, machine-readable
 ```
 
 Both halves matter. The database holds the operational record; the `photos` volume holds Reko
 photos, which are **not** in the database. A dump without the volume restores a complete record
 pointing at missing images.
 
+**Retention: 14 daily, 8 weekly** (`BACKUP_KEEP_DAILY` / `BACKUP_KEEP_WEEKLY`). Two series
+because they answer two different questions. Fourteen dailies is "undo last night" with enough
+slack for a brigade that has no daily operator — damage done at a Saturday exercise can go
+unnoticed until the drill after next. Eight weeklies (~2 months) is "someone imported the wrong
+roster five weeks ago": quiet damage that is noticed when a report gets written, not when it
+happens. Weeklies are hardlinks, so they cost nothing until the daily beneath them is pruned.
+The dumps are small — single-digit MB for a station — so the photos decide your disk usage.
+
+**It is loud when it cannot do its job.** A backup script that can silently do nothing is worse
+than none, so every run either produces two verified files or leaves evidence: a `BACKUP-FAILED`
+marker in the directory, a `"status": "failed"` in `last-backup.json` naming the stage, and a
+failing container healthcheck. Which means the honest check is one command:
+
+```bash
+docker compose ps backup          # "healthy" = last night's backup ran and succeeded
+cat /var/backups/kp-rueck/last-backup.json
+```
+
+`unhealthy` means the last backup failed **or** is more than 26 hours old. Look at
+`docker compose logs backup` — the common causes are a full disk, a backup directory the
+container cannot write to, and a Postgres client older than the server (see below).
+
+Take one out of band, before an update you are not sure about:
+
+```bash
+just backup /var/backups/kp-rueck
+```
+
+**Off the box.** Everything above is still on the machine whose failure is the reason you are
+reading this section. Copy `$BACKUP_HOST_DIR` somewhere else — a NAS mount, `rsync` to another
+host, a bucket, an external disk that lives in a different room. The files are plain and self
+contained; nothing about the restore below needs the tool you used to move them. If you encrypt
+them, keep the passphrase somewhere that is *not* only on this box.
+
 Keep `SECRET_KEY` and `AUTH_SECRET_KEY` with the backup – restoring a database with different
 secrets logs everyone out and invalidates issued tokens.
+
+**Postgres client version.** `pg_dump` refuses to dump a server newer than itself ("aborting
+because of server version mismatch"), so the backup runs from `BACKUP_PG_IMAGE`, which defaults
+to the same major as the `db` service. If you ever move the database to a newer major, move that
+variable in the same change. The script checks the two versions before it does anything and
+fails with the exact remedy rather than an obscure error.
+
+**One known limit, named rather than fixed:** the dump and the photo tarball are taken seconds
+apart. A photo uploaded in between yields a database row whose file is not in the tarball. It is
+rare, it heals with the next night's backup, and the alternative — stopping the stack every
+night — costs a brigade more than it returns.
 
 ### 6.1 Restore
 
@@ -210,17 +269,20 @@ Restoring replaces everything. Do it on a **fresh stack** first – see the dril
 docker compose stop backend frontend
 
 # 2. Drop and recreate the database, so the restore starts from nothing rather than
-#    merging into whatever is there.
+#    merging into whatever is there. (restore.sh refuses a database that still has tables —
+#    this line is deliberately typed by a human.)
 docker compose exec -T db psql -U kprueck -d postgres \
   -c "DROP DATABASE IF EXISTS kprueck;" -c "CREATE DATABASE kprueck OWNER kprueck;"
 
-# 3. Restore the dump.
-gunzip -c db-2026-07-29-033000.sql.gz | docker compose exec -T db psql -U kprueck -d kprueck
+# 3. Restore the dump. Checks the archive is readable and the server is not older than the
+#    dump's client before it writes anything.
+just restore /var/backups/kp-rueck/daily/db-2026-07-30-033000.dump
 
-# 4. Restore the photos into the volume, through the backend container that mounts it.
+# 4. Restore the photos into the volume, through the backend container that mounts it writable
+#    (the backup sidecar mounts it read-only on purpose).
 docker compose start backend
 docker compose exec -T backend sh -c 'rm -rf /mnt/data/photos/* && tar xzf - -C /mnt/data/photos' \
-  < photos-2026-07-29-033000.tar.gz
+  < /var/backups/kp-rueck/daily/photos-2026-07-30-033000.tar.gz
 
 # 5. Bring everything back up. Migrations run on boot, so a dump from an OLDER version is
 #    upgraded automatically; a dump from a NEWER version is not — match or exceed its tag.
@@ -228,6 +290,29 @@ docker compose up -d
 ```
 
 Then check: log in, open an incident that had photos, and confirm the images load.
+
+**Without this repository, on someone else's machine.** The restore must not depend on our
+tooling — you may have the files and a borrowed laptop and nothing else. `-Fc` dumps are read by
+stock `pg_restore`:
+
+```bash
+createdb kprueck
+pg_restore --dbname kprueck --no-owner --no-privileges db-2026-07-30-033000.dump
+tar xzf photos-2026-07-30-033000.tar.gz -C /wherever/photos
+```
+
+The client must be at least as new as the server you restore into. The quickest way to get a
+matching one without installing anything:
+
+```bash
+docker run --rm -v "$PWD:/b" -e PGPASSWORD=… postgres:17-alpine \
+  pg_restore -h HOST -U kprueck -d kprueck --no-owner --no-privileges /b/db-…dump
+```
+
+Because this is a dump and not a copied data directory, it restores across architectures and
+operating systems — a macOS or WSL laptop standing in for the station's Linux server is the
+case this is built for. Do not "optimise" the backup into a volume snapshot; that would take the
+capability away.
 
 ### 6.2 The drill
 
@@ -242,3 +327,16 @@ Do this **once before you go live**, and after any change to how you back up:
 
 If step 4 shows what you expect, the backup is real. Until you have done it once, it is a
 guess – which is the only reason this section exists at a length nobody wants to read.
+
+For step 4 by eye plus a number: `scripts/db-fingerprint.sh` prints an exact row count for every
+table, a few real values and the schema revision. Run it against the station and against the
+restored copy and `diff` the two – identical output means identical data, which "the restore
+finished without errors" does not.
+
+**What CI already does for you, and what it cannot.** The `restore-drill` workflow runs this
+whole cycle every Monday – seed, dump with the real `scripts/backup.sh`, restore into a fresh
+empty database, diff the fingerprints, and check the restored database still migrates forward.
+So the *file format and the procedure* are continuously proven. What it cannot touch is your
+box: volumes, permissions, disk space, the real photo files, and whether the copy that left the
+building is actually readable. That is what this drill is for, and why it stays half-yearly work
+for a human.

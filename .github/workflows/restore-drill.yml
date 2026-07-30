@@ -1,0 +1,171 @@
+name: Restore drill
+
+# Proves the backup can be restored. Not that it can be TAKEN — that part is easy and was never
+# the risk. The risk is the file that turns out to be unreadable, or restorable only onto the
+# machine it came from, and the only way to know is to do it.
+#
+# Same reasoning as the telemetry-drift job: a documented procedure nobody runs is a guess. This
+# one runs the procedure a station would run, on a schedule, so it fails here on a Monday rather
+# than at the command post on a Saturday.
+#
+# It does NOT replace the half-yearly human drill in docs/DEPLOYMENT.md §6.2 — that one covers
+# volumes, permissions and the real photo files on a real box, which is more than a CI runner
+# can see. This covers the part that can be automated: dump → fresh database → same data.
+#
+# Weekly rather than per-push: nothing in a normal change touches this, and a job that runs on
+# every push and passes for a year teaches nobody anything.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"   # Mondays, 04:17 UTC
+  workflow_dispatch:
+  pull_request:
+    # Run it on changes to the backup path itself — that IS when it can break.
+    paths:
+      - "scripts/backup.sh"
+      - "scripts/restore.sh"
+      - "backend/start.sh"
+      - "backend/alembic/**"
+      - ".github/workflows/restore-drill.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    name: Dump, restore into a fresh database, compare
+    runs-on: ubuntu-latest
+
+    services:
+      # Postgres 17, matching the production server — NOT the 16 that docker-compose.yml pins
+      # for self-hosters. If the two ever have to diverge further, this is the job that notices.
+      source:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kprueck
+          POSTGRES_PASSWORD: kprueck
+          POSTGRES_DB: kprueck
+        ports: ["55490:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      target:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kprueck
+          POSTGRES_PASSWORD: kprueck
+          POSTGRES_DB: kprueck
+        ports: ["55491:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      PGPASSWORD: kprueck
+      DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@127.0.0.1:55490/kprueck
+      ENVIRONMENT: development
+      SECRET_KEY: drill-secret-not-a-secret-0123456789      # gitleaks:allow
+      AUTH_SECRET_KEY: drill-secret-not-a-secret-0123456789 # gitleaks:allow
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: "latest"
+
+      - name: Postgres 17 client
+        # ubuntu-latest ships an older client, and pg_dump refuses to dump a newer server. This
+        # is the exact failure the scripts detect and report; here we just avoid it.
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Migrate and seed the source database
+        working-directory: backend
+        run: |
+          uv sync --frozen
+          uv run alembic upgrade head
+          uv run python -m app.seed
+
+      - name: Fingerprint the source
+        run: ./scripts/db-fingerprint.sh 55490 > /tmp/source.txt && cat /tmp/source.txt
+
+      - name: Take a backup with the real script
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "55490"
+          PGUSER: kprueck
+          PGDATABASE: kprueck
+          PHOTOS_DIR: /tmp/photos
+        run: |
+          mkdir -p /tmp/photos/2026
+          head -c 4096 /dev/urandom > /tmp/photos/2026/reko.jpg
+          ./scripts/backup.sh /tmp/backups
+          ls -lR /tmp/backups
+          cat /tmp/backups/last-backup.json
+
+      - name: The backup reports itself healthy
+        run: ./scripts/backup.sh --check /tmp/backups
+
+      - name: Restore into a FRESH, EMPTY database
+        # Fresh database, not a copied volume: that is what makes a dump restorable onto another
+        # host and another architecture, which is the whole point of using pg_dump at all.
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "55491"
+          PGUSER: kprueck
+          PGDATABASE: kprueck
+          PHOTOS_DIR: /tmp/photos-restored
+        run: |
+          mkdir -p /tmp/photos-restored
+          ./scripts/restore.sh "$(ls /tmp/backups/daily/db-*.dump)" \
+            --photos "$(ls /tmp/backups/daily/photos-*.tar.gz)"
+
+      - name: Compare — row counts and real values must match exactly
+        run: |
+          ./scripts/db-fingerprint.sh 55491 > /tmp/restored.txt
+          diff -u /tmp/source.txt /tmp/restored.txt
+          echo "source and restored databases are identical"
+
+      - name: Photos survived byte for byte
+        run: diff -r /tmp/photos /tmp/photos-restored
+
+      - name: Migrations still run on the restored database
+        # A restore that cannot be migrated forward is a museum piece: the next deploy would
+        # fail on it. This is the second half of "the backup works".
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@127.0.0.1:55491/kprueck
+        run: uv run alembic upgrade head
+
+      - name: The backup refuses to run against a newer server
+        # The failure mode that cost a real afternoon: a client older than the server aborts with
+        # a message naming two numbers and no remedy. Assert we catch it and say what to do.
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "55490"
+          PGUSER: kprueck
+          PGDATABASE: kprueck
+        run: |
+          mkdir -p /tmp/vcheck
+          out=$(docker run --rm --network host -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE \
+                  -e PGPASSWORD -v "$PWD/scripts:/scripts:ro" -v /tmp/vcheck:/backups \
+                  --entrypoint /scripts/backup.sh postgres:15-alpine /backups 2>&1) && rc=0 || rc=$?
+          echo "$out"
+          test "$rc" = "4" || { echo "expected exit 4 (version), got $rc"; exit 1; }
+          echo "$out" | grep -q "is older than the server" || { echo "no clear version message"; exit 1; }
+
+      - name: A backup that cannot write fails loudly
+        # The requirement that makes the rest trustworthy: it must never quietly do nothing.
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "55490"
+          PGUSER: kprueck
+          PGDATABASE: kprueck
+        run: |
+          sudo mkdir -p /tmp/readonly && sudo chmod 555 /tmp/readonly
+          ./scripts/backup.sh /tmp/readonly && rc=0 || rc=$?
+          test "${rc:-0}" = "2" || { echo "expected exit 2 (write), got ${rc:-0}"; exit 1; }
+          echo "unwritable destination is reported, not swallowed"

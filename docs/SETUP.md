@@ -199,9 +199,29 @@ are live, and the UI adapts rather than hard-coding vendors.
 
 ## 6. Backups, retention and version pinning
 
-Follow [`DEPLOYMENT.md` §6](DEPLOYMENT.md) for the database and photo-store backup, and **do one
-restore into a fresh stack before you go live**. An operational record is only provably
-recoverable once you have actually recovered it.
+**Switch the nightly backup on. It is not on by default.** Two lines in `.env` and one command:
+
+```bash
+BACKUP_HOST_DIR=/var/backups/kp-rueck     # a path on THIS host — ideally a different disk
+BACKUP_AT=03:30
+
+docker compose --profile backup up -d
+docker compose ps backup                   # "healthy" = it ran and it worked
+```
+
+That gives you a verified Postgres dump plus the Reko photo volume every night, keeping 14
+dailies and 8 weeklies. It says so out loud when it fails — `docker compose ps` shows the
+service `unhealthy`, and `last-backup.json` in the backup directory names the stage that broke.
+[`DEPLOYMENT.md` §6](DEPLOYMENT.md#6-backups) has the details, including the retention reasoning
+and the client/server version trap.
+
+Then do the two things the backup is worthless without:
+
+1. **Copy it off this box.** Everything above lives on the machine whose death is the reason
+   backups exist. A NAS mount, an `rsync` to another host, a bucket, a disk in another room —
+   any of them, but one of them.
+2. **Restore it once, before you go live** ([`DEPLOYMENT.md` §6.2](DEPLOYMENT.md)). An
+   operational record is only provably recoverable once you have actually recovered it.
 
 **Decide your audit retention now, not after an incident.** The audit log is what backs an
 after-action report months later. `AUDIT_RETENTION_DAYS` defaults to `0`, which means keep

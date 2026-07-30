@@ -39,6 +39,14 @@ name: CI
 #            beside it. (kp-front is the other way round — default setup is off there, so it
 #            needs its workflow file. Same coverage, different mechanism.)
 #
+# RUNS ON ITS OWN SCHEDULE, in restore-drill.yml:
+#   restore-drill – seed, dump with scripts/backup.sh, restore into a FRESH empty database, diff
+#         the row counts and real values, and check the restored database still migrates forward.
+#         Weekly, plus on any PR that touches scripts/backup.sh, scripts/restore.sh,
+#         backend/start.sh or a migration. It is the standing answer to "has anyone ever actually
+#         restored one of these?" — the same reasoning as telemetry-drift. It runs Postgres 17
+#         (production), not the 16 that docker-compose.yml pins.
+#
 # RUNS, BUT NOT YET A REQUIRED CHECK:
 #   e2e-smoke – eight @smoke-tagged Playwright specs on the core path. It used to be `if: false`
 #         and covered nothing. It is deliberately NOT in the required-checks list on main until

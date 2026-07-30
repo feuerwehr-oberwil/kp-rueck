@@ -109,11 +109,32 @@ db cmd="start" *args:
 # Backups
 # ============================================
 
-# Postgres dump + the photo volume, from the same moment, with retention.
-# Restore procedure and the drill: docs/DEPLOYMENT.md §6.1 / §6.2
-# Back up the database and the Reko photos (default ./backups, BACKUP_KEEP=14)
+# One backup NOW, out of band — before an update, before a migration you don't trust.
+# The nightly one is the `backup` compose profile: docker compose --profile backup up -d
+# Runs pg_dump inside the db service's own image, so the client can never be older than the
+# server (which is how "pg_dump: aborting because of server version mismatch" happens).
+# Back up the database and the Reko photos now (default ./backups)
 backup dir="./backups":
-    ./scripts/backup.sh {{dir}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "{{dir}}"
+    docker compose --profile backup run --rm --no-deps \
+        -v "$(cd "{{dir}}" && pwd):/backups" \
+        --entrypoint /scripts/backup.sh backup /backups
+
+# Restore the DATABASE half into an EMPTY database. It refuses to merge into a populated one —
+# drop and recreate the database first (docs/DEPLOYMENT.md §6.1). The PHOTOS are a second,
+# separate command in §6.1: they go in through the backend container, which is the only service
+# that mounts the photo volume writable — the backup sidecar mounts it read-only on purpose, so
+# that nothing in the backup path can ever delete a Reko photo.
+#   just restore ./backups/daily/db-2026-07-30-033000.dump
+# Restore a database dump into an empty database (photos: see DEPLOYMENT.md §6.1)
+restore dump:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="$(cd "$(dirname "{{dump}}")" && pwd)"
+    docker compose --profile backup run --rm --no-deps -v "$src:/restore:ro" \
+        --entrypoint /scripts/restore.sh backup "/restore/$(basename "{{dump}}")"
 
 # ============================================
 # API contract
