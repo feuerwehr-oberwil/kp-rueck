@@ -152,14 +152,26 @@ jobs:
 
       # A red square on a page nobody opens is not a signal. One open issue, updated rather
       # than duplicated, is.
+      #
+      # `cancelled()` is not belt-and-braces: blowing `timeout-minutes` ends the job as
+      # *cancelled*, not failed, so `failure()` alone skips this step — which is exactly what
+      # happened on every scheduled run from 2026-07-27 to 2026-07-30. The suite ran an hour,
+      # got killed, and said nothing. A run somebody cancels by hand will now also file a
+      # comment; that is the cheaper mistake of the two.
       - name: Open or update an issue on failure
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/github-script@v8
         with:
           script: |
             const title = 'Nightly E2E suite is failing'
+            // A cancelled job here is almost always the 60-minute cap, and saying "failed"
+            // sends the reader hunting for a failing assertion that does not exist.
+            const outcome =
+              '${{ job.status }}' === 'cancelled'
+                ? 'was cancelled (most likely the 60-minute cap) on'
+                : 'failed on'
             const body = [
-              `The nightly full Playwright suite failed on \`${context.sha.slice(0, 8)}\`.`,
+              `The nightly full Playwright suite ${outcome} \`${context.sha.slice(0, 8)}\`.`,
               '',
               `[Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) —`,
               'the `playwright-report-nightly` artifact has the traces and screenshots.',
