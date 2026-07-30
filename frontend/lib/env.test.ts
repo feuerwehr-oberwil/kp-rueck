@@ -8,7 +8,13 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { getApiUrl, getTileBaseUrl, getWsUrl } from './env'
+import {
+  getApiUrl,
+  getTileBaseUrl,
+  getWsUrl,
+  publicBackendOrigin,
+  setRuntimeBackendOrigin,
+} from './env'
 
 /** Pretend the page is served from `href`. Only hostname/origin are read. */
 function servedFrom(href: string) {
@@ -28,6 +34,8 @@ function noBuildTimeEnv() {
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  // The runtime origin is module state, set once per page load by the root layout.
+  setRuntimeBackendOrigin(null)
 })
 
 describe('self-hosted behind one origin (the docker-compose stack)', () => {
@@ -68,7 +76,62 @@ describe('Railway (frontend and backend on separate hostnames)', () => {
   })
 })
 
-describe('explicit configuration always wins', () => {
+describe('the runtime backend origin (API_URL, handed down by the root layout)', () => {
+  it('is what a custom Railway domain connects to — the case every guess got wrong', () => {
+    noBuildTimeEnv()
+    setRuntimeBackendOrigin('https://kp-api.feuerwehr-musterhausen.ch')
+    servedFrom('https://kp.feuerwehr-musterhausen.ch/')
+    // Neither localhost nor *.up.railway.app, so this used to fall through to same-origin,
+    // where nothing listens for /socket.io: no socket, no error, permanent 5s polling.
+    expect(getWsUrl()).toBe('wss://kp-api.feuerwehr-musterhausen.ch')
+  })
+
+  it('outranks both build-time variables, which tie an image to one station', () => {
+    noBuildTimeEnv()
+    vi.stubEnv('NEXT_PUBLIC_WS_URL', 'wss://baked-in.example.org')
+    vi.stubEnv('NEXT_PUBLIC_API_URL', 'https://also-baked-in.example.org')
+    setRuntimeBackendOrigin('https://kp-api.feuerwehr-musterhausen.ch')
+    servedFrom('https://kp.feuerwehr-musterhausen.ch/')
+    expect(getWsUrl()).toBe('wss://kp-api.feuerwehr-musterhausen.ch')
+  })
+
+  it('ignores a backend only reachable inside the container network', () => {
+    // The compose stack sets API_URL=http://backend:8000. Handing that to the browser would
+    // swap one silent failure for another, so it must stay on the same-origin path.
+    expect(publicBackendOrigin('http://backend:8000')).toBeNull()
+    expect(publicBackendOrigin('http://kp-rueck-backend.railway.internal:8000')).toBeNull()
+
+    noBuildTimeEnv()
+    setRuntimeBackendOrigin('http://backend:8000')
+    servedFrom('https://einsatz.feuerwehr-musterdorf.ch/')
+    expect(getWsUrl()).toBe('wss://einsatz.feuerwehr-musterdorf.ch')
+  })
+
+  it('accepts an address the browser can actually reach, and keeps only the origin', () => {
+    expect(publicBackendOrigin('https://kp-rueck-api.up.railway.app')).toBe(
+      'https://kp-rueck-api.up.railway.app'
+    )
+    expect(publicBackendOrigin('http://localhost:8000')).toBe('http://localhost:8000')
+    expect(publicBackendOrigin('https://kp-api.example.ch/api/')).toBe('https://kp-api.example.ch')
+  })
+
+  it('treats an unset or unusable API_URL as no answer at all', () => {
+    expect(publicBackendOrigin(undefined)).toBeNull()
+    expect(publicBackendOrigin('')).toBeNull()
+    expect(publicBackendOrigin('   ')).toBeNull()
+    expect(publicBackendOrigin('kp-api.example.ch')).toBeNull()
+    expect(publicBackendOrigin('ftp://kp-api.example.ch')).toBeNull()
+  })
+
+  it('leaves local development exactly as it was when nothing is configured', () => {
+    noBuildTimeEnv()
+    setRuntimeBackendOrigin(undefined)
+    servedFrom('http://localhost:3000/')
+    expect(getWsUrl()).toBe('ws://localhost:8000')
+  })
+})
+
+describe('build-time overrides, for a station that builds its own image', () => {
   it('honours NEXT_PUBLIC_WS_URL', () => {
     noBuildTimeEnv()
     vi.stubEnv('NEXT_PUBLIC_WS_URL', 'wss://ws.example.org')

@@ -40,9 +40,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Only needed where the socket cannot be reached on the app's own origin: a platform with no
-# shared reverse proxy, i.e. Railway behind a custom domain (docs/RAILWAY.md §1.2). WebSockets
-# cannot traverse the /backend-api route, so the browser must address the backend directly.
+# An override that a normal deployment no longer needs. Where the socket cannot be reached on
+# the app's own origin (a platform with no shared reverse proxy, i.e. Railway), the browser is
+# handed the runtime API_URL by the root layout and prefers it over this — see getWsUrl() in
+# frontend/lib/env.ts and docs/RAILWAY.md §1.1. Kept for a station that builds its own image
+# and wants the socket somewhere other than API_URL.
 #
 # Unlike NEXT_PUBLIC_API_URL this is safe to bake in: it only names the socket endpoint and
 # does not move HTTP traffic off the app's origin, so session cookies stay first-party and

@@ -20,6 +20,8 @@ import { VehicleConflictPrompt } from '@/components/vehicle-conflict-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { ErrorReporter } from '@/components/error-reporter'
+import { RuntimeBackendOrigin } from '@/components/runtime-backend-origin'
+import { publicBackendOrigin } from '@/lib/env'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
 
 const geistSans = Geist({
@@ -58,6 +60,12 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+        {/* Where the browser may open its WebSocket. Read here because API_URL is a RUNTIME
+            variable — the same one the /backend-api proxy route uses — and this layout renders
+            per request. Null on a deployment that sits behind one origin (compose/Caddy) or
+            names the backend only inside a container network; getWsUrl() then falls back to
+            the behaviour it always had. */}
+        <RuntimeBackendOrigin origin={publicBackendOrigin(process.env.API_URL)} />
         <TopLoadingBar />
         {/* Catches what escapes the React tree (rejected promises, listeners) and posts
             it to this station's OWN server log. Opt-in forwarding is a separate decision
