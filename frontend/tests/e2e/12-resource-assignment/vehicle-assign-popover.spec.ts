@@ -137,6 +137,66 @@ test.describe('Vehicle assignment popover', () => {
     await page.mouse.click(targetX, targetY);
     await expect(detailModal(page)).toBeVisible();
   });
+
+  test('an open popover never covers the modal\'s close button', async ({
+    authenticatedPage: page,
+  }) => {
+    const modal = detailModal(page);
+    const closeButton = modal.locator('[data-slot="dialog-close"]').first();
+    await expect(closeButton).toBeVisible();
+
+    await page.locator(VEHICLE_ADD_BUTTON).click();
+    const popover = page.locator('[data-slot="popover-content"][data-state="open"]');
+    await expect(popover).toBeVisible();
+
+    // Geometry first — the panel and the X must not share a single pixel. The
+    // popover is anchored in the modal's right-hand resource column, and when
+    // the fleet list is taller than the space below its trigger Radix flips it
+    // upwards; at 1280x720 that put it at y = 93 with the X spanning y 71..103,
+    // i.e. straight over the operator's way out.
+    const closeBox = await closeButton.boundingBox();
+    const popBox = await popover.boundingBox();
+    expect(closeBox).not.toBeNull();
+    expect(popBox).not.toBeNull();
+    const overlaps =
+      popBox!.x < closeBox!.x + closeBox!.width &&
+      popBox!.x + popBox!.width > closeBox!.x &&
+      popBox!.y < closeBox!.y + closeBox!.height &&
+      popBox!.y + popBox!.height > closeBox!.y;
+    expect(
+      overlaps,
+      `popover ${JSON.stringify(popBox)} overlaps the close button ${JSON.stringify(closeBox)}`,
+    ).toBe(false);
+
+    // And the hit test agrees: the X owns its own centre.
+    const cx = closeBox!.x + closeBox!.width / 2;
+    const cy = closeBox!.y + closeBox!.height / 2;
+    const owner = await page.evaluate(
+      ([x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return 'nothing';
+        if (el.closest('[data-slot="popover-content"]')) return 'popover';
+        if (el.closest('[data-slot="dialog-close"]')) return 'close button';
+        return 'other';
+      },
+      [cx, cy],
+    );
+    expect(owner).toBe('close button');
+
+    // One real click, no retry: the operator aims at the X and gets what they
+    // aimed at — the modal closes, and nothing is assigned behind their back.
+    // A click that landed in the popover instead would silently add a vehicle.
+    await page.mouse.click(cx, cy);
+    await expect(modal).toBeHidden();
+    await expect(
+      page.locator('[data-sonner-toast]').filter({ hasText: 'zugewiesen' }),
+    ).toHaveCount(0);
+
+    const card = page.locator('[data-testid="incident-card"]').first();
+    await card.click();
+    await expect(detailModal(page)).toBeVisible();
+    await expect(detailModal(page).getByText('Fahrzeuge (0)')).toBeVisible();
+  });
 });
 
 function detailModal(page: import('@playwright/test').Page) {

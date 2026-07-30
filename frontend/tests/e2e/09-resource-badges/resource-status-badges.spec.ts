@@ -322,6 +322,62 @@ test.describe('Resource summary — assigned state', () => {
     await expect(sectionAround(heading).getByText(material.name)).toBeVisible();
   });
 
+  test('the search really narrows the list', async ({ authenticatedPage }) => {
+    // `assignMaterialFromDetail` types into this box on its way to a row, but a
+    // search that had stopped filtering would go unnoticed there: the row is in
+    // the list either way. So assert the narrowing itself — and with exact
+    // counts, not "no more than before", which is true even when nothing
+    // happens at all.
+    const modal = await openDetail(authenticatedPage, fixture.address);
+    await modal.getByTitle('Material zuweisen').click();
+    const dialog = authenticatedPage.getByRole('dialog', {
+      name: 'Material zu Einsatz zuweisen',
+    });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
+
+    const search = dialog.getByPlaceholder('Suchen...');
+    const row = dialog.getByRole('button', { name: material.name });
+    await expect(row).toHaveCount(1);
+
+    await search.fill('gibtesnichtxyz');
+    await expect(row).toHaveCount(0);
+    await expect(dialog.getByText('Versuche einen anderen Suchbegriff')).toBeVisible();
+
+    await search.fill(material.name);
+    await expect(row).toHaveCount(1);
+  });
+
+  test('an assigned resource can be taken off again', async ({ authenticatedPage }) => {
+    // The counterpart of the test above it. Assigning was covered; giving a
+    // resource back was not, and it is the half an operator does under time
+    // pressure when a squad is redirected.
+    const modal = await openDetail(authenticatedPage, fixture.address);
+    const heading = modal.getByText(/^Material \(\d+\)$/);
+    await assignMaterialFromDetail(authenticatedPage, modal, material.name);
+    await expect(heading).toHaveText('Material (1)');
+
+    await modal.getByTitle('Material zuweisen').click();
+    const dialog = authenticatedPage.getByRole('dialog', {
+      name: 'Material zu Einsatz zuweisen',
+    });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
+    await dialog.getByPlaceholder('Suchen...').fill(material.name);
+    // The row is a toggle: clicking an assigned one deselects it.
+    await dialog.getByRole('button', { name: material.name }).click();
+    await dialog.getByRole('button', { name: 'Fertig' }).click();
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+    await expect(heading).toHaveText('Material (0)');
+    await expect(
+      sectionAround(heading).getByText('Kein Material zugewiesen'),
+    ).toBeVisible();
+
+    await closeDetail(modal);
+    await expect(
+      incidentCard(authenticatedPage, fixture.address).getByText(material.name),
+    ).toHaveCount(0);
+  });
+
   test('what is assigned shows on the kanban card, by name', async ({
     authenticatedPage,
   }) => {
@@ -348,7 +404,9 @@ test.describe('Resource summary — assigned state', () => {
         title: 'Zweiter Einsatz',
         type: 'brandbekaempfung',
         priority: 'low',
-        status: 'einsatz',
+        // 'active', not 'einsatz': the German column label is not the API enum,
+        // and the POST was being rejected with a 422 on every run.
+        status: 'active',
         location_address: `${secondAddress}, 4104 Oberwil`,
         location_lat: 47.4989,
         location_lng: 7.5567,
