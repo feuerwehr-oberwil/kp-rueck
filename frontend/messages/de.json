@@ -699,6 +699,11 @@
       "cancel": "Abbrechen",
       "newAuftrag": "Neuer Auftrag",
       "removeFromAuftrag": "Aus Auftrag entfernen"
+    },
+    "completeIncident": {
+      "confirmTitle": "Einsatz abschliessen?",
+      "confirmDescription": "«{incident}» wird als abgeschlossen verbucht.",
+      "confirmAction": "Abschliessen"
     }
   },
   "incidents": {
@@ -777,7 +782,10 @@
       "needTwoIncidents": "Es müssen mindestens zwei Einsätze vorhanden sein",
       "vehicleCount": "{count} Fahrzeug(e)",
       "transferring": "Übertrage...",
-      "transfer": "Übertragen"
+      "transfer": "Übertragen",
+      "confirmTitle": "Ressourcen wirklich übertragen?",
+      "confirmDescription": "Alle zugeteilten Ressourcen von «{source}» werden auf «{target}» verschoben. Das lässt sich nicht rückgängig machen.",
+      "confirmCounts": "Es werden verschoben: {crew} Personal, {vehicles} Fahrzeuge, {materials} Material."
     },
     "driver": {
       "assignErrorTitle": "Fehler beim Zuweisen des Fahrers",

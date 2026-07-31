@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
@@ -78,6 +79,7 @@ export function useIncidentStatusWorkflow({
 }: UseIncidentStatusWorkflowOptions) {
   const [disponiertOperationId, setDisponiertOperationId] = useState<string | null>(null)
   const [missingResourcesOperationId, setMissingResourcesOperationId] = useState<string | null>(null)
+  const [completionConfirmOperationId, setCompletionConfirmOperationId] = useState<string | null>(null)
   // Status the incident was in BEFORE dispatch — Cancel in the missing-resources
   // dialog reverts to it (the status change happens before the dialog opens).
   const [missingResourcesReturnStatus, setMissingResourcesReturnStatus] = useState<OperationStatus | null>(null)
@@ -188,6 +190,15 @@ export function useIncidentStatusWorkflow({
     }
   }, [getGroupResources, operationById, operations])
 
+  // The status is applied FIRST and a gate dialog opens on top of it, so every exit from
+  // that dialog has to say what happens to the change already made. The two verbs are not
+  // interchangeable: `closeX` keeps it (what "Trotzdem fortfahren" means), `cancelX` puts
+  // the incident back to `previousStatus`.
+  //
+  // Dismissal — Esc, a click outside — used to be wired to `closeX`, so walking away from a
+  // question you never answered silently committed the change, while the Abbrechen button
+  // beside it undid the same change. Dismissal now means cancel, which is what a dialog
+  // that asks a question should do when it is waved away.
   const requestStatusChange = useCallback((operationId: string, targetStatus: OperationStatus) => {
     const operation = operationById(operationId)
     if (!operation || operation.status === targetStatus) return
@@ -201,10 +212,22 @@ export function useIncidentStatusWorkflow({
     if (targetStatus === "complete") promptMaterialDecision(operationId, previousStatus)
   }, [changeStatusToTop, operationById, promptMaterialDecision, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck])
 
+  // Completing an incident is the one transition with no gate of its own: the material
+  // decision only appears when materials are assigned, so an incident without them went
+  // straight to "abgeschlossen" from a click or a keypress, with nothing asked and nothing
+  // to undo. It closes the operational record — ask first, and name which incident.
   const requestCompletion = useCallback(
-    (operationId: string) => requestStatusChange(operationId, "complete"),
-    [requestStatusChange],
+    (operationId: string) => setCompletionConfirmOperationId(operationId),
+    [],
   )
+
+  const confirmCompletion = useCallback(() => {
+    const operationId = completionConfirmOperationId
+    setCompletionConfirmOperationId(null)
+    if (operationId) requestStatusChange(operationId, "complete")
+  }, [completionConfirmOperationId, requestStatusChange])
+
+  const cancelCompletion = useCallback(() => setCompletionConfirmOperationId(null), [])
 
   const suspendGateForAssignment = useCallback((kind: AssignmentReturn["kind"], operationId: string) => {
     setMissingResourcesOperationId(null)
@@ -305,6 +328,9 @@ export function useIncidentStatusWorkflow({
   return {
     requestStatusChange,
     requestCompletion,
+    completionConfirmOperation: operationById(completionConfirmOperationId),
+    confirmCompletion,
+    cancelCompletion,
     triggerDisponiertDialog,
     triggerReturningVehicleCheck,
     triggerRekoCheck,
@@ -401,6 +427,7 @@ export function IncidentStatusWorkflowDialogs({
   const tReko = useTranslations("kanban.rekoMissing")
   const tRekoForm = useTranslations("kanban.rekoFormMissing")
   const tMat = useTranslations("kanban.materialDecision")
+  const tComplete = useTranslations("kanban.completeIncident")
 
   const openAssignment = (resourceType: ResourceType, operationId: string, kind: AssignmentReturn["kind"]) => {
     controller.suspendGateForAssignment(kind, operationId)
@@ -424,7 +451,7 @@ export function IncidentStatusWorkflowDialogs({
 
   return (
     <>
-      <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.closeMissingResources()}>
+      <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelMissingResources()}>
         <AlertDialogContent>
           {missingOperation && (() => {
             const coverage = controller.getResourceCoverage(missingOperation)
@@ -516,7 +543,7 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.returningVehicleOperation} onOpenChange={(open) => !open && controller.closeReturningVehicle()}>
+      <AlertDialog open={!!controller.returningVehicleOperation} onOpenChange={(open) => !open && controller.cancelReturningVehicle()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -547,7 +574,7 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.rekoMissingOperation} onOpenChange={(open) => !open && controller.closeRekoMissing()}>
+      <AlertDialog open={!!controller.rekoMissingOperation} onOpenChange={(open) => !open && controller.cancelRekoMissing()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -578,7 +605,7 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.rekoFormMissingOperation} onOpenChange={(open) => !open && controller.closeRekoFormMissing()}>
+      <AlertDialog open={!!controller.rekoFormMissingOperation} onOpenChange={(open) => !open && controller.cancelRekoFormMissing()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -612,7 +639,23 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.materialDecisionOperation} onOpenChange={(open) => !open && controller.closeMaterialDecision()}>
+      {/* Closing an incident asks first. The material decision below only appears when
+          materials are assigned, so without this an incident with none went straight to
+          "abgeschlossen" from a click or a keypress, with no undo. */}
+      <ConfirmDialog
+        open={!!controller.completionConfirmOperation}
+        onOpenChange={(open) => !open && controller.cancelCompletion()}
+        title={tComplete("confirmTitle")}
+        description={
+          controller.completionConfirmOperation
+            ? tComplete("confirmDescription", { incident: operationLabel(controller.completionConfirmOperation) })
+            : ""
+        }
+        confirmText={tComplete("confirmAction")}
+        onConfirm={controller.confirmCompletion}
+      />
+
+      <AlertDialog open={!!controller.materialDecisionOperation} onOpenChange={(open) => !open && controller.cancelMaterialDecision()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

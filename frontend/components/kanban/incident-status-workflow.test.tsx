@@ -130,6 +130,7 @@ describe("shared incident detail status workflow", () => {
 
     const complete = renderWorkflow(operation({ materials: ["material-1"] }))
     act(() => complete.result.current.requestCompletion("incident-1"))
+    act(() => complete.result.current.confirmCompletion())
     expect(complete.changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
     expect(complete.result.current.materialDecisionOperation?.id).toBe("incident-1")
   })
@@ -215,6 +216,7 @@ describe("shared incident detail status workflow", () => {
     const { result, changeStatusToTop } = renderWorkflow(operation({ status: "returning", materials: ["material-1"] }))
 
     act(() => result.current.requestCompletion("incident-1"))
+    act(() => result.current.confirmCompletion())
     expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
     expect(result.current.materialDecisionOperation?.id).toBe("incident-1")
 
@@ -246,5 +248,30 @@ describe("shared incident detail status workflow", () => {
 
     act(() => result.current.resumeGateAfterAssignment())
     expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
+  })
+
+  it("asks before closing an incident, and changes nothing until confirmed", () => {
+    // Completing is the one transition with no gate of its own — the material decision
+    // only appears when materials are assigned — so an incident without them went from a
+    // click or a keypress straight to "abgeschlossen", with nothing asked and no undo.
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "returning" }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    expect(result.current.completionConfirmOperation?.id).toBe("incident-1")
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+
+    act(() => result.current.confirmCompletion())
+    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
+    expect(result.current.completionConfirmOperation).toBeNull()
+  })
+
+  it("leaves the incident alone when the completion prompt is dismissed", () => {
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "returning" }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    act(() => result.current.cancelCompletion())
+
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+    expect(result.current.completionConfirmOperation).toBeNull()
   })
 })

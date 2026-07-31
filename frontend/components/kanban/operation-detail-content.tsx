@@ -989,6 +989,11 @@ export function OperationDetailContent({
         availableIncidents={availableIncidents}
         onTransfer={handleTransfer}
         isTransferring={isTransferring}
+        resourceSummary={{
+          crew: operation.crew.length,
+          vehicles: operation.vehicles.length,
+          materials: operation.materials.length,
+        }}
       />
 
       {/* Assign Reko Dialog */}
