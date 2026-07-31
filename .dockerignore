@@ -1,0 +1,60 @@
+# Build context for anything built from the REPOSITORY ROOT.
+#
+# `backend/` and `frontend/` have their own .dockerignore because they are built with their
+# own directory as the context. The tileserver is not: docker-compose.yml builds it with
+# `context: .`, so without this file the whole repository — including the real `.env` that
+# .env.example tells every operator to create, the entire `.git` history, `backups/`, agent
+# worktrees under `.claude/`, and every node_modules tree — was sent to the daemon and into
+# any exported build cache.
+#
+# The published-images path is unaffected; this is the "build from source" path, which
+# docker-compose.yml documents as the supported alternative.
+
+# Secrets first — never in a build context.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+
+# History and local state
+.git
+.gitignore
+.claude
+backups/
+*.log
+
+# Dependencies and build output
+node_modules
+**/node_modules
+.venv
+**/.venv
+__pycache__
+**/__pycache__
+*.py[cod]
+frontend/.next
+frontend/out
+dist
+build
+
+# Test and tooling artefacts
+.pytest_cache
+**/.pytest_cache
+.ruff_cache
+**/.ruff_cache
+coverage
+htmlcov
+frontend/test-results
+frontend/playwright-report
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+
+# Docs and planning are not needed to build an image
+docs/plans
+site/
