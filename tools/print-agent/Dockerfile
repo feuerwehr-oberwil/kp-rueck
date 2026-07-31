@@ -3,7 +3,7 @@
 # The image installs the ESC/POS extra, because a containerised agent is how the thermal
 # printer is run; the bare-Pi CUPS install needs no packages at all and does not use this
 # image. cups-client provides `lp`/`lpstat` so a single container can serve both backends.
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
