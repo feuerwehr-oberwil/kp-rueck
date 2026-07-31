@@ -43,6 +43,22 @@ DEFAULT_SETTINGS = {
     "printer.port": "9100",  # Printer port (default ESC/POS port)
     "printer.auto_anfahrt": "true",  # Auto-print assignment slip when status changes to "active"
     "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
+    # Station identity + map preferences.
+    #
+    # These are WRITTEN by the seed and READ all over the frontend, but were missing from
+    # this dict — and api/settings.py rejects any key that is not in here. So the Einstellungen
+    # page rendered editors for home_city, map_mode and map_style whose every save 404'd behind
+    # a generic "Speichern fehlgeschlagen" toast, and firestation_latitude/longitude (read by
+    # the map, the location picker and route planning) were writable by nothing at all.
+    #
+    # map_mode is the offline-map switch — the one control that exists specifically for an
+    # internet outage, and it was the one that could not be set.
+    "home_city": "",
+    "map_mode": "online",  # online=OSM only, auto=fallback to local tiles, offline=local only
+    "map_style": "osm",  # osm | topo | carto-light | carto-dark
+    "firestation_name": "",
+    "firestation_latitude": "",
+    "firestation_longitude": "",
     # Incident message templates. Section-based: {token} placeholders are filled
     # from the incident, a line whose tokens are all empty is dropped, blank runs
     # collapse. Rendered CLIENT-SIDE (see frontend/lib/message-template.ts) — the
