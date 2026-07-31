@@ -153,7 +153,13 @@ export default function EventsPage() {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('page.reportExportFailed'))
+      // German first, technical detail second. `apiClient` ALWAYS throws an Error, so the
+      // old `err instanceof Error ? err.message : t(…)` never reached the translation — the
+      // operator got the raw backend text ("Report export failed: Internal Server Error")
+      // in an otherwise German interface, and the message below was dead copy.
+      toast.error(t('page.reportExportFailed'), {
+        description: err instanceof Error ? err.message : undefined,
+      })
     } finally {
       setReportLoadingId(null)
     }
@@ -179,7 +185,10 @@ export default function EventsPage() {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('page.auditExportFailed'))
+      // Same reasoning as the report export above.
+      toast.error(t('page.auditExportFailed'), {
+        description: err instanceof Error ? err.message : undefined,
+      })
     } finally {
       setAuditLoadingId(null)
     }

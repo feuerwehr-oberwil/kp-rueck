@@ -2,6 +2,7 @@ import { test as base, expect, Page } from '@playwright/test';
 import type { Cookie } from '@playwright/test';
 import { LoginPage } from '../pages/login.page';
 import { DashboardPage } from '../pages/dashboard.page';
+import { DEV_ADMIN_PASSWORD, DEV_ADMIN_USERNAME, DEV_VIEWER_PASSWORD, DEV_VIEWER_USERNAME } from '../constants';
 
 /**
  * Test fixtures for authentication
@@ -43,8 +44,8 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
       const loginPage = new LoginPage(page);
       await loginPage.goto();
 
-      const username = process.env.TEST_USERNAME || 'admin';
-      const password = process.env.TEST_PASSWORD || 'changeme123';
+      const username = DEV_ADMIN_USERNAME;
+      const password = DEV_ADMIN_PASSWORD;
 
       await loginPage.login(username, password);
       await loginPage.waitForLoginSuccess();
@@ -63,7 +64,7 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
       const loginPage = new LoginPage(page);
       await loginPage.goto();
 
-      await loginPage.login('viewer', process.env.VIEWER_PASSWORD || 'viewer');
+      await loginPage.login(DEV_VIEWER_USERNAME, DEV_VIEWER_PASSWORD);
       await loginPage.waitForLoginSuccess();
 
       const cookies = await context.cookies();

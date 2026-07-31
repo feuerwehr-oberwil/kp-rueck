@@ -59,15 +59,18 @@ test.describe('Drag-Drop Visual Affordances - Drop Zones', () => {
   });
 
   test('empty columns show drop zone affordance', async ({ authenticatedPage }) => {
-    // Find a column (should have multiple status columns)
-    const columns = authenticatedPage.locator('[class*="min-w-[320px]"]');
-    const columnCount = await columns.count();
+    // `[data-column]` is the attribute the columns are actually built with
+    // (`droppable-column.tsx`); the old `[class*="min-w-[320px]"]` was a Tailwind
+    // width that had already moved to `min-w-[320px] max-w-[420px]` on a different
+    // element, so the locator resolved to nothing.
+    const columns = authenticatedPage.locator('[data-column]');
 
     // Should have at least 3 columns
-    expect(columnCount).toBeGreaterThanOrEqual(3);
+    expect(await columns.count()).toBeGreaterThanOrEqual(3);
 
     // Columns should be visible and ready to receive drops
     await expect(columns.first()).toBeVisible();
+    await expect(columns.first().locator('[data-board-scroll]')).toBeVisible();
   });
 
   test('drop zones have minimum height for visibility', async ({ authenticatedPage }) => {
@@ -81,10 +84,17 @@ test.describe('Drag-Drop Visual Affordances - Drop Zones', () => {
   });
 
   test('columns show count of incidents', async ({ authenticatedPage }) => {
-    // Each column header should show incident count
-    const columnHeader = authenticatedPage.locator('text=/\\d+ Einsätze/').first();
+    // The header no longer spells out "N Einsätze"; it carries a bare tally badge
+    // next to the title. Asserted against the cards actually in the column, so the
+    // test says something ("the tally matches the board") rather than "some digits
+    // exist somewhere".
+    const incoming = authenticatedPage.locator('[data-column="incoming"]');
+    const tally = incoming.locator('h2 + div > span').first();
 
-    await expect(columnHeader).toBeVisible();
+    await expect(tally).toBeVisible();
+    await expect(tally).toHaveText(
+      String(await incoming.getByTestId('incident-card').count()),
+    );
   });
 });
 
@@ -95,14 +105,19 @@ test.describe('Drag-Drop Visual Affordances - Hover States', () => {
 
   test('incident cards show hover effect', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
+    const background = () =>
+      incidentCard.evaluate((el) => window.getComputedStyle(el).backgroundColor);
 
-    // Check for hover classes
-    const hasHoverClasses = await incidentCard.evaluate(el =>
-      el.className.includes('hover:border-primary') ||
-      el.className.includes('hover:shadow')
-    );
+    // The card's hover style is `hover:bg-muted/30`, not the `hover:border-primary` /
+    // `hover:shadow` this used to grep for — and grepping a class name proves nothing
+    // about what renders anyway. Measure the effect instead: the background changes
+    // under the pointer and changes back when it leaves.
+    const resting = await background();
+    await incidentCard.hover();
+    await expect.poll(background).not.toBe(resting);
 
-    expect(hasHoverClasses).toBeTruthy();
+    await authenticatedPage.mouse.move(0, 0);
+    await expect.poll(background).toBe(resting);
   });
 
   // FLAKY, seen 2026-07-30: passed in two of three identical full runs and failed in
@@ -181,34 +196,24 @@ test.describe('Drag-Drop Visual Affordances - Accessibility', () => {
   test('priority indicators have aria-labels', async ({ authenticatedPage }) => {
     const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
 
-    // Should have priority indicator with aria-label
-    const priorityIcon = incidentCard.locator('[aria-label*="Priorität"]').first();
+    // Every card renders exactly one priority chevron, and it is always labelled —
+    // the `if (count > 0)` guard this used to sit behind meant the assertions ran
+    // only by luck, and reported green when the indicator was missing entirely.
+    const priorityIcon = incidentCard.locator('[aria-label*="Priorität"]');
 
-    if (await priorityIcon.count() > 0) {
-      const ariaLabel = await priorityIcon.getAttribute('aria-label');
-      expect(ariaLabel).toBeTruthy();
-      expect(ariaLabel).toMatch(/Priorität/i);
-    }
+    await expect(priorityIcon).toHaveCount(1);
+    await expect(priorityIcon).toHaveAttribute('aria-label', /Priorität/i);
   });
 });
 
 test.describe('Drag-Drop Visual Affordances - Mobile', () => {
-  test('incident cards are tappable on mobile', async ({ authenticatedPage }) => {
-    await authenticatedPage.setViewportSize({ width: 375, height: 667 });
-
-    await setupBoard(authenticatedPage, 'Mobile Drag Test');
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Should be visible and tappable
-    await expect(incidentCard).toBeVisible();
-
-    const rect = await incidentCard.boundingBox();
-    expect(rect).toBeTruthy();
-    if (rect) {
-      // Should have adequate touch target size
-      expect(rect.height).toBeGreaterThan(40);
-    }
-  });
+  // "incident cards are tappable on mobile" removed. It asserted a >40px touch
+  // target on `[data-testid="incident-card"]`, an element the phone layout does not
+  // render at all (it renders `MobileIncidentCard`), so it could only ever fail — and
+  // what it was reaching for, a touch-target size, is a requirement KP Rück
+  // deliberately rejects (CLAUDE.md: "Do not size KP Rück's UI around touch targets").
+  // Mobile rendering of the incident list is covered in 15-time-indicators and
+  // 16-sprint3-integration.
 
   test('columns are horizontally scrollable on mobile', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
@@ -268,28 +273,21 @@ test.describe('Drag-Drop Visual Affordances - Visual Feedback', () => {
     expect(hasBorder).toBeTruthy();
   });
 
-  test('incident cards have shadow for depth', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Check for shadow classes (either initial or on hover)
-    const hasShadow = await incidentCard.evaluate(el =>
-      el.className.includes('shadow')
-    );
-
-    // Shadow may be on hover only, which is acceptable
-    expect(hasShadow || true).toBeTruthy();
-  });
+  // "incident cards have shadow for depth" removed: its assertion was
+  // `expect(hasShadow || true).toBeTruthy()`, which holds for every possible input.
+  // It reported green while checking nothing, and there is no shadow rule on the
+  // card to check — the separation it was after is the border, asserted above.
 
   test('column headers have visual distinction', async ({ authenticatedPage }) => {
-    const columnHeader = authenticatedPage.locator('h2').filter({ hasText: /EINGEGANGEN|REKO|DISPONIERT/ }).first();
+    // The column titles are title-case strings ("Eingegangen"), upper-cased by CSS —
+    // the main app dropped ALL-CAPS copy, only the wall display keeps it. So the old
+    // /EINGEGANGEN/ regex matched no text node, and the `uppercase` class check said
+    // nothing about what is on screen. Assert the rendered result instead.
+    const columnHeader = authenticatedPage
+      .locator('[data-column="incoming"]')
+      .getByRole('heading', { name: 'Eingegangen' });
 
     await expect(columnHeader).toBeVisible();
-
-    // Should have styling for visual hierarchy
-    const hasUppercase = await columnHeader.evaluate(el =>
-      el.className.includes('uppercase')
-    );
-
-    expect(hasUppercase).toBeTruthy();
+    await expect(columnHeader).toHaveCSS('text-transform', 'uppercase');
   });
 });
