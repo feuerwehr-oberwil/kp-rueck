@@ -47,7 +47,17 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@postgres:5432/kprueck
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001
-      AUTH_BYPASS_AUTH_DEV: "true"
+      # Overridable, and that matters: with the bypass on, EVERY session is an admin, so
+      # every role-dependent assertion silently passes for the wrong reason. CI runs without
+      # it. Set AUTH_BYPASS_AUTH_DEV=false before `just dev` when testing viewer/editor
+      # behaviour locally, or the result means nothing.
+      AUTH_BYPASS_AUTH_DEV: "${AUTH_BYPASS_AUTH_DEV:-true}"
+      # Without this the seed mints a RANDOM admin password and prints it once. The E2E
+      # fixtures then log in with their default, every spec times out at the login screen,
+      # and the per-username throttle locks the account for 300s — a full run reports ~200
+      # failures that mean nothing. Must be >= 12 characters (`get_admin_password()` in
+      # backend/app/seed.py rejects shorter). Keep in step with frontend/tests/constants.ts.
+      ADMIN_SEED_PASSWORD: "${ADMIN_SEED_PASSWORD:-kp-dev-password}"
       RELOAD: "true"
       # Dev-only default so the print agent can talk to this backend out of the box; in
       # production the same variable is empty and the endpoints stay fail-closed.

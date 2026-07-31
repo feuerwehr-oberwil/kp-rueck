@@ -172,6 +172,25 @@ export interface BoardFixture {
   incidents: TestIncident[];
 }
 
+/** Below `MOBILE_BREAKPOINT` (768px) the board is a different component. */
+export const MOBILE_VIEWPORT = { width: 375, height: 667 } as const;
+
+/**
+ * The incident cards on the board, in whichever layout is rendered.
+ *
+ * Below 768px `app/page.tsx` renders `MobileIncidentListView` instead of the
+ * kanban columns, and its `MobileIncidentCard` carries no `data-testid` — so
+ * every spec that set a 375px viewport and then looked for
+ * `[data-testid="incident-card"]` was asserting against an element the phone
+ * layout has never rendered. On mobile the list is the only thing on the page,
+ * so the shadcn `Card` slot identifies its cards without a class substring.
+ */
+export function incidentCards(page: Page, layout: 'desktop' | 'mobile' = 'desktop') {
+  return layout === 'mobile'
+    ? page.locator('[data-slot="card"]')
+    : page.getByTestId('incident-card');
+}
+
 /**
  * Wait until the board has caught up with what REST just wrote.
  *
@@ -180,9 +199,13 @@ export interface BoardFixture {
  * place the conversion still has to wait for something, and it waits for the
  * condition rather than for a duration.
  */
-export async function expectCardCount(page: Page, atLeast: number) {
+export async function expectCardCount(
+  page: Page,
+  atLeast: number,
+  layout: 'desktop' | 'mobile' = 'desktop',
+) {
   await expect
-    .poll(() => page.getByTestId('incident-card').count(), { timeout: 20_000 })
+    .poll(() => incidentCards(page, layout).count(), { timeout: 20_000 })
     .toBeGreaterThanOrEqual(atLeast);
 }
 
@@ -224,7 +247,13 @@ export async function addIncidents(
 export async function setupBoard(
   page: Page,
   prefix: string,
-  options: { count?: number; path?: string; incidents?: Partial<TestIncident>[] } = {},
+  options: {
+    count?: number;
+    path?: string;
+    incidents?: Partial<TestIncident>[];
+    /** Set for specs that have shrunk the viewport below 768px — see `incidentCards`. */
+    layout?: 'desktop' | 'mobile';
+  } = {},
 ): Promise<BoardFixture> {
   const cookieHeader = await cookieHeaderFor(page);
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -259,7 +288,7 @@ export async function setupBoard(
     timeout: 20_000,
   });
   if (incidents.length) {
-    await expectCardCount(page, incidents.length);
+    await expectCardCount(page, incidents.length, options.layout ?? 'desktop');
   }
   // After the cards, not before: the checklist popover mounts alongside the board,
   // so dismissing it is only meaningful once the board itself has rendered.

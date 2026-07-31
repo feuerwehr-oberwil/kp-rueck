@@ -1,338 +1,171 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/auth.fixture';
+import { cookieHeaderFor, createEvent } from './helpers/api.helper';
+import type { Locator, Page } from '@playwright/test';
 
 /**
- * Event Export Integration Tests
- * Tests the event export functionality (Task 11.2)
+ * Event export from the events page.
+ *
+ * Rewritten wholesale. The previous version drove a UI that no longer exists: a
+ * single "Event exportieren" button per card firing `POST /api/exports/events/{id}`
+ * and receiving a ZIP, with a success toast reading "Export erfolgreich". The page
+ * now offers one "Export" dropdown per card with two formats — Bericht (PDF), which
+ * is `GET …/report`, and Audit (XLSX), which is `POST …/audit` — and neither shows a
+ * success toast, only a download. Nothing else in the suite covers either.
+ *
+ * It also never logged in: it took `test` from `@playwright/test` and mocked
+ * `/api/auth/me`, so the app redirected to /login and all eight cases died in
+ * `beforeEach` on `h1:has-text("Ereignisse")`. And every case guarded its body with
+ * `if (!hasEvents) { test.skip(); return; }`, so on the day the locator drifted the
+ * spec would have gone quietly green instead of failing. Both are gone: the fixture
+ * logs in for real, and the event under test is created over REST so it is always
+ * there.
  */
 
+const PDF_BYTES = Buffer.from('%PDF-1.4\n%%EOF\n');
+const XLSX_BYTES = Buffer.from('PK\x03\x04');
+
+async function gotoEventsWith(page: Page, name: string): Promise<Locator> {
+  const cookieHeader = await cookieHeaderFor(page);
+  await createEvent(page.request, cookieHeader, name);
+
+  await page.goto('/events');
+  const card = page.getByTestId('event-card').filter({ hasText: name });
+  await expect(card).toBeVisible();
+  return card;
+}
+
+async function openExportMenu(page: Page, card: Locator) {
+  await card.getByRole('button', { name: 'Export', exact: true }).click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
 test.describe('Event Export', () => {
-  test.beforeEach(async ({ page }) => {
-    // Mock authentication
-    await page.route('**/api/auth/me', async (route) => {
+  test('active event cards offer both export formats', async ({ authenticatedPage }) => {
+    const card = await gotoEventsWith(authenticatedPage, `Export aktiv ${Date.now()}`);
+    const menu = await openExportMenu(authenticatedPage, card);
+
+    await expect(menu.getByRole('menuitem', { name: 'Bericht (PDF)' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Audit (XLSX)' })).toBeVisible();
+  });
+
+  test('archived event cards keep the export control', async ({ authenticatedPage }) => {
+    const name = `Export archiviert ${Date.now()}`;
+    const cookieHeader = await cookieHeaderFor(authenticatedPage);
+    const event = await createEvent(authenticatedPage.request, cookieHeader, name);
+    const archived = await authenticatedPage.request.post(
+      `http://localhost:8000/api/events/${event.id}/archive`,
+      { headers: { cookie: cookieHeader } },
+    );
+    expect(archived.ok(), await archived.text()).toBeTruthy();
+
+    await authenticatedPage.goto('/events');
+    const card = authenticatedPage.getByTestId('event-card').filter({ hasText: name });
+    await expect(card).toBeVisible();
+
+    // An archived event is exactly the one you still want a report from.
+    await expect(card.getByRole('button', { name: 'Wiederherstellen' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeVisible();
+  });
+
+  test('the report export asks the backend for this event, as a GET', async ({
+    authenticatedPage,
+  }) => {
+    const name = `Export Bericht ${Date.now()}`;
+    const card = await gotoEventsWith(authenticatedPage, name);
+
+    let request: { url: string; method: string } | null = null;
+    await authenticatedPage.route('**/api/exports/events/*/report', async (route) => {
+      request = { url: route.request().url(), method: route.request().method() };
       await route.fulfill({
         status: 200,
+        contentType: 'application/pdf',
+        body: PDF_BYTES,
+      });
+    });
+
+    const menu = await openExportMenu(authenticatedPage, card);
+    const download = authenticatedPage.waitForEvent('download');
+    await menu.getByRole('menuitem', { name: 'Bericht (PDF)' }).click();
+
+    await expect(await (await download).suggestedFilename()).toMatch(/^einsatzbericht-.*\.pdf$/);
+    expect(request!.method).toBe('GET');
+    expect(request!.url).toContain('/api/exports/events/');
+    expect(request!.url).toContain('/report');
+  });
+
+  test('the audit export asks the backend for this event, as a POST', async ({
+    authenticatedPage,
+  }) => {
+    const name = `Export Audit ${Date.now()}`;
+    const card = await gotoEventsWith(authenticatedPage, name);
+
+    let request: { url: string; method: string } | null = null;
+    await authenticatedPage.route('**/api/exports/events/*/audit', async (route) => {
+      request = { url: route.request().url(), method: route.request().method() };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        body: XLSX_BYTES,
+      });
+    });
+
+    const menu = await openExportMenu(authenticatedPage, card);
+    const download = authenticatedPage.waitForEvent('download');
+    await menu.getByRole('menuitem', { name: 'Audit (XLSX)' }).click();
+
+    await expect(await (await download).suggestedFilename()).toMatch(/^audit-.*\.xlsx$/);
+    expect(request!.method).toBe('POST');
+    expect(request!.url).toContain('/audit');
+  });
+
+  test('a failed export says so instead of silently doing nothing', async ({
+    authenticatedPage,
+  }) => {
+    const card = await gotoEventsWith(authenticatedPage, `Export Fehler ${Date.now()}`);
+
+    await authenticatedPage.route('**/api/exports/events/*/report', (route) =>
+      route.fulfill({
+        status: 500,
         contentType: 'application/json',
-        body: JSON.stringify({
-          id: 'test-user-id',
-          username: 'testuser',
-          role: 'editor',
-          created_at: '2025-01-01T00:00:00Z',
-          last_login: '2025-01-01T00:00:00Z'
-        })
-      });
-    });
+        body: JSON.stringify({ detail: 'Export generation failed' }),
+      }),
+    );
 
-    // Mock events list endpoint
-    await page.route('**/api/events/*', async (route) => {
-      if (route.request().method() === 'GET' && route.request().url().includes('/api/events/')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            events: [
-              {
-                id: 'event-1',
-                name: 'Test Event 1',
-                training_flag: false,
-                created_at: '2025-01-01T00:00:00Z',
-                updated_at: '2025-01-01T00:00:00Z',
-                archived_at: null,
-                last_activity_at: '2025-01-01T00:00:00Z',
-                incident_count: 5
-              },
-              {
-                id: 'event-2',
-                name: 'Test Event 2',
-                training_flag: true,
-                created_at: '2025-01-02T00:00:00Z',
-                updated_at: '2025-01-02T00:00:00Z',
-                archived_at: '2025-01-03T00:00:00Z',
-                last_activity_at: '2025-01-02T00:00:00Z',
-                incident_count: 3
-              }
-            ],
-            total: 2
-          })
-        });
-      } else {
-        await route.continue();
-      }
-    });
+    const menu = await openExportMenu(authenticatedPage, card);
+    await menu.getByRole('menuitem', { name: 'Bericht (PDF)' }).click();
 
-    // Navigate to events page
-    await page.goto('/events');
-    await page.waitForLoadState('networkidle');
-
-    // Wait for events to load
-    await page.waitForSelector('h1:has-text("Ereignisse")', { timeout: 10000 });
+    // An error toast, and the control released again. Deliberately NOT asserted
+    // against `events.page.reportExportFailed` ("Bericht-Export fehlgeschlagen"):
+    // `handleReportExport` only falls back to that string when the thrown value is
+    // not an Error, and `apiClient.exportEventReport` always throws one — so what
+    // the operator actually reads here is the raw, untranslated
+    // "Report export failed: Internal Server Error". Flagged, not fixed: changing
+    // the copy is an app decision, not this task's.
+    const errorToast = authenticatedPage.locator('[data-sonner-toast][data-type="error"]');
+    await expect(errorToast).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
   });
 
-  test.describe('Export Button Visibility', () => {
-    test('should display export button on active event cards', async ({ page }) => {
-      // Check if there are any active events
-      const activeEventCards = page.locator('[class*="border-2 border-red-600"], [class*="cursor-pointer transition-all hover:shadow-lg"]').first();
-      const hasActiveEvents = await activeEventCards.isVisible().catch(() => false);
+  test('the export control is usable again after an export', async ({ authenticatedPage }) => {
+    const card = await gotoEventsWith(authenticatedPage, `Export erneut ${Date.now()}`);
 
-      if (!hasActiveEvents) {
-        test.skip();
-        return;
-      }
-
-      // Verify export button exists on the first active event card
-      const exportButton = activeEventCards.getByRole('button', { name: /Event exportieren/i });
-      await expect(exportButton).toBeVisible();
-
-      // Verify button has download icon
-      const downloadIcon = exportButton.locator('svg');
-      await expect(downloadIcon).toBeVisible();
+    let exports = 0;
+    await authenticatedPage.route('**/api/exports/events/*/report', async (route) => {
+      exports += 1;
+      await route.fulfill({ status: 200, contentType: 'application/pdf', body: PDF_BYTES });
     });
 
-    test('should display export button on archived event cards', async ({ page }) => {
-      // Find archived events section
-      const archivedEventsSection = page.getByRole('heading', { name: 'Archivierte Ereignisse' });
-      const hasArchivedSection = await archivedEventsSection.isVisible().catch(() => false);
+    for (let i = 0; i < 2; i += 1) {
+      const menu = await openExportMenu(authenticatedPage, card);
+      const download = authenticatedPage.waitForEvent('download');
+      await menu.getByRole('menuitem', { name: 'Bericht (PDF)' }).click();
+      await download;
+      // The trigger goes disabled while a job runs; it has to come back.
+      await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
+    }
 
-      if (!hasArchivedSection) {
-        test.skip();
-        return;
-      }
-
-      // Find first archived event card
-      const archivedEventCards = page.locator('[class*="opacity-50 border-dashed"]').first();
-      const hasArchivedEvents = await archivedEventCards.isVisible().catch(() => false);
-
-      if (!hasArchivedEvents) {
-        test.skip();
-        return;
-      }
-
-      // Verify export button exists
-      const exportButton = archivedEventCards.getByRole('button', { name: /Event exportieren/i });
-      await expect(exportButton).toBeVisible();
-    });
-  });
-
-  test.describe('Export Button Interaction', () => {
-    // Note: Loading state test removed due to timing sensitivity in automated tests
-    // The functionality is covered by the re-enable test
-
-    // Download test skipped - Playwright download events don't work reliably with mocked responses
-    // The export functionality itself is verified by other tests
-
-    test('should show success toast after successful export', async ({ page }) => {
-      // Find first event card
-      const eventCard = page.locator('[class*="cursor-pointer transition-all hover:shadow-lg"]').first();
-      const hasEvents = await eventCard.isVisible().catch(() => false);
-
-      if (!hasEvents) {
-        test.skip();
-        return;
-      }
-
-      const exportButton = eventCard.getByRole('button', { name: /Event exportieren/i });
-
-      // Mock successful API response
-      await page.route('**/api/exports/events/*', async (route) => {
-        const mockZipContent = Buffer.from('PK\x03\x04');
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/zip',
-          body: mockZipContent,
-          headers: {
-            'Content-Disposition': 'attachment; filename="export_test.zip"'
-          }
-        });
-      });
-
-      // Click export button
-      await exportButton.click();
-
-      // Wait for success toast to appear
-      // `settings.page.toasts.exportSuccess` — the toast says exactly "Export erfolgreich";
-      // the old, longer string could never match (Playwright's text= is a substring match,
-      // so a LONGER needle than the rendered text never hits).
-      const successToast = page.locator('text=Export erfolgreich');
-      await expect(successToast).toBeVisible({ timeout: 5000 });
-    });
-
-    test('should show error toast when export fails', async ({ page }) => {
-      // Find first event card
-      const eventCard = page.locator('[class*="cursor-pointer transition-all hover:shadow-lg"]').first();
-      const hasEvents = await eventCard.isVisible().catch(() => false);
-
-      if (!hasEvents) {
-        test.skip();
-        return;
-      }
-
-      const exportButton = eventCard.getByRole('button', { name: /Event exportieren/i });
-
-      // Mock failed API response
-      await page.route('**/api/exports/events/*', async (route) => {
-        await route.fulfill({
-          status: 500,
-          contentType: 'application/json',
-          body: JSON.stringify({ detail: 'Export generation failed' })
-        });
-      });
-
-      // Click export button
-      await exportButton.click();
-
-      // Wait for error toast to appear
-      const errorToast = page.locator('text=Export fehlgeschlagen');
-      await expect(errorToast).toBeVisible({ timeout: 5000 });
-    });
-
-    test('should maintain button functionality after export', async ({ page }) => {
-      // Find first event card
-      const eventCard = page.locator('[class*="cursor-pointer transition-all hover:shadow-lg"]').first();
-      const hasEvents = await eventCard.isVisible().catch(() => false);
-
-      if (!hasEvents) {
-        test.skip();
-        return;
-      }
-
-      const exportButton = eventCard.getByRole('button', { name: /Event exportieren/i });
-
-      // Mock successful API response
-      await page.route('**/api/exports/events/*', async (route) => {
-        const mockZipContent = Buffer.from('PK\x03\x04');
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/zip',
-          body: mockZipContent,
-        });
-      });
-
-      // Verify button is enabled before clicking
-      await expect(exportButton).toBeEnabled();
-
-      // Click export button
-      await exportButton.click();
-
-      // Wait for export to complete
-      await page.waitForTimeout(500);
-
-      // Verify button is still enabled and clickable after export
-      await expect(exportButton).toBeEnabled();
-      await expect(exportButton).toBeVisible();
-      await expect(exportButton).toContainText('Event exportieren');
-    });
-  });
-
-  test.describe('Export Button with Multiple Events', () => {
-    test('should allow exporting multiple events sequentially', async ({ page }) => {
-      // Find all event cards
-      const eventCards = page.locator('[class*="cursor-pointer transition-all hover:shadow-lg"]');
-      const eventCount = await eventCards.count();
-
-      if (eventCount < 2) {
-        test.skip();
-        return;
-      }
-
-      // Mock API responses
-      let exportCount = 0;
-      await page.route('**/api/exports/events/*', async (route) => {
-        exportCount++;
-        const mockZipContent = Buffer.from('PK\x03\x04');
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/zip',
-          body: mockZipContent,
-          headers: {
-            'Content-Disposition': `attachment; filename="export_${exportCount}.zip"`
-          }
-        });
-      });
-
-      // Export first event
-      const firstExportButton = eventCards.nth(0).getByRole('button', { name: /Event exportieren/i });
-      await firstExportButton.click();
-      await expect(firstExportButton).toBeEnabled({ timeout: 5000 });
-
-      // Export second event
-      const secondExportButton = eventCards.nth(1).getByRole('button', { name: /Event exportieren/i });
-      await secondExportButton.click();
-      await expect(secondExportButton).toBeEnabled({ timeout: 5000 });
-
-      // Verify both exports were called
-      expect(exportCount).toBe(2);
-    });
-  });
-
-  test.describe('Export API Integration', () => {
-    test('should send correct event ID in export request', async ({ page }) => {
-      // Find first event card
-      const eventCard = page.locator('[class*="cursor-pointer transition-all hover:shadow-lg"]').first();
-      const hasEvents = await eventCard.isVisible().catch(() => false);
-
-      if (!hasEvents) {
-        test.skip();
-        return;
-      }
-
-      let capturedUrl: string | null = null;
-
-      // Intercept API call and capture full URL
-      await page.route('**/api/exports/events/**', async (route) => {
-        capturedUrl = route.request().url();
-
-        const mockZipContent = Buffer.from('PK\x03\x04');
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/zip',
-          body: mockZipContent,
-        });
-      });
-
-      const exportButton = eventCard.getByRole('button', { name: /Event exportieren/i });
-      await exportButton.click();
-
-      // Wait a bit for the request to be captured
-      await page.waitForTimeout(1000);
-
-      // Verify URL contains export endpoint with an ID
-      expect(capturedUrl).toBeTruthy();
-      expect(capturedUrl).toContain('/api/exports/events/');
-      // Verify it's calling our mock event (event-1 from the mock data)
-      expect(capturedUrl).toContain('event-1');
-    });
-
-    test('should use POST method for export endpoint', async ({ page }) => {
-      // Find first event card
-      const eventCard = page.locator('[class*="cursor-pointer transition-all hover:shadow-lg"]').first();
-      const hasEvents = await eventCard.isVisible().catch(() => false);
-
-      if (!hasEvents) {
-        test.skip();
-        return;
-      }
-
-      let requestMethod: string | null = null;
-
-      // Intercept API call and capture method
-      await page.route('**/api/exports/events/*', async (route) => {
-        requestMethod = route.request().method();
-
-        const mockZipContent = Buffer.from('PK\x03\x04');
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/zip',
-          body: mockZipContent,
-        });
-      });
-
-      const exportButton = eventCard.getByRole('button', { name: /Event exportieren/i });
-      await exportButton.click();
-
-      // Wait for request
-      await page.waitForTimeout(1000);
-
-      // Verify POST method was used
-      expect(requestMethod).toBe('POST');
-    });
+    expect(exports).toBe(2);
   });
 });
