@@ -1,4 +1,5 @@
 import { expect, test } from '../../fixtures/auth.fixture';
+import { setupBoard } from '../../helpers/api.helper';
 
 /**
  * Kanban keyboard shortcut E2E coverage.
@@ -77,25 +78,13 @@ test.describe('Kanban shortcuts (live)', () => {
 });
 
 test.describe('Command palette (live)', () => {
-  test.beforeEach(async ({ authenticatedPage, request }) => {
-    const cookies = await authenticatedPage.context().cookies();
-    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-
-    const eventResp = await request.post('http://localhost:8000/api/events/', {
-      headers: { 'Content-Type': 'application/json', cookie: cookieHeader },
-      data: { name: `CmdPalette ${Date.now()}`, training_flag: true },
-    });
-    expect(eventResp.ok()).toBeTruthy();
-    const event = await eventResp.json();
-
-    await authenticatedPage.goto('/');
-    await authenticatedPage.evaluate(
-      ([key, id]) => window.localStorage.setItem(key, id),
-      ['kp-rueck-selected-event', event.id] as const,
-    );
-    await authenticatedPage.reload();
-    await authenticatedPage.waitForLoadState('networkidle');
-    await authenticatedPage.waitForTimeout(800);
+  // Arranged through `setupBoard` rather than by hand, for one reason: it dismisses
+  // the Setup-Checkliste popover that opens itself on every newly selected event.
+  // That popover is a Radix dismissable layer, and with it up the FIRST Escape
+  // closes the popover — the palette stays open and only a second Escape closes it.
+  // That is what made "Esc closes it" fail; nothing about the palette had changed.
+  test.beforeEach(async ({ authenticatedPage }) => {
+    await setupBoard(authenticatedPage, 'CmdPalette', { count: 0 });
   });
 
   test('Cmd+K opens the palette with shortcut hints, Esc closes it', async ({ authenticatedPage }) => {
@@ -112,9 +101,26 @@ test.describe('Command palette (live)', () => {
     await expect(input).not.toBeVisible({ timeout: 3000 });
   });
 
-  test('? no longer opens anything', async ({ authenticatedPage }) => {
+  // Was "? no longer opens anything". `?` is now the second way into the command
+  // palette — `useKanbanShortcuts` calls `openCommandPalette()` on it, and its own
+  // vitest suite asserts exactly that ("'?' opens the command palette"). The old
+  // E2E test asserted the opposite of the shipped, unit-tested intent: the separate
+  // shortcuts-help dialog it was written against is gone, and the palette replaced it.
+  test('? opens the command palette', async ({ authenticatedPage }) => {
     await authenticatedPage.keyboard.press('?');
-    await authenticatedPage.waitForTimeout(500);
+    await expect(authenticatedPage.getByPlaceholder('Befehl suchen...')).toBeVisible({
+      timeout: 3000,
+    });
+  });
+
+  test('? inside the search field types instead of opening the palette', async ({
+    authenticatedPage,
+  }) => {
+    const searchInput = authenticatedPage.locator('#search-input');
+    await searchInput.click();
+    await authenticatedPage.keyboard.press('?');
+
     await expect(authenticatedPage.getByPlaceholder('Befehl suchen...')).toHaveCount(0);
+    await expect(searchInput).toHaveValue('?');
   });
 });
