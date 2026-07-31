@@ -46,11 +46,36 @@ export function DemoBanner() {
     }
   }, [])
 
-  // Initial fetch + periodic refresh
+  // Initial fetch + periodic refresh, but only while the tab is actually being looked at.
+  // A demo tab left open in the background used to poll every 30s indefinitely, which was
+  // enough traffic on its own to stop the demo backend and its database from ever going to
+  // sleep. On returning to the tab we fetch immediately, so the countdown is never stale.
   useEffect(() => {
-    fetchStatus()
-    const statusInterval = setInterval(fetchStatus, 30000) // every 30s
-    return () => clearInterval(statusInterval)
+    let statusInterval: ReturnType<typeof setInterval> | null = null
+
+    const stop = () => {
+      if (statusInterval) clearInterval(statusInterval)
+      statusInterval = null
+    }
+    const start = () => {
+      if (statusInterval) return
+      statusInterval = setInterval(fetchStatus, 30000) // every 30s
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchStatus()
+        start()
+      } else {
+        stop()
+      }
+    }
+
+    onVisibilityChange()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      stop()
+    }
   }, [fetchStatus])
 
   // Client-side countdown
