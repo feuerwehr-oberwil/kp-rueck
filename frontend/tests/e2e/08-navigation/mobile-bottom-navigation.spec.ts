@@ -89,17 +89,21 @@ test.describe('Mobile Bottom Navigation - Tab Navigation', () => {
     expect(isActive).toBe('page');
   });
 
-  test('events tab navigates to events page', async ({ authenticatedPage }) => {
-    // Click Events tab
-    const eventsTab = authenticatedPage.locator('nav.fixed.bottom-0 a[href="/events"]');
-    await eventsTab.click();
+  // The bottom bar has exactly two tabs — Einsätze and Karte — plus "Mehr"
+  // (`components/mobile-bottom-navigation.tsx`). Reaching the event list is a
+  // "Mehr" → "Alle Ereignisse" entry, so that is what this asserts; the old
+  // `a[href="/events"]` tab in the bar has not existed for some time and cost
+  // the spec a 30s timeout per run.
+  test('all events is reachable from the more sheet', async ({ authenticatedPage }) => {
+    await authenticatedPage
+      .locator('nav.fixed.bottom-0 button[aria-label="Mehr Optionen"]')
+      .click();
 
-    // Verify navigation
+    const sheet = authenticatedPage.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: 'Alle Ereignisse' }).click();
+
     await expect(authenticatedPage).toHaveURL('/events');
-
-    // Verify active state
-    const isActive = await eventsTab.evaluate(el => el.getAttribute('aria-current'));
-    expect(isActive).toBe('page');
   });
 });
 
@@ -171,16 +175,22 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
     const sheet = authenticatedPage.locator('[role="dialog"]');
     await expect(sheet).toBeVisible({ timeout: 3000 });
 
-    // Verify secondary items are present
-    await expect(sheet.locator('text=Einstellungen')).toBeVisible();
-    await expect(sheet.locator('text=Statistiken')).toBeVisible();
+    // Verify secondary items are present. "Statistiken" is gone from the list:
+    // `secondaryItems` is Einstellungen / Alarmeingang / Hilfe & Dokumentation.
     // Renamed: the entry is `nav.mobileBottomNav.diveraPool` = "Alarmeingang" (see
     // mobile-bottom-navigation.tsx). "Divera Notfälle" has not been rendered for a while.
-    await expect(sheet.locator('text=Alarmeingang')).toBeVisible();
-    await expect(sheet.locator('text=Hilfe & Dokumentation')).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Einstellungen' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Alarmeingang' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Hilfe & Dokumentation' })).toBeVisible();
   });
 
-  test('more sheet shows admin items for editors', async ({ authenticatedPage }) => {
+  // Was "more sheet shows admin items for editors" and looked for an
+  // Administration section with Ressourcen / Import-Export / Audit-Protokoll.
+  // The sheet has no such section — the editor-only part is "Schnellzugriff"
+  // (`isEditor && …` in mobile-bottom-navigation.tsx), which is what the role
+  // distinction actually rests on now, so that is what is asserted. The viewer
+  // half of the pair lives in 07-viewer-role.
+  test('more sheet shows the editor-only quick actions', async ({ authenticatedPage }) => {
     // Open More sheet
     const moreButton = authenticatedPage.locator('nav.fixed.bottom-0 button[aria-label="Mehr Optionen"]');
     await moreButton.click();
@@ -188,11 +198,10 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
     const sheet = authenticatedPage.locator('[role="dialog"]');
     await expect(sheet).toBeVisible({ timeout: 3000 });
 
-    // Verify admin section is present (for editor role)
-    await expect(sheet.locator('text=Administration')).toBeVisible();
-    await expect(sheet.locator('text=Ressourcen')).toBeVisible();
-    await expect(sheet.locator('text=Import/Export')).toBeVisible();
-    await expect(sheet.locator('text=Audit-Protokoll')).toBeVisible();
+    await expect(sheet.getByRole('heading', { name: 'Schnellzugriff' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Check-In QR-Code' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Personal' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Fahrzeuge' })).toBeVisible();
   });
 
   test('more sheet items are clickable and navigate', async ({ authenticatedPage }) => {
@@ -235,10 +244,13 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
     const sheet = authenticatedPage.locator('[role="dialog"]');
     await expect(sheet).toBeVisible({ timeout: 3000 });
 
-    // Verify role badge is present
-    const roleBadge = sheet.locator('[class*="badge"]').filter({
-      has: authenticatedPage.locator('svg[class*="lucide-shield"], svg[class*="lucide-eye"]')
-    }).first();
+    // Verify role badge is present. `[class*="badge"]` matched nothing — the
+    // shadcn Badge carries no class of that name, it carries `data-slot="badge"`.
+    // On a phone the badge is icon-only (`hidden sm:inline-block` on the label),
+    // so the shield/eye icon is what identifies it.
+    const roleBadge = sheet.locator('[data-slot="badge"]').filter({
+      has: authenticatedPage.locator('svg.lucide-shield, svg.lucide-eye'),
+    });
     await expect(roleBadge).toBeVisible();
   });
 });
@@ -269,22 +281,9 @@ test.describe('Mobile Bottom Navigation - Disabled States', () => {
     expect(mapDisabled).toBeTruthy();
   });
 
-  test('events tab is always enabled', async ({ authenticatedPage }) => {
-    await authenticatedPage.setViewportSize({ width: 375, height: 667 });
-
-    // Go to events page (no event selected)
-    await authenticatedPage.goto('/events');
-    await authenticatedPage.waitForTimeout(1000);
-
-    const bottomNav = authenticatedPage.locator('nav.fixed.bottom-0');
-    const eventsTab = bottomNav.locator('a[href="/events"]');
-
-    // Events tab should NOT be disabled
-    const eventsDisabled = await eventsTab.evaluate(el =>
-      el.className.includes('opacity-40') || el.className.includes('pointer-events-none')
-    );
-    expect(eventsDisabled).toBeFalsy();
-  });
+  // "events tab is always enabled" removed: there is no events tab in the bottom
+  // bar to be enabled or disabled — see "all events is reachable from the more
+  // sheet" above for the route that replaced it.
 });
 
 test.describe('Mobile Bottom Navigation - Touch Targets', () => {
@@ -304,14 +303,10 @@ test.describe('Mobile Bottom Navigation - Touch Targets', () => {
     }
   });
 
-  test('tabs are tappable on mobile', async ({ authenticatedPage }) => {
-    // Tap Map tab
-    const mapTab = authenticatedPage.locator('nav.fixed.bottom-0 a[href="/map"]');
-    await mapTab.tap();
-
-    // Verify navigation
-    await expect(authenticatedPage).toHaveURL('/map');
-  });
+  // "tabs are tappable on mobile" removed: it called `locator.tap()`, which needs
+  // `hasTouch` on the browser context — a touch-input assertion for a product whose
+  // brief is explicitly desktop, mouse and keyboard (CLAUDE.md, Design Context).
+  // "map tab navigates to map page" above already covers that the tab navigates.
 });
 
 test.describe('Mobile Bottom Navigation - Accessibility', () => {

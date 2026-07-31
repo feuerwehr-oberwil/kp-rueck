@@ -1,385 +1,163 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { setupBoard } from '../../helpers/api.helper';
+import { MOBILE_VIEWPORT, incidentCards, setupBoard } from '../../helpers/api.helper';
+import type { Page } from '@playwright/test';
 
 /**
- * Priority Visual Hierarchy Tests (Sprint 3)
- * Tests the visual indicators for incident priority levels
- * Ensures high-priority incidents are immediately recognizable
+ * Priority Visual Hierarchy (Sprint 3)
+ *
+ * What the board owes the operator here is design principle 4: priority must be
+ * readable at a glance, "never by colour alone". So that is what this spec checks —
+ * one labelled indicator per card, a different shape and a different tint per level,
+ * and a card that stands out when the level is high.
+ *
+ * The previous version of this file checked Tailwind class *strings*
+ * (`[class*="h-2.5"][class*="w-2.5"][class*="rounded-full"]`, `text-red-`,
+ * `dark:text-`) and 13 of its cases failed against the shipped card: the desktop
+ * card has no priority dot at all (it is icon-only — see the comment in
+ * `draggable-operation.tsx`), the tints are semantic tokens rather than palette
+ * names, and `el.className` on an `<svg>` is an SVGAnimatedString with no
+ * `.includes`. Several of the cases that "passed" were `expect(true).toBeTruthy()`
+ * or `expect(await x.count() >= 0)`, which hold no matter what the app does.
  */
 
-test.describe('Priority Visual Hierarchy - Priority Indicators', () => {
+const BY_PRIORITY = {
+  high: { address: 'Hochprio 1, 4104 Oberwil', label: 'Hohe Priorität' },
+  medium: { address: 'Mittelprio 2, 4104 Oberwil', label: 'Mittlere Priorität' },
+  low: { address: 'Tiefprio 3, 4104 Oberwil', label: 'Niedrige Priorität' },
+} as const;
+
+type Level = keyof typeof BY_PRIORITY;
+const LEVELS = Object.keys(BY_PRIORITY) as Level[];
+
+function priorityIncidents() {
+  return LEVELS.map((level) => ({
+    priority: level,
+    location_address: BY_PRIORITY[level].address,
+  }));
+}
+
+function cardFor(page: Page, level: Level, layout: 'desktop' | 'mobile' = 'desktop') {
+  const street = BY_PRIORITY[level].address.split(',')[0];
+  return incidentCards(page, layout).filter({ hasText: street });
+}
+
+test.describe('Priority Visual Hierarchy - Indicators', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    await setupBoard(authenticatedPage, 'Priority Test');
+    await setupBoard(authenticatedPage, 'Priority Test', { incidents: priorityIncidents() });
   });
 
-  test('incident cards show priority indicator dot', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Should have priority dot (small colored circle)
-    const priorityDot = incidentCard.locator('[class*="h-2.5"][class*="w-2.5"][class*="rounded-full"]').first();
-
-    await expect(priorityDot).toBeVisible();
-  });
-
-  test('incident cards show priority icon', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Should have one of: ChevronUp (high), Minus (medium), or ChevronDown (low)
-    const priorityIcon = incidentCard.locator('svg[class*="lucide-chevron-up"], svg[class*="lucide-minus"], svg[class*="lucide-chevron-down"]').first();
-
-    await expect(priorityIcon).toBeVisible();
-  });
-
-  test('high priority shows red indicator', async ({ authenticatedPage }) => {
-    // Click to open incident detail modal
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    await incidentCard.click();
-    await authenticatedPage.waitForTimeout(500);
-
-    const modal = authenticatedPage.locator('[role="dialog"]');
-    await expect(modal).toBeVisible();
-
-    // Find priority dropdown/select
-    const prioritySelect = modal.locator('select, button').filter({ hasText: /Priorität|Priority/ }).first();
-
-    if (await prioritySelect.count() > 0) {
-      // Set to high priority if select exists
-      // For now, close modal and check default priority
-      await authenticatedPage.keyboard.press('Escape');
-    } else {
-      await authenticatedPage.keyboard.press('Escape');
+  test('every card carries exactly one priority indicator, labelled for its level', async ({
+    authenticatedPage,
+  }) => {
+    for (const level of LEVELS) {
+      const indicators = cardFor(authenticatedPage, level).locator('[aria-label*="Priorität"]');
+      await expect(indicators).toHaveCount(1);
+      await expect(indicators).toHaveAttribute('aria-label', BY_PRIORITY[level].label);
     }
-
-    // Priority may be high, medium, or low - just verify indicator exists
-    expect(true).toBeTruthy();
   });
 
-  test('medium priority shows yellow indicator', async () => {
-    // Priority may vary - just verify priority system exists
-    expect(true).toBeTruthy();
+  test('each priority uses its own icon shape, not only a colour', async ({
+    authenticatedPage,
+  }) => {
+    // ChevronUp / Minus / ChevronDown: the shape alone tells the levels apart on a
+    // monochrome display, or for an operator who cannot separate red from amber.
+    const shapes = await Promise.all(
+      LEVELS.map((level) =>
+        cardFor(authenticatedPage, level)
+          .locator('[aria-label*="Priorität"]')
+          .evaluate((el) => el.querySelector('path,polyline,line')?.getAttribute('d') ?? el.innerHTML),
+      ),
+    );
+
+    expect(new Set(shapes).size).toBe(LEVELS.length);
   });
 
-  test('low priority shows green indicator', async () => {
-    // Priority may vary - just verify priority system exists
-    expect(true).toBeTruthy();
+  test('each priority uses its own tint', async ({ authenticatedPage }) => {
+    const colours = await Promise.all(
+      LEVELS.map((level) =>
+        cardFor(authenticatedPage, level)
+          .locator('[aria-label*="Priorität"]')
+          .evaluate((el) => window.getComputedStyle(el).color),
+      ),
+    );
+
+    expect(new Set(colours).size).toBe(LEVELS.length);
   });
-});
 
-test.describe('Priority Visual Hierarchy - Icon Variants', () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    await setupBoard(authenticatedPage, 'Icon Test');
-  });
-
-  test('priority icon has correct color coding', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Find priority icon
-    const priorityIcon = incidentCard.locator('svg[class*="lucide-chevron-up"], svg[class*="lucide-minus"], svg[class*="lucide-chevron-down"]').first();
-
-    if (await priorityIcon.count() > 0) {
-      // Icon should have color class
-      const hasColorClass = await priorityIcon.evaluate(el =>
-        el.className.includes('text-red-') ||
-        el.className.includes('text-yellow-') ||
-        el.className.includes('text-green-')
+  test('a high-priority card is set apart from a low-priority one', async ({
+    authenticatedPage,
+  }) => {
+    const edge = (level: Level) =>
+      cardFor(authenticatedPage, level).evaluate(
+        (el) => window.getComputedStyle(el).borderLeftColor,
       );
 
-      expect(hasColorClass).toBeTruthy();
-    }
-  });
-
-  test('priority icon has aria-label for accessibility', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Find priority icon with aria-label
-    const priorityIcon = incidentCard.locator('[aria-label*="Priorität"]').first();
-
-    if (await priorityIcon.count() > 0) {
-      const ariaLabel = await priorityIcon.getAttribute('aria-label');
-      expect(ariaLabel).toBeTruthy();
-      expect(ariaLabel).toMatch(/Priorität/i);
-    }
-  });
-
-  test('high priority uses ChevronUp icon', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Check if high priority icon exists
-    const chevronUp = incidentCard.locator('svg[class*="lucide-chevron-up"]');
-
-    // May or may not be high priority, just check icon structure
-    const iconExists = await chevronUp.count() >= 0;
-    expect(iconExists).toBeTruthy();
-  });
-
-  test('medium priority uses Minus icon', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Check if medium priority icon exists
-    const minus = incidentCard.locator('svg[class*="lucide-minus"]');
-
-    // May or may not be medium priority, just check icon structure
-    const iconExists = await minus.count() >= 0;
-    expect(iconExists).toBeTruthy();
-  });
-
-  test('low priority uses ChevronDown icon', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Check if low priority icon exists
-    const chevronDown = incidentCard.locator('svg[class*="lucide-chevron-down"]');
-
-    // May or may not be low priority, just check icon structure
-    const iconExists = await chevronDown.count() >= 0;
-    expect(iconExists).toBeTruthy();
-  });
-});
-
-test.describe('Priority Visual Hierarchy - Color Consistency', () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    await setupBoard(authenticatedPage, 'Color Test');
-  });
-
-  test('priority dot and icon use matching colors', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Get priority dot color
-    const priorityDot = incidentCard.locator('[class*="h-2.5"][class*="w-2.5"][class*="rounded-full"]').first();
-    const dotClasses = await priorityDot.getAttribute('class') || '';
-
-    // Get priority icon color
-    const priorityIcon = incidentCard.locator('svg[class*="lucide-chevron-up"], svg[class*="lucide-minus"], svg[class*="lucide-chevron-down"]').first();
-    const iconClasses = await priorityIcon.getAttribute('class') || '';
-
-    // Both should reference the same color family (red, yellow, or green)
-    const dotColor = dotClasses.includes('red') ? 'red' :
-                     dotClasses.includes('yellow') ? 'yellow' :
-                     dotClasses.includes('green') ? 'green' : 'unknown';
-
-    const iconColor = iconClasses.includes('red') ? 'red' :
-                      iconClasses.includes('yellow') ? 'yellow' :
-                      iconClasses.includes('green') ? 'green' : 'unknown';
-
-    // Colors should match
-    expect(dotColor).toBe(iconColor);
-  });
-
-  test('priority indicators work in dark mode', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Priority indicators should have dark mode variants
-    const priorityIcon = incidentCard.locator('svg[class*="lucide-chevron-up"], svg[class*="lucide-minus"], svg[class*="lucide-chevron-down"]').first();
-
-    if (await priorityIcon.count() > 0) {
-      const classes = await priorityIcon.getAttribute('class') || '';
-
-      // Should have dark mode color classes
-      const hasDarkMode = classes.includes('dark:text-');
-      expect(hasDarkMode).toBeTruthy();
-    }
+    expect(await edge('high')).not.toBe(await edge('low'));
   });
 });
 
 test.describe('Priority Visual Hierarchy - Layout and Placement', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    await setupBoard(authenticatedPage, 'Layout Test');
+    await setupBoard(authenticatedPage, 'Layout Test', { incidents: priorityIncidents() });
   });
 
-  test('priority indicators are at start of card', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
+  test('the indicator leads the card, ahead of the location', async ({ authenticatedPage }) => {
+    const card = cardFor(authenticatedPage, 'high');
+    const indicator = card.locator('[aria-label*="Priorität"]');
+    const heading = card.getByRole('heading').first();
 
-    // Priority indicators should be in the first flex container
-    const priorityContainer = incidentCard.locator('[class*="flex"][class*="items-center"][class*="gap-1"]').first();
+    const indicatorBox = (await indicator.boundingBox())!;
+    const headingBox = (await heading.boundingBox())!;
 
-    await expect(priorityContainer).toBeVisible();
-
-    // Should contain both dot and icon
-    const hasDot = await priorityContainer.locator('[class*="rounded-full"]').count() > 0;
-    const hasIcon = await priorityContainer.locator('svg').count() > 0;
-
-    expect(hasDot && hasIcon).toBeTruthy();
+    // Left of the heading and clear of it — the two must not sit on top of each other.
+    expect(indicatorBox.x + indicatorBox.width).toBeLessThanOrEqual(headingBox.x);
   });
 
-  test('priority indicators dont overlap with location text', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
+  test('the indicator survives hover and an opened-then-closed detail view', async ({
+    authenticatedPage,
+  }) => {
+    const card = cardFor(authenticatedPage, 'medium');
+    const indicator = card.locator('[aria-label*="Priorität"]');
 
-    // Find location heading
-    const locationHeading = incidentCard.locator('h3').first();
-    await expect(locationHeading).toBeVisible();
+    await card.hover();
+    await expect(indicator).toBeVisible();
 
-    // Priority indicators should be in a separate flex container
-    const priorityIndicators = incidentCard.locator('[class*="h-2.5"][class*="w-2.5"]').first();
-
-    // Both should be visible without overlap
-    await expect(priorityIndicators).toBeVisible();
-    await expect(locationHeading).toBeVisible();
-  });
-
-  test('priority indicators have adequate spacing', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Priority container should have gap
-    const priorityContainer = incidentCard.locator('[class*="gap-1"]').first();
-
-    const hasGap = await priorityContainer.evaluate(el =>
-      el.className.includes('gap-')
-    );
-
-    expect(hasGap).toBeTruthy();
-  });
-});
-
-test.describe('Priority Visual Hierarchy - Responsiveness', () => {
-  test('priority indicators visible on mobile', async ({ authenticatedPage }) => {
-    await authenticatedPage.setViewportSize({ width: 375, height: 667 });
-
-    await setupBoard(authenticatedPage, 'Mobile Priority Test');
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Priority indicators should still be visible
-    const priorityDot = incidentCard.locator('[class*="rounded-full"]').first();
-    await expect(priorityDot).toBeVisible();
-
-    const priorityIcon = incidentCard.locator('svg[class*="lucide-chevron"], svg[class*="lucide-minus"]').first();
-    await expect(priorityIcon).toBeVisible();
-  });
-
-  test('priority indicators maintain size on mobile', async ({ authenticatedPage }) => {
-    await authenticatedPage.setViewportSize({ width: 375, height: 667 });
-
-    await setupBoard(authenticatedPage, 'Mobile Size Test');
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-    const priorityDot = incidentCard.locator('[class*="h-2.5"][class*="w-2.5"]').first();
-
-    // Check size
-    const box = await priorityDot.boundingBox();
-    expect(box).toBeTruthy();
-
-    if (box) {
-      // Should be small but visible (2.5 = 10px in Tailwind)
-      expect(box.width).toBeGreaterThan(8);
-      expect(box.width).toBeLessThan(15);
-    }
-  });
-});
-
-test.describe('Priority Visual Hierarchy - Semantic Meaning', () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    await setupBoard(authenticatedPage, 'Semantic Test');
-  });
-
-  test('red priority indicates urgency', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Red should be used for high priority
-    const redElements = incidentCard.locator('[class*="red-"]');
-
-    // If red elements exist, they should be priority indicators
-    if (await redElements.count() > 0) {
-      const firstRed = redElements.first();
-      const isInPriorityArea = await firstRed.evaluate(el => {
-        const parent = el.closest('[class*="flex"][class*="items-center"]');
-        return parent !== null;
-      });
-
-      expect(isInPriorityArea).toBeTruthy();
-    }
-  });
-
-  test('priority indicators use standard emergency colors', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Get all priority-related elements
-    const priorityDot = incidentCard.locator('[class*="rounded-full"]').first();
-    const dotClasses = await priorityDot.getAttribute('class') || '';
-
-    // Should use red (high), yellow/amber (medium), or green (low)
-    const usesStandardColors = dotClasses.includes('red-500') ||
-                               dotClasses.includes('yellow-500') ||
-                               dotClasses.includes('green-500');
-
-    expect(usesStandardColors).toBeTruthy();
-  });
-});
-
-test.describe('Priority Visual Hierarchy - Multiple Incidents', () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    await setupBoard(authenticatedPage, 'Multiple Test', { count: 3 });
-  });
-
-  test('all incidents show priority indicators', async ({ authenticatedPage }) => {
-    const incidents = authenticatedPage.locator('[data-testid="incident-card"]');
-    const count = await incidents.count();
-
-    // Should have at least 3 incidents
-    expect(count).toBeGreaterThanOrEqual(3);
-
-    // Each should have priority indicators
-    for (let i = 0; i < Math.min(count, 3); i++) {
-      const incident = incidents.nth(i);
-      const priorityDot = incident.locator('[class*="rounded-full"]').first();
-      await expect(priorityDot).toBeVisible();
-    }
-  });
-
-  test('priority indicators help distinguish incidents visually', async ({ authenticatedPage }) => {
-    const incidents = authenticatedPage.locator('[data-testid="incident-card"]');
-    const count = await incidents.count();
-
-    // Collect priority colors from all incidents
-    const colors = new Set<string>();
-
-    for (let i = 0; i < Math.min(count, 3); i++) {
-      const incident = incidents.nth(i);
-      const priorityDot = incident.locator('[class*="rounded-full"]').first();
-      const classes = await priorityDot.getAttribute('class') || '';
-
-      const color = classes.includes('red') ? 'red' :
-                    classes.includes('yellow') ? 'yellow' :
-                    classes.includes('green') ? 'green' : 'other';
-
-      colors.add(color);
-    }
-
-    // Should use priority colors
-    expect(colors.size).toBeGreaterThan(0);
-  });
-});
-
-test.describe('Priority Visual Hierarchy - Interaction States', () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    await setupBoard(authenticatedPage, 'Interaction Test');
-  });
-
-  test('priority indicators remain visible during hover', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Hover over card
-    await incidentCard.hover();
-    await authenticatedPage.waitForTimeout(300);
-
-    // Priority indicators should still be visible
-    const priorityDot = incidentCard.locator('[class*="rounded-full"]').first();
-    await expect(priorityDot).toBeVisible();
-  });
-
-  test('priority indicators persist when card is clicked', async ({ authenticatedPage }) => {
-    const incidentCard = authenticatedPage.locator('[data-testid="incident-card"]').first();
-
-    // Get priority color before click
-    const priorityDot = incidentCard.locator('[class*="rounded-full"]').first();
-    const beforeClasses = await priorityDot.getAttribute('class');
-
-    // Click to open modal
-    await incidentCard.click();
-    await authenticatedPage.waitForTimeout(500);
-
-    // Close modal
+    await card.click();
+    await expect(authenticatedPage.getByRole('dialog')).toBeVisible();
     await authenticatedPage.keyboard.press('Escape');
-    await authenticatedPage.waitForTimeout(500);
+    await expect(authenticatedPage.getByRole('dialog')).toHaveCount(0);
 
-    // Priority should still be the same
-    const afterClasses = await priorityDot.getAttribute('class');
-    expect(afterClasses).toBe(beforeClasses);
+    await expect(indicator).toHaveAttribute('aria-label', BY_PRIORITY.medium.label);
+  });
+});
+
+test.describe('Priority Visual Hierarchy - Phone layout', () => {
+  // The phone is a viewing surface for this product, and the list it shows is its own
+  // component (`MobileIncidentCard`). Priority has to survive that translation — this
+  // is deliberately about what renders, not about how large it is to tap.
+  test('the phone list keeps the priority indicator', async ({ authenticatedPage }) => {
+    await authenticatedPage.setViewportSize(MOBILE_VIEWPORT);
+    await setupBoard(authenticatedPage, 'Mobile Priority Test', {
+      layout: 'mobile',
+      incidents: priorityIncidents(),
+    });
+
+    for (const level of LEVELS) {
+      const indicator = cardFor(authenticatedPage, level, 'mobile').locator(
+        '[aria-label*="Priorität"]',
+      );
+      await expect(indicator).toHaveCount(1);
+      await expect(indicator).toHaveAttribute('aria-label', BY_PRIORITY[level].label);
+    }
+
+    // The phone card pairs the chevron with a coloured dot; two levels must not land
+    // on the same colour.
+    const dot = (level: Level) =>
+      cardFor(authenticatedPage, level, 'mobile')
+        .locator('[aria-hidden="true"]')
+        .first()
+        .evaluate((el) => window.getComputedStyle(el).backgroundColor);
+
+    expect(await dot('high')).not.toBe(await dot('low'));
   });
 });
