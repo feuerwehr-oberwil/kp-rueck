@@ -140,21 +140,29 @@ test.describe('Event Selection Empty State - With Event Selected', () => {
     // word "erstellen" ("Neues Ereignis erstellen" is the dialog's own title), so
     // an unscoped substring match resolves to more than one element.
     await dialog.getByRole('button', { name: 'Erstellen', exact: true }).click();
-    await expect(dialog).not.toBeVisible();
 
-    // Select the freshly created event by name, not "the first Auswählen on the page" —
-    // the list is shared with every other spec's events.
+    // `handleCreateEvent` selects the new event and pushes to '/' by itself, so the
+    // events list is already on its way out here. Reaching for an "Auswählen" button
+    // at this moment is a race — it is what made this test fail on a second run,
+    // clicking a card that detached mid-click.
+    await expect(authenticatedPage).toHaveURL('/');
+    await expect(authenticatedPage.getByRole('heading', { name: eventName }).first()).toBeVisible();
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Noch kein Ereignis ausgewählt?' }),
+    ).toHaveCount(0);
+
+    // And picking that same event out of the list behaves the same way. Located by
+    // name, not "the first Auswählen on the page" — the list is shared with every
+    // other spec's events.
+    await authenticatedPage.goto('/events');
     const eventCard = authenticatedPage
-      .locator('[data-slot="card"]')
+      .getByTestId('event-card')
       .filter({ hasText: eventName })
       .first();
     await expect(eventCard).toBeVisible();
     await eventCard.getByRole('button', { name: 'Auswählen' }).click();
 
-    // Wait for redirect to main page
     await expect(authenticatedPage).toHaveURL('/');
-
-    // The board, not the empty state
     await expect(authenticatedPage.getByRole('heading', { name: eventName }).first()).toBeVisible();
     await expect(
       authenticatedPage.getByRole('heading', { name: 'Noch kein Ereignis ausgewählt?' }),
