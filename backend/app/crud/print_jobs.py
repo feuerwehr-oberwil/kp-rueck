@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from ..database import execute_dml
 from ..models import (
+    Event,
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
@@ -263,14 +264,27 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
             "summary_text": reko.summary_text,
         }
 
+    # Whether this slip belongs to an exercise. The board snapshot has always printed an
+    # ÜBUNG marker; the assignment slip — the sheet a crew actually carries to an address —
+    # did not even receive the flag, so a training slip and a live one were indistinguishable
+    # once they left the printer.
+    training_flag = False
+    if incident.event_id is not None:
+        training_flag = bool(await db.scalar(select(Event.training_flag).where(Event.id == incident.event_id)))
+
     return {
         "incident_id": str(incident.id),
+        "training_flag": training_flag,
         "title": incident.title,
         "type": incident.type,
         "priority": incident.priority,
         "location": incident.location_address or "",
         "description": incident.description or "",
         "contact": incident.contact or "",
+        # The slip printed `Tel: {contact}` — but `contact` is the reporter's NAME. The
+        # number was never in the payload, so the one field a crew might need to call
+        # ahead with was a person's name under a telephone label.
+        "contact_phone": incident.contact_phone or "",
         "nachbarhilfe": incident.nachbarhilfe,
         "nachbarhilfe_note": incident.nachbarhilfe_note or "",
         "internal_notes": incident.internal_notes or "",

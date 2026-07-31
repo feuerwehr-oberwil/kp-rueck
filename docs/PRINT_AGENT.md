@@ -132,6 +132,12 @@ Environment variables:
 - `ACTIVE_DURATION` - Seconds to stay in active mode after last job (default: `900` = 15 min)
 - `DRY_RUN` - Set to `true` to simulate printing
 - `LOG_LEVEL` - Logging level (default: `INFO`)
+- `PRINT_TZ` - Timezone for times printed on slips (default: `Europe/Zurich`). The backend
+  serialises UTC; the slip converts, because a crew reads it against the clock on the wall.
+  Until 2026-07 it did not, so every slip showed an alarm time one to two hours early.
+  If the host has no tz database the agent falls back to UTC and labels it as such rather
+  than refusing to print.
+- `PRINT_TZ_LABEL` - What that timezone is called on paper (default: `Ortszeit`)
 
 ## Raspberry Pi Deployment
 
