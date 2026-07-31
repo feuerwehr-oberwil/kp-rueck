@@ -1,4 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
+import { DEV_ADMIN_PASSWORD, DEV_ADMIN_USERNAME } from '../../constants';
 
 /**
  * Authentication Tests
@@ -9,8 +10,8 @@ import { test, expect } from '../../fixtures/auth.fixture';
 // authenticated as a different user than the fixture did, so it failed
 // wherever the seeded account differs (CI, and any dev DB seeded via
 // TEST_USERNAME).
-const USERNAME = process.env.TEST_USERNAME || 'admin';
-const PASSWORD = process.env.TEST_PASSWORD || 'changeme123';
+const USERNAME = DEV_ADMIN_USERNAME;
+const PASSWORD = DEV_ADMIN_PASSWORD;
 
 test.describe('Authentication', () => {
   test('should display login page with all required elements', { tag: '@smoke' }, async ({ page, loginPage }) => {

@@ -1,6 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { DEV_ADMIN_PASSWORD, DEV_ADMIN_USERNAME } from './constants';
 
 /**
  * Screenshot Capture for Help Documentation
@@ -30,9 +31,9 @@ async function login(page: Page) {
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
 
-  // Fill login form (using default seed data credentials)
-  await page.fill('#username', 'admin');
-  await page.fill('#password', 'changeme123');
+  // Fill login form (using default seed data credentials — see tests/constants.ts)
+  await page.fill('#username', DEV_ADMIN_USERNAME);
+  await page.fill('#password', DEV_ADMIN_PASSWORD);
   await page.click('button[type="submit"]');
 
   // Wait for redirect - should go to events page
