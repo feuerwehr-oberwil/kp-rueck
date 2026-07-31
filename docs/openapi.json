@@ -12,7 +12,7 @@
           "health"
         ],
         "summary": "Health Check",
-        "description": "Simple health check endpoint for load balancers.\n\nReturns:\n    - status: \"healthy\" if database is reachable\n\nRaises:\n    503: If database is unreachable",
+        "description": "Simple health check endpoint for load balancers and external uptime monitoring.\n\nReturns:\n    - status: \"healthy\" if database is reachable\n    - disk: advisory free-space report (never affects the status code)\n\nRaises:\n    503: If database is unreachable",
         "operationId": "health_check_health_get",
         "responses": {
           "200": {
