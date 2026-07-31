@@ -517,13 +517,14 @@ function TokenDisplayMap({
   }
 
   return (
-    <div className="relative w-full h-full">
-      {/* Overlaid rather than stacked in a flex column: the map is full-bleed and every
-          control on it is absolutely positioned, so reflowing the container would move all
-          of them. pointer-events-none keeps the banner from swallowing map drags. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-40">
-        <DisplayStaleBanner lastRefresh={lastRefresh} />
-      </div>
+    // Stacked, not overlaid. Overlaying the banner on the full-bleed map put it straight on
+    // top of the map's own top-centre chip ("N Einsätze ohne gültige Koordinaten") — two
+    // warnings rendering through each other, which is worse than either alone. In a flex
+    // column the map's absolutely-positioned controls are placed against the inner
+    // container, so they all move down with it and nothing collides.
+    <div className="flex w-full h-full flex-col">
+      <DisplayStaleBanner lastRefresh={lastRefresh} />
+      <div className="relative min-h-0 flex-1">
       <MapView
         selectedIncidentId={selectedIncidentId}
         onMarkerClick={onMarkerClick}
@@ -563,6 +564,7 @@ function TokenDisplayMap({
         materialsOverride={situation?.materials ?? []}
         groupsOverride={groups}
       />
+      </div>
     </div>
   )
 }

@@ -421,6 +421,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Response headers the BROWSER is allowed to hand to JavaScript. Without this a
+    # cross-origin `headers.get('X-Total-Count')` returns null even though the server sent it
+    # — CORS hides every non-safelisted response header by default. The reference deployment
+    # is same-origin (Caddy fronts both), so this only bites a split-origin setup, which is
+    # exactly what a developer runs locally: the board silently stopped being able to tell a
+    # truncated incident list from a complete one, with no error anywhere.
+    expose_headers=["X-Total-Count"],
 )
 
 # Add audit middleware
