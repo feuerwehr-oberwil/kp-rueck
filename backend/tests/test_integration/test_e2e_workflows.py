@@ -719,3 +719,32 @@ async def test_incident_pagination_workflow(editor_client: AsyncClient, db_sessi
     # Verify total count
     all_ids = page1_ids | page2_ids | page3_ids
     assert len(all_ids) == 25
+
+    # X-Total-Count reports the FULL match count, not the page size. This is the only thing
+    # that lets the board tell "these are all the incidents" from "these are the first N" —
+    # the body is a bare array in both cases, which is how a truncated board used to look
+    # exactly like a complete one.
+    assert response.headers["X-Total-Count"] == "25"
+    first_page = await editor_client.get(f"/api/incidents/?event_id={event_id}&limit=10&skip=0")
+    assert first_page.headers["X-Total-Count"] == "25"
+    assert len(first_page.json()) == 10
+
+    # The count must follow the same filters as the list, or the banner it feeds compares
+    # against the wrong denominator. Both directions matter: a filter that matches
+    # everything, and one that matches nothing — a count that ignored `status` would pass
+    # the first and fail the second.
+    matching = await editor_client.get(f"/api/incidents/?event_id={event_id}&status=incoming&limit=5")
+    assert matching.status_code == 200
+    assert int(matching.headers["X-Total-Count"]) == 25
+    assert len(matching.json()) == 5
+
+    non_matching = await editor_client.get(f"/api/incidents/?event_id={event_id}&status=complete")
+    assert non_matching.status_code == 200
+    assert int(non_matching.headers["X-Total-Count"]) == 0
+
+    # An unfiltered request must now return all 25 in one page: the default limit is what
+    # every production caller actually gets, and at 100 it silently truncated a busy event.
+    unpaged = await editor_client.get(f"/api/incidents/?event_id={event_id}")
+    assert unpaged.status_code == 200
+    assert len(unpaged.json()) == 25
+    assert unpaged.headers["X-Total-Count"] == "25"

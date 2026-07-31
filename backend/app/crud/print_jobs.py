@@ -36,6 +36,27 @@ STALE_PRINTING_TIMEOUT_SECONDS = 120
 FAILED_RETRY_DELAY_SECONDS = 30
 MAX_PRINT_ATTEMPTS = 3
 
+# How long a queued job stays worth printing. Past this it is expired instead of handed to
+# the agent.
+#
+# Without this, a printer that was offline for two hours drained its entire backlog the
+# moment it came back: dozens of slips, oldest first, for incidents that had since been
+# closed — during the operation that is still running. Paper that describes a situation
+# which no longer exists is not merely useless in a command post, it actively competes with
+# the current picture.
+#
+# Split by type because they age differently. A board snapshot is a photograph of a moment
+# and is superseded by the next one within minutes, so it spoils fast. An Einsatzzettel is
+# about one incident and stays meaningful for as long as that incident plausibly runs.
+PRINT_JOB_TTL_SECONDS: dict[str, int] = {
+    "board": 15 * 60,
+    "assignment": 60 * 60,
+    "qr_code": 60 * 60,
+}
+# Test prints are excluded on purpose: somebody is standing at the printer waiting for one,
+# and if it is late that is exactly the diagnosis they are trying to make.
+DEFAULT_PRINT_JOB_TTL_SECONDS: int | None = None
+
 
 async def requeue_lost_jobs(db: AsyncSession) -> int:
     """Requeue jobs that would otherwise be lost forever (audit point 13).
@@ -79,7 +100,39 @@ async def requeue_lost_jobs(db: AsyncSession) -> int:
         await db.commit()
         logger.info("Requeued %d lost print job(s)", requeued)
 
+    await expire_stale_jobs(db)
+
     return requeued
+
+
+async def expire_stale_jobs(db: AsyncSession) -> int:
+    """Retire queued jobs that have outlived their usefulness.
+
+    Runs alongside the reaper on the agent's poll, so expiry happens on the same path that
+    would otherwise hand the job over. Marked 'expired' rather than deleted: the queue is
+    part of the operational record, and "this was never printed, and why" is worth keeping.
+    """
+    now = datetime.now(UTC)
+    expired = 0
+
+    for job_type, ttl_seconds in PRINT_JOB_TTL_SECONDS.items():
+        result = await execute_dml(
+            db,
+            sa_update(PrintJob)
+            .where(
+                PrintJob.status == "pending",
+                PrintJob.job_type == job_type,
+                PrintJob.created_at < now - timedelta(seconds=ttl_seconds),
+            )
+            .values(status="expired", completed_at=now),
+        )
+        expired += result.rowcount or 0
+
+    if expired:
+        await db.commit()
+        logger.info("Expired %d stale print job(s) past their TTL", expired)
+
+    return expired
 
 
 async def queue_assignment_print(

@@ -1,6 +1,7 @@
 """CRUD operations package."""
 
 from .incidents import (
+    count_incidents,
     create_incident,
     delete_incident,
     get_incident,
@@ -11,6 +12,7 @@ from .incidents import (
 )
 
 __all__ = [
+    "count_incidents",
     "create_incident",
     "delete_incident",
     "get_incident",

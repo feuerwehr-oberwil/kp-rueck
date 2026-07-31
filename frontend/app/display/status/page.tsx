@@ -10,6 +10,7 @@ import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-da
 import { ageLevel, columns, getTimeSince } from "@/lib/kanban-utils"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
+import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { RESOURCE_STATE_DOT_CLASSES, materialResourceState, personResourceState } from "@/lib/resource-status"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
@@ -77,15 +78,23 @@ function AuthStatusView() {
 /** Token/read-only display: view-model polled from the share token payload. */
 function TokenStatusView({ token }: { token: string }) {
   const [payload, setPayload] = useState<ApiViewerData | null>(null)
+  // Age of the last SUCCESSFUL poll. Keeping the last-known payload on a failed fetch is
+  // right — during an outage it is the best picture in the room — but rendering it with no
+  // indication that it stopped updating is not: a backend 500ing since 02:10 produced a
+  // display that looked entirely normal at 04:00.
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       try {
         const d = await apiClient.getViewerData(token)
-        if (!cancelled) setPayload(d)
+        if (!cancelled) {
+          setPayload(d)
+          setLastRefresh(new Date())
+        }
       } catch {
-        // keep last-known payload on transient failures
+        // Keep the last-known payload — DisplayStaleBanner surfaces that it has gone stale.
       }
     }
     load()
@@ -111,7 +120,14 @@ function TokenStatusView({ token }: { token: string }) {
       </div>
     )
   }
-  return <SituationBoard {...data} detailGroups={detailGroups} />
+  return (
+    <div className="flex h-full flex-col">
+      <DisplayStaleBanner lastRefresh={lastRefresh} />
+      <div className="min-h-0 flex-1">
+        <SituationBoard {...data} detailGroups={detailGroups} />
+      </div>
+    </div>
+  )
 }
 
 function SituationBoard({ stats, vehicleStatus, operations, personnel, materials, detailGroups }: SituationData & {

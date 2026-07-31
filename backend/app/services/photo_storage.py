@@ -22,6 +22,21 @@ from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
 
+#: Upload read granularity. Small enough that an oversized body is rejected long before it
+#: could matter, large enough not to add syscalls to a normal phone photo.
+_UPLOAD_CHUNK_BYTES = 64 * 1024
+
+#: Hard bound on decoded image DIMENSIONS, independent of file size.
+#:
+#: The byte-size limit alone does not protect memory: PNG/WebP compress uniform data extremely
+#: well, so a perfectly legal 5 MB file can declare 40000×40000 pixels and expand to several
+#: hundred megabytes the moment PIL decodes it — a "decompression bomb". Pillow has a built-in
+#: guard for exactly this, but the default (~178 Mpx) is a warning threshold rather than a
+#: refusal, and the code below caps only WIDTH, which is applied after the decode has already
+#: happened. 50 Mpx comfortably clears any real camera (a 48 MP phone is ~48 Mpx) while keeping
+#: the worst case bounded well under the container's 1 GB.
+Image.MAX_IMAGE_PIXELS = 50_000_000
+
 settings = get_settings()
 
 
@@ -87,6 +102,29 @@ class PhotoStorageService:
         # conversions). The actual processing in save_photo() catches truly broken files.
         try:
             img = Image.open(io.BytesIO(content))
+        except Image.DecompressionBombError as e:
+            # Pillow's own guard, raised at open() beyond 2x MAX_IMAGE_PIXELS. "Too large" is
+            # actionable; the generic "corrupted image" below would send the operator looking
+            # for a fault in their camera.
+            logger.warning("Rejected decompression bomb at open: %s", e)
+            raise HTTPException(status_code=413, detail="Bild zu gross (Pixelmasse).") from None
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid or corrupted image file") from None
+
+        # Dimensions BEFORE the decode below. `Image.open` only parses the header, so this is
+        # the last cheap moment: `img.load()` allocates the full bitmap, and a file that is
+        # small on disk can be enormous in memory — 20000x20000 is ~1.6 GB against a 1 GB
+        # container limit. Pillow's own guard does not cover the 1x-2x band (it merely warns
+        # and decodes anyway), which is precisely the range that fits in a legal-looking file.
+        pixels = img.size[0] * img.size[1]
+        if pixels > Image.MAX_IMAGE_PIXELS:
+            logger.warning("Rejected oversized image: %dx%d", img.size[0], img.size[1])
+            raise HTTPException(
+                status_code=413,
+                detail=f"Bild zu gross ({img.size[0]}×{img.size[1]} Pixel).",
+            )
+
+        try:
             img.load()  # Force decode to confirm it's a real image
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid or corrupted image file") from None
@@ -169,15 +207,28 @@ class PhotoStorageService:
         if photo_count >= self.max_photos:
             raise HTTPException(status_code=400, detail=f"Maximum {self.max_photos} photos per report")
 
-        # Read file content first (needed for all validations)
-        content = await file.read()
-
-        # Validate file size — 413 Payload Too Large is the semantic match per RFC 9110
-        if len(content) > self.max_size_bytes:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large. Maximum size: {settings.max_photo_size_mb}MB",
-            )
+        # Read in chunks and stop as soon as the limit is exceeded — 413 Payload Too Large is
+        # the semantic match per RFC 9110.
+        #
+        # This used to be a single `await file.read()` followed by a length check, which meant
+        # the limit was enforced only AFTER the entire body was already in memory: a 500 MB
+        # upload was faithfully buffered in full and then politely rejected. Against the 1 GB
+        # container limit that is an OOM, and an OOM takes the board down for everyone, not
+        # just the uploader.
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = await file.read(_UPLOAD_CHUNK_BYTES)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > self.max_size_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum size: {settings.max_photo_size_mb}MB",
+                )
+            chunks.append(chunk)
+        content = b"".join(chunks)
 
         # Generate safe, unique filename (always use UUID to prevent attacks)
         filename = self._sanitize_filename(file.filename or "photo.jpg")
@@ -202,7 +253,28 @@ class PhotoStorageService:
         # Process image
         try:
             image = Image.open(io.BytesIO(content))
+            # `Image.open` only parses the header, so the declared dimensions are known here
+            # BEFORE any pixel data is decoded. Checking now is what makes the bomb cheap to
+            # refuse; Pillow's own MAX_IMAGE_PIXELS only *warns* between 1× and 2× the limit,
+            # and by the time it raises, the allocation has been attempted.
+            pixels = image.size[0] * image.size[1]
+            if pixels > Image.MAX_IMAGE_PIXELS:
+                logger.warning("Rejected oversized image: %dx%d", image.size[0], image.size[1])
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Bild zu gross ({image.size[0]}×{image.size[1]} Pixel).",
+                )
             compressed_data = self._compress_image(image)
+        except HTTPException:
+            raise  # our own 413 — must not be reclassified as a malformed file below
+        except Image.DecompressionBombError as e:
+            # Pillow's own guard, which fires at >2x MAX_IMAGE_PIXELS during open(). Same
+            # situation as the explicit check above, so it gets the same answer: "too large"
+            # is actionable, "corrupted file" would send the operator looking for a problem
+            # with their camera. The explicit check still earns its place — between 1x and 2x
+            # Pillow only warns and decodes anyway.
+            logger.warning("Rejected decompression bomb: %s", e)
+            raise HTTPException(status_code=413, detail="Bild zu gross (Pixelmasse).") from e
         except Exception as e:
             logger.warning("Failed to process image: %s", e)
             raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_FILE) from e

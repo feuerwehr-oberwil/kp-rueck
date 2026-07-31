@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -71,19 +71,28 @@ async def trigger_sync_background() -> None:
 async def list_incidents(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
+    response: Response,
     event_id: uuid.UUID,  # Required: filter by event
     status: str | None = None,
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=500),
+    # The DEFAULT is what mattered: no production caller passes a limit, so 100 was a hard
+    # ceiling on the board. The maximum stays 500 — it is an asserted security boundary
+    # (tests/test_security/test_input_validation.py), and raising it bought nothing.
+    limit: int = Query(default=500, ge=1, le=500),
 ) -> list[schemas.IncidentResponse]:
     """
     List incidents for a specific event.
+
+    Sets `X-Total-Count` to the number of incidents matching the filters before
+    skip/limit, so the client can tell a complete board from a truncated one. Without it
+    a truncated board is indistinguishable from a small one — the client sees a plain
+    array either way and has nothing to warn the operator with.
 
     Args:
         event_id: Event ID to filter incidents (required)
         status: Optional status filter
         skip: Pagination offset
-        limit: Max number of results (max 500)
+        limit: Max number of results (default 500, max 500)
     """
     incidents = await crud.get_incidents(
         db=db,
@@ -92,6 +101,7 @@ async def list_incidents(
         limit=limit,
         status=status,
     )
+    response.headers["X-Total-Count"] = str(await crud.count_incidents(db=db, event_id=event_id, status=status))
     return await incident_display.incidents_with_display(db, incidents)
 
 

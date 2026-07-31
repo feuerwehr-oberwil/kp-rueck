@@ -36,10 +36,29 @@ stop:
     @# after `just dev` actually wants.
     -docker compose down
 
-# Stop all services and remove volumes
+# Stop all services and DELETE ALL DATA (database, photos) — asks first
 clean:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # `down -v` removes named volumes, and on this stack those are pgdata and photos — i.e.
+    # every incident, every roster entry and every Reko photo, dev AND production, with no
+    # undo. The old recipe did that on a bare `just clean` with nothing but "removes volumes"
+    # in the help text, which reads like tidying up caches. It is not. Backups live on a HOST
+    # path (BACKUP_HOST_DIR) precisely so they survive this, but only if they were ever
+    # switched on — see COMPOSE_PROFILES in .env.example.
+    echo "⚠  This DELETES ALL DATA in this stack — database and photos, dev and production."
+    echo "⚠  There is no undo. Restore would need a backup from BACKUP_HOST_DIR."
+    read -r -p "Type 'delete' to confirm: " reply
+    if [ "$reply" != "delete" ]; then
+        echo "Aborted — nothing was removed."
+        exit 1
+    fi
     docker compose -f docker-compose.dev.yml down -v
-    -docker compose down -v
+    # `|| true`, not just's `-` prefix: this is a shebang recipe, so it runs as ONE script and
+    # a leading `-` would be read as a command name. Same intent as `just stop` — the
+    # production stack's `${VAR:?}` guards fire on any subcommand, `down` included, so this
+    # errors without an .env and must not mask the dev teardown above having succeeded.
+    docker compose down -v || true
 
 # ============================================
 # Database

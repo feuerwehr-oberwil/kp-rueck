@@ -1,7 +1,9 @@
 """Health check and demo status endpoints."""
 
 import logging
+import os
 import secrets
+import shutil
 from datetime import datetime
 from typing import Any, cast
 
@@ -42,13 +44,54 @@ def _get_pool_stats(eng: AsyncEngine) -> dict[str, Any]:
         return {"error": "unable to retrieve pool stats"}
 
 
-@router.get("/health", response_model=None)
-async def health_check(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
+#: Below this share of free disk, /health starts reporting a disk warning. Chosen so there is
+#: room to act — Postgres write-stops when the volume actually fills, and on a station box the
+#: database, the photos and the pre-migration dumps all share one disk.
+DISK_WARN_FREE_RATIO = 0.10
+
+
+def _disk_status() -> dict[str, Any]:
     """
-    Simple health check endpoint for load balancers.
+    Free space on the volume holding uploaded photos (the same disk as the database on a
+    single-box deployment).
+
+    Deliberately advisory: it never changes the HTTP status. A nearly-full disk is a problem
+    that has not happened yet, and failing the health check over it would take the board down
+    during an operation to warn about a disk that still works. Monitoring can alert on the
+    payload; the operator keeps their board either way.
+
+    Ported from kp-front's api/system.py, which already had this probe while kp-rueck had none.
+    """
+    probe = os.path.abspath(settings.photos_dir)
+    # disk_usage needs an existing path; climb to the nearest existing ancestor.
+    while probe and not os.path.exists(probe):
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            break
+        probe = parent
+    try:
+        usage = shutil.disk_usage(probe or os.sep)
+    except OSError:
+        logger.warning("health: disk_usage failed for %s", probe, exc_info=True)
+        return {"status": "unknown"}
+
+    free_ratio = usage.free / usage.total if usage.total else 0.0
+    return {
+        "status": "low" if free_ratio < DISK_WARN_FREE_RATIO else "ok",
+        "free_bytes": usage.free,
+        "total_bytes": usage.total,
+        "free_percent": round(free_ratio * 100, 1),
+    }
+
+
+@router.get("/health", response_model=None)
+async def health_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """
+    Simple health check endpoint for load balancers and external uptime monitoring.
 
     Returns:
         - status: "healthy" if database is reachable
+        - disk: advisory free-space report (never affects the status code)
 
     Raises:
         503: If database is unreachable
@@ -56,7 +99,7 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     try:
         # Test database connection
         await db.execute(text("SELECT 1"))
-        return {"status": "healthy"}
+        return {"status": "healthy", "disk": _disk_status()}
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

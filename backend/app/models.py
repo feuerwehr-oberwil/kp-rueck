@@ -968,7 +968,10 @@ class PrintJob(Base):
 
     __table_args__ = (
         CheckConstraint("job_type IN ('assignment', 'board', 'test', 'qr_code')", name="valid_print_job_type"),
-        CheckConstraint("status IN ('pending', 'printing', 'completed', 'failed')", name="valid_print_job_status"),
+        CheckConstraint(
+            "status IN ('pending', 'printing', 'completed', 'failed', 'expired')",
+            name="valid_print_job_status",
+        ),
         Index("idx_print_jobs_status", "status"),
         Index("idx_print_jobs_created_at", "created_at"),
         Index("idx_print_jobs_incident_id", "incident_id"),

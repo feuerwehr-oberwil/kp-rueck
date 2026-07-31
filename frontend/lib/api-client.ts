@@ -95,6 +95,14 @@ export interface ApiViewerData {
   special_functions?: ApiEventSpecialFunctionResponse[]
 }
 
+/**
+ * Hard ceiling on a single request. Generous on purpose: a command post on a saturated
+ * uplink is slow but still worth waiting for, and cutting off a real response is worse
+ * than waiting. This exists to bound a connection that will never answer at all, not to
+ * enforce latency.
+ */
+const REQUEST_TIMEOUT_MS = 20_000
+
 class ApiClient {
   // No constructor needed - URL is resolved dynamically per request
 
@@ -126,7 +134,7 @@ class ApiClient {
   /**
    * Main request method with retry logic and error notifications
    */
-  private async request<T>(endpoint: string, options?: RequestInit & { skipToast?: boolean; maxRetries?: number }): Promise<T> {
+  private async request<T>(endpoint: string, options?: RequestInit & { skipToast?: boolean; maxRetries?: number; onHeaders?: (headers: Headers) => void }): Promise<T> {
     const baseUrl = this.getBaseUrl()
     const url = `${baseUrl}${endpoint}`
     const method = options?.method || 'GET'
@@ -142,6 +150,13 @@ class ApiClient {
         const response = await fetch(url, {
           ...options,
           credentials: 'include', // Send cookies for authentication
+          // Without this a request could hang indefinitely — a dead-but-open TCP connection
+          // never rejects on its own. One hung GET was enough to wedge the polling loop for
+          // good: `startPolling()` cannot re-arm while `isPollingActive` is still true, and
+          // only a WebSocket 'connected' transition resets it. The board then sat there
+          // quietly not updating. Callers may override for genuinely slow routes (exports,
+          // PDF generation) by passing their own signal.
+          signal: options?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
           headers: {
             'Content-Type': 'application/json',
             ...options?.headers,
@@ -214,6 +229,11 @@ class ApiClient {
           throw error
         }
 
+        // Response metadata the parsed body can't carry (e.g. X-Total-Count, which tells
+        // the board whether it is showing everything). Non-breaking on purpose: the return
+        // type stays the parsed body, so the ~85 existing call sites are untouched.
+        options?.onHeaders?.(response.headers)
+
         // Handle empty responses (e.g., DELETE operations with 204 No Content)
         const contentType = response.headers.get('content-type')
         if (response.status === 204 || !contentType || contentType.indexOf('application/json') === -1) {
@@ -226,8 +246,19 @@ class ApiClient {
       } catch (error) {
         lastError = error as Error
 
-        // Network errors are always retryable
-        if (error instanceof TypeError && error.message.includes('fetch')) {
+        // Network errors are always retryable.
+        //
+        // The message is deliberately NOT inspected any more. It used to require
+        // `.includes('fetch')`, which only matches Chrome's "Failed to fetch" — Safari
+        // throws `TypeError: Load failed` and Firefox "NetworkError when attempting to
+        // fetch resource". On Safari every offline request therefore fell through to the
+        // generic re-throw below: no "Verbindung verloren" toast, and GETs threw instead of
+        // degrading softly, so ~85 read call sites silently changed contract per browser.
+        // Any TypeError out of `fetch()` is a network-layer failure; that is the check.
+        //
+        // AbortError is the request timeout below — also a network failure, also retryable.
+        const isTimeout = error instanceof DOMException && error.name === 'TimeoutError'
+        if (error instanceof TypeError || isTimeout) {
           if (retryCount < maxRetries) {
             const delay = this.getBackoffDelay(retryCount)
             await this.sleep(delay)
@@ -400,6 +431,42 @@ class ApiClient {
 
     const endpoint = `/api/incidents/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
     return this.request<ApiIncident[]>(endpoint)
+  }
+
+  /**
+   * Same as `getIncidents`, but also reports how many incidents exist in total.
+   *
+   * The board needs this to tell a complete list from a truncated one. A plain array looks
+   * identical either way, which is how 200 incidents could render as an arbitrary 100 with
+   * nothing on screen suggesting anything was missing.
+   *
+   * `total` is null when the header is absent (an older backend, or a proxy that strips it) —
+   * callers must treat null as "unknown", never as zero, or the banner would claim a full
+   * board is truncated.
+   */
+  async getIncidentsWithTotal(eventId: string, params?: {
+    status?: IncidentStatus
+    skip?: number
+    limit?: number
+  }): Promise<{ incidents: ApiIncident[]; total: number | null }> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('event_id', eventId)
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.skip !== undefined) queryParams.append('skip', String(params.skip))
+    if (params?.limit !== undefined) queryParams.append('limit', String(params.limit))
+
+    let total: number | null = null
+    const incidents = await this.request<ApiIncident[]>(
+      `/api/incidents/?${queryParams.toString()}`,
+      {
+        onHeaders: (headers) => {
+          const raw = headers.get('X-Total-Count')
+          const parsed = raw === null ? Number.NaN : Number(raw)
+          total = Number.isFinite(parsed) ? parsed : null
+        },
+      },
+    )
+    return { incidents: incidents ?? [], total }
   }
 
   async getIncident(id: string): Promise<ApiIncident> {
