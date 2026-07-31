@@ -88,6 +88,33 @@ def _sep(p: Network, char: str = "=") -> None:
     _text(p, char * WIDTH_A + "\n")
 
 
+def _stamp(payload: dict) -> str:
+    """
+    The timestamp printed in a slip's footer: when the CONTENT was captured, not when the
+    paper came out.
+
+    These are different times and the difference matters. Jobs queue: if the printer is out
+    of paper, unreachable, or the agent is down, the backlog drains later — every formatter
+    used to call `datetime.now()`, so a board snapshot frozen at 12:15 printed at 14:32 with
+    "14:32" on it. AUSFALL_SOP.md tells the operator to trust that footer to know how current
+    the paper board is, so a wrong one does not merely mislead, it misleads the one procedure
+    that exists for when the screens are gone.
+
+    `printed_at` is set by the backend when the job is created (api/print.py). Falls back to
+    now() when it is missing or unparseable — an older backend or a hand-made payload should
+    still print, just without the guarantee.
+    """
+    raw = payload.get("printed_at")
+    if isinstance(raw, str) and raw:
+        try:
+            # Backend sends UTC ISO-8601; show it in the printer's local time, which is what
+            # the person holding the slip is comparing against the clock on the wall.
+            return datetime.fromisoformat(raw).astimezone().strftime("%d.%m.%Y %H:%M")
+        except ValueError:
+            logger.warning("printed_at not parseable (%r) — stamping current time", raw)
+    return datetime.now().strftime("%d.%m.%Y %H:%M")
+
+
 # ── Assignment slip ──────────────────────────────────────────────────
 
 def format_assignment_slip(p: Network, payload: dict) -> None:
@@ -228,7 +255,7 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     # --- Footer ---
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")
-    _text(p, f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
+    _text(p, f"{_stamp(payload)}\n")
     p.cut()
 
 
@@ -254,7 +281,7 @@ def format_test_print(p: Network, payload: dict) -> None:
 
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")
-    _text(p, f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
+    _text(p, f"{_stamp(payload)}\n")
     p.cut()
 
 
@@ -293,7 +320,7 @@ def format_qr_code_slip(p: Network, payload: dict) -> None:
 
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")
-    _text(p, f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
+    _text(p, f"{_stamp(payload)}\n")
     p.cut()
 
 
@@ -445,7 +472,7 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
 
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")
-    _text(p, f"{datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
+    _text(p, f"{_stamp(payload)}\n")
     p.cut()
 
 

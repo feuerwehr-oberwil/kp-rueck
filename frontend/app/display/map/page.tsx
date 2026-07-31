@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { buildSituationData, viewerGroupsToIncidentGroups } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
+import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
@@ -455,15 +456,22 @@ function TokenDisplayMap({
   onGpsAvailabilityChange,
 }: DisplayMapVariantProps & { token: string }) {
   const [data, setData] = useState<ApiViewerData | null>(null)
+  // Age of the last SUCCESSFUL poll. Holding the last-known data through a failed fetch is
+  // correct; rendering it as if it were current is not. Frozen vehicle positions on a map
+  // are read as fact by whoever glances at the wall.
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       try {
         const d = await apiClient.getViewerData(token)
-        if (!cancelled) setData(d)
+        if (!cancelled) {
+          setData(d)
+          setLastRefresh(new Date())
+        }
       } catch {
-        // keep last-known data on transient failures
+        // Keep the last-known data — DisplayStaleBanner surfaces that it has gone stale.
       }
     }
     load()
@@ -509,7 +517,14 @@ function TokenDisplayMap({
   }
 
   return (
-    <div className="relative w-full h-full">
+    // Stacked, not overlaid. Overlaying the banner on the full-bleed map put it straight on
+    // top of the map's own top-centre chip ("N Einsätze ohne gültige Koordinaten") — two
+    // warnings rendering through each other, which is worse than either alone. In a flex
+    // column the map's absolutely-positioned controls are placed against the inner
+    // container, so they all move down with it and nothing collides.
+    <div className="flex w-full h-full flex-col">
+      <DisplayStaleBanner lastRefresh={lastRefresh} />
+      <div className="relative min-h-0 flex-1">
       <MapView
         selectedIncidentId={selectedIncidentId}
         onMarkerClick={onMarkerClick}
@@ -549,6 +564,7 @@ function TokenDisplayMap({
         materialsOverride={situation?.materials ?? []}
         groupsOverride={groups}
       />
+      </div>
     </div>
   )
 }

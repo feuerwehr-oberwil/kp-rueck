@@ -21,6 +21,7 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
 from sqlalchemy import and_, func, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -28,7 +29,7 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings as app_settings
 from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, build_assignment_payload, requeue_lost_jobs
-from ..database import get_db
+from ..database import execute_dml, get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
 from ..services import print_signal
 from ..services import settings as settings_service
@@ -609,17 +610,30 @@ async def claim_print_job(
     PRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).
     """
     _touch_agent_heartbeat()
+
+    # Conditional UPDATE, not read-then-write. The old form checked `status != "pending"` in
+    # Python and then assigned, so two agents polling the same queue could both pass the check
+    # and both print the slip — the known "each job prints once, at random" hazard, defended
+    # until now only by the prose rule that you must not run two agents. A single-row UPDATE
+    # with the status in the WHERE clause is atomic, so exactly one claimant wins and the
+    # loser gets a clean 409. kp-front's print_relay._try_claim already did it this way.
+    claimed = await execute_dml(
+        db,
+        sa_update(PrintJob)
+        .where(PrintJob.id == job_id, PrintJob.status == "pending")
+        .values(status="printing", claimed_at=datetime.now(UTC)),
+    )
+
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
     job = result.scalar_one_or_none()
 
     if not job:
         raise HTTPException(status_code=404, detail="Print job not found")
 
-    if job.status != "pending":
+    if claimed.rowcount == 0:
+        # Lost the race, or it was never claimable. Either way the agent must not print it.
         raise HTTPException(status_code=409, detail=f"Job is not pending (status: {job.status})")
 
-    job.status = "printing"
-    job.claimed_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(job)
 

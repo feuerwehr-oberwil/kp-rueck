@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { DemoBanner } from '@/components/demo-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
+import { IncidentTruncationBanner } from '@/components/incident-truncation-banner'
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
 
 interface AppShellProps {
@@ -37,6 +38,7 @@ export function AppShell({ children }: AppShellProps) {
       <>
         <DemoBanner />
         <StaleDataBanner />
+        <IncidentTruncationBanner />
         {children}
         <CommandPalette />
       </>
@@ -47,6 +49,7 @@ export function AppShell({ children }: AppShellProps) {
     <div className="flex flex-col h-dvh overflow-hidden">
       <DemoBanner />
       <StaleDataBanner />
+      <IncidentTruncationBanner />
       <div className="flex flex-1 min-h-0">
         <main className="flex-1 min-h-0 overflow-auto">
           {children}

@@ -126,6 +126,11 @@ function applyEvent(entry: TrackedJob, job: PrintJobEvent) {
   }
 
   if (job.status === 'completed') {
+    // "An Drucker gesendet", not "Gedruckt". For the thermal path this status means the
+    // ESC/POS bytes were accepted by the socket — nothing more. A TM-T20III that is out of
+    // paper still absorbs a small slip into its buffer and closes the write cleanly, so the
+    // single most likely printer failure is the one that reports success. Until the agent
+    // queries real paper status (DLE EOT), the UI must not assert paper exists.
     toast.success(entry.copy.completed, { id, description: describe(entry) })
     untrack(job.id)
     return
@@ -142,7 +147,7 @@ function applyEvent(entry: TrackedJob, job: PrintJobEvent) {
       action: printerAction(entry),
     })
     // A retry keeps the job alive, so keep listening: a successful second attempt
-    // replaces this error with "Gedruckt" on the same card.
+    // replaces this error with the success copy on the same card.
     if (!job.will_retry) untrack(job.id)
   }
 }
