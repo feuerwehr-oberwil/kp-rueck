@@ -318,6 +318,13 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
 
     return {
         "incident_id": str(incident.id),
+        # When the CONTENT was captured, not when the paper came out. The agent stamps this in
+        # the footer (tools/print-agent/formatters.py::_stamp), so an Einsatzzettel that waited
+        # in the queue behind an offline printer does not claim to be current. Without it the
+        # agent falls back to now() — exactly the bug the stamp exists to fix, and this is the
+        # slip it matters most for: the assignment TTL is an hour, so it is the type most
+        # likely to sit queued. Matches the board/test/qr_code payloads in api/print.py.
+        "printed_at": datetime.now(UTC).isoformat(),
         "title": incident.title,
         "type": incident.type,
         "priority": incident.priority,
