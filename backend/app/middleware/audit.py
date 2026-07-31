@@ -108,9 +108,27 @@ class AuditMiddleware:
 
         await self.app(scope, receive, send_wrapper)
 
-        # Only log successful API requests (skip health checks, static files)
+        # Only log successful API requests that CHANGE something (skip health, static files).
+        #
+        # Reads used to be logged too, which made the audit log grow with traffic rather than
+        # with activity: the board polls /api/incidents and /api/sync-version every ~5 s per
+        # client, so two idle wall displays alone wrote on the order of a gigabyte a year, and
+        # a storm at ~90 req/s several gigabytes a day. With retention defaulting to "keep
+        # forever" that ends as a full disk mid-operation — and on a station box the database
+        # shares that disk, so Postgres write-stops and the board dies.
+        #
+        # The record this exists for is fully intact: every create/update/delete is still
+        # written, both here and as domain entries via log_action. What is deliberately given
+        # up is "who VIEWED what" — read tracking that nothing in the product consumes and no
+        # export reports.
         request = Request(scope)
-        if status_code < 300 and request.url.path.startswith("/api/") and request.url.path != "/api/health":
+        is_mutation = request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        if (
+            status_code < 300
+            and is_mutation
+            and request.url.path.startswith("/api/")
+            and request.url.path != "/api/health"
+        ):
             duration_ms = round((time.time() - start_time) * 1000, 2)
             user = getattr(request.state, "user", None)
 

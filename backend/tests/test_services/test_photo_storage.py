@@ -50,8 +50,10 @@ def upload_file_jpg():
             self.content = content
             self.filename = "test.jpg"
 
-        async def read(self):
-            return self.content.read()
+        # Mirrors starlette's UploadFile.read(size): the service reads in chunks so an
+        # oversized body is refused before it is fully buffered in memory.
+        async def read(self, size: int = -1):
+            return self.content.read() if size == -1 else self.content.read(size)
 
     return MockUploadFile(img_bytes)
 
@@ -69,8 +71,10 @@ def upload_file_png():
             self.content = content
             self.filename = "test.png"
 
-        async def read(self):
-            return self.content.read()
+        # Mirrors starlette's UploadFile.read(size): the service reads in chunks so an
+        # oversized body is refused before it is fully buffered in memory.
+        async def read(self, size: int = -1):
+            return self.content.read() if size == -1 else self.content.read(size)
 
     return MockUploadFile(img_bytes)
 
@@ -230,8 +234,9 @@ class TestPhotoStorageService:
         class MockUploadFile:
             filename = "test.gif"
 
-            async def read(self):
-                return b"fake data"
+            async def read(self, size: int = -1):
+                data, self._done = (b"" if getattr(self, "_done", False) else b"fake data"), True
+                return data
 
         with pytest.raises(HTTPException) as exc_info:
             await photo_service.save_photo(incident_id, MockUploadFile(), [])
@@ -250,15 +255,26 @@ class TestPhotoStorageService:
         class MockUploadFile:
             filename = "test.jpg"
 
-            async def read(self):
-                return large_content
+            def __init__(self):
+                self._buf = io.BytesIO(large_content)
+                self.bytes_served = 0
 
+            async def read(self, size: int = -1):
+                data = self._buf.read() if size == -1 else self._buf.read(size)
+                self.bytes_served += len(data)
+                return data
+
+        upload = MockUploadFile()
         with pytest.raises(HTTPException) as exc_info:
-            await photo_service.save_photo(incident_id, MockUploadFile(), [])
+            await photo_service.save_photo(incident_id, upload, [])
 
         # 413 Payload Too Large per RFC 9110 — bumped from 400 in A7
         assert exc_info.value.status_code == 413
         assert "too large" in exc_info.value.detail
+        # The point of chunked reading: the body is refused as soon as it crosses the limit,
+        # not after all 11 MB have been pulled into memory. Anything close to the full size
+        # here means the early abort is gone.
+        assert upload.bytes_served < 11 * 1024 * 1024
 
     @pytest.mark.asyncio
     async def test_save_photo_invalid_image(self, photo_service):
@@ -268,14 +284,44 @@ class TestPhotoStorageService:
         class MockUploadFile:
             filename = "test.jpg"
 
-            async def read(self):
-                return b"not an image"
+            async def read(self, size: int = -1):
+                data, self._done = (b"" if getattr(self, "_done", False) else b"not an image"), True
+                return data
 
         with pytest.raises(HTTPException) as exc_info:
             await photo_service.save_photo(incident_id, MockUploadFile(), [])
 
         assert exc_info.value.status_code == 400
         assert "Invalid or corrupted image file" in exc_info.value.detail or "Ungültige Datei" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_save_photo_rejects_decompression_bomb(self, photo_service):
+        """
+        A legal, small file that declares enormous dimensions must be refused.
+
+        The byte-size limit does not cover this: PNG compresses uniform data so well that a
+        few hundred kilobytes can declare 20000x20000 pixels, which is ~1.6 GB once decoded.
+        Against the container's 1 GB that is an OOM, and an OOM takes the board down for
+        every operator, not just the one uploading.
+        """
+        bomb = io.BytesIO()
+        Image.new("RGB", (20000, 20000), "white").save(bomb, format="PNG")
+        payload = bomb.getvalue()
+        # It really is an innocuous-looking file: well under the 10 MB size limit.
+        assert len(payload) < 10 * 1024 * 1024
+
+        class MockUploadFile:
+            filename = "bomb.png"
+
+            def __init__(self):
+                self._buf = io.BytesIO(payload)
+
+            async def read(self, size: int = -1):
+                return self._buf.read() if size == -1 else self._buf.read(size)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await photo_service.save_photo(uuid.uuid4(), MockUploadFile(), [])
+        assert exc_info.value.status_code == 413
 
     def test_get_photo_path_exists(self, photo_service, temp_photos_dir):
         """Test getting path to existing photo."""

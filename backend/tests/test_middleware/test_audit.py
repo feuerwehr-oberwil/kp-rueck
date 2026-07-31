@@ -64,31 +64,51 @@ class TestAuditMiddleware:
     """Test audit middleware logging behavior."""
 
     @pytest.mark.asyncio
-    async def test_middleware_logs_successful_api_request(
-        self, authenticated_client: AsyncClient, db_session: AsyncSession
+    async def test_middleware_logs_successful_mutation(
+        self, authenticated_client: AsyncClient, db_session: AsyncSession, test_event
     ):
-        """Successful API calls should create audit log."""
-        # Make a successful API request
-        response = await authenticated_client.get(f"/api/incidents/?event_id={uuid4()}")
-        assert response.status_code == 200
+        """Successful mutating API calls should create an audit log entry."""
+        response = await authenticated_client.post(
+            "/api/incidents/",
+            json={
+                "event_id": str(test_event.id),
+                "title": "Audit-Test",
+                "type": "brandbekaempfung",
+                "priority": "medium",
+            },
+        )
+        assert response.status_code == 201
 
-        # Verify audit log created
         result = await db_session.execute(
             select(AuditLog).where(
                 AuditLog.resource_type == "api",
-                AuditLog.action_type == "get_request",
+                AuditLog.action_type == "post_request",
             )
         )
-        audit_entries = result.scalars().all()
-
-        # Should have at least one entry for /api/incidents
-        matching = [e for e in audit_entries if "/api/incidents" in str(e.changes_json.get("path", ""))]
+        matching = [e for e in result.scalars().all() if "/api/incidents" in str(e.changes_json.get("path", ""))]
         assert len(matching) >= 1
 
         entry = matching[0]
-        assert entry.changes_json["method"] == "GET"
+        assert entry.changes_json["method"] == "POST"
         assert entry.changes_json["path"] == "/api/incidents/"
         assert "duration_ms" in entry.changes_json
+
+    @pytest.mark.asyncio
+    async def test_middleware_does_not_log_reads(self, authenticated_client: AsyncClient, db_session: AsyncSession):
+        """
+        Reads must NOT be audited.
+
+        The board polls this endpoint every ~5 s per connected client. Logging that made the
+        audit log grow with traffic instead of with activity — two idle wall displays alone
+        wrote on the order of a gigabyte a year against a "keep forever" retention default,
+        ending in a full disk mid-operation. The defensible record is mutations; "who viewed
+        what" is not something the product reports on.
+        """
+        response = await authenticated_client.get(f"/api/incidents/?event_id={uuid4()}")
+        assert response.status_code == 200
+
+        result = await db_session.execute(select(AuditLog).where(AuditLog.action_type == "get_request"))
+        assert result.scalars().all() == []
 
     @pytest.mark.asyncio
     async def test_middleware_skips_health_check(self, client: AsyncClient, db_session: AsyncSession):
@@ -152,19 +172,27 @@ class TestAuditMiddleware:
 
     @pytest.mark.asyncio
     async def test_middleware_captures_user_from_request_state(
-        self, authenticated_client: AsyncClient, db_session: AsyncSession, test_editor_user: User
+        self, authenticated_client: AsyncClient, db_session: AsyncSession, test_editor_user: User, test_event
     ):
         """Middleware should capture authenticated user."""
-        # Make authenticated request
-        response = await authenticated_client.get(f"/api/incidents/?event_id={uuid4()}")
-        assert response.status_code == 200
+        # A mutation, since reads are deliberately not audited any more.
+        response = await authenticated_client.post(
+            "/api/incidents/",
+            json={
+                "event_id": str(test_event.id),
+                "title": "Audit-User-Test",
+                "type": "brandbekaempfung",
+                "priority": "medium",
+            },
+        )
+        assert response.status_code == 201
 
         # Find the audit log entry
         result = await db_session.execute(
             select(AuditLog)
             .where(
                 AuditLog.resource_type == "api",
-                AuditLog.action_type == "get_request",
+                AuditLog.action_type == "post_request",
             )
             .order_by(AuditLog.timestamp.desc())
         )

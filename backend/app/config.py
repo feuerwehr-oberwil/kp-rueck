@@ -131,6 +131,14 @@ class Settings(BaseSettings):
     # defensible record; deleting it on a timer nobody was told about is the opposite of that.
     # It used to default to 90 days, so a deployment more than three months old had already
     # lost the trail for its earliest operations without anything saying so.
+    #
+    # Keeping everything is only affordable because the log now grows with ACTIVITY rather
+    # than with traffic: middleware/audit.py records mutations only. While reads were logged
+    # too, the ~5 s board poll meant two idle wall displays wrote on the order of a gigabyte a
+    # year against this same "keep forever" default — a full disk, reached without anybody
+    # doing anything. Mutations alone are a few hundred thousand rows a year for a busy
+    # station, which keeps indefinitely on any disk. If reads are ever logged again, this
+    # default has to be revisited in the same change.
     # Set a positive number of days to prune (demo mode caps at 7 regardless).
     audit_retention_days: int = 0
     audit_cleanup_interval_hours: int = 24  # How often the cleanup job runs (hours)
