@@ -101,17 +101,20 @@ test.describe('Event Selection Empty State', () => {
     const emptyState = authenticatedPage.locator('h1:has-text("Noch kein Ereignis ausgewählt?")');
     await expect(emptyState).toBeVisible();
 
-    // Verify buttons stack vertically on mobile (flex-col)
-    const buttonContainer = authenticatedPage.locator('div').filter({
-      has: authenticatedPage.locator('button:has-text("Neues Ereignis erstellen")')
-    }).filter({
-      has: authenticatedPage.locator('button:has-text("Ereignisse anzeigen")')
-    });
+    // The two actions stack instead of sitting side by side (`flex-col sm:flex-row`).
+    // Asserted through the geometry the operator actually sees, not through the class
+    // name: the old version filtered `locator('div')` down to "every ancestor that
+    // contains both buttons", which is a strict-mode violation by construction — the
+    // card, its content and the page wrapper all qualify.
+    const createButton = authenticatedPage.getByRole('button', { name: 'Neues Ereignis erstellen' });
+    const viewButton = authenticatedPage.getByRole('button', { name: 'Ereignisse anzeigen' });
+    await expect(createButton).toBeVisible();
+    await expect(viewButton).toBeVisible();
 
-    const isFlexCol = await buttonContainer.evaluate(el =>
-      el.className.includes('flex-col')
-    );
-    expect(isFlexCol).toBeTruthy();
+    const createBox = (await createButton.boundingBox())!;
+    const viewBox = (await viewButton.boundingBox())!;
+    expect(viewBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
+    expect(viewBox.x).toBe(createBox.x);
   });
 });
 
@@ -125,35 +128,36 @@ test.describe('Event Selection Empty State - With Event Selected', () => {
   test('empty state does not show when event is selected', async ({ authenticatedPage }) => {
     // Create a test event
     const eventName = `Test Event ${Date.now()}`;
-    const createButton = authenticatedPage.locator('button:has-text("Neues Ereignis")').first();
+    const createButton = authenticatedPage.getByRole('button', { name: 'Neues Ereignis', exact: true });
     await createButton.click();
 
     // Fill in event name
-    const nameInput = authenticatedPage.locator('input#event-name');
-    await nameInput.fill(eventName);
+    const dialog = authenticatedPage.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.locator('input#event-name').fill(eventName);
 
-    // Submit
-    const submitButton = authenticatedPage.locator('button:has-text("Erstellen")');
-    await submitButton.click();
-    await authenticatedPage.waitForTimeout(1000);
+    // Submit. Scoped to the dialog and exact: the page behind it also carries the
+    // word "erstellen" ("Neues Ereignis erstellen" is the dialog's own title), so
+    // an unscoped substring match resolves to more than one element.
+    await dialog.getByRole('button', { name: 'Erstellen', exact: true }).click();
+    await expect(dialog).not.toBeVisible();
 
-    // Select the event
-    await authenticatedPage.goto('/events');
-    await authenticatedPage.waitForTimeout(500);
-
-    const selectButton = authenticatedPage.locator('button:has-text("Auswählen")').first();
-    await selectButton.click();
+    // Select the freshly created event by name, not "the first Auswählen on the page" —
+    // the list is shared with every other spec's events.
+    const eventCard = authenticatedPage
+      .locator('[data-slot="card"]')
+      .filter({ hasText: eventName })
+      .first();
+    await expect(eventCard).toBeVisible();
+    await eventCard.getByRole('button', { name: 'Auswählen' }).click();
 
     // Wait for redirect to main page
     await expect(authenticatedPage).toHaveURL('/');
-    await authenticatedPage.waitForTimeout(1000);
 
-    // Verify empty state is NOT visible
-    const emptyState = authenticatedPage.locator('text=Noch kein Ereignis ausgewählt?');
-    await expect(emptyState).not.toBeVisible();
-
-    // Verify kanban board or incident view is visible instead
-    const hasContent = await authenticatedPage.locator('main').isVisible();
-    expect(hasContent).toBeTruthy();
+    // The board, not the empty state
+    await expect(authenticatedPage.getByRole('heading', { name: eventName }).first()).toBeVisible();
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Noch kein Ereignis ausgewählt?' }),
+    ).toHaveCount(0);
   });
 });
