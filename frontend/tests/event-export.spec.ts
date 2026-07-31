@@ -26,7 +26,7 @@ const XLSX_BYTES = Buffer.from('PK\x03\x04');
 
 async function gotoEventsWith(page: Page, name: string): Promise<Locator> {
   const cookieHeader = await cookieHeaderFor(page);
-  const event = await createEvent(page.request, cookieHeader, name);
+  await createEvent(page.request, cookieHeader, name);
 
   await page.goto('/events');
   const card = page.getByTestId('event-card').filter({ hasText: name });
