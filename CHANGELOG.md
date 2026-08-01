@@ -28,10 +28,126 @@ will keep holding.
 
 ## [Unreleased]
 
-A review pass before publishing the repository more widely: the documentation was checked claim
-by claim against the code, and four things turned out to be promises the code did not keep.
+## [0.4.0] – 2026-08-01
+
+Two threads. A review pass before publishing the repository more widely – the documentation checked
+claim by claim against the code, four things promises the code did not keep. And a resiliency sweep
+whose findings share one shape: the capability was built, it just did not engage by itself. Several
+of the entries below are things that would have failed quietly, during an incident, with nobody
+watching.
+
+**Read this one before updating:** the incident status identifiers are now English and the board no
+longer translates them (see *Changed*). Any script of yours that reads the API sees new values.
 
 ### Fixed
+- **Two agents could print the same slip.** The claim was a read-then-write: `SELECT`, status check
+  in Python, then assignment. Both agents passed the check, both printed. What prevented it until
+  now was the prose rule "never run two agents" – and compose ships a second agent behind a
+  `printing` profile, so the rule sat one flag away from being broken. It is now a conditional
+  `UPDATE` with the status in the `WHERE` clause: atomic, and the loser gets a 409. This also
+  brought the repository's first real concurrency tests; `asyncio.gather` had appeared exactly zero
+  times in either suite. Against the old logic the five-agent case reports `[1, 1, 0, 0, 0]` – two
+  winners, the same slip twice. The two-agent case stayed green throughout, which is a good
+  explanation of why this went undetected for so long.
+- **Six settings could not be saved, among them the offline-map switch.** `api/settings.py` checks
+  every key against `DEFAULT_SETTINGS`, and `home_city`, `map_mode`, `map_style` and the three
+  `firestation_*` values were not in it. The seed writes them, the frontend reads them in seven
+  places, the settings page renders inputs for them – and every save answered 404 behind a generic
+  "Speichern fehlgeschlagen". Among them `map_mode`: the control that exists for the internet
+  outage. A contract break between two lists that five lines of test would have caught; those lines
+  now exist, and they read the frontend source rather than a copied list, because a copy drifts
+  exactly like the thing it is meant to secure.
+- **Safari never saw "Verbindung verloren", and "Gedruckt" was a guess.** Three places where the
+  client asserted something it did not know. Network errors were detected by *text*:
+  `error.message.includes('fetch')` only matches Chrome's "Failed to fetch", so on Safari every
+  offline request fell through to the generic re-throw – around 85 read sites silently changed
+  contract depending on the browser. There was also no timeout: a dead-but-open TCP connection never
+  rejects on its own, and one hanging GET was enough to wedge the polling loop permanently, leaving
+  the board simply standing still. Now 20 s, chosen generously – a command post on a saturated
+  uplink is slow but worth waiting for. And "gedruckt" only ever meant the bytes were in the socket:
+  a TM-T20III with no paper accepts a short slip into its buffer, the write closes cleanly, the
+  agent reports `completed` and the toast turns green with no paper in existence. The most likely
+  printer fault is the one that reports success. Until the agent queries real paper status it reads
+  "An Drucker gesendet". Thermal path only – kp-front's CUPS side knows real job status and keeps
+  its wording.
+- **The token displays showed hours-old situations as current.** `/display/status` and
+  `/display/map` swallowed every fetch error with a bare `catch {}` and then re-rendered the last
+  answer indefinitely. A backend that starts throwing 500s at 02:10 produces a display at 04:00 that
+  looks entirely normal. On a screen nobody is standing in front of, that is the most dangerous
+  thing this application can do – more dangerous than a crash, which is at least visible. Worse, the
+  connection indicator polled an authenticated endpoint, so a token display never had a session, the
+  call failed every time, and the icon sat permanently on red: the only warning these screens had
+  was crying wolf. Escalation is now staged – quiet under 30 s, a restrained bar after that,
+  unmissable from two minutes – and the content stays visible at every stage, because during an
+  outage the frozen picture is still the best information in the room.
+- **The audit log, photo uploads and the print queue were all unbounded.** The middleware logged
+  every successful `/api/` call including GETs, and the board polls roughly every 5 s per client:
+  two idle wall displays alone came to something like a gigabyte a year, a storm at ~90 req/s to
+  several gigabytes a day, against a retention setting that reads "forever" – and on a station box
+  the database shares that disk. Only mutations are logged now; the proof the log exists for is
+  intact, what is given up is "who *looked* at what". Photos were read fully into memory *before*
+  the size check, and `_validate_file_type` called a complete decode before anyone looked at the
+  dimensions, so a legal 1.2 MB PNG declaring 20000×20000 pixels expanded to ~1.6 GB against a 1 GB
+  limit. Dimensions are now checked after the header parse and before decoding. And print jobs never
+  expired, so after a two-hour printer outage the agent emptied the entire queue at once – slips for
+  long-closed incidents competing for paper with the incident still running. Board snapshots expire
+  after 15 min, incident slips after 60; test prints never, because somebody is standing at the
+  printer and a late arrival is itself the diagnosis. Expired jobs are marked `expired`, not
+  deleted: "this was never printed" belongs in the record.
+- **100 incidents per Lage was an invisible ceiling.** `GET /api/incidents` capped at 100 and no
+  production caller passes a limit – not the board, the detail view, the context or the viewer path.
+  At 200 incidents, 100 were arbitrarily invisible with no banner, no number, no hint of any kind; a
+  bare array looks identical whether it is complete or truncated. And that is precisely the storm
+  scenario this software exists for. The default is now 500 (the *maximum* stays at 500, a tested
+  safety bound – the bug was the default everyone gets, not the ceiling nobody touches), and
+  `X-Total-Count` reports the total before skip/limit so the board can say "Es werden X von Y
+  Einsätzen angezeigt". Making the limit visible matters more than making it higher.
+- **The backup could be switched off, and `just clean` deleted everything.** Three gaps of the same
+  shape. The backup sidecar hangs off the compose profile `backup`, which has to be passed on every
+  invocation – but `just stop` runs a plain `down` and the documented update path is a plain
+  `docker compose up -d`, so both leave the sidecar uncreated, and a container that does not exist
+  cannot report itself `unhealthy`. The one signal that backups are running was missing exactly when
+  they were not. `COMPOSE_PROFILES=backup` in the `.env` takes the remembering out of the loop.
+  `just clean` dropped the database and photos without asking, in dev and production alike,
+  advertised as "removes volumes" which reads like clearing caches; it now requires typing `delete`.
+  And nothing told anyone about an outage: `/health` does a real `SELECT 1` and answers 503, and
+  Caddy already published it – built, but never mentioned to anybody. `DEPLOYMENT.md` §7 now does.
+- **`X-Total-Count` was invisible to JavaScript, and two warnings rendered on top of each other.**
+  CORS hides any non-safelisted response header unless it is named in
+  `Access-Control-Expose-Headers`, so the truncation banner above could never appear on a
+  split-origin deployment – which is exactly what a developer runs locally. Separately the staleness
+  banner on `/display/map` was absolutely positioned over the map's own "N Einsätze ohne gültige
+  Koordinaten" chip: two warnings rendered into each other, less legible than either alone.
+- **The export error appeared in English while the German message sat dead beside it.**
+  `err instanceof Error ? err.message : t('page.reportExportFailed')` looks like a fallback but is
+  not one – `apiClient` always throws an `Error`, so the second branch never ran, and the operator
+  got raw backend text in an otherwise German interface. The German message is now the title and the
+  technical cause the description. Same for the audit export.
+- **The Einsatzzettel carried the print time rather than its own.** The agent has stamped
+  `printed_at` into the footer since the resiliency batch, so a slip that sat behind a dead printer
+  cannot claim to be current – but the value was only set for board, test and QR jobs. The
+  most-printed document of all, and the one with the longest TTL, fell through to `datetime.now()`
+  in the agent: back into the exact error the stamp exists to prevent. `AUSFALL_SOP.md` leans on that
+  footer to judge how current the paper picture is.
+- **`updated_at` on settings came from two clocks.** Postgres stamped it on INSERT
+  (`server_default=func.now()`), the service set it from Python on UPDATE. If the database runs in a
+  container or on a managed host, the application clock lags and a changed setting lands *before*
+  its own creation. It surfaced as test flake – failing five times out of five in isolation, almost
+  never in a full run, because there the gap is wide enough to cover the drift. `onupdate` now
+  handles it, using `clock_timestamp()` rather than `now()`: the latter is the transaction start
+  time, so a row created and changed in one transaction would have kept its old stamp.
+- **The demo banner kept the demo awake, and the proxy added a redirect to every call.** Two
+  findings from the Railway cost analysis. The banner polled `/api/demo/status` every 30 seconds
+  even in a tab nobody had looked at for hours – on its own enough that the demo backend and its
+  database never went to sleep: 739,000 requests in 30 days. It now polls only while the tab is
+  visible, and fetches immediately on return so the countdown is never stale. And the proxy appended
+  a trailing slash to every path, while only 76 of 346 backend routes are declared with one: for the
+  other 270 that cost a guaranteed 307 plus a second request on every single call.
+- **An expired simulation drive sometimes disappeared only internally.**
+- **The image-size guard no longer reads Pillow's mutable global.** `Image.MAX_IMAGE_PIXELS` is set
+  at import and was read back at the two check sites – but any other import can reassign it, `None`
+  included, which disables the decompression-bomb guard outright. The checks now compare against an
+  own constant; Pillow's copy is kept in step so its own warning fires at the same threshold.
 - **The telemetry veto in `PRIVACY.md` did nothing.** The page tells an operator to put
   `KP_TELEMETRY_ENABLED=0` in their compose file and promises it "outranks the settings page, so
   no later click can turn it on". `Settings` has no `env_prefix`, so the field actually bound to
@@ -106,6 +222,12 @@ by claim against the code, and four things turned out to be promises the code di
   alone could not have fixed this either.
 
 ### Added
+- **A failed print now reaches the person walking to the printer.** "Druckauftrag gesendet" only
+  ever confirmed that a slip had been queued. If the paper was out, the agent marked the job
+  `failed` with an `error_message` that lived under Einstellungen → Drucker and nowhere else – so
+  the operator read "gesendet", walked over, and found nothing. The agent now reports the outcome
+  back and the toast on the board changes to say what actually became of the job, with a printer
+  that is simply unreachable reading differently from paper out.
 - **The backup is now scheduled, verified and provably restorable.** Until today the only thing
   standing between a station and a lost operational record was somebody remembering to type
   `scripts/backup.sh` — no schedule, no retention beyond a flat 14 files, and no evidence that
@@ -133,6 +255,14 @@ by claim against the code, and four things turned out to be promises the code di
   anyway, because a board that is down is worse than a migration without a snapshot.
 
 ### Changed
+- **Under the hood: the test suite was repaired, sped up, and the typing gate widened.** A run of
+  end-to-end specs had drifted into asserting things that no longer existed – Tailwind class names
+  instead of behaviour, a check-in widget that is not in the product, a local suite that could not
+  even log in. They now test what the interface actually does. Backend tests moved off a single
+  worker (1,881 of them were eight of twelve CI minutes), `app/services` went from 183 mypy errors
+  to zero and moved into the blocking gate, and the nightly suite's own configuration was fixed:
+  it had been failing on a missing `VIEWER_PASSWORD` and a missing `PRINT_AGENT_TOKEN`, reported
+  under a spec name that had in fact already been repaired.
 - **The backend image pins the PostgreSQL client to 17.** Debian bookworm's `postgresql-client`
   is version 15, and `pg_dump` 15 refuses outright to dump the 17.x server production runs
   ("aborting because of server version mismatch") — which would have made the new pre-migration
@@ -787,7 +917,8 @@ something another station can pin.
 
 _For the full running history before the first release, see the git log._
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/feuerwehr-oberwil/kp-rueck/releases/tag/v0.1.0
