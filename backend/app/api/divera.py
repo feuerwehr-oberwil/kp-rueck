@@ -661,18 +661,39 @@ async def send_incident_alarm(
             simulated=True,
         )
 
+    # Everything the outbound call needs, read off the ORM instance while the session is still
+    # open, so the call below argues only with plain values.
+    # Every recipient appended to `sent` above carries a non-None personnel_id and a matching
+    # external_ids entry; the schema type (UUID | None) is wider.
+    alarm_external_ids = [external_ids[r.personnel_id] for r in sent]  # type: ignore[index]
+    alarm_address = incident.location_address
+    alarm_lat = float(incident.location_lat) if incident.location_lat is not None else None
+    alarm_lng = float(incident.location_lng) if incident.location_lng is not None else None
+
+    # Hand the pooled connection back before talking to the provider. `send_alarm` retries three
+    # times against a 15 s timeout and does it twice over (look up an existing alarm, then create
+    # or update it), so the worst case is ~93 s. Holding a database connection that long — on the
+    # one request an operator makes when something is actually on fire — is how a slow Divera
+    # turns into a board that no longer answers for anybody.
+    #
+    # `commit()` and not `rollback()`, and the difference is not cosmetic: the session is built
+    # with `expire_on_commit=False`, so committing ends the transaction and returns the
+    # connection while leaving every loaded instance usable. A rollback expires them instead, and
+    # the next attribute touch — `current_user` inside `log_action` below — becomes a lazy load
+    # from async context, i.e. `MissingGreenlet`. Nothing is pending here in any case: the
+    # handler has only read, and the sole write is the audit entry afterwards.
+    await db.commit()
+
     try:
         result = await provider.send_alarm(
-            # Every recipient appended to `sent` above carries a non-None personnel_id
-            # and a matching external_ids entry; the schema type (UUID | None) is wider.
-            external_ids=[external_ids[r.personnel_id] for r in sent],  # type: ignore[index]
+            external_ids=alarm_external_ids,
             title=title,
             text=text,
             foreign_id=foreign_id,
             priority=request_data.priority,
-            address=incident.location_address,
-            lat=float(incident.location_lat) if incident.location_lat is not None else None,
-            lng=float(incident.location_lng) if incident.location_lng is not None else None,
+            address=alarm_address,
+            lat=alarm_lat,
+            lng=alarm_lng,
             channels=alerting.AlarmChannels(
                 push=request_data.send_push,
                 sms=request_data.send_sms,
@@ -771,6 +792,14 @@ async def send_test_alarm(
 
     name = request_data.name or "Testperson"
     foreign_id = f"kprueck-test-{request_data.divera_user_id}"
+
+    # Same reason as the incident alarm above, including why it is `commit` and not `rollback`:
+    # give the pooled connection back before a call that can take ~93 s to fail. Rarer than the
+    # real thing — one operator pressing a button in Einstellungen rather than every board at
+    # once — but the same shape, and a test alarm is precisely what somebody runs when Divera is
+    # already misbehaving.
+    await db.commit()
+
     try:
         data = await divera_alarm.send_alarm(
             user_cluster_relation=[request_data.divera_user_id],
