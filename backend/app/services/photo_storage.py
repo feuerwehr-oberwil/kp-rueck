@@ -35,7 +35,14 @@ _UPLOAD_CHUNK_BYTES = 64 * 1024
 #: refusal, and the code below caps only WIDTH, which is applied after the decode has already
 #: happened. 50 Mpx comfortably clears any real camera (a 48 MP phone is ~48 Mpx) while keeping
 #: the worst case bounded well under the container's 1 GB.
-Image.MAX_IMAGE_PIXELS = 50_000_000
+#:
+#: The two checks below compare against THIS constant, never against
+#: `Image.MAX_IMAGE_PIXELS`. Pillow's guard is a module-level global that any other import can
+#: reassign — including to `None`, which disables it outright — so a security check must not
+#: read it back out. (It is also typed `int | None`, which is what surfaced the coupling.)
+#: Pillow's copy is kept in step so its own warning fires at the same threshold.
+MAX_IMAGE_PIXELS = 50_000_000
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 settings = get_settings()
 
@@ -117,7 +124,7 @@ class PhotoStorageService:
         # container limit. Pillow's own guard does not cover the 1x-2x band (it merely warns
         # and decodes anyway), which is precisely the range that fits in a legal-looking file.
         pixels = img.size[0] * img.size[1]
-        if pixels > Image.MAX_IMAGE_PIXELS:
+        if pixels > MAX_IMAGE_PIXELS:
             logger.warning("Rejected oversized image: %dx%d", img.size[0], img.size[1])
             raise HTTPException(
                 status_code=413,
@@ -258,7 +265,7 @@ class PhotoStorageService:
             # refuse; Pillow's own MAX_IMAGE_PIXELS only *warns* between 1× and 2× the limit,
             # and by the time it raises, the allocation has been attempted.
             pixels = image.size[0] * image.size[1]
-            if pixels > Image.MAX_IMAGE_PIXELS:
+            if pixels > MAX_IMAGE_PIXELS:
                 logger.warning("Rejected oversized image: %dx%d", image.size[0], image.size[1])
                 raise HTTPException(
                     status_code=413,
