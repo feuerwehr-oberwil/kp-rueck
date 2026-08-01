@@ -36,6 +36,10 @@ env:
   PNPM_VERSION: "9"
   # Same throwaway fixture password as ci.yml — seeds a database that dies with the job.
   E2E_PASSWORD: "e2e-ci-password-not-a-secret" # gitleaks:allow
+  # 22-print-outcome plays the print agent against the real agent API. Those endpoints fail
+  # CLOSED (`api/print.py`: no PRINT_AGENT_TOKEN configured means off, not open), so the
+  # backend and the specs must be handed the same throwaway value or every claim gets a 403.
+  E2E_PRINT_AGENT_TOKEN: "e2e-print-agent-token-not-a-secret" # gitleaks:allow
 
 jobs:
   full-suite:
@@ -122,6 +126,7 @@ jobs:
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           CORS_ORIGINS: http://localhost:3000
+          PRINT_AGENT_TOKEN: ${{ env.E2E_PRINT_AGENT_TOKEN }}
 
       # The filter goes through the environment, never interpolated into the shell line: a
       # `${{ inputs.* }}` expanded inside `run:` is a script-injection hole, and this input is
@@ -138,6 +143,13 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8000
           TEST_USERNAME: admin
           TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
+          # The seed step above gave the read-only `viewer` account this same password, so the
+          # specs have to be told it too. Omitting it does not fail loudly: `tests/constants.ts`
+          # falls back to the dev default `viewer`, the login is simply refused, and all fifteen
+          # viewer-role specs die on `waitForURL` ten seconds later — which is what had been
+          # reported as a broken `09-resource-badges` since 2026-07-26.
+          VIEWER_PASSWORD: ${{ env.E2E_PASSWORD }}
+          PRINT_AGENT_TOKEN: ${{ env.E2E_PRINT_AGENT_TOKEN }}
           CI: true
           GREP: ${{ inputs.grep }}
         run: |

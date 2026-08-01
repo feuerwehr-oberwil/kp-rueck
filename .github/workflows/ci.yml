@@ -610,6 +610,11 @@ jobs:
         env:
           TEST_USERNAME: admin
           TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
+          # No @smoke spec logs in as the viewer today, so this is prophylactic: tagging one
+          # later must not silently reproduce the nightly's failure, where the missing variable
+          # sends the specs to the dev default in tests/constants.ts and every viewer login
+          # times out at the login screen.
+          VIEWER_PASSWORD: ${{ env.E2E_PASSWORD }}
           NEXT_PUBLIC_API_URL: http://localhost:8000
           CI: true
 
