@@ -23,11 +23,6 @@ feature history lives in [`../CHANGELOG.md`](../CHANGELOG.md).
 | [`AUSFALL_SOP.md`](AUSFALL_SOP.md) | 🟢 | Outage / paper-fallback standard operating procedure: Lageblatt PDF, automatic thermal snapshots, and what to do when the network or backend is down. |
 | [`openapi.json`](openapi.json) | 🟢 | The committed OpenAPI contract — every route, request and response shape, readable without booting the stack. Regenerate with `just openapi`; a pytest fails when it drifts from the code. |
 
-## Open checklist
-
-| Doc | Status | What it is |
-| --- | --- | --- |
-
 ## Not in this repository
 
 Internal working documents – point-in-time audits, design critiques, **feature and hardening
