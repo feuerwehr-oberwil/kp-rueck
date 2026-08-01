@@ -438,14 +438,21 @@ async def _check_geofence_alerts(
     notifications: list[Notification] = []
 
     try:
-        from ..traccar import VehiclePosition, traccar_client
-        from .gps_simulation import gps_simulation
+        from ..traccar import VehiclePosition
+        from .traccar_poller import traccar_poller
 
-        if not traccar_client.is_configured and not gps_simulation.any_active():
-            return notifications
-
-        # Get all vehicle positions
-        positions = await traccar_client.get_vehicle_positions()
+        # Read the poller's last broadcast instead of calling Traccar from here. This runs inside
+        # GET /api/notifications/, which holds a pooled DB connection for its whole duration and
+        # is polled every 10 s by every connected board — so an unreachable Traccar parked one
+        # connection per client per round and emptied the pool in well under a minute. The poller
+        # fetches on that same 10 s cadence anyway; this just reads the result.
+        #
+        # Worth stating, because it is a behaviour change: geofence alerts now come from exactly
+        # the position stream the board is drawing. No stream — GPS unconfigured, no simulation
+        # running, or the poll failing — means no geofence alerts, rather than alerts computed
+        # from a second, independently-timed fetch that could disagree with the map. The poller
+        # covers the simulation-only case too (`start_polling`), so no separate check here.
+        positions = traccar_poller.cached_positions()
         if not positions:
             return notifications
 

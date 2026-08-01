@@ -18,6 +18,11 @@ POSITIONS_INTERVAL_SECONDS = 10
 TRAILS_INTERVAL_SECONDS = 30
 TRAILS_HISTORY_MINUTES = 30
 
+#: How old the cached positions may be before a reader stops trusting them. Positions are polled
+#: every 10 s, so this is six missed rounds: long enough to ride out a blip, short enough that
+#: nothing decides anything on a position from a different phase of the incident.
+POSITION_CACHE_MAX_AGE_SECONDS = 60
+
 
 class TraccarPoller:
     """Polls Traccar for positions/trails and broadcasts via WebSocket."""
@@ -26,6 +31,8 @@ class TraccarPoller:
         self._positions_task: asyncio.Task[None] | None = None
         self._trails_task: asyncio.Task[None] | None = None
         self._should_poll = False
+        self._last_positions: list[VehiclePosition] = []
+        self._last_positions_at: datetime | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -63,7 +70,28 @@ class TraccarPoller:
                     await task
         self._positions_task = None
         self._trails_task = None
+        # Drop the cache rather than let it age out: once polling stops there is nothing
+        # refreshing it, and a reader restarting within the freshness window would otherwise
+        # be handed positions from before the gap.
+        self._last_positions = []
+        self._last_positions_at = None
         logger.info("Stopped Traccar polling")
+
+    def cached_positions(self, max_age_seconds: int = POSITION_CACHE_MAX_AGE_SECONDS) -> list[VehiclePosition]:
+        """Positions from the last successful poll, or `[]` if none are recent enough.
+
+        This is how a REQUEST HANDLER reads positions — never `traccar_client` directly. Calling
+        Traccar from inside a request means an unreachable GPS server parks a pooled DB
+        connection for the length of its timeout, and `GET /api/notifications/` is polled every
+        10 s by every connected board: the pool (20 + 10 overflow) empties in well under a
+        minute. The poller already fetches on that same cadence for the WebSocket broadcast, so
+        reading its result costs nothing and cannot block.
+        """
+        if self._last_positions_at is None:
+            return []
+        if (datetime.now(UTC) - self._last_positions_at).total_seconds() > max_age_seconds:
+            return []
+        return self._last_positions
 
     async def _poll_positions(self) -> None:
         """Poll vehicle positions and broadcast."""
@@ -72,6 +100,8 @@ class TraccarPoller:
         while self._should_poll:
             try:
                 positions = await traccar_client.get_vehicle_positions()
+                self._last_positions = positions
+                self._last_positions_at = datetime.now(UTC)
                 positions_data = [
                     {
                         "device_id": p.device_id,
