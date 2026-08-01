@@ -109,12 +109,18 @@ test.describe('Print job outcome reaches the operator', () => {
     await expect(page.getByRole('button', { name: 'Drucker prüfen' })).toBeVisible();
   });
 
-  test('a successful print confirms that paper actually came out', async ({ authenticatedPage: page }) => {
+  // Deliberately NOT "paper came out". A TM-T20III with an empty tray takes a short slip into
+  // its buffer, the write closes cleanly and the agent reports `completed` — so the wording was
+  // changed to claim only what is actually known. The assertion has to claim the same, or the
+  // spec quietly re-asserts the bug.
+  test('a completed job says the slip reached the printer, and no more than that', async ({
+    authenticatedPage: page,
+  }) => {
     const jobId = await printFromCardContextMenu(page);
 
     await agentReports(page, jobId, 'completed');
 
-    await expect(page.getByText('Gedruckt', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('An Drucker gesendet', { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Druckauftrag gesendet')).toHaveCount(0);
   });
 });

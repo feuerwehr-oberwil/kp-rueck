@@ -30,11 +30,15 @@ async function proxyRequest(request: NextRequest) {
 
   // Get the path after /backend-api/
   const url = new URL(request.url)
-  let targetPath = url.pathname.replace('/backend-api', '')
-  // Ensure trailing slash for FastAPI (Next.js strips it via 308, causing redirect chains)
-  if (targetPath && !targetPath.endsWith('/') && !targetPath.includes('.')) {
-    targetPath += '/'
-  }
+  // Forward the path as received. We used to append a trailing slash here, on the theory
+  // that FastAPI wants one — but only 76 of the backend's 346 routes are declared with a
+  // slash. For the other 270 the append bought a guaranteed 307 plus a second request for
+  // every single call, which the redirect-following below then silently absorbed: the edge
+  // logs for the demo backend showed exactly 48x 307 and 48x 200 for 48 status polls.
+  // Requests arrive here already stripped of any trailing slash (Next 308s them away), so
+  // sending the path unchanged is the right default; the minority of slash-declared routes
+  // still redirect once and are picked up by the loop below.
+  const targetPath = url.pathname.replace('/backend-api', '')
   const targetUrl = `${backendUrl}${targetPath}${url.search}`
 
   // Get cookies from the request
