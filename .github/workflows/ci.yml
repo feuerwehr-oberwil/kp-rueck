@@ -6,9 +6,11 @@ name: CI
 #   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
 #   frontend-typecheck, frontend-unit-tests, frontend-build, images
 #   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
-#   plus telemetry-drift — the ONLY check that compares the vendored sanitiser against
-#   kp-front; the in-repo hash test cannot see the other repository. Add it to the required
-#   list on main once it has run a few times (it depends on a sibling repo being reachable).
+#   plus telemetry-drift and divera-keyword-drift — the ONLY checks that compare anything
+#   against kp-front; the in-repo hash tests cannot see the other repository. Both are held
+#   out of the required list on main until they have run a few times, because both depend on
+#   a sibling repo being reachable. They are separate jobs on purpose: one answers "could one
+#   app leak what the other strips", the other "could the two classify an alarm differently".
 #
 # ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-30:
 #   backend-typecheck  mypy, second step – 55 errors in 7 files across the packages NOT in the
@@ -244,6 +246,60 @@ jobs:
             echo "Copy the changed file across, run BOTH test suites, and update the recorded"
             echo "hash in both repositories in the same change. Updating one side alone is"
             echo "exactly the failure this job exists to catch."
+            exit 1
+          fi
+
+  # Same mechanism, second shared thing: the Divera keyword vocabulary. Both products read the
+  # same dispatch system and had grown the same two tables by hand — 19 title keywords, 40
+  # priority keywords — with nothing comparing them, which is how GASLECK ended up on one side
+  # only. The in-repo test pins the checksums; this job is the only thing that reads kp-front.
+  #
+  # Kept as its OWN job rather than a step in telemetry-drift on purpose: a failure here means
+  # "an alarm may be classified differently in the two apps", a failure there means "one app may
+  # leak what the other strips". Different questions, different urgency — a shared red X would
+  # tell you neither.
+  divera-keyword-drift:
+    name: Divera keyword vocabulary matches KP Front
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out kp-front
+        uses: actions/checkout@v7
+        with:
+          repository: feuerwehr-oberwil/kp-front
+          path: .kp-front
+          fetch-depth: 1
+
+      - name: Diff the shared keyword vocabulary
+        run: |
+          set -euo pipefail
+          # The JSON is the vocabulary; the loader is how both sides read it. Pinning one
+          # without the other would leave half the contract free to move.
+          files="divera_keywords.py data/divera_keywords.json"
+          status=0
+          for f in $files; do
+            ours="backend/app/$f"
+            theirs=".kp-front/backend/app/$f"
+            if [ ! -f "$theirs" ]; then
+              echo "::error::$f is missing in kp-front — the shared vocabulary has changed shape"
+              status=1
+              continue
+            fi
+            if ! diff -u "$theirs" "$ours" > "/tmp/kw-$(basename "$f").diff"; then
+              echo "::error::app/$f has diverged from kp-front"
+              cat "/tmp/kw-$(basename "$f").diff"
+              status=1
+            else
+              echo "  ✓ $f"
+            fi
+          done
+          if [ "$status" -ne 0 ]; then
+            echo ""
+            echo "Copy the changed file across, run BOTH test suites, and update the recorded"
+            echo "hash in both repositories in the same change. A keyword added on one side"
+            echo "only means the two apps classify the same alarm differently."
             exit 1
           fi
 
