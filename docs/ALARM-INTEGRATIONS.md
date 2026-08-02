@@ -117,7 +117,9 @@ curl -X POST "https://<backend>/api/alarms" \
   (Status «Eingegangen») an das neueste aktive Ereignis mit aktiviertem
   Auto-Anhängen gehängt; sonst bleibt er zum manuellen Anhängen im Pool.
 - **Ableitung:** Einsatzart (FEUER→Brandbekämpfung, VU→Strassenrettung, …) und
-  Priorität (lebensbedrohliche Stichworte→hoch) aus Titel/Text.
+  Priorität (lebensbedrohliche Stichworte→hoch) aus Titel/Text. Die Stichwortliste ist
+  nicht alarmierungssystem-spezifisch: sie steht in `backend/app/data/alarm_keywords.json`
+  und wird byte-identisch mit KP Front geteilt (siehe `docs/RUNNING-BOTH.md`).
 - **Rate-Limit:** 10 Anfragen/Minute pro IP.
 
 ## Abgrenzung zu den Adapter-Endpunkten

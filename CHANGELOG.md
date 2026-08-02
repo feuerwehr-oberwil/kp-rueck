@@ -29,13 +29,22 @@ will keep holding.
 ## [Unreleased]
 
 ### Changed
-- **The Divera keyword list existed twice in the estate and nothing compared the copies.** The map
-  from an alert's Stichwort to an incident category, and the keyword list deciding which alerts are
-  high priority, were written independently here and in KP Front – the same 19 title keywords, same
-  order, same casing, arrived at twice – and had already begun to drift: this side knew `GASLECK`,
-  the other did not. Both now read one checked-in data file, `backend/app/data/divera_keywords.json`,
-  vendored byte-for-byte into both products with a checksum pinned on each side, plus a new
-  **`divera-keyword-drift`** CI job here that diffs the file against KP Front's default branch.
+- **The alarm keyword list existed twice in the estate, nothing compared the copies, and it was
+  named after somebody else's alerting provider.** The map from an alert's Stichwort to an incident
+  category, and the keyword list deciding which alerts are high priority, were written
+  independently here and in KP Front – the same 19 title keywords, same order, same casing, arrived
+  at twice – and had already begun to drift: this side knew `GASLECK`, the other did not. Both now
+  read one checked-in data file, `backend/app/data/alarm_keywords.json`, vendored byte-for-byte
+  into both products with a checksum pinned on each side, plus a new **`alarm-keyword-drift`** CI
+  job here that diffs the file against KP Front's default branch.
+
+  **Nothing in that file is Divera's**, which is why it is not called `divera_keywords.json`: the
+  keywords are German fire-service words and the categories are the FKS Schadenkategorien. Divera
+  is how those words reach *this* station – the delivery, not the definition – and naming a shared
+  vocabulary after one deployment's provider made it look like a Divera feature to every other
+  station. Same reasoning that retired `divera_id` in favour of `source`/`source_ref`. The Divera
+  intake, poller, alerting adapter and access key keep their names: those genuinely are the Divera
+  attachment.
 
   That job is the load-bearing half and it is worth being precise about why. The checksum test
   catches an accidental edit *on this side*; it never reads the other repository, so editing both
@@ -45,6 +54,15 @@ will keep holding.
   self-hosters separate databases, separate images, separate releases, no shared library and no
   runtime coupling. That promise is published. A test that catches drift keeps it; a library that
   removes the duplication would break it.
+
+  **If you forked this repository, both cross-repo jobs now belong to you.** They used to be
+  hardcoded to `feuerwehr-oberwil/kp-front`, so a fork inherited a check that compared its files
+  against ours and went red with nothing explaining why. Both now read a single `SIBLING_REPO`
+  variable at the top of `.github/workflows/ci.yml` – point it at your own KP Front fork, or set it
+  to an empty string to switch both off. They **skip with a message**, never fail, when the sibling
+  is unset or cannot be checked out; they still fail, loudly, when it is readable and the files
+  actually differ. A check that goes green when it could not answer the question is worse than no
+  check, because the green tick reads as proof.
 
   **Behaviour is unchanged** – the resulting maps are character-for-character what they were, order
   included. Two things deliberately stayed out of the shared file and are named in it rather than

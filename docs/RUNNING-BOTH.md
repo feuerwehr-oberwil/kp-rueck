@@ -149,6 +149,13 @@ Worth stating, so you don't go looking for problems that aren't there:
   the *same* Divera access key; that is a Divera account detail, not a collision.)
 - **Login.** KP Front authenticates with a station PIN, KP Rück with accounts (and optionally
   Entra SSO). Different models on purpose; there is no shared session.
+- **The alarm keyword vocabulary.** Both ship the same list of German alarm words
+  (`backend/app/data/alarm_keywords.json`) so an alert classifies the same way in both. It is
+  **vendored, not shared**: a byte-identical copy in each repository, kept in step by a CI job
+  that diffs them – no package, no import, still no runtime coupling. Nothing to install and
+  nothing to point at the other stack. If your dispatch words are not these, override them per
+  deployment (KP Front: `alarmKeywords` in the deployment config) rather than editing the file –
+  editing it puts your build at odds with the copy in the other repository.
 - **Printing.** There is **one** agent for both systems, so this is not duplicated work either.
   Give it a `backends` list with one entry per system and run a single service; it speaks each
   system's protocol and drives each kind of printer. See

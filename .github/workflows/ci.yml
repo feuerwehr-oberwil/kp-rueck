@@ -6,11 +6,14 @@ name: CI
 #   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
 #   frontend-typecheck, frontend-unit-tests, frontend-build, images
 #   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
-#   plus telemetry-drift and divera-keyword-drift — the ONLY checks that compare anything
+#   plus telemetry-drift and alarm-keyword-drift — the ONLY checks that compare anything
 #   against kp-front; the in-repo hash tests cannot see the other repository. Both are held
 #   out of the required list on main until they have run a few times, because both depend on
 #   a sibling repo being reachable. They are separate jobs on purpose: one answers "could one
 #   app leak what the other strips", the other "could the two classify an alarm differently".
+#   Both read `env.SIBLING_REPO` and SKIP (never fail) when it is empty or cannot be checked
+#   out, so a fork inherits an honest "not checked" rather than a red X against a repository
+#   it has nothing to do with. They still fail on real drift for the upstream pair.
 #
 # ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-30:
 #   backend-typecheck  mypy, second step – 55 errors in 7 files across the packages NOT in the
@@ -67,6 +70,12 @@ on:
   workflow_call:
 
 env:
+  # The sibling product both cross-repo drift jobs compare against (telemetry-drift,
+  # alarm-keyword-drift). THE ONE LINE A FORK CHANGES: point it at your own kp-front fork to
+  # keep the checks meaningful, or set it to "" to switch them off — they then SKIP with a
+  # message instead of failing you against upstream's files. Kept out of the jobs so there is
+  # exactly one place to edit, and no ownership check hidden in an `if:` somewhere else.
+  SIBLING_REPO: "feuerwehr-oberwil/kp-front"
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "24"   # Active LTS; 20 went EOL 2026-04-30. Match frontend/Dockerfile.
   PNPM_VERSION: "9"
@@ -195,6 +204,18 @@ jobs:
           python -m pip install --quiet pytest
           python -m pytest -q
 
+  # ── The two cross-repository drift jobs ──────────────────────────────────────────────────
+  #
+  # FORKS, READ THIS FIRST. Both jobs below compare files in THIS repository against the same
+  # files in KP Front. Which KP Front is `env.SIBLING_REPO`, at the top of this file — that is
+  # the ONE line a fork changes. Point it at your own kp-front fork to keep the check, or set
+  # it to an empty string to switch both jobs off; they then skip with a message instead of
+  # failing you against somebody else's file. Nothing else in this file needs touching.
+  #
+  # They do NOT skip when the sibling is reachable and the files differ. That is the whole
+  # point: a check that goes green when it could not answer the question is worse than no
+  # check, because a green tick reads as proof.
+  #
   # The vendored telemetry modules are shared with kp-front by COPY, not by package. The
   # in-repo test hashes them against a recorded literal, which catches an accidental edit here
   # — but not the case the docstring actually warns about: change scrub.py in one repo, update
@@ -211,16 +232,33 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check out kp-front
+      # `continue-on-error` so an unreachable/private/renamed sibling becomes a SKIP below
+      # rather than a red X nobody can act on. A fork that never sets SIBLING_REPO lands here.
+      - name: Check out the sibling repository
+        id: sibling
+        if: env.SIBLING_REPO != ''
+        continue-on-error: true
         uses: actions/checkout@v7
         with:
-          repository: feuerwehr-oberwil/kp-front
+          repository: ${{ env.SIBLING_REPO }}
           path: .kp-front
           fetch-depth: 1
 
       - name: Diff the vendored telemetry modules
+        env:
+          SIBLING_STATUS: ${{ steps.sibling.outcome }}
         run: |
           set -euo pipefail
+          if [ -z "${SIBLING_REPO:-}" ]; then
+            echo "::notice::SIBLING_REPO is empty — cross-repo telemetry check disabled for this fork."
+            exit 0
+          fi
+          if [ "$SIBLING_STATUS" != "success" ]; then
+            echo "::notice::Could not check out ${SIBLING_REPO} (private, renamed or unreachable)."
+            echo "::notice::Skipping the telemetry drift check. Set SIBLING_REPO in .github/workflows/ci.yml"
+            echo "::notice::to a repository this workflow can read, or to '' to switch it off."
+            exit 0
+          fi
           # consent.py and dsn.py are deliberately NOT here: the first talks to whatever table
           # each app keeps deployment state in, the second holds the app's own ingest project.
           files="scrub.py envelope.py outbox.py forwarder.py __init__.py"
@@ -229,12 +267,12 @@ jobs:
             ours="backend/app/telemetry/$f"
             theirs=".kp-front/backend/app/telemetry/$f"
             if [ ! -f "$theirs" ]; then
-              echo "::error::$f is missing in kp-front — the vendored set has changed shape"
+              echo "::error::$f is missing in ${SIBLING_REPO} — the vendored set has changed shape"
               status=1
               continue
             fi
             if ! diff -u "$theirs" "$ours" > "/tmp/$f.diff"; then
-              echo "::error::app/telemetry/$f has diverged from kp-front"
+              echo "::error::app/telemetry/$f has diverged from ${SIBLING_REPO}"
               cat "/tmp/$f.diff"
               status=1
             else
@@ -246,11 +284,14 @@ jobs:
             echo "Copy the changed file across, run BOTH test suites, and update the recorded"
             echo "hash in both repositories in the same change. Updating one side alone is"
             echo "exactly the failure this job exists to catch."
+            echo ""
+            echo "If this is a fork that MEANS to differ, point SIBLING_REPO at your own"
+            echo "kp-front fork in .github/workflows/ci.yml, or set it to '' to switch this off."
             exit 1
           fi
 
-  # Same mechanism, second shared thing: the Divera keyword vocabulary. Both products read the
-  # same dispatch system and had grown the same two tables by hand — 19 title keywords, 40
+  # Same mechanism, second shared thing: the alarm keyword vocabulary. Both products read the
+  # same dispatch system and had grown the same two tables by hand — 19 title keywords, 41
   # priority keywords — with nothing comparing them, which is how GASLECK ended up on one side
   # only. The in-repo test pins the checksums; this job is the only thing that reads kp-front.
   #
@@ -258,37 +299,57 @@ jobs:
   # "an alarm may be classified differently in the two apps", a failure there means "one app may
   # leak what the other strips". Different questions, different urgency — a shared red X would
   # tell you neither.
-  divera-keyword-drift:
-    name: Divera keyword vocabulary matches KP Front
+  #
+  # It pins the SHIPPED vocabulary only. A deployment that brings its own words does so in its
+  # own config (kp-front: `alarmKeywords`), which is deployment data — never checksummed, never
+  # compared against anything. This job would otherwise be exactly the lock-in the override
+  # exists to remove.
+  alarm-keyword-drift:
+    name: Alarm keyword vocabulary matches KP Front
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check out kp-front
+      - name: Check out the sibling repository
+        id: sibling
+        if: env.SIBLING_REPO != ''
+        continue-on-error: true
         uses: actions/checkout@v7
         with:
-          repository: feuerwehr-oberwil/kp-front
+          repository: ${{ env.SIBLING_REPO }}
           path: .kp-front
           fetch-depth: 1
 
       - name: Diff the shared keyword vocabulary
+        env:
+          SIBLING_STATUS: ${{ steps.sibling.outcome }}
         run: |
           set -euo pipefail
+          if [ -z "${SIBLING_REPO:-}" ]; then
+            echo "::notice::SIBLING_REPO is empty — cross-repo vocabulary check disabled for this fork."
+            exit 0
+          fi
+          if [ "$SIBLING_STATUS" != "success" ]; then
+            echo "::notice::Could not check out ${SIBLING_REPO} (private, renamed or unreachable)."
+            echo "::notice::Skipping the alarm vocabulary drift check. Set SIBLING_REPO in"
+            echo "::notice::.github/workflows/ci.yml to a repository this workflow can read, or to ''."
+            exit 0
+          fi
           # The JSON is the vocabulary; the loader is how both sides read it. Pinning one
           # without the other would leave half the contract free to move.
-          files="divera_keywords.py data/divera_keywords.json"
+          files="alarm_keywords.py data/alarm_keywords.json"
           status=0
           for f in $files; do
             ours="backend/app/$f"
             theirs=".kp-front/backend/app/$f"
             if [ ! -f "$theirs" ]; then
-              echo "::error::$f is missing in kp-front — the shared vocabulary has changed shape"
+              echo "::error::$f is missing in ${SIBLING_REPO} — the shared vocabulary has changed shape"
               status=1
               continue
             fi
             if ! diff -u "$theirs" "$ours" > "/tmp/kw-$(basename "$f").diff"; then
-              echo "::error::app/$f has diverged from kp-front"
+              echo "::error::app/$f has diverged from ${SIBLING_REPO}"
               cat "/tmp/kw-$(basename "$f").diff"
               status=1
             else
@@ -300,6 +361,11 @@ jobs:
             echo "Copy the changed file across, run BOTH test suites, and update the recorded"
             echo "hash in both repositories in the same change. A keyword added on one side"
             echo "only means the two apps classify the same alarm differently."
+            echo ""
+            echo "If this is a station that wants DIFFERENT alarm words, this file is not where"
+            echo "you change them — set them in your deployment config and leave the shipped"
+            echo "vocabulary alone. If this is a fork that means to differ, point SIBLING_REPO"
+            echo "at your own kp-front fork in .github/workflows/ci.yml, or set it to ''."
             exit 1
           fi
 
