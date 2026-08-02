@@ -2,6 +2,17 @@
 
 Shared by the webhook endpoint, the polling fallback and the manual attach
 endpoints so all ingest paths derive the same incident from an emergency.
+
+The keyword vocabulary is not a literal here any more. It lives in
+``app/data/divera_keywords.json``, vendored byte-for-byte from kp-front and pinned by
+checksum on both sides — the same mechanism as ``app/telemetry/``, and for the same reason:
+``docs/RUNNING-BOTH.md`` promises self-hosters no shared library and no runtime coupling, so
+the copies stay copies and a test compares them. Before that, both products carried the same
+two tables by hand and nothing compared them; ``GASLECK`` existed here and not there.
+
+The *matcher* below stays ours. kp-front matches every keyword as a plain substring; this
+module requires letter boundaries for a few ambiguous ones. That difference is real and is
+recorded in the shared file rather than quietly settled — see ``known_matcher_divergence``.
 """
 
 import logging
@@ -15,33 +26,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models, schemas
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
+from ..divera_keywords import (
+    FALLBACK_CATEGORY,
+    HIGH_PRIORITY_KEYWORDS,
+    KEYWORD_TO_CATEGORY,
+    KP_RUECK_WORD_BOUNDED,
+)
 from .audit import log_action
 
 logger = logging.getLogger(__name__)
 
 
-# Incident type mapping from Divera title keywords to IncidentType enum
-INCIDENT_TYPE_MAPPING = {
-    "FEUER": schemas.IncidentType.BRANDBEKAEMPFUNG,
-    "BRAND": schemas.IncidentType.BRANDBEKAEMPFUNG,
-    "HOCHWASSER": schemas.IncidentType.ELEMENTAREREIGNIS,
-    "UNWETTER": schemas.IncidentType.ELEMENTAREREIGNIS,
-    "STURM": schemas.IncidentType.ELEMENTAREREIGNIS,
-    "VU": schemas.IncidentType.STRASSENRETTUNG,
-    "VERKEHR": schemas.IncidentType.STRASSENRETTUNG,
-    "UNFALL": schemas.IncidentType.STRASSENRETTUNG,
-    "THL": schemas.IncidentType.TECHNISCHE_HILFELEISTUNG,
-    "TECH": schemas.IncidentType.TECHNISCHE_HILFELEISTUNG,
-    "ÖL": schemas.IncidentType.OELWEHR,
-    "OELWEHR": schemas.IncidentType.OELWEHR,
-    "CHEMIE": schemas.IncidentType.CHEMIEWEHR,
-    "STRAHLEN": schemas.IncidentType.STRAHLENWEHR,
-    "BAHN": schemas.IncidentType.EINSATZ_BAHNANLAGEN,
-    "BMA": schemas.IncidentType.BMA_UNECHTE_ALARME,
-    "FEHLALARM": schemas.IncidentType.BMA_UNECHTE_ALARME,
-    "DIENST": schemas.IncidentType.DIENSTLEISTUNGEN,
-    "TIER": schemas.IncidentType.GERETTETE_TIERE,
-}
+def _incident_type(category: str) -> schemas.IncidentType:
+    """Resolve a shared category key to our enum, degrading if it is one we don't know yet.
+
+    kp-front may add a category to the shared file before this side grows a matching enum
+    member. Refusing to import would take the alarm intake down over a category nobody has
+    ever dispatched; filing it under DIVERSE_EINSAETZE until someone looks does not. The loud
+    half of that trade is in tests/test_services/test_divera_keywords.py, which fails the
+    build on exactly this condition.
+    """
+    try:
+        return schemas.IncidentType(category)
+    except ValueError:
+        logger.warning("divera keywords: no IncidentType for category %r — using the fallback", category)
+        return schemas.IncidentType(FALLBACK_CATEGORY)
+
+
+# Divera title keyword → IncidentType. Derived from the shared vocabulary, not retyped, so it
+# cannot drift from kp-front's copy unnoticed. Order matters: first hit in the title wins.
+INCIDENT_TYPE_MAPPING = {keyword: _incident_type(category) for keyword, category in KEYWORD_TO_CATEGORY}
 
 
 def detect_incident_type(title: str) -> schemas.IncidentType:
@@ -61,13 +75,14 @@ def detect_incident_type(title: str) -> schemas.IncidentType:
             return incident_type
 
     # Default fallback
-    return schemas.IncidentType.DIVERSE_EINSAETZE
+    return _incident_type(FALLBACK_CATEGORY)
 
 
 # Short/generic keywords that are substrings of harmless everyday words
 # ("GASSE", "LIFTECH", ...) must match as standalone words. Only LETTERS count
 # as word characters — digits/dashes still delimit ("FEUER3", "THL-VU" match).
-_WORD_BOUNDED_KEYWORDS = {"GAS", "VU", "LIFT"}
+# The set itself lives in the shared file, so kp-front can see what we do differently.
+_WORD_BOUNDED_KEYWORDS = KP_RUECK_WORD_BOUNDED
 _LETTER = "A-ZÄÖÜ"
 
 
@@ -107,61 +122,9 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
     # Combine title and text for keyword search
     combined = f"{title} {text or ''}".upper()
 
-    # HIGH priority keywords - life-threatening or critical situations
-    high_priority_keywords = [
-        # Fire emergencies
-        "BRAND",
-        "FEUER",
-        "FEUERALARM",
-        "VOLLBRAND",
-        "RAUCH",
-        "FLAMMEN",
-        # Building fire alarms
-        "BMA",
-        "BRANDMELDEANLAGE",
-        "BRANDMELDER",
-        "RAUCHMELDER",
-        # Person in danger / rescue (specific phrases to avoid false positives)
-        "PERSON IN",  # Person in Lift, Person in Gefahr
-        "PERSON IM",  # Person im Wasser
-        "EINGEKLEMMT",
-        "EINGESCHLOSSEN",
-        "ABSTURZ",  # Person abgestürzt
-        "VERMISST",
-        "BEWUSSTLOS",
-        "VERLETZT",
-        # Traffic accidents with people
-        "VU",  # Verkehrsunfall
-        "VERKEHRSUNFALL",
-        # Gas / Chemical hazards
-        "GAS",
-        "GASGERUCH",
-        "GASAUSTRITT",
-        "GASLECK",
-        "CHEMIE",
-        "CHEMIKALIEN",
-        "GEFAHRGUT",
-        "GEFAHRSTOFF",
-        # Medical emergencies
-        "MED USTÜ",  # Medizinische Unterstützung
-        "MED.",  # Med. Notfall
-        "MEDIZINISCH",
-        "REANIMATION",
-        "NOTARZT",
-        "RETTUNGSDIENST",
-        # Explosions
-        "EXPLOSION",
-        "DETONATION",
-        # Building collapse
-        "EINSTURZ",
-        "EINGESTÜRZT",
-        # Lift/elevator emergencies
-        "LIFT",
-        "AUFZUG",
-        "FAHRSTUHL",
-    ]
-
-    for keyword in high_priority_keywords:
+    # The list — grouped and annotated — lives in app/data/divera_keywords.json, shared with
+    # kp-front. Any match makes the alarm HIGH, so order carries no meaning here.
+    for keyword in HIGH_PRIORITY_KEYWORDS:
         if _keyword_in(keyword, combined):
             return schemas.IncidentPriority.HIGH
 
