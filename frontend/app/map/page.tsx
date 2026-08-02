@@ -1019,7 +1019,7 @@ export default function MapPage() {
                     {colorLegend.length > 0 && (
                       <>
                         <DropdownMenuSeparator />
-                        <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto">
+                        <div className="px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto overscroll-contain">
                           {colorLegend.map((g) => (
                             <div key={g.key} className="flex items-center gap-2 text-xs">
                               <span className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />

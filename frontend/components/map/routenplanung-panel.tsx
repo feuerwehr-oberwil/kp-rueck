@@ -246,7 +246,7 @@ export function RoutenplanungPanel({
           </div>
 
           {/* Ordered stop list */}
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-muted/20 p-2">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border bg-muted/20 p-2">
             <div className="space-y-0.5">
               {displayOrder.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
