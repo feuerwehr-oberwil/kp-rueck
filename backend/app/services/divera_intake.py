@@ -4,11 +4,15 @@ Shared by the webhook endpoint, the polling fallback and the manual attach
 endpoints so all ingest paths derive the same incident from an emergency.
 
 The keyword vocabulary is not a literal here any more. It lives in
-``app/data/divera_keywords.json``, vendored byte-for-byte from kp-front and pinned by
+``app/data/alarm_keywords.json``, vendored byte-for-byte from kp-front and pinned by
 checksum on both sides — the same mechanism as ``app/telemetry/``, and for the same reason:
 ``docs/RUNNING-BOTH.md`` promises self-hosters no shared library and no runtime coupling, so
 the copies stay copies and a test compares them. Before that, both products carried the same
 two tables by hand and nothing compared them; ``GASLECK`` existed here and not there.
+
+Nothing in that file is Divera's — the words are German fire-service words and the categories
+are the FKS Schadenkategorien; Divera is one way they arrive. It was named
+``divera_keywords.json`` until 2026-08-02 and was renamed for that reason.
 
 The *matcher* below stays ours. kp-front matches every keyword as a plain substring; this
 module requires letter boundaries for a few ambiguous ones. That difference is real and is
@@ -24,14 +28,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
-from ..crud import divera as divera_crud
-from ..crud import events as events_crud
-from ..divera_keywords import (
+from ..alarm_keywords import (
     FALLBACK_CATEGORY,
     HIGH_PRIORITY_KEYWORDS,
     KEYWORD_TO_CATEGORY,
     KP_RUECK_WORD_BOUNDED,
 )
+from ..crud import divera as divera_crud
+from ..crud import events as events_crud
 from .audit import log_action
 
 logger = logging.getLogger(__name__)
@@ -43,7 +47,7 @@ def _incident_type(category: str) -> schemas.IncidentType:
     kp-front may add a category to the shared file before this side grows a matching enum
     member. Refusing to import would take the alarm intake down over a category nobody has
     ever dispatched; filing it under DIVERSE_EINSAETZE until someone looks does not. The loud
-    half of that trade is in tests/test_services/test_divera_keywords.py, which fails the
+    half of that trade is in tests/test_services/test_alarm_keywords.py, which fails the
     build on exactly this condition.
     """
     try:
@@ -122,7 +126,7 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
     # Combine title and text for keyword search
     combined = f"{title} {text or ''}".upper()
 
-    # The list — grouped and annotated — lives in app/data/divera_keywords.json, shared with
+    # The list — grouped and annotated — lives in app/data/alarm_keywords.json, shared with
     # kp-front. Any match makes the alarm HIGH, so order carries no meaning here.
     for keyword in HIGH_PRIORITY_KEYWORDS:
         if _keyword_in(keyword, combined):
