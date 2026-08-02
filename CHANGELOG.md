@@ -28,6 +28,34 @@ will keep holding.
 
 ## [Unreleased]
 
+### Changed
+- **The Divera keyword list existed twice in the estate and nothing compared the copies.** The map
+  from an alert's Stichwort to an incident category, and the keyword list deciding which alerts are
+  high priority, were written independently here and in KP Front – the same 19 title keywords, same
+  order, same casing, arrived at twice – and had already begun to drift: this side knew `GASLECK`,
+  the other did not. Both now read one checked-in data file, `backend/app/data/divera_keywords.json`,
+  vendored byte-for-byte into both products with a checksum pinned on each side, plus a new
+  **`divera-keyword-drift`** CI job here that diffs the file against KP Front's default branch.
+
+  That job is the load-bearing half and it is worth being precise about why. The checksum test
+  catches an accidental edit *on this side*; it never reads the other repository, so editing both
+  copies and updating both hashes leaves everything green. Only the drift job compares the two
+  checkouts – exactly the split the telemetry sanitiser already uses, and the reason both are kept.
+  A shared package was the obvious alternative and was rejected: `RUNNING-BOTH.md` promises
+  self-hosters separate databases, separate images, separate releases, no shared library and no
+  runtime coupling. That promise is published. A test that catches drift keeps it; a library that
+  removes the duplication would break it.
+
+  **Behaviour is unchanged** – the resulting maps are character-for-character what they were, order
+  included. Two things deliberately stayed out of the shared file and are named in it rather than
+  quietly unified: the **display labels**, because this app stores keys while KP Front stores German
+  strings in the database and the two disagree on a capital letter, and the **matching rule**,
+  because this app requires word boundaries on short keywords like `GAS`, `VU` and `LIFT` where KP
+  Front matches substrings. Word boundaries stop `GAS` firing on *Gasse* – and also stop it firing
+  on *Gasflasche*. Neither behaviour is unambiguously right, it decides which alerts come out high
+  priority, and it is not a call to make unilaterally on the alerting path, so it is recorded in the
+  shared file as a known divergence.
+
 ## [0.4.0] – 2026-08-01
 
 Two threads. A review pass before publishing the repository more widely – the documentation checked
