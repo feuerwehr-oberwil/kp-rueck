@@ -31,6 +31,28 @@ class ProviderCapability(BaseModel):
     capabilities: list[str] = Field(default_factory=list)
 
 
+class KnownProvider(BaseModel):
+    """One provider this build knows about, whether or not this station uses it.
+
+    The four domain fields above answer *who is active here*. This list answers *what could I
+    point at* — which is what makes a domain a choice rather than a vendor, and it is the only
+    place a provider that nobody has configured can be discovered at all.
+
+    ``implemented`` is false for a provider whose contract is published but whose ingestion is
+    not built. An entry that is discoverable and honest about being inert is worth having; a
+    registry that quietly implies everything listed works is not.
+    """
+
+    provider: str
+    display_name: str
+    domain: Literal["alarms", "alerting", "personnel", "vehicles"]
+    configured: bool = False
+    implemented: bool = True
+    capabilities: list[str] = Field(default_factory=list)
+    #: Repository-relative path to the published contract, when the provider has one.
+    contract: str | None = None
+
+
 def _default_builtin_alarm_paths() -> list[Literal["generic-webhook", "manual-intake", "operator"]]:
     """Default value for ``IntegrationsResponse.builtin_alarm_paths``."""
     return ["generic-webhook", "manual-intake", "operator"]
@@ -51,6 +73,8 @@ class IntegrationsResponse(BaseModel):
     builtin_alarm_paths: list[Literal["generic-webhook", "manual-intake", "operator"]] = Field(
         default_factory=_default_builtin_alarm_paths
     )
+    # Every provider this build knows about, configured or not — see KnownProvider.
+    known_providers: list[KnownProvider] = Field(default_factory=list)
 
 
 def integrations() -> IntegrationsResponse:
@@ -84,6 +108,50 @@ def integrations() -> IntegrationsResponse:
             configured=traccar,
             capabilities=["gps-tracking", "status-automation"] if traccar else [],
         ),
+        known_providers=[
+            KnownProvider(
+                provider="divera",
+                display_name="DIVERA 24/7",
+                domain="alarms",
+                configured=divera,
+                capabilities=["webhook", "poll", "pool", "auto-attach"],
+            ),
+            KnownProvider(
+                provider=provider.slug if provider else "divera",
+                display_name=provider.display_name if provider else "DIVERA 24/7",
+                domain="alerting",
+                configured=provider is not None,
+                capabilities=["push", "sms", "call", "mail"],
+            ),
+            KnownProvider(
+                provider="divera",
+                display_name="DIVERA 24/7",
+                domain="personnel",
+                configured=divera,
+                capabilities=["roster-sync"],
+            ),
+            # A roster file another system publishes, to a versioned schema any station can
+            # point at any URL. Listed so the personnel domain reads as a choice rather than
+            # one vendor — but `implemented=False`, because the contract is published and the
+            # ingestion is not built. KP Front carries the identical schema files and the same
+            # `roster.source: "snapshot"` selector; neither app reads the other.
+            KnownProvider(
+                provider="roster-snapshot",
+                display_name="Publizierter Personenstamm",
+                domain="personnel",
+                configured=False,
+                implemented=False,
+                capabilities=["contract"],
+                contract="docs/roster-snapshot.schema.json",
+            ),
+            KnownProvider(
+                provider="traccar",
+                display_name="Traccar",
+                domain="vehicles",
+                configured=traccar,
+                capabilities=["gps-tracking", "status-automation"],
+            ),
+        ],
     )
 
 

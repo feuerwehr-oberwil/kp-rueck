@@ -28,6 +28,30 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+- **The capability registry now shows what you *could* point at, not only what is switched on –
+  starting with a published roster contract.** `GET /api/integrations` answered "which provider is
+  active for alarms, alerting, personnel, vehicles". That is the right answer to the wrong half of
+  the question: a provider nobody here has configured was not discoverable at all, so a domain with
+  one integration read like a domain with one vendor. The response gains `known_providers`, every
+  provider this build knows about, with `configured` and – the honest part – `implemented`.
+
+  The first entry that needs it is **`roster-snapshot`**: some stations keep their personnel list in
+  a municipal HR system, a cantonal register or a nightly script, and the answer to that is a
+  published, versioned schema any station can point at any URL rather than an adapter per vendor.
+  Both schema files ship here – [`docs/roster-snapshot.schema.json`](docs/roster-snapshot.schema.json)
+  for the file, [`docs/roster-snapshot-outcome.schema.json`](docs/roster-snapshot-outcome.schema.json)
+  for the report a run must produce, because a roster sync that quietly loses people corrupts every
+  attendance figure afterwards and does so invisibly. Identities travel as `(provider, external_id)`
+  pairs into `personnel_external_identities`; no vendor is named anywhere in the schema. It carries
+  **no medical fields, ever** – no Untersuchung, no Tauglichkeit, no Impfung, and no free-form
+  `metadata` map in which such a thing could arrive unnamed.
+
+  **Nothing here reads a snapshot yet** – the entry says `implemented: false` and means it. The
+  files are byte-identical copies of KP Front's, pinned by checksum on both sides: still no shared
+  library, no import, no runtime coupling between the two products ([RUNNING-BOTH.md](docs/RUNNING-BOTH.md)
+  is unchanged) – a shared *file*, kept in step by a test.
+
 ### Changed
 - **The alarm keyword list existed twice in the estate, nothing compared the copies, and it was
   named after somebody else's alerting provider.** The map from an alert's Stichwort to an incident
