@@ -75,6 +75,19 @@ export interface ApiProviderCapability {
   capabilities: string[]
 }
 
+/** One provider this build knows about, whether or not this station uses it. `implemented`
+ *  is false for a provider whose contract is published but whose ingestion is not built. */
+export interface ApiKnownProvider {
+  provider: string
+  display_name: string
+  domain: 'alarms' | 'alerting' | 'personnel' | 'vehicles'
+  configured: boolean
+  implemented: boolean
+  capabilities: string[]
+  /** Repository-relative path to the published contract, when the provider has one. */
+  contract: string | null
+}
+
 export interface ApiIntegrations {
   /** Inbound alarm delivery into the pool */
   alarms: ApiProviderCapability
@@ -86,4 +99,6 @@ export interface ApiIntegrations {
   vehicles: ApiProviderCapability
   /** Always-available ingest paths (not providers) */
   builtin_alarm_paths: string[]
+  /** Every provider this build knows about — the domains above say which one is active. */
+  known_providers: ApiKnownProvider[]
 }

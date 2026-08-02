@@ -141,6 +141,45 @@ Anbieter-Namen aus dieser Antwort statt sie fest zu verdrahten; die
 generische Webhook-Schnittstelle und das Meldeformular sind immer verfügbar
 und werden bewusst nicht als «Anbieter» geführt.
 
+`known_providers` listet zusätzlich **jeden Anbieter, den dieser Build kennt**
+– auch die, die hier niemand eingerichtet hat. Die vier Bereichsfelder
+beantworten *wer ist gerade aktiv*, diese Liste beantwortet *worauf könnte ich
+zeigen*; ohne sie ist ein nicht konfigurierter Anbieter gar nicht auffindbar.
+`implemented: false` heisst: der Vertrag ist veröffentlicht, die Anbindung ist
+**noch nicht gebaut**. Ein auffindbarer Eintrag, der ehrlich sagt, dass er
+nichts tut, ist nützlich – eine Registry, die stillschweigend suggeriert, alles
+Aufgelistete funktioniere, ist es nicht.
+
+### Publizierter Personenstamm (`roster-snapshot`)
+
+Manche Wehren führen ihre Mannschaft in einem ganz anderen System – einer
+Gemeinde-HR, einem kantonalen Register, einem nächtlichen Skript. Für diesen
+Fall gibt es einen **veröffentlichten, versionierten Vertrag**: jenes System
+legt eine JSON-Datei ab, eine Anwendung liest sie. Jede Station kann auf jede
+URL zeigen; im Schema steht kein Herstellername.
+
+- Vertrag: [`roster-snapshot.schema.json`](roster-snapshot.schema.json)
+- Abgleichs-Bericht eines Laufs:
+  [`roster-snapshot-outcome.schema.json`](roster-snapshot-outcome.schema.json) –
+  `matched`/`created`/`updated`/`deactivated`, jede Person, die **nicht**
+  zugeordnet werden konnte, mit Grund, und jeder unbekannte Grad-Schlüssel.
+  Nicht zuordenbare Personen werden gezählt und gemeldet, **nie stillschweigend
+  verworfen**.
+- Identitäten reisen als `(provider, external_id)`-Paare und landen in
+  `personnel_external_identities` – keine nach einem Hersteller benannte Spalte.
+- 🔴 **Keine medizinischen Felder, nie.** Keine Untersuchung, keine
+  Tauglichkeit, keine Impfung, und auch keine freie `metadata`-Map, in der so
+  etwas unbenannt ankäme. Ein Test hält das, kein Satz in einem Dokument.
+
+⚠️ **Stand: nur Vertrag.** Die beiden Schema-Dateien sind byte-identische
+Kopien der KP-Front-Dateien und per Prüfsumme gepinnt
+(`backend/tests/test_roster_snapshot_contract.py`); geändert wird der Vertrag
+in beiden Repositories in einer Änderung. **Diese Anwendung liest heute keinen
+Snapshot** – der Registry-Eintrag steht auf `implemented: false`. Die beiden
+Produkte teilen dabei weiterhin keine Bibliothek und rufen einander nicht auf
+(siehe [RUNNING-BOTH.md](RUNNING-BOTH.md)); geteilt wird eine Datei, nicht
+Laufzeit.
+
 Die Ausalarmierung läuft intern über ein Provider-Protokoll
 (`backend/app/services/alerting/`): ein neuer Anbieter (z. B. Alamos) ist ein
 Modul, das `send_alarm(...)` implementiert, plus ein Eintrag in der Registry –

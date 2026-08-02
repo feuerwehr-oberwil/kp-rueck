@@ -17353,6 +17353,13 @@
             },
             "type": "array",
             "title": "Builtin Alarm Paths"
+          },
+          "known_providers": {
+            "items": {
+              "$ref": "#/components/schemas/KnownProvider"
+            },
+            "type": "array",
+            "title": "Known Providers"
           }
         },
         "type": "object",
@@ -17364,6 +17371,64 @@
         ],
         "title": "IntegrationsResponse",
         "description": "Per-domain provider capabilities."
+      },
+      "KnownProvider": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "alarms",
+              "alerting",
+              "personnel",
+              "vehicles"
+            ],
+            "title": "Domain"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "default": false
+          },
+          "implemented": {
+            "type": "boolean",
+            "title": "Implemented",
+            "default": true
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "contract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "display_name",
+          "domain"
+        ],
+        "title": "KnownProvider",
+        "description": "One provider this build knows about, whether or not this station uses it.\n\nThe four domain fields above answer *who is active here*. This list answers *what could I\npoint at* — which is what makes a domain a choice rather than a vendor, and it is the only\nplace a provider that nobody has configured can be discovered at all.\n\n``implemented`` is false for a provider whose contract is published but whose ingestion is\nnot built. An entry that is discoverable and honest about being inert is worth having; a\nregistry that quietly implies everything listed works is not."
       },
       "ManualDispatchRequest": {
         "properties": {
