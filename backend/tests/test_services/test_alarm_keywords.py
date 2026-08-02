@@ -1,7 +1,7 @@
-"""The shared Divera keyword vocabulary must stay identical to kp-front's, and stay wired in.
+"""The shared alarm keyword vocabulary must stay identical to kp-front's, and stay wired in.
 
 Both products read the same dispatch system and had independently grown the same two tables —
-19 title keywords onto the same categories, 40 priority keywords in the same order — as
+19 title keywords onto the same categories, 41 priority keywords in the same order — as
 literals in their own source. Nothing compared them, so `GASLECK` existed here and not there
 and no test anywhere could have said so.
 
@@ -24,7 +24,7 @@ runtime coupling. So the copies stay copies and this test compares them — the 
 
 **What it does NOT catch.** It never reads kp-front. Edit one repository, update that
 repository's own checksum, and both suites stay green while the vocabularies diverge — which
-is exactly the drift this file exists to prevent. Only the `divera-keyword-drift` job in
+is exactly the drift this file exists to prevent. Only the `alarm-keyword-drift` job in
 `.github/workflows/ci.yml` actually compares the two checkouts. Keep both: this one is fast
 and offline, that one is true.
 
@@ -44,16 +44,16 @@ from pathlib import Path
 
 import pytest
 
-from app import divera_keywords, models, schemas
+from app import alarm_keywords, models, schemas
 from app.services import divera_intake
 
-APP = Path(divera_keywords.__file__).resolve().parent
+APP = Path(alarm_keywords.__file__).resolve().parent
 
 # sha256 of each vendored file, as it exists in feuerwehr-oberwil/kp-front.
-# Regenerate with:  shasum -a 256 backend/app/divera_keywords.py backend/app/data/divera_keywords.json
+# Regenerate with:  shasum -a 256 backend/app/alarm_keywords.py backend/app/data/alarm_keywords.json
 VENDORED = {
-    "divera_keywords.py": "a7f2a93d137cec40ad86143f57ad3b0119ac3058786442dafcfb91cbb6e889ac",
-    "data/divera_keywords.json": "0c1fa23b2c96507f892addeb144e82b685906fc69b2f14de7fbc5d25d2ed79b8",
+    "alarm_keywords.py": "0cf503ae3d98d07cc4645890b41d77e93c746e4302282364c50917cb63834cdd",
+    "data/alarm_keywords.json": "7cef662c7eb41e54bab668828bad05975339f5d4de8691b1b6ca6ef0bee102de",
 }
 
 
@@ -63,7 +63,7 @@ def _sha256(path: Path) -> str:
 
 @pytest.fixture
 def raw() -> dict:
-    return json.loads((APP / "data" / "divera_keywords.json").read_text(encoding="utf-8"))
+    return json.loads((APP / "data" / "alarm_keywords.json").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("name", sorted(VENDORED))
@@ -80,35 +80,35 @@ def test_vendored_file_matches_the_recorded_hash(name: str):
 def test_both_halves_are_pinned():
     # A guard on the guard: pinning the JSON but not the loader (or the reverse) would leave
     # half of the shared contract free to move.
-    assert set(VENDORED) == {"divera_keywords.py", "data/divera_keywords.json"}
+    assert set(VENDORED) == {"alarm_keywords.py", "data/alarm_keywords.json"}
 
 
 def test_schema_version_is_the_one_this_code_understands(raw):
     assert raw["schema_version"] == 1
-    assert divera_keywords.SCHEMA_VERSION == 1
+    assert alarm_keywords.SCHEMA_VERSION == 1
 
 
 def test_incident_type_mapping_is_derived_from_the_file_not_retyped(raw):
     """`INCIDENT_TYPE_MAPPING` must BE the shared vocabulary, not a copy that agrees today."""
     expected = [(keyword, schemas.IncidentType(category)) for keyword, category in raw["keyword_to_category"]["pairs"]]
     assert list(divera_intake.INCIDENT_TYPE_MAPPING.items()) == expected, (
-        "INCIDENT_TYPE_MAPPING no longer matches app/data/divera_keywords.json. If someone "
-        "re-inlined the map, put it back behind divera_keywords.KEYWORD_TO_CATEGORY — a "
+        "INCIDENT_TYPE_MAPPING no longer matches app/data/alarm_keywords.json. If someone "
+        "re-inlined the map, put it back behind alarm_keywords.KEYWORD_TO_CATEGORY — a "
         "checked-in file nothing reads is worse than no file."
     )
 
 
 def test_priority_keywords_are_derived_from_the_file_not_retyped(raw):
     expected = [kw for group in raw["high_priority_keywords"]["groups"] for kw in group["keywords"]]
-    assert list(divera_keywords.HIGH_PRIORITY_KEYWORDS) == expected
+    assert list(alarm_keywords.HIGH_PRIORITY_KEYWORDS) == expected
 
 
 def test_every_category_in_the_shared_file_is_a_real_incident_type():
     """The cross-product guard: kp-front may add a category, and this side must survive it."""
     known = {t.value for t in schemas.IncidentType}
-    missing = sorted(divera_keywords.CATEGORY_KEYS - known)
+    missing = sorted(alarm_keywords.CATEGORY_KEYS - known)
     assert not missing, (
-        f"app/data/divera_keywords.json routes to categories with no IncidentType: {missing}. "
+        f"app/data/alarm_keywords.json routes to categories with no IncidentType: {missing}. "
         f"Add the enum members (and the valid_incident_type CHECK constraint + a migration) in "
         f"the same change that vendors the file."
     )
@@ -125,7 +125,7 @@ def test_every_category_survives_the_check_constraint():
         c for c in models.Incident.__table__.constraints if getattr(c, "name", None) == "valid_incident_type"
     )
     allowed = str(constraint.sqltext)
-    for category in sorted(divera_keywords.CATEGORY_KEYS):
+    for category in sorted(alarm_keywords.CATEGORY_KEYS):
         assert f"'{category}'" in allowed, (
             f"category {category!r} is in the shared keyword file and in IncidentType, but not in "
             f"the valid_incident_type CHECK constraint — an alarm of that type would fail to insert."
@@ -133,25 +133,25 @@ def test_every_category_survives_the_check_constraint():
 
 
 def test_the_fallback_is_reachable():
-    assert divera_keywords.FALLBACK_CATEGORY in {t.value for t in schemas.IncidentType}
+    assert alarm_keywords.FALLBACK_CATEGORY in {t.value for t in schemas.IncidentType}
     assert divera_intake.detect_incident_type("nichts davon") == schemas.IncidentType.DIVERSE_EINSAETZE
 
 
 def test_keywords_are_uppercase_and_unique():
     # The matchers uppercase the title before comparing, so a lowercase entry here would be
     # dead data that silently never fires.
-    keywords = [kw for kw, _ in divera_keywords.KEYWORD_TO_CATEGORY]
+    keywords = [kw for kw, _ in alarm_keywords.KEYWORD_TO_CATEGORY]
     assert keywords == [kw.upper() for kw in keywords]
     assert len(keywords) == len(set(keywords)), "a duplicate keyword makes the later entry unreachable"
-    assert all(divera_keywords.HIGH_PRIORITY_KEYWORDS), "an empty keyword matches everything"
-    assert list(divera_keywords.HIGH_PRIORITY_KEYWORDS) == [kw.upper() for kw in divera_keywords.HIGH_PRIORITY_KEYWORDS]
+    assert all(alarm_keywords.HIGH_PRIORITY_KEYWORDS), "an empty keyword matches everything"
+    assert list(alarm_keywords.HIGH_PRIORITY_KEYWORDS) == [kw.upper() for kw in alarm_keywords.HIGH_PRIORITY_KEYWORDS]
 
 
 def test_the_word_bounded_set_comes_from_the_shared_file():
     # Recorded there so kp-front can see what we do differently. If this stops being read from
     # the file, the divergence goes back to being folklore.
-    assert divera_intake._WORD_BOUNDED_KEYWORDS == divera_keywords.KP_RUECK_WORD_BOUNDED
-    assert divera_keywords.KP_RUECK_WORD_BOUNDED.issubset(divera_keywords.HIGH_PRIORITY_KEYWORDS), (
+    assert divera_intake._WORD_BOUNDED_KEYWORDS == alarm_keywords.KP_RUECK_WORD_BOUNDED
+    assert alarm_keywords.KP_RUECK_WORD_BOUNDED.issubset(alarm_keywords.HIGH_PRIORITY_KEYWORDS), (
         "a word-bounded keyword that is not in the priority list is dead configuration"
     )
 
