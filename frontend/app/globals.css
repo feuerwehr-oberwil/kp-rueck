@@ -182,6 +182,14 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
+  /* The shell is h-dvh/overflow-hidden, so the page can never scroll — but macOS
+     still rubber-bands the whole view on a stray trackpad swipe, which reads as
+     the board drifting for no reason. No bounce, no scroll chaining. */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
   /* Enhanced typography for better readability */
   h1,
   h2,
@@ -236,6 +244,46 @@
   *::-webkit-scrollbar-thumb:hover {
     background: var(--foreground);
     background-clip: padding-box;
+  }
+
+  /* Slim variant for the board sidebars: the resource lists are narrow and
+     dense, so the default gutter costs real content width and the bar competes
+     with the rows. Thumb stays faint until hovered.
+
+     The two properties below must stay at their INITIAL value: Chrome 121+
+     ignores every ::-webkit-scrollbar rule on an element whose standard
+     scrollbar-width/scrollbar-color is set, and the global `*` rule above sets
+     both. Resetting them here is what lets the 5px width take effect at all. */
+  .scrollbar-slim {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+    background-clip: padding-box;
+  }
+
+  /* Firefox has no ::-webkit-scrollbar, so it needs the standard properties —
+     scoped here so it never re-triggers Chrome's ignore rule above. `thin` is
+     the narrowest Firefox offers; the exact px is the platform's call. */
+  @supports not selector(::-webkit-scrollbar) {
+    .scrollbar-slim {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent)
+        transparent;
+    }
   }
 
   /* Mobile-first responsive utilities */

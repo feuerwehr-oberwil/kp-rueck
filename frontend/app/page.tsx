@@ -1718,7 +1718,7 @@ export default function FireStationDashboard() {
                 />
               </div>
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
+              <div className="scrollbar-slim flex-1 overflow-y-auto overscroll-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? null : personnel.filter((p) => p.status === "available").length === 0 ? (
                   /* Show QR code when no available personnel */
                   <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
@@ -1806,7 +1806,7 @@ export default function FireStationDashboard() {
           )}
 
           {/* Main Kanban Board */}
-          <main id="kanban-main" className="flex-1 overflow-x-auto p-4 bg-muted/30 dark:bg-background">
+          <main id="kanban-main" className="flex-1 overflow-x-auto overscroll-contain p-4 bg-muted/30 dark:bg-background">
             {!isLoaded ? null : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
@@ -1927,7 +1927,7 @@ export default function FireStationDashboard() {
                 />
               </div>
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
+              <div className="scrollbar-slim flex-1 overflow-y-auto overscroll-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? null : materialsAvailableOnly && Object.keys(groupedMaterials).length === 0 ? (
                   <div className="py-6 text-center animate-in fade-in duration-300">
                     <p className="text-sm italic text-muted-foreground/60">{tDash('noneAvailableFiltered')}</p>

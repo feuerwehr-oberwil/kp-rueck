@@ -295,7 +295,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         ref={ref}
         data-board-scroll
         className={cn(
-          "flex-1 space-y-3 overflow-y-auto p-2 rounded-lg transition-all min-h-[200px] relative",
+          "flex-1 space-y-3 overflow-y-auto overscroll-contain p-2 rounded-lg transition-all min-h-[200px] relative",
           isOver && operations.length === 0 && "drop-zone-active"
         )}
         role="region"

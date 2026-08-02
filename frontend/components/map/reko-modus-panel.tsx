@@ -118,7 +118,7 @@ export function RekoModusPanel({
           <p className="text-xs text-muted-foreground">{t("emptyHint")}</p>
         </div>
       ) : (
-        <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+        <div className="space-y-2 overflow-y-auto overscroll-contain flex-1 min-h-0">
           {people.map((person) => {
             const openOps = openByPerson.get(person.id) ?? []
             const isSelected = person.id === selectedPersonId
