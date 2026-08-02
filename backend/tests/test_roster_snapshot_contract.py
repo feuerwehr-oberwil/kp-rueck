@@ -15,10 +15,12 @@ vocabulary does for its own file. Editing the contract is a two-repository chang
 **What this catches and what it cannot.** It compares the local files against literals recorded
 here, which catches an edit on this side. It does not read KP Front — edit the schema there,
 update only that repository's literal, and both suites stay green while the two copies diverge.
-The cross-repo diff jobs in `.github/workflows/ci.yml` are the only things that actually
-compare the two checkouts, and **this pair is not in one yet**: it should be added alongside
-the shared alarm-keyword vocabulary, which is being renamed in a change in flight, so it is
-deliberately left alone here rather than edited into a moving file.
+The cross-repo diff jobs in `.github/workflows/ci.yml` — `telemetry-drift` and
+`alarm-keyword-drift` — are the only things that actually compare the two checkouts, and **this
+pair is in neither**. A third job of the same shape (same `SIBLING_REPO` knob, same skip-not-
+fail behaviour for forks) is what would close it; it was left out of the change that published
+the contract, because nothing implements the contract yet and a job is easier to add than to
+argue about later. Add it when the ingestion lands, at the latest.
 
 **Nothing in this application reads a snapshot yet.** The contract is published and the
 capability registry lists the provider with `implemented: False`; the ingestion is separate,
