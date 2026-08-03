@@ -7,15 +7,15 @@ to the active event when enabled, and are broadcast to all connected clients.
 
 Authentication uses the same shared secret as the Divera webhook — the
 ``ALARM_WEBHOOK_SECRET`` env var, else the ``alarm_webhook_secret`` setting —
-passed as ``?secret=`` or via the ``X-Webhook-Secret`` header. Unlike the Divera
-adapter (which stays permissive for backward compatibility), this endpoint fails
-closed: no configured secret means no access.
+passed as ``?secret=`` or via the ``X-Webhook-Secret`` header. Both endpoints fail
+closed through the same check (``divera_intake.check_webhook_secret``): no configured
+secret means no access. The Divera adapter used to stay permissive there, which made an
+empty secret an open board-write endpoint.
 
 See docs/ALARM-INTEGRATIONS.md for the integration guide.
 """
 
 import logging
-import secrets as _secrets
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -27,8 +27,7 @@ from ..crud import divera as divera_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..schemas.alarms import RESERVED_ALARM_SOURCES
-from ..services.divera_intake import broadcast_emergency_received, try_auto_attach
-from ..services.settings import get_alarm_webhook_secret
+from ..services.divera_intake import broadcast_emergency_received, check_webhook_secret, try_auto_attach
 
 logger = logging.getLogger(__name__)
 
@@ -37,15 +36,7 @@ router = APIRouter(prefix="/alarms", tags=["alarms"])
 
 async def _check_webhook_secret(db: AsyncSession, request: Request) -> None:
     """Validate the shared webhook secret; fail closed when none is configured."""
-    webhook_secret = await get_alarm_webhook_secret(db)
-    if not webhook_secret:
-        logger.warning("Generic alarm rejected: no alarm_webhook_secret configured")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-
-    provided = request.query_params.get("secret", "") or request.headers.get("X-Webhook-Secret", "")
-    if not provided or not _secrets.compare_digest(provided, webhook_secret):
-        logger.warning("Generic alarm rejected: invalid or missing secret")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    await check_webhook_secret(db, request, label="Generic alarm")
 
 
 @router.post("", response_model=schemas.AlarmAck, status_code=status.HTTP_200_OK)
