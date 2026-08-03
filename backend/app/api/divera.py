@@ -26,6 +26,7 @@ from ..services import settings as settings_service
 from ..services.audit import log_action
 from ..services.divera_intake import (
     broadcast_emergency_received,
+    check_webhook_secret,
     incident_create_from_emergency,
     try_auto_attach,
 )
@@ -63,19 +64,10 @@ async def receive_divera_webhook(
     4. Broadcasts WebSocket notification to frontend
     5. Returns 200 OK to Divera
     """
-    # Validate webhook secret
-    from ..services.settings import get_alarm_webhook_secret
+    # Validate webhook secret — shared with POST /api/alarms so both inbound paths to the
+    # same board answer identically, and both fail closed when no secret is configured.
+    await check_webhook_secret(db, request, label="Divera webhook")
 
-    webhook_secret = await get_alarm_webhook_secret(db)
-    if webhook_secret:
-        import secrets as _secrets
-
-        provided_secret = (request.query_params.get("secret", "") if request else "") or (
-            request.headers.get("X-Webhook-Secret", "") if request else ""
-        )
-        if not provided_secret or not _secrets.compare_digest(provided_secret, webhook_secret):
-            logger.warning("Divera webhook rejected: invalid or missing secret")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     try:
         # Check if emergency already exists (deduplication)
         existing = await divera_crud.get_divera_emergency_by_divera_id(db, payload.id)

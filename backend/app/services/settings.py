@@ -150,7 +150,9 @@ async def get_alarm_webhook_secret(db: AsyncSession) -> str:
     that could not be scripted (and the one KP Front never had, since it is env-only there).
 
     Empty env = the DB value, i.e. the existing behaviour for every deployment that does not
-    set it. Returns "" when neither is configured, which both call sites treat as fail-closed.
+    set it. Returns "" when neither is configured; both call sites go through
+    ``divera_intake.check_webhook_secret``, which treats that as fail-closed. (Until 2026-07
+    only one of them did — the Divera adapter skipped the check on an empty secret.)
     """
     from ..config import settings as app_settings
 
@@ -159,11 +161,35 @@ async def get_alarm_webhook_secret(db: AsyncSession) -> str:
     return await get_setting(db, "alarm_webhook_secret") or ""
 
 
-async def get_all_settings(db: AsyncSession) -> dict[str, str]:
-    """Get all settings as dict."""
+# Settings whose VALUE is a credential. They live in the same table as the polling
+# interval and the radio callsign, and `GET /api/settings/` used to hand the whole table
+# to any authenticated user — including read-only viewers. Both of these have a dedicated,
+# careful path (`/api/sync/config` redacts the DSN before returning it; the webhook secret
+# is configured via ALARM_WEBHOOK_SECRET or rotated with a targeted PATCH), so nothing
+# legitimate needs to read them out of the generic endpoint. The frontend never does.
+SECRET_SETTING_KEYS = frozenset({"alarm_webhook_secret", "railway_database_url"})
+
+SECRET_PLACEHOLDER = "***"  # noqa: S105 — the mask itself, not a credential
+
+# Keys the generic PATCH /api/settings/{key} must refuse, because a dedicated endpoint
+# owns them and does something the generic one cannot (validate the DSN, redact it on the
+# way back out, restart the sync scheduler). `railway_database_url` decides where this
+# backend opens an outbound database connection, so "any editor can PATCH it" was a way to
+# make the station push its whole board somewhere else.
+GENERIC_WRITE_DENYLIST = frozenset({"railway_database_url"})
+
+
+async def get_all_settings(db: AsyncSession, *, include_secrets: bool = False) -> dict[str, str]:
+    """Get all settings as dict, with credential values masked by default.
+
+    Defaulting to masked is the fail-safe direction: a new caller has to ask for the
+    secrets on purpose, rather than leak them by not knowing they were in there.
+    """
     result = await db.execute(select(Setting))
     settings = result.scalars().all()
-    return {s.key: s.value for s in settings}
+    if include_secrets:
+        return {s.key: s.value for s in settings}
+    return {s.key: (SECRET_PLACEHOLDER if s.key in SECRET_SETTING_KEYS and s.value else s.value) for s in settings}
 
 
 async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID | None) -> Setting:
@@ -199,9 +225,19 @@ async def initialize_default_settings(db: AsyncSession) -> None:
     for key, value in DEFAULT_SETTINGS.items():
         existing = await get_setting(db, key)
         if existing is None:
-            # Auto-generate webhook secret on first init
+            # Auto-generate webhook secret on first init.
+            #
+            # The generated value is deliberately NOT logged. It used to be, because reading
+            # it back out of the database was the one setup step a station could not script —
+            # but stdout goes to the platform log (and to whatever ships it onward), which is
+            # the wrong home for a credential that authorises writes to the board. Since
+            # ALARM_WEBHOOK_SECRET in the environment wins over this value, provisioning no
+            # longer needs the log line: set it in .env, or read it from Settings → Alarmierung.
             if key == "alarm_webhook_secret" and not value:
                 value = _generate_webhook_secret()
-                logger.info("Generated alarm_webhook_secret: %s", value)
+                logger.info(
+                    "Generated alarm_webhook_secret (not logged — see Settings → Alarmierung, "
+                    "or set ALARM_WEBHOOK_SECRET in the environment to pin it)"
+                )
             db.add(Setting(key=key, value=value))
     await db.commit()

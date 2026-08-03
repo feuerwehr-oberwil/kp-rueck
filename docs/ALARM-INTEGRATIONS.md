@@ -24,7 +24,17 @@ ersten Start automatisch erzeugt und steht in der Datenbank:
 SELECT value FROM settings WHERE key = 'alarm_webhook_secret';
 ```
 
-Ohne konfiguriertes oder mit falschem Secret antwortet der Endpunkt mit `403`.
+Ohne konfiguriertes oder mit falschem Secret antwortet der Endpunkt mit `403`. Das gilt
+seit 2026-07 genauso für den Divera-Adapter (`POST /api/divera/webhook`) — der hat die
+Prüfung bei leerem Secret vorher übersprungen und war damit offen. Beide Wege gehen jetzt
+durch dieselbe Prüfung.
+
+Am einfachsten gibt man das Secret mit `ALARM_WEBHOOK_SECRET` in der `.env` fest vor —
+die Umgebungsvariable gewinnt über den Datenbankwert, und dann muss man es nirgends
+auslesen. Die API gibt es nicht heraus: `GET /api/settings/` maskiert es und
+`GET /api/settings/alarm_webhook_secret` antwortet mit `403`, weil sonst jeder
+angemeldete Benutzer — auch ein reiner Viewer — den Schlüssel mitlesen könnte, mit dem
+man Einsätze auf die Lage schreibt. Bleibt der Weg über die Datenbank (oben).
 
 ## Payload
 

@@ -9925,7 +9925,7 @@
           "settings"
         ],
         "summary": "Get Setting",
-        "description": "Get single setting.",
+        "description": "Get single setting. Credential-valued keys are not served here.",
         "operationId": "get_setting_api_settings__key__get",
         "parameters": [
           {

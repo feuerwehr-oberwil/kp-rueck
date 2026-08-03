@@ -23,7 +23,16 @@ async def get_all_settings(current_user: CurrentUser, db: AsyncSession = Depends
 
 @router.get("/{key}", response_model=schemas.Setting)
 async def get_setting(key: str, current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> Setting:
-    """Get single setting."""
+    """Get single setting. Credential-valued keys are not served here."""
+    if key in settings_service.SECRET_SETTING_KEYS:
+        # Masking the value in the list endpoint would be pointless if this one handed it
+        # over by name. The DSN has a redacted read at GET /api/sync/config; the webhook
+        # secret is provisioned from the environment.
+        raise HTTPException(
+            status_code=403,
+            detail="Dieser Wert ist ein Zugangsdatum und wird hier nicht ausgegeben.",
+        )
+
     result = await db.execute(select(Setting).where(Setting.key == key))
     setting = result.scalar_one_or_none()
 
@@ -45,10 +54,21 @@ async def update_setting(
 ) -> Setting:
     """Update setting (editor only)."""
     # Only allow updates to known settings keys. The underlying service creates a
-    # row for any key, so without this guard an editor could inject arbitrary keys
-    # or overwrite sensitive config (e.g. railway_database_url).
+    # row for any key, so without this guard an editor could inject arbitrary keys.
     if key not in DEFAULT_SETTINGS:
         raise HTTPException(status_code=404, detail="Unknown setting key")
+
+    # ...and `railway_database_url` was in DEFAULT_SETTINGS, so the guard above admitted
+    # the exact key the old comment claimed it protected. That value is fed straight into
+    # `create_async_engine` (services/sync_service.py), i.e. it decides where this backend
+    # opens an outbound database connection and pushes events, incidents, personnel,
+    # vehicles, materials and settings. It has a dedicated endpoint that validates and
+    # redacts it — PUT /api/sync/config — and that is now the only way in.
+    if key in settings_service.GENERIC_WRITE_DENYLIST:
+        raise HTTPException(
+            status_code=403,
+            detail="Dieser Wert wird über /api/sync/config gesetzt, nicht hier.",
+        )
 
     # Get old value for audit logging
     old_value = await settings_service.get_setting(db, key)

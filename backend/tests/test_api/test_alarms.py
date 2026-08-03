@@ -79,7 +79,7 @@ def _post(client: AsyncClient, payload: dict, secret: str | None = SECRET, heade
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_alarm_fails_closed_without_configured_secret(client: AsyncClient):
-    """No alarm_webhook_secret in settings -> always 403 (unlike the Divera adapter)."""
+    """No alarm_webhook_secret in settings -> always 403. The Divera adapter now matches."""
     response = await _post(client, alarm_payload())
     assert response.status_code == 403
 
@@ -401,10 +401,51 @@ async def test_alarm_redelivery_acks_attached_incident(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_divera_webhook_rows_carry_divera_source(client: AsyncClient, db_session: AsyncSession):
+async def test_divera_webhook_fails_closed_without_configured_secret(client: AsyncClient):
+    """No alarm_webhook_secret configured -> 403, same as POST /api/alarms.
+
+    The Divera adapter used to guard with `if webhook_secret:`, so an empty secret skipped
+    the check entirely and the webhook became an unauthenticated board-write endpoint. An
+    editor can set the secret to "" through PATCH /api/settings/{key}, so "empty" was not a
+    hypothetical state.
+    """
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+        response = await client.post("/api/divera/webhook", json={"id": 424243, "title": "BMA Schulhaus"})
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_divera_webhook_rejects_wrong_secret(client: AsyncClient, webhook_secret: str):
+    """A configured secret must actually be matched."""
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+        response = await client.post(
+            "/api/divera/webhook", json={"id": 424244, "title": "BMA"}, params={"secret": "wrong"}
+        )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_divera_webhook_accepts_secret_via_header(client: AsyncClient, webhook_secret: str):
+    """Both transports Divera can use must keep working."""
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+        response = await client.post(
+            "/api/divera/webhook", json={"id": 424245, "title": "BMA"}, headers={"X-Webhook-Secret": webhook_secret}
+        )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_divera_webhook_rows_carry_divera_source(
+    client: AsyncClient, db_session: AsyncSession, webhook_secret: str
+):
     """The Divera adapter now stamps source="divera" / source_id=str(divera id)."""
     with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
-        response = await client.post("/api/divera/webhook", json={"id": 424242, "title": "BMA Schulhaus"})
+        response = await client.post(
+            "/api/divera/webhook", json={"id": 424242, "title": "BMA Schulhaus"}, params={"secret": webhook_secret}
+        )
 
     assert response.status_code == 200
     row = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 424242))).scalar_one()

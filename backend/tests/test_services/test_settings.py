@@ -127,3 +127,24 @@ class TestInitializeDefaultSettings:
         all_settings = await get_all_settings(db_session)
         assert all_settings["training_mode"] == "false"
         assert all_settings["auto_archive_timeout_hours"] == "24"
+
+
+class TestWebhookSecretIsNotLogged:
+    """The auto-generated webhook secret must not reach the log."""
+
+    @pytest.mark.asyncio
+    async def test_generated_secret_is_not_written_to_the_log(
+        self, db_session: AsyncSession, caplog: pytest.LogCaptureFixture
+    ):
+        """Regression: first boot logged `Generated alarm_webhook_secret: <value>` at INFO.
+
+        The secret authorises writes to the operations board, and stdout goes to the platform
+        log and to whatever ships it onward. ALARM_WEBHOOK_SECRET in the environment covers
+        the provisioning case the log line was there to solve.
+        """
+        with caplog.at_level("DEBUG"):
+            await initialize_default_settings(db_session)
+
+        secret = await get_setting(db_session, "alarm_webhook_secret")
+        assert secret  # it was generated
+        assert secret not in caplog.text
