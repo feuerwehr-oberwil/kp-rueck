@@ -131,6 +131,16 @@ async def get_setting_value(db: AsyncSession, key: str, default: str | None = No
     return value
 
 
+# Marks a database as disposable — written only by the demo seeder, checked by the demo
+# reset before it truncates anything (background/demo_reset.assert_disposable_database).
+#
+# Deliberately NOT a member of DEFAULT_SETTINGS: that dict is created on every deployment,
+# which would hand the marker to real stations and make it worthless. Staying out of it also
+# keeps the key off the PATCH /api/settings/{key} allowlist, so no editor can forge one.
+DISPOSABLE_MARKER_KEY = "deployment_role"
+DISPOSABLE_MARKER_VALUE = "demo"
+
+
 async def get_alarm_webhook_secret(db: AsyncSession) -> str:
     """The shared secret for POST /api/alarms and the Divera webhook.
 

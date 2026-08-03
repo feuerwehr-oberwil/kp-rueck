@@ -325,7 +325,9 @@ async def test_demo_seed_ensures_training_data_for_existing_database(monkeypatch
     """Existing demo deployments must receive templates on the next seed run."""
     seed_training = AsyncMock()
     existing_users = MagicMock()
-    existing_users.scalars.return_value.first.return_value = object()
+    # A MagicMock rather than a bare object(): this same session mock also serves
+    # _ensure_disposable_marker(), which reads `.value` off the row it finds.
+    existing_users.scalars.return_value.first.return_value = MagicMock()
     db = AsyncMock()
     db.execute.return_value = existing_users
     db_context = AsyncMock()
