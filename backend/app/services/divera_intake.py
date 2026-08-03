@@ -90,6 +90,7 @@ def _incident_type(category: str) -> schemas.IncidentType:
 # cannot drift from kp-front's copy unnoticed. Order matters: first hit in the title wins.
 INCIDENT_TYPE_MAPPING = {keyword: _incident_type(category) for keyword, category in KEYWORD_TO_CATEGORY}
 
+
 def detect_incident_type(title: str) -> schemas.IncidentType:
     """
     Detect incident type from Divera title.
