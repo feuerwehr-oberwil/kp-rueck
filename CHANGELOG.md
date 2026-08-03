@@ -28,6 +28,38 @@ will keep holding.
 
 ## [Unreleased]
 
+### Security
+
+- **The Divera webhook accepted alarms when no secret was configured.** Both inbound alarm
+  paths write to the same Lage, so both must answer the same way. They did not: the
+  provider-neutral `POST /api/alarms` failed closed, while the Divera adapter guarded with
+  `if webhook_secret:` — an unset **or emptied** secret skipped the check entirely and left an
+  unauthenticated write endpoint open. `alarm_webhook_secret` is in the settings PATCH
+  allowlist, so any editor could reach that state from the UI without meaning to.
+
+  Both now go through one check and fail closed: **no secret configured → `403`.**
+
+  ⚠️ **Breaking for a deployment that runs the Divera webhook without a secret** — it will
+  start answering `403` until one is set. That is the intended direction: a station that has
+  not configured a secret has not authorised anyone to create incidents on its board. Set
+  `ALARM_WEBHOOK_SECRET` in `.env` (the environment wins over the database value) — see
+  [`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
+
+- **Stored credentials were readable through the settings API, and the sync target host was
+  freely settable.** `GET /api/settings/` now masks secrets, and reading
+  `alarm_webhook_secret` directly answers `403` — otherwise any signed-in user, including a
+  pure viewer, could read the key that writes incidents onto the Lage.
+
+- **Vehicle positions were readable without a session.** `GET /api/v1/traccar/{status,positions}`
+  took no authentication and the router carried no dependency, so live positions were available
+  to anyone who knew the path. Both routes now require a session. *(Shipped in the previous
+  release; recorded here because it was never written down.)*
+
+- **One header was enough to claim another IP.** The rate limiter and the audit log both
+  trusted a client-supplied forwarding header, so per-IP limits could be evaded and audit rows
+  attributed to an address of the caller's choosing. The client IP is now derived from a
+  configured trusted-proxy depth. *(Also shipped previously and unrecorded.)*
+
 ### Added
 - **The capability registry now shows what you *could* point at, not only what is switched on –
   starting with a published roster contract.** `GET /api/integrations` answered "which provider is
