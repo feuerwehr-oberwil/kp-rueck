@@ -6,11 +6,13 @@ name: CI
 #   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
 #   frontend-typecheck, frontend-unit-tests, frontend-build, images
 #   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
-#   plus telemetry-drift and alarm-keyword-drift — the ONLY checks that compare anything
-#   against kp-front; the in-repo hash tests cannot see the other repository. Both are held
-#   out of the required list on main until they have run a few times, because both depend on
-#   a sibling repo being reachable. They are separate jobs on purpose: one answers "could one
-#   app leak what the other strips", the other "could the two classify an alarm differently".
+#   plus telemetry-drift, alarm-keyword-drift and roster-schema-drift — the ONLY checks that
+#   compare anything against kp-front; the in-repo hash tests cannot see the other repository.
+#   All three are held out of the required list on main until they have run a few times,
+#   because all three depend on a sibling repo being reachable. They are separate jobs on
+#   purpose, because they answer different questions: "could one app leak what the other
+#   strips", "could the two classify an alarm differently", and "could a station's roster
+#   snapshot be valid for one product and refused by the other".
 #   Both read `env.SIBLING_REPO` and SKIP (never fail) when it is empty or cannot be checked
 #   out, so a fork inherits an honest "not checked" rather than a red X against a repository
 #   it has nothing to do with. They still fail on real drift for the upstream pair.
@@ -366,6 +368,81 @@ jobs:
             echo "you change them — set them in your deployment config and leave the shipped"
             echo "vocabulary alone. If this is a fork that means to differ, point SIBLING_REPO"
             echo "at your own kp-front fork in .github/workflows/ci.yml, or set it to ''."
+            exit 1
+          fi
+
+  # Third shared thing, and the one whose copies live OUTSIDE backend/app: the
+  # roster-snapshot contract (D65). Both products vendor the two JSON Schemas byte
+  # for byte so a station can publish ONE file both can read — which only stays true
+  # while something compares them. The in-repo test pins their sha256 and cannot see
+  # this repository's sibling; edit both sides, update both hashes, and both suites
+  # stay green while the contract quietly forks. This job is the only thing that looks.
+  #
+  # Its own job again, for the same reason the other two are separate: a failure here
+  # means "a snapshot valid for one product may be rejected by the other", which is a
+  # different question from a leaked field or a misclassified alarm.
+  roster-schema-drift:
+    name: Roster snapshot contract matches KP Front
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out the sibling repository
+        id: sibling
+        if: env.SIBLING_REPO != ''
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.SIBLING_REPO }}
+          path: .kp-front
+          fetch-depth: 1
+
+      - name: Diff the roster snapshot schemas
+        env:
+          SIBLING_STATUS: ${{ steps.sibling.outcome }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SIBLING_REPO:-}" ]; then
+            echo "::notice::SIBLING_REPO is empty — cross-repo roster contract check disabled for this fork."
+            exit 0
+          fi
+          if [ "$SIBLING_STATUS" != "success" ]; then
+            echo "::notice::Could not check out ${SIBLING_REPO} (private, renamed or unreachable)."
+            echo "::notice::Skipping the roster contract drift check. Set SIBLING_REPO in"
+            echo "::notice::.github/workflows/ci.yml to a repository this workflow can read, or to ''."
+            exit 0
+          fi
+          # Both schemas, because they are one contract: the snapshot a producer writes
+          # and the outcome a consumer reports. Pinning one would leave the other free.
+          files="docs/roster-snapshot.schema.json docs/roster-snapshot-outcome.schema.json"
+          status=0
+          for f in $files; do
+            theirs=".kp-front/$f"
+            if [ ! -f "$theirs" ]; then
+              echo "::error::$f is missing in ${SIBLING_REPO} — the roster contract has changed shape"
+              status=1
+              continue
+            fi
+            if ! diff -u "$theirs" "$f" > "/tmp/roster-$(basename "$f").diff"; then
+              echo "::error::$f has diverged from ${SIBLING_REPO}"
+              cat "/tmp/roster-$(basename "$f").diff"
+              status=1
+            else
+              echo "  ✓ $f"
+            fi
+          done
+          if [ "$status" -ne 0 ]; then
+            echo ""
+            echo "Both products publish this schema to self-hosters as ONE contract: a station"
+            echo "writes a single snapshot file and points both deployments at it. A field added"
+            echo "on one side only means that file is valid for one product and refused by the"
+            echo "other — with the station's roster silently half-loaded."
+            echo ""
+            echo "Regenerate with 'just roster-schema' where the module changed, copy both files"
+            echo "across, and update the recorded hashes in both repositories in the same change."
+            echo "If this is a fork that means to differ, point SIBLING_REPO at your own kp-front"
+            echo "fork in .github/workflows/ci.yml, or set it to ''."
             exit 1
           fi
 
