@@ -59,10 +59,12 @@ from .auth.token_blocklist import token_blocklist
 from .background import (
     start_audit_cleanup_scheduler,
     start_demo_reset_scheduler,
+    start_heartbeat_scheduler,
     start_sync_scheduler,
     start_telemetry_scheduler,
     stop_audit_cleanup_scheduler,
     stop_demo_reset_scheduler,
+    stop_heartbeat_scheduler,
     stop_sync_scheduler,
     stop_telemetry_scheduler,
 )
@@ -182,6 +184,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         start_telemetry_scheduler()
     except Exception as e:
         logger.warning(f"Telemetry scheduler failed to start: {e}")
+
+    # Dead-man's switch. A no-op unless HEALTHCHECK_PING_URL is set, and its failure must
+    # never keep the app from starting — a station whose board refuses to boot because a
+    # monitoring endpoint is unreachable is a worse outcome than an unmonitored board.
+    try:
+        start_heartbeat_scheduler()
+    except Exception as e:
+        logger.warning(f"Heartbeat scheduler failed to start: {e}")
 
     # Start WebSocket stale session cleanup
     logger.info("Starting WebSocket stale session cleanup...")
@@ -333,6 +343,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         stop_telemetry_scheduler()
     except Exception as e:
         logger.warning(f"Telemetry scheduler shutdown failed: {e}")
+
+    try:
+        stop_heartbeat_scheduler()
+    except Exception as e:
+        logger.warning(f"Heartbeat scheduler shutdown failed: {e}")
 
     # Shutdown: Dispose engine
     logger.info("Shutting down...")

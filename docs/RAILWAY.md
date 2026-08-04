@@ -217,6 +217,13 @@ almost always one of these refusing a weak or missing value, and the message nam
 Optional, per integration: `DIVERA_ACCESS_KEY`, `TRACCAR_*`, `PRINT_AGENT_TOKEN`. See
 [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) and [`PRINT_AGENT.md`](PRINT_AGENT.md).
 
+`HEALTHCHECK_PING_URL` is worth setting on any deployment somebody depends on: a 60 s job GETs
+it, so an external monitor (healthchecks.io or any cron monitor) alerts when the pings *stop*.
+That covers the failure an uptime probe of `/health` misses — a container stopped with nothing
+replacing it, or a wedged event loop. Point it at a check with a 1 min period and a few minutes
+of grace. Empty = no job; a failed ping is logged and swallowed, so a monitoring outage can
+never take the board down with it. Same variable and cadence in KP Front.
+
 ### Frontend
 
 | Variable | Value | Notes |

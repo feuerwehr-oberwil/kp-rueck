@@ -177,6 +177,12 @@ class Settings(BaseSettings):
     # deployment's opt-in to printing — see api/print.py::require_print_agent.
     print_agent_token: str = ""
 
+    # Dead-man's switch: if set to a healthchecks.io / cron-monitor ping URL, a 60 s scheduler
+    # job GETs it — the monitor alerts if the pings ever stop (app or event loop silently
+    # dead). Unset → the heartbeat job isn't scheduled. Same name and cadence as kp-front, so
+    # both deployments configure identically. See background/heartbeat.py.
+    healthcheck_ping_url: str = ""
+
     # WebSocket
     # Reject connects that carry no valid access_token cookie. Default ON.
     #
