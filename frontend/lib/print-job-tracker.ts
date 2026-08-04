@@ -35,6 +35,8 @@ export interface PrintJobEvent {
 /** Pre-resolved German (or overlay) strings; this module never touches i18n itself. */
 export interface PrintJobToastCopy {
   completed: string
+  /** Printed, but on a fallback destination — the paper is somewhere else. */
+  completedFallback: string
   failed: string
   failedRetry: string
   unknownError: string
@@ -122,6 +124,20 @@ function applyEvent(entry: TrackedJob, job: PrintJobEvent) {
     // the agent is alive — which is what the timeouts below branch on.
     entry.claimed = true
     clearTimeout(entry.pickupTimer)
+    return
+  }
+
+  if (job.status === 'completed' && job.error_message?.trim()) {
+    // Completed WITH a message means the chain fell over: the paper exists, but not on the
+    // printer anybody is standing at. A success toast would be true and useless — nobody
+    // would go and fetch it, and nobody would learn the main printer is dead.
+    toast.warning(entry.copy.completedFallback, {
+      id,
+      description: describe(entry, job.error_message.trim()),
+      duration: Infinity,
+      action: printerAction(entry),
+    })
+    untrack(job.id)
     return
   }
 

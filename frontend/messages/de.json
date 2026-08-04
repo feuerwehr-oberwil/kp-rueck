@@ -1822,6 +1822,7 @@
   "print": {
     "toasts": {
       "completed": "An Drucker gesendet",
+      "completedFallback": "Auf Ersatzdrucker gedruckt",
       "failed": "Druck fehlgeschlagen",
       "failedRetry": "Druck fehlgeschlagen – neuer Versuch läuft",
       "unknownError": "Grund unbekannt",

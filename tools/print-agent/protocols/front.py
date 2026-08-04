@@ -89,10 +89,18 @@ class FrontProtocol:
             )
         ]
 
-    def report(self, job_id: str, ok: bool, error: str | None = None) -> None:
+    def report(self, job_id: str, ok: bool, error: str | None = None, *,
+               unreachable: bool = False, note: str | None = None) -> None:
+        """Report the outcome. `note` rides along on a SUCCESS — «printed, but on the backup».
+
+        KP Front stores `error` whatever the status is (api/print_relay.py), so the note needs
+        no backend change on that side. `unreachable` is accepted for a uniform call from the
+        Backend loop and deliberately not sent: KP Front's relay has no retry accounting to
+        inform, and inventing a field it would ignore is worse than not sending one.
+        """
         code, _ = self._request(
             f"/api/print-agent/jobs/{job_id}/status",
-            json_body={"status": "done" if ok else "failed", "error": error},
+            json_body={"status": "done" if ok else "failed", "error": note if ok else error},
         )
         if code != 200:
             log(f"WARN: status report for {job_id} → HTTP {code}")

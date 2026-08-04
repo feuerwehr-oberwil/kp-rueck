@@ -30,6 +30,13 @@ passed as `--config /etc/kp-print-agent.json` or `KP_PRINT_AGENT_CONFIG`; or, fo
 running just one of the two, the environment variables the previous agents already used —
 those keep working unchanged, see `_backend_from_env`.
 
+A backend may list ordered `destinations` instead of one `output`; they are tried in turn
+until one takes the job, so a dead primary means paper one room over rather than no paper:
+
+    {"name": "rueck", "protocol": "kp-rueck", "url": "…", "secret": "…",
+     "destinations": [{"output": "escpos"},
+                      {"output": "escpos", "ip": "192.168.1.51"}]}
+
 Subcommands:
   (none)     run until stopped
   once       one poll cycle per backend, then exit — for smoke-testing the wiring
@@ -46,7 +53,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core import FatalError, log  # noqa: E402
+from core import FatalError, PrintResult, log  # noqa: E402
 from outputs.cups import DEFAULT_CUPS_TIMEOUT_SEC, CupsOutput  # noqa: E402
 from outputs.escpos import EscposOutput  # noqa: E402
 from protocols.front import (  # noqa: E402
@@ -71,26 +78,73 @@ def _env(name: str, default: str = "") -> str:
 
 
 class Backend:
-    """One backend: a protocol driver, an output driver, and the loop that joins them."""
+    """One backend: a protocol driver, an ordered list of destinations, and the loop joining them.
 
-    def __init__(self, name: str, protocol, output) -> None:
+    The destinations are tried in order and the first one that takes the job wins. A command
+    post does not want a queue that waits for the right printer — it wants paper, now, and
+    would rather walk to the machine one room over than read a slip that arrives after the
+    decision it was meant to inform.
+    """
+
+    def __init__(self, name: str, protocol, outputs) -> None:
         self.name = name
         self.protocol = protocol
-        self.output = output
+        # Accept a bare output for the single-destination case that every caller used before.
+        self.outputs = list(outputs) if isinstance(outputs, (list, tuple)) else [outputs]
+
+    @property
+    def output(self):
+        """The primary destination. Kept as a name because that is what it is."""
+        return self.outputs[0]
 
     def describe(self) -> str:
-        return f"{self.name}: {self.protocol.name} @ {self.protocol.url} → {self.output.describe()}"
+        chain = " → ".join(o.describe() for o in self.outputs)
+        return f"{self.name}: {self.protocol.name} @ {self.protocol.url} → {chain}"
+
+    def _print_somewhere(self, job) -> tuple[PrintResult, int, list[str]]:
+        """Walk the chain until a destination takes the job.
+
+        Returns the winning (or final) result, which destination produced it, and the
+        failures collected on the way — those are what the operator needs to hear even when
+        the paper did come out, because a backup that quietly covers for a dead primary is a
+        station with one printer and nobody aware of it.
+        """
+        skipped: list[str] = []
+        result = PrintResult(False, "no destination configured")
+        for index, output in enumerate(self.outputs):
+            # The ESC/POS printer's address lives in the KP Rück backend, so adopt whatever
+            # the protocol last saw before printing. Pinned destinations ignore this.
+            if hasattr(output, "resolve") and hasattr(self.protocol, "printer_ip"):
+                output.resolve(self.protocol.printer_ip, self.protocol.printer_port)
+
+            result = PrintResult.coerce(output.print_job(job))
+            if result.ok:
+                return result, index, skipped
+            skipped.append(f"{output.describe()}: {result.error}")
+            # A job the printer REFUSED (unrenderable, wrong type, missing document) fails
+            # identically everywhere. Walking the chain with it would only spread the same
+            # error across every printer in the station and delay the honest failure.
+            if not result.unreachable:
+                break
+        return result, -1, skipped
 
     def _cycle(self) -> None:
         for job in self.protocol.poll():
-            # The ESC/POS printer's address lives in the KP Rück backend, so adopt whatever
-            # the protocol last saw before printing.
-            if hasattr(self.output, "resolve") and hasattr(self.protocol, "printer_ip"):
-                self.output.resolve(self.protocol.printer_ip, self.protocol.printer_port)
+            result, index, skipped = self._print_somewhere(job)
 
-            ok, error = self.output.print_job(job)
-            self.protocol.report(job.id, ok, error)
-            log(f"[{self.name}] job {job.id}: {'printed' if ok else f'FAILED — {error}'}")
+            if result.ok and index > 0:
+                # Printed, but not where it was supposed to. Both halves matter: where the
+                # paper is (somebody has to fetch it) and that the primary is down.
+                note = f"auf Ersatzdrucker gedruckt ({self.outputs[index].describe()}) — {skipped[0]}"
+                self.protocol.report(job.id, True, note=note)
+                log(f"[{self.name}] job {job.id}: printed on fallback #{index} — {'; '.join(skipped)}")
+            elif result.ok:
+                self.protocol.report(job.id, True)
+                log(f"[{self.name}] job {job.id}: printed")
+            else:
+                error = "; ".join(skipped) if len(skipped) > 1 else result.error
+                self.protocol.report(job.id, False, error, unreachable=result.unreachable)
+                log(f"[{self.name}] job {job.id}: FAILED — {error}")
 
     def run(self, stop: threading.Event, once: bool = False) -> None:
         log(f"[{self.name}] {self.describe()}")
@@ -153,29 +207,51 @@ def _build(entry: dict) -> Backend:
     else:
         raise SystemExit(f"config: backend '{name}' has unknown protocol '{proto_name}' (kp-front | kp-rueck)")
 
-    out_name = (entry.get("output") or "").strip()
-    if out_name == "cups":
-        printer = (entry.get("printer") or "").strip()
-        if not printer:
-            raise SystemExit(f"config: backend '{name}' uses the cups output but names no printer")
-        output = CupsOutput(
-            printer,
-            lp_options=entry.get("lp_options") or [],
-            cups_timeout_sec=tuning("cups_timeout_sec", DEFAULT_CUPS_TIMEOUT_SEC),
-        )
-    elif out_name == "escpos":
-        output = EscposOutput(dry_run=bool(entry.get("dry_run")))
-    else:
-        raise SystemExit(f"config: backend '{name}' has unknown output '{out_name}' (cups | escpos)")
+    def build_output(spec: dict, where: str):
+        """One destination. `spec` is either the backend entry itself or a `destinations` item."""
+        out_name = (spec.get("output") or "").strip()
+        if out_name == "cups":
+            printer = (spec.get("printer") or "").strip()
+            if not printer:
+                raise SystemExit(f"config: {where} uses the cups output but names no printer")
+            return CupsOutput(
+                printer,
+                lp_options=spec.get("lp_options") or [],
+                cups_timeout_sec=tuning("cups_timeout_sec", DEFAULT_CUPS_TIMEOUT_SEC),
+            )
+        if out_name == "escpos":
+            port = spec.get("port")
+            return EscposOutput(
+                (spec.get("ip") or "").strip(),
+                int(port) if port else 9100,
+                dry_run=bool(spec.get("dry_run")),
+            )
+        raise SystemExit(f"config: {where} has unknown output '{out_name}' (cups | escpos)")
 
-    # Catch the pairing mistake here rather than at 3am on the first real job.
-    if protocol.wants != output.consumes:
-        raise SystemExit(
-            f"config: backend '{name}' pairs protocol '{proto_name}' (delivers {protocol.wants}) "
-            f"with output '{out_name}' (needs {output.consumes}) — kp-front goes with cups, "
-            "kp-rueck with escpos"
-        )
-    return Backend(name, protocol, output)
+    # `destinations` is the ordered chain; a bare `output` is the one-destination form every
+    # existing config and every env-var install uses, and stays exactly as valid.
+    specs = entry.get("destinations")
+    if specs:
+        if not isinstance(specs, list):
+            raise SystemExit(f"config: backend '{name}' has a 'destinations' that is not a list")
+        outputs = [build_output(s, f"backend '{name}' destination #{i + 1}") for i, s in enumerate(specs)]
+    else:
+        outputs = [build_output(entry, f"backend '{name}'")]
+
+    # Catch the pairing mistake here rather than at 3am on the first real job. Every
+    # destination has to consume what this protocol delivers: KP Rück sends structured JSON
+    # that only the ESC/POS renderer understands, so a laser cannot stand in for the thermal
+    # printer until somebody writes a payload→PDF renderer. Refusing here is the honest
+    # answer; accepting it would mean a backup that fails on the night it is needed.
+    for i, output in enumerate(outputs):
+        if protocol.wants != output.consumes:
+            position = f"destination #{i + 1} " if len(outputs) > 1 else ""
+            raise SystemExit(
+                f"config: backend '{name}' pairs protocol '{proto_name}' (delivers "
+                f"{protocol.wants}) with {position}output '{output.name}' (needs "
+                f"{output.consumes}) — kp-front goes with cups, kp-rueck with escpos"
+            )
+    return Backend(name, protocol, outputs)
 
 
 def _backend_from_env() -> list[dict]:
