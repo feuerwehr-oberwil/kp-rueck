@@ -19060,6 +19060,11 @@
               }
             ],
             "title": "Error Message"
+          },
+          "retryable": {
+            "type": "boolean",
+            "title": "Retryable",
+            "default": false
           }
         },
         "type": "object",

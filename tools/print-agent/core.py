@@ -51,6 +51,35 @@ class Job:
     color: bool = False
 
 
+@dataclass
+class PrintResult:
+    """What one destination did with a job.
+
+    `unreachable` is the distinction everything downstream turns on. A printer that did not
+    answer may well answer a minute later, so the job is worth handing to the next
+    destination and worth keeping in the queue; a rejected or unrenderable job is the
+    opposite — it will fail the same way on the next attempt and on every other printer.
+    Reporting the two as one status is what made a two-minute reboot lose the slip.
+    """
+
+    ok: bool
+    error: str | None = None
+    unreachable: bool = False
+
+    @classmethod
+    def coerce(cls, value: PrintResult | tuple[bool, str | None]) -> PrintResult:
+        """Accept the plain ``(ok, error)`` tuple outputs used to return.
+
+        Kept so an output driver written against the old contract — including the ones tests
+        monkeypatch in — keeps working. An unannotated failure counts as permanent, which is
+        the safe direction: it stops after the attempt cap instead of retrying forever.
+        """
+        if isinstance(value, cls):
+            return value
+        ok, error = value
+        return cls(bool(ok), error)
+
+
 # ESC/POS QR sizing. python-escpos renders the code as an image of
 # (modules + 2 * border) * box_size dots, with border=1 — so the box size that fits depends
 # on how much content the code carries, which is why a single constant was always going to be
