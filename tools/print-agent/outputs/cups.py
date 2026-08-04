@@ -126,8 +126,14 @@ class CupsOutput:
         except (OSError, subprocess.SubprocessError):
             return None
 
-        if state.returncode != 0 and "unknown" in (state.stderr or "").lower():
-            return f"CUPS kennt den Drucker '{self.printer}' nicht"
+        if state.returncode != 0:
+            # The queue is gone, and this is not the exotic case: every queue at a station
+            # discovered over mDNS (`implicitclass://`, cups-browsed) DISAPPEARS while its
+            # printer is off, taking the destination with it. Matched on the exit code rather
+            # than on wording — CUPS says "Invalid destination name" here and "Unknown
+            # printer" elsewhere, and a substring test for either quietly failed open on a Pi.
+            detail = (state.stderr or "").strip().splitlines()
+            return f"CUPS-Warteschlange '{self.printer}' gibt es nicht ({detail[0] if detail else 'lpstat'})"
         text = (state.stdout or "").lower()
         if "disabled" in text:
             return f"CUPS-Warteschlange '{self.printer}' ist gestoppt"
