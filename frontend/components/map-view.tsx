@@ -6,7 +6,7 @@ import L, { LatLngExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { useIncidents, type Operation } from "@/lib/contexts/operations-context"
 import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incidents"
-import type { IncidentGroup } from "@/lib/types/groups"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { GroupRoutes } from "./map/group-routes"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
@@ -19,7 +19,7 @@ import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
-import { Maximize } from "lucide-react"
+import { Maximize, Truck, Users } from "lucide-react"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -690,6 +690,9 @@ interface MapViewProps {
   // Aufträge (incident group) routes — read-only polyline display + Routenplanung.
   showGroupRoutes?: boolean // draw the numbered route polylines (off by default)
   groups?: IncidentGroup[] // Aufträge to draw
+  /** Resolves a route's own crew/vehicles, so the hover card of any stop can
+   *  show who is on it. Omitted outside the groups provider (token/display). */
+  groupResourcesFor?: (groupId: string) => GroupResources
   operationsById?: Map<string, Operation> // stop lookup (stops are real incidents)
   focusGroupId?: string | null // emphasize one route, dim the rest (planning)
   highlightGroupStopId?: string | null // highlight one stop marker (focused stop)
@@ -724,6 +727,7 @@ export default function MapView({
   colorGroups = [],
   showGroupRoutes = false,
   groups,
+  groupResourcesFor,
   operationsById,
   focusGroupId = null,
   highlightGroupStopId = null,
@@ -1145,7 +1149,10 @@ export default function MapView({
           const isHighlighted =
             selectedIncidentId === incident.id || (highlightIncidentIds?.has(incident.id) ?? false)
           const shortAddress = (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())) || incident.title
-          const crewCount = incident.assigned_vehicles.length + (("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0)
+          // Split, not summed: a bare "(3)" hid whether that was three people,
+          // three vehicles or a mix — an icon each answers it without a click.
+          const vehicleCount = incident.assigned_vehicles.length
+          const personnelCount = ("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0
           return (
             <Marker
               key={incident.id}
@@ -1167,6 +1174,12 @@ export default function MapView({
                 const hovered = hoveredIncidentId === incident.id
                 const hoverOperation = hovered ? operationsById?.get(incident.id) : undefined
                 const offset = labelOffsets.get(incident.id) ?? [LABEL_ANCHOR_X, 0]
+                // An Auftrag stop owns no resources of its own — they ride on
+                // the route — so resolve them here too, not just on the numbered
+                // route pins. Same incident, same answer, whichever you hover.
+                const hoverGroup = hoverOperation?.groupId
+                  ? groups?.find((g) => g.id === hoverOperation.groupId)
+                  : undefined
                 if (showLabels) {
                   return (
                     <IncidentLabel
@@ -1179,12 +1192,32 @@ export default function MapView({
                     >
                       <LabelLeader dy={offset[1]} />
                       {hoverOperation ? (
-                        <OperationHoverCard operation={hoverOperation} />
+                        <OperationHoverCard
+                          operation={hoverOperation}
+                          routeName={hoverGroup?.name}
+                          routeResources={hoverGroup && groupResourcesFor?.(hoverGroup.id)}
+                        />
                       ) : (
                         <>
                           <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
-                          {crewCount > 0 && (
-                            <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }}>({crewCount})</span>
+                          {(vehicleCount > 0 || personnelCount > 0) && (
+                            <span
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: '5px', fontSize: '10px', color: '#6b7280' }}
+                              title={t('view.crewSummary', { vehicles: vehicleCount, personnel: personnelCount })}
+                            >
+                              {vehicleCount > 0 && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                  <Truck style={{ width: '10px', height: '10px' }} aria-hidden />
+                                  {vehicleCount}
+                                </span>
+                              )}
+                              {personnelCount > 0 && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                  <Users style={{ width: '10px', height: '10px' }} aria-hidden />
+                                  {personnelCount}
+                                </span>
+                              )}
+                            </span>
                           )}
                         </>
                       )}
@@ -1265,6 +1298,7 @@ export default function MapView({
             focusGroupId={focusGroupId}
             onMarkerClick={onGroupStopMarkerClick}
             highlightIncidentId={highlightGroupStopId}
+            groupResourcesFor={groupResourcesFor}
           />
         )}
 

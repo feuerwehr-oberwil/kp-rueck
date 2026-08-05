@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
-import { Input } from '@/components/ui/input'
-import { CheckCircle, Circle, Search } from 'lucide-react'
+import { SearchInput } from '@/components/ui/search-input'
+import { CheckCircle, Circle } from 'lucide-react'
 import { toast } from 'sonner'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient } from '@/lib/websocket-client'
@@ -181,16 +181,13 @@ export default function CheckInPage() {
 
       {/* Search and Add Button */}
       <div className="max-w-2xl mx-auto mb-4 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder={t('searchPlaceholder')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-12 text-lg"
-          />
-        </div>
+        <SearchInput
+          size="lg"
+          placeholder={t('searchPlaceholder')}
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+          className="h-12 text-lg"
+        />
 
         {/* Quick Add Personnel Component */}
         <QuickAddPersonnel

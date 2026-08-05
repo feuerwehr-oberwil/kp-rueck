@@ -150,3 +150,27 @@ export interface ApiIncidentTimelineEvent {
 export interface ApiIncidentTimelineResponse {
   events: ApiIncidentTimelineEvent[]
 }
+
+/**
+ * One resource that was on an incident at some point — the "Beteiligt" roll-up.
+ * One entry per resource, not per assignment: someone taken off and put back on
+ * appears once, with `stints` counting how many separate times.
+ */
+export interface ApiIncidentParticipant {
+  resource_type: 'personnel' | 'vehicle' | 'material'
+  resource_id: string
+  /** null when the resource has since been deleted from the roster. */
+  name: string | null
+  first_assigned_at: string
+  /** null while still assigned. */
+  last_released_at: string | null
+  stints: number
+  /** Personnel only: held the Reko function for the event. */
+  is_reko: boolean
+  /** Personnel only: led the incident (or its Auftrag) while assigned. */
+  is_leader: boolean
+}
+
+export interface ApiIncidentParticipantsResponse {
+  participants: ApiIncidentParticipant[]
+}

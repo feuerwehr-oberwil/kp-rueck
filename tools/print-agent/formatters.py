@@ -210,10 +210,13 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
         for person in crew:
             name = person.get("name", "")
             role = person.get("role", "")
+            # «EL» first, so the line starts with the one thing that decides who
+            # the rest of the crew reports to.
+            prefix = "EL " if person.get("is_leader") else ""
             if role:
-                line = f" {name} ({role})"
+                line = f" {prefix}{name} ({role})"
             else:
-                line = f" {name}"
+                line = f" {prefix}{name}"
             for wrapped in _wrap_text(line, WIDTH_B):
                 _text(p, f"{wrapped}\n")
 
@@ -423,7 +426,9 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
                 for line in _wrap_text(veh_line, WIDTH_B):
                     _text(p, f"{line}\n")
             if inc_crew:
-                names = [c.get("name", "") for c in inc_crew]
+                names = [
+                    ("EL " if c.get("is_leader") else "") + c.get("name", "") for c in inc_crew
+                ]
                 crew_line = f" Pers: {', '.join(names)}"
                 for line in _wrap_text(crew_line, WIDTH_B):
                     _text(p, f"{line}\n")

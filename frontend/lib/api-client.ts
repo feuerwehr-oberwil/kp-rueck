@@ -57,6 +57,7 @@ import {
   type ApiGroupAssignmentCreate,
   type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
+  type ApiIncidentParticipantsResponse,
   type ApiRekoReportCreate,
   type ApiRekoReportResponse,
   type ApiRekoFormResponse,
@@ -653,7 +654,7 @@ class ApiClient {
   async updateAssignment(
     incidentId: string,
     assignmentId: string,
-    data: { driver_stay?: boolean }
+    data: { driver_stay?: boolean; is_leader?: boolean }
   ): Promise<ApiAssignment> {
     return this.request<ApiAssignment>(
       `/api/incidents/${incidentId}/assignments/${assignmentId}`,
@@ -662,6 +663,30 @@ class ApiClient {
         body: JSON.stringify(data),
       }
     )
+  }
+
+  /** Promote a route-owned assignment to Einsatzleiter (demotes the previous one). */
+  async updateGroupAssignment(
+    groupId: string,
+    assignmentId: string,
+    data: { is_leader?: boolean }
+  ): Promise<ApiGroupAssignment> {
+    return this.request<ApiGroupAssignment>(
+      `/api/incident-groups/${groupId}/assignments/${assignmentId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    )
+  }
+
+  /**
+   * Everyone and everything that was on this incident, including resources
+   * already released. Completing an incident empties its crew list, so this is
+   * the only thing that still answers "who was there" afterwards.
+   */
+  async getIncidentParticipants(id: string): Promise<ApiIncidentParticipantsResponse> {
+    return this.request<ApiIncidentParticipantsResponse>(`/api/incidents/${id}/participants`)
   }
 
   // Resource Management - Personnel

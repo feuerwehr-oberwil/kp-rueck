@@ -207,10 +207,47 @@
       "crew": "Personal",
       "vehicles": "Fahrzeuge",
       "materials": "Mittel",
+      "auftrag": "Auftrag",
       "roleOther": "Andere"
+    },
+    "leader": {
+      "abbr": "EL",
+      "is": "Einsatzleiter",
+      "promote": "Als Einsatzleiter markieren"
+    },
+    "participants": {
+      "title": "Bisher im Einsatz",
+      "loading": "Wird geladen...",
+      "retry": "Erneut versuchen",
+      "empty": "Diesem Einsatz war noch nichts zugeteilt.",
+      "deletedResource": "Gelöschte Ressource",
+      "stints": "{count}× zugeteilt",
+      "stillOn": "seit {from}"
+    },
+    "clock": {
+      "menuLabel": "Anzeige der Uhr wählen",
+      "modes": {
+        "duration": "Dauer",
+        "time": "Zeit",
+        "start": "Start"
+      }
+    },
+    "incidentTime": {
+      "menuLabel": "Zeitanzeige wählen",
+      "modes": {
+        "start": "Startzeit",
+        "column": "In diesem Status",
+        "total": "Seit Alarmierung"
+      },
+      "tooltips": {
+        "start": "Startzeit des Einsatzes",
+        "column": "Zeit in diesem Status (seit {since})",
+        "total": "Zeit seit Alarmierung ({since})"
+      }
     },
     "common": {
       "search": "Suchen...",
+      "clearSearch": "Suche löschen",
       "cancel": "Abbrechen",
       "close": "Schliessen",
       "delete": "Löschen",
@@ -419,7 +456,6 @@
       "intakeTooltip": "Per Telefon / Walk-in erfasst – bitte prüfen",
       "rekoDoneTooltip": "Reko-Bericht ausgefüllt",
       "showOnMap": "Auf Karte anzeigen",
-      "inStatusTooltip": "In diesem Status seit über 1 Stunde (seit {since})",
       "onSiteSince": "vor Ort {time}",
       "doubleBookedTooltip": "{name} ist auf mehreren Einsätzen — Doppelbelegung",
       "persCount": "{count} Pers.",
@@ -469,7 +505,6 @@
       "vehiclesLoadFailedDescription": "Bitte erneut versuchen oder das Fenster neu öffnen.",
       "noEventSelectedLong": "Kein Event ausgewählt. Bitte wähle ein Event aus.",
       "incidentsLoadFailedDescription": "Die Einsätze konnten nicht geladen werden.",
-      "sinceAlarm": "{time} seit Alarmierung",
       "meldungPlaceholder": "Eingegangene Meldung, Schadensbild...",
       "nachbarhilfeDescription": "Einsatz mit Nachbarfeuerwehr-Beteiligung",
       "noCrew": "Keine Mannschaft zugewiesen",
@@ -477,6 +512,7 @@
       "loadingVehicles": "Lade Fahrzeuge...",
       "noVehicles": "Keine Fahrzeuge zugewiesen",
       "removeVehicle": "Fahrzeug entfernen",
+      "leaderFailed": "Einsatzleiter konnte nicht gesetzt werden.",
       "removePerson": "Person entfernen",
       "removeMaterial": "Material entfernen",
       "noMaterial": "Kein Material zugewiesen",
@@ -514,6 +550,7 @@
       "confirmAction": "Vom Einsatz entfernen & zuweisen",
       "unassignTitle": "{function}-Funktion entfernen?",
       "unassignRekoDescription": "<strong>{name}</strong> verliert die Reko-Funktion und erscheint nicht mehr in den Reko-Ansichten (Reko-Dashboard, Karte). Bestehende Einsatz-Zuteilungen bleiben bestehen. Die Person gilt danach wieder als normale Einsatzkraft.",
+      "unassignRekoTransfer": "{count} Einsatz/Einsätze übertragen",
       "unassignDriverDescription": "<strong>{name}</strong> ist danach nicht mehr Fahrer von <strong>{vehicle}</strong> und gilt wieder als normale Einsatzkraft.",
       "unassignMagazinDescription": "<strong>{name}</strong> verliert die Magazin-Funktion und gilt danach wieder als normale Einsatzkraft.",
       "unassignConfirm": "Funktion entfernen"
@@ -587,6 +624,7 @@
     },
     "auftraege": {
       "title": "Aufträge",
+      "leaderFailed": "Einsatzleiter konnte nicht gesetzt werden.",
       "description": "Mehrere Einsätze zu einer geordneten Route bündeln und einem Squad übergeben.",
       "newAuftrag": "Neuer Auftrag",
       "defaultName": "Auftrag {n}",
@@ -955,6 +993,8 @@
       "searchPlaceholder": "Suchen...",
       "showDetails": "Details anzeigen",
       "groupRoutes": "Aufträge",
+      "groupRoutesColorHint": "Färbt die Karte nach Auftrag",
+      "colorByRoutesOverride": "Von «Aufträge» gesetzt — beim Ausschalten wird die vorherige Färbung wiederhergestellt.",
       "routePlanning": "Routenplanung",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
@@ -991,6 +1031,7 @@
     "view": {
       "markerAria": "Einsatz: {label}",
       "firestationFallback": "Feuerwehr",
+      "crewSummary": "{vehicles} Fahrzeug(e), {personnel} Person(en) zugewiesen",
       "magazin": "Magazin",
       "missingCoords": "⚠️ {count, plural, one {# Einsatz} other {# Einsatze}} ohne gültige Koordinaten",
       "clickToExpand": "Klicken zum Erweitern",
@@ -1223,6 +1264,15 @@
               "topo": "Topografisch (Esri)",
               "carto-light": "Voyager / Hell (CARTO)",
               "carto-dark": "Dunkel (CARTO)"
+            }
+          },
+          "incident_time_display": {
+            "label": "Zeitanzeige auf Einsätzen",
+            "description": "Was die Zeitangabe auf Karten, Detailansicht und Wanddisplay zeigt. Pro Gerät änderbar über das Menü an der Zeitangabe selbst.",
+            "options": {
+              "start": "Startzeit (HH:MM)",
+              "column": "Zeit in diesem Status",
+              "total": "Zeit seit Alarmierung"
             }
           }
         }
@@ -2048,6 +2098,8 @@
       "removeVehicleFailedDescription": "Das Fahrzeug konnte nicht entfernt werden.",
       "conflictTitle": "Von anderer Person geändert",
       "conflictDescription": "Dieser Einsatz wurde gerade von jemand anderem aktualisiert — die Ansicht wurde neu geladen.",
+      "amWartenClearedTitle": "«Am Warten» aufgehoben",
+      "amWartenClearedDescription": "Der Einsatz läuft jetzt — die Wartemarkierung wurde automatisch entfernt.",
       "statusNotChangedTitle": "Status nicht geändert",
       "statusNotChangedDescription": "Der Einsatz wurde auf den letzten Stand zurückgesetzt.",
       "updateFailedTitle": "Fehler beim Aktualisieren",
@@ -2191,7 +2243,6 @@
       "loading": "Lädt...",
       "loadError": "# Fehler\n\nDer Hilfeinhalt konnte nicht geladen werden.",
       "searchPlaceholder": "Hilfe durchsuchen",
-      "searchClear": "Suche zurücksetzen",
       "searchNoResults": "Keine Treffer"
     }
   },
@@ -2554,6 +2605,8 @@
     "board": {
       "loginRequired": "Bitte melde dich an für die Board-Anzeige.",
       "collapsedColumnTitle": "{title} – {count} – zum Aufklappen klicken",
+      "columnAlarmTitle": "{count} überfällig: {titles}",
+      "columnAlarmMore": "… und {count} weitere",
       "priorityAria": "Priorität: {label}",
       "materialCount": "{count} Material(ien)",
       "auftragChipTooltip": "Auftrag: {name}",
@@ -2624,7 +2677,6 @@
       "training": "Übung",
       "rekoCompleted": "Reko-Bericht ausgefüllt",
       "rekoOnSite": "Reko vor Ort",
-      "overOneHour": "In diesem Status seit über 1 Stunde",
       "invalidLink": "Ungültiger oder abgelaufener Link. Bitte einen neuen Link anfordern.",
       "eventFallback": "Ereignis",
       "readOnly": "Nur-Lesen",

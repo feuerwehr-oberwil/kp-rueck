@@ -389,6 +389,90 @@ async def get_status_history(
     return await crud.get_incident_status_history(db, incident_id)
 
 
+@router.get("/{incident_id}/participants", response_model=schemas.IncidentParticipantsResponse)
+async def get_incident_participants(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> schemas.IncidentParticipantsResponse:
+    """Everyone and everything that was on this incident — the "Beteiligt" roll-up.
+
+    Completing an incident releases its crew, so the board's crew list goes
+    empty and the record of who actually turned out only survives in the
+    assignment rows (soft-released via ``unassigned_at``). This rolls those rows
+    up to one entry per resource so the question "who was there" is answerable
+    long after the incident closed.
+
+    Distinct from ``/timeline``, which is the raw chronological event feed: this
+    is the summary you would read into a report.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+
+    result = await db.execute(
+        select(models.IncidentAssignment)
+        .where(models.IncidentAssignment.incident_id == incident_id)
+        .order_by(models.IncidentAssignment.assigned_at)
+    )
+    assignments = list(result.scalars().all())
+
+    # Resolve names in one query per kind rather than per row.
+    names: dict[tuple[str, uuid.UUID], str] = {}
+    for resource_type, model in (
+        ("personnel", models.Personnel),
+        ("vehicle", models.Vehicle),
+        ("material", models.Material),
+    ):
+        ids = {a.resource_id for a in assignments if a.resource_type == resource_type}
+        if not ids:
+            continue
+        rows = await db.execute(select(model).where(model.id.in_(ids)))
+        for row in rows.scalars().all():
+            names[(resource_type, row.id)] = row.name
+
+    # Who held the Reko function for this event. A Reko person shows up in the
+    # assignment rows like anyone else, but they went to look, not to work — the
+    # list says so rather than filing them under crew.
+    reko_ids: set[uuid.UUID] = set()
+    if incident.event_id:
+        reko_rows = await db.execute(
+            select(models.EventSpecialFunction.personnel_id).where(
+                models.EventSpecialFunction.event_id == incident.event_id,
+                models.EventSpecialFunction.function_type == "reko",
+            )
+        )
+        reko_ids = {row[0] for row in reko_rows.all()}
+
+    rolled: dict[tuple[str, uuid.UUID], schemas.IncidentParticipant] = {}
+    for a in assignments:
+        key = (a.resource_type, a.resource_id)
+        existing = rolled.get(key)
+        if existing is None:
+            rolled[key] = schemas.IncidentParticipant(
+                resource_type=a.resource_type,
+                resource_id=a.resource_id,
+                name=names.get(key),
+                first_assigned_at=a.assigned_at,
+                last_released_at=a.unassigned_at,
+                stints=1,
+                is_reko=a.resource_type == "personnel" and a.resource_id in reko_ids,
+                is_leader=a.is_leader,
+            )
+            continue
+        existing.stints += 1
+        existing.is_leader = existing.is_leader or a.is_leader
+        # A single still-open stint makes the whole participation still open,
+        # whatever order the rows arrived in.
+        if existing.last_released_at is not None:
+            existing.last_released_at = (
+                None if a.unassigned_at is None else max(existing.last_released_at, a.unassigned_at)
+            )
+
+    # Longest involvement first — the people who carried the incident read top.
+    return schemas.IncidentParticipantsResponse(participants=sorted(rolled.values(), key=lambda p: p.first_assigned_at))
+
+
 @router.get("/{incident_id}/timeline", response_model=schemas.IncidentTimelineResponse)
 async def get_incident_timeline(
     incident_id: uuid.UUID,

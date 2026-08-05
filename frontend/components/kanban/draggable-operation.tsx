@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -13,7 +14,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Clock, Users, Package, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints } from 'lucide-react'
+import { Users, Package, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -22,7 +23,8 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { getTimeSince, ageChipClass } from "@/lib/kanban-utils"
+import { IncidentTimeRow } from "@/components/ui/incident-time"
+import { formatClockTime } from "@/lib/incident-time"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
@@ -125,7 +127,6 @@ function DraggableOperationBase({
   const [isDragging, setIsDragging] = useState(false)
   const [isOver, setIsOver] = useState(false)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
-  const [currentTime, setCurrentTime] = useState(new Date())
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const { materialGroups } = useMaterials()
@@ -183,21 +184,6 @@ function DraggableOperationBase({
   // Get priority styling configuration
   const priority = operation.priority || 'low'
   const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
-
-  // Auto-update time every minute to refresh age badges
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 60000) // Update every minute
-
-    return () => clearInterval(interval)
-  }, [])
-
-  // Calculate time in current status (recalculates when currentTime changes)
-  // Use statusChangedAt if available, otherwise fall back to dispatchTime
-  const timeInStatus = operation.statusChangedAt || operation.dispatchTime
-  const minutesInStatus = Math.floor((currentTime.getTime() - timeInStatus.getTime()) / (1000 * 60))
-  const isOverOneHour = minutesInStatus >= 60
 
   useEffect(() => {
     const element = ref.current
@@ -364,20 +350,11 @@ function DraggableOperationBase({
             <span className="text-sm text-muted-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span className="font-mono text-sm text-muted-foreground">
-                {operation.dispatchTime.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            </div>
-            <span
-              className={cn("font-mono text-xs", ageChipClass(timeInStatus))}
-              title={isOverOneHour ? t('card.inStatusTooltip', { since: timeInStatus.toLocaleString("de-CH") }) : undefined}
-            >
-              {getTimeSince(timeInStatus)}
-            </span>
-          </div>
+          {/* Start time on the left, the board-wide mode chip on the right — see
+              components/ui/incident-time.tsx. The chip carries the age colouring
+              (amber/red once it has sat too long), which is a separate signal from
+              whichever number the mode happens to show. */}
+          <IncidentTimeRow operation={operation} colorByAge className="justify-between" />
 
           {/* Meldung (notes) - shown when toggle is enabled */}
           {showMeldung && operation.notes && (
@@ -398,7 +375,7 @@ function DraggableOperationBase({
               {/* Assigned Reko Person */}
               {operation.assignedReko && (
                 <div className="flex items-start gap-1.5">
-                  <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
                     <RemovableChip
                       variant="secondary"
@@ -413,7 +390,7 @@ function DraggableOperationBase({
                     {/* Show arrival time if on site but report not yet submitted */}
                     {operation.rekoArrivedAt && !operation.hasCompletedReko && (
                       <span className="text-xs text-muted-foreground">
-                        {t('card.onSiteSince', { time: operation.rekoArrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}
+                        {t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}
                       </span>
                     )}
                   </div>
@@ -421,7 +398,7 @@ function DraggableOperationBase({
               )}
               {!auftrag && operation.crew.length > 0 && (
                 <div className="flex items-start gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {operation.crew.map((crewName) => {
                       const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
@@ -444,6 +421,10 @@ function DraggableOperationBase({
                           removeIconClassName="h-2.5 w-2.5"
                         >
                           {isConflict && <AlertTriangle className="h-2.5 w-2.5" />}
+                          {/* Read-only here: the card is a drag source, and the
+                              star only renders for whoever actually holds the
+                              role, so the chip row stays as dense as it was. */}
+                          <LeaderBadge isLeader={operation.leaderName === crewName} />
                           <span>{crewName}</span>
                         </RemovableChip>
                       )
@@ -453,7 +434,7 @@ function DraggableOperationBase({
               )}
               {!auftrag && (operation.zuFuss || operation.vehicles.length > 0) && (
                 <div className="flex items-start gap-1.5">
-                  <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {operation.zuFuss && (
                       <RemovableChip
@@ -505,7 +486,7 @@ function DraggableOperationBase({
               )}
               {!auftrag && operation.materials.length > 0 && (
                 <div className="flex items-start gap-1.5">
-                  <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {(() => {
                       const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
@@ -551,7 +532,7 @@ function DraggableOperationBase({
               )}
               {operation.nachbarhilfe && (
                 <div className="flex items-start gap-1.5">
-                  <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
                     <span className="text-muted-foreground break-words">
                       {operation.nachbarhilfeNote || t('common.nachbarhilfe')}
@@ -763,6 +744,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.source === nextProps.operation.source &&
     prevProps.operation.groupId === nextProps.operation.groupId &&
     prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
+    prevProps.operation.leaderName === nextProps.operation.leaderName &&
     prevProps.operation.crew.length === nextProps.operation.crew.length &&
     prevProps.operation.crew.every((c, i) => c === nextProps.operation.crew[i]) &&
     prevProps.operation.materials.length === nextProps.operation.materials.length &&

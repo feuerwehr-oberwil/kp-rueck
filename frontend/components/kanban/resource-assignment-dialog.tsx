@@ -3,11 +3,11 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Siren, MapPin, Undo2 } from "lucide-react"
+import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Siren, MapPin, Undo2 } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
@@ -671,21 +671,17 @@ export function ResourceAssignmentDialog({
 
         <div className="flex flex-col min-h-0 flex-1 gap-4">
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder={t('common.search')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className={cn(
-                "pl-9 transition-all",
-                searchFocused && "ring-2 ring-primary/50 animate-search-focus"
-              )}
-            />
-          </div>
+          <SearchInput
+            placeholder={t('common.search')}
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            className={cn(
+              "transition-all",
+              searchFocused && "ring-2 ring-primary/50 animate-search-focus"
+            )}
+          />
 
           {/* Quick category filter — rank (crew), depot (material), type (vehicles) */}
           {categories.length > 1 && (
@@ -791,7 +787,7 @@ export function ResourceAssignmentDialog({
 
           {/* Resource List — flexes to fill the space between chips and footer,
               so the list scrolls internally and the dialog never exceeds 85dvh. */}
-          <ScrollArea className="flex-1 min-h-0 pr-4">
+          <ScrollArea className="flex-1 min-h-0 pr-2">
             <div className="space-y-2">
               {resourceType === 'crew' && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

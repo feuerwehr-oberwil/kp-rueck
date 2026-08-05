@@ -25,6 +25,8 @@ export interface GroupAssignment {
   resourceType: GroupResourceType
   resourceId: string // UUID of the resolved resource
   driverStay: boolean
+  /** Einsatzleiter for the whole route (personnel assignments only). */
+  isLeader: boolean
 }
 
 /** One resolved resource (name looked up against the live resource lists). */
@@ -37,6 +39,8 @@ export interface GroupResourceItem {
   name: string
   /** Vehicles only: whether the driver stays on site. */
   driverStay?: boolean
+  /** Personnel only: Einsatzleiter for the route. */
+  isLeader?: boolean
 }
 
 /** Resolved resources owned by a route, split by kind. */

@@ -10,6 +10,7 @@ import uuid
 from typing import Annotated, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -19,6 +20,7 @@ from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
 from ..database import get_db
 from ..models import IncidentGroup, IncidentGroupAssignment
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_assignment_update,
     broadcast_group_update,
@@ -304,3 +306,45 @@ async def get_group_assignments(
 ) -> list[IncidentGroupAssignment]:
     """List an Auftrag's active route-level assignments."""
     return await ga_crud.get_group_assignments(db, group_id)
+
+
+@router.patch("/{group_id}/assignments/{assignment_id}", response_model=schemas.GroupAssignmentResponse)
+async def update_group_assignment(
+    group_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    update: schemas.GroupAssignmentUpdate,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.GroupAssignmentResponse:
+    """Update a route-level assignment — currently only the Einsatzleiter flag.
+
+    A route's stops own no resources, so a stop that belongs to an Auftrag takes
+    its leader from here: one squad working a route has one leader, not one per
+    stop on it.
+    """
+    group = await crud.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auftrag not found")
+
+    try:
+        assignment = await ga_crud.update_group_assignment(db, assignment_id, update)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.CONFLICT) from e
+    if not assignment or assignment.incident_group_id != group_id:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    # Every other write in this file broadcasts; without this the new
+    # Einsatzleiter is visible only on the screen that set it, because polling
+    # runs only while the socket is DOWN.
+    group_response = await crud.build_group_response(db, group)
+    background_tasks.add_task(broadcast_group_update, group_response.model_dump(mode="json"), "update")
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        {"group_id": str(group_id), "event_id": str(group.event_id)},
+        "refresh",
+    )
+    return assignment

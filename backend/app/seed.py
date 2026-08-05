@@ -713,6 +713,7 @@ async def seed_database() -> None:
                 ("notification_enabled", "false"),
                 ("alarm_webhook_secret", secrets.token_urlsafe(32)),
                 ("map_mode", "online"),  # online=OSM only, auto=fallback, offline=local tiles (dev only)
+                ("incident_time_display", "column"),  # start | column | total (per-device override in the UI)
             ]
 
             default_settings_data.extend(

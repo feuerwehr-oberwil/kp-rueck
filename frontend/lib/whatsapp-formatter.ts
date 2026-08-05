@@ -118,6 +118,12 @@ function buildReko(rekoReport?: ApiRekoReportResponse | null): string {
  * Format an operation for WhatsApp sharing.
  * Uses WhatsApp markdown syntax and emojis for better readability.
  */
+/** Crew as one line, with the Einsatzleiter marked. */
+function formatCrew(crew: string[], leaderName: string | null): string {
+  if (crew.length === 0) return ""
+  return crew.map((name) => (leaderName && name === leaderName ? `EL ${name}` : name)).join(", ")
+}
+
 export function formatWhatsAppMessage({
   operation,
   materials,
@@ -155,6 +161,11 @@ export function formatWhatsAppMessage({
       }
     : operation
 
+  // A stop owns no people — the route does — so a grouped incident takes its
+  // Einsatzleiter from the Auftrag. «EL» goes out as the same two letters the
+  // board shows and the radio says.
+  const leaderName = groupResources?.personnel.find((p) => p.isLeader)?.name ?? operation.leaderName ?? null
+
   const values: Record<string, string> = {
     type: getIncidentTypeLabel(operation.incidentType).toUpperCase(),
     location: operation.location?.trim() || "",
@@ -162,7 +173,7 @@ export function formatWhatsAppMessage({
     contact: operation.contact?.trim() || "",
     internal_notes: operation.internalNotes?.trim() || "",
     vehicles: buildVehicles(eff, vehicleDrivers, vehicleCallsigns),
-    crew: eff.crew.length > 0 ? eff.crew.join(", ") : "",
+    crew: formatCrew(eff.crew, leaderName),
     materials: buildMaterials(eff, materials),
     reko: buildReko(rekoReport),
     timestamp,

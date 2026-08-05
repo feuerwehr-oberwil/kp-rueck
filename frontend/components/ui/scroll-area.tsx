@@ -38,18 +38,21 @@ function ScrollBar({
       data-slot="scroll-area-scrollbar"
       orientation={orientation}
       className={cn(
+        // Radix paints its own bar in the DOM, so the slim ::-webkit-scrollbar
+        // rules in globals.css never reach it. Matched by hand instead, or the
+        // dialogs would keep a visibly fatter bar than the rest of the board.
         'flex touch-none p-px transition-colors select-none',
         orientation === 'vertical' &&
-          'h-full w-2.5 border-l border-l-transparent',
+          'h-full w-1.5 border-l border-l-transparent',
         orientation === 'horizontal' &&
-          'h-2.5 flex-col border-t border-t-transparent',
+          'h-1.5 flex-col border-t border-t-transparent',
         className,
       )}
       {...props}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="bg-border relative flex-1 rounded-full"
+        className="bg-muted-foreground/45 hover:bg-muted-foreground relative flex-1 rounded-full transition-colors"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   )

@@ -10,7 +10,10 @@
 
 import type { CSSProperties } from "react"
 import { useTranslations } from "next-intl"
+import { IncidentTime } from "@/components/ui/incident-time"
+import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
 import type { Operation } from "@/lib/contexts/operations-context"
+import type { GroupResources } from "@/lib/types/groups"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 
@@ -24,6 +27,12 @@ const TITLE: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 600 }
 const META: CSSProperties = { margin: "2px 0 0", fontSize: 11, color: "#6b7280" }
 const ROW: CSSProperties = { margin: "2px 0 0", fontSize: 11 }
 const MUTED: CSSProperties = { color: "#6b7280" }
+const ROUTE_BLOCK: CSSProperties = {
+  margin: "5px 0 0",
+  paddingTop: 4,
+  borderTop: "1px solid #e5e7eb",
+}
+const ROUTE_TITLE: CSSProperties = { margin: 0, fontSize: 11, fontWeight: 600, color: "#374151" }
 const NOTES: CSSProperties = {
   margin: "3px 0 0",
   fontSize: 11,
@@ -37,16 +46,29 @@ const NOTES: CSSProperties = {
 export function OperationHoverCard({
   operation,
   seq,
+  routeName,
+  routeResources,
 }: {
   operation: Operation
   /** Route-stop sequence number ("2." prefix on Auftrag stops). */
   seq?: number
+  /** Name of the Auftrag this stop belongs to, when it belongs to one. */
+  routeName?: string
+  /** Resources owned by that Auftrag. A stop carries none of its own — the
+   *  route does — so without these the hover card of an Auftrag stop shows an
+   *  empty crew and the operator has to go look it up on the board. */
+  routeResources?: GroupResources
 }) {
   const tKanban = useTranslations("kanban")
   const tIncidents = useTranslations("incidents")
+  const tTime = useTranslations("kanban.incidentTime")
+  const { mode: timeMode } = useIncidentTimeMode()
   const address =
     (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || operation.location
   const crewShown = operation.crew.slice(0, 3)
+  const routeCrew = routeResources?.personnel ?? []
+  const routeVehicles = routeResources?.vehicles ?? []
+  const routeCrewShown = routeCrew.slice(0, 4)
 
   return (
     <div style={CARD}>
@@ -60,6 +82,13 @@ export function OperationHoverCard({
         {tKanban(`columns.${operation.status}`)}
         {" · "}
         {tIncidents(`priority.${operation.priority}`)}
+      </p>
+      {/* The same time every other surface shows. Spelled out rather than left to
+          the mode icon: a Leaflet tooltip has pointer-events off, so there is no
+          hovering the chip to find out what the number means. */}
+      <p style={ROW}>
+        <span style={MUTED}>{tTime(`modes.${timeMode}`)}: </span>
+        <IncidentTime operation={operation} readOnly showIcon={false} className="text-inherit" />
       </p>
       {operation.assignedReko && (
         <p style={ROW}>
@@ -85,6 +114,26 @@ export function OperationHoverCard({
           <span style={MUTED}>{tKanban("resources.materials")}: </span>
           {operation.materials.length}
         </p>
+      )}
+      {/* Route-owned crew. Kept in its own block under the Auftrag's name so it
+          never reads as if these people were assigned to this one stop. */}
+      {(routeVehicles.length > 0 || routeCrew.length > 0) && (
+        <div style={ROUTE_BLOCK}>
+          <p style={ROUTE_TITLE}>{routeName ?? tKanban("resources.auftrag")}</p>
+          {routeVehicles.length > 0 && (
+            <p style={ROW}>
+              <span style={MUTED}>{tKanban("resources.vehicles")}: </span>
+              {routeVehicles.map((v) => v.name).join(", ")}
+            </p>
+          )}
+          {routeCrew.length > 0 && (
+            <p style={ROW}>
+              <span style={MUTED}>{tKanban("resources.crew")}: </span>
+              {routeCrewShown.map((p) => p.name).join(", ")}
+              {routeCrew.length > routeCrewShown.length && ` +${routeCrew.length - routeCrewShown.length}`}
+            </p>
+          )}
+        </div>
       )}
       {operation.notes && <p style={NOTES}>{operation.notes}</p>}
     </div>

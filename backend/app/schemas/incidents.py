@@ -287,3 +287,40 @@ class IncidentTimelineResponse(BaseModel):
     """Timeline events for an incident, sorted oldest → newest."""
 
     events: list[IncidentTimelineEvent]
+
+
+class IncidentParticipant(BaseModel):
+    """One resource that was on an incident at some point — the "Beteiligt" roll-up.
+
+    Completing an incident releases its crew, so the board's own crew list
+    answers "who is on this now" and, for a closed incident, nobody. The
+    question that gets asked weeks later is "who was there" — which the
+    assignment rows have always been able to answer (they are soft-released via
+    ``unassigned_at``, never deleted), just never been asked.
+
+    One row per resource, not per assignment: a person taken off and put back on
+    appears once, with ``first_assigned_at`` / ``last_released_at`` spanning
+    their involvement and ``stints`` counting how many separate times.
+    """
+
+    resource_type: str  # 'personnel' | 'vehicle' | 'material'
+    resource_id: UUID
+    # None when the underlying resource has since been deleted from the roster —
+    # the assignment row survives, so the participation is still reported.
+    name: str | None = None
+    first_assigned_at: datetime
+    # None while the resource is still assigned.
+    last_released_at: datetime | None = None
+    stints: int = 1
+    # Personnel only: this person held the Reko function for the event, so they
+    # were here on reconnaissance rather than as crew. Worth distinguishing —
+    # "who was there" and "who went to look" are different answers.
+    is_reko: bool = False
+    # Personnel only: led the incident (or its Auftrag) while assigned.
+    is_leader: bool = False
+
+
+class IncidentParticipantsResponse(BaseModel):
+    """Everyone and everything that was on an incident, longest-serving first."""
+
+    participants: list[IncidentParticipant]

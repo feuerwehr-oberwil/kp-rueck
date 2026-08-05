@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { Search, Route as RouteIcon, Plus, List, MapPin } from "lucide-react"
+import { Route as RouteIcon, Plus, List, MapPin } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -21,8 +21,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { columns } from "@/lib/kanban-utils"
@@ -319,16 +319,15 @@ export function IncidentPickerDialog({
         </DialogHeader>
 
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("searchPlaceholder")}
-              className="h-9 pl-8"
-            />
-          </div>
+          <SearchInput
+            autoFocus
+            size="sm"
+            containerClassName="flex-1"
+            value={query}
+            onValueChange={setQuery}
+            placeholder={t("searchPlaceholder")}
+            className="h-9"
+          />
           {/* List ⇄ Karte view toggle */}
           <div className="flex flex-shrink-0 rounded-md border p-0.5">
             <button

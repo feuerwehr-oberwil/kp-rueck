@@ -59,6 +59,7 @@ export function viewerIncidentToOperation(a: ApiIncident): Operation {
     rekoArrivedAt: a.reko_arrived_at ? new Date(a.reko_arrived_at) : null,
     rekoSummary: null,
     assignedReko: null,
+    leaderName: null,
     crewAssignments: new Map(),
     materialAssignments: new Map(),
     vehicleAssignments: new Map(),

@@ -13,12 +13,14 @@ from typing import Any
 
 from fastapi import Request
 from sqlalchemy import and_, func, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..models import Incident, IncidentGroup, IncidentGroupAssignment, Material, Personnel, User, Vehicle
 from ..services.audit import log_action
+from .assignments import _reko_personnel_ids, leader_rank
 
 
 class ResourceNotFoundError(ValueError):
@@ -106,6 +108,9 @@ async def assign_group_resource(
         request=request,
     )
 
+    if resource_type == "personnel":
+        await sync_auto_group_leader(db, group_id)
+
     await db.commit()
     await db.refresh(assignment)
     return assignment
@@ -137,7 +142,10 @@ async def unassign_group_resource(
     if assignment is None:
         return False
 
+    # The Einsatzleiter flag does not travel on a released row — see
+    # `crud.assignments.unassign_resource` for why.
     assignment.unassigned_at = datetime.utcnow()
+    assignment.is_leader = False
 
     await log_action(
         db=db,
@@ -147,6 +155,11 @@ async def unassign_group_resource(
         user=current_user,
         request=request,
     )
+
+    # Releasing the leader hands the role on rather than leaving the route
+    # without one.
+    if assignment.resource_type == "personnel":
+        await sync_auto_group_leader(db, assignment.incident_group_id)
 
     await db.commit()
     return True
@@ -265,3 +278,110 @@ async def get_active_assignments_by_groups(
             schemas.GroupAssignmentResponse.model_validate(assignment)
         )
     return by_group
+
+
+async def update_group_assignment(
+    db: AsyncSession,
+    assignment_id: uuid.UUID,
+    update: schemas.GroupAssignmentUpdate,
+) -> schemas.GroupAssignmentResponse | None:
+    """Update a route-level assignment (currently: the Einsatzleiter flag).
+
+    Mirrors ``crud.assignments.update_assignment``. The role is single-holder and
+    guarded by a partial unique index, so the previous holder is demoted in the
+    same transaction — writing the new one first would collide with the index
+    rather than replace the role.
+    """
+    result = await db.execute(select(IncidentGroupAssignment).where(IncidentGroupAssignment.id == assignment_id))
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        return None
+
+    update_data = update.model_dump(exclude_unset=True)
+
+    if "is_leader" in update_data:
+        # Only a person can lead a route — see `crud.assignments.update_assignment`.
+        if assignment.resource_type != "personnel":
+            raise ValueError("Only personnel assignments can be marked as Einsatzleiter")
+
+        group = (
+            await db.execute(select(IncidentGroup).where(IncidentGroup.id == assignment.incident_group_id))
+        ).scalar_one_or_none()
+
+        if not update_data["is_leader"]:
+            # Explicit demote hands the choice back to the board.
+            if group is not None:
+                group.leader_manual = False
+        else:
+            if group is not None:
+                group.leader_manual = True
+            await db.execute(
+                sa_update(IncidentGroupAssignment)
+                .where(
+                    IncidentGroupAssignment.incident_group_id == assignment.incident_group_id,
+                    IncidentGroupAssignment.id != assignment.id,
+                    IncidentGroupAssignment.unassigned_at.is_(None),
+                    IncidentGroupAssignment.is_leader.is_(True),
+                )
+                .values(is_leader=False)
+            )
+
+    for key, value in update_data.items():
+        setattr(assignment, key, value)
+
+    # Un-pinning has to re-derive before the transaction closes.
+    if update_data.get("is_leader") is False:
+        await db.flush()
+        await sync_auto_group_leader(db, assignment.incident_group_id)
+
+    await db.commit()
+    await db.refresh(assignment)
+    return schemas.GroupAssignmentResponse.model_validate(assignment)
+
+
+async def sync_auto_group_leader(db: AsyncSession, group_id: uuid.UUID) -> None:
+    """`sync_auto_leader` for a route — see there for the reasoning.
+
+    One level up because the route owns the people: a stop has none of its own,
+    so an Auftrag with no EL means every one of its stops has no EL.
+    """
+    group = (await db.execute(select(IncidentGroup).where(IncidentGroup.id == group_id))).scalar_one_or_none()
+    if group is None or group.leader_manual:
+        return
+
+    # Reko personnel excluded — see `sync_auto_leader` for why.
+    reko_ids = await _reko_personnel_ids(db, group.event_id)
+
+    rows = [
+        row
+        for row in (
+            await db.execute(
+                select(IncidentGroupAssignment, Personnel)
+                .join(Personnel, Personnel.id == IncidentGroupAssignment.resource_id)
+                .where(
+                    IncidentGroupAssignment.incident_group_id == group_id,
+                    IncidentGroupAssignment.resource_type == "personnel",
+                    IncidentGroupAssignment.unassigned_at.is_(None),
+                )
+                .order_by(IncidentGroupAssignment.assigned_at.asc())
+            )
+        ).all()
+        if row[1].id not in reko_ids
+    ]
+
+    rows.sort(key=lambda row: (leader_rank(row[1]), row[0].assigned_at))
+    winner = rows[0][0] if rows else None
+
+    await db.execute(
+        sa_update(IncidentGroupAssignment)
+        .where(
+            IncidentGroupAssignment.incident_group_id == group_id,
+            IncidentGroupAssignment.resource_type == "personnel",
+            IncidentGroupAssignment.unassigned_at.is_(None),
+        )
+        .values(is_leader=False)
+    )
+    if winner is not None:
+        winner.is_leader = True
+
+    await db.flush()

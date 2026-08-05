@@ -204,13 +204,16 @@ async def _build_board_payload(
                     }
                 )
 
-        # Get crew details (exclude reko personnel)
+        # Get crew details (exclude reko personnel). `is_leader` rides along so
+        # the board snapshot marks the Einsatzleiter the same way the
+        # per-incident slip does — the formatter already reads it.
+        leader_ids = {a.resource_id for a in active_assignments if a.resource_type == "personnel" and a.is_leader}
         crew: list[dict[str, Any]] = []
         if personnel_ids:
             pers_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
             for p in pers_result.scalars().all():
                 if p.id not in reko_personnel_ids:
-                    crew.append({"name": p.name, "role": p.role})
+                    crew.append({"name": p.name, "role": p.role, "is_leader": p.id in leader_ids})
 
         # Get material details
         materials_list: list[dict[str, Any]] = []

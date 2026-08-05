@@ -13,8 +13,8 @@ import { wsClient } from '@/lib/websocket-client';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { Button } from '@/components/ui/button';
+import { SearchInput } from '@/components/ui/search-input'
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Link2, RefreshCw, Search, Check, Info, Loader2 } from 'lucide-react';
+import { Link2, RefreshCw, Check, Info, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { getDateFnsLocale } from '@/lib/date-locale';
@@ -238,15 +238,13 @@ export default function DiveraPoolPage() {
       {/* Toolbar */}
       <div className="border-b px-6 py-3">
         <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={t('searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9"
-            />
-          </div>
+          <SearchInput
+            containerClassName="flex-1 max-w-sm"
+            placeholder={t('searchPlaceholder')}
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            className="h-9"
+          />
 
           <Button
             variant="ghost"

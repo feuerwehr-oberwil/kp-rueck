@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl"
 import { Users, Truck, Package, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RemovableChip } from "@/components/ui/removable-chip"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
 import type { GroupResources } from "@/lib/types/groups"
 
 /**
@@ -57,9 +58,13 @@ interface RouteResourceSectionsProps {
   /** Optional badge rendered after each section count (e.g. "über Auftrag «…»"). */
   viaLabel?: ReactNode
   readOnly?: boolean
+  /** Promote a route-owned person to Einsatzleiter. A stop owns no resources,
+   *  so for a grouped incident this is where the leader is set — one squad on
+   *  one route has one leader, not one per stop. */
+  onPromoteLeader?: (assignmentId: string) => void
 }
 
-export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabel, readOnly = false }: RouteResourceSectionsProps) {
+export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabel, readOnly = false, onPromoteLeader }: RouteResourceSectionsProps) {
   const t = useTranslations("kanban")
 
   return (
@@ -90,11 +95,15 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
               <RemovableChip
                 key={p.assignmentId}
                 variant="secondary"
-                className="gap-1 pr-1 text-sm hover:bg-destructive/20"
+                className="group gap-1 pr-1 text-sm hover:bg-destructive/20"
                 onRemove={!readOnly ? () => onUnassign(p.assignmentId) : undefined}
                 removeTitle={t("common.removeNamed", { name: p.name })}
                 removeButtonClassName="ml-1"
               >
+                <LeaderBadge
+                  isLeader={Boolean(p.isLeader)}
+                  onPromote={!readOnly && onPromoteLeader ? () => onPromoteLeader(p.assignmentId) : undefined}
+                />
                 {p.name}
               </RemovableChip>
             ))

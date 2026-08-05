@@ -4,6 +4,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -113,17 +114,31 @@ async def update_assignment(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.AssignmentResponse:
-    """Update assignment properties (e.g., driver_stay flag)."""
-    assignment = await crud.update_assignment(db, assignment_id, update)
+    """Update assignment properties (driver_stay flag, Einsatzleiter)."""
+    try:
+        assignment = await crud.update_assignment(db, assignment_id, update, incident_id=incident_id)
+    except ValueError as e:
+        # Currently: marking a non-personnel assignment as Einsatzleiter.
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except IntegrityError as e:
+        # Two editors promoting someone on the same incident at the same moment
+        # collide on `uq_assignments_single_leader`. That is a conflict, not a
+        # server fault — say so, so the client can refetch and show what won.
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from e
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
 
-    # Broadcast with a dedicated "driver_stay" action so other clients can apply
-    # the change surgically (just the on-site flag on the matching assignment)
-    # instead of a full board reload. The sender re-applies its own optimistic
-    # value idempotently, so there is no flicker.
+    # "driver_stay" lets other clients apply the change surgically (just the
+    # on-site flag on the matching assignment) instead of a full board reload.
+    # An Einsatzleiter change must NOT use it: the client resolves that action
+    # against its vehicle assignments only, so a personnel row silently matches
+    # nothing and the update is dropped — the new EL would be visible to the
+    # person who set it and to nobody else. Any other action falls through to
+    # the full-reload path on the client.
+    action = "leader" if "is_leader" in update.model_dump(exclude_unset=True) else "driver_stay"
     response = schemas.AssignmentResponse.model_validate(assignment)
-    background_tasks.add_task(broadcast_assignment_update, response.model_dump(mode="json"), "driver_stay")
+    background_tasks.add_task(broadcast_assignment_update, response.model_dump(mode="json"), action)
     return response
 
 

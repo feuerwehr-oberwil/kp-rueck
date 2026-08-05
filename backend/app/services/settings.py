@@ -56,6 +56,10 @@ DEFAULT_SETTINGS = {
     "home_city": "",
     "map_mode": "online",  # online=OSM only, auto=fallback to local tiles, offline=local only
     "map_style": "osm",  # osm | topo | carto-light | carto-dark
+    # Which time an incident chip shows everywhere (board, detail, map, wall display).
+    # start = when it came in (HH:MM), column = time in the current status, total = since
+    # the alarm. The station default; each device may override it locally.
+    "incident_time_display": "column",  # start | column | total
     "firestation_name": "",
     "firestation_latitude": "",
     "firestation_longitude": "",

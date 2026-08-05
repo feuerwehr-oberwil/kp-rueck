@@ -13,6 +13,8 @@ export interface ApiAssignment {
   assigned_by: string
   /** Whether driver+car should stay on scene (vehicle assignments only) */
   driver_stay: boolean
+  /** Einsatzleiter for this incident. At most one active assignment carries it. */
+  is_leader: boolean
 }
 
 export interface ApiAssignmentCreate {

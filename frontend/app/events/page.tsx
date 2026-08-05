@@ -8,6 +8,7 @@ import { useEvent } from '@/lib/contexts/event-context'
 import { apiClient } from '@/lib/api-client'
 import type { Event } from '@/lib/types/incidents'
 import { Button } from '@/components/ui/button'
+import { SearchInput } from '@/components/ui/search-input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -19,7 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Archive, ArchiveRestore, Search, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, Download } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, Download } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -358,15 +359,11 @@ export default function EventsPage() {
 
             {/* Search bar */}
             <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('page.searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <SearchInput
+                placeholder={t('page.searchPlaceholder')}
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+              />
             </div>
 
             {/* Active Events */}

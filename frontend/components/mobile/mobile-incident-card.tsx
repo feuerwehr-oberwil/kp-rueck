@@ -4,9 +4,10 @@ import { memo } from "react"
 import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Truck, Users, ChevronUp, ChevronDown, Minus, FileCheck, AlertTriangle } from "lucide-react"
+import { Truck, Users, ChevronUp, ChevronDown, Minus, FileCheck, AlertTriangle } from "lucide-react"
 import { type Operation } from "@/lib/contexts/operations-context"
-import { getTimeSince, columns } from "@/lib/kanban-utils"
+import { columns } from "@/lib/kanban-utils"
+import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
@@ -28,9 +29,6 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
   // Get column color for the card
   const column = columns.find(col => col.status.includes(operation.status))
   const columnColor = column?.color || "bg-muted"
-
-  // Calculate time since status change
-  const timeReference = operation.statusChangedAt || operation.dispatchTime
 
   return (
     <Card
@@ -88,10 +86,17 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
 
           {/* Time + Vehicles */}
           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span className="font-mono">{getTimeSince(timeReference)}</span>
-            </div>
+            {/* Read-only: the phone list is for looking, and a dropdown inside a
+                tappable row fights the tap that opens the incident. */}
+            <IncidentTimeRow
+              operation={operation}
+              readOnly
+              className="gap-1.5"
+              startClassName="text-xs"
+              chipClassName="text-xs"
+              startIconClassName="h-3 w-3"
+              iconClassName="h-3 w-3"
+            />
 
             {operation.vehicles.length > 0 && (
               <div className="flex items-center gap-1">

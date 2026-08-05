@@ -220,14 +220,25 @@
     @apply outline-2 outline-offset-2 outline-ring;
   }
 
-  /* Custom scrollbar styling */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--muted-foreground) transparent;
-  }
+  /* Custom scrollbar styling — slim and faint EVERYWHERE, not just in the
+     sidebars. The board is information-dense; a 12px bar with a solid
+     muted-foreground thumb costs real content width and competes with the rows
+     it sits next to. `height` matters as much as `width` here: the Kanban
+     canvas scrolls horizontally, and its bottom bar was the fattest thing on
+     the screen.
 
+     Note the standard `scrollbar-width` / `scrollbar-color` properties are
+     deliberately NOT set on `*`: Chrome 121+ ignores every ::-webkit-scrollbar
+     rule on an element that sets them, which would throw away the 5px width and
+     the faint thumb. Firefox has no ::-webkit-scrollbar at all, so it gets the
+     standard properties from the @supports block below instead. */
+  /* The track is wider than the thumb on purpose. A 5px bar sat flush against
+     the content it scrolled — against a card edge it read as part of the
+     border. The extra width is spent entirely on a transparent border, so the
+     thumb stays 4px but gets ~3px of clear air on either side. */
   *::-webkit-scrollbar {
-    width: 12px;
+    width: 10px;
+    height: 10px;
   }
 
   *::-webkit-scrollbar-track {
@@ -235,51 +246,20 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background: var(--muted-foreground);
-    border-radius: 6px;
+    background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+    border-radius: 999px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: var(--foreground);
-    background-clip: padding-box;
-  }
-
-  /* Slim variant for the board sidebars: the resource lists are narrow and
-     dense, so the default gutter costs real content width and the bar competes
-     with the rows. Thumb stays faint until hovered.
-
-     The two properties below must stay at their INITIAL value: Chrome 121+
-     ignores every ::-webkit-scrollbar rule on an element whose standard
-     scrollbar-width/scrollbar-color is set, and the global `*` rule above sets
-     both. Resetting them here is what lets the 5px width take effect at all. */
-  .scrollbar-slim {
-    scrollbar-width: auto;
-    scrollbar-color: auto;
-  }
-
-  .scrollbar-slim::-webkit-scrollbar {
-    width: 5px;
-  }
-
-  .scrollbar-slim::-webkit-scrollbar-thumb {
-    background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
-    border-radius: 999px;
-    border: 1px solid transparent;
-    background-clip: padding-box;
-  }
-
-  .scrollbar-slim::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
     background-clip: padding-box;
   }
 
-  /* Firefox has no ::-webkit-scrollbar, so it needs the standard properties —
-     scoped here so it never re-triggers Chrome's ignore rule above. `thin` is
-     the narrowest Firefox offers; the exact px is the platform's call. */
+  /* `thin` is the narrowest Firefox offers; the exact px is the platform's call. */
   @supports not selector(::-webkit-scrollbar) {
-    .scrollbar-slim {
+    * {
       scrollbar-width: thin;
       scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent)
         transparent;

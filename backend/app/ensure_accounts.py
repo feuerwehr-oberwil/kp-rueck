@@ -13,10 +13,11 @@ default-password account by accident.
 
 import asyncio
 import os
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import bcrypt
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models
 from .database import async_session_maker
@@ -63,3 +64,34 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# Fixed id of the development auth-bypass user (see auth/dependencies.py). The
+# bypass builds this User in memory; the row below is what lets writes that
+# reference it (assigned_by, dismissed_by, audit_log.user_id) satisfy their
+# foreign keys.
+DEV_BYPASS_USER_ID = UUID("00000000-0000-0000-0000-000000000000")
+
+
+async def ensure_dev_bypass_user(db: AsyncSession) -> None:
+    """Create the row behind the development bypass user, idempotently.
+
+    Only ever called when auth bypass is active, which is impossible in
+    production. The password hash is deliberately unusable: this account is not
+    meant to be logged into, it exists so foreign keys resolve.
+    """
+    existing = await db.execute(select(models.User).where(models.User.id == DEV_BYPASS_USER_ID))
+    if existing.scalars().first():
+        return
+
+    db.add(
+        models.User(
+            id=DEV_BYPASS_USER_ID,
+            username="dev-user",
+            password_hash="!",  # noqa: S106 — sentinel, never matches a bcrypt verify
+            role="admin",
+            display_name="Development User",
+            is_active=True,
+        )
+    )
+    await db.commit()

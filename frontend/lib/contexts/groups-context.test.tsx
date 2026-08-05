@@ -18,6 +18,7 @@ const apiAssignment = (overrides: Partial<ApiGroupAssignment> = {}): ApiGroupAss
   unassigned_at: null,
   assigned_by: null,
   driver_stay: false,
+  is_leader: false,
   ...overrides,
 })
 

@@ -420,6 +420,12 @@ class Incident(Base):
     # decide to close the incident — it does NOT change status on its own.
     field_complete_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # True once a human has picked the Einsatzleiter here. Until then the board
+    # keeps the role on the highest-ranking person present and re-picks whenever
+    # the crew changes; one manual choice stops that for good, because an
+    # operator's decision must not be silently overwritten by the next arrival.
+    leader_manual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     # Relationships
     creator: Mapped[Optional["User"]] = relationship(
         "User", back_populates="created_incidents", foreign_keys=[created_by]
@@ -506,6 +512,9 @@ class IncidentGroup(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # Same contract as Incident.leader_manual, one level up: the route owns the
+    # people, so it owns the choice of who leads them.
+    leader_manual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -570,6 +579,12 @@ class IncidentAssignment(Base):
     assigned_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     unassigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     driver_stay: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Driver+car stays on scene
+    # Einsatzleiter for THIS incident — answers "who do I call about this one".
+    # Lives on the assignment, not on the incident, so it cannot name someone who
+    # is not actually on the incident, and so releasing them clears the role for
+    # free. At most one active personnel assignment per incident carries it
+    # (enforced by the partial unique index below).
+    is_leader: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")
@@ -592,6 +607,16 @@ class IncidentAssignment(Base):
         Index("idx_assignments_unassigned", "unassigned_at"),
         # Compound index for active assignment queries: finding all active resources for an incident
         Index("idx_assignments_incident_active", "incident_id", "resource_type", "unassigned_at"),
+        # One Einsatzleiter per incident, enforced in the database rather than by
+        # convention: two concurrent editors each promoting someone would
+        # otherwise leave the board showing two leaders and no way to tell which
+        # one the radio meant.
+        Index(
+            "uq_assignments_single_leader",
+            "incident_id",
+            unique=True,
+            postgresql_where=sa_text("is_leader AND unassigned_at IS NULL"),
+        ),
     )
 
 
@@ -616,6 +641,11 @@ class IncidentGroupAssignment(Base):
     assigned_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     unassigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     driver_stay: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Driver+car stays on scene
+    # Einsatzleiter for the whole route. A stop owns no resources, so a stop that
+    # belongs to an Auftrag takes its leader from here rather than from its own
+    # (empty) assignment list — one squad working a route has one leader, not
+    # one per tree it clears.
+    is_leader: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     group: Mapped["IncidentGroup"] = relationship("IncidentGroup", back_populates="group_assignments")
@@ -647,6 +677,13 @@ class IncidentGroupAssignment(Base):
         Index("idx_group_assignments_unassigned", "unassigned_at"),
         # Compound index for active assignment queries: all active resources for a group
         Index("idx_group_assignments_group_active", "incident_group_id", "resource_type", "unassigned_at"),
+        # One Einsatzleiter per route — same reasoning as on IncidentAssignment.
+        Index(
+            "uq_group_assignments_single_leader",
+            "incident_group_id",
+            unique=True,
+            postgresql_where=sa_text("is_leader AND unassigned_at IS NULL"),
+        ),
     )
 
 

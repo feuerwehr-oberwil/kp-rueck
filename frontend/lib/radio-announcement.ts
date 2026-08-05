@@ -53,6 +53,9 @@ export interface RadioMaterial {
 /** Everything that rides along — the «es rücken aus …» part of the sentence. */
 export interface RadioDeployment {
   crew: string[]
+  /** Name of the Einsatzleiter among `crew`, prefixed «EL» when read out. The
+   *  one name on the list the receiving squad has to remember. */
+  leader?: string | null
   vehicles: RadioVehicle[]
   materials: RadioMaterial[]
   /** «zu Fuss» suppresses the vehicle part entirely. */
@@ -92,13 +95,21 @@ export function materialPhrase(materials: RadioMaterial[]): string {
     .join(", ")
 }
 
+/** Crew as read out, with the Einsatzleiter marked. «EL» is said over the
+ *  radio exactly as written, so it needs no expansion here. */
+function formatCrew(deployment: RadioDeployment): string {
+  return deployment.crew
+    .map((name) => (deployment.leader && name === deployment.leader ? `EL ${name}` : name))
+    .join(", ")
+}
+
 /**
  * The «es rücken aus …» clause, WITHOUT any leading separator — the caller
  * supplies it (a comma after an address, a space after the Auftrag's colon).
  * Returns an empty list when nothing is assigned.
  */
 export function deploymentSegments(t: RadioTranslate, deployment: RadioDeployment): RadioSegment[] {
-  const crew = deployment.crew.length > 0 ? deployment.crew.join(", ") : null
+  const crew = deployment.crew.length > 0 ? formatCrew(deployment) : null
   const vehicles = !deployment.zuFuss && deployment.vehicles.length > 0
     ? vehiclePhrase(t, deployment.vehicles)
     : null
@@ -241,10 +252,19 @@ export function auftragShortAnnouncement(
  * the result, and built from the raw names/ids rather than the spoken phrase so
  * it does not move when the interface language does.
  */
-export function radioFingerprint(deployment: { crew: string[]; vehicles: RadioVehicle[]; materials: RadioMaterial[] }): string {
+export function radioFingerprint(deployment: {
+  crew: string[]
+  // A changed Einsatzleiter changes what has to be read out, so it belongs in
+  // the fingerprint — otherwise the route keeps its "already announced" state
+  // and the new EL is never put on the radio.
+  leader?: string | null
+  vehicles: RadioVehicle[]
+  materials: RadioMaterial[]
+}): string {
   const part = (prefix: string, values: string[]) => `${prefix}:${[...values].sort().join(",")}`
   return [
     part("p", deployment.crew),
+    part("l", deployment.leader ? [deployment.leader] : []),
     part("v", deployment.vehicles.map((vehicle) => vehicle.name)),
     part("m", deployment.materials.map((material) => material.name)),
   ].join("|")

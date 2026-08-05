@@ -16,6 +16,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models
+from .crud.assignments import sync_auto_leader
+from .crud.group_assignments import sync_auto_group_leader
 from .database import async_session_maker
 from .seed_training import seed_training_data
 from .services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
@@ -477,8 +479,10 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     # inserts and the stops' FK would fail otherwise.
     await db.flush()
 
-    # Route stops in group_position order (first stop already done, second in
-    # progress — so the Auftrag progress roll-up shows real numbers).
+    # Route stops in group_position order. All four sit in DISPONIERT: an
+    # Auftrag is dispatched as one route to one squad, so every stop on it is
+    # already assigned the moment the route goes out — they are worked through
+    # in order from there, not moved into the column one at a time.
     stops_data = [
         {
             "title": "Baum auf Strasse",
@@ -487,8 +491,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "location_address": "Therwilerstrasse 25, 4104 Oberwil",
             "location_lat": 47.5098,
             "location_lng": 7.5567,
-            "status": "returning",
-            "description": "Umgestürzte Fichte blockiert beide Fahrspuren. Zersägt und an den Strassenrand geräumt.",
+            "status": "enroute",
+            "description": "Umgestürzte Fichte blockiert beide Fahrspuren. Zersägen und an den Strassenrand räumen.",
             "created_at": ago(125),
         },
         {
@@ -498,7 +502,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "location_address": "Rebbergstrasse 31, 4104 Oberwil",
             "location_lat": 47.5188,
             "location_lng": 7.5648,
-            "status": "active",
+            "status": "enroute",
             "description": "Ast liegt auf der Niederspannungsleitung. Netzbetreiber informiert, Strasse gesperrt.",
             "created_at": ago(120),
         },
@@ -520,8 +524,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             "location_address": "Bättwilerstrasse (Waldrand), 4104 Oberwil",
             "location_lat": 47.5108,
             "location_lng": 7.5548,
-            "status": "incoming",
-            "description": "Mehrere Bäume über dem Waldweg. Keine Personen gefährdet, Räumung sobald Kapazität frei.",
+            "status": "enroute",
+            "description": "Mehrere Bäume über dem Waldweg. Keine Personen gefährdet, Räumung am Ende der Route.",
             "created_at": ago(110),
         },
     ]
@@ -796,15 +800,12 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         # Fire — eingegangen → disponiert → einsatz
         transition("Brand Dachstock Einfamilienhaus", "incoming", "enroute", 45, "TLF disponiert"),
         transition("Brand Dachstock Einfamilienhaus", "enroute", "active", 38, "Vor Ort, Löschangriff läuft"),
-        # Auftrag stop 1 — full trail to einsatz_beendet
+        # Auftrag — the whole route was dispatched in one go, so all four stops
+        # carry the same incoming → enroute step, minutes apart.
         transition("Baum auf Strasse", "incoming", "enroute", 110, "Erster Stopp der Sturmholz-Route"),
-        transition("Baum auf Strasse", "enroute", "active", 95, "Vor Ort, Räumung läuft"),
-        transition("Baum auf Strasse", "active", "returning", 70, "Fahrbahn frei, weiter zum nächsten Stopp"),
-        # Auftrag stop 2 — in progress
-        transition("Baum auf Stromleitung", "incoming", "enroute", 65, "Zweiter Stopp der Route"),
-        transition("Baum auf Stromleitung", "enroute", "active", 40, "Vor Ort, Netzbetreiber informiert"),
-        # Auftrag stop 3 — dispatched
-        transition("Baum droht auf Hausdach zu stürzen", "incoming", "enroute", 30, "Dritter Stopp der Route"),
+        transition("Baum auf Stromleitung", "incoming", "enroute", 109, "Zweiter Stopp der Route"),
+        transition("Baum droht auf Hausdach zu stürzen", "incoming", "enroute", 109, "Dritter Stopp der Route"),
+        transition("Bäume auf Waldweg", "incoming", "enroute", 108, "Vierter Stopp der Route"),
         # In-progress Rekos
         transition("Überflutete Unterführung", "incoming", "reko", 40, "Reko aufgeboten"),
         transition("Wasser in Tiefgarage", "incoming", "reko", 33, "Reko aufgeboten"),
@@ -835,6 +836,19 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     ]
     for t in transitions:
         db.add(t)
+
+    await db.flush()
+
+    # ============================================
+    # EINSATZLEITER
+    # ============================================
+    # These assignment rows are written straight to the ORM, so they never went
+    # through `assign_resource` and no Einsatzleiter was derived along the way.
+    # Run the same resolver the live path uses, so a freshly seeded board looks
+    # like one that was filled by hand: highest rank present leads.
+    for incident in incidents.values():
+        await sync_auto_leader(db, incident.id)
+    await sync_auto_group_leader(db, auftrag.id)
 
     await db.flush()
 
@@ -923,6 +937,7 @@ async def seed_demo_database() -> None:
                 ("polling_interval_ms", "5000"),
                 ("training_mode", "false"),
                 ("map_mode", "online"),
+                ("incident_time_display", "column"),
                 ("auto_archive_timeout_hours", "24"),
                 ("notification_enabled", "false"),
                 # NB: the disposable-database marker is NOT seeded here. A full reset

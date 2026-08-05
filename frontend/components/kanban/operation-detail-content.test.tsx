@@ -115,6 +115,7 @@ const operation: Operation = {
   rekoArrivedAt: null,
   rekoSummary: null,
   assignedReko: { id: sourcePerson.id, name: sourcePerson.name },
+  leaderName: null,
   crewAssignments: new Map(),
   materialAssignments: new Map(),
   vehicleAssignments: new Map(),

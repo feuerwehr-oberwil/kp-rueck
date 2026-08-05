@@ -3,9 +3,9 @@
 import { useState, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { SearchInput } from "@/components/ui/search-input"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Search, Users } from "lucide-react"
+import { Users } from "lucide-react"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
@@ -80,16 +80,13 @@ export function MobilePersonnelSheet({
         </SheetHeader>
 
         {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder={t("searchPlaceholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-10"
-          />
-        </div>
+        <SearchInput
+          containerClassName="mb-4"
+          placeholder={t("searchPlaceholder")}
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          className="h-10"
+        />
 
         {/* Personnel List */}
         <div className="space-y-5">

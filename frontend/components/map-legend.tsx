@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Truck, ChevronDown, Info } from "lucide-react"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
@@ -79,6 +79,21 @@ export function MapLegend({
   // (the panel otherwise covers half the map) and expanded on desktop.
   const isMobile = useIsMobile()
   const [open, setOpen] = useState<boolean | null>(null)
+
+  // A "Färben nach" dimension is unreadable without its key — arbitrary colours
+  // with nothing to map them back to. So selecting one always brings the legend
+  // back up, even if it was folded away or we're on mobile. It can still be
+  // closed again afterwards; this only overrides the *default*.
+  // Only on an actual CHANGE, not on mount: a persisted non-priority colouring
+  // would otherwise force the panel open on every page load, including on
+  // mobile where the documented default is closed.
+  const previousColorBy = useRef(colorBy)
+  useEffect(() => {
+    const changed = previousColorBy.current !== colorBy
+    previousColorBy.current = colorBy
+    if (changed && colorBy !== "priority") setOpen(true)
+  }, [colorBy])
+
   const expanded = open ?? !isMobile
 
   if (!expanded) {

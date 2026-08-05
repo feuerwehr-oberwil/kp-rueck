@@ -7,7 +7,8 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, Phone } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
-import { columns, getTimeSince, ageChipClass, ageLevel } from '@/lib/kanban-utils'
+import { columns, ageLevel } from '@/lib/kanban-utils'
+import { IncidentTimeRow } from '@/components/ui/incident-time'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
@@ -30,13 +31,6 @@ const priorityStyles = {
 
 function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiIncident; groups: ApiIncidentGroup[]; onClick: () => void }) {
   const t = useTranslations('display.tokenBoard')
-  const [currentTime, setCurrentTime] = useState(new Date())
-
-  useEffect(() => {
-    const interval = setInterval(() => setCurrentTime(new Date()), 60000)
-    return () => clearInterval(interval)
-  }, [])
-
   const priority = incident.priority || 'low'
   const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
 
@@ -44,8 +38,6 @@ function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiInciden
     ? new Date(incident.status_changed_at)
     : new Date(incident.created_at)
   const dispatchTime = new Date(incident.created_at)
-  const minutesInStatus = Math.floor((currentTime.getTime() - statusChangedAt.getTime()) / (1000 * 60))
-  const isOverOneHour = minutesInStatus >= 60
   const group = incident.group_id ? groups.find((item) => String(item.id) === String(incident.group_id)) : undefined
   const stopIndex = group?.stop_ids.map(String).indexOf(String(incident.id)) ?? -1
 
@@ -103,20 +95,14 @@ function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiInciden
           </Badge>
         )}
 
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="font-mono text-sm text-muted-foreground">
-              {dispatchTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-          <span
-            className={cn('font-mono text-xs', ageChipClass(statusChangedAt))}
-            title={isOverOneHour ? t('overOneHour') : undefined}
-          >
-            {getTimeSince(statusChangedAt)}
-          </span>
-        </div>
+        {/* Read-only: a public share link is for looking at, and the visitor has
+            no Einstellungen to fall back on if they change something. */}
+        <IncidentTimeRow
+          operation={{ dispatchTime, statusChangedAt }}
+          readOnly
+          colorByAge
+          className="justify-between"
+        />
 
         {incident.description && (
           <div className="border-t pt-3">
@@ -150,9 +136,9 @@ function TokenIncidentCard({ incident, groups, onClick }: { incident: ApiInciden
   )
 }
 
-/** Has anything in this column sat past the board's own warning threshold? */
-function columnHasAlarm(incidents: ApiIncident[]): boolean {
-  return incidents.some((incident) =>
+/** What in this column has sat past the board's own warning threshold? */
+function columnAlarms(incidents: ApiIncident[]): ApiIncident[] {
+  return incidents.filter((incident) =>
     ageLevel(new Date(incident.status_changed_at ?? incident.created_at)) !== 'normal',
   )
 }
@@ -167,7 +153,19 @@ function TokenColumn({ column, incidents, groups, onIncidentClick, collapsed, on
 }) {
   const t = useTranslations('display.tokenBoard')
   const tk = useTranslations('kanban')
-  const hasAlarm = columnHasAlarm(incidents)
+  // The dot alone only says "something", which is the one thing a viewer can't
+  // act on — so it names the overdue incidents on hover, up to three.
+  const tb = useTranslations('display.board')
+  const alarms = columnAlarms(incidents)
+  const hasAlarm = alarms.length > 0
+  const alarmTitle = hasAlarm
+    ? tb('columnAlarmTitle', {
+        count: alarms.length,
+        titles: alarms.slice(0, 3).map((i) => i.title).join(', ')
+          + (alarms.length > 3 ? ` ${tb('columnAlarmMore', { count: alarms.length - 3 })}` : ''),
+      })
+    : undefined
+  const alarmDotClass = 'cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]'
 
   // Folded: a thin bar that still carries the count and the overdue mark, so a
   // closed column never hides the thing that needed looking at.
@@ -182,7 +180,7 @@ function TokenColumn({ column, incidents, groups, onIncidentClick, collapsed, on
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
         <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
           {incidents.length}
-          {hasAlarm && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" aria-hidden />}
+          {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('absolute -right-1 -top-1 h-2 w-2', alarmDotClass)} />}
         </span>
         <span className="text-xs font-bold uppercase tracking-tight text-foreground [writing-mode:vertical-rl]">
           {tk(`columns.${column.id}`)}
@@ -203,7 +201,7 @@ function TokenColumn({ column, incidents, groups, onIncidentClick, collapsed, on
           <div className="flex items-center gap-2">
             <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
             <h2 className="flex-1 text-balance text-sm font-semibold text-foreground">{tk(`columns.${column.id}`)}</h2>
-            {hasAlarm && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" aria-hidden />}
+            {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('h-2 w-2 flex-shrink-0', alarmDotClass)} />}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5 pl-6">{t('incidentCount', { count: incidents.length })}</p>
         </button>

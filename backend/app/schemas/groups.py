@@ -109,6 +109,15 @@ class GroupAssignmentResponse(BaseModel):
     unassigned_at: datetime | None = None
     assigned_by: UUID | None = None
     driver_stay: bool = False
+    is_leader: bool = False
+
+
+class GroupAssignmentUpdate(BaseModel):
+    """Schema for updating a route-level assignment (mirrors ``AssignmentUpdate``)."""
+
+    # Promote this person to Einsatzleiter for the whole route. Setting it
+    # demotes whoever held the role.
+    is_leader: bool | None = None
 
 
 class IncidentGroupResponse(IncidentGroupBase):

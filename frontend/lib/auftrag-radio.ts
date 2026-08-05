@@ -52,6 +52,9 @@ export function routeDeployment(
 
   return {
     crew: [...operation.crew, ...resources.personnel.map((person) => person.name)],
+    // A stop owns no people, so for a grouped incident the EL comes off the
+    // route; a standalone incident carries its own.
+    leader: resources.personnel.find((person) => person.isLeader)?.name ?? operation.leaderName ?? null,
     vehicles: [...operation.vehicles, ...resources.vehicles.map((vehicle) => vehicle.name)].map((name) => ({
       name,
       stay: stay.get(name),

@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Clock,
   Truck,
   Users,
   Package,
@@ -31,7 +30,7 @@ import {
   Pencil,
 } from "lucide-react"
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
-import { getTimeSince } from "@/lib/kanban-utils"
+import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
@@ -183,7 +182,6 @@ export function MobileIncidentDetailSheet({
 
   const priority = operation.priority || "low"
   const priorityConfig = { dot: PRIORITY_DOT_CLASSES[priority as Priority], chevron: PRIORITY_TEXT_CLASSES[priority as Priority] }
-  const timeReference = operation.statusChangedAt || operation.dispatchTime
   const canEdit = isEditor && !!onUpdateOperation
 
   return (
@@ -246,10 +244,12 @@ export function MobileIncidentDetailSheet({
             <Badge variant="outline" className="text-sm">
               {typeLabel(operation.incidentType)}
             </Badge>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span className="font-mono">{getTimeSince(timeReference)}</span>
-            </div>
+            <IncidentTimeRow
+          readOnly
+              operation={operation}
+              className="gap-1.5 text-sm text-muted-foreground"
+              chipClassName="text-sm"
+            />
             {operation.hasCompletedReko && (
               <Badge variant="outline" className="gap-1 text-success border-success/30">
                 <FileCheck className="h-3 w-3" />
