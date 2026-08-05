@@ -49,6 +49,7 @@ const operation: Operation = {
   rekoArrivedAt: null,
   rekoSummary: null,
   assignedReko: null,
+  leaderName: null,
   crewAssignments: new Map(),
   materialAssignments: new Map(),
   vehicleAssignments: new Map(),

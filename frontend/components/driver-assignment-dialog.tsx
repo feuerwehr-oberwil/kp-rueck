@@ -2,12 +2,13 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { SearchInput } from "@/components/ui/search-input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, User, CheckCircle, Circle, Loader2, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
+import { User, CheckCircle, Circle, Loader2, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
@@ -424,17 +425,12 @@ export function DriverAssignmentDialog({
             )}
 
             {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder={t('searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-                autoFocus
-              />
-            </div>
+            <SearchInput
+              placeholder={t('searchPlaceholder')}
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              autoFocus
+            />
 
             {/* Add a not-yet-registered walk-in directly as driver */}
             {!showAddForm ? (
@@ -486,7 +482,7 @@ export function DriverAssignmentDialog({
             )}
 
             {/* Personnel List */}
-            <ScrollArea className="h-[300px] pr-4">
+            <ScrollArea className="h-[300px] pr-2">
               <div className="space-y-2">
                 {/* Fahrer (F-tagged) section */}
                 {driversGroup.length > 0 && (

@@ -26,6 +26,10 @@ class AssignmentUpdate(BaseModel):
     """Schema for updating assignment properties."""
 
     driver_stay: bool | None = None
+    # Promote this person to Einsatzleiter for the incident. Setting it demotes
+    # whoever held the role — the role is single-holder, so "set" and "move" are
+    # the same operation and the caller never has to clear the old one.
+    is_leader: bool | None = None
 
 
 class AssignmentResponse(BaseModel):
@@ -41,6 +45,7 @@ class AssignmentResponse(BaseModel):
     unassigned_at: datetime | None = None
     assigned_by: UUID | None = None
     driver_stay: bool = False
+    is_leader: bool = False
 
 
 # Transfer

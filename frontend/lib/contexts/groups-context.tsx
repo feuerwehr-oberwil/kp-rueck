@@ -75,6 +75,7 @@ const apiAssignmentsToClient = (g: ApiIncidentGroup): GroupAssignment[] =>
     resourceType: a.resource_type,
     resourceId: String(a.resource_id),
     driverStay: a.driver_stay,
+    isLeader: a.is_leader,
   }))
 
 // Convert the API shape to the camelCase client type (dates parsed to Date).
@@ -568,7 +569,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       mutationEpochRef.current++
 
       const tempId = `temp-${randomId()}`
-      const optimistic: GroupAssignment = { id: tempId, resourceType, resourceId, driverStay: false }
+      const optimistic: GroupAssignment = { id: tempId, resourceType, resourceId, driverStay: false, isLeader: false }
       setGroups((gs) =>
         gs.map((g) => (g.id === groupId ? { ...g, assignments: [...g.assignments, optimistic] } : g)),
       )
@@ -635,7 +636,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
           })
         } else if (a.resourceType === "personnel") {
           const p = personnel.find((x) => x.id === a.resourceId)
-          res.personnel.push({ assignmentId: a.id, resourceId: a.resourceId, name: p?.name ?? a.resourceId })
+          res.personnel.push({ assignmentId: a.id, resourceId: a.resourceId, name: p?.name ?? a.resourceId, isLeader: a.isLeader })
         } else {
           const m = materials.find((x) => x.id === a.resourceId)
           res.materials.push({ assignmentId: a.id, resourceId: a.resourceId, name: m?.name ?? a.resourceId })

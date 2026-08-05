@@ -29,6 +29,11 @@ interface ConfirmDialogProps {
   /** Optional content between the description and the footer (e.g. a list of
    *  affected items). Keep it short — this is a confirmation, not a form. */
   children?: ReactNode
+  /** A third, non-destructive way out, shown left of Cancel: the "…but do this
+   *  instead" option. Use it when the destructive action has a safer sibling
+   *  (hand the incidents over rather than orphan them). It closes nothing by
+   *  itself — the handler decides what happens next. */
+  extraAction?: { label: string; onSelect: () => void }
 }
 
 /**
@@ -49,6 +54,7 @@ export function ConfirmDialog({
   cancelText,
   variant = 'default',
   children,
+  extraAction,
 }: ConfirmDialogProps) {
   const t = useTranslations('common.deleteConfirmDialog')
   const [isConfirming, setIsConfirming] = useState(false)
@@ -72,6 +78,16 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         {children}
         <AlertDialogFooter>
+          {extraAction && (
+            <button
+              type="button"
+              disabled={isConfirming}
+              onClick={extraAction.onSelect}
+              className={cn(buttonVariants({ variant: 'outline' }), 'sm:mr-auto')}
+            >
+              {extraAction.label}
+            </button>
+          )}
           <AlertDialogCancel disabled={isConfirming}>{cancelText ?? t('cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {

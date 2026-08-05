@@ -10,11 +10,12 @@ import { useOperations, type Operation } from "@/lib/contexts/operations-context
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
-import { columns, getTimeSince, ageChipClass, ageLevel } from "@/lib/kanban-utils"
+import { columns, ageLevel } from "@/lib/kanban-utils"
+import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { IncidentDetailModal, priorityVisuals } from "@/components/display/incident-detail-modal"
-import { Clock, Truck, Users, Siren, Package, ChevronDown, ChevronRight, Waypoints } from "lucide-react"
+import { Truck, Users, Siren, Package, ChevronDown, ChevronRight, Waypoints } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /** Per-device fold state for the viewer board (see useCollapsedSections). */
@@ -116,7 +117,18 @@ function BoardDisplay() {
         // Something in here has sat past the board's own warning threshold. It
         // stays visible on the folded bar: a column that hides its overdue
         // incident behind a title is exactly what folding must not do.
-        const hasAlarm = ops.some((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== "normal")
+        // The dot alone only says "something", which is the one thing an
+        // operator can't act on — so it carries the names of the incidents that
+        // tripped the threshold, up to three, on hover.
+        const alarmOps = ops.filter((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== "normal")
+        const hasAlarm = alarmOps.length > 0
+        const alarmTitle = hasAlarm
+          ? t('board.columnAlarmTitle', {
+              count: alarmOps.length,
+              titles: alarmOps.slice(0, 3).map((op) => getIncidentLocationLabel(op)).join(', ')
+                + (alarmOps.length > 3 ? ` ${t('board.columnAlarmMore', { count: alarmOps.length - 3 })}` : ''),
+            })
+          : undefined
 
         // Collapsed: thin vertical toggle bar showing the count, reclaiming width.
         if (isCollapsed) {
@@ -134,7 +146,13 @@ function BoardDisplay() {
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
               <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                 {ops.length}
-                {hasAlarm && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" aria-hidden />}
+                {hasAlarm && (
+                  <span
+                    title={alarmTitle}
+                    aria-label={alarmTitle}
+                    className="absolute -right-1 -top-1 h-2 w-2 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
+                  />
+                )}
               </span>
               <span className="text-xs font-bold uppercase tracking-tight text-foreground [writing-mode:vertical-rl]">
                 {tk(`columns.${column.id}`)}
@@ -157,7 +175,13 @@ function BoardDisplay() {
               <div className="flex items-center gap-2">
                 <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 <h2 className="flex-1 truncate text-sm font-bold tracking-tight text-foreground uppercase">{tk(`columns.${column.id}`)}</h2>
-                {hasAlarm && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" aria-hidden />}
+                {hasAlarm && (
+                  <span
+                    title={alarmTitle}
+                    aria-label={alarmTitle}
+                    className="h-2 w-2 flex-shrink-0 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
+                  />
+                )}
                 <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                   {ops.length}
                 </span>
@@ -277,19 +301,17 @@ function DisplayOperationCard({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-            <span className="font-mono text-xs text-muted-foreground">
-              {operation.dispatchTime.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          </div>
-          <span
-            className={`font-mono text-xs ${ageChipClass(operation.statusChangedAt || operation.dispatchTime)}`}
-          >
-            {getTimeSince(operation.statusChangedAt || operation.dispatchTime)}
-          </span>
-        </div>
+        {/* Read-only: nobody clicks a wall display. The mode it shows follows the
+            station setting (or this machine's own choice). */}
+        <IncidentTimeRow
+          operation={operation}
+          readOnly
+          colorByAge
+          className="justify-between gap-1.5"
+          startClassName="text-xs"
+          startIconClassName="h-3.5 w-3.5"
+          iconClassName="h-3 w-3"
+        />
 
         {operation.notes && (
           <p className="text-xs text-muted-foreground line-clamp-2 border-t pt-2">{operation.notes}</p>

@@ -54,6 +54,7 @@ from .api.training import router as training_router
 from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
+from .auth.config import auth_settings
 from .auth.login_throttle import login_throttle
 from .auth.token_blocklist import token_blocklist
 from .background import (
@@ -70,6 +71,7 @@ from .background import (
 )
 from .config import settings
 from .database import engine, get_db
+from .ensure_accounts import ensure_dev_bypass_user
 from .middleware.audit import AuditMiddleware
 from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.request_id import RequestIDMiddleware, get_request_id, request_id_var
@@ -160,6 +162,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             logger.warning(f"Default settings initialization failed: {e}")
         break  # Only need one session (outside `finally`: there it would swallow errors)
+
+    # Development auth bypass fabricates its "dev-user" in memory, with a fixed
+    # id and no row behind it. Anything that records WHO did something —
+    # assignments (`assigned_by`), dismissals (`dismissed_by`), the audit log —
+    # foreign-keys to users.id, so without a matching row every such write dies
+    # with a ForeignKeyViolation and a 500 that says nothing useful. The normal
+    # seed happens to create a `dev-user`; the demo seed does not, so a locally
+    # demo-seeded database used to break the moment anyone touched the board.
+    # `is_auth_bypassed` is force-disabled in production, so this cannot run there.
+    if auth_settings.is_auth_bypassed:
+        async for db in get_db():
+            try:
+                await ensure_dev_bypass_user(db)
+            except Exception as e:
+                logger.warning(f"Could not ensure dev bypass user: {e}")
+            break
 
     # Seed database if requested
     if os.getenv("SEED_DATABASE", "").lower() == "true":

@@ -10,13 +10,15 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { type IncidentGroup } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { columns, getTimeSince } from "@/lib/kanban-utils"
+import { columns } from "@/lib/kanban-utils"
+import { IncidentTimeRow } from "@/components/ui/incident-time"
+import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
 import { rekoPhotoUrl } from "@/lib/reko-photos"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { PRIORITY_ICONS, PRIORITY_LABELS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import {
-  Clock, Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
+  Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
   MessageSquare, Building2, Timer, Footprints, FileCheck, Waypoints, Binoculars,
   Infinity as InfinityIcon,
 } from "lucide-react"
@@ -111,22 +113,17 @@ export function IncidentDetailModal({
             </div>
             <Badge variant="outline">{priorityLabel}</Badge>
             {statusColumnId && <Badge variant="secondary">{tk(`columns.${statusColumnId}`)}</Badge>}
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span className="font-mono">
-                {operation.dispatchTime.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-              {/* «wie lange schon in DIESEM Status» — the nag that points at things left
-                  standing. On a closed incident it has nothing left to nag about and would
-                  only keep growing overnight, so it is dropped entirely; the Verlauf carries
-                  the times that still matter. */}
-              {operation.status !== "complete" && (
-                <>
-                  <span>·</span>
-                  <span className="font-mono">{getTimeSince(operation.statusChangedAt || operation.dispatchTime)}</span>
-                </>
-              )}
-            </div>
+            {/* The board-wide time chip, read-only — this modal opens on the wall
+                display, where there is nobody to work a dropdown. Its durations are
+                dropped on a closed incident: they would only keep growing overnight,
+                and the Verlauf carries the times that still matter. */}
+            <IncidentTimeRow
+              operation={operation}
+              readOnly
+              suppressDurations={operation.status === "complete"}
+              className="gap-1.5 text-muted-foreground"
+              chipClassName="text-sm"
+            />
           </div>
 
           {/* Flags */}
@@ -275,7 +272,7 @@ export function IncidentDetailModal({
                 {operation.rekoArrivedAt && (
                   <span className="text-xs text-muted-foreground">
                     {t('board.rekoOnSite', {
-                      time: operation.rekoArrivedAt.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }),
+                      time: formatClockTime(operation.rekoArrivedAt),
                     })}
                   </span>
                 )}

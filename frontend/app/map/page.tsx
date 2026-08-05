@@ -13,11 +13,13 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { SearchInput } from "@/components/ui/search-input"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { FileText, Clock, Users, Package, Truck, Search, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup, getTimeSince } from "@/lib/kanban-utils"
+import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
+import { IncidentTimeRow } from "@/components/ui/incident-time"
+import { incidentTimeSource } from "@/lib/incident-time"
 import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
@@ -63,13 +65,6 @@ const MapView = dynamic(() => import("@/components/map-view"), {
     </div>
   ),
 })
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('de-CH', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
 
 
 export default function MapPage() {
@@ -878,6 +873,7 @@ export default function MapPage() {
               colorGroups={colorLegend}
               showGroupRoutes={showGroupRoutes || planningActive}
               groups={groups}
+              groupResourcesFor={getGroupResources}
               operationsById={operationsById}
               focusGroupId={planningActive ? planningGroupId : null}
               highlightGroupStopId={planningActive ? planningFocusStopId : null}
@@ -998,14 +994,29 @@ export default function MapPage() {
                         </DropdownMenuCheckboxItem>
                       </>
                     )}
+                    {/* Switching this on also forces "Färben nach" to Auftrag.
+                        Silently taking over another control is the kind of thing
+                        that reads as a bug at 3am, so both ends say so: the cause
+                        here, the effect under the Färben-nach label below. */}
                     <DropdownMenuCheckboxItem
                       checked={showGroupRoutes}
                       onSelect={(e) => { e.preventDefault(); toggleGroupRoutes() }}
+                      className="items-start"
                     >
-                      <span className="flex-1">{t('page.groupRoutes')}</span>
+                      <span className="flex-1">
+                        {t('page.groupRoutes')}
+                        <span className="block text-[11px] leading-snug text-muted-foreground">
+                          {t('page.groupRoutesColorHint')}
+                        </span>
+                      </span>
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
+                    {showGroupRoutes && colorBy === 'auftrag' && (
+                      <p className="px-2 pb-1.5 text-[11px] leading-snug text-muted-foreground">
+                        {t('page.colorByRoutesOverride')}
+                      </p>
+                    )}
                     {(['priority', 'reko', 'vehicle', 'type', 'auftrag'] as ColorByDimension[]).map((dim) => (
                       <DropdownMenuItem
                         key={dim}
@@ -1064,22 +1075,13 @@ export default function MapPage() {
               </div>
 
               {/* Search bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="map-search-input"
-                  type="text"
-                  placeholder={t('page.searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-8"
-                />
-                {!isMobile && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Kbd className="text-xs">S</Kbd>
-                  </div>
-                )}
-              </div>
+              <SearchInput
+                id="map-search-input"
+                placeholder={t('page.searchPlaceholder')}
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                hint={!isMobile ? <Kbd className="text-xs">S</Kbd> : undefined}
+              />
               </div>
 
               {/* On mobile the fixed bottom navbar overlays the page, so pad the
@@ -1149,19 +1151,12 @@ export default function MapPage() {
                             <span className="text-sm text-muted-foreground">{incident.type in INCIDENT_TYPE_LABELS ? tIncidents(`types.${incident.type}`) : incident.type}</span>
                           </div>
 
-                          {/* Time and Status */}
+                          {/* Time and Status. The list used to count from the alarm
+                              while the board counted from the last status change —
+                              the same-looking chip, two different answers. Both are
+                              the shared IncidentTime chip now. */}
                           <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                              <span className="text-sm text-muted-foreground font-mono">
-                                {formatTime(incident.created_at)}
-                              </span>
-                            </div>
-                            {isExpanded && (
-                              <span className="text-xs text-muted-foreground font-mono">
-                                {getTimeSince(incident.created_at)}
-                              </span>
-                            )}
+                            <IncidentTimeRow operation={incidentTimeSource(incident)} />
                             <Badge variant="outline" className="text-xs">
                               {incident.status in STATUS_LABELS ? tKanban(`statusLabels.${incident.status}`) : incident.status}
                             </Badge>

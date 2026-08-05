@@ -103,6 +103,10 @@ export interface Operation {
   fieldCompleteReportedAt?: Date | null
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
+  /** Name of the crew member marked Einsatzleiter for THIS incident, or null.
+   *  A stop that belongs to an Auftrag takes its leader from the route instead
+   *  (the route owns the resources), so this stays null there. */
+  leaderName: string | null
   crewAssignments: Map<string, string>
   materialAssignments: Map<string, string>
   vehicleAssignments: Map<string, string>
@@ -157,7 +161,7 @@ interface OperationsContextType {
   setBoardDragging: (dragging: boolean) => void
   /** Change an incident's status and move it to the TOP of the target column —
    *  the one-click equivalent of dragging it across (mirrors the reko auto-move). */
-  changeStatusToTop: (operationId: string, newStatus: OperationStatus) => void
+  changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   getNextOperationId: () => string
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
@@ -187,6 +191,12 @@ interface OperationsContextType {
   requestVehicleConflict: (conflict: NonNullable<OperationsContextType["vehicleConflict"]>) => void
   deleteOperation: (operationId: string) => Promise<void>
 }
+
+/** Columns in which an incident is being worked or wound down — reaching any of
+ *  them retires the "Am Warten" flag (see `updateOperation`). Deliberately not
+ *  `incoming` / `reko` / `reko_done`: an incident can legitimately sit parked in
+ *  those while it waits for capacity or for the Reko to report back. */
+const AM_WARTEN_CLEARING_STATUSES: OperationStatus[] = ["enroute", "active", "returning", "complete"]
 
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
 
@@ -414,6 +424,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       fieldCompleteReportedAt: incident.field_complete_reported_at ? new Date(incident.field_complete_reported_at) : null,
       rekoSummary: null,
       assignedReko: null,
+      leaderName: null,
       crewAssignments: new Map(),
       materialAssignments: new Map(),
       vehicleAssignments: new Map(),
@@ -484,6 +495,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
                 }
                 operation.crew.push(person.name)
                 operation.crewAssignments.set(person.name, assignment.id)
+                if (assignment.is_leader) operation.leaderName = person.name
               }
             } else if (assignment.resource_type === "material") {
               operation.materials.push(assignment.resource_id)
@@ -701,6 +713,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
                   }
                   operation.crew.push(person.name)
                   operation.crewAssignments.set(person.name, assignment.id)
+                  if (assignment.is_leader) operation.leaderName = person.name
                 }
               } else if (assignment.resource_type === "material") {
                 operation.materials.push(assignment.resource_id)
@@ -1171,9 +1184,28 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       : updates.location === ""
         ? { ...updates, coordinates: null }
         : updates
+    // Moving an incident into a working or closing column means it is, by
+    // definition, no longer waiting. Leaving "Am Warten" set would keep the
+    // badge on the card and keep the notification thresholds treating the
+    // incident as parked — so clear it here, in the one funnel every status
+    // change passes through, rather than at each of the half-dozen call sites.
+    // An explicit `amWarten` in the same update always wins.
+    const currentOp = operations.find((op) => op.id === operationId)
+    const clearsAmWarten = Boolean(
+      normalizedUpdates.status &&
+        AM_WARTEN_CLEARING_STATUSES.includes(normalizedUpdates.status) &&
+        currentOp?.amWarten &&
+        normalizedUpdates.amWarten === undefined,
+    )
     const enhancedUpdates = normalizedUpdates.status
-      ? { ...normalizedUpdates, statusChangedAt: new Date() }
+      ? { ...normalizedUpdates, statusChangedAt: new Date(), ...(clearsAmWarten ? { amWarten: false } : {}) }
       : normalizedUpdates
+
+    if (clearsAmWarten) {
+      toast.info(translateOutsideReact('notifications.operations.amWartenClearedTitle'), {
+        description: translateOutsideReact('notifications.operations.amWartenClearedDescription'),
+      })
+    }
 
     // When completing an operation, auto-release personnel and vehicles (backend does this too)
     const isCompletingOperation = normalizedUpdates.status === "complete"
@@ -1343,9 +1375,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // One-click status change that drops the card at the TOP of its new column,
   // mirroring how the reko auto-advance surfaces freshly-moved incidents. Saves
   // the operator a drag across the board.
-  const changeStatusToTop = (operationId: string, newStatus: OperationStatus) => {
+  const changeStatusToTop = (
+    operationId: string,
+    newStatus: OperationStatus,
+    /** Merged into the same update. Used by the workflow gates to put back a
+     *  flag their move cleared, so cancelling a gate really is a no-op. */
+    extraUpdates?: Partial<Operation>,
+  ) => {
     // Persist the status (debounced backend update + completion side effects).
-    updateOperation(operationId, { status: newStatus })
+    updateOperation(operationId, { status: newStatus, ...extraUpdates })
     // Optimistically move the card to the front of the array so it renders at the
     // top of its (single-status) column immediately.
     setOperations((ops) => {
@@ -1423,6 +1461,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           rekoArrivedAt: null,
           rekoSummary: null,
           assignedReko: null,
+          leaderName: null,
           crewAssignments: new Map(),
           materialAssignments: new Map(),
           vehicleAssignments: new Map(),
@@ -1455,6 +1494,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         hasCompletedReko: false,
         rekoArrivedAt: null,
         rekoSummary: null,
+        leaderName: null,
         crewAssignments: new Map(),
         materialAssignments: new Map(),
         vehicleAssignments: new Map(),

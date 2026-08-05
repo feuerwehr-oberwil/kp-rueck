@@ -3,11 +3,11 @@
 import { useState, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Sparkles } from "lucide-react"
+import { Sparkles } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
@@ -143,16 +143,13 @@ export function MobileIncidentListView({
         )}
 
         {/* Search Bar */}
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder={t('searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-10"
-          />
-        </div>
+        <SearchInput
+          containerClassName="mb-3"
+          placeholder={t('searchPlaceholder')}
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          className="h-10"
+        />
 
         {/* Status Filter Pills - 44px min height for touch targets (WCAG 2.5.5) */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">

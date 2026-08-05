@@ -254,13 +254,17 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
             if sf.vehicle_id:
                 driver_map[sf.vehicle_id] = person.name
 
-    # Fetch personnel (excluding Reko-tagged personnel from crew list)
+    # Fetch personnel (excluding Reko-tagged personnel from crew list). The
+    # Einsatzleiter rides along on the slip: the crew that reads it off the
+    # printer is exactly the audience that needs to know who is leading, and
+    # they have no board to look at.
+    leader_ids = {a.resource_id for a in active_assignments if a.resource_type == "personnel" and a.is_leader}
     crew = []
     if personnel_ids:
         personnel_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
         for p in personnel_result.scalars().all():
             if p.id not in reko_personnel_ids:
-                crew.append({"name": p.name, "role": p.role})
+                crew.append({"name": p.name, "role": p.role, "is_leader": p.id in leader_ids})
 
     # Fetch vehicles with driver info
     vehicles = []

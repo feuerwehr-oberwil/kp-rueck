@@ -295,7 +295,13 @@ export const DroppableColumn = memo(function DroppableColumn({
         ref={ref}
         data-board-scroll
         className={cn(
-          "flex-1 space-y-3 overflow-y-auto overscroll-contain p-2 rounded-lg transition-all min-h-[200px] relative",
+          // `overscroll-y-contain`, NOT `overscroll-contain`: a column body with
+          // `overflow-y: auto` has its `overflow-x: visible` computed to `auto`,
+          // so it counts as a horizontal scroll container with nothing to
+          // scroll. Containing BOTH axes made it swallow every horizontal
+          // trackpad delta instead of chaining it to `#kanban-main`, which left
+          // the board's own scrollbar as the only way to pan sideways.
+          "flex-1 space-y-3 overflow-y-auto overscroll-y-contain p-2 rounded-lg transition-all min-h-[200px] relative",
           isOver && operations.length === 0 && "drop-zone-active"
         )}
         role="region"

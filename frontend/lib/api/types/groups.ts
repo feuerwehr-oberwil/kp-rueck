@@ -27,6 +27,8 @@ export interface ApiGroupAssignment {
   unassigned_at: string | null
   assigned_by: string | null
   driver_stay: boolean
+  /** Einsatzleiter for the whole route — a stop takes its leader from here. */
+  is_leader: boolean
 }
 
 export interface ApiIncidentGroup {

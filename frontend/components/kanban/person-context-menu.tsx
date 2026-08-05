@@ -14,6 +14,7 @@ import { apiClient, type ApiEventSpecialFunctionResponse, type FunctionType } fr
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
+import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { toast } from "sonner"
 import { Car, Binoculars, Package2, Check } from 'lucide-react'
 
@@ -30,7 +31,7 @@ export function PersonContextMenu({
 }: PersonContextMenuProps) {
   const t = useTranslations('kanban')
   const { selectedEvent } = useEvent()
-  const { operations, removeCrew, refreshOperations } = useOperations()
+  const { operations, personnel, removeCrew, refreshOperations } = useOperations()
   const [vehicles, setVehicles] = useState<Array<{ id: string; name: string }>>([])
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
   const [currentFunctions, setCurrentFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
@@ -53,6 +54,13 @@ export function PersonContextMenu({
     vehicleId?: string
     vehicleName?: string
   }>({ open: false, functionType: 'driver' })
+
+  // Reko hand-over: how much would be orphaned by dropping the role, and who
+  // could take it over.
+  const [transferOpen, setTransferOpen] = useState(false)
+  const rekoIncidentCount = operations.filter((op) => op.assignedReko?.id === personnelId).length
+  const thisPerson = personnel.find((p) => p.id === personnelId) ?? null
+  const rekoPersonnel = personnel.filter((p) => p.isReko && p.id !== personnelId)
 
   // Load data lazily when context menu opens
   const handleOpenChange = useCallback(async (open: boolean) => {
@@ -330,6 +338,34 @@ export function PersonContextMenu({
         confirmText={t('personMenu.unassignConfirm')}
         variant="destructive"
         onConfirm={() => unassignFunction(unassignDialog.functionType, unassignDialog.vehicleId)}
+        // Removing the Reko role from someone who still holds incidents used to
+        // just orphan them — the incidents kept a Reko that no longer existed,
+        // and nothing said so. Offer the hand-over first; releasing outright
+        // stays available as the secondary action.
+        extraAction={
+          unassignDialog.functionType === 'reko' && rekoIncidentCount > 0
+            ? {
+                label: t('personMenu.unassignRekoTransfer', { count: rekoIncidentCount }),
+                onSelect: () => {
+                  setUnassignDialog((prev) => ({ ...prev, open: false }))
+                  setTransferOpen(true)
+                },
+              }
+            : undefined
+        }
+      />
+
+      {/* Hand the incidents to another Reko, then drop the role. */}
+      <TransferRekoDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        fromPerson={thisPerson}
+        rekoPersonnel={rekoPersonnel}
+        onTransferred={() => {
+          // The incidents have a new Reko; this person's role can now go
+          // without leaving anything behind.
+          void unassignFunction('reko')
+        }}
       />
     </>
   )

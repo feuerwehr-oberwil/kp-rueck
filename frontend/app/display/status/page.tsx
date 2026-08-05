@@ -7,7 +7,8 @@ import { Loader2, Binoculars, Package2, Infinity as InfinityIcon } from "lucide-
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
-import { ageLevel, columns, getTimeSince } from "@/lib/kanban-utils"
+import { ageLevel, columns } from "@/lib/kanban-utils"
+import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
@@ -428,8 +429,13 @@ function VehicleRow({ vehicle: v, onClick }: { vehicle: VehicleWithStatus; onCli
         )}
       </div>
       {isDeployed && (
-        <span className="text-[11px] xl:text-xs font-mono tabular-nums text-muted-foreground shrink-0">
-          {getTimeSince(v.assignedOperation!.statusChangedAt || v.assignedOperation!.dispatchTime)}
+        <span className="shrink-0">
+          <IncidentTime
+            operation={v.assignedOperation!}
+            readOnly
+            className="text-[11px] xl:text-xs"
+            iconClassName="h-3 w-3"
+          />
         </span>
       )}
     </div>
@@ -459,8 +465,8 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
             <p className="text-[11px] xl:text-xs text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
           </div>
         </div>
-        <span className="text-[11px] xl:text-xs font-mono tabular-nums text-muted-foreground shrink-0">
-          {getTimeSince(op.statusChangedAt || op.dispatchTime)}
+        <span className="shrink-0">
+          <IncidentTime operation={op} readOnly className="text-[11px] xl:text-xs" iconClassName="h-3 w-3" />
         </span>
       </div>
     </div>

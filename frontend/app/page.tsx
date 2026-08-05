@@ -15,10 +15,11 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
+import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Clock, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from 'lucide-react'
+import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -307,7 +308,9 @@ export default function FireStationDashboard() {
     }))
   }, [setOperations])
 
-  const { currentTime, isMounted } = useCurrentTime()
+  // The header clock ticks inside <EventClock/> now; this is only the mount flag
+  // the rest of the board hangs SSR-sensitive rendering off.
+  const { isMounted } = useCurrentTime()
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
@@ -1638,27 +1641,16 @@ export default function FireStationDashboard() {
           {/* Desktop Navigation */}
           {!isMobile && (
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="search-input"
-                  type="text"
-                  placeholder={tCommon('search')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-72 pl-9"
-                />
-                <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
-                  <Kbd>S</Kbd>
-                </div>
-              </div>
+              <SearchInput
+                id="search-input"
+                placeholder={tCommon('search')}
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                className="w-72"
+                hint={<Kbd>S</Kbd>}
+              />
 
-              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-mono text-base font-semibold tabular-nums">
-                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
-                </span>
-              </div>
+              <EventClock />
 
               <PageNavigation
                 currentPage="kanban"
@@ -1696,21 +1688,16 @@ export default function FireStationDashboard() {
               </button>
               {/* Search */}
               <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    id="personnel-search-input"
-                    placeholder={tDash('personnelSearch')}
-                    value={personnelSearchQuery}
-                    onChange={(e) => setPersonnelSearchQuery(e.target.value)}
-                    className="h-8 pl-8 pr-8 text-sm"
-                  />
-                  {!isMobile && (
-                    <div className="absolute right-2 top-0 bottom-0 flex items-center pointer-events-none">
-                      <Kbd className="h-5 text-xs">P</Kbd>
-                    </div>
-                  )}
-                </div>
+                <SearchInput
+                  id="personnel-search-input"
+                  size="sm"
+                  containerClassName="flex-1 min-w-0"
+                  placeholder={tDash('personnelSearch')}
+                  value={personnelSearchQuery}
+                  onValueChange={setPersonnelSearchQuery}
+                  className="h-8 text-sm"
+                  hint={!isMobile ? <Kbd className="h-5 text-xs">P</Kbd> : undefined}
+                />
                 <AvailableOnlyToggle
                   active={personnelAvailableOnly}
                   onToggle={() => setPersonnelAvailableOnly((v) => !v)}
@@ -1718,7 +1705,7 @@ export default function FireStationDashboard() {
                 />
               </div>
               {/* Scrollable content */}
-              <div className="scrollbar-slim flex-1 overflow-y-auto overscroll-contain pl-4 pr-2 pt-1 pb-3">
+              <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? null : personnel.filter((p) => p.status === "available").length === 0 ? (
                   /* Show QR code when no available personnel */
                   <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
@@ -1905,21 +1892,16 @@ export default function FireStationDashboard() {
               </button>
               {/* Search */}
               <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    id="material-search-input"
-                    placeholder={tDash('materialSearch')}
-                    value={materialSearchQuery}
-                    onChange={(e) => setMaterialSearchQuery(e.target.value)}
-                    className="h-8 pl-8 pr-8 text-sm"
-                  />
-                  {!isMobile && (
-                    <div className="absolute right-2 top-0 bottom-0 flex items-center pointer-events-none">
-                      <Kbd className="h-5 text-xs">M</Kbd>
-                    </div>
-                  )}
-                </div>
+                <SearchInput
+                  id="material-search-input"
+                  size="sm"
+                  containerClassName="flex-1 min-w-0"
+                  placeholder={tDash('materialSearch')}
+                  value={materialSearchQuery}
+                  onValueChange={setMaterialSearchQuery}
+                  className="h-8 text-sm"
+                  hint={!isMobile ? <Kbd className="h-5 text-xs">M</Kbd> : undefined}
+                />
                 <AvailableOnlyToggle
                   active={materialsAvailableOnly}
                   onToggle={() => setMaterialsAvailableOnly((v) => !v)}
@@ -1927,7 +1909,7 @@ export default function FireStationDashboard() {
                 />
               </div>
               {/* Scrollable content */}
-              <div className="scrollbar-slim flex-1 overflow-y-auto overscroll-contain pl-4 pr-2 pt-1 pb-3">
+              <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? null : materialsAvailableOnly && Object.keys(groupedMaterials).length === 0 ? (
                   <div className="py-6 text-center animate-in fade-in duration-300">
                     <p className="text-sm italic text-muted-foreground/60">{tDash('noneAvailableFiltered')}</p>

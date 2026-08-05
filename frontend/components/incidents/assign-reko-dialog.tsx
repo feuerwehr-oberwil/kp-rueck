@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search, User, Loader2, Binoculars, ArrowLeft, MapPin } from "lucide-react"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
@@ -49,17 +49,13 @@ export function MarkExistingRekoPersonnel({
 
   return (
     <div className={cn("flex flex-col", className ?? "h-[300px]")}>
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          autoFocus
-          type="text"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={t('markSearchPlaceholder')}
-          className="pl-9 pr-3"
-        />
-      </div>
+      <SearchInput
+        autoFocus
+        containerClassName="mb-3"
+        value={search}
+        onValueChange={setSearch}
+        placeholder={t('markSearchPlaceholder')}
+      />
       {candidates.length === 0 ? (
         <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-muted-foreground">
           {search.trim()
@@ -69,7 +65,7 @@ export function MarkExistingRekoPersonnel({
               : t('markAllReko')}
         </div>
       ) : (
-        <ScrollArea className="flex-1 min-h-0 pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-2">
           <div className="space-y-2">
             {candidates.map((person) => (
               <button
@@ -273,7 +269,7 @@ export function AssignRekoDialog({
                 </p>
               </div>
             ) : (
-              <ScrollArea className="h-[300px] pr-4">
+              <ScrollArea className="h-[300px] pr-2">
                 <div className="space-y-2">
                   {personnel.map((person) => {
                   const isCurrentlyAssigned = person.personnel_id === currentlyAssignedId

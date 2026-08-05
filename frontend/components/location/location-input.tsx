@@ -16,6 +16,7 @@ import { useState, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
 import dynamic from "next/dynamic"
 import { Label } from "@/components/ui/label"
+import { SearchInput } from "@/components/ui/search-input"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -300,11 +301,11 @@ export function LocationInput({
             <PopoverContent className="w-[500px] p-0" align="start">
               <div className="flex flex-col">
                 <div className="p-2 border-b">
-                  <Input
+                  <SearchInput
                     ref={searchInputRef}
                     placeholder={t('locationInput.searchPlaceholder')}
                     value={addressSearchQuery}
-                    onChange={(e) => setAddressSearchQuery(e.target.value)}
+                    onValueChange={setAddressSearchQuery}
                     onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => {
                       // Close popover on Tab and let natural tab order take over

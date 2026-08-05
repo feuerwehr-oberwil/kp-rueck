@@ -6,10 +6,19 @@ from typing import Any
 
 from fastapi import Request
 from sqlalchemy import and_, select
+from sqlalchemy import update as update_stmt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Incident, IncidentAssignment, Material, Personnel, User, Vehicle
+from ..models import (
+    EventSpecialFunction,
+    Incident,
+    IncidentAssignment,
+    Material,
+    Personnel,
+    User,
+    Vehicle,
+)
 from ..services.audit import log_action
 
 # resource_type is constrained to these three by AssignmentCreate's validator.
@@ -104,6 +113,9 @@ async def assign_resource(
         request=request,
     )
 
+    if resource_type == "personnel":
+        await sync_auto_leader(db, incident_id)
+
     await db.commit()
     await db.refresh(assignment)
 
@@ -114,16 +126,72 @@ async def update_assignment(
     db: AsyncSession,
     assignment_id: uuid.UUID,
     update: schemas.AssignmentUpdate,
+    incident_id: uuid.UUID | None = None,
 ) -> schemas.AssignmentResponse | None:
-    """Update assignment properties (e.g., driver_stay)."""
+    """Update assignment properties (e.g., driver_stay, Einsatzleiter).
+
+    ``incident_id`` is the one from the request path. It is checked against the
+    assignment so a valid assignment id cannot be used to write to an incident
+    the caller did not name — the route-level twin already did this, and
+    `is_leader` turns the omission into a cross-incident write.
+    """
     result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
     assignment = result.scalar_one_or_none()
     if not assignment:
         return None
+    if incident_id is not None and assignment.incident_id != incident_id:
+        return None
 
     update_data = update.model_dump(exclude_unset=True)
+
+    if "is_leader" in update_data:
+        # Only a person can lead an incident. The unique index is on
+        # `incident_id` alone, so a vehicle or a pallet of Ölbindemittel marked
+        # is_leader occupies the incident's one leader slot — and the automatic
+        # resolver, which only ever looks at personnel rows, can neither see it
+        # nor clear it. The incident is then stuck with a truck as its
+        # Einsatzleiter and no way back through the UI.
+        if assignment.resource_type != "personnel":
+            raise ValueError("Only personnel assignments can be marked as Einsatzleiter")
+
+        incident = (
+            await db.execute(select(Incident).where(Incident.id == assignment.incident_id))
+        ).scalar_one_or_none()
+
+        if update_data["is_leader"]:
+            # A hand-picked leader pins the choice: automatic re-selection stops
+            # for this incident until someone explicitly hands it back.
+            if incident is not None:
+                incident.leader_manual = True
+            # Single-holder, guarded by a partial unique index, so the old holder
+            # has to be demoted in the SAME transaction — writing the new one
+            # first would hit the index instead of replacing the role. Not
+            # filtered by resource_type on purpose: it must also clear a stray
+            # flag left on a non-personnel row by an older build.
+            await db.execute(
+                update_stmt(IncidentAssignment)
+                .where(
+                    IncidentAssignment.incident_id == assignment.incident_id,
+                    IncidentAssignment.id != assignment.id,
+                    IncidentAssignment.unassigned_at.is_(None),
+                    IncidentAssignment.is_leader.is_(True),
+                )
+                .values(is_leader=False)
+            )
+        elif incident is not None:
+            # Explicitly demoting hands the choice BACK to the board rather than
+            # leaving the incident permanently leaderless — otherwise the pin is
+            # a one-way door with no way out through the UI.
+            incident.leader_manual = False
+
     for key, value in update_data.items():
         setattr(assignment, key, value)
+
+    # Un-pinning has to re-derive before the transaction closes, or the incident
+    # sits with no leader until the next crew change.
+    if update_data.get("is_leader") is False:
+        await db.flush()
+        await sync_auto_leader(db, assignment.incident_id)
 
     await db.commit()
     await db.refresh(assignment)
@@ -152,8 +220,15 @@ async def unassign_resource(
     if not assignment:
         return False
 
-    # Mark unassigned
+    # Mark unassigned. The Einsatzleiter flag goes with it: the index only
+    # counts active rows, so a released row keeping `is_leader` is legal — but
+    # `/participants` ORs the flag across a resource's rows, and completion
+    # releases the crew ONE AT A TIME, each release promoting the next person.
+    # Left alone, an incident finishes with every single person on it flagged as
+    # having led it, which is exactly the record "Bisher im Einsatz" is there to
+    # get right.
     assignment.unassigned_at = datetime.utcnow()
+    assignment.is_leader = False
 
     # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
 
@@ -168,6 +243,12 @@ async def unassign_resource(
     )
 
     await db.flush()
+
+    # Releasing the leader must hand the role on, not leave the incident without
+    # one — unless an operator picked deliberately, in which case it stays gone
+    # until they pick again.
+    if assignment.resource_type == "personnel":
+        await sync_auto_leader(db, assignment.incident_id)
 
     return True
 
@@ -422,8 +503,10 @@ async def transfer_assignments(
         await db.flush()
         new_assignment_ids.append(new_assignment.id)
 
-        # Mark old assignment as unassigned
+        # Mark old assignment as unassigned (same reasoning as unassign_resource:
+        # the role does not travel on a released row).
         assignment.unassigned_at = datetime.utcnow()
+        assignment.is_leader = False
 
     # Log transfer action
     await log_action(
@@ -441,9 +524,116 @@ async def transfer_assignments(
         request=request,
     )
 
+    # Both incidents changed crew, so both need their Einsatzleiter re-derived:
+    # the source just lost its leader with the rest of its people, and the
+    # target's new rows arrived with the flag defaulted to false. Without this a
+    # transferred crew has nobody leading it until the next unrelated assign.
+    await db.flush()
+    await sync_auto_leader(db, source_incident_id)
+    await sync_auto_leader(db, target_incident_id)
+
     await db.commit()
 
     return {
         "transferred_count": len(new_assignment_ids),
         "assignment_ids": new_assignment_ids,
     }
+
+
+# Rank order used when a station has not filled in `Personnel.role_sort_order`
+# — which is the common case, since it is set by the importer and defaults to 0
+# for everyone. Without this the "highest ranking person" rule silently decays
+# into "whoever was assigned first", which is not the same thing and looks like
+# a bug the first time an Offizier joins a crew and stays unmarked.
+# An explicit non-zero `role_sort_order` always wins over this table.
+_RANK_FALLBACK = {
+    "offizier": 1,
+    "wachtmeister": 2,
+    "korporal": 3,
+    "mannschaft": 4,
+}
+
+
+def leader_rank(person: Personnel) -> int:
+    """Lower is more senior. Unknown roles sort last but still ahead of nothing."""
+    if person.role_sort_order:
+        return person.role_sort_order
+    return _RANK_FALLBACK.get((person.role or "").strip().lower(), 99)
+
+
+async def _reko_personnel_ids(db: AsyncSession, event_id: uuid.UUID | None) -> set[uuid.UUID]:
+    """Personnel holding the Reko function for an event."""
+    if event_id is None:
+        return set()
+    rows = await db.execute(
+        select(EventSpecialFunction.personnel_id).where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.function_type == "reko",
+        )
+    )
+    return {row[0] for row in rows.all()}
+
+
+async def sync_auto_leader(db: AsyncSession, incident_id: uuid.UUID) -> None:
+    """Keep the Einsatzleiter on the highest-ranking person present.
+
+    An incident that nobody has explicitly assigned a leader to still has one in
+    practice — whoever outranks the rest of the crew. Leaving `is_leader` unset
+    until someone remembers to click means the Funkspruch and the printed slip
+    go out with no EL at all, which is the case where naming one matters most.
+
+    So the role is derived on every crew change: highest rank wins
+    (``Personnel.role_sort_order``, lower = more senior), earliest assigned
+    breaks a tie. The moment an operator picks someone by hand,
+    ``Incident.leader_manual`` is set and this stops touching it — a human
+    decision must not be undone by the next person to arrive.
+
+    Flushes only; the caller owns the transaction.
+    """
+    incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if incident is None or incident.leader_manual:
+        return
+
+    # Reko personnel are excluded: they are on reconnaissance, not crew — the
+    # board, the print slip and the WhatsApp text all already treat them as a
+    # separate role, and an incident whose only assignment is its Reko has no
+    # Einsatzleiter yet rather than one who is out looking at it.
+    reko_ids = await _reko_personnel_ids(db, incident.event_id)
+
+    rows = [
+        row
+        for row in (
+            await db.execute(
+                select(IncidentAssignment, Personnel)
+                .join(Personnel, Personnel.id == IncidentAssignment.resource_id)
+                .where(
+                    IncidentAssignment.incident_id == incident_id,
+                    IncidentAssignment.resource_type == "personnel",
+                    IncidentAssignment.unassigned_at.is_(None),
+                )
+                .order_by(IncidentAssignment.assigned_at.asc())
+            )
+        ).all()
+        if row[1].id not in reko_ids
+    ]
+
+    # Sorted in Python, not SQL: the rank fallback above cannot be expressed as
+    # a column, and a crew is a handful of rows.
+    rows.sort(key=lambda row: (leader_rank(row[1]), row[0].assigned_at))
+    winner = rows[0][0] if rows else None
+
+    # Clear across ALL active personnel rows, not just the candidates: someone
+    # who has since become the Reko must not keep a stale marker.
+    await db.execute(
+        update_stmt(IncidentAssignment)
+        .where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.resource_type == "personnel",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+        .values(is_leader=False)
+    )
+    if winner is not None:
+        winner.is_leader = True
+
+    await db.flush()

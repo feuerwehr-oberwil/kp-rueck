@@ -7,6 +7,7 @@ import type { ApiVehicle } from "@/lib/api-client"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { formatClockTime as formatTime } from "@/lib/incident-time"
 import dynamic from "next/dynamic"
 
 // Dynamically import Leaflet components (no SSR)
@@ -46,10 +47,6 @@ const STATUS_ORDER: Record<string, number> = {
   active: 5,
   returning: 6,
   complete: 7,
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
 }
 
 function formatDateTime(date: Date): string {

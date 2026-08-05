@@ -4027,6 +4027,82 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/participants": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Incident Participants",
+        "description": "Everyone and everything that was on this incident — the \"Beteiligt\" roll-up.\n\nCompleting an incident releases its crew, so the board's crew list goes\nempty and the record of who actually turned out only survives in the\nassignment rows (soft-released via ``unassigned_at``). This rolls those rows\nup to one entry per resource so the question \"who was there\" is answerable\nlong after the incident closed.\n\nDistinct from ``/timeline``, which is the raw chronological event feed: this\nis the summary you would read into a report.",
+        "operationId": "get_incident_participants_api_incidents__incident_id__participants_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentParticipantsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/timeline": {
       "get": {
         "tags": [
@@ -5216,6 +5292,102 @@
         }
       }
     },
+    "/api/incident-groups/{group_id}/assignments/{assignment_id}": {
+      "patch": {
+        "tags": [
+          "incident-groups"
+        ],
+        "summary": "Update Group Assignment",
+        "description": "Update a route-level assignment — currently only the Einsatzleiter flag.\n\nA route's stops own no resources, so a stop that belongs to an Auftrag takes\nits leader from here: one squad working a route has one leader, not one per\nstop on it.",
+        "operationId": "update_group_assignment_api_incident_groups__group_id__assignments__assignment_id__patch",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Assignment Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupAssignmentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupAssignmentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/integrations": {
       "get": {
         "tags": [
@@ -5533,7 +5705,7 @@
           "assignments"
         ],
         "summary": "Update Assignment",
-        "description": "Update assignment properties (e.g., driver_stay flag).",
+        "description": "Update assignment properties (driver_stay flag, Einsatzleiter).",
         "operationId": "update_assignment_api_incidents__incident_id__assignments__assignment_id__patch",
         "parameters": [
           {
@@ -14211,6 +14383,11 @@
             "type": "boolean",
             "title": "Driver Stay",
             "default": false
+          },
+          "is_leader": {
+            "type": "boolean",
+            "title": "Is Leader",
+            "default": false
           }
         },
         "type": "object",
@@ -14236,6 +14413,17 @@
               }
             ],
             "title": "Driver Stay"
+          },
+          "is_leader": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Leader"
           }
         },
         "type": "object",
@@ -16298,6 +16486,11 @@
             "type": "boolean",
             "title": "Driver Stay",
             "default": false
+          },
+          "is_leader": {
+            "type": "boolean",
+            "title": "Is Leader",
+            "default": false
           }
         },
         "type": "object",
@@ -16310,6 +16503,24 @@
         ],
         "title": "GroupAssignmentResponse",
         "description": "Auftrag-level assignment response (mirrors ``AssignmentResponse``)."
+      },
+      "GroupAssignmentUpdate": {
+        "properties": {
+          "is_leader": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Leader"
+          }
+        },
+        "type": "object",
+        "title": "GroupAssignmentUpdate",
+        "description": "Schema for updating a route-level assignment (mirrors ``AssignmentUpdate``)."
       },
       "GroupProgress": {
         "properties": {
@@ -16773,6 +16984,87 @@
         "type": "object",
         "title": "IncidentGroupUpdate",
         "description": "Schema for updating an Auftrag (partial PATCH)."
+      },
+      "IncidentParticipant": {
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "title": "Resource Type"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "first_assigned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Assigned At"
+          },
+          "last_released_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Released At"
+          },
+          "stints": {
+            "type": "integer",
+            "title": "Stints",
+            "default": 1
+          },
+          "is_reko": {
+            "type": "boolean",
+            "title": "Is Reko",
+            "default": false
+          },
+          "is_leader": {
+            "type": "boolean",
+            "title": "Is Leader",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "resource_type",
+          "resource_id",
+          "first_assigned_at"
+        ],
+        "title": "IncidentParticipant",
+        "description": "One resource that was on an incident at some point — the \"Beteiligt\" roll-up.\n\nCompleting an incident releases its crew, so the board's own crew list\nanswers \"who is on this now\" and, for a closed incident, nobody. The\nquestion that gets asked weeks later is \"who was there\" — which the\nassignment rows have always been able to answer (they are soft-released via\n``unassigned_at``, never deleted), just never been asked.\n\nOne row per resource, not per assignment: a person taken off and put back on\nappears once, with ``first_assigned_at`` / ``last_released_at`` spanning\ntheir involvement and ``stints`` counting how many separate times."
+      },
+      "IncidentParticipantsResponse": {
+        "properties": {
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/IncidentParticipant"
+            },
+            "type": "array",
+            "title": "Participants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "participants"
+        ],
+        "title": "IncidentParticipantsResponse",
+        "description": "Everyone and everything that was on an incident, longest-serving first."
       },
       "IncidentPriority": {
         "type": "string",

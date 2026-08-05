@@ -18,7 +18,7 @@
 import { Fragment, useMemo } from "react"
 import { Marker, Polyline, Tooltip } from "react-leaflet"
 import L from "leaflet"
-import type { IncidentGroup } from "@/lib/types/groups"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { OperationHoverCard } from "./operation-hover-card"
@@ -112,6 +112,10 @@ interface GroupRoutesProps {
   onMarkerClick?: (incidentId: string) => void
   /** Highlight this stop's marker (e.g. the Routen-Editor's focused stop). */
   highlightIncidentId?: string | null
+  /** Resolves a route's own crew/vehicles for the stop hover cards. Optional:
+   *  callers outside the groups provider (Routen-Editor preview) simply omit it
+   *  and the cards fall back to the stop's own — empty — resources. */
+  groupResourcesFor?: (groupId: string) => GroupResources
 }
 
 export function GroupRoutes({
@@ -120,6 +124,7 @@ export function GroupRoutes({
   focusGroupId = null,
   onMarkerClick,
   highlightIncidentId = null,
+  groupResourcesFor,
 }: GroupRoutesProps) {
   const items = useMemo<RouteRenderItem[]>(() => {
     return groups.map((group) => {
@@ -169,7 +174,12 @@ export function GroupRoutes({
                 eventHandlers={onMarkerClick ? { click: () => onMarkerClick(id) } : undefined}
               >
                 <Tooltip direction="top" offset={[0, -14]}>
-                  <OperationHoverCard operation={op} seq={seq} />
+                  <OperationHoverCard
+                    operation={op}
+                    seq={seq}
+                    routeName={group.name}
+                    routeResources={groupResourcesFor?.(group.id)}
+                  />
                 </Tooltip>
               </Marker>
             ))}

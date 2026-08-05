@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -19,7 +19,8 @@ import { type Operation, type Material, type OperationStatus } from "@/lib/conte
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { getTimeSince, columns } from "@/lib/kanban-utils"
+import { columns } from "@/lib/kanban-utils"
+import { IncidentTime, useIncidentTimeVisible } from "@/components/ui/incident-time"
 import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
@@ -34,6 +35,8 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimelinePopover } from "@/components/kanban/incident-timeline-popover"
+import { IncidentParticipants } from "@/components/kanban/incident-participants"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
@@ -87,13 +90,47 @@ export function OperationDetailContent({
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
   const { materialGroups } = useMaterials()
-  const { groups, getGroupResources, unassignResource } = useGroups()
+  const { groups, getGroupResources, unassignResource, refreshGroups } = useGroups()
+  // The «·» separator has to vanish with the chip, or a closed incident keeps an
+  // orphan dot behind the id.
+  const showIncidentTime = useIncidentTimeVisible(operation.status === "complete")
 
   // A grouped incident carries no resources itself — the Auftrag (route) owns
   // them. Show the route's roll-up in the resource sections and route any
   // add/remove to the Auftrag so the modal edits the same thing the sheet does.
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
+
+  // Promote a crew member to Einsatzleiter. The backend demotes the previous
+  // holder in the same transaction, so this is set-and-move in one call; we
+  // just need the board to re-read who holds it afterwards.
+  const promoteToLeader = useCallback(
+    async (crewName: string) => {
+      const assignmentId = operation.crewAssignments.get(crewName)
+      if (!assignmentId) return
+      try {
+        await apiClient.updateAssignment(operation.id, assignmentId, { is_leader: true })
+        await refreshOperations()
+      } catch {
+        toast.error(t('detail.leaderFailed'))
+      }
+    },
+    [operation.id, operation.crewAssignments, refreshOperations, t],
+  )
+
+  /** Same promotion, one level up: the route owns the people, so a grouped
+   *  incident's leader is set on the Auftrag. */
+  const promoteRouteLeader = useCallback(
+    async (groupId: string, assignmentId: string) => {
+      try {
+        await apiClient.updateGroupAssignment(groupId, assignmentId, { is_leader: true })
+        await refreshGroups()
+      } catch {
+        toast.error(t('detail.leaderFailed'))
+      }
+    },
+    [refreshGroups, t],
+  )
   const viaAuftrag = auftrag ? (
     <span
       className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground"
@@ -247,13 +284,14 @@ export function OperationDetailContent({
           <div className="flex items-center gap-1">
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
-              {/* Dropped once the incident is closed: a running clock on a finished Einsatz
-                  reads «19h 40'» the next morning and answers nothing. The Verlauf beside it
-                  holds the actual times. */}
-              {operation.status !== "complete" && (
+              {/* The board-wide time chip (start / in status / since alarm). Its
+                  durations are dropped once the incident is closed: a running clock
+                  on a finished Einsatz reads «19h 40'» the next morning and answers
+                  nothing. The Verlauf beside it holds the actual times. */}
+              {showIncidentTime && (
                 <>
                   <span className="text-muted-foreground/40">·</span>
-                  <span>{t('detail.sinceAlarm', { time: getTimeSince(operation.dispatchTime) })}</span>
+                  <IncidentTime operation={operation} size="lg" suppressDurations={operation.status === "complete"} />
                 </>
               )}
             </p>
@@ -595,6 +633,7 @@ export function OperationDetailContent({
               viaLabel={viaAuftrag}
               onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
               onUnassign={(assignmentId) => void unassignResource(auftrag.id, assignmentId)}
+              onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
               readOnly={!canEdit || !onAssignResource}
             />
           ) : (
@@ -628,11 +667,20 @@ export function OperationDetailContent({
                     <RemovableChip
                       key={member}
                       variant="secondary"
-                      className="text-sm gap-1 pr-1 hover:bg-destructive/20"
+                      className="group text-sm gap-1 pr-1 hover:bg-destructive/20"
                       onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
                       removeTitle={t('detail.removePerson')}
                       removeButtonClassName="ml-1"
                     >
+                      {/* A stop inside an Auftrag takes its leader from the
+                          route, so the star is not offered on the stop's own
+                          crew — it would set a second, competing leader. */}
+                      {!auftrag && (
+                        <LeaderBadge
+                          isLeader={operation.leaderName === member}
+                          onPromote={canEdit ? () => void promoteToLeader(member) : undefined}
+                        />
+                      )}
                       {member}
                     </RemovableChip>
                   ))
@@ -883,6 +931,18 @@ export function OperationDetailContent({
             </div>
             </>
           )}
+
+            {/* Who was here — the same three resource kinds as the sections
+                above, but including everything already released. It belongs
+                under them because it answers the same question one tense back:
+                those show who IS on the incident, this shows who WAS. On a
+                completed incident it is the only one of the two left with
+                anything in it, so it opens expanded there. */}
+            <IncidentParticipants
+              incidentId={operation.id}
+              defaultOpen={operation.status === "complete"}
+              className="mt-4"
+            />
 
             {/* Status quick-change — one-click move across the board (drops the
                 card at the top of the target column) instead of drag & drop. */}

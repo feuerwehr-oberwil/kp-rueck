@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { MapPin, AlertCircle, Search, Loader2 } from "lucide-react"
+import { MapPin, AlertCircle, Loader2 } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
 import { useTranslations } from "next-intl"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
@@ -80,16 +80,11 @@ export function TransferIncidentDialog({
         </DialogHeader>
 
         {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder={t('transfer.searchPlaceholder')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <SearchInput
+          placeholder={t('transfer.searchPlaceholder')}
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
 
         <div className="flex-1 overflow-y-auto space-y-3 py-4">
           {targetIncidents.length === 0 ? (

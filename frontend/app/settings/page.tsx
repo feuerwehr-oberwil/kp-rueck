@@ -22,6 +22,7 @@ import { useEvent } from '@/lib/contexts/event-context';
 import { apiClient, type ApiExcelImportPreview, type ApiAuditLog } from '@/lib/api-client';
 import { ProtectedRoute } from '@/components/protected-route';
 import { Card } from '@/components/ui/card';
+import { SearchInput } from '@/components/ui/search-input'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -161,6 +162,11 @@ const SETTING_CONFIGS: SettingConfig[] = [
     key: 'map_style',
     type: 'select',
     options: ['osm', 'topo', 'carto-light', 'carto-dark'],
+  },
+  {
+    key: 'incident_time_display',
+    type: 'select',
+    options: ['start', 'column', 'total'],
   },
 ];
 
@@ -1175,10 +1181,10 @@ export default function SettingsPage() {
             </Card>
 
             {/* Search - Full width */}
-            <Input
+            <SearchInput
               placeholder={t('page.audit.searchPlaceholder')}
               value={auditSearchQuery}
-              onChange={(e) => setAuditSearchQuery(e.target.value)}
+              onValueChange={setAuditSearchQuery}
               className="w-full"
             />
 

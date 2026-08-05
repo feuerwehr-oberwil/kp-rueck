@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import {
   draggable,
@@ -31,6 +31,7 @@ import {
   Radio,
 } from "lucide-react"
 import { toast } from "sonner"
+import { apiClient } from "@/lib/api-client"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
@@ -147,8 +148,24 @@ export function AuftraegeSheet({
     removeStop,
     unassignResource,
     getGroupResources,
+    refreshGroups,
   } = useGroups()
   const { operations } = useOperations()
+
+  // The route owns the people, so this is where a route's Einsatzleiter is set.
+  // The backend demotes the previous holder in the same transaction — one call,
+  // whether the role is being given out for the first time or handed over.
+  const promoteLeader = useCallback(
+    async (groupId: string, assignmentId: string) => {
+      try {
+        await apiClient.updateGroupAssignment(groupId, assignmentId, { is_leader: true })
+        await refreshGroups()
+      } catch {
+        toast.error(t("leaderFailed"))
+      }
+    },
+    [refreshGroups, t],
+  )
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)
@@ -353,6 +370,7 @@ export function AuftraegeSheet({
                 onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
                 onAssignRouteResource={(resourceType) => onAssignRouteResource(resourceType, group.id)}
                 onUnassignResource={(assignmentId) => unassignResource(group.id, assignmentId)}
+                onPromoteLeader={(assignmentId) => void promoteLeader(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
                 onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
@@ -413,6 +431,7 @@ interface AuftragCardProps {
   onOpenRoutenEditor: (focusIncidentId?: string) => void
   onAssignRouteResource: (resourceType: "crew" | "vehicles" | "materials") => void
   onUnassignResource: (assignmentId: string) => void
+  onPromoteLeader: (assignmentId: string) => void
   onOpenDetail: (operationId: string) => void
   onRemoveStop: (incidentId: string) => void
   registerRowRef: (el: HTMLDivElement | null) => void
@@ -439,6 +458,7 @@ function AuftragCard({
   onOpenRoutenEditor,
   onAssignRouteResource,
   onUnassignResource,
+  onPromoteLeader,
   onOpenDetail,
   onRemoveStop,
   onSetStopStatus,
@@ -676,6 +696,7 @@ function AuftragCard({
             resources={resources}
             onAssign={onAssignRouteResource}
             onUnassign={onUnassignResource}
+            onPromoteLeader={onPromoteLeader}
             readOnly={!canEdit}
           />
 

@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { Search, X } from 'lucide-react';
 import { PageNavigation } from '@/components/page-navigation';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useEvent } from '@/lib/contexts/event-context';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -341,27 +340,15 @@ export default function HelpPage() {
           <aside className="w-56 border-r border-border/50 bg-card/30 flex-shrink-0">
             <ScrollArea className="h-full">
               <nav className="p-4">
-                <div className="relative mb-3">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t('searchPlaceholder')}
-                    aria-label={t('searchPlaceholder')}
-                    className="h-8 pl-8 pr-8 text-sm"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      aria-label={t('searchClear')}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
+                <SearchInput
+                  containerClassName="mb-3"
+                  size="sm"
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                  placeholder={t('searchPlaceholder')}
+                  aria-label={t('searchPlaceholder')}
+                  className="h-8 text-sm"
+                />
                 <p className="text-xs font-semibold text-muted-foreground tracking-wider mb-3">
                   {t('toc')}
                 </p>
