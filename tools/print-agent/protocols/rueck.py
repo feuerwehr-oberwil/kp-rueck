@@ -160,13 +160,26 @@ class RueckProtocol:
                 time.sleep(self._gap)
         return claimed
 
-    def report(self, job_id: str, ok: bool, error: str | None = None) -> None:
+    def report(self, job_id: str, ok: bool, error: str | None = None, *,
+               unreachable: bool = False, note: str | None = None) -> None:
+        """Report the outcome. `note` rides along on a SUCCESS — «printed, but on the backup».
+
+        `retryable` tells the backend this failure was the printer not answering, not the job
+        being bad. The backend then leaves `retry_count` alone, so a printer that is rebooting
+        costs the slip nothing: it waits in the queue for as long as its content is still
+        worth printing, instead of using up three attempts in ninety seconds.
+        An older backend ignores both fields, and behaves exactly as it does today.
+        """
         if ok:
             self._last_job_at = time.monotonic()
         code, _ = self._request(
             f"/api/print/jobs/{job_id}/complete/",
             method="PATCH",
-            json_body={"status": "completed" if ok else "failed", "error_message": error},
+            json_body={
+                "status": "completed" if ok else "failed",
+                "error_message": note if ok else error,
+                "retryable": bool(unreachable) and not ok,
+            },
         )
         if code != 200:
             log(f"WARN: completion report for {job_id} → HTTP {code}")

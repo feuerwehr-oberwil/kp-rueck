@@ -32,6 +32,8 @@ from core import (  # noqa: E402
     QR_MIN_BOX_DOTS,
     QR_TARGET_DOTS,
     FatalError,
+    Job,
+    PrintResult,
     qr_box_size,
 )
 
@@ -276,7 +278,7 @@ def test_rueck_backend_polls_claims_and_completes(rueck_server):
     assert "/api/print/config/" in paths
     assert any(p.startswith("/api/print/jobs/pending/") for p in paths)
     assert "/api/print/jobs/t-7/claim/" in paths
-    assert rueck_server.reported == [{"status": "completed", "error_message": None}]
+    assert rueck_server.reported == [{"status": "completed", "error_message": None, "retryable": False}]
 
 
 def test_rueck_adopts_the_printer_address_the_backend_reports(rueck_server):
@@ -498,6 +500,170 @@ def test_mismatched_protocol_and_output_is_refused_at_startup():
         _build({"name": "x", "protocol": "kp-front", "url": "http://x",
                 "secret": "s", "output": "escpos"})
     assert "kp-front goes with cups" in str(e.value)
+
+
+# --- Ordered destinations: print somewhere rather than nowhere ---------------------------
+
+
+def _chain(url, destinations):
+    return _build({"name": "rueck", "protocol": "kp-rueck", "url": url, "secret": "rueck-token",
+                   "destinations": destinations})
+
+
+def test_an_unreachable_primary_falls_over_to_the_backup(rueck_server, monkeypatch):
+    """The point of the whole chain: paper comes out, on the next printer in the list."""
+    from outputs.escpos import EscposOutput
+
+    def fake_print(self, job):
+        if self.ip == "10.0.0.9":  # the primary, as reported by the stub backend
+            return PrintResult(False, f"Drucker nicht erreichbar unter {self.ip}:{self.port}",
+                               unreachable=True)
+        return PrintResult(True)
+
+    monkeypatch.setattr(EscposOutput, "print_job", fake_print)
+
+    backend = _chain(rueck_server.url, [{"output": "escpos"}, {"output": "escpos", "ip": "10.0.0.50"}])
+    backend.protocol.refresh_config()
+    backend.run(threading.Event(), once=True)
+
+    assert len(rueck_server.reported) == 1
+    report = rueck_server.reported[0]
+    assert report["status"] == "completed"
+    # …and it says so, or nobody fetches the paper and nobody fixes the main printer.
+    assert "Ersatzdrucker" in report["error_message"]
+    assert "10.0.0.50" in report["error_message"]
+    assert "nicht erreichbar" in report["error_message"]
+
+
+def test_a_job_the_printer_refused_is_not_offered_to_every_other_printer(rueck_server, monkeypatch):
+    """An unrenderable job fails identically everywhere — spreading it only delays the truth."""
+    from outputs.escpos import EscposOutput
+
+    tried: list[str] = []
+
+    def fake_print(self, job):
+        tried.append(self.ip)
+        return PrintResult(False, "unknown job type: nonsense")
+
+    monkeypatch.setattr(EscposOutput, "print_job", fake_print)
+
+    backend = _chain(rueck_server.url, [{"output": "escpos"}, {"output": "escpos", "ip": "10.0.0.50"}])
+    backend.protocol.refresh_config()
+    backend.run(threading.Event(), once=True)
+
+    assert tried == ["10.0.0.9"], "the second printer must not have been tried"
+    assert rueck_server.reported[0]["status"] == "failed"
+    assert rueck_server.reported[0]["retryable"] is False
+
+
+def test_every_printer_down_reports_a_retryable_failure(rueck_server, monkeypatch):
+    """Nothing printed — but the backend must not spend an attempt on a printer that was off."""
+    from outputs.escpos import EscposOutput
+    monkeypatch.setattr(EscposOutput, "print_job",
+                        lambda self, job: PrintResult(False, "Drucker nicht erreichbar", unreachable=True))
+
+    backend = _chain(rueck_server.url, [{"output": "escpos"}, {"output": "escpos", "ip": "10.0.0.50"}])
+    backend.protocol.refresh_config()
+    backend.run(threading.Event(), once=True)
+
+    report = rueck_server.reported[0]
+    assert report["status"] == "failed"
+    assert report["retryable"] is True
+    # Both failures are named: "the backup is down too" is its own piece of news.
+    assert report["error_message"].count("nicht erreichbar") == 2
+
+
+def test_a_pinned_backup_keeps_its_own_address(rueck_server):
+    """The backend knows ONE address. It owns the primary and must not overwrite the backup."""
+    backend = _chain(rueck_server.url, [{"output": "escpos"}, {"output": "escpos", "ip": "10.0.0.50", "port": 9101}])
+    backend.protocol.refresh_config()
+    backend.run(threading.Event(), once=True)
+
+    primary, backup = backend.outputs
+    assert (primary.ip, primary.port) == ("10.0.0.9", 9100), "the primary follows the settings UI"
+    assert (backup.ip, backup.port) == ("10.0.0.50", 9101), "the backup follows this machine's config"
+
+
+def test_a_laser_cannot_stand_in_for_the_thermal_printer():
+    """kp-rueck sends structured JSON; CUPS wants a PDF. Refuse the chain, don't discover it live."""
+    with pytest.raises(SystemExit) as e:
+        _chain("http://x", [{"output": "escpos"}, {"output": "cups", "printer": "HP"}])
+    assert "destination #2" in str(e.value)
+
+
+def test_a_switched_off_printer_is_found_before_the_job_is_handed_over(monkeypatch):
+    """The case the queue state cannot answer.
+
+    CUPS stops a queue only AFTER a job has failed on it, so a printer somebody unplugged
+    still reports `idle` and `accepting requests`. Without knocking on the device, the first
+    Einsatzzettel goes into the spooler and the backup printer never hears about it.
+    """
+    from outputs.cups import CupsOutput
+
+    out = CupsOutput("HP_LaserJet")
+    monkeypatch.setattr(CupsOutput, "device_address", lambda self: ("10.0.0.7", 9100))
+
+    # Nothing is listening on a closed port of an address that black-holes: simulate the
+    # timeout the real probe would hit.
+    def refuse(address, timeout):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr("outputs.cups.socket.create_connection", refuse)
+    assert "antwortet nicht" in (out.unreachable_device() or "")
+
+
+def test_a_printer_that_answers_is_left_to_cups(monkeypatch):
+    """A refusal is an answer: something is there, and CUPS speaks its protocol better."""
+    from outputs.cups import CupsOutput
+
+    out = CupsOutput("HP_LaserJet")
+    monkeypatch.setattr(CupsOutput, "device_address", lambda self: ("10.0.0.7", 9100))
+
+    def refused(address, timeout):
+        raise ConnectionRefusedError("nope")
+
+    monkeypatch.setattr("outputs.cups.socket.create_connection", refused)
+    assert out.unreachable_device() is None
+
+
+def test_a_usb_printer_is_never_probed(monkeypatch):
+    """No host to knock on — and a USB station must not be held up by a check meant for LANs."""
+    from outputs.cups import CupsOutput
+
+    out = CupsOutput("USB_Printer")
+    monkeypatch.setattr(
+        "outputs.cups.subprocess.run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, "device for USB_Printer: usb://HP/LaserJet\n", ""),
+    )
+    assert out.device_address() is None
+    assert out.unreachable_device() is None
+
+
+def test_the_device_address_comes_from_the_queues_own_uri(monkeypatch):
+    monkeypatch.setattr(
+        "outputs.cups.subprocess.run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, "device for HP: socket://10.0.0.7\n", ""),
+    )
+    from outputs.cups import CupsOutput
+    # socket:// with no port means 9100 — the JetDirect default, not a guess.
+    assert CupsOutput("HP").device_address() == ("10.0.0.7", 9100)
+
+
+def test_a_stopped_cups_queue_is_a_fail_over_not_a_thirty_minute_wait(fake_cups, monkeypatch):
+    """`lp` accepts jobs for a disabled queue, so the chain has to ask before handing over."""
+    from outputs.cups import CupsOutput
+
+    monkeypatch.setattr(CupsOutput, "unavailable",
+                        lambda self: "CUPS-Warteschlange 'Dead' ist gestoppt" if self.printer == "Dead" else None)
+
+    backend = _build({"name": "front", "protocol": "kp-front", "url": "http://x", "secret": "s",
+                      "destinations": [{"output": "cups", "printer": "Dead"},
+                                       {"output": "cups", "printer": "FakePrinter"}]})
+    result, index, skipped = backend._print_somewhere(
+        Job(id="j", backend="http://x", kind="report", document=PDF_BYTES, filename="r.pdf")
+    )
+    assert result.ok and index == 1, "the working queue should have taken it"
+    assert "gestoppt" in skipped[0]
 
 
 def test_no_configuration_at_all_explains_itself(monkeypatch):

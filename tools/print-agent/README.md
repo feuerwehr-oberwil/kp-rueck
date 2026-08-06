@@ -56,6 +56,36 @@ Front, and `BACKEND_URL` / `AGENT_TOKEN` (plus `DRY_RUN`, `POLL_INTERVAL_IDLE`,
 `POLL_INTERVAL_ACTIVE`, `ACTIVE_DURATION`, `LONG_POLL_SEC`) for KP Rück. A station that runs
 only one system never has to learn about the config file.
 
+### Backup printers
+
+A backend may name an ordered list of `destinations` instead of a single `output`. They are
+tried in order and the first one that takes the job wins — the command post gets paper now,
+one room over, instead of a queue that waits for the right printer:
+
+```json
+{"name": "rueck", "protocol": "kp-rueck", "url": "https://rueck.example.org", "secret": "…",
+ "destinations": [
+   {"output": "escpos"},
+   {"output": "escpos", "ip": "192.168.1.51", "port": 9100}
+ ]}
+```
+
+Four things to know:
+
+- **The first ESC/POS destination follows the settings UI.** A destination with no `ip` adopts
+  whatever KP Rück reports, exactly as before. One with an `ip` is *pinned* and keeps it —
+  which is how a backup is named, since the backend knows about one address only.
+- **Only "the printer did not answer" moves to the next destination.** A job the printer
+  *refused* (unrenderable, wrong type) would fail identically everywhere, so it fails once,
+  loudly, instead of being spread across every printer in the station.
+- **A fall-over is reported, not hidden.** The job completes — paper did come out — and carries
+  «auf Ersatzdrucker gedruckt (…)», which KP Rück shows as a warning in the operations room.
+  A silent backup is a station with one printer and nobody aware of it.
+- **The chain cannot mix paper types.** Every destination must consume what the protocol
+  delivers: KP Rück sends structured JSON that only the ESC/POS renderer understands, so a
+  laser cannot stand in for the thermal printer. That is refused when the config is read, with
+  the offending destination named.
+
 Optional per-backend keys mirror those knobs: `poll_sec`, `claim_timeout_sec`,
 `cups_timeout_sec`, `poll_idle_sec`, `poll_active_sec`, `active_duration_sec`,
 `long_poll_sec`, `dry_run`.
@@ -88,6 +118,22 @@ docker compose --profile printing up -d
   without this project maintaining a matrix of printer quirks.
 - **The thermal printer's address comes from KP Rück's settings UI**, not from this machine —
   the agent re-reads it every two minutes, so changing the printer there needs no redeploy.
+  Backup destinations are the exception: they are pinned in this file (see above).
+- **An unreachable printer costs the job nothing.** The agent says whether a failure was the
+  printer not answering or the printer refusing the job; KP Rück only counts the second against
+  the three attempts, so a printer that is rebooting no longer loses the Einsatzzettel. How
+  long the job then stays worth printing is the queue's TTL, not the retry count.
+- **A stopped CUPS queue fails over instead of swallowing the job.** `lp` accepts jobs for a
+  disabled destination just as cheerfully as for a working one, so the agent asks `lpstat`
+  first. Anything it cannot read (no `lpstat`, odd output, timeout) counts as available — a
+  parsing quirk must never stop a station printing.
+- **A switched-off printer is found before the job is handed over.** The queue state cannot
+  tell you this: CUPS stops a queue only *after* a job has failed on it, so an unplugged
+  printer still reports `idle` and `accepting requests`. The agent therefore reads the queue's
+  device URI (`lpstat -v`) and knocks on the printer itself — a 2 s TCP connect. No answer
+  means the next destination gets the job now, instead of it disappearing into the spooler for
+  half an hour. A *refused* connection counts as reachable (something is there, and CUPS knows
+  the protocol better than a bare socket), and a USB queue has no host, so it is never probed.
 - **A wrong secret stops that worker** instead of retrying forever. Both backends' agent
   endpoints are fail-closed: an unset token means 403 for everyone, not an anonymous mode.
 - **Don't run two agents against one queue.** When migrating, stop the old
