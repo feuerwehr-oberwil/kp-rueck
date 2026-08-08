@@ -134,17 +134,25 @@ export class MainPage extends BasePage {
     await this.modalLocationInput.fill(address);
 
     // Options live in the combobox popover — which Radix also gives role="dialog", hence the
-    // data-slot discriminator. Every button in it is an option: either a geocoded result row
-    // or the "«…» übernehmen" freetext fallback shown when the geocoder returns nothing.
-    // Clicking any of them commits the address; which one appears depends on whether CI could
-    // reach the geocoder, so this does not assume either way.
+    // data-slot discriminator. An option is either a geocoded result row or the "«…» übernehmen"
+    // freetext fallback shown when the geocoder returns nothing; clicking either commits the
+    // address. Which one appears depends on whether CI could reach the geocoder, so this does
+    // not assume either way.
+    //
+    // ⚠️ NOT "any button in the popover". The popover's search box renders a clear («X») button
+    // as soon as there is text, and it sits ABOVE the result list — so `getByRole('button').first()`
+    // resolved to *that*, and clicking it wiped the query instead of committing an address. The
+    // create button then stayed `disabled` and the click timed out after 30 s. Worse, the clear
+    // button exists the moment you type, so the `waitFor` passed instantly and this never actually
+    // waited for results. That failed the nightly every night from 2026-08-05: in CI the geocoder
+    // IS reachable, so the freetext branch never ran and the wrong branch always did.
     const popover = this.page.locator(
       '[role="dialog"][data-slot="popover-content"][data-state="open"]'
     );
-    const options = popover.getByRole('button');
+    const options = popover.getByTestId('location-options').getByRole('button');
     await options.first().waitFor({ state: 'visible', timeout: 15000 });
 
-    const freetext = popover.getByRole('button', { name: /übernehmen/ });
+    const freetext = options.filter({ hasText: /übernehmen/ });
     if ((await freetext.count()) > 0) {
       await freetext.first().click();
     } else {
