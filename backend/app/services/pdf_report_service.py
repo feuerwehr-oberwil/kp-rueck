@@ -870,6 +870,10 @@ def _incident_detail(
         ("material", LABELS["materials"]),
     ):
         items = [a for a in inc_assignments if a.resource_type == res_type]
+        # EL first (plan 25, decision 23). `is_leader` belongs to one assignment,
+        # so this only ever reorders this incident's crew; a stable sort keeps the
+        # rest in assignment order. Vehicles and materials never carry the flag.
+        items.sort(key=lambda a: not a.is_leader)
         lines = []
         for a in items:
             name = _resource_name(data, a)

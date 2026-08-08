@@ -22,6 +22,7 @@ import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indi
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
@@ -400,7 +401,9 @@ function DraggableOperationBase({
                 <div className="flex items-start gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap gap-1 min-w-0">
-                    {operation.crew.map((crewName) => {
+                    {/* EL first (decision 23): on a card that clips its crew line,
+                        the one name worth reading is the Einsatzleiter's. */}
+                    {sortCrewByLeader(operation.crew, operation.leaderName).map((crewName) => {
                       const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
                       return (
                         <RemovableChip

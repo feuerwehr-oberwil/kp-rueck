@@ -11,6 +11,7 @@
 
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import {
   renderMessageTemplate,
   DEFAULT_ALARM_TITLE_TEMPLATE,
@@ -74,7 +75,8 @@ export function formatAlarmMessage({ operation, materials, template }: FormatAla
     contact: operation.contact?.trim() || "",
     internal_notes: operation.internalNotes?.trim() || "",
     vehicles: buildVehicles(operation),
-    crew: operation.crew.length > 0 ? operation.crew.join(", ") : "",
+    // EL first (decision 23): the alarm text is read on a phone on the way out.
+    crew: operation.crew.length > 0 ? sortCrewByLeader(operation.crew, operation.leaderName).join(", ") : "",
     materials: buildMaterials(operation, materials),
   }
   const rendered = renderMessageTemplate(template || DEFAULT_ALARM_TEXT_TEMPLATE, values)

@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints } from 'lucide-react'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
@@ -663,7 +664,8 @@ export function OperationDetailContent({
               </div>
               <div className="flex flex-wrap gap-2">
                 {operation.crew.length > 0 ? (
-                  operation.crew.map((member) => (
+                  // EL first (decision 23) — the star stays, this is ordering on top of it.
+                  sortCrewByLeader(operation.crew, operation.leaderName).map((member) => (
                     <RemovableChip
                       key={member}
                       variant="secondary"

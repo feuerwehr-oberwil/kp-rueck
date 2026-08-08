@@ -15,6 +15,7 @@ import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 
 const CARD: CSSProperties = {
@@ -65,8 +66,11 @@ export function OperationHoverCard({
   const { mode: timeMode } = useIncidentTimeMode()
   const address =
     (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || operation.location
-  const crewShown = operation.crew.slice(0, 3)
-  const routeCrew = routeResources?.personnel ?? []
+  // EL first (decision 23), and sorted BEFORE the slice: this card shows three
+  // of the crew and a "+4", so an unsorted list is the one place the
+  // Einsatzleiter can be cut off the surface entirely.
+  const crewShown = sortCrewByLeader(operation.crew, operation.leaderName).slice(0, 3)
+  const routeCrew = sortCrewByLeader(routeResources?.personnel ?? [], (p) => Boolean(p.isLeader))
   const routeVehicles = routeResources?.vehicles ?? []
   const routeCrewShown = routeCrew.slice(0, 4)
 

@@ -132,6 +132,19 @@ def _active_resources(
     return crew, vehicles, materials
 
 
+def _leader_ids(data: EventReportData, incident_id: uuid.UUID) -> set[uuid.UUID]:
+    """The Einsatzleiter(s) of ONE incident, from its active personnel assignments.
+
+    `is_leader` is a property of a single assignment, so this must never be
+    computed event-wide: one incident's leader may not reorder another's crew.
+    """
+    return {
+        a.resource_id
+        for a in data.assignments
+        if a.incident_id == incident_id and a.resource_type == "personnel" and a.unassigned_at is None and a.is_leader
+    }
+
+
 def _rank_key(person: Personnel) -> tuple[int, int, str]:
     role = (person.role or "").lower()
     return (_ROLE_RANK.get(role, 98), person.role_sort_order, person.name)
@@ -200,6 +213,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     """Every field the board knows, always present — empty values render as an
     em dash so operators see what is unknown (and can fill it in by hand)."""
     crew, vehicles, materials = _active_resources(data, inc.id)
+    leaders = _leader_ids(data, inc.id)
 
     coords = "—"
     if inc.location_lat is not None and inc.location_lng is not None:
@@ -225,7 +239,13 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         ("Merkmale", ", ".join(flags) or "—"),
         (
             "Personal",
-            ", ".join(f"{p.name}" + (f" ({p.role})" if p.role else "") for p in sorted(crew, key=_rank_key)) or "—",
+            # EL first (plan 25, decision 23), rank order underneath — the sort key
+            # keeps the existing `_rank_key` ordering for everyone who is not the EL.
+            ", ".join(
+                f"{p.name}" + (f" ({p.role})" if p.role else "")
+                for p in sorted(crew, key=lambda p: (p.id not in leaders, _rank_key(p)))
+            )
+            or "—",
         ),
         ("Mittel", ", ".join(_mittel(inc, vehicles)) or "—"),
         ("Material", ", ".join(m.name for m in materials) or "—"),

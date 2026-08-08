@@ -18,6 +18,7 @@ import { useTranslations } from "next-intl"
 import { ChevronDown, History, Loader2, Package, Search, Truck, User } from "lucide-react"
 
 import { apiClient, type ApiIncidentParticipant } from "@/lib/api-client"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatClockTime } from "@/lib/incident-time"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { cn } from "@/lib/utils"
@@ -113,7 +114,10 @@ export function IncidentParticipants({
 
           {!loading && !failed && participants && participants.length > 0 && (
             <ul className="space-y-1 py-1">
-              {participants.map((p) => {
+              {/* EL first (decision 23). Only a person carries is_leader, so the
+                  Einsatzleiter lands on row 1 and the first_assigned_at order the
+                  API returns survives underneath. */}
+              {sortCrewByLeader(participants, (p) => p.is_leader).map((p) => {
                 const Icon = participantIcon(p)
                 const from = formatClockTime(new Date(p.first_assigned_at))
                 const to = p.last_released_at ? formatClockTime(new Date(p.last_released_at)) : null

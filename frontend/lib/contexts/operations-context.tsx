@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useMemo, ReactNode, use
 import { apiClient, ApiError, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { getIncidentRefLabel } from "@/lib/incident-types"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
@@ -2088,7 +2089,10 @@ export function useIncidents() {
       assigned_at: new Date(),
       driver_stay: op.vehicleDriverStay.get(name) || false,
     })),
-    assigned_personnel: op.crew.map((name) => ({
+    // EL first (decision 23), sorted here rather than at the render site: this
+    // adapter shape carries no leader flag, so the map's crew badges
+    // (`app/map/page.tsx`) have no way to work it out for themselves.
+    assigned_personnel: sortCrewByLeader(op.crew, op.leaderName).map((name) => ({
       assignment_id: "",
       personnel_id: "",
       name,

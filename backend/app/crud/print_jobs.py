@@ -276,6 +276,9 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
         for p in personnel_result.scalars().all():
             if p.id not in reko_personnel_ids:
                 crew.append({"name": p.name, "role": p.role, "is_leader": p.id in leader_ids})
+        # EL first (plan 25, decision 23) — incident-scoped, so this reorders only
+        # this slip. Stable: everyone else keeps the order they came back in.
+        crew.sort(key=lambda member: not member["is_leader"])
 
     # Fetch vehicles with driver info
     vehicles = []

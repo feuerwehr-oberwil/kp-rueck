@@ -22,6 +22,7 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { formatAlarmMessage, formatAlarmTitle } from "@/lib/divera-formatter"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { getMessageTemplates } from "@/lib/message-template"
@@ -49,7 +50,10 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   // its assigned vehicles (listed, but NOT pre-selected).
   const recipients = useMemo<Recipient[]>(() => {
     if (!operation) return []
-    const crew = operation.crew
+    // EL first (decision 23). This is not a roster picker — it is exactly this
+    // incident's crew — so the person who leads heads the recipient list. Only
+    // the crew block is sorted; the driver rows stay below it, unticked.
+    const crew = sortCrewByLeader(operation.crew, operation.leaderName)
       .map((name) => personnel.find((p) => p.name === name))
       .filter((p): p is Person => Boolean(p))
     const crewIds = new Set(crew.map((p) => p.id))

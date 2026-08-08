@@ -10,6 +10,7 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { type ApiRekoReportResponse } from "@/lib/api-client"
 import { type GroupResources } from "@/lib/types/groups"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import {
   renderMessageTemplate,
   DEFAULT_WHATSAPP_INCIDENT_TEMPLATE,
@@ -121,7 +122,11 @@ function buildReko(rekoReport?: ApiRekoReportResponse | null): string {
 /** Crew as one line, with the Einsatzleiter marked. */
 function formatCrew(crew: string[], leaderName: string | null): string {
   if (crew.length === 0) return ""
-  return crew.map((name) => (leaderName && name === leaderName ? `EL ${name}` : name)).join(", ")
+  // EL first (decision 23): the message is read on a phone, where a long crew
+  // line wraps — «wen rufe ich an» must not be somewhere in the middle of it.
+  return sortCrewByLeader(crew, leaderName)
+    .map((name) => (leaderName && name === leaderName ? `EL ${name}` : name))
+    .join(", ")
 }
 
 export function formatWhatsAppMessage({

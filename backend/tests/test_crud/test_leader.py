@@ -23,9 +23,11 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app import schemas
 from app.crud import assignments as assignment_crud
+from app.crud import print_jobs as print_job_crud
 from app.models import Event, EventSpecialFunction, Incident, IncidentAssignment, Personnel, User, Vehicle
 
 
@@ -254,3 +256,68 @@ class TestTransfer:
 
         assert await _leaders(db_session, incident.id) == []
         assert await _leaders(db_session, target.id) == ["Offi Ove"]
+
+
+class TestEinsatzzettelCrewOrder:
+    """The Einsatzleiter sorts first on the printed slip (plan 25, decision 23).
+
+    The slip has no board behind it: whoever reads it off the printer needs the
+    name to call on the first line, not somewhere in a column of eight.
+    """
+
+    async def _payload_crew(self, db_session, incident) -> list[dict]:
+        # build_assignment_payload reads incident.assignments, so re-load the
+        # incident with the relationship populated after the assignments were made.
+        loaded = (
+            await db_session.execute(
+                select(Incident).options(selectinload(Incident.assignments)).where(Incident.id == incident.id)
+            )
+        ).scalar_one()
+        payload = await print_job_crud.build_assignment_payload(db_session, loaded)
+        return payload["crew"]
+
+    async def test_leader_is_the_first_crew_row(self, db_session, incident, user, mock_request):
+        # Mannschaft assigned first, the Offizier second — so without the sort the
+        # EL would land below the person who was assigned before him.
+        await _assign(db_session, incident, await _person(db_session, "Mann Max", "Mannschaft"), user)
+        await _assign(db_session, incident, await _person(db_session, "Offi Olivia", "Offizier"), user)
+        await _assign(db_session, incident, await _person(db_session, "Mann Mia", "Mannschaft"), user)
+
+        crew = await self._payload_crew(db_session, incident)
+        assert crew[0]["name"] == "Offi Olivia"
+        assert crew[0]["is_leader"] is True
+        assert {c["name"] for c in crew} == {"Mann Max", "Offi Olivia", "Mann Mia"}
+        assert [c["is_leader"] for c in crew[1:]] == [False, False]
+
+    async def test_crew_without_a_leader_keeps_its_order(self, db_session, incident, user, event, mock_request):
+        # Reko personnel are out on reconnaissance: they never lead and never
+        # appear on the slip's crew list, so an incident staffed only by them has
+        # a crew list with no EL in it — the sort has to be a no-op there.
+        reko = await _person(db_session, "Reko Rolf", "Offizier")
+        db_session.add(EventSpecialFunction(id=uuid4(), event_id=event.id, personnel_id=reko.id, function_type="reko"))
+        await db_session.commit()
+        await _assign(db_session, incident, reko, user)
+
+        assert await self._payload_crew(db_session, incident) == []
+
+    async def test_the_rest_of_the_crew_is_not_reshuffled(self, db_session, incident, user, mock_request):
+        # Sorting is stable: exactly one row moves. Everyone else keeps the order
+        # the payload builder's own personnel query hands back — compare against
+        # that same query rather than against an assumed order.
+        ids = []
+        for name, role in (
+            ("Mann Anna", "Mannschaft"),
+            ("Mann Bea", "Mannschaft"),
+            ("Offi Olivia", "Offizier"),
+            ("Mann Cara", "Mannschaft"),
+            ("Mann Dora", "Mannschaft"),
+        ):
+            person = await _person(db_session, name, role)
+            ids.append(person.id)
+            await _assign(db_session, incident, person, user)
+
+        unsorted = list((await db_session.execute(select(Personnel.name).where(Personnel.id.in_(ids)))).scalars().all())
+        crew = [c["name"] for c in await self._payload_crew(db_session, incident)]
+
+        assert crew[0] == "Offi Olivia"
+        assert crew[1:] == [name for name in unsorted if name != "Offi Olivia"]

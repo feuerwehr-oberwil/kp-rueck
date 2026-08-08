@@ -35,6 +35,7 @@ import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/li
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
@@ -356,7 +357,9 @@ export function MobileIncidentDetailSheet({
               </div>
               {operation.crew.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {operation.crew.map((member) => (
+                  {/* EL first (decision 23): the phone is a viewing surface, and
+                      a wrapped badge row is exactly where a name gets lost. */}
+                  {sortCrewByLeader(operation.crew, operation.leaderName).map((member) => (
                     <Badge key={member} variant="secondary" className="text-sm">
                       {member}
                     </Badge>

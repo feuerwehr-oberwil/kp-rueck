@@ -7,6 +7,7 @@ import type { ApiVehicle } from "@/lib/api-client"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatClockTime as formatTime } from "@/lib/incident-time"
 import dynamic from "next/dynamic"
 
@@ -161,7 +162,9 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                       </div>
                       {op.crew.length > 0 && (
                         <div className="mb-1">
-                          <span className="font-semibold">{t("personal")}:</span> {op.crew.join(", ")}
+                          {/* EL first (decision 23) — a printed sheet has no board behind it. */}
+                          <span className="font-semibold">{t("personal")}:</span>{" "}
+                          {sortCrewByLeader(op.crew, op.leaderName).join(", ")}
                         </div>
                       )}
                       {op.vehicles.length > 0 && (

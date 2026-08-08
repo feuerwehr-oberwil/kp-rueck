@@ -16,6 +16,7 @@ import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
 import { rekoPhotoUrl } from "@/lib/reko-photos"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { PRIORITY_ICONS, PRIORITY_LABELS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import {
   Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
@@ -176,7 +177,8 @@ export function IncidentDetailModal({
                       <Truck className="h-3 w-3" /> {v.name}
                     </Badge>
                   ))}
-                  {auftragResources.personnel.map((p) => (
+                  {/* EL first (decision 23) — the route's leader heads the route's crew. */}
+                  {sortCrewByLeader(auftragResources.personnel, (p) => Boolean(p.isLeader)).map((p) => (
                     <Badge key={p.assignmentId} variant="secondary" className="text-xs gap-1">
                       <Users className="h-3 w-3" /> {p.name}
                     </Badge>
@@ -294,7 +296,9 @@ export function IncidentDetailModal({
             </div>
             {operation.crew.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {operation.crew.map((name) => {
+                {/* EL first (decision 23): read off a wall at distance, the first
+                    badge is the one that gets read at all. */}
+                {sortCrewByLeader(operation.crew, operation.leaderName).map((name) => {
                   const role = personnelRoleByName.get(name)
                   return (
                     <Badge key={name} variant="secondary" className="text-sm">
