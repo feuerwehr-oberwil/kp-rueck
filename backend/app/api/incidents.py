@@ -3,7 +3,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func as sa_func
@@ -419,11 +419,17 @@ async def get_incident_participants(
 
     # Resolve names in one query per kind rather than per row.
     names: dict[tuple[str, uuid.UUID], str] = {}
-    for resource_type, model in (
+    # `type[Any]`, not `type[Base]`: mypy joins the three model classes to their common base,
+    # which declares neither `id` nor `name`, so the loop below stopped type-checking (it is
+    # what turned main red on 2026-08-05). This is plan 14's pattern 2 — the same reason
+    # `SyncService.SYNCABLE_MODELS` is annotated this way. A Protocol does not fit: `select()`
+    # needs a real entity, not a structural type.
+    lookups: tuple[tuple[str, type[Any]], ...] = (
         ("personnel", models.Personnel),
         ("vehicle", models.Vehicle),
         ("material", models.Material),
-    ):
+    )
+    for resource_type, model in lookups:
         ids = {a.resource_id for a in assignments if a.resource_type == resource_type}
         if not ids:
             continue
