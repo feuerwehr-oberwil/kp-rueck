@@ -366,6 +366,7 @@ class Incident(Base):
     assigned_vehicles: list[Any]
     has_completed_reko: bool
     reko_arrived_at: datetime | None
+    has_schadenplatz_rapport: bool
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
@@ -419,6 +420,26 @@ class Incident(Base):
     # Purely informational: it surfaces a badge on the card so the operator can
     # decide to close the incident — it does NOT change status on its own.
     field_complete_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Who reported "Einsatz beendet" from the field. The timestamp column
+    # (field_complete_reported_at) already existed but had no writer outside the
+    # training simulator; /feld is its first real one.
+    field_complete_reported_by: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # "Abholung nötig": the crew is finished and cannot get back on its own —
+    # zu Fuss, or the vehicle drove on. Shaped after am_warten / nachbarhilfe
+    # (bool + note), with provenance added because at 02:00 the operationally
+    # decisive fact is *how long* they have been waiting.
+    # NOT a status, and deliberately NOT cleared by completing the incident:
+    # crud/incidents.py releases the personnel on `complete` while they are
+    # still standing at the address, which is precisely when this must survive.
+    pickup_needed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    pickup_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pickup_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pickup_requested_by: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
 
     # True once a human has picked the Einsatzleiter here. Until then the board
     # keeps the role on the highest-ranking person present and re-picks whenever
@@ -438,6 +459,9 @@ class Incident(Base):
     )
     status_transitions: Mapped[list["StatusTransition"]] = relationship(
         "StatusTransition", back_populates="incident", cascade="all, delete-orphan"
+    )
+    schadenplatz_report: Mapped[Optional["SchadenplatzReport"]] = relationship(
+        "SchadenplatzReport", back_populates="incident", cascade="all, delete-orphan", uselist=False
     )
 
     __table_args__ = (
@@ -735,6 +759,112 @@ class RekoReport(Base):
 
 
 # ============================================
+# SCHADENPLATZ REPORTS
+# ============================================
+
+
+class SchadenplatzReport(Base):
+    """Field report for one Schadenplatz — the digital fahrzeugrapport.pdf.
+
+    Exactly one row per incident (see the unique constraint): several crews on one
+    Schadenplatz amend the same report rather than filing competing ones. Who last
+    touched it is recorded and surfaced everywhere the report is shown.
+    """
+
+    __tablename__ = "schadenplatz_reports"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # --- Einsatzdaten ---
+    # 'wasserschaden' | 'sturmschaden' | 'schneebruch' | 'anderes'.
+    # Deliberately NOT Incident.type — that column carries the Swiss statistics
+    # vocabulary (IncidentType), and this is a sub-classification of one of its values.
+    damage_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    damage_type_other: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Derived on first open from the arrival ping / status transitions, then editable.
+    work_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    work_ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Material checklist. One entry per material unit that was assigned to this
+    # incident, carried over from incident_assignments on first open:
+    #   {"assignment_id": ..., "material_id": ..., "name": "Tauchpumpe TP-4",
+    #    "used": true, "left_on_site": false}
+    # `used` may be null (crew did not answer). This replaces both the read-only Geräte
+    # display and the paper's free-text "Material vor Ort verblieben".
+    materials_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    # Material that was never on the board — improvised or borrowed. Free text on
+    # purpose: a catalog picker would make /feld a writer of assignments.
+    extra_material_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- Kurzbericht (one box; the paper's Lage/Tätigkeit/Geräte are its hint) ---
+    kurzbericht: Mapped[str | None] = mapped_column(Text, nullable=True)
+    handed_over_to: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- Eigentümer-/Halterdaten (citizen PII) ---
+    owner_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    owner_street: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    owner_city: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    vehicle_plate: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    vehicle_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # --- Kostenpflicht ---
+    # Derived defaults, overwritable. The *_corrected flags exist so the export can
+    # say "the crew disagreed with the board" instead of silently showing one number.
+    personnel_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    personnel_count_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    vehicle_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    vehicle_count_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Frozen at submit: [{"kind": "personnel", "name": ..., "from": ..., "to": ...}, ...]
+    cost_snapshot_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+
+    # --- Field actions that predate the form ---
+    # Set by "Angekommen" on /feld. Independent of RekoReport.arrived_at, which
+    # belongs to the reconnaissance flow and answers a different question.
+    arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    photos_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+
+    # --- Provenance ---
+    created_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    # Set instead of the personnel columns when an editor filed or amended the report
+    # from the board — the radio-message case. Exactly one side of the pair is
+    # populated per write, and every output says which: "(Feld)" vs "(Funkmeldung)".
+    # Never guess a Personnel row from a User; they are different people often enough
+    # that a wrong attribution on a billing document is worse than no attribution.
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Defaults to True, the opposite of RekoReport.is_draft: a row is created the
+    # moment someone taps "Angekommen" — before any form exists — so the row's
+    # default state must be "not yet filed".
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    incident: Mapped["Incident"] = relationship("Incident", back_populates="schadenplatz_report")
+
+    __table_args__ = (
+        UniqueConstraint("incident_id", name="uq_schadenplatz_report_incident"),
+        CheckConstraint(
+            "damage_type IS NULL OR damage_type IN ('wasserschaden', 'sturmschaden', 'schneebruch', 'anderes')",
+            name="valid_damage_type",
+        ),
+    )
+
+
+# ============================================
 # AUDIT LOGGING
 # ============================================
 
@@ -878,7 +1008,12 @@ class Notification(Base):
             "type IN ("
             "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
             "'missing_location', 'event_size_limit', 'reko_submitted', 'reko_arrived', "
-            "'training_emergency', 'vehicle_arrived'"
+            "'training_emergency', 'vehicle_arrived', "
+            # Field reporting (/feld). 'field_pickup' is the only warning of the five —
+            # a crew waiting to be collected is the one field event that is time-critical
+            # for the KP; the rest are info.
+            "'rapport_submitted', 'field_arrived', 'field_complete', 'field_message', "
+            "'field_pickup'"
             ")",
             name="valid_notification_type",
         ),

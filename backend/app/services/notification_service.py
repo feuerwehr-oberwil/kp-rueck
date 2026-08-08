@@ -285,7 +285,10 @@ async def _check_resource_alerts(
     assignment_result = await db.execute(
         select(IncidentAssignment, Personnel.name)
         .join(Personnel, IncidentAssignment.resource_id == Personnel.id)
-        .join(Incident)
+        # Explicit onclause: incidents now carries its own FKs to personnel
+        # (field_complete_reported_by, pickup_requested_by), so the implicit join
+        # from the personnel-joined selectable is ambiguous.
+        .join(Incident, IncidentAssignment.incident_id == Incident.id)
         .where(Incident.event_id == event_id)
         .where(IncidentAssignment.resource_type == "personnel")
         .where(IncidentAssignment.unassigned_at.is_(None))
