@@ -20,6 +20,7 @@ export function usePrintJobToast() {
     (jobId: string, options: Omit<TrackPrintJobOptions, 'onOpenPrinterSettings'>) => {
       const copy: PrintJobToastCopy = {
         completed: t('completed'),
+        completedFallback: t('completedFallback'),
         failed: t('failed'),
         failedRetry: t('failedRetry'),
         unknownError: t('unknownError'),

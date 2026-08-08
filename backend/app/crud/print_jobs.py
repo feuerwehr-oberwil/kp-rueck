@@ -36,6 +36,16 @@ STALE_PRINTING_TIMEOUT_SECONDS = 120
 FAILED_RETRY_DELAY_SECONDS = 30
 MAX_PRINT_ATTEMPTS = 3
 
+# Hard stop on requeueing, measured from when the job was created rather than in attempts.
+#
+# The attempt cap alone stopped being a stop the moment "printer unreachable" stopped
+# counting as an attempt (see api/print.py): a printer that is off for the weekend would
+# otherwise be offered the same slip every thirty seconds until somebody noticed. For the
+# types that have a TTL the expiry below is the real deadline and this never fires; it exists
+# for the one type that deliberately has none — the test print, where the person who asked
+# for it has long since walked away.
+REQUEUE_MAX_AGE_SECONDS = 60 * 60
+
 # How long a queued job stays worth printing. Past this it is expired instead of handed to
 # the agent.
 #
@@ -91,6 +101,7 @@ async def requeue_lost_jobs(db: AsyncSession) -> int:
             PrintJob.status == "failed",
             PrintJob.completed_at < now - timedelta(seconds=FAILED_RETRY_DELAY_SECONDS),
             PrintJob.retry_count < MAX_PRINT_ATTEMPTS,
+            PrintJob.created_at > now - timedelta(seconds=REQUEUE_MAX_AGE_SECONDS),
         )
         .values(status="pending", claimed_at=None, completed_at=None),
     )

@@ -678,7 +678,10 @@ async def complete_print_job(
     job.completed_at = datetime.now(UTC)
     job.error_message = update.error_message
 
-    if update.status == schemas.PrintJobStatus.FAILED:
+    if update.status == schemas.PrintJobStatus.FAILED and not update.retryable:
+        # A retryable failure (printer unreachable) deliberately does NOT count: the reaper
+        # requeues it, the TTL decides how long that is still worth doing, and the slip
+        # survives a printer that is merely rebooting. See PrintJobUpdate.retryable.
         job.retry_count += 1
 
     await db.commit()

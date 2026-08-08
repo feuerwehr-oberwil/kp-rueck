@@ -591,6 +591,26 @@ def test_a_laser_cannot_stand_in_for_the_thermal_printer():
     assert "destination #2" in str(e.value)
 
 
+def test_a_queue_that_vanished_with_its_printer_is_caught(monkeypatch):
+    """The live case at the station, and the reason wording must not be the test.
+
+    Every queue there is `implicitclass://` from mDNS, so cups-browsed DELETES it while the
+    printer is off. Real CUPS on the Pi answers `lpstat: Invalid destination name in list
+    "…"` — a check for the word "unknown" failed open on exactly the case it existed for.
+    """
+    from outputs.cups import CupsOutput
+
+    def missing(argv, **kwargs):
+        return subprocess.CompletedProcess(
+            argv, 1, "", 'lpstat: Invalid destination name in list "HP_LaserJet".\n'
+        )
+
+    monkeypatch.setattr("outputs.cups.subprocess.run", missing)
+    blocked = CupsOutput("HP_LaserJet").unavailable()
+    assert blocked and "gibt es nicht" in blocked
+    assert "Invalid destination name" in blocked
+
+
 def test_a_switched_off_printer_is_found_before_the_job_is_handed_over(monkeypatch):
     """The case the queue state cannot answer.
 
