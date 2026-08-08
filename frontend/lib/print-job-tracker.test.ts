@@ -39,6 +39,7 @@ import {
 
 const copy: PrintJobToastCopy = {
   completed: 'Gedruckt',
+  completedFallback: 'Auf Ersatzdrucker gedruckt',
   failed: 'Druck fehlgeschlagen',
   failedRetry: 'Druck fehlgeschlagen – neuer Versuch läuft',
   unknownError: 'Grund unbekannt',
@@ -113,6 +114,25 @@ describe('trackPrintJob', () => {
       id: TOAST_ID,
       description: 'Einsatzzettel',
     })
+  })
+
+  it('says so when the paper came out on the backup printer', () => {
+    // A plain success card would be true and useless: nobody fetches paper from a printer
+    // they do not know was used, and nobody fixes a main printer nobody knows is dead.
+    track()
+    toastSuccess.mockClear()
+
+    emit({
+      status: 'completed',
+      error_message: 'auf Ersatzdrucker gedruckt (ESC/POS → 10.0.0.50:9100) — 10.0.0.9 nicht erreichbar',
+    })
+
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(toastWarning).toHaveBeenCalledTimes(1)
+    expect(toastWarning.mock.calls[0][0]).toBe('Auf Ersatzdrucker gedruckt')
+    const opts = toastWarning.mock.calls[0][1] as Record<string, unknown>
+    expect(opts.description).toContain('10.0.0.50')
+    expect(opts.duration).toBe(Infinity)
   })
 
   it('queued → failed surfaces the agent\'s own error message', () => {

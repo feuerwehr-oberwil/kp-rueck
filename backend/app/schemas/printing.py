@@ -40,6 +40,12 @@ class PrintJobUpdate(BaseModel):
 
     status: PrintJobStatus
     error_message: str | None = None
+    # "The printer did not answer" — as opposed to "the printer refused this job". Only the
+    # second is worth one of the three attempts: an unreachable printer is usually rebooting,
+    # being refilled, or briefly off the WLAN, and it used to consume the whole retry budget
+    # in ninety seconds and drop an Einsatzzettel whose TTL said it stayed useful for an hour.
+    # Defaults to False, so an older agent that does not send it behaves exactly as before.
+    retryable: bool = False
 
 
 class PrintJobResponse(BaseModel):
