@@ -317,7 +317,11 @@ export function LocationInput({
                     className="h-9"
                   />
                 </div>
-                <div className="overflow-y-auto overscroll-contain max-h-[260px]">
+                {/* data-testid is the contract for the E2E page object: the popover also
+                    contains the search box, whose clear («X») button is a <button> ABOVE this
+                    list. Selecting options as "any button in the popover" therefore grabbed the
+                    clear button and wiped the query instead of committing an address. */}
+                <div data-testid="location-options" className="overflow-y-auto overscroll-contain max-h-[260px]">
                   {isSearching && (
                     <div className="p-4 text-sm text-muted-foreground text-center">
                       {t('locationInput.searching')}
