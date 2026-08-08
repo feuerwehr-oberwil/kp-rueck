@@ -101,6 +101,20 @@ name the domains whatever you like, custom domains included.
    - Build and start command come from [`backend/railway.json`](../backend/railway.json)
      (Dockerfile build, `./start.sh`, healthcheck on `/health`). You do not need to type them.
 
+   > **What that file sets, and why you should not "optimise" it** (revised 2026-08-08 after
+   > KP Front served 502 for 25 minutes on 0/1 replicas). `restartPolicyType: ALWAYS` — a
+   > station server has no successful exit, so a *clean* shutdown must be restarted too;
+   > `ON_FAILURE`, which both files carried until now, only covers a crash, and a graceful
+   > uvicorn exit reads to Railway as a container that finished its job. `numReplicas: 1` is a
+   > **correctness** constraint, not a cost one: the backend runs its schedulers in-process
+   > (sync, telemetry, audit cleanup, demo reset, heartbeat) and a second replica double-fires
+   > every one of them. `sleepApplication: false` — a sleeping board is not there when it is
+   > needed. `healthcheckTimeout: 300` for the slow first deploy described below.
+   >
+   > A Railway setting takes effect only **after the service redeploys**, and a restart policy
+   > nobody has tested is a belief — stop the container once on a non-production service and
+   > confirm it comes back by itself.
+
 2. **Attach a volume** — Settings → Volumes → New Volume, mount path **`/mnt/data`**, 5 GB or
    more. Reko photos live here; without a volume they land in ephemeral container storage and
    vanish on the next deploy.
@@ -136,7 +150,8 @@ name the domains whatever you like, custom domains included.
 ### 3.3 Frontend service
 
 1. **New → GitHub Repo →** `kp-rueck`, Settings → **Root Directory**: `/frontend`.
-   [`frontend/railway.json`](../frontend/railway.json) supplies the rest (`node server.js`).
+   [`frontend/railway.json`](../frontend/railway.json) supplies the rest (`node server.js`),
+   and carries the same restart policy as the backend for the same reason — see §3.2.
 
 2. **Variables — one, usually:**
 
