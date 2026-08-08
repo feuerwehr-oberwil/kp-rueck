@@ -28,6 +28,14 @@ will keep holding.
 
 ## [Unreleased]
 
+## [0.5.0] – 2026-08-08
+
+> ⚠️ **Operator action for anyone running the Divera webhook without a secret.** It now answers
+> `403` instead of accepting the alarm. Set `ALARM_WEBHOOK_SECRET` in `.env` before updating —
+> see the Security section below and [`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
+> This is why the release is 0.5.0 and not a patch: the table above promises that a PATCH is
+> always safe to take, and this one is not.
+
 ### Security
 
 - **The Divera webhook accepted alarms when no secret was configured.** Both inbound alarm
@@ -85,6 +93,22 @@ will keep holding.
   is unchanged) – a shared *file*, kept in step by a test.
 
 ### Changed
+
+- **The nightly E2E is green again, and it was never flaky.** It had failed every night since
+  05.08 on one test. The page object selected combobox options as *any* button in the popover —
+  but the search box grows a clear («X») button as soon as there is text, above the result list,
+  so it clicked *that*: the query was wiped, no address was ever committed, and the create button
+  stayed correctly disabled until the click timed out 30 s later. It was consistent rather than
+  intermittent because CI *can* reach the geocoder, so the freetext fallback never appeared and
+  the wrong branch always ran. Options are now pinned to the result list with a `data-testid`,
+  the same reasoning that put `data-slot` on the role badge after `[class*="badge"]` matched
+  nothing. Full suite: 155 passed.
+
+- **Main's CI was red for three days.** `get_incident_assignments` resolves names by looping over
+  three model classes; mypy joins them to their common declarative `Base`, which declares neither
+  `id` nor `name`, so the blocking type-check subset failed on every push since 05.08. Annotated
+  as `type[Any]` per plan 14's pattern 2. No runtime change.
+
 - **The alarm keyword list existed twice in the estate, nothing compared the copies, and it was
   named after somebody else's alerting provider.** The map from an alert's Stichwort to an incident
   category, and the keyword list deciding which alerts are high priority, were written
@@ -1019,7 +1043,8 @@ something another station can pin.
 
 _For the full running history before the first release, see the git log._
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.1.0...v0.2.0
