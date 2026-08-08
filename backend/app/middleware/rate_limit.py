@@ -119,6 +119,11 @@ class RateLimits:
     # Public alarm intake - token-gated write endpoint, keep tight against abuse
     INTAKE = "10/minute"
 
+    # /feld field surface - token-gated and public, but the page polls and
+    # autosaves a draft, so it needs more headroom than INTAKE. Still capped:
+    # anyone with the event link reaches it. Photo upload keeps PHOTO_UPLOAD.
+    FELD = "60/minute"
+
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """

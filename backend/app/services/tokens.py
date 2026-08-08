@@ -298,3 +298,66 @@ def validate_alarm_token(token: str) -> UUID | None:
         return UUID(event_id_str)
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
         return None
+
+
+# ============================================
+# FIELD (/feld) TOKENS
+# ============================================
+
+
+def generate_feld_token(event_id: UUID, expires_hours: int = 720) -> str:
+    """
+    Generate a JWT token for the `/feld` field surface, scoped to an event.
+
+    Long-lived by default (30 days), mirroring the alarm token: a storm Ereignis
+    runs for days and this QR lives on a printed poster in the vehicle hall.
+
+    The token alone authorizes nothing beyond the event. Every endpoint pairs it
+    with a second check — the caller's personnel row must have an assignment on
+    the incident in question — so a leaked link cannot read another crew's
+    Schadenplatz.
+
+    Args:
+        event_id: UUID of the event this field surface is for
+        expires_hours: Token expiration time in hours (default: 720 = 30 days)
+
+    Returns:
+        JWT token string containing event_id and expiration
+    """
+    expiration = datetime.now(UTC) + timedelta(hours=expires_hours)
+
+    payload = {
+        "event_id": str(event_id),
+        "exp": expiration,
+        "type": "feld",
+    }
+
+    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+    return token
+
+
+def validate_feld_token(token: str) -> UUID | None:
+    """
+    Validate a `/feld` token and extract event_id.
+
+    Args:
+        token: The JWT token string to validate
+
+    Returns:
+        UUID of the event if token is valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+
+        # Check token type — a checkin/viewer/reko_dashboard/alarm token must
+        # never open this door, and vice versa.
+        if payload.get("type") != "feld":
+            return None
+
+        event_id_str = payload.get("event_id")
+        if not event_id_str:
+            return None
+
+        return UUID(event_id_str)
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
+        return None

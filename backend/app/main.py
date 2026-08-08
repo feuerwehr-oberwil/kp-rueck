@@ -30,6 +30,7 @@ from .api.diag import router as diag_router
 from .api.divera import router as divera_router
 from .api.events import router as events_router
 from .api.exports import router as exports_router
+from .api.feld import router as feld_router
 from .api.groups import router as groups_router
 from .api.health import router as health_router
 from .api.help import router as help_router
@@ -500,6 +501,7 @@ app.include_router(materials_router, prefix=settings.api_v1_prefix)
 app.include_router(material_groups_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_dashboard_router, prefix=settings.api_v1_prefix)
+app.include_router(feld_router, prefix=settings.api_v1_prefix)
 app.include_router(photos_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)
 app.include_router(special_functions_router, prefix=settings.api_v1_prefix)

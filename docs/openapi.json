@@ -9938,6 +9938,186 @@
         }
       }
     },
+    "/api/feld/generate-link": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Generate Feld Link",
+        "description": "Generate the `/feld` link with QR code (editor only).\n\nOne global link per Ereignis — no per-incident and no per-vehicle links.\nLong-lived (30 days), because it goes on a printed poster.",
+        "operationId": "generate_feld_link_api_feld_generate_link_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event ID for the field surface",
+              "title": "Event Id"
+            },
+            "description": "Event ID for the field surface"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Generate Feld Link Api Feld Generate Link Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/personnel": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "List Feld Personnel",
+        "description": "The person picker: everyone with an assignment in this event.\n\nToken only — no login. Deliberately not the roster: a person with no\nassignment has nothing to file, and listing them would produce an empty page\nwith no explanation instead of the \"melde dich beim KP\" sentence.",
+        "operationId": "list_feld_personnel_api_feld_personnel_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldPersonnelListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/assignments/{personnel_id}": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Feld Assignments",
+        "description": "\"Meine Einsatzstellen\" — this person's Schadenplätze in this event.\n\nEach row carries the rapport state, the two field timestamps, and the\nEinsatzleiter of that incident (decision 22): the EL is briefed before any\nform opens, never enforced.",
+        "operationId": "get_feld_assignments_api_feld_assignments__personnel_id__get",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldAssignmentsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/photos/{incident_id}/{filename}": {
       "get": {
         "tags": [
@@ -16215,6 +16395,255 @@
         ],
         "title": "ExcelImportResult",
         "description": "Result of Excel import operation."
+      },
+      "FeldAssignment": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "incident_title": {
+            "type": "string",
+            "title": "Incident Title"
+          },
+          "incident_type": {
+            "type": "string",
+            "title": "Incident Type"
+          },
+          "incident_status": {
+            "type": "string",
+            "title": "Incident Status"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "is_active_assignment": {
+            "type": "boolean",
+            "title": "Is Active Assignment",
+            "default": true
+          },
+          "rapport_state": {
+            "type": "string",
+            "enum": [
+              "none",
+              "draft",
+              "submitted"
+            ],
+            "title": "Rapport State",
+            "default": "none"
+          },
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "field_complete_reported_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported At"
+          },
+          "leader_personnel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Personnel Id"
+          },
+          "leader_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "incident_title",
+          "incident_type",
+          "incident_status"
+        ],
+        "title": "FeldAssignment",
+        "description": "One Schadenplatz a person is (or was) assigned to in this event."
+      },
+      "FeldAssignmentsResponse": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "personnel_name": {
+            "type": "string",
+            "title": "Personnel Name"
+          },
+          "personnel_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel Role"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "event_name": {
+            "type": "string",
+            "title": "Event Name"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/FeldAssignment"
+            },
+            "type": "array",
+            "title": "Assignments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "personnel_name",
+          "event_id",
+          "event_name",
+          "assignments"
+        ],
+        "title": "FeldAssignmentsResponse",
+        "description": "Response for \"meine Einsatzstellen\"."
+      },
+      "FeldPersonnel": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "incident_count": {
+            "type": "integer",
+            "title": "Incident Count",
+            "default": 0
+          },
+          "open_count": {
+            "type": "integer",
+            "title": "Open Count",
+            "default": 0
+          },
+          "missing_rapport_count": {
+            "type": "integer",
+            "title": "Missing Rapport Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "name"
+        ],
+        "title": "FeldPersonnel",
+        "description": "One row of the `/feld` person picker.\n\nThe list holds exactly the people with an assignment in this event, active or\nalready released — not the roster. Someone with nothing to file would\notherwise land on an empty page with no explanation."
+      },
+      "FeldPersonnelListResponse": {
+        "properties": {
+          "personnel": {
+            "items": {
+              "$ref": "#/components/schemas/FeldPersonnel"
+            },
+            "type": "array",
+            "title": "Personnel"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "event_name": {
+            "type": "string",
+            "title": "Event Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel",
+          "event_id",
+          "event_name"
+        ],
+        "title": "FeldPersonnelListResponse",
+        "description": "Response for the `/feld` person picker."
       },
       "FunctionType": {
         "type": "string",

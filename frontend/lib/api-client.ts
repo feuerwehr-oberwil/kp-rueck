@@ -78,6 +78,8 @@ import {
   type ApiRekoDashboardPersonnelListResponse,
   type ApiRekoDashboardAssignmentsResponse,
   type ApiAvailableRekoPersonnelResponse,
+  type ApiFeldPersonnelListResponse,
+  type ApiFeldAssignmentsResponse,
 } from './api/types'
 
 /** Read-only payload behind a share token (board/map/status displays). */
@@ -1513,6 +1515,29 @@ class ApiClient {
   async getRekoDashboardAssignments(personnelId: string, token: string): Promise<ApiRekoDashboardAssignmentsResponse> {
     return this.request<ApiRekoDashboardAssignmentsResponse>(
       `/api/reko-dashboard/assignments/${personnelId}?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  // Feld (/feld) — the login-less field surface. One global link per Ereignis;
+  // the token names the event, the endpoints check the assignment.
+  async generateFeldLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
+    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
+      `/api/feld/generate-link?event_id=${encodeURIComponent(eventId)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async getFeldPersonnel(token: string): Promise<ApiFeldPersonnelListResponse> {
+    return this.request<ApiFeldPersonnelListResponse>(
+      `/api/feld/personnel?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  async getFeldAssignments(personnelId: string, token: string): Promise<ApiFeldAssignmentsResponse> {
+    return this.request<ApiFeldAssignmentsResponse>(
+      `/api/feld/assignments/${personnelId}?token=${encodeURIComponent(token)}`
     )
   }
 

@@ -17,7 +17,7 @@ interface AppShellProps {
 // Camera) or after the keyboard closes: the bottom of the screen stays
 // unpainted (black) and taps land offset until the user reloads. Native body
 // scroll is the mode Safari handles correctly, so these routes opt out.
-const DOCUMENT_FLOW_ROUTES = ['/reko', '/reko-dashboard', '/alarm', '/check-in']
+const DOCUMENT_FLOW_ROUTES = ['/reko', '/reko-dashboard', '/alarm', '/check-in', '/feld']
 
 /**
  * AppShell wraps the main content. The notification sidebar renders as a flex

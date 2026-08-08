@@ -386,7 +386,12 @@
       "alarmSheetTitle": "Alarm-Link",
       "alarmSheetDescription": "QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z. B. Telefon / Walk-in)",
       "alarmSheetHint": "Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung.",
-      "auftraege": "Aufträge"
+      "auftraege": "Aufträge",
+      "feld": "Feld",
+      "feldLinkFailed": "Feld-Link konnte nicht generiert werden. Bitte versuche es erneut.",
+      "feldSheetTitle": "Feld-Link",
+      "feldSheetDescription": "QR-Code scannen oder Link teilen — für alle Trupps im Feld",
+      "feldSheetHint": "Jede eingeteilte Person sieht damit ihre eigenen Einsatzstellen und kann den Schadenplatz-Rapport erfassen. Funktioniert ohne Anmeldung."
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -2730,6 +2735,44 @@
       "badgeAssigned": "Im Einsatz",
       "badgeCheckedIn": "Anwesend",
       "badgeNotCheckedIn": "Nicht hier"
+    }
+  },
+  "feld": {
+    "title": "Schadenplatz-Rapport",
+    "accessRequired": "Zugriff erforderlich",
+    "missingCode": "Zugriffscode fehlt. Bitte QR-Code scannen.",
+    "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",
+    "picker": {
+      "description": "Wähle dich aus der Liste – danach siehst du deine Einsatzstellen.",
+      "searchPlaceholder": "Name suchen...",
+      "noneFound": "Keine Person gefunden",
+      "empty": "In diesem Ereignis ist noch niemand einer Einsatzstelle zugeteilt.",
+      "incidentCount": "{count, plural, one {# Einsatzstelle} other {# Einsatzstellen}}",
+      "missingRapport": "{count} ohne Rapport"
+    },
+    "assignments": {
+      "title": "Meine Einsatzstellen",
+      "notMe": "Nicht ich",
+      "empty": "Dir ist im Moment keine Einsatzstelle zugeteilt. Melde dich beim KP — sobald du eingeteilt bist, erscheint sie hier.",
+      "released": "Nicht mehr zugeteilt"
+    },
+    "rapportState": {
+      "none": "kein Rapport",
+      "draft": "Entwurf",
+      "submitted": "Rapport erfasst"
+    },
+    "leader": {
+      "label": "EL: {name}",
+      "none": "kein EL erfasst",
+      "self": "Du bist EL — der Rapport ist deine Aufgabe."
+    },
+    "detail": {
+      "arrivedAt": "Angekommen: {time}",
+      "completeAt": "Einsatz beendet: {time}",
+      "actionsTitle": "Meldungen an den KP",
+      "actionsPlaceholder": "Angekommen, Einsatz beendet, Fotos und Freitext-Meldungen folgen.",
+      "rapportTitle": "Schadenplatz-Rapport",
+      "rapportPlaceholder": "Das Rapport-Formular folgt."
     }
   }
 }

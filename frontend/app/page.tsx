@@ -19,7 +19,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from 'lucide-react'
+import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, HardHat } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -355,7 +355,7 @@ export default function FireStationDashboard() {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
   const [showRightSidebar, setShowRightSidebar] = useState(true)
   // Single state for footer sheets - only one can be open at a time
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'display' | 'alarm' | 'vehicles' | 'print' | 'thermo' | 'auftraege' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'feld' | 'display' | 'alarm' | 'vehicles' | 'print' | 'thermo' | 'auftraege' | null>(null)
   // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
@@ -402,6 +402,9 @@ export default function FireStationDashboard() {
   const [displayToken, setDisplayToken] = useState<string | null>(null)
   const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
   const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
+  // One global /feld link per Ereignis — the poster in the vehicle hall, not a
+  // link per incident or per vehicle (plan 25, decision 1).
+  const [feldUrl, setFeldUrl] = useState<string | null>(null)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
   // These dialogs hold a snapshot of the operation; derive the LIVE operation so a
@@ -1299,6 +1302,7 @@ export default function FireStationDashboard() {
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/display/${displayView}?token=${displayToken}`
     : null
   const alarmQrDialogOpen = activeFooterSheet === 'alarm'
+  const feldQrDialogOpen = activeFooterSheet === 'feld'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printModalOpen = activeFooterSheet === 'print'
   const thermoSheetOpen = activeFooterSheet === 'thermo'
@@ -1426,6 +1430,33 @@ export default function FireStationDashboard() {
       console.error('Failed to generate alarm link:', error)
       toast.error(tCommon('error'), {
         description: tDash('alarmLinkFailed'),
+      })
+    }
+  }
+
+  const generateFeldQR = async () => {
+    // Toggle behavior: if already open, just close
+    if (feldQrDialogOpen) {
+      setActiveFooterSheet(null)
+      return
+    }
+
+    if (!selectedEvent) {
+      toast.error(tCommon('error'), {
+        description: tDash('selectEventFirst'),
+      })
+      return
+    }
+
+    try {
+      const response = await apiClient.generateFeldLink(selectedEvent.id)
+      const fullUrl = `${window.location.origin}${response.link}`
+      setFeldUrl(fullUrl)
+      setActiveFooterSheet('feld')
+    } catch (error) {
+      console.error('Failed to generate feld link:', error)
+      toast.error(tCommon('error'), {
+        description: tDash('feldLinkFailed'),
       })
     }
   }
@@ -2047,6 +2078,12 @@ export default function FireStationDashboard() {
                   onActivate={generateRekoDashboardQR}
                 />
                 <ToolbarToggle
+                  icon={HardHat}
+                  label={tDash('feld')}
+                  active={feldQrDialogOpen}
+                  onActivate={generateFeldQR}
+                />
+                <ToolbarToggle
                   icon={MonitorDown}
                   label={tDash('display')}
                   active={displaySheetOpen}
@@ -2309,6 +2346,19 @@ export default function FireStationDashboard() {
         printerEnabled={printerEnabled}
         isPrinting={isPrintingQR}
         onPrint={rekoDashboardUrl ? () => handlePrintQR(rekoDashboardUrl, tDash('rekoSheetTitle'), tDash('rekoSheetHint')) : undefined}
+      />
+
+      {/* Feld (Schadenplatz-Rapport) QR Code Sheet — one global link per Ereignis */}
+      <QrShareSheet
+        open={feldQrDialogOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'feld' && setActiveFooterSheet(null)}
+        url={feldUrl}
+        title={tDash('feldSheetTitle')}
+        description={tDash('feldSheetDescription')}
+        hint={tDash('feldSheetHint')}
+        printerEnabled={printerEnabled}
+        isPrinting={isPrintingQR}
+        onPrint={feldUrl ? () => handlePrintQR(feldUrl, tDash('feldSheetTitle'), tDash('feldSheetHint')) : undefined}
       />
 
       {/* Display share QR Code Sheet */}

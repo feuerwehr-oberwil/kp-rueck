@@ -17,7 +17,7 @@ import {
 import { Check, Info, Users } from 'lucide-react'
 
 const DEMO_WELCOME_KEY = 'kp-rueck.demo-welcome.v1'
-const WELCOME_EXCLUDED_ROUTES = ['/login', '/auth', '/reko', '/reko-dashboard', '/alarm', '/check-in']
+const WELCOME_EXCLUDED_ROUTES = ['/login', '/auth', '/reko', '/reko-dashboard', '/alarm', '/check-in', '/feld']
 
 interface DemoStatus {
   demo: boolean
