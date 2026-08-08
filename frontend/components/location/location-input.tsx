@@ -298,7 +298,12 @@ export function LocationInput({
                 <MapPin className="ml-2 size-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[500px] p-0" align="start">
+            {/* Clamped, not a flat w-[500px]: this same picker runs on /alarm, the public
+                phone/walk-in intake page, where the viewport is ~390px. Collision handling
+                pins the left edge but cannot shrink the panel, so 500px put the right third
+                — including every result's lat/lon line — off the screen, and the results
+                `truncate` at 500px rather than at the visible edge, so nothing said so. */}
+            <PopoverContent className="w-[min(500px,calc(100vw-2rem))] p-0" align="start">
               <div className="flex flex-col">
                 <div className="p-2 border-b">
                   <SearchInput

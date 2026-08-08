@@ -35,6 +35,8 @@ function DropdownMenuTrigger({
 function DropdownMenuContent({
   className,
   sideOffset = 4,
+  // 8px off every viewport edge — see the note in popover.tsx.
+  collisionPadding = 8,
   onInteractOutside,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
@@ -43,6 +45,7 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
         // Dismissing a toast must never dismiss the menu behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(

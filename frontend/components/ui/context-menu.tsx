@@ -97,12 +97,16 @@ function ContextMenuSubContent({
 function ContextMenuContent({
   className,
   onInteractOutside,
+  // 8px off every viewport edge — see the note in popover.tsx. A context menu opens at the
+  // pointer, so a right-click near the edge is the ordinary case here, not the corner case.
+  collisionPadding = 8,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content>) {
   return (
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
+        collisionPadding={collisionPadding}
         // Dismissing a toast must never dismiss the menu behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(

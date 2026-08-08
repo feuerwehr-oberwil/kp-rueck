@@ -2014,7 +2014,7 @@ export default function FireStationDashboard() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-[600px] p-0"
+                    className="w-[min(600px,calc(100vw-2rem))] p-0"
                     align="start"
                     side="top"
                     sideOffset={10}

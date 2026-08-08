@@ -58,7 +58,7 @@ export function IncidentTimelinePopover({ incidentId }: IncidentTimelinePopoverP
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[420px] p-0 flex flex-col max-h-[min(70vh,520px)]"
+        className="w-[min(420px,calc(100vw-2rem))] p-0 flex flex-col max-h-[min(70vh,520px)]"
         // Radix Dialog locks scroll on the body via react-remove-scroll. The
         // Popover renders in a portal outside the Dialog tree, so wheel/touch
         // events get blocked. Stop propagation here so the inner div can scroll.

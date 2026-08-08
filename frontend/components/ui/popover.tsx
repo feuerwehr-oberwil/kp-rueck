@@ -22,6 +22,14 @@ function PopoverContent({
   className,
   align = 'center',
   sideOffset = 4,
+  // Radix defaults this to 0, which lets a panel sit flush against the glass with its
+  // border merged into the screen edge — and, worse, tells the operator nothing about
+  // whether anything was cut. Keeping 8px off every edge means an overlay that had to be
+  // shifted still *reads* as a whole panel. A property of the screen being finite, not of
+  // any one call site, so it belongs here rather than at the four call sites that had
+  // already discovered it by hand. NOTE: this only shifts — a panel wider than the
+  // viewport still overflows, so a fixed `w-[...]` above ~360px needs its own clamp.
+  collisionPadding = 8,
   onInteractOutside,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
@@ -31,6 +39,7 @@ function PopoverContent({
         data-slot="popover-content"
         align={align}
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
         // Dismissing a toast must never dismiss the popover behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(
