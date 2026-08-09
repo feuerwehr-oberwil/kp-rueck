@@ -15,16 +15,24 @@
  * is remembered per incident and per kind in localStorage, so a reload does not
  * re-ask a question that was already answered.
  *
+ * The same prompt is rendered in TWO places at once: on the kanban card and in
+ * the detail modal's Übersicht, directly above «Status wechseln» — which is the
+ * control the question is asking about. Two mounted copies of one question have
+ * to answer together, so the dismissal is NOT component state: it is a tiny
+ * external store every mounted nudge subscribes to (see below).
+ *
  * The timestamps themselves are untouched. `field_arrived_at` and
  * `field_complete_reported_at` keep being written and keep appearing in the
  * Rapport, the Lageblatt and the Ereignisbericht — there they are protocol,
  * not status display.
  */
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useSyncExternalStore } from "react"
 import { useTranslations } from "next-intl"
 import { Radio, X } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { columns } from "@/lib/kanban-utils"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 
@@ -46,6 +54,56 @@ function statusRank(status: OperationStatus): number {
 
 function dismissalKey(incidentId: string, kind: FieldNudgeKind): string {
   return `${incidentId}:${kind}`
+}
+
+/* -------------------------------------------------------------------------
+ * The shared answer store.
+ *
+ * Two layers, both shared by every mounted nudge for the same incident:
+ *
+ *  * `localStorage` holds the DISMISSALS — «I have seen this, stop asking».
+ *    They survive a reload, and they are what makes the X on the card and the
+ *    X in the modal the same X.
+ *  * `confirmed` holds the answers given by MOVING the card. Session-only on
+ *    purpose: the move itself retires the condition, and if a completion gate
+ *    is cancelled the question is fair again. It is cleared when the last
+ *    nudge unmounts, which is exactly the lifetime the old local `useState`
+ *    had — only now it is shared while more than one copy is on screen.
+ * ---------------------------------------------------------------------- */
+
+const listeners = new Set<() => void>()
+const confirmed = new Set<string>()
+
+function emit(): void {
+  for (const listener of listeners) listener()
+}
+
+function handleStorageEvent(event: StorageEvent): void {
+  // `key === null` is a `clear()` in another tab. Either way: re-read.
+  if (event.key === null || event.key === FIELD_NUDGE_STORAGE_KEY) emit()
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener)
+  if (listeners.size === 1) globalThis.addEventListener?.("storage", handleStorageEvent)
+  return () => {
+    listeners.delete(listener)
+    if (listeners.size === 0) {
+      globalThis.removeEventListener?.("storage", handleStorageEvent)
+      confirmed.clear()
+    }
+  }
+}
+
+/** A value React can compare. Recomputed on every read — the lists are a
+ *  handful of short strings, and a cache here could only ever go stale. */
+function getSnapshot(): string {
+  return `${readDismissals().join(",")}|${[...confirmed].join(",")}`
+}
+
+/** No localStorage on the server, so nothing is answered there. */
+function getServerSnapshot(): string {
+  return "|"
 }
 
 /** Every access is guarded: there is no localStorage during SSR, and the
@@ -70,8 +128,10 @@ function writeDismissals(keys: string[]): void {
   }
 }
 
-function isDismissed(incidentId: string, kind: FieldNudgeKind): boolean {
-  return readDismissals().includes(dismissalKey(incidentId, kind))
+/** Answered either way — waved away, or answered by moving the card. */
+function isAnswered(incidentId: string, kind: FieldNudgeKind): boolean {
+  const key = dismissalKey(incidentId, kind)
+  return confirmed.has(key) || readDismissals().includes(key)
 }
 
 /** Read-modify-write, never a blind overwrite: several cards share one key. */
@@ -80,13 +140,23 @@ function storeDismissal(incidentId: string, kind: FieldNudgeKind): void {
   const current = readDismissals()
   if (current.includes(key)) return
   writeDismissals([...current, key])
+  emit()
 }
 
-function clearDismissal(incidentId: string, kind: FieldNudgeKind): void {
+function storeConfirmation(incidentId: string, kind: FieldNudgeKind): void {
+  const key = dismissalKey(incidentId, kind)
+  if (confirmed.has(key)) return
+  confirmed.add(key)
+  emit()
+}
+
+function clearAnswer(incidentId: string, kind: FieldNudgeKind): void {
   const key = dismissalKey(incidentId, kind)
   const current = readDismissals()
-  if (!current.includes(key)) return
-  writeDismissals(current.filter((entry) => entry !== key))
+  const hadDismissal = current.includes(key)
+  const hadConfirmation = confirmed.delete(key)
+  if (hadDismissal) writeDismissals(current.filter((entry) => entry !== key))
+  if (hadDismissal || hadConfirmation) emit()
 }
 
 interface FieldStatusNudgeProps {
@@ -97,42 +167,44 @@ interface FieldStatusNudgeProps {
    *  «beendet» nudge stays silent rather than moving the card behind the
    *  operator's back. */
   onRequestComplete?: () => void
+  /** `card` sits under a divider inside the kanban card; `detail` is the boxed
+   *  call to action above «Status wechseln» in the Übersicht tab. Same
+   *  question, same answers, two frames. */
+  variant?: "card" | "detail"
+  className?: string
 }
 
-export function FieldStatusNudge({ operation, canEdit = true, onRequestComplete }: FieldStatusNudgeProps) {
+export function FieldStatusNudge({
+  operation,
+  canEdit = true,
+  onRequestComplete,
+  variant = "card",
+  className,
+}: FieldStatusNudgeProps) {
   const t = useTranslations("feld.board")
   const { changeStatusToTop } = useOperations()
+  // Subscribing is the whole point: an answer given on the card has to repaint
+  // the copy in the modal, and the other way round.
+  useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   const completeActive = Boolean(operation.fieldCompleteReportedAt) && operation.status !== "complete"
   // "Not yet in EINSATZ and not already past it" — a card in Rückfahrt or
   // Abgeschlossen has long overtaken the arrival report.
   const arrivedActive = Boolean(operation.fieldArrivedAt) && statusRank(operation.status) < ACTIVE_INDEX
 
-  const [hidden, setHidden] = useState<Record<FieldNudgeKind, boolean>>(() => ({
-    arrived: isDismissed(operation.id, "arrived"),
-    complete: isDismissed(operation.id, "complete"),
-  }))
-
   useEffect(() => {
     // Self-clearing: a nudge whose condition no longer holds drops its stored
     // key, so the list cannot grow for the life of the browser profile.
-    if (!arrivedActive) clearDismissal(operation.id, "arrived")
-    if (!completeActive) clearDismissal(operation.id, "complete")
-    setHidden({
-      arrived: arrivedActive && isDismissed(operation.id, "arrived"),
-      complete: completeActive && isDismissed(operation.id, "complete"),
-    })
+    if (!arrivedActive) clearAnswer(operation.id, "arrived")
+    if (!completeActive) clearAnswer(operation.id, "complete")
   }, [operation.id, arrivedActive, completeActive])
 
   const dismiss = useCallback((kind: FieldNudgeKind) => {
     storeDismissal(operation.id, kind)
-    setHidden((current) => ({ ...current, [kind]: true }))
   }, [operation.id])
 
   const confirm = useCallback((kind: FieldNudgeKind) => {
-    // Hidden locally, not stored: the move itself retires the condition. If a
-    // gate is cancelled and the card comes back, the question is fair again.
-    setHidden((current) => ({ ...current, [kind]: true }))
+    storeConfirmation(operation.id, kind)
     if (kind === "complete") onRequestComplete?.()
     // Moving into `active` passes no gate in useIncidentStatusWorkflow (only
     // enroute/reko/reko_done/returning/complete do), so there is nothing to
@@ -141,43 +213,70 @@ export function FieldStatusNudge({ operation, canEdit = true, onRequestComplete 
   }, [changeStatusToTop, onRequestComplete, operation.id])
 
   const rows: Array<{ kind: FieldNudgeKind; text: string }> = []
-  if (completeActive && !hidden.complete && onRequestComplete) {
+  if (completeActive && !isAnswered(operation.id, "complete") && onRequestComplete) {
     rows.push({ kind: "complete", text: t("nudgeCompleteText") })
   }
-  if (arrivedActive && !hidden.arrived) {
+  if (arrivedActive && !isAnswered(operation.id, "arrived")) {
     rows.push({ kind: "arrived", text: t("nudgeArrivedText") })
   }
 
   if (!canEdit || rows.length === 0) return null
 
   return (
-    <div className="border-t pt-3 space-y-1.5">
+    <div
+      className={cn(
+        "space-y-2",
+        variant === "detail"
+          ? "rounded-lg border border-primary/25 bg-primary/5 p-3"
+          : "border-t pt-3",
+        className,
+      )}
+    >
       {rows.map(({ kind, text }) => (
-        <div key={kind} data-testid={`field-nudge-${kind}`} className="flex items-center gap-2 text-xs">
-          <Radio className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="min-w-0 flex-1 text-muted-foreground">{text}</span>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              confirm(kind)
-            }}
-            className="flex-shrink-0 rounded-md border border-border px-2 py-0.5 font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
-          >
-            {t("nudgeConfirm")}
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              dismiss(kind)
-            }}
-            title={t("nudgeDismiss")}
-            aria-label={t("nudgeDismiss")}
-            className="flex-shrink-0 rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
-          >
-            <X className="h-3 w-3" />
-          </button>
+        // One wrapping row, no breakpoints: this exact markup is rendered in a
+        // ~300px kanban column AND in the wide modal, so a `sm:` prefix would
+        // be measuring the wrong box. Instead the sentence claims a floor of
+        // 11rem and the action group refuses to shrink, so the group drops to
+        // its own line whenever the sentence would otherwise be squeezed into
+        // a four-word-per-line column. Wide: one line. Narrow: two.
+        <div
+          key={kind}
+          data-testid={`field-nudge-${kind}`}
+          className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs"
+        >
+          <div className="flex min-w-[11rem] flex-1 items-start gap-2">
+            <Radio className="mt-px h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className={cn("min-w-0", variant === "detail" ? "text-foreground" : "text-muted-foreground")}>
+              {text}
+            </span>
+          </div>
+          <div className="ml-auto flex flex-shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={(event) => {
+                event.stopPropagation()
+                confirm(kind)
+              }}
+            >
+              {t("nudgeConfirm")}
+            </Button>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              title={t("nudgeDismiss")}
+              aria-label={t("nudgeDismiss")}
+              className="text-muted-foreground/60"
+              onClick={(event) => {
+                event.stopPropagation()
+                dismiss(kind)
+              }}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
       ))}
     </div>

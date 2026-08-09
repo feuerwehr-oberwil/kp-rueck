@@ -20,11 +20,14 @@
  *   three-state control, not a checkbox that defaults to "nein".
  */
 
+import { useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, Minus, PackageOpen, X } from 'lucide-react'
+import { Check, ChevronsUpDown, Minus, PackageOpen, X } from 'lucide-react'
 
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { ApiRapportMaterialRow } from '@/lib/api/types'
 import { groupMaterialsByLocation } from '@/lib/rapport-draft'
@@ -33,7 +36,7 @@ interface FeldMaterialChecklistProps {
   rows: ApiRapportMaterialRow[]
   extraNote: string
   /**
-   * Known material names from the catalogue. Offered as a datalist under
+   * Known material names from the catalogue. Offered as a browsable list under
    * "Weiteres Material" so the crew does not have to spell "Tauchpumpe TP-4"
    * from memory — a naming aid, never a picker (see below).
    */
@@ -86,6 +89,186 @@ function UsedToggle({
         </button>
       ))}
     </div>
+  )
+}
+
+/**
+ * "Weiteres gebrauchtes Material" — free text with a browsable catalogue.
+ *
+ * It used to be an `<input list=…>`. A native `datalist` only reveals itself
+ * once you are already typing, which on desktop means the suggestions are
+ * invisible: there is nothing to browse, and the crew is back to spelling
+ * "Tauchpumpe TP-4" from memory. So the same suggestions moved into a real
+ * combobox — Popover + Command, the primitives the rest of the app already
+ * uses — that opens on focus or on the chevron and filters while you type.
+ *
+ * **The boundary of decision 18 is untouched.** This writes a plain string and
+ * nothing else: no id travels with a pick, and `/feld` still never creates an
+ * assignment. Anything typed stays valid, including a name that is in no
+ * catalogue — the list is a spelling aid, not a picker.
+ *
+ * The line is a comma-separated list (its own placeholder says so), so the
+ * filter runs on the segment after the LAST comma: picking a second unit has
+ * to work, which it would not if the whole line were the search term.
+ */
+function ExtraMaterialInput({
+  value,
+  suggestions,
+  disabled,
+  onChange,
+}: {
+  value: string
+  suggestions: string[]
+  disabled?: boolean
+  onChange: (next: string) => void
+}) {
+  const t = useTranslations('feld.rapport.material')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  /** The item the arrow keys point at. Empty on purpose: with nothing pointed
+   *  at, Enter belongs to the free text and must not insert anything. */
+  const [highlight, setHighlight] = useState('')
+
+  const cut = value.lastIndexOf(',')
+  const prefix = cut === -1 ? '' : value.slice(0, cut + 1)
+  const segment = (cut === -1 ? value : value.slice(cut + 1)).trim()
+
+  const filtered = useMemo(() => {
+    const needle = segment.toLowerCase()
+    if (!needle) return suggestions
+    return suggestions.filter(name => name.toLowerCase().includes(needle))
+  }, [suggestions, segment])
+
+  const hasList = suggestions.length > 0
+
+  const insert = (name: string) => {
+    onChange(prefix ? `${prefix} ${name}` : name)
+    setOpen(false)
+    setHighlight('')
+    inputRef.current?.focus()
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!hasList) return
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (filtered.length === 0) return
+      event.preventDefault()
+      if (!open) {
+        setOpen(true)
+        setHighlight(filtered[0])
+        return
+      }
+      const index = filtered.indexOf(highlight)
+      const next =
+        event.key === 'ArrowDown'
+          ? (index + 1) % filtered.length
+          : index <= 0
+            ? filtered.length - 1
+            : index - 1
+      setHighlight(filtered[next])
+      return
+    }
+    if (event.key === 'Enter' && open && filtered.includes(highlight)) {
+      event.preventDefault()
+      insert(highlight)
+      return
+    }
+    if (event.key === 'Escape' && open) {
+      event.preventDefault()
+      setOpen(false)
+      setHighlight('')
+    }
+  }
+
+  return (
+    <Popover open={open && hasList && !disabled} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <div className="relative">
+          <Input
+            ref={inputRef}
+            id="rapport-extra-material"
+            autoComplete="off"
+            role={hasList ? 'combobox' : undefined}
+            aria-expanded={hasList ? open : undefined}
+            aria-autocomplete={hasList ? 'list' : undefined}
+            aria-controls={hasList ? 'rapport-extra-material-options' : undefined}
+            value={value}
+            disabled={disabled}
+            placeholder={t('extraPlaceholder')}
+            className={cn(hasList && 'pr-10')}
+            onFocus={() => hasList && setOpen(true)}
+            onChange={e => {
+              setHighlight('')
+              if (hasList) setOpen(true)
+              onChange(e.target.value)
+            }}
+            onKeyDown={handleKeyDown}
+          />
+          {hasList && (
+            <button
+              type="button"
+              disabled={disabled}
+              // Tab order skips it: it opens the same list the field opens on
+              // focus, so for a keyboard it is a duplicate. It exists for the
+              // thumb and for the eye — the affordance the datalist never had.
+              tabIndex={-1}
+              aria-label={t('extraSuggestOpen')}
+              title={t('extraSuggestOpen')}
+              onClick={() => {
+                setOpen(current => !current)
+                inputRef.current?.focus()
+              }}
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50 cursor-pointer"
+            >
+              <ChevronsUpDown className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        align="start"
+        className="w-(--radix-popover-trigger-width) p-0"
+        // The field keeps the caret the whole time: an autofocused panel would
+        // end the typing that opened it.
+        onOpenAutoFocus={e => e.preventDefault()}
+        onCloseAutoFocus={e => e.preventDefault()}
+        onInteractOutside={e => {
+          // Clicking the field itself is not "outside" in any sense the crew
+          // would recognise — without this the list closes on every tap.
+          if (inputRef.current?.parentElement?.contains(e.target as Node)) e.preventDefault()
+        }}
+      >
+        {/* `shouldFilter={false}`: the filter runs above, on the last segment
+            of the line rather than on the whole line. cmdk is here for the
+            list semantics and the highlight, not for its matcher. */}
+        {/* The sentinel keeps cmdk from pointing at the first row on its own.
+            A highlighted row promises that Enter picks it — and Enter has to
+            belong to the free text unless the crew took the arrow keys. */}
+        <Command shouldFilter={false} value={highlight || ' '}>
+          <CommandList id="rapport-extra-material-options" className="max-h-56">
+            <CommandGroup heading={t('extraSuggestHeading')}>
+              {filtered.map(name => (
+                <CommandItem
+                  key={name}
+                  value={name}
+                  // Keep the caret in the field: a blur here would close the
+                  // panel before the click ever lands.
+                  onMouseDown={e => e.preventDefault()}
+                  onSelect={() => insert(name)}
+                  // The highlight is driven by the arrow keys alone, so the
+                  // mouse gets its feedback from CSS rather than from cmdk.
+                  className="min-h-11 cursor-pointer hover:bg-foreground/10"
+                >
+                  <PackageOpen className="h-4 w-4" />
+                  {name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+          <p className="border-t px-3 py-2 text-xs text-muted-foreground">{t('extraFreeText')}</p>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -178,24 +361,14 @@ export function FeldMaterialChecklist({
         {/* Still free text in the data model, and it still never creates an
             assignment (decision 18): a real picker would make /feld a writer of
             assignments, a different authorization and conflict problem than
-            anything else in this plan. A `datalist` only SUGGESTS a spelling —
+            anything else in this plan. The list below only SUGGESTS a spelling —
             anything typed stays valid, and nothing here carries an id. */}
-        <Input
-          id="rapport-extra-material"
-          list={suggestions.length > 0 ? 'rapport-extra-material-options' : undefined}
-          autoComplete="off"
+        <ExtraMaterialInput
           value={extraNote}
+          suggestions={suggestions}
           disabled={disabled}
-          placeholder={t('extraPlaceholder')}
-          onChange={e => onExtraNoteChange(e.target.value)}
+          onChange={onExtraNoteChange}
         />
-        {suggestions.length > 0 && (
-          <datalist id="rapport-extra-material-options">
-            {suggestions.map(name => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
-        )}
       </div>
     </section>
   )

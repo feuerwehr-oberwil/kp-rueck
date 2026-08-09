@@ -50,6 +50,7 @@ import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
+import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
@@ -657,6 +658,21 @@ export function OperationDetailContent({
               card at the top of the target column) instead of drag & drop. It
               opens this column because it is the most-used control on the tab
               and must not sit below a resource list of unpredictable length. */}
+          {/* The same question the card asks, in front of the control that
+              answers it — the field reported «angekommen» / «beendet», and the
+              next thing an operator does about it is move the card. Dismissal
+              is shared with the card behind the modal (one external store in
+              field-status-nudge.tsx), so the X only has to be clicked once. */}
+          {(operation.fieldCompleteReportedAt || operation.fieldArrivedAt) && (
+            <FieldStatusNudge
+              operation={operation}
+              canEdit={canEdit}
+              variant="detail"
+              className="mb-5"
+              onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
+            />
+          )}
+
           {canEdit && onChangeStatus && (
           <div className="mb-5">
             <div className="flex items-center gap-2 mb-1.5">

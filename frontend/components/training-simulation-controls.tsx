@@ -552,7 +552,7 @@ export function TrainingSimulationControls() {
       {/* The follow-up "Einsatz beendet" asks in the field: a Schadenplatz can
           be finished and still have three people standing in the rain. */}
       <Dialog open={pickupPrompt !== null} onOpenChange={(open) => !open && setPickupPrompt(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('pickupQuestion')}</DialogTitle>
             <DialogDescription>
@@ -563,12 +563,28 @@ export function TrainingSimulationControls() {
                 : ''}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
+          {/* The app's footer shape (see ConfirmDialog): the "…but do this
+              instead" option sits left on `mr-auto`, the answers right, the
+              recommended one last and loudest. `flex-wrap` because three German
+              labels are wider than any max-width guess — the buttons carry
+              `shrink-0`, so without it the last one simply overflowed the
+              dialog's own padding, which is what made the row look unbalanced.
+
+              Emphasis, deliberately moved: «Lage entscheidet» used to be the
+              primary. It is not an answer to the question — it hands the
+              decision to the backend's inference (zu Fuss / kein Fahrzeug), and
+              as the loud default it made the pickup inject almost unreachable
+              in a normal exercise, because a crew with a vehicle always infers
+              "fährt selbst". So it drops to a quiet aside. The primary is now
+              «Fährt selbst»: the true answer in the large majority of cases and
+              the only one of the three that costs the operator nothing. */}
+          <DialogFooter className="flex-wrap">
             <Button
-              variant="outline"
-              onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, false)}
+              variant="ghost"
+              className="sm:mr-auto"
+              onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}
             >
-              {t('pickupSelfReturn')}
+              {t('pickupAuto')}
             </Button>
             <Button
               variant="outline"
@@ -577,8 +593,8 @@ export function TrainingSimulationControls() {
               <AlertTriangle className="size-3.5 text-amber-600" />
               {t('pickupRequired')}
             </Button>
-            <Button onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}>
-              {t('pickupAuto')}
+            <Button onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, false)}>
+              {t('pickupSelfReturn')}
             </Button>
           </DialogFooter>
         </DialogContent>

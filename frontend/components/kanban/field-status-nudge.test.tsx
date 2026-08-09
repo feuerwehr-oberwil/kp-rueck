@@ -172,6 +172,44 @@ describe("FieldStatusNudge", () => {
     expect(store[FIELD_NUDGE_STORAGE_KEY]).toBeUndefined()
   })
 
+  it("shares a dismissal between the card and the detail modal", async () => {
+    const user = userEvent.setup()
+    const op = operation({ status: "enroute", fieldArrivedAt: new Date() })
+    // Both copies mounted at once — the card behind, the modal in front.
+    renderWithIntl(
+      <>
+        <FieldStatusNudge operation={op} />
+        <FieldStatusNudge operation={op} variant="detail" />
+      </>,
+    )
+
+    expect(screen.getAllByTestId("field-nudge-arrived")).toHaveLength(2)
+
+    // Wave it away in one — the other must not keep asking.
+    await user.click(screen.getAllByRole("button", { name: "Hinweis ausblenden" })[1])
+
+    expect(screen.queryByTestId("field-nudge-arrived")).toBeNull()
+  })
+
+  it("shares a confirmed move between both copies", async () => {
+    const user = userEvent.setup()
+    const op = operation({ status: "active", fieldCompleteReportedAt: new Date() })
+    const onRequestComplete = vi.fn()
+    renderWithIntl(
+      <>
+        <FieldStatusNudge operation={op} onRequestComplete={onRequestComplete} />
+        <FieldStatusNudge operation={op} variant="detail" onRequestComplete={onRequestComplete} />
+      </>,
+    )
+
+    await user.click(screen.getAllByRole("button", { name: "Verschieben" })[0])
+
+    expect(onRequestComplete).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId("field-nudge-complete")).toBeNull()
+    // Answered by moving, not waved away: nothing is written to storage.
+    expect(store[FIELD_NUDGE_STORAGE_KEY]).toBeUndefined()
+  })
+
   it("offers a viewer nothing to click", () => {
     renderWithIntl(
       <FieldStatusNudge

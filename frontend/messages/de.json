@@ -2962,7 +2962,10 @@
         "leftOnSite": "vor Ort verblieben",
         "leftOnSiteAria": "Vor Ort verblieben: {name}",
         "extraLabel": "Weiteres gebrauchtes Material",
-        "extraPlaceholder": "z. B. geliehene Tauchpumpe, Motorsäge vom Nachbarzug"
+        "extraPlaceholder": "z. B. geliehene Tauchpumpe, Motorsäge vom Nachbarzug",
+        "extraSuggestOpen": "Materialliste anzeigen",
+        "extraSuggestHeading": "Aus dem Materialkatalog",
+        "extraFreeText": "Nicht dabei? Einfach tippen – jeder Text ist gültig."
       },
       "vehicles": {
         "label": "Fahrzeuge",
