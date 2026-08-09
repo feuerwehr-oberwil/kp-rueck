@@ -2429,7 +2429,27 @@
       "reinforcementRequested": "Verstärkung angefordert",
       "vehicleBrokenDown": "Fahrzeug {name} ausgefallen",
       "vehicleBrokenDownDescription": "Der Operator muss Ersatz disponieren.",
-      "injectFailed": "Inject fehlgeschlagen"
+      "injectFailed": "Inject fehlgeschlagen",
+      "injectRapport": "Rapport eingetroffen",
+      "injectFieldMessage": "Meldung vom Feld",
+      "rapportFiled": "Rapport erfasst",
+      "rapportFiledBy": "Erfasst von {name} (Feld)",
+      "fieldMessageSent": "Meldung vom Feld eingetroffen",
+      "rapportLabel": "Schadenplatz-Rapporte",
+      "rapportBulk": "Rapporte eintreffen lassen",
+      "rapportFiling": "Rapporte treffen ein...",
+      "rapportHint": "Erfasst 80 % der Rapporte der abgeschlossenen Schadenplätze. Der Rest fehlt absichtlich — genau das steht in der Restliste.",
+      "rapportBulkDone": "{covered} von {candidates} Rapporten erfasst",
+      "rapportBulkDoneDescription": "{skipped} fehlen weiterhin — nachfassen ist Teil der Übung.",
+      "rapportNoCandidates": "Keine offenen Rapporte",
+      "rapportNoCandidatesDescription": "Es gibt keine abgeschlossenen Schadenplätze ohne Rapport.",
+      "pickupQuestion": "Kommt der Trupp selbst zurück?",
+      "pickupQuestionDescription": "Der Trupp meldet «Einsatz beendet» für {location}. Ein Schadenplatz kann fertig sein und trotzdem stehen drei Leute im Regen.",
+      "pickupSelfReturn": "Fährt selbst",
+      "pickupRequired": "Abholung nötig",
+      "pickupAuto": "Lage entscheidet",
+      "pickupNeeded": "Abholung nötig",
+      "pickupNeededDescription": "Der Trupp wartet vor Ort — die Abholung ist auf der Karte und in der Restliste."
     }
   },
   "sync": {

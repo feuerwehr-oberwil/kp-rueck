@@ -5,7 +5,10 @@ draws from. These tests lock the contract that a dispatch about, say,
 a kitchen fire never produces a Reko summary about a dachstock fire.
 """
 
+import random
 import re
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from app.seed_training import EMERGENCY_TEMPLATES
 from app.services.training_simulation_data import (
@@ -16,6 +19,9 @@ from app.services.training_simulation_data import (
     _get_elementar_subcategory,
     _reconcile_with_summary,
     _resolve_summary_pool,
+    classify_material_bucket,
+    derive_damage_type,
+    generate_rapport_data,
     generate_reko_report_data,
     generate_summary,
     vary_dispatch_numbers,
@@ -468,3 +474,92 @@ class TestDispatchLinkedSummary:
             if summary.startswith("Gemeldet"):
                 seen_correction = True
         assert seen_confirm and seen_correction, "both confirm and correction branches should occur"
+
+
+class TestRapportGeneration:
+    """The Schadenplatz-Rapport profile (plan 25 §16.1).
+
+    Seeded RNG throughout: these are rules, not distributions, and a test that
+    passes four times out of five is worse than no test.
+    """
+
+    UNITS = [
+        {"assignment_id": uuid4(), "name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "consumable": False},
+        {"assignment_id": uuid4(), "name": "Motorsäge Gr.", "type": "Sägen", "consumable": False},
+        {"assignment_id": uuid4(), "name": "Anhänger", "type": "Sonstiges", "consumable": False},
+        {"assignment_id": uuid4(), "name": "Ölbindemittel", "type": "Ölwehr", "consumable": True},
+        {"assignment_id": uuid4(), "name": "Rettungsplattform", "type": "Sonstiges", "consumable": False},
+    ]
+
+    def _generate(self, seed: int, incident_type: str = "elementarereignis", title: str = "Wasser im Keller"):
+        return generate_rapport_data(
+            incident_type=incident_type,
+            title=title,
+            description="Ca. 30 cm Wasser im Keller.",
+            materials=self.UNITS,
+            board_personnel_count=4,
+            board_vehicle_count=1,
+            default_work_started_at=datetime(2026, 8, 9, 20, 0, tzinfo=UTC),
+            default_work_ended_at=datetime(2026, 8, 9, 22, 0, tzinfo=UTC),
+            rng=random.Random(seed),
+        )
+
+    def test_consumables_are_never_left_on_site(self):
+        """Decision 26: a consumable that was used is gone. 0 %, always."""
+        consumable_id = self.UNITS[3]["assignment_id"]
+        for seed in range(300):
+            ticks = {row["assignment_id"]: row for row in self._generate(seed).get("materials", [])}
+            assert ticks[consumable_id]["left_on_site"] is False
+
+    def test_kfz_block_stays_empty_unless_a_vehicle_is_involved(self):
+        """Every IncidentType outside the table is 0 % — not "rarely"."""
+        for seed in range(300):
+            data = self._generate(seed)
+            assert "vehicle_plate" not in data
+            assert "vehicle_model" not in data
+
+    def test_kfz_block_appears_on_strassenrettung(self):
+        """…and 80 % on a Strassenrettung, so the block is reachable at all."""
+        filled = sum(
+            1
+            for seed in range(200)
+            if "vehicle_plate" in self._generate(seed, incident_type="strassenrettung", title="Verkehrsunfall")
+        )
+        assert 130 < filled < 190
+
+    def test_material_buckets_follow_the_keyword_table(self):
+        """Type AND name are matched, with the documented fallback for the rest."""
+        assert classify_material_bucket("Tauchpumpen", "Tauchpumpe Gr.", False) == "stays"
+        assert classify_material_bucket("Sägen", "Motorsäge Gr.", False) == "goes_home"
+        assert classify_material_bucket("Elektrowerkzeug", "Trennschleifer", False) == "goes_home"
+        assert classify_material_bucket("Sonstiges", "Anhänger", False) == "trailer"
+        assert classify_material_bucket("Ölwehr", "Ölbindemittel", True) == "consumable"
+        # Nothing matched: the fallback, never a crash and never an enum.
+        assert classify_material_bucket("Sonstiges", "Rettungsplattform", False) == "unknown"
+
+    def test_damage_type_follows_the_incident_when_it_says_so(self):
+        rng = random.Random(1)
+        assert derive_damage_type("Wasser im Keller", None, rng) == "wasserschaden"
+        assert derive_damage_type("Baum auf Fahrbahn", None, rng) == "sturmschaden"
+        assert derive_damage_type("Schneebruch Vordach", None, rng) == "schneebruch"
+        # Nothing to go on: weighted random, but always one of the four.
+        assert derive_damage_type("Einsatz", None, rng) in {
+            "wasserschaden",
+            "sturmschaden",
+            "schneebruch",
+            "anderes",
+        }
+
+    def test_counts_and_times_are_sent_only_when_the_crew_changed_them(self):
+        """10 % each — the `korrigiert` marker has to stay a signal (§16.1)."""
+        corrected = sum(1 for seed in range(300) if "personnel_count" in self._generate(seed))
+        adjusted = sum(1 for seed in range(300) if "work_started_at" in self._generate(seed))
+        assert 10 < corrected < 70
+        assert 10 < adjusted < 70
+
+    def test_every_rapport_is_submitted_with_a_kurzbericht(self):
+        """100 % Kurzbericht, and the inject always files rather than drafts."""
+        for seed in range(50):
+            data = self._generate(seed)
+            assert data["is_draft"] is False
+            assert data["kurzbericht"]

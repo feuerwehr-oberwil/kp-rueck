@@ -319,6 +319,70 @@ class TestSeedDemoEventContent:
             if incident.status != "reko_done":
                 assert all(a.unassigned_at is not None for a in author_rows)
 
+    @pytest.mark.asyncio
+    async def test_schadenplatz_rapport_slice(self, db_session: AsyncSession, seeded_event: Event):
+        """The demo shows the Schadenplatz-Rapport without anybody opening /feld."""
+        from app.models import SchadenplatzReport
+
+        incidents = (
+            (await db_session.execute(select(Incident).where(Incident.event_id == seeded_event.id))).scalars().all()
+        )
+        incident_by_id = {i.id: i for i in incidents}
+
+        reports = (
+            (
+                await db_session.execute(
+                    select(SchadenplatzReport).where(SchadenplatzReport.incident_id.in_(list(incident_by_id)))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(reports) == 1
+        report = reports[0]
+        incident = incident_by_id[report.incident_id]
+
+        # Filed, not a draft: the badge, the return list and the Kostenpflicht
+        # export all key on a submitted rapport.
+        assert report.is_draft is False
+        assert report.submitted_at is not None
+        assert report.created_by_personnel_id is not None
+        assert report.created_by_user_id is None, "a demo rapport comes from the field, not from the KP"
+        assert incident.status == "complete"
+        # The EL of record survives the completion cascade (decision 29).
+        assert incident.leader_personnel_id == report.created_by_personnel_id
+
+        # Muster names only — the owner block is citizen PII (plan 25 §9).
+        assert report.owner_name.startswith("Muster")
+
+        # One unit still on site, one that came back: the Restliste/Abholliste
+        # has something to show and "Material zurück – freigeben" has something
+        # to offer.
+        left = [row for row in report.materials_json if row["left_on_site"]]
+        returned = [row for row in report.materials_json if not row["left_on_site"]]
+        assert len(left) == 1
+        assert len(returned) == 1
+
+        material_assignments = {
+            str(a.id): a
+            for a in (
+                (
+                    await db_session.execute(
+                        select(IncidentAssignment).where(
+                            IncidentAssignment.incident_id == incident.id,
+                            IncidentAssignment.resource_type == "material",
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        }
+        # "Vor Ort verblieben" keeps the assignment open (decision 15) — that
+        # open row is what puts the address on the Abholliste.
+        assert material_assignments[left[0]["assignment_id"]].unassigned_at is None
+        assert material_assignments[returned[0]["assignment_id"]].unassigned_at is not None
+
 
 @pytest.mark.asyncio
 async def test_demo_seed_ensures_training_data_for_existing_database(monkeypatch):

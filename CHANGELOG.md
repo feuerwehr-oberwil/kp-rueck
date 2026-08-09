@@ -94,6 +94,26 @@ will keep holding.
   quiet "nein". Verbrauchsmaterial has no "vor Ort verblieben" state at all — what was used up is
   not left anywhere and nobody drives out for it.
 
+- **Der Rapport lässt sich üben.** Die Übungssteuerung bekommt drei Injects: *Rapport
+  eingetroffen* für einen Schadenplatz, *Rapporte eintreffen lassen* für 80 % aller
+  abgeschlossenen Schadenplätze auf einmal, und *Meldung vom Feld* über die konfigurierbaren
+  Meldungs-Chips. Die fehlenden 20 % sind Absicht: sie sind die Restliste, und sie zu finden ist
+  die Übung. Die Rapporte sind bewusst lückenhaft — Material teilweise unbeantwortet, der
+  Eigentümerblock oft leer, ein KFZ-Block nur dort, wo wirklich ein Fahrzeug beteiligt war —,
+  und alle Quoten stehen in **einer** benannten Tabelle, damit "das ist zu sauber" eine Zeile
+  Änderung ist.
+
+- **"Einsatz beendet" fragt in der Übung dasselbe wie im Feld.** *Kommt der Trupp selbst
+  zurück?* — vorbelegt aus der Lage (zu Fuss oder kein Fahrzeug = meist gestrandet), vom
+  Übungsleiter jederzeit überstimmbar. Und die Meldung geht neu über denselben Endpunkt, den der
+  KP am Board benutzt: eine Übung löst damit endlich auch die Glocke und den Journal-Eintrag aus,
+  statt still eine Spalte zu setzen.
+
+- **Die Demo zeigt den Rapport, ohne dass jemand `/feld` öffnet.** Der abgeschlossene Einsatz im
+  Demo-Sandkasten hat einen erfassten Rapport mit Materialhaken — eine Pumpe blieb vor Ort und
+  steht damit auf der Abholliste, der Wassersauger kam zurück und wartet in "Material zurück –
+  freigeben". Muster-Namen im Eigentümerblock.
+
 - **What `/feld` stores about third parties is written down** in
   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §8. The owner block is the first citizen PII in
   KP Rück: it lives with the incident and is deleted with it, the `/feld` QR is an event-scoped

@@ -66,6 +66,8 @@ import {
   type ApiExcelImportResult,
   type ApiEmergencyTemplate,
   type ApiTrainingLocation,
+  type ApiSimulatedRapport,
+  type ApiSimulatedRapportBulk,
   type ApiDiveraEmergency,
   type ApiDiveraEmergencyListResponse,
   type ApiDiveraSyncPreview,
@@ -1359,14 +1361,48 @@ class ApiClient {
   }
 
   /** Field crew reports the incident finished ("Einsatz beendet") — sets an
-   *  informational badge for the operator; does NOT change status. */
+   *  informational badge for the operator; does NOT change status.
+   *
+   *  `pickupNeeded` is the follow-up the field gets ("Kommt ihr selbst
+   *  zurück?"): omit it and the backend preselects it from the situation — a
+   *  crew that walked there or whose vehicle drove on is usually stranded. */
   async simulateFieldComplete(
     eventId: string,
-    incidentId: string
+    incidentId: string,
+    options?: { pickupNeeded?: boolean; pickupNote?: string }
   ): Promise<ApiIncident> {
     return this.request<ApiIncident>(`/api/training/events/${eventId}/simulate/field-complete/${incidentId}`, {
       method: 'POST',
+      body: JSON.stringify({
+        pickup_needed: options?.pickupNeeded ?? null,
+        pickup_note: options?.pickupNote ?? null,
+      }),
     })
+  }
+
+  /** Inject "Rapport eingetroffen": one filled and submitted Schadenplatz-Rapport. */
+  async simulateRapport(eventId: string, incidentId: string): Promise<ApiSimulatedRapport> {
+    return this.request<ApiSimulatedRapport>(
+      `/api/training/events/${eventId}/simulate/rapport/${incidentId}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** Inject "Rapporte eingetroffen": 80 % of the missing ones arrive at once.
+   *  The remaining fifth stays missing on purpose — those gaps are the
+   *  Restliste, and finding them is the exercise. */
+  async simulateRapportsBulk(eventId: string): Promise<ApiSimulatedRapportBulk> {
+    return this.request<ApiSimulatedRapportBulk>(`/api/training/events/${eventId}/simulate/rapport`, {
+      method: 'POST',
+    })
+  }
+
+  /** Inject "Meldung vom Feld": a chip or a typed sentence reaches the KP. */
+  async simulateFieldMessage(eventId: string, incidentId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/training/events/${eventId}/simulate/field-message/${incidentId}`,
+      { method: 'POST' }
+    )
   }
 
   // Divera 24/7 Integration

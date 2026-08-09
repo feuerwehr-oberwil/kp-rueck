@@ -2,6 +2,9 @@
 
 import random
 import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
 # Danger profiles per incident type: which dangers are likely and their probability
@@ -1042,3 +1045,388 @@ def generate_reinforcement_request(incident_type: str | None) -> str:
     """What the field crew asks for — type-matched, with generic fallbacks."""
     pool = _REINFORCEMENTS.get(incident_type or "", []) + _REINFORCEMENTS["_default"]
     return random.choice(pool)
+
+
+# ============================================
+# Schadenplatz-Rapport simulation (plan 25, §16 / §16.1)
+# ============================================
+#
+# The numbers live in ONE named table, `RAPPORT_SIM_PROFILE`, and never as
+# literals inside the generator: a trainer's "das ist zu sauber" has to be a
+# one-line change. The profile is deliberately **patchy** — the KP has to chase
+# the missing rapports, and chasing them is the skill being trained.
+
+
+@dataclass(frozen=True)
+class RapportSimProfile:
+    """How complete a simulated Schadenplatz-Rapport is (plan 25 §16.1).
+
+    Every rate is the probability that the field bothered to fill that part in.
+    The two "korrigiert" rates are low on purpose: often enough that the
+    `korrigiert` marker shows up in an exercise, rare enough that it stays a
+    signal rather than noise.
+    """
+
+    # 1–2 sentences from a phrase bank, keyed on the damage type.
+    kurzbericht_filled: float = 1.00
+    damage_type_set: float = 0.95
+    # Per material unit.
+    material_used: float = 0.80
+    # Units that match the damage type (pumps on a Wasserschaden, saws on a
+    # Sturmschaden) were almost certainly used.
+    material_used_matching: float = 0.95
+    # "Die Crew hat nicht geantwortet" — the third answer, which every output
+    # has to be able to render.
+    material_unanswered: float = 0.10
+    extra_material_note: float = 0.15
+    # Many storm jobs are public ground with nobody present.
+    owner_block: float = 0.60
+    handed_over_to: float = 0.25
+    personnel_count_corrected: float = 0.10
+    vehicle_count_corrected: float = 0.10
+    times_adjusted: float = 0.10
+    # Decision 22 briefs the Einsatzleiter without enforcing them, so the EL
+    # files most of the rapports but by no means all of them.
+    filed_by_leader: float = 0.70
+    # The bulk inject: 80 % of the completed incidents without a rapport,
+    # **rounded down**, so a gap always remains. Those gaps are why the
+    # Restliste exists, and finding them is the exercise.
+    bulk_coverage: float = 0.80
+    # "Abholung nötig" after "Einsatz beendet" (decision 24), preselected by the
+    # situation: a crew that walked there or whose vehicle drove on is usually
+    # stranded, everyone else usually is not.
+    pickup_when_stranded: float = 0.70
+    pickup_otherwise: float = 0.15
+
+
+RAPPORT_SIM_PROFILE = RapportSimProfile()
+
+# The KFZ-Block is filled **only when a vehicle is actually involved** — which
+# is a property of the Einsatz, not of the crew's diligence. Every IncidentType
+# not named here is 0 %: a Kennzeichen on a Wasserschaden im Keller is noise in
+# the billing export, not realism.
+RAPPORT_KFZ_RATES: dict[str, float] = {
+    "strassenrettung": 0.80,
+    "technische_hilfeleistung": 0.15,
+}
+
+# "Vor Ort verblieben" depends on what the thing **is**: a pump keeps running in
+# a cellar overnight, a chainsaw goes home in the vehicle. `Material.type` is a
+# station-configurable free string (models.py, default "Sonstiges"), so this is
+# keyword matching on type AND name with a documented fallback — never an enum.
+RAPPORT_MATERIAL_BUCKET_RATES: dict[str, float] = {
+    "stays": 0.60,
+    "goes_home": 0.05,
+    "trailer": 0.25,
+    # A consumable that was used is gone; it can never be "left on site"
+    # (decision 26). Enforced in `crud/feld.py` as well — this only keeps the
+    # simulator from generating the impossible state in the first place.
+    "consumable": 0.00,
+    "unknown": 0.15,
+}
+
+# Checked in this order, so "Anhänger" wins over anything a trailer's name might
+# also contain and the specific buckets win over the fallback.
+RAPPORT_MATERIAL_BUCKET_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("trailer", ("anhänger",)),
+    (
+        "stays",
+        (
+            "pumpe",
+            "tauchpumpe",
+            "sauger",
+            "wassersauger",
+            "trocknung",
+            "entfeuchter",
+            "generator",
+            "blache",
+            "plane",
+            "absperrung",
+        ),
+    ),
+    (
+        "goes_home",
+        (
+            "säge",
+            "motorsäge",
+            "rettsäge",
+            "werkzeug",
+            "elektrowerkzeug",
+            "leiter",
+            "beleuchtung",
+            "schlauch",
+        ),
+    ),
+)
+
+# Which units the damage type makes near-certain to have been used.
+_DAMAGE_MATERIAL_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "wasserschaden": ("pumpe", "sauger", "schlauch", "trocknung", "entfeuchter"),
+    "sturmschaden": ("säge", "leiter", "blache", "plane", "absperrung"),
+    "schneebruch": ("säge", "leiter", "schaufel"),
+}
+
+# Title/description keywords that say what kind of damage this was. The
+# Schadensart is its own field and never writes `Incident.type` (decision 8).
+_DAMAGE_TYPE_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("schneebruch", ("schnee", "schneebruch", "schneelast", "lawine")),
+    ("sturmschaden", ("sturm", "baum", "ast", "dach", "ziegel", "abgedeckt", "windbruch", "böe")),
+    ("wasserschaden", ("wasser", "keller", "überflut", "unterführung", "tiefgarage", "dole", "regen", "bach")),
+)
+
+# Weighted fallback when neither the title nor the description says anything.
+_DAMAGE_TYPE_WEIGHTS: dict[str, float] = {
+    "wasserschaden": 0.50,
+    "sturmschaden": 0.35,
+    "schneebruch": 0.05,
+    "anderes": 0.10,
+}
+
+# 1–2 sentences, keyed on the damage type. Lage, Tätigkeit, Geräte in one box —
+# exactly what the form's hint asks for.
+_RAPPORT_KURZBERICHTE: dict[str, list[str]] = {
+    "wasserschaden": [
+        "Keller ca. 30 cm unter Wasser. Mit Tauchpumpe ausgepumpt und mit Sauger nachgetrocknet.",
+        "Wasser über Lichtschacht eingedrungen. Ausgepumpt, Lichtschacht mit Blache abgedeckt.",
+        "Waschküche und Heizungsraum betroffen. Ausgepumpt, Elektroverteilung durch EW freigeschaltet.",
+        "Tiefgarage teilweise unter Wasser. Zwei Pumpen im Einsatz, Rampe mit Sandsäcken gesichert.",
+        "Wenig Wasser im Keller, Situation kontrolliert. Kein weiterer Einsatz nötig.",
+    ],
+    "sturmschaden": [
+        "Baum auf Fahrbahn. Mit Motorsäge zerlegt und Fahrbahn geräumt.",
+        "Dach teilweise abgedeckt. Notabdeckung mit Blache erstellt, Ziegel vom Gehweg entfernt.",
+        "Ast über Leitung hängend. Bereich abgesperrt, Werkdienst avisiert.",
+        "Bauabschrankung umgestürzt. Wieder aufgestellt und gesichert.",
+    ],
+    "schneebruch": [
+        "Ast unter Schneelast gebrochen. Abgetragen und Bereich geräumt.",
+        "Vordach unter Schneelast eingedrückt. Schnee abgetragen, Bereich abgesperrt.",
+    ],
+    "anderes": [
+        "Lage vor Ort kontrolliert, kleinere Aufräumarbeiten ausgeführt.",
+        "Einsatzstelle gesichert und dem Eigentümer übergeben.",
+    ],
+}
+
+# The second sentence a fifth of the rapports get — the small operational
+# detail that makes an exercise rapport read like a real one.
+_RAPPORT_KURZBERICHT_TAILS: list[str] = [
+    "Einsatzstelle sauber verlassen.",
+    "Eigentümer war vor Ort und wurde instruiert.",
+    "Restarbeiten durch den Werkdienst.",
+    "Kontrolle am Morgen empfohlen.",
+]
+
+# Obviously fake. Owner data is the first citizen PII in kp-rueck (§9), and a
+# training run must never look like it holds a real person's address.
+_RAPPORT_OWNER_NAMES: list[str] = [
+    "Muster Hans",
+    "Muster Anna",
+    "Mustermann Peter",
+    "Musterfrau Regula",
+    "Muster Beat",
+    "Mustermann Elsbeth",
+]
+_RAPPORT_OWNER_STREETS: list[str] = [
+    "Musterstrasse 1",
+    "Musterweg 12",
+    "Musterplatz 4",
+    "Musterstrasse 27a",
+]
+_RAPPORT_OWNER_CITIES: list[str] = ["4104 Oberwil", "4102 Binningen", "4103 Bottmingen"]
+_RAPPORT_VEHICLE_MODELS: list[str] = ["VW Golf", "Skoda Octavia", "Fiat Ducato", "Toyota Yaris", "Ford Transit"]
+
+_RAPPORT_HANDOVER: list[str] = [
+    "Eigentümer Muster Hans",
+    "Hauswart vor Ort",
+    "Werkdienst Gemeinde",
+    "Polizei Basel-Landschaft",
+]
+
+_RAPPORT_EXTRA_MATERIAL: list[str] = [
+    "2 Schaufeln vom Werkhof ausgeliehen",
+    "Nassauger vom Betrieb vor Ort mitbenutzt",
+    "Sandsäcke von der Gemeinde",
+    "Zusätzlicher Schlauch ab Trawa",
+]
+
+# "Meldung vom Feld" — the generic channel (decision 20). Overlaps the specific
+# "Feld fordert Verstärkung" inject on purpose; this one is what a crew types or
+# taps as a chip.
+_FIELD_MESSAGES: dict[str, list[str]] = {
+    "elementarereignis": [
+        "Keller leergepumpt, wir räumen zusammen",
+        "Wasser steigt wieder, brauchen zweite Pumpe",
+        "Zufahrt überflutet, kommen nur zu Fuss durch",
+    ],
+    "brandbekaempfung": [
+        "Brand gelöscht, Nachschau läuft",
+        "Brandwache nötig, wer löst uns ab?",
+    ],
+    "oelwehr": [
+        "Ölsperre steht, Bindemittel geht zur Neige",
+    ],
+    "_default": [
+        "Sind vor Ort, Lage im Griff",
+        "Brauchen noch ca. 30 Minuten",
+        "Eigentümer ist eingetroffen",
+        "Einsatzstelle übergeben, wir rücken ein",
+    ],
+}
+
+
+def classify_material_bucket(material_type: str | None, name: str | None, consumable: bool) -> str:
+    """Which "vor Ort verblieben" bucket a unit falls into (§16.1).
+
+    Keyword matching on **type and name together**, because `Material.type` is a
+    station-configurable free string that defaults to "Sonstiges" — an enum here
+    would be wrong at every station but ours. Anything unmatched is "unknown"
+    and gets the documented fallback rate.
+    """
+    if consumable:
+        return "consumable"
+    haystack = f"{material_type or ''} {name or ''}".lower()
+    for bucket, keywords in RAPPORT_MATERIAL_BUCKET_KEYWORDS:
+        if any(keyword in haystack for keyword in keywords):
+            return bucket
+    return "unknown"
+
+
+def derive_damage_type(title: str | None, description: str | None, rng: random.Random) -> str:
+    """The Schadensart the crew would have ticked, from what the board knows.
+
+    Keywords where the incident says so (Wasser / Sturm / Baum / Schnee),
+    weighted random otherwise. Never derived from `Incident.type`: that column
+    carries the Swiss statistics vocabulary and this is a sub-classification of
+    one of its values (decision 8).
+    """
+    haystack = f"{title or ''} {description or ''}".lower()
+    for damage_type, keywords in _DAMAGE_TYPE_KEYWORDS:
+        if any(keyword in haystack for keyword in keywords):
+            return damage_type
+    roll = rng.random()
+    cumulative = 0.0
+    for damage_type, weight in _DAMAGE_TYPE_WEIGHTS.items():
+        cumulative += weight
+        if roll < cumulative:
+            return damage_type
+    return "anderes"
+
+
+def generate_field_message(incident_type: str | None, chips: list[str], rng: random.Random) -> str:
+    """A chip or a typed sentence — the generic "Meldung vom Feld" channel.
+
+    The chips come from the station's `feld.message_chips` setting rather than
+    from i18n (decision 20), so an exercise exercises the station's own wording.
+    """
+    if chips and rng.random() < 0.6:
+        return rng.choice(chips)
+    pool = _FIELD_MESSAGES.get(incident_type or "", []) + _FIELD_MESSAGES["_default"]
+    return rng.choice(pool)
+
+
+def generate_rapport_data(
+    *,
+    incident_type: str | None,
+    title: str | None,
+    description: str | None,
+    materials: Sequence[Mapping[str, Any]],
+    board_personnel_count: int,
+    board_vehicle_count: int,
+    default_work_started_at: datetime | None,
+    default_work_ended_at: datetime | None,
+    rng: random.Random,
+    profile: RapportSimProfile = RAPPORT_SIM_PROFILE,
+) -> dict[str, Any]:
+    """A plausible Schadenplatz-Rapport, as the `RapportUpdate` payload (§16.1).
+
+    Only the keys the simulated crew actually filled in are returned: the upsert
+    writes exactly the fields present in the payload, so an omitted key leaves
+    the derived default in place — which is precisely what "die Crew hat das
+    Feld nicht angefasst" means. Both the times and the two counts are therefore
+    sent **only when the crew changed them by hand**, which is what makes the
+    `korrigiert` marker mean something in the export.
+
+    ``rng`` is injected rather than taken from the module, so a test can seed it
+    and assert the rules instead of a distribution.
+
+    ``materials`` carries one mapping per assigned unit with ``assignment_id``,
+    ``name``, ``type`` and ``consumable`` — the board's units, released ones
+    included, exactly as the checklist gets them.
+    """
+    data: dict[str, Any] = {"is_draft": False}
+
+    damage_type: str | None = None
+    if rng.random() < profile.damage_type_set:
+        damage_type = derive_damage_type(title, description, rng)
+        data["damage_type"] = damage_type
+        if damage_type == "anderes":
+            data["damage_type_other"] = rng.choice(["Hangrutsch", "Verstopfte Dole", "Fassadenschaden"])
+
+    if rng.random() < profile.kurzbericht_filled:
+        text = rng.choice(_RAPPORT_KURZBERICHTE.get(damage_type or "anderes", _RAPPORT_KURZBERICHTE["anderes"]))
+        if rng.random() < 0.2:
+            text = f"{text} {rng.choice(_RAPPORT_KURZBERICHT_TAILS)}"
+        data["kurzbericht"] = text
+
+    # The material checklist — the single largest piece of manual KP work this
+    # plan removes, so a training run has to produce a realistic one.
+    ticks: list[dict[str, Any]] = []
+    matching_keywords = _DAMAGE_MATERIAL_KEYWORDS.get(damage_type or "", ())
+    for unit in materials:
+        consumable = bool(unit.get("consumable"))
+        haystack = f"{unit.get('type') or ''} {unit.get('name') or ''}".lower()
+        used: bool | None
+        left_on_site = False
+        if rng.random() < profile.material_unanswered:
+            used = None
+        else:
+            matches = any(keyword in haystack for keyword in matching_keywords)
+            rate = profile.material_used_matching if matches else profile.material_used
+            used = rng.random() < rate
+            if used:
+                bucket = classify_material_bucket(unit.get("type"), unit.get("name"), consumable)
+                left_on_site = rng.random() < RAPPORT_MATERIAL_BUCKET_RATES[bucket]
+        ticks.append(
+            {
+                "assignment_id": unit["assignment_id"],
+                "used": used,
+                # A consumable that was used is gone — it can never be left on
+                # site (decision 26), whatever the bucket rate would say.
+                "left_on_site": False if consumable else left_on_site,
+            }
+        )
+    if ticks:
+        data["materials"] = ticks
+
+    if rng.random() < profile.extra_material_note:
+        data["extra_material_note"] = rng.choice(_RAPPORT_EXTRA_MATERIAL)
+
+    if rng.random() < profile.handed_over_to:
+        data["handed_over_to"] = rng.choice(_RAPPORT_HANDOVER)
+
+    if rng.random() < profile.owner_block:
+        data["owner_name"] = rng.choice(_RAPPORT_OWNER_NAMES)
+        data["owner_street"] = rng.choice(_RAPPORT_OWNER_STREETS)
+        data["owner_city"] = rng.choice(_RAPPORT_OWNER_CITIES)
+
+    # The KFZ block is a property of the Einsatz, not of the crew: it is filled
+    # only when a vehicle was actually involved, and every IncidentType outside
+    # the table is 0 %. It is rolled independently of the owner block — a crew
+    # that noted a plate but not the driver's address is the normal case.
+    if rng.random() < RAPPORT_KFZ_RATES.get(incident_type or "", 0.0):
+        data["vehicle_plate"] = f"BL {rng.randint(10000, 999999)}"
+        data["vehicle_model"] = rng.choice(_RAPPORT_VEHICLE_MODELS)
+
+    if rng.random() < profile.times_adjusted:
+        if default_work_started_at is not None:
+            data["work_started_at"] = default_work_started_at - timedelta(minutes=rng.randint(10, 20))
+        if default_work_ended_at is not None:
+            data["work_ended_at"] = default_work_ended_at + timedelta(minutes=rng.randint(10, 20))
+
+    if rng.random() < profile.personnel_count_corrected:
+        data["personnel_count"] = max(0, board_personnel_count + rng.choice([-1, 1]))
+    if rng.random() < profile.vehicle_count_corrected:
+        data["vehicle_count"] = max(0, board_vehicle_count + rng.choice([-1, 1]))
+
+    return data

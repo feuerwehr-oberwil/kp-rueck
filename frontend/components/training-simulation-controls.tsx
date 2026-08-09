@@ -28,8 +28,17 @@ import {
   ChevronRight,
   AlertTriangle,
   Megaphone,
+  MessageSquare,
   Wrench,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,6 +77,9 @@ export function TrainingSimulationControls() {
   const [checkinCount, setCheckinCount] = useState(10);
   // 0 = sofort; >0 = check-ins trickle in over this many minutes.
   const [checkinMinutes, setCheckinMinutes] = useState(0);
+  // The incident whose "Kommt ihr selbst zurück?" question is open (decision 24).
+  const [pickupPrompt, setPickupPrompt] = useState<Operation | null>(null);
+  const [isFilingRapports, setIsFilingRapports] = useState(false);
 
   // GPS drive simulation: vehicles for name→id lookup, active drives for the
   // per-row progress state. The backend refuses simulations in demo mode, so
@@ -196,7 +208,10 @@ export function TrainingSimulationControls() {
       } else if (action.kind === 'reko_report') {
         await apiClient.simulateReko(selectedEvent.id, op.id);
       } else if (action.kind === 'field_complete') {
-        await apiClient.simulateFieldComplete(selectedEvent.id, op.id);
+        // "Einsatz beendet" asks the same follow-up the field gets — see
+        // handleFieldComplete; the button only opens the question.
+        setPickupPrompt(op);
+        return;
       }
     } catch (error: unknown) {
       console.error('Failed to advance incident:', error);
@@ -231,12 +246,53 @@ export function TrainingSimulationControls() {
     }
   };
 
+  const handleSimulateRapports = async () => {
+    if (!selectedEvent) return;
+    setIsFilingRapports(true);
+    try {
+      const result = await apiClient.simulateRapportsBulk(selectedEvent.id);
+      if (result.candidates === 0) {
+        toast.info(t('rapportNoCandidates'), { description: t('rapportNoCandidatesDescription') });
+      } else {
+        toast.success(t('rapportBulkDone', { covered: result.covered, candidates: result.candidates }), {
+          description: t('rapportBulkDoneDescription', { skipped: result.skipped }),
+        });
+      }
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : t('injectFailed');
+      toast.error(tCommon('error'), { description: detail });
+    } finally {
+      setIsFilingRapports(false);
+    }
+  };
+
+  // "Kommt ihr selbst zurück?" — the one follow-up "Einsatz beendet" asks in
+  // the field (decision 24). Answering nothing lets the backend preselect it
+  // from the situation (zu Fuss / kein Fahrzeug = meist gestrandet); the
+  // Übungsleiter can always override, exactly as the crew can.
+  const handleFieldComplete = async (op: Operation, pickupNeeded?: boolean) => {
+    if (!selectedEvent) return;
+    setPickupPrompt(null);
+    setAdvancing(op.id, true);
+    try {
+      const result = await apiClient.simulateFieldComplete(selectedEvent.id, op.id, { pickupNeeded });
+      if (result.pickup_needed) {
+        toast.warning(t('pickupNeeded'), { description: t('pickupNeededDescription') });
+      }
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : t('actionFailed');
+      toast.error(tCommon('error'), { description: detail });
+    } finally {
+      setAdvancing(op.id, false);
+    }
+  };
+
   // Trainer injects — surprises that force the operator to react. Escalation
   // and reinforcement are always available on an open incident; the breakdown
   // needs an assigned vehicle.
   const handleInject = async (
     op: Operation,
-    inject: 'escalate' | 'reinforcement' | 'breakdown'
+    inject: 'escalate' | 'reinforcement' | 'breakdown' | 'rapport' | 'fieldMessage'
   ) => {
     if (!selectedEvent) return;
     setAdvancing(op.id, true);
@@ -249,6 +305,16 @@ export function TrainingSimulationControls() {
       } else if (inject === 'reinforcement') {
         const result = await apiClient.simulateReinforcement(selectedEvent.id, op.id);
         toast.success(t('reinforcementRequested'), { description: result.message });
+      } else if (inject === 'rapport') {
+        const result = await apiClient.simulateRapport(selectedEvent.id, op.id);
+        toast.success(t('rapportFiled'), {
+          description: result.filed_by
+            ? t('rapportFiledBy', { name: result.filed_by })
+            : result.message,
+        });
+      } else if (inject === 'fieldMessage') {
+        const result = await apiClient.simulateFieldMessage(selectedEvent.id, op.id);
+        toast.success(t('fieldMessageSent'), { description: result.message });
       } else {
         const result = await apiClient.simulateVehicleBreakdown(selectedEvent.id, op.id);
         toast.success(t('vehicleBrokenDown', { name: result.vehicle_name }), {
@@ -386,6 +452,17 @@ export function TrainingSimulationControls() {
                             <Wrench className="mr-2 h-4 w-4 text-muted-foreground" />
                             {t('injectBreakdown')}
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {/* Plan 25: the field side of the exercise — a filed
+                              rapport and the generic Meldung vom Feld. */}
+                          <DropdownMenuItem onClick={() => handleInject(op, 'rapport')}>
+                            <ClipboardCheck className="mr-2 h-4 w-4 text-emerald-600" />
+                            {t('injectRapport')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleInject(op, 'fieldMessage')}>
+                            <MessageSquare className="mr-2 h-4 w-4 text-blue-600" />
+                            {t('injectFieldMessage')}
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -445,7 +522,67 @@ export function TrainingSimulationControls() {
             {t('checkinHint')}
           </p>
         </div>
+
+        <Separator />
+
+        {/* Schadenplatz-Rapporte in bulk (plan 25 §16). Twenty-three
+            Schadenplätze would otherwise be twenty-three clicks — and the fifth
+            that stays missing is deliberate: that is the Restliste. */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            {t('rapportLabel')}
+          </Label>
+          <Button
+            onClick={handleSimulateRapports}
+            disabled={isFilingRapports}
+            variant="outline"
+            size="sm"
+            className="w-full"
+          >
+            <ClipboardCheck className="size-3.5" />
+            {isFilingRapports ? t('rapportFiling') : t('rapportBulk')}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            {t('rapportHint')}
+          </p>
+        </div>
       </CardContent>
+
+      {/* The follow-up "Einsatz beendet" asks in the field: a Schadenplatz can
+          be finished and still have three people standing in the rain. */}
+      <Dialog open={pickupPrompt !== null} onOpenChange={(open) => !open && setPickupPrompt(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('pickupQuestion')}</DialogTitle>
+            <DialogDescription>
+              {pickupPrompt
+                ? t('pickupQuestionDescription', {
+                    location: formatLocation(pickupPrompt.location) || pickupPrompt.incidentType,
+                  })
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, false)}
+            >
+              {t('pickupSelfReturn')}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt, true)}
+            >
+              <AlertTriangle className="size-3.5 text-amber-600" />
+              {t('pickupRequired')}
+            </Button>
+            <Button onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}>
+              {t('pickupAuto')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

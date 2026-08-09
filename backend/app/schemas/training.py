@@ -258,3 +258,46 @@ class SimulateVehicleBreakdownResponse(BaseModel):
 
     vehicle_name: str
     message: str
+
+
+class SimulateFieldCompleteRequest(BaseModel):
+    """The follow-up "Einsatz beendet" asks in the field (decision 24).
+
+    ``pickup_needed=None`` is the default and means *die Lage entscheidet*: the
+    simulator rolls it from the situation — a crew that walked there or whose
+    vehicle drove on is usually stranded. The Übungsleiter can always override
+    by sending the answer explicitly, which is the same choice the crew has on
+    `/feld`.
+    """
+
+    pickup_needed: bool | None = None
+    pickup_note: str | None = None
+
+
+class SimulateRapportResponse(BaseModel):
+    """One simulated Schadenplatz-Rapport, as the console reports it back."""
+
+    incident_id: UUID
+    incident_title: str
+    # The person the rapport was filed by — the Einsatzleiter most of the time
+    # (decision 22). None when the incident had nobody assigned and the KP had
+    # to enter it, which is the honest provenance for that case.
+    filed_by: str | None = None
+    damage_type: str | None = None
+    materials_ticked: int = 0
+    message: str
+
+
+class SimulateBulkRapportResponse(BaseModel):
+    """The bulk inject: 80 % of the rapports arrive, the rest stay missing.
+
+    ``skipped`` is not a failure count — the gaps are the exercise. They are
+    what the Restliste exists to surface, and finding them is the skill being
+    trained.
+    """
+
+    candidates: int
+    covered: int
+    skipped: int
+    rapports: list[SimulateRapportResponse] = []
+    message: str

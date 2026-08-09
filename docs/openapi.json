@@ -13963,7 +13963,7 @@
           "training"
         ],
         "summary": "Simulate Field Complete",
-        "description": "Field crew reports the incident finished (\"Einsatz beendet\").\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.",
+        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nThis used to write ``incident.field_complete_reported_at`` by hand, which\nmeant a training run stamped no provenance and rang no bell — the one thing\nthe exercise is supposed to rehearse. It now goes through the **KP-parity\nendpoint** (`POST /api/incidents/{id}/field-report`), so the simulated and\nthe real operator path are byte-for-byte the same code, audit entry and\nnotification included.\n\nThe Abholung answer (decision 24) is preselected by the situation — a crew\nthat walked there or whose vehicle drove on is usually stranded — and the\nÜbungsleiter can always override it by sending it explicitly.",
         "operationId": "simulate_field_complete_api_training_events__event_id__simulate_field_complete__incident_id__post",
         "parameters": [
           {
@@ -14019,6 +14019,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SimulateFieldCompleteRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -14395,6 +14412,254 @@
         "summary": "Simulate Reinforcement Request",
         "description": "Inject \"Feld fordert Verstärkung\": the crew on scene asks for more.\n\nNotification only — what (and whether) to send is the trainee's decision\non the board.",
         "operationId": "simulate_reinforcement_request_api_training_events__event_id__simulate_reinforcement__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateInjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/rapport/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Rapport",
+        "description": "Inject \"Rapport eingetroffen\": one filled and submitted Schadenplatz-Rapport.\n\nTrains the KP side of plan 25 — the badge, the return list, the Restliste,\nthe Kostenpflicht export — without forty phones in the room. The content\nfollows ``RAPPORT_SIM_PROFILE``: realistically patchy, because chasing the\ngaps is the skill being trained.",
+        "operationId": "simulate_rapport_api_training_events__event_id__simulate_rapport__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateRapportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/rapport": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Rapports Bulk",
+        "description": "Inject \"Rapporte eingetroffen\": 80 % of the missing ones arrive at once.\n\nTwenty-three Schadenplätze would otherwise be twenty-three clicks. The\nremaining fifth is **deliberate and rounded down**, so a gap always stays:\nthose are why the Restliste exists, and finding them is the exercise.\n\nCandidates are the completed Schadenplätze without a *submitted* rapport —\nthe same set the Restliste calls \"ohne Rapport\", drafts included, since a\ndraft is somebody who started and walked away rather than a filed rapport.",
+        "operationId": "simulate_rapports_bulk_api_training_events__event_id__simulate_rapport_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateBulkRapportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/field-message/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Field Message",
+        "description": "Inject \"Meldung vom Feld\": a chip or a typed sentence reaches the KP.\n\nThe generic channel, using the station's configurable `feld.message_chips`\n(decision 20). It overlaps \"Feld fordert Verstärkung\" on purpose — that one\nstays as the specific inject; this one is what a crew actually taps, and it\nlands as a `field_message` notification plus a Journal entry.",
+        "operationId": "simulate_field_message_api_training_events__event_id__simulate_field_message__incident_id__post",
         "parameters": [
           {
             "name": "event_id",
@@ -23710,6 +23975,43 @@
         "title": "SettingUpdate",
         "description": "Schema for updating setting."
       },
+      "SimulateBulkRapportResponse": {
+        "properties": {
+          "candidates": {
+            "type": "integer",
+            "title": "Candidates"
+          },
+          "covered": {
+            "type": "integer",
+            "title": "Covered"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "rapports": {
+            "items": {
+              "$ref": "#/components/schemas/SimulateRapportResponse"
+            },
+            "type": "array",
+            "title": "Rapports",
+            "default": []
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates",
+          "covered",
+          "skipped",
+          "message"
+        ],
+        "title": "SimulateBulkRapportResponse",
+        "description": "The bulk inject: 80 % of the rapports arrive, the rest stay missing.\n\n``skipped`` is not a failure count — the gaps are the exercise. They are\nwhat the Restliste exists to surface, and finding them is the skill being\ntrained."
+      },
       "SimulateCheckinRequest": {
         "properties": {
           "count": {
@@ -23785,6 +24087,35 @@
         "title": "SimulateDiveraRequest",
         "description": "Schema for injecting a simulated Divera alarm into the pool."
       },
+      "SimulateFieldCompleteRequest": {
+        "properties": {
+          "pickup_needed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Needed"
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          }
+        },
+        "type": "object",
+        "title": "SimulateFieldCompleteRequest",
+        "description": "The follow-up \"Einsatz beendet\" asks in the field (decision 24).\n\n``pickup_needed=None`` is the default and means *die Lage entscheidet*: the\nsimulator rolls it from the situation — a crew that walked there or whose\nvehicle drove on is usually stranded. The Übungsleiter can always override\nby sending the answer explicitly, which is the same choice the crew has on\n`/feld`."
+      },
       "SimulateInjectResponse": {
         "properties": {
           "message": {
@@ -23798,6 +24129,58 @@
         ],
         "title": "SimulateInjectResponse",
         "description": "Generic result of a trainer inject (reinforcement request etc.)."
+      },
+      "SimulateRapportResponse": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "incident_title": {
+            "type": "string",
+            "title": "Incident Title"
+          },
+          "filed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filed By"
+          },
+          "damage_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Type"
+          },
+          "materials_ticked": {
+            "type": "integer",
+            "title": "Materials Ticked",
+            "default": 0
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "incident_title",
+          "message"
+        ],
+        "title": "SimulateRapportResponse",
+        "description": "One simulated Schadenplatz-Rapport, as the console reports it back."
       },
       "SimulateVehicleBreakdownResponse": {
         "properties": {

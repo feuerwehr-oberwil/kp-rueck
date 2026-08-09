@@ -4,16 +4,17 @@ import asyncio
 import logging
 import random
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings
+from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
 from ..crud import reko as reko_crud
 from ..database import async_session_maker, get_db
@@ -23,23 +24,31 @@ from ..models import (
     EventAttendance,
     Incident,
     IncidentAssignment,
+    IncidentGroupAssignment,
+    Material,
     Notification,
     Personnel,
+    SchadenplatzReport,
     TrainingLocation,
     Vehicle,
 )
 from ..schemas import (
     DiveraEmergencyResponse,
     EmergencyTemplateResponse,
+    FieldReportUpdate,
     GenerateEmergencyRequest,
     IncidentResponse,
     ManualDispatchRequest,
+    RapportUpdate,
     RekoReportResponse,
     RekoReportUpdate,
+    SimulateBulkRapportResponse,
     SimulateCheckinRequest,
     SimulateCheckinResponse,
     SimulateDiveraRequest,
+    SimulateFieldCompleteRequest,
     SimulateInjectResponse,
+    SimulateRapportResponse,
     SimulateVehicleBreakdownResponse,
     TrainingLocationResponse,
 )
@@ -53,7 +62,10 @@ from ..services.training import (
 )
 from ..services.training_photos import attach_training_photos
 from ..services.training_simulation_data import (
+    RAPPORT_SIM_PROFILE,
     generate_escalation,
+    generate_field_message,
+    generate_rapport_data,
     generate_reinforcement_request,
     generate_reko_report_data,
 )
@@ -62,6 +74,7 @@ from ..websocket_manager import (
     broadcast_personnel_update,
     broadcast_vehicle_update,
 )
+from .incidents import set_field_report
 
 if TYPE_CHECKING:
     # Imported lazily at runtime inside the endpoints below (circular import), so the
@@ -340,33 +353,59 @@ async def simulate_checkin(
 async def simulate_field_complete(
     event_id: UUID,
     incident_id: UUID,
+    request: Request,
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
+    payload: SimulateFieldCompleteRequest | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> IncidentResponse:
-    """Field crew reports the incident finished ("Einsatz beendet").
+    """Field crew reports the incident finished ("Einsatz beendet") — plus the
+    follow-up the field actually gets: *"Kommt ihr selbst zurück?"*
 
     Informational only: stamps ``field_complete_reported_at`` so the operator
     sees a "Feld meldet: beendet" badge on the card and can decide to close the
     incident. Deliberately does NOT change the status — closing is the
     operator's board action, mimicking the real command-post split.
+
+    This used to write ``incident.field_complete_reported_at`` by hand, which
+    meant a training run stamped no provenance and rang no bell — the one thing
+    the exercise is supposed to rehearse. It now goes through the **KP-parity
+    endpoint** (`POST /api/incidents/{id}/field-report`), so the simulated and
+    the real operator path are byte-for-byte the same code, audit entry and
+    notification included.
+
+    The Abholung answer (decision 24) is preselected by the situation — a crew
+    that walked there or whose vehicle drove on is usually stranded — and the
+    Übungsleiter can always override it by sending it explicitly.
     """
-    event = await db.get(Event, event_id)
-    if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-    if not event.training_flag:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only available for training events")
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
 
-    incident = await db.get(Incident, incident_id)
-    if not incident or incident.event_id != event_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found in this event")
+    pickup_needed = payload.pickup_needed if payload else None
+    pickup_note = payload.pickup_note if payload else None
+    if pickup_needed is None:
+        rng = random.Random()
+        stranded = incident.zu_fuss or not await _has_vehicle(db, incident)
+        rate = RAPPORT_SIM_PROFILE.pickup_when_stranded if stranded else RAPPORT_SIM_PROFILE.pickup_otherwise
+        pickup_needed = rng.random() < rate
+        if pickup_needed and pickup_note is None:
+            pickup_note = "Trupp zu Fuss vor Ort" if incident.zu_fuss else "Fahrzeug ist weitergefahren"
 
-    from datetime import UTC, datetime
+    # The parity endpoint, called as an editor — same handler, same CRUD, same
+    # provenance rule (the personnel FKs stay NULL for a KP write, decision 28).
+    await set_field_report(
+        incident_id=incident_id,
+        payload=FieldReportUpdate(
+            field_complete_reported_at=datetime.now(UTC),
+            pickup_needed=pickup_needed,
+            pickup_note=pickup_note,
+        ),
+        request=request,
+        db=db,
+        current_user=current_user,
+    )
 
-    incident.field_complete_reported_at = datetime.now(UTC)
-    await db.commit()
     await db.refresh(incident)
-
     response = await incident_display.incident_with_display(db, incident)
     background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
     return response
@@ -611,6 +650,283 @@ async def simulate_reinforcement_request(
     await db.commit()
 
     return SimulateInjectResponse(message=message)
+
+
+# ---------------------------------------------------------------------------
+# Schadenplatz-Rapport injects (plan 25, §16)
+# ---------------------------------------------------------------------------
+#
+# All of them run through `crud/feld.py` — the ONE implementation both the
+# `/feld` door and the KP-parity endpoints of the incidents router sit on
+# (decision 28). A simulator with its own write path is not a rehearsal, and it
+# is exactly how the KP path silently loses a field six months later.
+#
+# The identity differs by inject, and that is deliberate rather than sloppy:
+#
+# * "Einsatz beendet" calls the KP-parity endpoint as the editor, because the
+#   Übungsleiter genuinely sits in the KP — the personnel FK stays NULL and the
+#   audit entry carries the user, which is the honest provenance.
+# * The Rapport and the Meldung carry a **simulated field identity** (the
+#   Einsatzleiter most of the time, decision 22), because "erfasst von Muster
+#   Hans (Feld)" versus "im KP erfasst (Funkmeldung)" is one of the things the
+#   exercise has to show. A Meldung vom Feld has no KP twin at all, on purpose
+#   (§6.1): the KP is its recipient.
+
+
+async def _has_vehicle(db: AsyncSession, incident: Incident) -> bool:
+    """Is a vehicle actually with this crew — directly or through its Auftrag?
+
+    An Auftrag owns its resources for every stop, so a stop with no assignment
+    row of its own can still have a vehicle standing in front of it. Getting
+    this wrong would strand a squad that has its Pio parked next to it.
+    """
+    direct = await db.execute(
+        select(IncidentAssignment.id)
+        .where(
+            IncidentAssignment.incident_id == incident.id,
+            IncidentAssignment.resource_type == "vehicle",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+        .limit(1)
+    )
+    if direct.first() is not None:
+        return True
+    if incident.group_id is None:
+        return False
+    grouped = await db.execute(
+        select(IncidentGroupAssignment.id)
+        .where(
+            IncidentGroupAssignment.incident_group_id == incident.group_id,
+            IncidentGroupAssignment.resource_type == "vehicle",
+            IncidentGroupAssignment.unassigned_at.is_(None),
+        )
+        .limit(1)
+    )
+    return grouped.first() is not None
+
+
+async def _simulated_material_units(db: AsyncSession, incident_id: UUID) -> list[dict[str, Any]]:
+    """The checklist rows to answer, with the ``type`` the bucket rule needs.
+
+    Released units included, the same as the real prefill: a pump that came back
+    early still belongs in the record. ``Material.type`` is a
+    station-configurable free string, which is why it travels to the generator
+    instead of being mapped to an enum on the way.
+    """
+    result = await db.execute(
+        select(IncidentAssignment.id, Material.name, Material.type, Material.consumable)
+        .join(Material, Material.id == IncidentAssignment.resource_id)
+        .where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.resource_type == "material",
+        )
+        .order_by(Material.location_sort_order, Material.name)
+    )
+    return [
+        {"assignment_id": assignment_id, "name": name, "type": material_type, "consumable": consumable}
+        for assignment_id, name, material_type, consumable in result.all()
+    ]
+
+
+async def _simulated_filer(
+    db: AsyncSession,
+    incident: Incident,
+    current_user: CurrentUser,
+    rng: random.Random,
+) -> feld_crud.FieldActor:
+    """Who files this simulated rapport (§16.1): the EL 70 %, someone else 30 %.
+
+    The leader comes from ``services.incident_leader`` through
+    ``get_incident_leaders``, never from the raw ``is_leader`` flag — a
+    completed incident has no active leader row left, and completed incidents
+    are exactly the ones this inject exists for.
+
+    An incident with nobody assigned falls back to the editor, which renders as
+    "im KP erfasst". That is the truth of the situation and not worth faking.
+    """
+    leaders = await feld_crud.get_incident_leaders(db, [incident.id])
+    leader = leaders.get(incident.id)
+
+    crew_result = await db.execute(
+        select(Personnel.id, Personnel.name)
+        .join(IncidentAssignment, IncidentAssignment.resource_id == Personnel.id)
+        .where(
+            IncidentAssignment.incident_id == incident.id,
+            IncidentAssignment.resource_type == "personnel",
+        )
+        .order_by(Personnel.name)
+    )
+    crew = sorted({(row[0], row[1]) for row in crew_result.all()}, key=lambda entry: entry[1])
+    others = [entry for entry in crew if leader is None or entry[0] != leader[0]]
+
+    if leader is not None and (not others or rng.random() < RAPPORT_SIM_PROFILE.filed_by_leader):
+        return feld_crud.FieldActor(personnel_id=leader[0], personnel_name=leader[1])
+    if others:
+        personnel_id, name = rng.choice(others)
+        return feld_crud.FieldActor(personnel_id=personnel_id, personnel_name=name)
+    return feld_crud.FieldActor(user=current_user)
+
+
+async def _file_simulated_rapport(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    current_user: CurrentUser,
+    rng: random.Random,
+    request: Request,
+) -> SimulateRapportResponse:
+    """Generate one plausible rapport and file it through the shared upsert.
+
+    Everything the KP feels — the card badge, "Material zurück – freigeben", the
+    Restliste, the Kostenpflicht export — comes out of this one call, because it
+    is the same ``save_rapport`` an operator and a crew both reach.
+    """
+    # The German Schadensart vocabulary is owned by the report service; the
+    # console reuses it rather than keeping a second copy that drifts.
+    from ..services.pdf_report_service import DAMAGE_TYPE_LABELS
+
+    actor = await _simulated_filer(db, incident, current_user, rng)
+    prefill = (await feld_crud.get_rapport(db, incident, actor=actor))["prefill"]
+    units = await _simulated_material_units(db, incident.id)
+
+    data = generate_rapport_data(
+        incident_type=incident.type,
+        title=incident.title,
+        description=incident.description,
+        materials=units,
+        board_personnel_count=prefill["board_personnel_count"],
+        board_vehicle_count=prefill["board_vehicle_count"],
+        default_work_started_at=prefill["default_work_started_at"],
+        default_work_ended_at=prefill["default_work_ended_at"],
+        rng=rng,
+    )
+    saved = await feld_crud.save_rapport(db, incident, actor=actor, payload=RapportUpdate(**data), request=request)
+
+    ticked = sum(1 for row in saved["materials"] if row["used"] or row["left_on_site"])
+    damage_type = saved.get("damage_type")
+    schadensart = f" · {DAMAGE_TYPE_LABELS[damage_type]}" if damage_type in DAMAGE_TYPE_LABELS else ""
+    return SimulateRapportResponse(
+        incident_id=incident.id,
+        incident_title=incident.title,
+        filed_by=actor.personnel_name,
+        damage_type=damage_type,
+        materials_ticked=ticked,
+        message=f"Rapport erfasst: {incident.location_address or incident.title}{schadensart}{actor.suffix}",
+    )
+
+
+@router.post("/events/{event_id}/simulate/rapport/{incident_id}", response_model=SimulateRapportResponse)
+async def simulate_rapport(
+    event_id: UUID,
+    incident_id: UUID,
+    request: Request,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> SimulateRapportResponse:
+    """Inject "Rapport eingetroffen": one filled and submitted Schadenplatz-Rapport.
+
+    Trains the KP side of plan 25 — the badge, the return list, the Restliste,
+    the Kostenpflicht export — without forty phones in the room. The content
+    follows ``RAPPORT_SIM_PROFILE``: realistically patchy, because chasing the
+    gaps is the skill being trained.
+    """
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
+    return await _file_simulated_rapport(db, incident, current_user=current_user, rng=random.Random(), request=request)
+
+
+@router.post("/events/{event_id}/simulate/rapport", response_model=SimulateBulkRapportResponse)
+async def simulate_rapports_bulk(
+    event_id: UUID,
+    request: Request,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> SimulateBulkRapportResponse:
+    """Inject "Rapporte eingetroffen": 80 % of the missing ones arrive at once.
+
+    Twenty-three Schadenplätze would otherwise be twenty-three clicks. The
+    remaining fifth is **deliberate and rounded down**, so a gap always stays:
+    those are why the Restliste exists, and finding them is the exercise.
+
+    Candidates are the completed Schadenplätze without a *submitted* rapport —
+    the same set the Restliste calls "ohne Rapport", drafts included, since a
+    draft is somebody who started and walked away rather than a filed rapport.
+    """
+    await _require_training_event(db, event_id)
+
+    incidents_result = await db.execute(
+        select(Incident)
+        .where(
+            Incident.event_id == event_id,
+            Incident.deleted_at.is_(None),
+            (Incident.status == "complete") | (Incident.completed_at.isnot(None)),
+        )
+        .order_by(Incident.created_at)
+    )
+    incidents = list(incidents_result.scalars().all())
+
+    filed_result = await db.execute(
+        select(SchadenplatzReport.incident_id).where(
+            SchadenplatzReport.incident_id.in_([i.id for i in incidents]),
+            SchadenplatzReport.is_draft.is_(False),
+        )
+        if incidents
+        else select(SchadenplatzReport.incident_id).where(SchadenplatzReport.incident_id.is_(None))
+    )
+    already_filed = {row[0] for row in filed_result.all()}
+    candidates = [incident for incident in incidents if incident.id not in already_filed]
+
+    rng = random.Random()
+    covered_count = int(len(candidates) * RAPPORT_SIM_PROFILE.bulk_coverage)
+    chosen = set(rng.sample(range(len(candidates)), covered_count)) if covered_count else set()
+
+    rapports = [
+        await _file_simulated_rapport(db, incident, current_user=current_user, rng=rng, request=request)
+        for index, incident in enumerate(candidates)
+        if index in chosen
+    ]
+
+    skipped = len(candidates) - len(rapports)
+    return SimulateBulkRapportResponse(
+        candidates=len(candidates),
+        covered=len(rapports),
+        skipped=skipped,
+        rapports=rapports,
+        message=(
+            f"{len(rapports)} von {len(candidates)} Rapporten erfasst · {skipped} fehlen weiterhin"
+            if candidates
+            else "Keine abgeschlossenen Einsätze ohne Rapport"
+        ),
+    )
+
+
+@router.post("/events/{event_id}/simulate/field-message/{incident_id}", response_model=SimulateInjectResponse)
+async def simulate_field_message(
+    event_id: UUID,
+    incident_id: UUID,
+    request: Request,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> SimulateInjectResponse:
+    """Inject "Meldung vom Feld": a chip or a typed sentence reaches the KP.
+
+    The generic channel, using the station's configurable `feld.message_chips`
+    (decision 20). It overlaps "Feld fordert Verstärkung" on purpose — that one
+    stays as the specific inject; this one is what a crew actually taps, and it
+    lands as a `field_message` notification plus a Journal entry.
+    """
+    from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
+
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
+
+    rng = random.Random()
+    chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
+    text = generate_field_message(incident.type, chips, rng)
+    actor = await _simulated_filer(db, incident, current_user, rng)
+
+    notification = await feld_crud.record_field_message(db, incident, actor=actor, message=text, request=request)
+    return SimulateInjectResponse(message=notification.message if notification else text)
 
 
 @router.post(
