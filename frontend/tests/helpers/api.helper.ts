@@ -322,3 +322,141 @@ export async function createEventWithIncident(
   });
   return { eventId: event.id, address, incidents: [incident] };
 }
+
+/* ------------------------------------------------------------------ plan 25
+ * The field surface (`/feld`).
+ *
+ * Everything below arranges the *preconditions* of a field walk over REST — a
+ * crew, an assignment, an Einsatzleiter, a token — so the spec itself only ever
+ * drives the two things under test: the phone and the board.
+ */
+
+export interface TestPersonnel {
+  id: string;
+  name: string;
+  role: string | null;
+}
+
+/**
+ * Create one firefighter.
+ *
+ * Fresh people per spec rather than the seeded roster: a seeded person may
+ * already be assigned to somebody else's incident, and `assign` answers that
+ * with a 409 — which would make this suite fail for a reason that has nothing
+ * to do with `/feld`.
+ *
+ * `roleSortOrder` is the rank the automatic Einsatzleiter resolver sorts on
+ * (lower = more senior, `backend/app/crud/assignments.py`).
+ */
+export async function createPersonnel(
+  request: APIRequestContext,
+  cookieHeader: string,
+  name: string,
+  options: { role?: string; roleSortOrder?: number } = {},
+): Promise<TestPersonnel> {
+  const response = await request.post(`${API_BASE}/api/personnel/`, {
+    headers: jsonHeaders(cookieHeader),
+    data: {
+      name,
+      role: options.role ?? 'Feuerwehrmann',
+      role_sort_order: options.roleSortOrder ?? 10,
+      status: 'available',
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
+}
+
+/** Soft-delete a person again, so a dev database does not grow a roster of ghosts. */
+export async function deletePersonnel(
+  request: APIRequestContext,
+  cookieHeader: string,
+  personnelId: string,
+): Promise<void> {
+  await request.delete(`${API_BASE}/api/personnel/${personnelId}`, { headers: jsonHeaders(cookieHeader) });
+}
+
+/** Put a person on an incident; returns the assignment id (needed to pin the EL). */
+export async function assignPersonnel(
+  request: APIRequestContext,
+  cookieHeader: string,
+  incidentId: string,
+  personnelId: string,
+): Promise<{ id: string }> {
+  const response = await request.post(`${API_BASE}/api/incidents/${incidentId}/assign`, {
+    headers: jsonHeaders(cookieHeader),
+    data: { resource_type: 'personnel', resource_id: personnelId },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
+}
+
+/**
+ * Pin this assignment's person as Einsatzleiter.
+ *
+ * Deliberate rather than relying on the automatic resolver: pinning also sets
+ * `Incident.leader_manual`, so nothing that happens later in a spec can re-derive
+ * the role and change the name the assertions read.
+ */
+export async function pinLeader(
+  request: APIRequestContext,
+  cookieHeader: string,
+  incidentId: string,
+  assignmentId: string,
+): Promise<void> {
+  const response = await request.patch(
+    `${API_BASE}/api/incidents/${incidentId}/assignments/${assignmentId}`,
+    { headers: jsonHeaders(cookieHeader), data: { is_leader: true } },
+  );
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
+/** Move an incident between kanban columns without touching the board. */
+export async function setIncidentStatus(
+  request: APIRequestContext,
+  cookieHeader: string,
+  incidentId: string,
+  from: TestIncidentStatus,
+  to: TestIncidentStatus,
+): Promise<void> {
+  const response = await request.post(`${API_BASE}/api/incidents/${incidentId}/status`, {
+    headers: jsonHeaders(cookieHeader),
+    data: { from_status: from, to_status: to },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
+/**
+ * Remove a test Ereignis and everything hanging off it.
+ *
+ * Two calls, because `DELETE /api/events/{id}` refuses an event that is not
+ * archived (`backend/app/api/events.py`) — a bare DELETE answers 400 and, if
+ * nobody checks the status, leaves the event behind. The dev database is the
+ * user's own board, so a suite that arranges freely has to tidy up properly.
+ */
+export async function deleteEvent(
+  request: APIRequestContext,
+  cookieHeader: string,
+  eventId: string,
+): Promise<void> {
+  await request.post(`${API_BASE}/api/events/${eventId}/archive`, { headers: jsonHeaders(cookieHeader) });
+  const deleted = await request.delete(`${API_BASE}/api/events/${eventId}`, {
+    headers: jsonHeaders(cookieHeader),
+  });
+  expect(deleted.ok(), await deleted.text()).toBeTruthy();
+}
+
+/** The one global `/feld` link of an Ereignis — what the printed poster carries. */
+export async function generateFeldLink(
+  request: APIRequestContext,
+  cookieHeader: string,
+  eventId: string,
+): Promise<string> {
+  const response = await request.post(`${API_BASE}/api/feld/generate-link?event_id=${eventId}`, {
+    headers: jsonHeaders(cookieHeader),
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const { link } = await response.json();
+  expect(link).toContain('/feld?token=');
+  return link;
+}
