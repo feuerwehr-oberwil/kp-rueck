@@ -166,13 +166,6 @@ class FeldMessageRequest(BaseModel):
 # different identity; a second shape here is how the KP path silently loses a
 # field six months later.
 
-# The paper's damage-type checkboxes. Deliberately NOT `IncidentType`, which
-# carries the Swiss statistics vocabulary — this is a sub-classification of one
-# of its values and writing it into `Incident.type` would corrupt that vocabulary
-# for the sake of a checkbox (decision 8). Mirrors the `valid_damage_type`
-# CheckConstraint; keep the two in step.
-DamageType = Literal["wasserschaden", "sturmschaden", "schneebruch", "anderes"]
-
 
 class RapportMaterialRow(BaseModel):
     """One material unit on the checklist (decision 14).
@@ -211,6 +204,34 @@ class RapportMaterialUpdate(BaseModel):
     left_on_site: bool = False
 
 
+class RapportVehicleRow(BaseModel):
+    """One vehicle on the checklist — the crew confirms *which*, not how many.
+
+    Deliberately the same shape as ``RapportMaterialRow``: keyed on the
+    **assignment**, prefilled ticked, and surviving with ``on_board=False`` once
+    the board takes the vehicle off an incident whose crew already answered.
+
+    ``present`` has no third state, unlike the material ``used``: the list is
+    prefilled from the board, so an untouched row already carries the board's
+    own answer and "keine Angabe" would only mean "did not correct it".
+    """
+
+    assignment_id: UUID
+    vehicle_id: UUID | None = None
+    name: str
+    present: bool = True
+    # False once the board no longer has this vehicle assigned. The row survives
+    # because the crew answered it — deleting it would lose the correction.
+    on_board: bool = True
+
+
+class RapportVehicleUpdate(BaseModel):
+    """The one tick, as the form sends it back."""
+
+    assignment_id: UUID
+    present: bool = True
+
+
 class ConcurrentEditor(BaseModel):
     """ "Frey Marc bearbeitet diesen Rapport gerade" (§3).
 
@@ -229,7 +250,7 @@ class RapportPrefill(BaseModel):
     """What the board knows, computed on every GET and never written (§4).
 
     These are defaults and orientation, never authoritative once the crew has
-    touched the form. The two board counts stay on the response after a
+    touched the form. The board's head count stays on the response after a
     correction as well — that is what lets the form (and the export) say
     "vom Board: 6" next to a corrected 8.
     """
@@ -248,11 +269,16 @@ class RapportPrefill(BaseModel):
     melder_street: str | None = None
     melder_city: str | None = None
     board_personnel_count: int = 0
-    board_vehicle_count: int = 0
     # The prefill defaults for the two time fields, kept separate from the
     # stored values so the form can tell "board says" from "crew typed".
     default_work_started_at: datetime | None = None
     default_work_ended_at: datetime | None = None
+    # Names from the material catalogue for the "Weiteres Material" autosuggest.
+    # A naming aid, nothing else: it deliberately carries NO ids, precisely so no
+    # client can turn it into a picker. `/feld` must never write an assignment —
+    # that is a different authorization and a different conflict problem — and a
+    # suggestion that cannot be resolved to a unit cannot become one by accident.
+    material_name_suggestions: list[str] = []
 
 
 class SchadenplatzRapport(BaseModel):
@@ -267,12 +293,13 @@ class SchadenplatzRapport(BaseModel):
     is_draft: bool = True
     submitted_at: datetime | None = None
 
-    damage_type: DamageType | None = None
-    damage_type_other: str | None = None
     work_started_at: datetime | None = None
     work_ended_at: datetime | None = None
 
     materials: list[RapportMaterialRow] = []
+    # Prefilled from the board's vehicle assignments, all ticked. The crew
+    # unticks what was not actually there.
+    vehicles: list[RapportVehicleRow] = []
     # Filenames, not URLs. Read back through the shared
     # `GET /api/photos/{incident_id}/{filename}` — the same endpoint the Reko
     # form uses, because the bytes on disk are not per-door. Both mounts render
@@ -292,8 +319,6 @@ class SchadenplatzRapport(BaseModel):
 
     personnel_count: int | None = None
     personnel_count_corrected: bool = False
-    vehicle_count: int | None = None
-    vehicle_count_corrected: bool = False
     # Frozen at submit; null while the report is a draft.
     cost_snapshot_json: list[dict[str, str | None]] | None = None
 
@@ -324,12 +349,11 @@ class RapportUpdate(BaseModel):
     # freezes `cost_snapshot_json` and emits `rapport_submitted`.
     is_draft: bool = True
 
-    damage_type: DamageType | None = None
-    damage_type_other: str | None = Field(default=None, max_length=200)
     work_started_at: datetime | None = None
     work_ended_at: datetime | None = None
 
     materials: list[RapportMaterialUpdate] | None = None
+    vehicles: list[RapportVehicleUpdate] | None = None
     extra_material_note: str | None = Field(default=None, max_length=1000)
 
     kurzbericht: str | None = Field(default=None, max_length=5000)
@@ -342,7 +366,6 @@ class RapportUpdate(BaseModel):
     vehicle_model: str | None = Field(default=None, max_length=100)
 
     personnel_count: int | None = Field(default=None, ge=0, le=999)
-    vehicle_count: int | None = Field(default=None, ge=0, le=999)
 
 
 class RestlisteIncident(BaseModel):

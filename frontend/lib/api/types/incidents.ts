@@ -89,6 +89,7 @@ export interface ApiIncident {
   /** A submitted Schadenplatz-Rapport exists (the "kein Rapport" marker reads
    *  this; it lands with the form in phase 2). */
   has_schadenplatz_rapport?: boolean
+  has_schadenplatz_rapport_draft?: boolean
   /** "Abholung nötig": the crew is finished and cannot get back on its own.
    *  NOT a status, and deliberately NOT cleared when the card is completed —
    *  that transition releases the personnel while they are still standing at

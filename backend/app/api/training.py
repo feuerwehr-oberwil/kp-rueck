@@ -778,15 +778,12 @@ async def _file_simulated_rapport(
     """Generate one plausible rapport and file it through the shared upsert.
 
     Everything the KP feels — the card badge, "Material zurück – freigeben", the
-    Restliste, the Kostenpflicht export — comes out of this one call, because it
+    Restliste, the Einsätze export — comes out of this one call, because it
     is the same ``save_rapport`` an operator and a crew both reach.
     """
-    # The German Schadensart vocabulary is owned by the report service; the
-    # console reuses it rather than keeping a second copy that drifts.
-    from ..services.pdf_report_service import DAMAGE_TYPE_LABELS
-
     actor = await _simulated_filer(db, incident, current_user, rng)
-    prefill = (await feld_crud.get_rapport(db, incident, actor=actor))["prefill"]
+    view = await feld_crud.get_rapport(db, incident, actor=actor)
+    prefill = view["prefill"]
     units = await _simulated_material_units(db, incident.id)
 
     data = generate_rapport_data(
@@ -794,8 +791,9 @@ async def _file_simulated_rapport(
         title=incident.title,
         description=incident.description,
         materials=units,
+        # The prefilled checklist itself, which is what a crew answers against.
+        vehicles=[{"assignment_id": row["assignment_id"]} for row in view["vehicles"]],
         board_personnel_count=prefill["board_personnel_count"],
-        board_vehicle_count=prefill["board_vehicle_count"],
         default_work_started_at=prefill["default_work_started_at"],
         default_work_ended_at=prefill["default_work_ended_at"],
         rng=rng,
@@ -803,15 +801,13 @@ async def _file_simulated_rapport(
     saved = await feld_crud.save_rapport(db, incident, actor=actor, payload=RapportUpdate(**data), request=request)
 
     ticked = sum(1 for row in saved["materials"] if row["used"] or row["left_on_site"])
-    damage_type = saved.get("damage_type")
-    schadensart = f" · {DAMAGE_TYPE_LABELS[damage_type]}" if damage_type in DAMAGE_TYPE_LABELS else ""
     return SimulateRapportResponse(
         incident_id=incident.id,
         incident_title=incident.title,
         filed_by=actor.personnel_name,
-        damage_type=damage_type,
+        vehicles_present=sum(1 for row in saved["vehicles"] if row["present"]),
         materials_ticked=ticked,
-        message=f"Rapport erfasst: {incident.location_address or incident.title}{schadensart}{actor.suffix}",
+        message=f"Rapport erfasst: {incident.location_address or incident.title}{actor.suffix}",
     )
 
 
@@ -826,7 +822,7 @@ async def simulate_rapport(
     """Inject "Rapport eingetroffen": one filled and submitted Schadenplatz-Rapport.
 
     Trains the KP side of plan 25 — the badge, the return list, the Restliste,
-    the Kostenpflicht export — without forty phones in the room. The content
+    the Einsätze export — without forty phones in the room. The content
     follows ``RAPPORT_SIM_PROFILE``: realistically patchy, because chasing the
     gaps is the skill being trained.
     """

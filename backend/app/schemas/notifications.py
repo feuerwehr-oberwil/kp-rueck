@@ -16,7 +16,15 @@ class NotificationSeverity(str, Enum):
 
 
 class NotificationType(str, Enum):
-    """Notification types."""
+    """Notification types.
+
+    Must stay in sync with the ``valid_notification_type`` CHECK constraint on
+    ``models.Notification`` — this enum is the response model, so a type the DB
+    happily stores but this enum does not know is not a missing bell entry: it
+    is a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``
+    response and blanks the operator's bell. That is exactly how the five
+    ``/feld`` types (plan 25) went missing.
+    """
 
     TIME_OVERDUE = "time_overdue"
     NO_PERSONNEL = "no_personnel"
@@ -28,6 +36,12 @@ class NotificationType(str, Enum):
     REKO_ARRIVED = "reko_arrived"
     TRAINING_EMERGENCY = "training_emergency"
     VEHICLE_ARRIVED = "vehicle_arrived"
+    # Field reporting (/feld, plan 25)
+    RAPPORT_SUBMITTED = "rapport_submitted"
+    FIELD_ARRIVED = "field_arrived"
+    FIELD_COMPLETE = "field_complete"
+    FIELD_MESSAGE = "field_message"
+    FIELD_PICKUP = "field_pickup"
 
 
 class NotificationResponse(BaseModel):

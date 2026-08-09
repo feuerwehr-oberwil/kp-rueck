@@ -56,7 +56,8 @@ export interface ApiSimulatedRapport {
   incident_id: string
   incident_title: string
   filed_by: string | null
-  damage_type: string | null
+  /** How many of the incident's vehicles the simulated crew confirmed as present. */
+  vehicles_present: number
   materials_ticked: number
   message: string
 }

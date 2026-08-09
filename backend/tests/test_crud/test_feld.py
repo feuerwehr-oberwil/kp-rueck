@@ -28,6 +28,7 @@ from app.models import (
     User,
     Vehicle,
 )
+from app.schemas.feld import RapportUpdate
 
 ACTOR = crud.FieldActor(personnel_id=uuid.uuid4(), personnel_name="Muster Hans")
 
@@ -222,7 +223,7 @@ class TestPrefillWorkEnded:
 
 
 class TestPrefillRest:
-    """Address, Einsatzleiter, Melder, and the two Kostenpflicht counts."""
+    """Address, Einsatzleiter, Melder, the head count and the material suggestions."""
 
     @pytest.mark.asyncio
     async def test_melder_is_offered_for_copying_never_equated(
@@ -257,7 +258,7 @@ class TestPrefillRest:
         assert view["prefill"]["leader_name"] == "Frey Marc"
 
     @pytest.mark.asyncio
-    async def test_counts_are_distinct_resources_and_include_released_ones(
+    async def test_head_count_is_distinct_people_and_includes_released_ones(
         self, db_session: AsyncSession, test_event: Event, test_user: User
     ):
         incident = await _incident(db_session, test_event, test_user)
@@ -273,10 +274,29 @@ class TestPrefillRest:
 
         view = await crud.get_rapport(db_session, incident, actor=ACTOR)
         assert view["prefill"]["board_personnel_count"] == 1
-        assert view["prefill"]["board_vehicle_count"] == 1
-        # And they are the defaults the form opens with.
+        # And it is the default the form opens with.
         assert view["personnel_count"] == 1
-        assert view["vehicle_count"] == 1
+        # The vehicle half is a LIST now, and its length is the count.
+        assert [row["name"] for row in view["vehicles"]] == ["TLF 1"]
+        assert "board_vehicle_count" not in view["prefill"]
+
+    @pytest.mark.asyncio
+    async def test_material_name_suggestions_are_names_and_nothing_else(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # A naming aid for "Weiteres Material" — deliberately no ids, so no
+        # client can turn the autosuggest into a picker that writes assignments.
+        incident = await _incident(db_session, test_event, test_user)
+        await _material(db_session, "Zulu-Schaufel")
+        await _material(db_session, "Alpha-Blache")
+
+        suggestions = (await crud.get_rapport(db_session, incident, actor=ACTOR))["prefill"][
+            "material_name_suggestions"
+        ]
+        assert "Zulu-Schaufel" in suggestions
+        assert "Alpha-Blache" in suggestions
+        assert suggestions == sorted(suggestions)
+        assert all(isinstance(name, str) for name in suggestions)
 
     @pytest.mark.asyncio
     async def test_a_get_never_creates_a_row(self, db_session: AsyncSession, test_event: Event, test_user: User):
@@ -454,6 +474,136 @@ class TestMaterialReconciliation:
 
         view = await crud.get_rapport(db_session, incident, actor=ACTOR)
         assert [row["location"] for row in view["materials"]] == ["Magazin A", "Magazin B"]
+
+
+class TestVehicleChecklist:
+    """The crew confirms WHICH vehicles — prefilled ticked, reconciled like material."""
+
+    async def _actor(self, db: AsyncSession) -> crud.FieldActor:
+        """A filer that really exists — `save_rapport` stores the provenance id."""
+        person = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        db.add(person)
+        await db.commit()
+        return crud.FieldActor(personnel_id=person.id, personnel_name=person.name)
+
+    async def _vehicle(self, db: AsyncSession, name: str, *, display_order: int = 0) -> Vehicle:
+        vehicle = Vehicle(
+            id=uuid.uuid4(),
+            name=name,
+            type="TLF",
+            status="available",
+            display_order=display_order,
+        )
+        db.add(vehicle)
+        await db.commit()
+        await db.refresh(vehicle)
+        return vehicle
+
+    @pytest.mark.asyncio
+    async def test_every_assigned_vehicle_prefills_ticked_including_released_ones(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The board says the vehicle was there; the crew's job is to contradict
+        # that, not to confirm it by hand. A vehicle that drove back early was
+        # still at the Schadenplatz.
+        incident = await _incident(db_session, test_event, test_user)
+        tlf = await self._vehicle(db_session, "TLF 1", display_order=1)
+        mtw = await self._vehicle(db_session, "MTW", display_order=2)
+        await _assign(db_session, incident, "vehicle", tlf.id)
+        await _assign(db_session, incident, "vehicle", mtw.id, released=True)
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert [row["name"] for row in view["vehicles"]] == ["TLF 1", "MTW"]
+        assert all(row["present"] is True and row["on_board"] is True for row in view["vehicles"])
+
+    @pytest.mark.asyncio
+    async def test_unticking_one_round_trips(self, db_session: AsyncSession, test_event: Event, test_user: User):
+        incident = await _incident(db_session, test_event, test_user)
+        tlf = await self._vehicle(db_session, "TLF 1", display_order=1)
+        mtw = await self._vehicle(db_session, "MTW", display_order=2)
+        tlf_assignment = await _assign(db_session, incident, "vehicle", tlf.id)
+        mtw_assignment = await _assign(db_session, incident, "vehicle", mtw.id)
+        actor = await self._actor(db_session)
+
+        saved = await crud.save_rapport(
+            db_session,
+            incident,
+            actor=actor,
+            payload=RapportUpdate(
+                vehicles=[
+                    {"assignment_id": tlf_assignment.id, "present": True},
+                    {"assignment_id": mtw_assignment.id, "present": False},
+                ]
+            ),
+        )
+        assert {row["name"]: row["present"] for row in saved["vehicles"]} == {"TLF 1": True, "MTW": False}
+
+        # And it is still there on the next GET, not recomputed from the board.
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert {row["name"]: row["present"] for row in view["vehicles"]} == {"TLF 1": True, "MTW": False}
+
+    @pytest.mark.asyncio
+    async def test_a_vehicle_the_board_removed_survives_when_the_crew_unticked_it(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The crew contradicted the board; deleting the row would lose exactly
+        # the correction the checklist exists to capture.
+        incident = await _incident(db_session, test_event, test_user)
+        gone = uuid.uuid4()
+        await _report(
+            db_session,
+            incident,
+            vehicles_json=[
+                {
+                    "assignment_id": str(gone),
+                    "vehicle_id": str(uuid.uuid4()),
+                    "name": "MTW",
+                    "present": False,
+                }
+            ],
+        )
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert len(view["vehicles"]) == 1
+        assert view["vehicles"][0]["name"] == "MTW"
+        assert view["vehicles"][0]["present"] is False
+        assert view["vehicles"][0]["on_board"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_vehicle_the_board_removed_drops_when_it_was_still_ticked(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # A still-ticked row carries nothing the board does not already know.
+        incident = await _incident(db_session, test_event, test_user)
+        await _report(
+            db_session,
+            incident,
+            vehicles_json=[
+                {
+                    "assignment_id": str(uuid.uuid4()),
+                    "vehicle_id": str(uuid.uuid4()),
+                    "name": "Nie angefasst",
+                    "present": True,
+                }
+            ],
+        )
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert view["vehicles"] == []
+
+    @pytest.mark.asyncio
+    async def test_submitting_freezes_the_prefilled_list_even_if_nobody_touched_it(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user)
+        tlf = await self._vehicle(db_session, "TLF 1")
+        await _assign(db_session, incident, "vehicle", tlf.id)
+        actor = await self._actor(db_session)
+
+        await crud.save_rapport(db_session, incident, actor=actor, payload=RapportUpdate(is_draft=False))
+
+        stored = (await crud._rapport_states(db_session, [incident.id]))[incident.id]
+        assert [row["name"] for row in stored.vehicles_json or []] == ["TLF 1"]
 
 
 class TestMaterialReturnUnits:

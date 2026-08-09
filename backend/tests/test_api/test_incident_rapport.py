@@ -574,8 +574,6 @@ class TestRapportParity:
     # that is a plain report field; the checklist, the counts and the submit get
     # their own tests below because they have behaviour, not just storage.
     FIELDS: list[tuple[str, object, str]] = [
-        ("damage_type", "sturmschaden", "damage_type"),
-        ("damage_type_other", "Blitzschlag", "damage_type_other"),
         ("kurzbericht", "Baum auf Fahrbahn, zersägt und geräumt.", "kurzbericht"),
         ("handed_over_to", "Werkhof Oberwil", "handed_over_to"),
         ("extra_material_note", "Seil vom TLF geborgt", "extra_material_note"),
@@ -681,7 +679,6 @@ class TestRapportParity:
             f"/api/incidents/{incident.id}/rapport",
             json={
                 "is_draft": False,
-                "damage_type": "sturmschaden",
                 "kurzbericht": "Über Funk: Baum entfernt.",
             },
         )

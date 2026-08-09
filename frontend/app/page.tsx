@@ -19,7 +19,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, HardHat } from 'lucide-react'
+import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -1711,7 +1711,7 @@ export default function FireStationDashboard() {
               {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
               <button
                 onClick={() => setShowLeftSidebar(false)}
-                className="absolute right-0 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer translate-x-1/2 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                className="absolute right-0 top-1/2 translate-x-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
                 title={`${tDash('toggleLeftSidebar')} ([)`}
                 aria-label={tDash('toggleLeftSidebar')}
               >
@@ -1811,11 +1811,16 @@ export default function FireStationDashboard() {
             </aside>
           )}
 
-          {/* Left sidebar reopen tab (shown when collapsed; "[" also toggles) */}
+          {/* Left sidebar reopen tab (shown when collapsed; "[" also toggles).
+              The SAME pill as the collapse handle above, inset from the window
+              edge instead of flush against it. A half-rounded tab with one
+              border side removed reads as a control the window had cut in half,
+              and it changed shape, z-layer and background every time a sidebar
+              was collapsed. One shape, one size, going in and coming out. */}
           {!showLeftSidebar && (
             <button
               onClick={() => setShowLeftSidebar(true)}
-              className="absolute left-0 top-1/2 z-10 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute left-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleLeftSidebar')} ([)`}
               aria-label={tDash('toggleLeftSidebar')}
             >
@@ -1915,7 +1920,7 @@ export default function FireStationDashboard() {
               {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
               <button
                 onClick={() => setShowRightSidebar(false)}
-                className="absolute left-0 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer -translate-x-1/2 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                className="absolute left-0 top-1/2 -translate-x-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
                 title={`${tDash('toggleRightSidebar')} (])`}
                 aria-label={tDash('toggleRightSidebar')}
               >
@@ -2009,11 +2014,12 @@ export default function FireStationDashboard() {
             </aside>
           )}
 
-          {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles) */}
+          {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles).
+              Mirrors the left one — see the note there. */}
           {!showRightSidebar && (
             <button
               onClick={() => setShowRightSidebar(true)}
-              className="absolute right-0 top-1/2 z-10 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-l-md border border-r-0 border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute right-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleRightSidebar')} (])`}
               aria-label={tDash('toggleRightSidebar')}
             >
@@ -2078,7 +2084,7 @@ export default function FireStationDashboard() {
                   onActivate={generateRekoDashboardQR}
                 />
                 <ToolbarToggle
-                  icon={HardHat}
+                  icon={Axe}
                   label={tDash('feld')}
                   active={feldQrDialogOpen}
                   onActivate={generateFeldQR}

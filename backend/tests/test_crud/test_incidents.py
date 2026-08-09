@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
 from app.crud import incidents as incident_crud
-from app.models import Incident, IncidentAssignment, User, Vehicle
+from app.models import Incident, IncidentAssignment, SchadenplatzReport, User, Vehicle
 
 
 @pytest.fixture
@@ -171,6 +171,49 @@ class TestIncidentCRUD:
         assert our_incident is not None
         assert len(our_incident.assigned_vehicles) == 1
         assert our_incident.assigned_vehicles[0].vehicle_id == test_vehicle.id
+
+    async def test_rapport_flags_tell_a_draft_from_a_filed_one(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+    ):
+        """A draft and a filed rapport are different states, on both read paths.
+
+        The board needs to tell "nobody filed" from "somebody started and walked
+        away" — the second is the actionable gap, and it used to be invisible
+        because only the filed flag existed.
+        """
+        db_session.add(SchadenplatzReport(id=uuid4(), incident_id=test_incident.id, is_draft=True))
+        await db_session.commit()
+
+        single = await incident_crud.get_incident(db_session, test_incident.id)
+        assert single is not None
+        assert single.has_schadenplatz_rapport is False
+        assert single.has_schadenplatz_rapport_draft is True
+
+        listed = await incident_crud.get_incidents(db_session)
+        ours = next(inc for inc in listed if inc.id == test_incident.id)
+        assert ours.has_schadenplatz_rapport is False
+        assert ours.has_schadenplatz_rapport_draft is True
+
+    async def test_a_filed_rapport_clears_the_draft_flag(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+    ):
+        """The two flags are mutually exclusive — never both, never neither-when-a-row-exists."""
+        db_session.add(SchadenplatzReport(id=uuid4(), incident_id=test_incident.id, is_draft=False))
+        await db_session.commit()
+
+        single = await incident_crud.get_incident(db_session, test_incident.id)
+        assert single is not None
+        assert single.has_schadenplatz_rapport is True
+        assert single.has_schadenplatz_rapport_draft is False
+
+        listed = await incident_crud.get_incidents(db_session)
+        ours = next(inc for inc in listed if inc.id == test_incident.id)
+        assert ours.has_schadenplatz_rapport is True
+        assert ours.has_schadenplatz_rapport_draft is False
 
     async def test_get_incident_excludes_personnel_assignments(
         self,

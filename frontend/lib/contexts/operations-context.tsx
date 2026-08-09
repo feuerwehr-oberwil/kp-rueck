@@ -120,6 +120,10 @@ export interface Operation {
    *  Drives the card chip, and the muted "kein Rapport" marker once a card
    *  reaches `complete` without one — a marker, never a block (decision 10). */
   hasSchadenplatzRapport?: boolean
+  /** A rapport row exists but is still a DRAFT — somebody started and walked
+   *  away. Mutually exclusive with the flag above; the detail's Rapport tab
+   *  tells the two apart because at 02:00 they read very differently. */
+  hasSchadenplatzRapportDraft?: boolean
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
   /** Name of the crew member marked Einsatzleiter for THIS incident, or null.
@@ -449,6 +453,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       pickupRequestedAt: incident.pickup_requested_at ? new Date(incident.pickup_requested_at) : null,
       pickupRequestedBy: incident.pickup_requested_by ?? null,
       hasSchadenplatzRapport: incident.has_schadenplatz_rapport ?? false,
+      hasSchadenplatzRapportDraft: incident.has_schadenplatz_rapport_draft ?? false,
       rekoSummary: null,
       assignedReko: null,
       leaderName: null,

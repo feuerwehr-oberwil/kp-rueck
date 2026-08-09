@@ -342,7 +342,7 @@ class TestSeedDemoEventContent:
         report = reports[0]
         incident = incident_by_id[report.incident_id]
 
-        # Filed, not a draft: the badge, the return list and the Kostenpflicht
+        # Filed, not a draft: the badge, the return list and the Einsätze
         # export all key on a submitted rapport.
         assert report.is_draft is False
         assert report.submitted_at is not None

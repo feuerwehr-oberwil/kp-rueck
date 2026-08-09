@@ -367,6 +367,10 @@ class Incident(Base):
     has_completed_reko: bool
     reko_arrived_at: datetime | None
     has_schadenplatz_rapport: bool
+    # The same query's other answer: a rapport row exists but is still a draft.
+    # Kept as its own flag rather than derived, because "nobody filed" and
+    # "somebody started and walked away" are different states on the board.
+    has_schadenplatz_rapport_draft: bool
     # "Angekommen" from /feld. It lives on schadenplatz_reports (one row per incident),
     # so the board's list query batches it onto the incident the same way reko_arrived_at
     # is batched — the detail's "Feldmeldungen" row needs it without a second round trip.
@@ -805,11 +809,6 @@ class SchadenplatzReport(Base):
     )
 
     # --- Einsatzdaten ---
-    # 'wasserschaden' | 'sturmschaden' | 'schneebruch' | 'anderes'.
-    # Deliberately NOT Incident.type — that column carries the Swiss statistics
-    # vocabulary (IncidentType), and this is a sub-classification of one of its values.
-    damage_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    damage_type_other: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Derived on first open from the arrival ping / status transitions, then editable.
     work_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     work_ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -835,13 +834,16 @@ class SchadenplatzReport(Base):
     vehicle_plate: Mapped[str | None] = mapped_column(String(50), nullable=True)
     vehicle_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    # --- Kostenpflicht ---
-    # Derived defaults, overwritable. The *_corrected flags exist so the export can
-    # say "the crew disagreed with the board" instead of silently showing one number.
+    # --- Mannschaft und Fahrzeuge, as the crew confirms them ---
+    # The head count is a number the crew corrects; the vehicles are a checklist it
+    # ticks, the same shape as the material one. `personnel_count_corrected` exists
+    # so the outputs can say "the crew disagreed with the board" instead of silently
+    # showing one number.
     personnel_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     personnel_count_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    vehicle_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    vehicle_count_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Vehicle checklist, one entry per vehicle assignment, prefilled all-ticked:
+    #   {"assignment_id": ..., "vehicle_id": ..., "name": "TLF 1", "present": true}
+    vehicles_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
     # Frozen at submit: [{"kind": "personnel", "name": ..., "from": ..., "to": ...}, ...]
     cost_snapshot_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
 
@@ -892,13 +894,7 @@ class SchadenplatzReport(Base):
 
     incident: Mapped["Incident"] = relationship("Incident", back_populates="schadenplatz_report")
 
-    __table_args__ = (
-        UniqueConstraint("incident_id", name="uq_schadenplatz_report_incident"),
-        CheckConstraint(
-            "damage_type IS NULL OR damage_type IN ('wasserschaden', 'sturmschaden', 'schneebruch', 'anderes')",
-            name="valid_damage_type",
-        ),
-    )
+    __table_args__ = (UniqueConstraint("incident_id", name="uq_schadenplatz_report_incident"),)
 
 
 # ============================================

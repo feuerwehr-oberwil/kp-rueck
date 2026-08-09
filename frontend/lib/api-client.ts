@@ -1173,16 +1173,18 @@ class ApiClient {
     return response.blob()
   }
 
-  // Kostenpflicht — one billing row per Schadenplatz (XLSX, plan 25 §7)
-  async exportEventKostenpflicht(eventId: string): Promise<Blob> {
-    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/kostenpflicht.xlsx`
+  // Einsätze — one wide row per Schadenplatz (XLSX, plan 25 §7). Somebody
+  // still retypes it into the billing system by hand; it just does not need
+  // that name on it.
+  async exportEventEinsaetze(eventId: string): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/einsaetze.xlsx`
     const response = await fetch(url, {
       method: 'GET',
       credentials: 'include',
     })
 
     if (!response.ok) {
-      throw new Error(`Kostenpflicht export failed: ${response.statusText}`)
+      throw new Error(`Einsaetze export failed: ${response.statusText}`)
     }
 
     return response.blob()

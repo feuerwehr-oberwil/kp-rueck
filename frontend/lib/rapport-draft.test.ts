@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ApiRapportMaterialRow, ApiSchadenplatzRapport } from '@/lib/api/types'
+import type {
+  ApiRapportMaterialRow,
+  ApiRapportVehicleRow,
+  ApiSchadenplatzRapport,
+} from '@/lib/api/types'
 import {
   EMPTY_RAPPORT_FORM,
   groupMaterialsByLocation,
@@ -8,6 +12,7 @@ import {
   isCorrected,
   mergeDraft,
   mergeMaterialTicks,
+  mergeVehicleTicks,
   toFormData,
   toUpdate,
   type RapportFormData,
@@ -27,17 +32,27 @@ function material(overrides: Partial<ApiRapportMaterialRow> = {}): ApiRapportMat
   }
 }
 
+function vehicle(overrides: Partial<ApiRapportVehicleRow> = {}): ApiRapportVehicleRow {
+  return {
+    assignment_id: 'v1',
+    vehicle_id: 'f1',
+    name: 'TLF Oberwil',
+    present: true,
+    on_board: true,
+    ...overrides,
+  }
+}
+
 function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenplatzRapport {
   return {
     incident_id: 'i1',
     exists: true,
     is_draft: true,
     submitted_at: null,
-    damage_type: null,
-    damage_type_other: null,
     work_started_at: null,
     work_ended_at: null,
     materials: [],
+    vehicles: [],
     photos: [],
     extra_material_note: null,
     kurzbericht: null,
@@ -49,8 +64,6 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
     vehicle_model: null,
     personnel_count: 6,
     personnel_count_corrected: false,
-    vehicle_count: 1,
-    vehicle_count_corrected: false,
     cost_snapshot_json: null,
     arrived_at: null,
     created_by_name: null,
@@ -68,9 +81,9 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
       melder_street: 'Hauptstrasse 4, Oberwil',
       melder_city: null,
       board_personnel_count: 6,
-      board_vehicle_count: 1,
       default_work_started_at: null,
       default_work_ended_at: null,
+      material_name_suggestions: ['Nassauger', 'Tauchpumpe TP-4'],
     },
     ...overrides,
   }
@@ -82,8 +95,13 @@ function form(overrides: Partial<RapportFormData> = {}): RapportFormData {
 
 describe('hasContent', () => {
   it('is false for a form nobody has typed in', () => {
-    // A prefilled count is not content: every rapport opens with one.
-    expect(hasContent(form({ personnel_count: 6, vehicle_count: 1 }))).toBe(false)
+    // A prefilled count is not content, and neither is the vehicle list: every
+    // rapport opens with a count and an all-ticked fleet.
+    expect(hasContent(form({ personnel_count: 6, vehicles: [vehicle()] }))).toBe(false)
+  })
+
+  it('counts an UNticked vehicle — the only evidence somebody answered', () => {
+    expect(hasContent(form({ vehicles: [vehicle({ present: false })] }))).toBe(true)
   })
 
   it('counts a single material tick', () => {
@@ -92,8 +110,7 @@ describe('hasContent', () => {
     expect(hasContent(form({ materials: [material()] }))).toBe(false)
   })
 
-  it('counts the damage type and every text field', () => {
-    expect(hasContent(form({ damage_type: 'sturmschaden' }))).toBe(true)
+  it('counts every text field', () => {
     expect(hasContent(form({ kurzbericht: '   ' }))).toBe(false)
     expect(hasContent(form({ kurzbericht: 'Keller ausgepumpt' }))).toBe(true)
     expect(hasContent(form({ owner_name: 'A. Bürgin' }))).toBe(true)
@@ -168,6 +185,34 @@ describe('mergeDraft', () => {
     expect(result.form.materials[0].left_on_site).toBe(true)
     expect(result.form.materials[1].used).toBeNull()
   })
+
+  it('takes the vehicle list from the server and folds the local ticks onto it', () => {
+    const server = rapport({
+      vehicles: [vehicle({ assignment_id: 'v1' }), vehicle({ assignment_id: 'v2', name: 'MTW' })],
+    })
+    const result = mergeDraft(server, {
+      data: form({ kurzbericht: 'Lokal', vehicles: [vehicle({ assignment_id: 'v1', present: false })] }),
+      timestamp: '2026-08-09T02:00:00Z',
+    })
+
+    expect(result.usedLocal).toBe(true)
+    expect(result.form.vehicles.map(row => row.assignment_id)).toEqual(['v1', 'v2'])
+    expect(result.form.vehicles[0].present).toBe(false)
+    expect(result.form.vehicles[1].present).toBe(true)
+  })
+})
+
+describe('mergeVehicleTicks', () => {
+  it('takes the fleet from the server and folds the local ticks onto it', () => {
+    const merged = mergeVehicleTicks(
+      [vehicle({ assignment_id: 'v1' }), vehicle({ assignment_id: 'v2', name: 'MTW' })],
+      [vehicle({ assignment_id: 'v1', present: false })],
+    )
+    expect(merged.map(row => row.assignment_id)).toEqual(['v1', 'v2'])
+    expect(merged[0].present).toBe(false)
+    // A vehicle the draft knows nothing about keeps the server's prefill.
+    expect(merged[1].present).toBe(true)
+  })
 })
 
 describe('mergeMaterialTicks', () => {
@@ -221,9 +266,15 @@ describe('toFormData / toUpdate', () => {
     expect(update.is_draft).toBe(false)
   })
 
-  it('drops the "Anderes" text when another damage type was picked', () => {
-    const update = toUpdate(form({ damage_type: 'sturmschaden', damage_type_other: 'Blitzschlag' }), true)
-    expect(update.damage_type_other).toBeNull()
+  it('round-trips the vehicle list as assignment ids and one tick', () => {
+    const data = toFormData(
+      rapport({ vehicles: [vehicle({ assignment_id: 'v1', present: false }), vehicle({ assignment_id: 'v2' })] }),
+    )
+    const update = toUpdate(data, true)
+    expect(update.vehicles).toEqual([
+      { assignment_id: 'v1', present: false },
+      { assignment_id: 'v2', present: true },
+    ])
   })
 })
 

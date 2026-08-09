@@ -6,6 +6,10 @@ import { toast, Toaster } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { isStringArray, readJson, removeItem, writeJson } from '@/lib/utils/safe-storage'
+import { planToastBurst, TOAST_BURST_LIMIT } from '@/lib/notification-policy'
+
+/** Stable identity — see the note on the `offset` prop below. */
+const TOASTER_OFFSET = { right: '16px', bottom: '80px' }
 
 const TOAST_DATA_KEY = 'shownToastData'
 const LEGACY_TOAST_IDS_KEY = 'shownToastIds'
@@ -71,7 +75,7 @@ function cleanupOldToastIds(): Set<string> {
 }
 
 export function NotificationToasts() {
-  const { notifications, dismissNotification, isSidebarOpen, settings } = useNotifications()
+  const { notifications, dismissNotification, isSidebarOpen, settings, openSidebar } = useNotifications()
   const isMobile = useIsMobile()
   // Non-critical toast lifetime (ms), configurable in notification settings.
   const toastDurationMs = Math.max(2, settings.toast_duration_seconds || 8) * 1000
@@ -116,48 +120,78 @@ export function NotificationToasts() {
       (n) => !n.dismissed && !shownToastIds.current.has(n.id)
     )
 
-    newNotifications.forEach((notification) => {
-      shownToastIds.current.add(notification.id)
+    // Guarded rather than early-returned: the dismissal sweep at the bottom has
+    // to run on every pass, new notifications or not.
+    if (newNotifications.length > 0) {
+      // A burst is the normal case, not the exception: one board load with
+      // twenty stale incidents produces twenty `time_overdue` warnings at once.
+      // Decide the whole batch up front — ordered oldest-first, capped, urgent
+      // ones exempt from the cap — instead of firing one toast per array entry
+      // in whatever order the API happened to return.
+      const { toast: toBeToasted, overflow } = planToastBurst(newNotifications, TOAST_BURST_LIMIT)
 
-      // Persist to localStorage with timestamp to prevent re-showing on page
-      // reload. Best-effort: if the write fails (quota), the worst case is
-      // this toast showing once more after a reload.
+      // Everything in the batch counts as seen, including the quiet and the
+      // summarised ones: they are in the bell, and re-toasting them on the next
+      // poll is how a burst becomes a permanent storm.
+      const now = Date.now()
       const storedData = getStoredToastData()
-      storedData.push({
-        id: notification.id,
-        timestamp: Date.now()
-      })
+      for (const notification of newNotifications) {
+        shownToastIds.current.add(notification.id)
+        storedData.push({ id: notification.id, timestamp: now })
+      }
+      // One write for the whole batch. The old code re-read AND re-wrote the
+      // full list once per notification — quadratic synchronous storage work in
+      // exactly the moment the UI was already busy.
       writeJson(TOAST_DATA_KEY, storedData)
 
-      const toastOptions = {
-        id: notification.id,
-        description: notification.message,
-        // Dismiss notification when toast is closed by any means
-        onDismiss: () => dismissNotification(notification.id),
-        action: notification.severity === 'critical' ? {
-          label: tCommon('close'),
-          // Close the toast, which will trigger onDismiss callback
-          onClick: () => toast.dismiss(notification.id),
-        } : undefined,
-      }
+      toBeToasted.forEach((notification) => {
+        const toastOptions = {
+          id: notification.id,
+          description: notification.message,
+          // Dismiss notification when toast is closed by any means
+          onDismiss: () => dismissNotification(notification.id),
+          action: notification.severity === 'critical' ? {
+            label: tCommon('close'),
+            // Close the toast, which will trigger onDismiss callback
+            onClick: () => toast.dismiss(notification.id),
+          } : undefined,
+        }
 
-      if (notification.severity === 'critical') {
-        toast.error(tToasts('criticalTitle'), {
-          ...toastOptions,
-          duration: Infinity, // Manual dismiss only
-        })
-      } else if (notification.severity === 'warning') {
-        toast.warning(tToasts('warningTitle'), {
-          ...toastOptions,
+        if (notification.severity === 'critical') {
+          toast.error(tToasts('criticalTitle'), {
+            ...toastOptions,
+            duration: Infinity, // Manual dismiss only
+          })
+        } else if (notification.severity === 'warning') {
+          toast.warning(tToasts('warningTitle'), {
+            ...toastOptions,
+            duration: toastDurationMs,
+          })
+        } else {
+          toast.info(tToasts('infoTitle'), {
+            ...toastOptions,
+            duration: toastDurationMs,
+          })
+        }
+      })
+
+      // The rest is one line, not fifteen toasts. Fixed id so a second burst
+      // replaces the summary instead of stacking another one behind it.
+      if (overflow.length > 0) {
+        toast.info(tToasts('overflowTitle', { count: overflow.length }), {
+          id: 'notification-overflow',
+          description: tToasts('overflowDescription'),
           duration: toastDurationMs,
-        })
-      } else {
-        toast.info(tToasts('infoTitle'), {
-          ...toastOptions,
-          duration: toastDurationMs,
+          action: {
+            label: tToasts('overflowAction'),
+            onClick: () => {
+              toast.dismiss('notification-overflow')
+              openSidebar()
+            },
+          },
         })
       }
-    })
+    }
 
     // Dismiss toasts for notifications that have been dismissed elsewhere (e.g., in sidebar)
     const dismissedNotifications = notifications.filter(
@@ -169,7 +203,7 @@ export function NotificationToasts() {
       toast.dismiss(notification.id)
       // Keep in shownToastIds to prevent re-showing
     })
-  }, [notifications, dismissNotification, isSidebarOpen, toastDurationMs])
+  }, [notifications, dismissNotification, isSidebarOpen, toastDurationMs, openSidebar])
 
   return (
     <Toaster
@@ -177,8 +211,14 @@ export function NotificationToasts() {
       // Hug the right edge (16px) so the stack stays out of the central board, and
       // sit just above the footer/nav (bottom floor is the footer + "Alle schliessen"
       // pill). Cap the visible stack so tall warning bursts don't climb into content.
-      offset={{ right: '16px', bottom: '80px' }}
-      visibleToasts={2}
+      //
+      // A module constant, not an inline literal: a fresh object on every render
+      // re-runs Sonner's positioning effect, which is what made toasts slide in
+      // from somewhere other than where they belong during a burst.
+      offset={TOASTER_OFFSET}
+      // Matches the burst budget (the "+N weitere" summary is counted inside it),
+      // so a planned burst lands at once instead of trickling in as timers expire.
+      visibleToasts={TOAST_BURST_LIMIT}
       closeButton
       expand={false}
       duration={toastDurationMs}

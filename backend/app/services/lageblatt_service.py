@@ -41,10 +41,10 @@ from .pdf_report_service import (
     PRIORITY_LABELS,
     STATUS_LABELS,
     TYPE_LABELS,
-    damage_type_label,
     format_location_for_display,
     material_left_on_site_names,
     rapport_by_incident,
+    vehicle_present_names,
 )
 
 # The handwriting continuation area: empty grid rows appended after the data.
@@ -300,12 +300,13 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     # written on.
     rapport = rapport_by_incident(data).get(inc.id)
     if rapport is not None:
-        if rapport.damage_type:
-            rows.append(("Schadensart", damage_type_label(rapport)))
         if rapport.work_started_at or rapport.work_ended_at:
             rows.append(("Tätigkeit", f"{_dt_full(rapport.work_started_at)} – {_dt_full(rapport.work_ended_at)}"))
         if rapport.handed_over_to:
             rows.append(("Übergeben an", rapport.handed_over_to))
+        rapport_vehicles = vehicle_present_names(rapport)
+        if rapport_vehicles:
+            rows.append(("Fahrzeuge", ", ".join(rapport_vehicles)))
         left = material_left_on_site_names(rapport)
         if left:
             rows.append(("Material vor Ort", ", ".join(left)))

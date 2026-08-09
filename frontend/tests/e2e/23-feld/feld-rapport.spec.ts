@@ -199,7 +199,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       await feld.openAssignment(incident.title);
       await expect(feld.rapportStateChip('kein Rapport').first()).toBeVisible();
 
-      await feld.fileRapport('Wasserschaden', 'Keller ausgepumpt, Wasser stand 20 cm.');
+      await feld.fileRapport('Keller ausgepumpt, Wasser stand 20 cm.');
       await expect(feld.rapportStateChip('Rapport erfasst').first()).toBeVisible();
     } finally {
       await phone.context().close();

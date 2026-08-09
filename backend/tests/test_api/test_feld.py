@@ -26,6 +26,7 @@ from app.models import (
     Personnel,
     SchadenplatzReport,
     User,
+    Vehicle,
 )
 from app.services.photo_storage import photo_storage
 from app.services.tokens import (
@@ -942,6 +943,20 @@ class TestRapport:
         await db.refresh(material)
         return material
 
+    async def _assign_vehicle(self, db: AsyncSession, incident: Incident, name: str) -> IncidentAssignment:
+        vehicle = Vehicle(id=uuid4(), name=name, type="TLF", status="available")
+        db.add(vehicle)
+        await db.commit()
+        assignment = IncidentAssignment(
+            incident_id=incident.id,
+            resource_type="vehicle",
+            resource_id=vehicle.id,
+        )
+        db.add(assignment)
+        await db.commit()
+        await db.refresh(assignment)
+        return assignment
+
     async def _assign_material(self, db: AsyncSession, incident: Incident, material: Material) -> IncidentAssignment:
         assignment = IncidentAssignment(
             incident_id=incident.id,
@@ -1074,11 +1089,10 @@ class TestRapport:
         corrected = await client.put(
             f"/api/feld/incidents/{incident.id}/rapport",
             params=params,
-            json={"is_draft": True, "personnel_count": 6, "vehicle_count": 0},
+            json={"is_draft": True, "personnel_count": 6},
         )
         assert corrected.status_code == 200
         assert corrected.json()["personnel_count_corrected"] is True
-        assert corrected.json()["vehicle_count_corrected"] is False
 
         agreeing = await client.put(
             f"/api/feld/incidents/{incident.id}/rapport",
@@ -1124,6 +1138,64 @@ class TestRapport:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_the_vehicle_checklist_prefills_ticked_and_unticking_round_trips(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # The crew confirms WHICH vehicles, not how many. The board's answer is
+        # already in the list, so the only thing the crew can add is a No.
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+        tlf = await self._assign_vehicle(db_session, incident, "TLF 1")
+        mtw = await self._assign_vehicle(db_session, incident, "MTW")
+
+        opened = await client.get(f"/api/feld/incidents/{incident.id}/rapport", params=params)
+        assert opened.status_code == 200
+        assert {row["name"]: row["present"] for row in opened.json()["vehicles"]} == {"TLF 1": True, "MTW": True}
+
+        saved = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={
+                "is_draft": True,
+                "vehicles": [
+                    {"assignment_id": str(tlf.id), "present": True},
+                    {"assignment_id": str(mtw.id), "present": False},
+                ],
+            },
+        )
+        assert saved.status_code == 200
+        assert {row["name"]: row["present"] for row in saved.json()["vehicles"]} == {"TLF 1": True, "MTW": False}
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_material_name_suggestions_are_names_without_ids(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # "Weiteres Material" stays free text: the autosuggest carries no ids
+        # precisely so no client can turn it into a picker that would make
+        # `/feld` a writer of assignments.
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        await self._material(db_session, "Zulu-Schaufel")
+
+        response = await client.get(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params={"token": token, "personnel_id": str(person.id)},
+        )
+        assert response.status_code == 200
+        suggestions = response.json()["prefill"]["material_name_suggestions"]
+        assert "Zulu-Schaufel" in suggestions
+        assert all(isinstance(name, str) for name in suggestions)
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_the_owner_block_is_stored_as_typed(
         self,
         client: AsyncClient,
@@ -1150,25 +1222,6 @@ class TestRapport:
         report = (await db_session.execute(select(SchadenplatzReport))).scalars().one()
         assert report.owner_name == "A. Bürgin"
         assert report.vehicle_plate == "BL 12345"
-
-    @pytest.mark.asyncio
-    @pytest.mark.api
-    async def test_a_bad_damage_type_is_rejected(
-        self,
-        client: AsyncClient,
-        db_session: AsyncSession,
-        test_event: Event,
-        test_user: User,
-    ):
-        # Mirrors the `valid_damage_type` CheckConstraint. Schadensart is its own
-        # field and never writes `Incident.type` (decision 8).
-        incident, person, token = await self._setup(db_session, test_event, test_user)
-        response = await client.put(
-            f"/api/feld/incidents/{incident.id}/rapport",
-            params={"token": token, "personnel_id": str(person.id)},
-            json={"is_draft": True, "damage_type": "elementarereignis"},
-        )
-        assert response.status_code == 422
 
     @pytest.mark.asyncio
     @pytest.mark.api

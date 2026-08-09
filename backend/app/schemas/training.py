@@ -283,7 +283,8 @@ class SimulateRapportResponse(BaseModel):
     # (decision 22). None when the incident had nobody assigned and the KP had
     # to enter it, which is the honest provenance for that case.
     filed_by: str | None = None
-    damage_type: str | None = None
+    # How many of the board's vehicles the simulated crew confirmed were there.
+    vehicles_present: int = 0
     materials_ticked: int = 0
     message: str
 

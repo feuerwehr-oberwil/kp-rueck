@@ -22,7 +22,7 @@ from ..services.audit_export_service import (
     export_event_audit_excel,
     get_safe_filename,
 )
-from ..services.excel_import_export import export_kostenpflicht_excel
+from ..services.excel_import_export import export_einsaetze_excel
 from ..services.lageblatt_service import build_lageblatt_pdf
 from ..services.pdf_report_service import build_event_report_pdf
 from ..services.settings import get_setting_value
@@ -268,25 +268,25 @@ async def export_event_lageblatt(
         ) from e
 
 
-@router.get("/events/{event_id}/kostenpflicht.xlsx")
+@router.get("/events/{event_id}/einsaetze.xlsx")
 @limiter.limit(RateLimits.EXPORT)
-async def export_event_kostenpflicht(
+async def export_event_einsaetze(
     request: Request,
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> StreamingResponse:
-    """Generate the Kostenpflicht workbook — the billing sheet per Schadenplatz.
+    """Generate the Einsätze workbook — one wide row per Schadenplatz.
 
-    One wide row per Schadenplatz from its Schadenplatz-Rapport: Einsatz-Nr.,
-    Adresse, Schadensart, Beginn/Ende/Dauer, the (possibly corrected) personnel
-    and vehicle counts, the Eigentümer-/Halterdaten, the material answers, the
-    Kurzbericht and who filed it.
+    Everything one Schadenplatz's rapport recorded, on one line: Einsatz-Nr.,
+    Adresse, Beginn/Ende/Dauer, the (possibly corrected) head count, the
+    vehicles the crew ticked, the Eigentümer-/Halterdaten, the material answers,
+    the Kurzbericht and who filed it.
 
-    It matches no external format on purpose (plan 25, decision 21): the numbers
-    are retyped by hand, so the sheet is optimised for being read while
-    retyping. Schadenplätze **without** a rapport still get a row — the gaps
-    have to be visible, there is no acceptance step by design.
+    It matches no external format on purpose (plan 25, decision 21): somebody
+    retypes this into the billing system by hand, so the sheet is optimised for
+    being read while retyping. Schadenplätze **without** a rapport still get a
+    row — the gaps have to be visible, there is no acceptance step by design.
 
     Raises:
         404: Event not found
@@ -300,10 +300,10 @@ async def export_event_kostenpflicht(
 
     try:
         data = await collect_event_report_data(db, event_id)
-        excel_buffer = await export_kostenpflicht_excel(data)
+        excel_buffer = await export_einsaetze_excel(data)
 
         date_str = datetime.now(UTC).strftime("%Y-%m-%d")
-        filename = f"kostenpflicht-{slugify_event_name(event.name)}-{date_str}.xlsx"
+        filename = f"einsaetze-{slugify_event_name(event.name)}-{date_str}.xlsx"
 
         return StreamingResponse(
             excel_buffer,
@@ -312,7 +312,7 @@ async def export_event_kostenpflicht(
         )
 
     except Exception as e:
-        logger.error("Kostenpflicht export failed for event %s: %s", event_id, e, exc_info=True)
+        logger.error("Einsätze export failed for event %s: %s", event_id, e, exc_info=True)
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED

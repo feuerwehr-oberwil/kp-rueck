@@ -30,8 +30,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { FeldMaterialChecklist } from '@/components/feld/feld-material-checklist'
+import { FeldVehicleChecklist } from '@/components/feld/feld-vehicle-checklist'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
-import type { ApiDamageType, ApiRapportMaterialRow, ApiSchadenplatzRapport, ApiRapportUpdate } from '@/lib/api/types'
+import type {
+  ApiRapportMaterialRow,
+  ApiRapportVehicleRow,
+  ApiSchadenplatzRapport,
+  ApiRapportUpdate,
+} from '@/lib/api/types'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import {
@@ -42,7 +48,6 @@ import {
   toUpdate,
   type RapportFormData,
 } from '@/lib/rapport-draft'
-import { cn } from '@/lib/utils'
 
 /**
  * The only thing that differs between the two mounts.
@@ -74,7 +79,6 @@ interface FeldRapportFormProps {
   onSaved?: (rapport: ApiSchadenplatzRapport) => void
 }
 
-const DAMAGE_TYPES: ApiDamageType[] = ['wasserschaden', 'sturmschaden', 'schneebruch', 'anderes']
 const AUTOSAVE_MS = 30000
 
 function localStorageKey(incidentId: string): string {
@@ -116,7 +120,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [showVehicleBlock, setShowVehicleBlock] = useState(false)
-  const [damageTypeMissing, setDamageTypeMissing] = useState(false)
   // A filed rapport is amendable (decision 3: one report per Schadenplatz,
   // amendable) — but it does not sit there looking like a draft, or nobody can
   // tell a finished slip from an unfinished one.
@@ -221,22 +224,15 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   }, [formData, isLoading, isSubmitting, disabled])
 
   const update = <K extends keyof RapportFormData>(field: K, value: RapportFormData[K]) => {
-    if (field === 'damage_type') setDamageTypeMissing(false)
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   const handleSubmit = async () => {
     if (isSubmittingRef.current || disabled) return
 
-    // Schadensart is "required-ish": submit warns ONCE if it is empty and then
-    // lets it through (§4). A blocking gate during a storm is a gate people
-    // defeat with empty forms.
-    if (!formData.damage_type && !damageTypeMissing) {
-      setDamageTypeMissing(true)
-      toast.warning(t('damageTypeMissing'))
-      return
-    }
-
+    // No required field and no blocking gate (decision 10): a gate during a
+    // storm is a gate people defeat with empty forms. The Restliste is what
+    // surfaces a thin rapport, not a dialog in the rain.
     isSubmittingRef.current = true
     setIsSubmitting(true)
     try {
@@ -277,7 +273,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   }
 
   const boardPersonnel = rapport?.prefill.board_personnel_count ?? 0
-  const boardVehicles = rapport?.prefill.board_vehicle_count ?? 0
 
   const provenanceLines = useMemo(() => {
     if (!rapport) return []
@@ -349,38 +344,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">{t('damageType')}</Label>
-          <div className="flex flex-wrap gap-2">
-            {DAMAGE_TYPES.map(type => (
-              <button
-                key={type}
-                type="button"
-                disabled={readOnly}
-                aria-pressed={formData.damage_type === type}
-                onClick={() => update('damage_type', formData.damage_type === type ? null : type)}
-                className={cn(
-                  'rounded-lg border px-3 py-2 text-sm transition-colors disabled:opacity-50',
-                  formData.damage_type === type
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border hover:bg-muted/60',
-                  damageTypeMissing && !formData.damage_type && 'border-warning',
-                )}
-              >
-                {t(`damageTypes.${type}`)}
-              </button>
-            ))}
-          </div>
-          {formData.damage_type === 'anderes' && (
-            <Input
-              value={formData.damage_type_other}
-              disabled={readOnly}
-              placeholder={t('damageTypeOtherPlaceholder')}
-              onChange={e => update('damage_type_other', e.target.value)}
-            />
-          )}
-        </div>
-
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="rapport-start" className="text-xs text-muted-foreground">
@@ -425,6 +388,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       <FeldMaterialChecklist
         rows={formData.materials}
         extraNote={formData.extra_material_note}
+        suggestions={rapport.prefill.material_name_suggestions ?? []}
         disabled={readOnly}
         onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
         onExtraNoteChange={value => update('extra_material_note', value)}
@@ -531,47 +495,41 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         )}
       </section>
 
-      {/* ------------------------------------------------ Kostenpflicht */}
+      {/* --------------------------------------- Mannschaft und Fahrzeuge */}
+      {/* A plain confirmation of two facts, nothing else. The block used to be
+          headed "Kostenpflicht" and asked for two numbers; the crew in the
+          field does not decide who gets billed, and a vehicle COUNT tells
+          whoever retypes it nothing that three names do not tell better. */}
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{t('sections.kostenpflicht')}</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="rapport-personnel" className="text-xs text-muted-foreground">
-              {t('personnelCount')}
-            </Label>
-            <Input
-              id="rapport-personnel"
-              type="number"
-              min={0}
-              inputMode="numeric"
-              disabled={readOnly}
-              value={formData.personnel_count ?? ''}
-              onChange={e => update('personnel_count', e.target.value === '' ? null : Number(e.target.value))}
-            />
-            {/* The divergence is itself information: it says the board was
-                behind reality, and the export prints it as such. */}
-            {isCorrected(formData.personnel_count, boardPersonnel) && (
-              <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardPersonnel })}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="rapport-vehicles" className="text-xs text-muted-foreground">
-              {t('vehicleCount')}
-            </Label>
-            <Input
-              id="rapport-vehicles"
-              type="number"
-              min={0}
-              inputMode="numeric"
-              disabled={readOnly}
-              value={formData.vehicle_count ?? ''}
-              onChange={e => update('vehicle_count', e.target.value === '' ? null : Number(e.target.value))}
-            />
-            {isCorrected(formData.vehicle_count, boardVehicles) && (
-              <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardVehicles })}</p>
-            )}
-          </div>
+        <h3 className="text-sm font-semibold">{t('sections.confirm')}</h3>
+        <p className="text-xs text-muted-foreground">{t('confirmHint')}</p>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="rapport-personnel" className="text-xs text-muted-foreground">
+            {t('personnelCount')}
+          </Label>
+          <Input
+            id="rapport-personnel"
+            type="number"
+            min={0}
+            inputMode="numeric"
+            className="max-w-32"
+            disabled={readOnly}
+            value={formData.personnel_count ?? ''}
+            onChange={e => update('personnel_count', e.target.value === '' ? null : Number(e.target.value))}
+          />
+          {/* The divergence is itself information: it says the board was
+              behind reality, and the export prints it as such. */}
+          {isCorrected(formData.personnel_count, boardPersonnel) && (
+            <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardPersonnel })}</p>
+          )}
         </div>
+
+        <FeldVehicleChecklist
+          rows={formData.vehicles}
+          disabled={readOnly}
+          onChange={(rows: ApiRapportVehicleRow[]) => update('vehicles', rows)}
+        />
       </section>
 
       {/* ---------------------------------------------------------- Fotos */}

@@ -76,7 +76,7 @@ class TestLageblattRapportRows:
     """The Schadenplatz-Rapport's own family of detail rows (plan 25, §7).
 
     The Lageblatt is what the KP prints when the screens die, so the field's
-    answers — Schadensart, Tätigkeit, übergeben an, Material vor Ort — and a
+    answers — Tätigkeit, übergeben an, Fahrzeuge, Material vor Ort — and a
     crew still waiting for a pickup have to be on it.
     """
 
@@ -100,10 +100,13 @@ class TestLageblattRapportRows:
         report = SchadenplatzReport(
             id=uuid4(),
             incident_id=test_incident.id,
-            damage_type="wasserschaden",
             work_started_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
             work_ended_at=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
             handed_over_to="Hauswart Meier",
+            vehicles_json=[
+                {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "TLF 1", "present": True},
+                {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "MTW", "present": False},
+            ],
             materials_json=[
                 {"assignment_id": str(uuid4()), "name": "Tauchpumpe", "used": True, "left_on_site": True},
                 {"assignment_id": str(uuid4()), "name": "Nassauger", "used": None, "left_on_site": False},
@@ -113,11 +116,12 @@ class TestLageblattRapportRows:
             updated_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
         )
         text = self._pdf_text(test_event, test_incident, report)
-        assert "Schadensart" in text
-        assert "Wasserschaden" in text
         assert "Tätigkeit" in text
         assert "Übergeben an" in text
         assert "Hauswart Meier" in text
+        # The vehicles by name, and only the ones the crew ticked.
+        assert "TLF 1" in text
+        assert "MTW" not in text
         assert "Material vor Ort" in text
         assert "Tauchpumpe" in text
 
@@ -158,5 +162,5 @@ class TestLageblattRapportRows:
     @pytest.mark.asyncio
     async def test_incident_without_a_rapport_stays_quiet(self, db_session, test_event: Event, test_incident: Incident):
         text = self._pdf_text(test_event, test_incident)
-        assert "Schadensart" not in text
+        assert "Übergeben an" not in text
         assert "Abholung offen" not in text

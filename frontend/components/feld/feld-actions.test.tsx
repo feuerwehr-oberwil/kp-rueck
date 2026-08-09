@@ -173,3 +173,54 @@ describe('Freitext-Meldung', () => {
     expect(feldSendMessage).not.toHaveBeenCalled()
   })
 })
+
+describe('delivery feedback (a phone on a bad connection)', () => {
+  it('confirms explicitly that the KP got the Meldung', async () => {
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Meldung' }))
+    await user.click(screen.getByRole('button', { name: 'Verstärkung nötig' }))
+
+    await waitFor(() =>
+      expect(screen.getByText(/«Verstärkung nötig» ist beim KP angekommen/)).toBeInTheDocument(),
+    )
+  })
+
+  it('keeps the typed text and offers a retry when the send fails', async () => {
+    feldSendMessage.mockRejectedValueOnce(new Error('offline'))
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Meldung' }))
+    const input = screen.getByPlaceholderText(/Kurze Meldung/)
+    await user.type(input, 'Keller 40cm Wasser')
+    await user.click(screen.getByRole('button', { name: 'Meldung senden' }))
+
+    await waitFor(() => expect(screen.getByText(/nicht übermittelt/)).toBeInTheDocument())
+    // The text is still there — retyping a Meldung in the rain is not a retry.
+    expect(screen.getByPlaceholderText(/Kurze Meldung/)).toHaveValue('Keller 40cm Wasser')
+
+    feldSendMessage.mockResolvedValueOnce(undefined)
+    await user.click(screen.getByRole('button', { name: /Nochmals senden/ }))
+
+    await waitFor(() => expect(feldSendMessage).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByText(/beim KP angekommen/)).toBeInTheDocument())
+  })
+
+  it('confirms Angekommen too, not just the free text', async () => {
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: /Angekommen/ }))
+    await waitFor(() => expect(screen.getByText(/«Angekommen» ist beim KP angekommen/)).toBeInTheDocument())
+  })
+
+  it('reports a failed Abholung with a retry', async () => {
+    feldReportPickup.mockRejectedValueOnce(new Error('offline'))
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Abholung' }))
+    await user.click(screen.getByRole('button', { name: 'Wir müssen abgeholt werden' }))
+
+    await waitFor(() => expect(screen.getByText(/nicht übermittelt/)).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Nochmals senden/ })).toBeInTheDocument()
+  })
+})

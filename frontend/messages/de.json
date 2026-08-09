@@ -505,6 +505,14 @@
       "create": "Einsatz erstellen"
     },
     "detail": {
+      "tabs": {
+        "overview": "Übersicht",
+        "resources": "Ressourcen",
+        "rapport": "Rapport",
+        "rapportFiled": "erfasst",
+        "rapportDraft": "Entwurf",
+        "history": "Verlauf"
+      },
       "viaAuftrag": "über Auftrag «{name}»",
       "vehiclesLoadFailed": "Fahrzeuge konnten nicht geladen werden",
       "vehiclesLoadFailedDescription": "Bitte erneut versuchen oder das Fenster neu öffnen.",
@@ -1689,10 +1697,10 @@
       "export": "Export",
       "exportReport": "Bericht (PDF)",
       "exportAudit": "Audit (XLSX)",
-      "exportKostenpflicht": "Kostenpflicht (XLSX)",
+      "exportEinsaetze": "Einsätze (XLSX)",
       "reportExportFailed": "Bericht-Export fehlgeschlagen",
       "auditExportFailed": "Audit-Export fehlgeschlagen",
-      "kostenpflichtExportFailed": "Kostenpflicht-Export fehlgeschlagen"
+      "einsaetzeExportFailed": "Einsätze-Export fehlgeschlagen"
     },
     "createDialog": {
       "title": "Neues Ereignis erstellen",
@@ -2234,7 +2242,10 @@
     "toasts": {
       "criticalTitle": "Kritische Warnung",
       "warningTitle": "Warnung",
-      "infoTitle": "Information"
+      "infoTitle": "Information",
+      "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
+      "overflowDescription": "Im Benachrichtigungs-Panel ansehen.",
+      "overflowAction": "Öffnen"
     },
     "sidebar": {
       "title": "Benachrichtigungen",
@@ -2816,7 +2827,12 @@
       "message": "Meldung",
       "messageTitle": "Meldung an den KP",
       "messagePlaceholder": "Kurze Meldung schreiben...",
-      "failed": "Konnte nicht gesendet werden. Nochmals versuchen."
+      "failed": "Konnte nicht gesendet werden — der Text bleibt erhalten. Verbindung prüfen.",
+      "sending": "«{label}» wird gesendet …",
+      "sent": "«{label}» ist beim KP angekommen.",
+      "failedTitle": "«{label}» wurde nicht übermittelt.",
+      "retry": "Nochmals senden",
+      "send": "Meldung senden"
     },
     "pickup": {
       "badge": "Abholung",
@@ -2834,9 +2850,12 @@
       "notePlaceholder": "Notiz (optional): wie viele, wo genau"
     },
     "board": {
-      "cardCompleteTooltip": "Feld meldet: Einsatz beendet",
       "cardRapportTooltip": "Schadenplatz-Rapport erfasst",
-      "cardNoRapportTooltip": "Kein Rapport erfasst"
+      "cardNoRapportTooltip": "Kein Rapport erfasst",
+      "nudgeCompleteText": "Feld meldet beendet — nach Abgeschlossen verschieben?",
+      "nudgeArrivedText": "Feld meldet angekommen — nach Einsatz verschieben?",
+      "nudgeConfirm": "Verschieben",
+      "nudgeDismiss": "Hinweis ausblenden"
     },
     "kp": {
       "title": "Feldmeldungen",
@@ -2860,21 +2879,13 @@
         "einsatzdaten": "Einsatzdaten",
         "kurzbericht": "Kurzbericht",
         "owner": "Eigentümer- / Halterdaten",
-        "kostenpflicht": "Kostenpflicht",
+        "confirm": "Mannschaft und Fahrzeuge",
         "photos": "Fotos"
       },
+      "confirmHint": "Kurz bestätigen: Wie viele wart ihr, und welche Fahrzeuge waren dabei?",
       "address": "Adresse",
       "noAddress": "Keine Adresse erfasst",
       "leader": "EL: {name}",
-      "damageType": "Schadensart",
-      "damageTypes": {
-        "wasserschaden": "Wasserschaden",
-        "sturmschaden": "Sturmschaden",
-        "schneebruch": "Schneebruch",
-        "anderes": "Anderes"
-      },
-      "damageTypeOtherPlaceholder": "Welche Schadensart?",
-      "damageTypeMissing": "Schadensart fehlt. Nochmals tippen, um trotzdem abzuschliessen.",
       "workStarted": "Beginn Tätigkeit",
       "workEnded": "Ende Tätigkeit",
       "material": {
@@ -2890,8 +2901,16 @@
         "usedAria": "Gebraucht: {name}",
         "leftOnSite": "vor Ort verblieben",
         "leftOnSiteAria": "Vor Ort verblieben: {name}",
-        "extraLabel": "Weiteres Material",
-        "extraPlaceholder": "Was da war, aber nicht auf dem Board stand"
+        "extraLabel": "Weiteres gebrauchtes Material",
+        "extraHint": "Material, das ihr gebraucht habt, das aber oben nicht aufgeführt ist.",
+        "extraPlaceholder": "z. B. geliehene Tauchpumpe, Motorsäge vom Nachbarzug"
+      },
+      "vehicles": {
+        "label": "Welche Fahrzeuge waren dabei?",
+        "present": "war dabei",
+        "presentAria": "War dabei: {name}",
+        "empty": "Für diese Einsatzstelle ist kein Fahrzeug erfasst.",
+        "noLongerAssigned": "Nicht mehr zugeteilt"
       },
       "kurzberichtPlaceholder": "Lage, Tätigkeit, Geräte",
       "kurzberichtHint": "Lage, Tätigkeit, Geräte · Tipp: Diktiertaste der Tastatur",
@@ -2906,7 +2925,6 @@
       "vehiclePlate": "KFZ-Kennzeichen",
       "vehicleModel": "KFZ-Typ",
       "personnelCount": "Eingesetztes Personal",
-      "vehicleCount": "Eingesetzte Fahrzeuge",
       "fromBoard": "vom Board: {count}",
       "concurrentEditor": "{name} bearbeitet diesen Rapport gerade ({at})",
       "createdInField": "Erfasst von {name} (Feld), {at}",

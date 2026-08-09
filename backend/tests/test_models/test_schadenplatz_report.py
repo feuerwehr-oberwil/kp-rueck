@@ -25,45 +25,22 @@ class TestSchadenplatzReportModel:
         assert report.is_draft is True
         assert report.submitted_at is None
         assert report.personnel_count_corrected is False
-        assert report.vehicle_count_corrected is False
+        assert report.vehicles_json is None
         assert report.created_at is not None
         assert report.updated_at is not None
 
-    @pytest.mark.parametrize(
-        "damage_type",
-        ["wasserschaden", "sturmschaden", "schneebruch", "anderes"],
-    )
-    async def test_valid_damage_types_accepted(
-        self, db_session: AsyncSession, test_incident: Incident, damage_type: str
-    ):
-        """All four Unwetter damage types from the paper form are accepted."""
-        report = SchadenplatzReport(id=uuid4(), incident_id=test_incident.id, damage_type=damage_type)
+    async def test_vehicle_checklist_round_trips_through_jsonb(self, db_session: AsyncSession, test_incident: Incident):
+        """The crew confirms WHICH vehicles — a list on the row, not a count."""
+        rows = [
+            {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "TLF 1", "present": True},
+            {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "MTW", "present": False},
+        ]
+        report = SchadenplatzReport(id=uuid4(), incident_id=test_incident.id, vehicles_json=rows)
         db_session.add(report)
         await db_session.commit()
         await db_session.refresh(report)
 
-        assert report.damage_type == damage_type
-
-    async def test_null_damage_type_accepted(self, db_session: AsyncSession, test_incident: Incident):
-        """Schadensart is not required — submit warns, it never blocks."""
-        report = SchadenplatzReport(id=uuid4(), incident_id=test_incident.id, damage_type=None)
-        db_session.add(report)
-        await db_session.commit()
-        await db_session.refresh(report)
-
-        assert report.damage_type is None
-
-    async def test_invalid_damage_type_rejected(self, db_session: AsyncSession, test_incident: Incident):
-        """An IncidentType value must not leak into damage_type — different vocabularies."""
-        report = SchadenplatzReport(
-            id=uuid4(),
-            incident_id=test_incident.id,
-            damage_type="elementarereignis",
-        )
-        db_session.add(report)
-
-        with pytest.raises(IntegrityError):
-            await db_session.commit()
+        assert report.vehicles_json == rows
 
     async def test_one_report_per_incident(
         self, db_session: AsyncSession, test_user, test_event: Event, test_incident: Incident

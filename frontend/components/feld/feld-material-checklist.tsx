@@ -32,6 +32,12 @@ import { groupMaterialsByLocation } from '@/lib/rapport-draft'
 interface FeldMaterialChecklistProps {
   rows: ApiRapportMaterialRow[]
   extraNote: string
+  /**
+   * Known material names from the catalogue. Offered as a datalist under
+   * "Weiteres Material" so the crew does not have to spell "Tauchpumpe TP-4"
+   * from memory — a naming aid, never a picker (see below).
+   */
+  suggestions?: string[]
   disabled?: boolean
   onChange: (rows: ApiRapportMaterialRow[]) => void
   onExtraNoteChange: (value: string) => void
@@ -86,6 +92,7 @@ function UsedToggle({
 export function FeldMaterialChecklist({
   rows,
   extraNote,
+  suggestions = [],
   disabled,
   onChange,
   onExtraNoteChange,
@@ -171,16 +178,28 @@ export function FeldMaterialChecklist({
         <Label htmlFor="rapport-extra-material" className="text-xs text-muted-foreground">
           {t('extraLabel')}
         </Label>
-        {/* Deliberately free text, not a catalog picker (decision 18): a picker
-            would make /feld a writer of assignments, which is a different
-            authorization and conflict problem than anything else in this plan. */}
+        <p className="text-xs text-muted-foreground">{t('extraHint')}</p>
+        {/* Still free text in the data model, and it still never creates an
+            assignment (decision 18): a real picker would make /feld a writer of
+            assignments, a different authorization and conflict problem than
+            anything else in this plan. A `datalist` only SUGGESTS a spelling —
+            anything typed stays valid, and nothing here carries an id. */}
         <Input
           id="rapport-extra-material"
+          list={suggestions.length > 0 ? 'rapport-extra-material-options' : undefined}
+          autoComplete="off"
           value={extraNote}
           disabled={disabled}
           placeholder={t('extraPlaceholder')}
           onChange={e => onExtraNoteChange(e.target.value)}
         />
+        {suggestions.length > 0 && (
+          <datalist id="rapport-extra-material-options">
+            {suggestions.map(name => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+        )}
       </div>
     </section>
   )

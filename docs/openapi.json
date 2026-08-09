@@ -3274,14 +3274,14 @@
         }
       }
     },
-    "/api/exports/events/{event_id}/kostenpflicht.xlsx": {
+    "/api/exports/events/{event_id}/einsaetze.xlsx": {
       "get": {
         "tags": [
           "exports"
         ],
-        "summary": "Export Event Kostenpflicht",
-        "description": "Generate the Kostenpflicht workbook — the billing sheet per Schadenplatz.\n\nOne wide row per Schadenplatz from its Schadenplatz-Rapport: Einsatz-Nr.,\nAdresse, Schadensart, Beginn/Ende/Dauer, the (possibly corrected) personnel\nand vehicle counts, the Eigentümer-/Halterdaten, the material answers, the\nKurzbericht and who filed it.\n\nIt matches no external format on purpose (plan 25, decision 21): the numbers\nare retyped by hand, so the sheet is optimised for being read while\nretyping. Schadenplätze **without** a rapport still get a row — the gaps\nhave to be visible, there is no acceptance step by design.\n\nRaises:\n    404: Event not found\n    500: Generation failed",
-        "operationId": "export_event_kostenpflicht_api_exports_events__event_id__kostenpflicht_xlsx_get",
+        "summary": "Export Event Einsaetze",
+        "description": "Generate the Einsätze workbook — one wide row per Schadenplatz.\n\nEverything one Schadenplatz's rapport recorded, on one line: Einsatz-Nr.,\nAdresse, Beginn/Ende/Dauer, the (possibly corrected) head count, the\nvehicles the crew ticked, the Eigentümer-/Halterdaten, the material answers,\nthe Kurzbericht and who filed it.\n\nIt matches no external format on purpose (plan 25, decision 21): somebody\nretypes this into the billing system by hand, so the sheet is optimised for\nbeing read while retyping. Schadenplätze **without** a rapport still get a\nrow — the gaps have to be visible, there is no acceptance step by design.\n\nRaises:\n    404: Event not found\n    500: Generation failed",
+        "operationId": "export_event_einsaetze_api_exports_events__event_id__einsaetze_xlsx_get",
         "parameters": [
           {
             "name": "event_id",
@@ -14496,7 +14496,7 @@
           "training"
         ],
         "summary": "Simulate Rapport",
-        "description": "Inject \"Rapport eingetroffen\": one filled and submitted Schadenplatz-Rapport.\n\nTrains the KP side of plan 25 — the badge, the return list, the Restliste,\nthe Kostenpflicht export — without forty phones in the room. The content\nfollows ``RAPPORT_SIM_PROFILE``: realistically patchy, because chasing the\ngaps is the skill being trained.",
+        "description": "Inject \"Rapport eingetroffen\": one filled and submitted Schadenplatz-Rapport.\n\nTrains the KP side of plan 25 — the badge, the return list, the Restliste,\nthe Einsätze export — without forty phones in the room. The content\nfollows ``RAPPORT_SIM_PROFILE``: realistically patchy, because chasing the\ngaps is the skill being trained.",
         "operationId": "simulate_rapport_api_training_events__event_id__simulate_rapport__incident_id__post",
         "parameters": [
           {
@@ -19816,6 +19816,11 @@
             "title": "Has Schadenplatz Rapport",
             "default": false
           },
+          "has_schadenplatz_rapport_draft": {
+            "type": "boolean",
+            "title": "Has Schadenplatz Rapport Draft",
+            "default": false
+          },
           "pickup_needed": {
             "type": "boolean",
             "title": "Pickup Needed",
@@ -21351,10 +21356,15 @@
           "reko_submitted",
           "reko_arrived",
           "training_emergency",
-          "vehicle_arrived"
+          "vehicle_arrived",
+          "rapport_submitted",
+          "field_arrived",
+          "field_complete",
+          "field_message",
+          "field_pickup"
         ],
         "title": "NotificationType",
-        "description": "Notification types."
+        "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
       },
       "Personnel": {
         "properties": {
@@ -22531,11 +22541,6 @@
             "title": "Board Personnel Count",
             "default": 0
           },
-          "board_vehicle_count": {
-            "type": "integer",
-            "title": "Board Vehicle Count",
-            "default": 0
-          },
           "default_work_started_at": {
             "anyOf": [
               {
@@ -22559,6 +22564,14 @@
               }
             ],
             "title": "Default Work Ended At"
+          },
+          "material_name_suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Material Name Suggestions",
+            "default": []
           }
         },
         "type": "object",
@@ -22566,7 +22579,7 @@
           "incident_ref"
         ],
         "title": "RapportPrefill",
-        "description": "What the board knows, computed on every GET and never written (§4).\n\nThese are defaults and orientation, never authoritative once the crew has\ntouched the form. The two board counts stay on the response after a\ncorrection as well — that is what lets the form (and the export) say\n\"vom Board: 6\" next to a corrected 8."
+        "description": "What the board knows, computed on every GET and never written (§4).\n\nThese are defaults and orientation, never authoritative once the crew has\ntouched the form. The board's head count stays on the response after a\ncorrection as well — that is what lets the form (and the export) say\n\"vom Board: 6\" next to a corrected 8."
       },
       "RapportUpdate": {
         "properties": {
@@ -22574,35 +22587,6 @@
             "type": "boolean",
             "title": "Is Draft",
             "default": true
-          },
-          "damage_type": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "wasserschaden",
-                  "sturmschaden",
-                  "schneebruch",
-                  "anderes"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Damage Type"
-          },
-          "damage_type_other": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Damage Type Other"
           },
           "work_started_at": {
             "anyOf": [
@@ -22641,6 +22625,20 @@
               }
             ],
             "title": "Materials"
+          },
+          "vehicles": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportVehicleUpdate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicles"
           },
           "extra_material_note": {
             "anyOf": [
@@ -22750,24 +22748,73 @@
               }
             ],
             "title": "Personnel Count"
-          },
-          "vehicle_count": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 999.0,
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vehicle Count"
           }
         },
         "type": "object",
         "title": "RapportUpdate",
         "description": "The upsert payload. ``is_draft=False`` is the submit.\n\nEvery field is optional and only the ones actually present are written\n(``model_fields_set``), for the same reason the field-report twin works that\nway: an autosave that carries half the form must not blank the other half."
+      },
+      "RapportVehicleRow": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "vehicle_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "default": true
+          },
+          "on_board": {
+            "type": "boolean",
+            "title": "On Board",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id",
+          "name"
+        ],
+        "title": "RapportVehicleRow",
+        "description": "One vehicle on the checklist — the crew confirms *which*, not how many.\n\nDeliberately the same shape as ``RapportMaterialRow``: keyed on the\n**assignment**, prefilled ticked, and surviving with ``on_board=False`` once\nthe board takes the vehicle off an incident whose crew already answered.\n\n``present`` has no third state, unlike the material ``used``: the list is\nprefilled from the board, so an untouched row already carries the board's\nown answer and \"keine Angabe\" would only mean \"did not correct it\"."
+      },
+      "RapportVehicleUpdate": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id"
+        ],
+        "title": "RapportVehicleUpdate",
+        "description": "The one tick, as the form sends it back."
       },
       "RekoDashboardAssignment": {
         "properties": {
@@ -23634,34 +23681,6 @@
             ],
             "title": "Submitted At"
           },
-          "damage_type": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "wasserschaden",
-                  "sturmschaden",
-                  "schneebruch",
-                  "anderes"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Damage Type"
-          },
-          "damage_type_other": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Damage Type Other"
-          },
           "work_started_at": {
             "anyOf": [
               {
@@ -23692,6 +23711,14 @@
             },
             "type": "array",
             "title": "Materials",
+            "default": []
+          },
+          "vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/RapportVehicleRow"
+            },
+            "type": "array",
+            "title": "Vehicles",
             "default": []
           },
           "photos": {
@@ -23804,22 +23831,6 @@
           "personnel_count_corrected": {
             "type": "boolean",
             "title": "Personnel Count Corrected",
-            "default": false
-          },
-          "vehicle_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vehicle Count"
-          },
-          "vehicle_count_corrected": {
-            "type": "boolean",
-            "title": "Vehicle Count Corrected",
             "default": false
           },
           "cost_snapshot_json": {
@@ -24152,16 +24163,10 @@
             ],
             "title": "Filed By"
           },
-          "damage_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Damage Type"
+          "vehicles_present": {
+            "type": "integer",
+            "title": "Vehicles Present",
+            "default": 0
           },
           "materials_ticked": {
             "type": "integer",

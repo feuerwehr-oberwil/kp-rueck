@@ -9,19 +9,18 @@
  */
 
 import type {
-  ApiDamageType,
   ApiRapportMaterialRow,
   ApiRapportUpdate,
+  ApiRapportVehicleRow,
   ApiSchadenplatzRapport,
 } from '@/lib/api/types'
 
 /** The form's own state — flat, all strings where the input is a string. */
 export interface RapportFormData {
-  damage_type: ApiDamageType | null
-  damage_type_other: string
   work_started_at: string | null
   work_ended_at: string | null
   materials: ApiRapportMaterialRow[]
+  vehicles: ApiRapportVehicleRow[]
   extra_material_note: string
   kurzbericht: string
   handed_over_to: string
@@ -31,15 +30,13 @@ export interface RapportFormData {
   vehicle_plate: string
   vehicle_model: string
   personnel_count: number | null
-  vehicle_count: number | null
 }
 
 export const EMPTY_RAPPORT_FORM: RapportFormData = {
-  damage_type: null,
-  damage_type_other: '',
   work_started_at: null,
   work_ended_at: null,
   materials: [],
+  vehicles: [],
   extra_material_note: '',
   kurzbericht: '',
   handed_over_to: '',
@@ -49,17 +46,15 @@ export const EMPTY_RAPPORT_FORM: RapportFormData = {
   vehicle_plate: '',
   vehicle_model: '',
   personnel_count: null,
-  vehicle_count: null,
 }
 
 /** The server's answer as the form holds it. */
 export function toFormData(rapport: ApiSchadenplatzRapport): RapportFormData {
   return {
-    damage_type: rapport.damage_type,
-    damage_type_other: rapport.damage_type_other ?? '',
     work_started_at: rapport.work_started_at,
     work_ended_at: rapport.work_ended_at,
     materials: rapport.materials,
+    vehicles: rapport.vehicles,
     extra_material_note: rapport.extra_material_note ?? '',
     kurzbericht: rapport.kurzbericht ?? '',
     handed_over_to: rapport.handed_over_to ?? '',
@@ -69,15 +64,13 @@ export function toFormData(rapport: ApiSchadenplatzRapport): RapportFormData {
     vehicle_plate: rapport.vehicle_plate ?? '',
     vehicle_model: rapport.vehicle_model ?? '',
     personnel_count: rapport.personnel_count,
-    vehicle_count: rapport.vehicle_count,
   }
 }
 
-/** Has anybody actually typed anything? Ticks count; a prefilled count does not. */
+/** Has anybody actually typed anything? Ticks count; a prefilled list does not. */
 export function hasContent(form: RapportFormData): boolean {
   return Boolean(
-    form.damage_type ||
-      form.kurzbericht.trim() ||
+    form.kurzbericht.trim() ||
       form.handed_over_to.trim() ||
       form.extra_material_note.trim() ||
       form.owner_name.trim() ||
@@ -85,7 +78,10 @@ export function hasContent(form: RapportFormData): boolean {
       form.owner_city.trim() ||
       form.vehicle_plate.trim() ||
       form.vehicle_model.trim() ||
-      form.materials.some(row => row.used !== null || row.left_on_site),
+      form.materials.some(row => row.used !== null || row.left_on_site) ||
+      // The vehicle list arrives all-ticked, so only an UNticked row is
+      // evidence that somebody answered it.
+      form.vehicles.some(row => !row.present),
   )
 }
 
@@ -120,7 +116,26 @@ export function mergeDraft(
   // The board can add or remove material while the phone was offline, so the
   // checklist itself always comes from the server — with the local ticks folded
   // back onto the rows that still exist.
-  return { form: { ...local.data, materials: mergeMaterialTicks(server.materials, local.data.materials) }, usedLocal: true }
+  return {
+    form: {
+      ...local.data,
+      materials: mergeMaterialTicks(server.materials, local.data.materials),
+      vehicles: mergeVehicleTicks(server.vehicles, local.data.vehicles ?? []),
+    },
+    usedLocal: true,
+  }
+}
+
+/** Fold a local draft's ticks onto the server's (re-reconciled) vehicle list. */
+export function mergeVehicleTicks(
+  serverRows: ApiRapportVehicleRow[],
+  localRows: ApiRapportVehicleRow[],
+): ApiRapportVehicleRow[] {
+  const local = new Map(localRows.map(row => [row.assignment_id, row]))
+  return serverRows.map(row => {
+    const draft = local.get(row.assignment_id)
+    return draft ? { ...row, present: draft.present } : row
+  })
 }
 
 /** Fold a local draft's ticks onto the server's (re-reconciled) checklist. */
@@ -159,14 +174,16 @@ export function toUpdate(form: RapportFormData, isDraft: boolean): ApiRapportUpd
   const text = (value: string): string | null => (value.trim() ? value.trim() : null)
   return {
     is_draft: isDraft,
-    damage_type: form.damage_type,
-    damage_type_other: form.damage_type === 'anderes' ? text(form.damage_type_other) : null,
     work_started_at: form.work_started_at,
     work_ended_at: form.work_ended_at,
     materials: form.materials.map(row => ({
       assignment_id: row.assignment_id,
       used: row.used,
       left_on_site: row.left_on_site,
+    })),
+    vehicles: form.vehicles.map(row => ({
+      assignment_id: row.assignment_id,
+      present: row.present,
     })),
     extra_material_note: text(form.extra_material_note),
     kurzbericht: text(form.kurzbericht),
@@ -177,7 +194,6 @@ export function toUpdate(form: RapportFormData, isDraft: boolean): ApiRapportUpd
     vehicle_plate: text(form.vehicle_plate),
     vehicle_model: text(form.vehicle_model),
     personnel_count: form.personnel_count,
-    vehicle_count: form.vehicle_count,
   }
 }
 

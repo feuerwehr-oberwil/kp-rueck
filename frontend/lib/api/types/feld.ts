@@ -109,9 +109,6 @@ export interface ApiFieldReportUpdate {
 // A second shape here is how the KP path silently loses a field six months
 // later.
 
-/** The paper's damage-type checkboxes. Never written to `Incident.type`. */
-export type ApiDamageType = 'wasserschaden' | 'sturmschaden' | 'schneebruch' | 'anderes'
-
 /**
  * One material unit on the checklist, keyed on the **assignment** rather than
  * the material: the same pump assigned twice is two units on the slip, and the
@@ -138,6 +135,27 @@ export interface ApiRapportMaterialUpdate {
   left_on_site: boolean
 }
 
+/**
+ * One vehicle on the confirmation list — the crew ticks off which of the
+ * board's vehicles were actually there. Keyed on the **assignment** for the
+ * same reason the material rows are: the board's own row is what a later
+ * correction is matched against.
+ */
+export interface ApiRapportVehicleRow {
+  assignment_id: string
+  vehicle_id: string | null
+  name: string
+  /** "war dabei". Prefilled true — the board's list is the starting point. */
+  present: boolean
+  /** False once the board dropped the vehicle; the row survives because it was answered. */
+  on_board: boolean
+}
+
+export interface ApiRapportVehicleUpdate {
+  assignment_id: string
+  present: boolean
+}
+
 /** "Frey Marc bearbeitet diesen Rapport gerade" — visibility, never a lock. */
 export interface ApiRapportConcurrentEditor {
   name: string
@@ -156,9 +174,14 @@ export interface ApiRapportPrefill {
   melder_street: string | null
   melder_city: string | null
   board_personnel_count: number
-  board_vehicle_count: number
   default_work_started_at: string | null
   default_work_ended_at: string | null
+  /**
+   * Known material names from the catalogue, offered as suggestions under
+   * "Weiteres Material". Names only, deliberately no ids: this is a spelling
+   * aid, and `/feld` must not become a writer of assignments (decision 18).
+   */
+  material_name_suggestions: string[]
 }
 
 export interface ApiSchadenplatzRapport {
@@ -167,11 +190,10 @@ export interface ApiSchadenplatzRapport {
   exists: boolean
   is_draft: boolean
   submitted_at: string | null
-  damage_type: ApiDamageType | null
-  damage_type_other: string | null
   work_started_at: string | null
   work_ended_at: string | null
   materials: ApiRapportMaterialRow[]
+  vehicles: ApiRapportVehicleRow[]
   /**
    * Filenames, not URLs — read back through the shared
    * `GET /api/photos/{incidentId}/{filename}`, the same endpoint the Reko form
@@ -188,8 +210,6 @@ export interface ApiSchadenplatzRapport {
   vehicle_model: string | null
   personnel_count: number | null
   personnel_count_corrected: boolean
-  vehicle_count: number | null
-  vehicle_count_corrected: boolean
   /** Frozen at submit; null while the rapport is a draft. */
   cost_snapshot_json: Array<Record<string, string | null>> | null
   arrived_at: string | null
@@ -210,11 +230,10 @@ export interface ApiSchadenplatzRapport {
  */
 export interface ApiRapportUpdate {
   is_draft: boolean
-  damage_type?: ApiDamageType | null
-  damage_type_other?: string | null
   work_started_at?: string | null
   work_ended_at?: string | null
   materials?: ApiRapportMaterialUpdate[]
+  vehicles?: ApiRapportVehicleUpdate[]
   extra_material_note?: string | null
   kurzbericht?: string | null
   handed_over_to?: string | null
@@ -224,7 +243,6 @@ export interface ApiRapportUpdate {
   vehicle_plate?: string | null
   vehicle_model?: string | null
   personnel_count?: number | null
-  vehicle_count?: number | null
 }
 
 /** One Schadenplatz on the Restliste (§6, V-8). */

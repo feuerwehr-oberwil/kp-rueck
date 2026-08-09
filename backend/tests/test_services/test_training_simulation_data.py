@@ -20,7 +20,7 @@ from app.services.training_simulation_data import (
     _reconcile_with_summary,
     _resolve_summary_pool,
     classify_material_bucket,
-    derive_damage_type,
+    derive_scenario,
     generate_rapport_data,
     generate_reko_report_data,
     generate_summary,
@@ -491,14 +491,19 @@ class TestRapportGeneration:
         {"assignment_id": uuid4(), "name": "Rettungsplattform", "type": "Sonstiges", "consumable": False},
     ]
 
+    VEHICLES = [
+        {"assignment_id": uuid4(), "name": "TLF 1"},
+        {"assignment_id": uuid4(), "name": "MTW"},
+    ]
+
     def _generate(self, seed: int, incident_type: str = "elementarereignis", title: str = "Wasser im Keller"):
         return generate_rapport_data(
             incident_type=incident_type,
             title=title,
             description="Ca. 30 cm Wasser im Keller.",
             materials=self.UNITS,
+            vehicles=self.VEHICLES,
             board_personnel_count=4,
-            board_vehicle_count=1,
             default_work_started_at=datetime(2026, 8, 9, 20, 0, tzinfo=UTC),
             default_work_ended_at=datetime(2026, 8, 9, 22, 0, tzinfo=UTC),
             rng=random.Random(seed),
@@ -537,18 +542,37 @@ class TestRapportGeneration:
         # Nothing matched: the fallback, never a crash and never an enum.
         assert classify_material_bucket("Sonstiges", "Rettungsplattform", False) == "unknown"
 
-    def test_damage_type_follows_the_incident_when_it_says_so(self):
+    def test_scenario_follows_the_incident_when_it_says_so(self):
+        """Generator-internal flavour: it picks the phrase bank, it is never stored."""
         rng = random.Random(1)
-        assert derive_damage_type("Wasser im Keller", None, rng) == "wasserschaden"
-        assert derive_damage_type("Baum auf Fahrbahn", None, rng) == "sturmschaden"
-        assert derive_damage_type("Schneebruch Vordach", None, rng) == "schneebruch"
+        assert derive_scenario("Wasser im Keller", None, rng) == "wasserschaden"
+        assert derive_scenario("Baum auf Fahrbahn", None, rng) == "sturmschaden"
+        assert derive_scenario("Schneebruch Vordach", None, rng) == "schneebruch"
         # Nothing to go on: weighted random, but always one of the four.
-        assert derive_damage_type("Einsatz", None, rng) in {
+        assert derive_scenario("Einsatz", None, rng) in {
             "wasserschaden",
             "sturmschaden",
             "schneebruch",
             "anderes",
         }
+
+    def test_the_scenario_never_reaches_the_payload(self):
+        """There is no Schadensart field any more, and this must not grow one back."""
+        for seed in range(50):
+            data = self._generate(seed)
+            assert "damage_type" not in data
+            assert "damage_type_other" not in data
+
+    def test_the_vehicle_checklist_is_answered_and_mostly_confirmed(self):
+        """Prefilled ticked, so the only thing a crew adds is the rare No."""
+        unticked = 0
+        for seed in range(300):
+            rows = self._generate(seed)["vehicles"]
+            assert {row["assignment_id"] for row in rows} == {unit["assignment_id"] for unit in self.VEHICLES}
+            unticked += sum(1 for row in rows if row["present"] is False)
+        # 10 % per vehicle over 600 rows — often enough to train on, rare enough
+        # that it stays a signal.
+        assert 20 < unticked < 110
 
     def test_counts_and_times_are_sent_only_when_the_crew_changed_them(self):
         """10 % each — the `korrigiert` marker has to stay a signal (§16.1)."""

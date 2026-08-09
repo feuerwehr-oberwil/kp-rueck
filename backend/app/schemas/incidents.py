@@ -232,6 +232,12 @@ class IncidentResponse(IncidentBase):
     # it is free here; the "kein Rapport" card marker that reads it lands with
     # the form in phase 2.
     has_schadenplatz_rapport: bool = False
+    # A *draft* one exists — somebody started and walked away. Mutually
+    # exclusive with the flag above: a report row is either filed or it is not,
+    # so exactly one of the two can be true. Do NOT "fix" one to imply the
+    # other; the detail's Rapport tab needs to tell "erfasst" from "Entwurf",
+    # and at 02:00 those two read very differently.
+    has_schadenplatz_rapport_draft: bool = False
     # "Abholung nötig" (decision 24): the crew is finished and cannot get back on
     # its own. NOT a status, and deliberately NOT cleared when the card moves to
     # `complete` — that transition releases the personnel while they are still
@@ -246,7 +252,7 @@ class IncidentResponse(IncidentBase):
     # the home city; None when there is no address (or on older backends).
     location_display: str | None = None
 
-    @field_validator("pickup_needed", "has_schadenplatz_rapport", mode="before")
+    @field_validator("pickup_needed", "has_schadenplatz_rapport", "has_schadenplatz_rapport_draft", mode="before")
     @classmethod
     def _false_when_unset(cls, value: object) -> object:
         """None means "not set yet", not "invalid".
@@ -255,9 +261,10 @@ class IncidentResponse(IncidentBase):
         only applies on flush, so an incident validated straight after
         construction — which is what the training generator and every
         create-then-broadcast path does — still has ``None`` on the attribute.
-        ``has_schadenplatz_rapport`` is a transient the board query attaches, so
-        it is simply absent anywhere else. Both mean "no", and a 500 on a freshly
-        built card is the wrong way to say it.
+        The two ``has_schadenplatz_rapport*`` flags are transients the board
+        query attaches, so they are simply absent anywhere else. All of them
+        mean "no", and a 500 on a freshly built card is the wrong way to say
+        it.
         """
         return False if value is None else value
 

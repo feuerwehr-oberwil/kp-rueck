@@ -1,4 +1,4 @@
-"""Tests for the Kostenpflicht workbook (plan 25, §7 / decision 21).
+"""Tests for the Einsätze workbook (plan 25, §7 / decision 21).
 
 The builder is pure and synchronous: it takes an :class:`EventReportData` and
 returns the finished XLSX in a buffer, so these tests construct the data in
@@ -19,17 +19,17 @@ import openpyxl
 from app.models import Event, Incident, IncidentAssignment, Personnel, SchadenplatzReport, User
 from app.services.audit_export_service import EventReportData
 from app.services.excel_import_export import (
-    KOSTENPFLICHT_COLUMNS,
-    build_kostenpflicht_workbook,
+    EINSAETZE_COLUMNS,
+    build_einsaetze_workbook,
     format_duration,
 )
 
-HEADERS = [header for header, _width in KOSTENPFLICHT_COLUMNS]
+HEADERS = [header for header, _width in EINSAETZE_COLUMNS]
 
 
 def _sheet(data: EventReportData):
-    buffer = build_kostenpflicht_workbook(data)
-    return openpyxl.load_workbook(buffer)["Kostenpflicht"]
+    buffer = build_einsaetze_workbook(data)
+    return openpyxl.load_workbook(buffer)["Einsätze"]
 
 
 def _row(sheet, row_num: int) -> dict[str, object]:
@@ -67,10 +67,18 @@ def _report(incident_id, **overrides) -> SchadenplatzReport:
         "created_at": datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
         "updated_at": datetime(2026, 6, 1, 12, 32, tzinfo=UTC),
         "personnel_count_corrected": False,
-        "vehicle_count_corrected": False,
     }
     defaults.update(overrides)
     return SchadenplatzReport(**defaults)
+
+
+def _vehicle(name: str, *, present: bool = True) -> dict:
+    return {
+        "assignment_id": str(uuid4()),
+        "vehicle_id": str(uuid4()),
+        "name": name,
+        "present": present,
+    }
 
 
 def _material(name: str, *, used: bool | None, left_on_site: bool = False, consumable: bool = False) -> dict:
@@ -104,6 +112,9 @@ class TestSheetShape:
         assert [c.value for c in sheet[1]] == HEADERS
         assert "Einsatz-Nr." in HEADERS
         assert "Dauer" in HEADERS
+        # The sheet does not carry that word any more, in any column.
+        assert not any("kostenpflicht" in h.lower() for h in HEADERS)
+        assert not any("schadensart" in h.lower() for h in HEADERS)
         # No derived person-hours column (decision 21) — nothing asked for one.
         assert not any("stunden" in h.lower() for h in HEADERS)
 
@@ -124,7 +135,7 @@ class TestSheetShape:
         assert second["Einsatz-Nr."] == 2
         assert second["Adresse"] == "Mühlemattstrasse 12, Oberwil"
         assert second["Kurzbericht"] == ""
-        assert second["Schadensart"] == ""
+        assert second["Fahrzeuge"] == ""
 
 
 class TestDuration:
@@ -151,8 +162,8 @@ class TestDuration:
         assert format_duration(start, end) == "7:05"
 
 
-class TestCorrectedCounts:
-    def test_corrected_count_carries_the_board_value(self):
+class TestCrewConfirmation:
+    def test_corrected_head_count_carries_the_board_value(self):
         """Decision 5: the divergence says the board was behind reality."""
         event = Event(id=uuid4(), name="Sturm 2026", training_flag=False)
         incident = _incident(event, "Bahnhofstrasse 4, Oberwil")
@@ -166,14 +177,34 @@ class TestCorrectedCounts:
             )
             for _ in range(6)
         ]
-        report = _report(incident.id, personnel_count=8, personnel_count_corrected=True, vehicle_count=1)
+        report = _report(incident.id, personnel_count=8, personnel_count_corrected=True)
 
         row = _row(_sheet(_data(event, [incident], [report], assignments=assignments)), 2)
         assert row["Personal"] == 8
         assert row["Personal korrigiert"] == "Ja (Board: 6)"
-        # An untouched count carries no flag at all.
-        assert row["Fahrzeuge"] == 1
-        assert row["Fahrzeuge korrigiert"] == ""
+
+    def test_fahrzeuge_lists_the_names_the_crew_ticked(self):
+        """The list replaced the count: which vehicles, not how many."""
+        event = Event(id=uuid4(), name="Sturm 2026", training_flag=False)
+        incident = _incident(event, "Bahnhofstrasse 4, Oberwil")
+        report = _report(
+            incident.id,
+            vehicles_json=[
+                _vehicle("TLF 1"),
+                _vehicle("MTW", present=False),
+                _vehicle("Anhänger Pumpe"),
+            ],
+        )
+        row = _row(_sheet(_data(event, [incident], [report])), 2)
+        assert row["Fahrzeuge"] == "TLF 1, Anhänger Pumpe"
+        # There is no "korrigiert" companion column any more.
+        assert "Fahrzeuge korrigiert" not in HEADERS
+
+    def test_fahrzeuge_is_empty_when_the_crew_unticked_everything(self):
+        event = Event(id=uuid4(), name="Sturm 2026", training_flag=False)
+        incident = _incident(event, "Bahnhofstrasse 4, Oberwil")
+        report = _report(incident.id, vehicles_json=[_vehicle("TLF 1", present=False)])
+        assert _row(_sheet(_data(event, [incident], [report])), 2)["Fahrzeuge"] == ""
 
 
 class TestMaterial:
@@ -265,12 +296,9 @@ class TestOwnerBlock:
             owner_city="4104 Oberwil",
             vehicle_plate="BL 123456",
             vehicle_model="VW Golf",
-            damage_type="anderes",
-            damage_type_other="Hangrutsch",
         )
         row = _row(_sheet(_data(event, [incident], [report])), 2)
         assert row["Eigentümer Name"] == "Muster Anna"
         assert row["Eigentümer Strasse"] == "Bahnhofstrasse 4"
         assert row["Eigentümer Ort"] == "4104 Oberwil"
         assert row["KFZ"] == "BL 123456 VW Golf"
-        assert row["Schadensart"] == "Anderes: Hangrutsch"

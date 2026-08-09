@@ -1067,12 +1067,11 @@ class RapportSimProfile:
     signal rather than noise.
     """
 
-    # 1–2 sentences from a phrase bank, keyed on the damage type.
+    # 1–2 sentences from a phrase bank, keyed on the scenario.
     kurzbericht_filled: float = 1.00
-    damage_type_set: float = 0.95
     # Per material unit.
     material_used: float = 0.80
-    # Units that match the damage type (pumps on a Wasserschaden, saws on a
+    # Units that match the scenario (pumps on a Wasserschaden, saws on a
     # Sturmschaden) were almost certainly used.
     material_used_matching: float = 0.95
     # "Die Crew hat nicht geantwortet" — the third answer, which every output
@@ -1083,7 +1082,8 @@ class RapportSimProfile:
     owner_block: float = 0.60
     handed_over_to: float = 0.25
     personnel_count_corrected: float = 0.10
-    vehicle_count_corrected: float = 0.10
+    # Per vehicle: the crew unticking one the board thought was there.
+    vehicle_absent: float = 0.10
     times_adjusted: float = 0.10
     # Decision 22 briefs the Einsatzleiter without enforcing them, so the EL
     # files most of the rapports but by no means all of them.
@@ -1159,30 +1159,33 @@ RAPPORT_MATERIAL_BUCKET_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
 )
 
-# Which units the damage type makes near-certain to have been used.
-_DAMAGE_MATERIAL_KEYWORDS: dict[str, tuple[str, ...]] = {
+# Which units the scenario makes near-certain to have been used. Generator-
+# internal flavour only (see `derive_scenario`): the scenario is never stored,
+# never returned and never labelled anywhere.
+_SCENARIO_MATERIAL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "wasserschaden": ("pumpe", "sauger", "schlauch", "trocknung", "entfeuchter"),
     "sturmschaden": ("säge", "leiter", "blache", "plane", "absperrung"),
     "schneebruch": ("säge", "leiter", "schaufel"),
 }
 
-# Title/description keywords that say what kind of damage this was. The
-# Schadensart is its own field and never writes `Incident.type` (decision 8).
-_DAMAGE_TYPE_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+# Title/description keywords that say what kind of job this was. Generator-
+# internal only: they pick the Kurzbericht phrasing and the material keywords, so
+# a simulated Wasserschaden mentions pumps and ticks the pump.
+_SCENARIO_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("schneebruch", ("schnee", "schneebruch", "schneelast", "lawine")),
     ("sturmschaden", ("sturm", "baum", "ast", "dach", "ziegel", "abgedeckt", "windbruch", "böe")),
     ("wasserschaden", ("wasser", "keller", "überflut", "unterführung", "tiefgarage", "dole", "regen", "bach")),
 )
 
 # Weighted fallback when neither the title nor the description says anything.
-_DAMAGE_TYPE_WEIGHTS: dict[str, float] = {
+_SCENARIO_WEIGHTS: dict[str, float] = {
     "wasserschaden": 0.50,
     "sturmschaden": 0.35,
     "schneebruch": 0.05,
     "anderes": 0.10,
 }
 
-# 1–2 sentences, keyed on the damage type. Lage, Tätigkeit, Geräte in one box —
+# 1–2 sentences, keyed on the scenario. Lage, Tätigkeit, Geräte in one box —
 # exactly what the form's hint asks for.
 _RAPPORT_KURZBERICHTE: dict[str, list[str]] = {
     "wasserschaden": [
@@ -1292,24 +1295,27 @@ def classify_material_bucket(material_type: str | None, name: str | None, consum
     return "unknown"
 
 
-def derive_damage_type(title: str | None, description: str | None, rng: random.Random) -> str:
-    """The Schadensart the crew would have ticked, from what the board knows.
+def derive_scenario(title: str | None, description: str | None, rng: random.Random) -> str:
+    """Which kind of job this is — **generator-internal flavour only**.
+
+    It picks the Kurzbericht phrase bank and the material keywords, so a
+    simulated Wasserschaden talks about pumping and ticks the pump. It is never
+    stored, never returned in a payload and never rendered as a label: there is
+    no Schadensart field any more, and this must not grow back into one.
 
     Keywords where the incident says so (Wasser / Sturm / Baum / Schnee),
-    weighted random otherwise. Never derived from `Incident.type`: that column
-    carries the Swiss statistics vocabulary and this is a sub-classification of
-    one of its values (decision 8).
+    weighted random otherwise.
     """
     haystack = f"{title or ''} {description or ''}".lower()
-    for damage_type, keywords in _DAMAGE_TYPE_KEYWORDS:
+    for scenario, keywords in _SCENARIO_KEYWORDS:
         if any(keyword in haystack for keyword in keywords):
-            return damage_type
+            return scenario
     roll = rng.random()
     cumulative = 0.0
-    for damage_type, weight in _DAMAGE_TYPE_WEIGHTS.items():
+    for scenario, weight in _SCENARIO_WEIGHTS.items():
         cumulative += weight
         if roll < cumulative:
-            return damage_type
+            return scenario
     return "anderes"
 
 
@@ -1331,8 +1337,8 @@ def generate_rapport_data(
     title: str | None,
     description: str | None,
     materials: Sequence[Mapping[str, Any]],
+    vehicles: Sequence[Mapping[str, Any]],
     board_personnel_count: int,
-    board_vehicle_count: int,
     default_work_started_at: datetime | None,
     default_work_ended_at: datetime | None,
     rng: random.Random,
@@ -1343,8 +1349,8 @@ def generate_rapport_data(
     Only the keys the simulated crew actually filled in are returned: the upsert
     writes exactly the fields present in the payload, so an omitted key leaves
     the derived default in place — which is precisely what "die Crew hat das
-    Feld nicht angefasst" means. Both the times and the two counts are therefore
-    sent **only when the crew changed them by hand**, which is what makes the
+    Feld nicht angefasst" means. The times and the head count are therefore sent
+    **only when the crew changed them by hand**, which is what makes the
     `korrigiert` marker mean something in the export.
 
     ``rng`` is injected rather than taken from the module, so a test can seed it
@@ -1352,19 +1358,16 @@ def generate_rapport_data(
 
     ``materials`` carries one mapping per assigned unit with ``assignment_id``,
     ``name``, ``type`` and ``consumable`` — the board's units, released ones
-    included, exactly as the checklist gets them.
+    included, exactly as the checklist gets them. ``vehicles`` is the same for
+    the vehicle checklist, which needs nothing but the ``assignment_id``.
     """
     data: dict[str, Any] = {"is_draft": False}
 
-    damage_type: str | None = None
-    if rng.random() < profile.damage_type_set:
-        damage_type = derive_damage_type(title, description, rng)
-        data["damage_type"] = damage_type
-        if damage_type == "anderes":
-            data["damage_type_other"] = rng.choice(["Hangrutsch", "Verstopfte Dole", "Fassadenschaden"])
+    # Generator-internal only — never written to the payload (see `derive_scenario`).
+    scenario = derive_scenario(title, description, rng)
 
     if rng.random() < profile.kurzbericht_filled:
-        text = rng.choice(_RAPPORT_KURZBERICHTE.get(damage_type or "anderes", _RAPPORT_KURZBERICHTE["anderes"]))
+        text = rng.choice(_RAPPORT_KURZBERICHTE.get(scenario, _RAPPORT_KURZBERICHTE["anderes"]))
         if rng.random() < 0.2:
             text = f"{text} {rng.choice(_RAPPORT_KURZBERICHT_TAILS)}"
         data["kurzbericht"] = text
@@ -1372,7 +1375,7 @@ def generate_rapport_data(
     # The material checklist — the single largest piece of manual KP work this
     # plan removes, so a training run has to produce a realistic one.
     ticks: list[dict[str, Any]] = []
-    matching_keywords = _DAMAGE_MATERIAL_KEYWORDS.get(damage_type or "", ())
+    matching_keywords = _SCENARIO_MATERIAL_KEYWORDS.get(scenario, ())
     for unit in materials:
         consumable = bool(unit.get("consumable"))
         haystack = f"{unit.get('type') or ''} {unit.get('name') or ''}".lower()
@@ -1426,7 +1429,14 @@ def generate_rapport_data(
 
     if rng.random() < profile.personnel_count_corrected:
         data["personnel_count"] = max(0, board_personnel_count + rng.choice([-1, 1]))
-    if rng.random() < profile.vehicle_count_corrected:
-        data["vehicle_count"] = max(0, board_vehicle_count + rng.choice([-1, 1]))
+
+    # The vehicle checklist arrives prefilled ticked, so the simulated crew only
+    # ever has something to say by UNTICKING one — which is exactly the rare
+    # correction the KP has to notice.
+    if vehicles:
+        data["vehicles"] = [
+            {"assignment_id": unit["assignment_id"], "present": rng.random() >= profile.vehicle_absent}
+            for unit in vehicles
+        ]
 
     return data

@@ -864,24 +864,142 @@ def _jsonable_materials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-async def _resource_counts(db: AsyncSession, incident_id: uuid.UUID) -> tuple[int, int]:
-    """The board's own personnel and vehicle counts for the Kostenpflicht block.
+async def _board_vehicle_units(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+) -> tuple[list[dict[str, Any]], dict[uuid.UUID, dict[str, Any]]]:
+    """Every vehicle the board has (or had) on this incident.
 
-    Distinct resources, not assignment rows: somebody assigned, released and
-    re-assigned worked one Einsatz, not two. Released rows count — the crew that
-    left an hour ago was still eingesetzt.
+    The exact mirror of ``_board_material_units``, released rows included: a
+    vehicle that drove back early was still at the Schadenplatz, and the crew is
+    the only one who can say otherwise.
     """
     result = await db.execute(
-        select(IncidentAssignment.resource_type, IncidentAssignment.resource_id).where(
+        select(IncidentAssignment, Vehicle)
+        .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
+        .where(
             IncidentAssignment.incident_id == incident_id,
-            IncidentAssignment.resource_type.in_(["personnel", "vehicle"]),
+            IncidentAssignment.resource_type == "vehicle",
+        )
+        .order_by(Vehicle.display_order, Vehicle.name, IncidentAssignment.assigned_at)
+    )
+    ordered: list[dict[str, Any]] = []
+    by_assignment: dict[uuid.UUID, dict[str, Any]] = {}
+    for assignment, vehicle in result.all():
+        unit = {
+            "assignment_id": assignment.id,
+            "vehicle_id": vehicle.id,
+            "name": vehicle.name,
+        }
+        ordered.append(unit)
+        by_assignment[assignment.id] = unit
+    return ordered, by_assignment
+
+
+def reconcile_vehicles(
+    stored: list[Any] | None,
+    board_units: list[dict[str, Any]],
+    board_by_assignment: dict[uuid.UUID, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Re-reconcile the vehicle checklist against the board — never replace it.
+
+    The same three rules as ``reconcile_materials``, with one difference that
+    follows from the list being **prefilled ticked**: an untouched row is not
+    "unanswered", it is the board's own answer. So a vehicle the board dropped
+    survives only when the crew actually contradicted the board by unticking it;
+    a still-ticked row carries no information the board does not already have.
+    """
+    stored_rows: dict[uuid.UUID, dict[str, Any]] = {}
+    orphans: list[dict[str, Any]] = []
+    for raw in stored or []:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            assignment_id = uuid.UUID(str(raw.get("assignment_id")))
+        except (TypeError, ValueError):
+            continue
+        row = dict(raw)
+        row["assignment_id"] = assignment_id
+        if assignment_id in board_by_assignment:
+            stored_rows[assignment_id] = row
+        elif row.get("present") is False:
+            row["on_board"] = False
+            orphans.append(row)
+
+    merged: list[dict[str, Any]] = []
+    for unit in board_units:
+        previous = stored_rows.get(unit["assignment_id"], {})
+        merged.append(
+            {
+                "assignment_id": unit["assignment_id"],
+                "vehicle_id": unit["vehicle_id"],
+                "name": unit["name"],
+                # Prefilled ticked: the board says the vehicle was there, and the
+                # crew's job is to contradict it, not to confirm it by hand.
+                "present": bool(previous.get("present", True)),
+                "on_board": True,
+            }
+        )
+
+    for row in orphans:
+        merged.append(
+            {
+                "assignment_id": row["assignment_id"],
+                "vehicle_id": row.get("vehicle_id"),
+                "name": row.get("name") or "Unbekannt",
+                "present": False,
+                "on_board": False,
+            }
+        )
+    return merged
+
+
+def _jsonable_vehicles(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The vehicle checklist as it goes into JSONB: ids as strings, no ``on_board``.
+
+    ``on_board`` is recomputed on every read from the live assignments, so
+    storing it would be storing a second, staler copy of the board.
+    """
+    return [
+        {
+            "assignment_id": str(row["assignment_id"]),
+            "vehicle_id": str(row["vehicle_id"]) if row.get("vehicle_id") else None,
+            "name": row.get("name"),
+            "present": bool(row.get("present", True)),
+        }
+        for row in rows
+    ]
+
+
+async def _board_personnel_count(db: AsyncSession, incident_id: uuid.UUID) -> int:
+    """The board's own head count — the number the crew confirms or corrects.
+
+    Distinct people, not assignment rows: somebody assigned, released and
+    re-assigned worked one Einsatz, not two. Released rows count — the crew that
+    left an hour ago was still eingesetzt.
+
+    The vehicles have no number of their own any more: the crew confirms the
+    LIST (``_board_vehicle_units``), and its length is the count.
+    """
+    result = await db.execute(
+        select(IncidentAssignment.resource_id).where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.resource_type == "personnel",
         )
     )
-    personnel_ids: set[uuid.UUID] = set()
-    vehicle_ids: set[uuid.UUID] = set()
-    for resource_type, resource_id in result.all():
-        (personnel_ids if resource_type == "personnel" else vehicle_ids).add(resource_id)
-    return len(personnel_ids), len(vehicle_ids)
+    return len({row[0] for row in result.all()})
+
+
+async def _material_name_suggestions(db: AsyncSession) -> list[str]:
+    """Distinct catalogue names for the "Weiteres Material" autosuggest.
+
+    A naming aid and nothing more. It deliberately carries **no ids**, precisely
+    so no client can turn it into a picker: `/feld` never writes an assignment
+    (decision 17), and suggesting a name is not picking a unit. Capped so a
+    station with a large catalogue does not push a five-figure list to a phone.
+    """
+    result = await db.execute(select(Material.name).distinct().order_by(Material.name).limit(200))
+    return [row[0] for row in result.all() if row[0]]
 
 
 async def _default_work_started_at(
@@ -1015,7 +1133,12 @@ async def get_rapport(
     board_units, board_by_assignment = await _board_material_units(db, incident.id)
     materials = reconcile_materials(report.materials_json if report else None, board_units, board_by_assignment)
 
-    board_personnel, board_vehicles = await _resource_counts(db, incident.id)
+    board_vehicle_units, board_vehicles_by_assignment = await _board_vehicle_units(db, incident.id)
+    vehicles = reconcile_vehicles(
+        report.vehicles_json if report else None, board_vehicle_units, board_vehicles_by_assignment
+    )
+
+    board_personnel = await _board_personnel_count(db, incident.id)
     leaders = await get_incident_leaders(db, [incident.id])
     leader = leaders.get(incident.id)
     names = await _names(db, report)
@@ -1038,9 +1161,9 @@ async def get_rapport(
         "melder_street": incident.location_address or None,
         "melder_city": None,
         "board_personnel_count": board_personnel,
-        "board_vehicle_count": board_vehicles,
         "default_work_started_at": default_started,
         "default_work_ended_at": default_ended,
+        "material_name_suggestions": await _material_name_suggestions(db),
     }
 
     concurrent = _concurrent_editor(report, actor, names["updated_by_name"])
@@ -1051,9 +1174,9 @@ async def get_rapport(
             "exists": False,
             "is_draft": True,
             "materials": materials,
+            "vehicles": vehicles,
             "photos": [],
             "personnel_count": board_personnel,
-            "vehicle_count": board_vehicles,
             "work_started_at": default_started,
             "work_ended_at": default_ended,
             "prefill": prefill,
@@ -1065,12 +1188,11 @@ async def get_rapport(
         "exists": True,
         "is_draft": report.is_draft,
         "submitted_at": report.submitted_at,
-        "damage_type": report.damage_type,
-        "damage_type_other": report.damage_type_other,
         # A stored value wins; the derived default fills the blank the first time.
         "work_started_at": report.work_started_at or default_started,
         "work_ended_at": report.work_ended_at or default_ended,
         "materials": materials,
+        "vehicles": vehicles,
         # Filenames only. They are read back through the shared
         # `GET /api/photos/{incident_id}/{filename}`, which is what the Reko
         # form already uses — the photo bytes are not per-door.
@@ -1085,8 +1207,6 @@ async def get_rapport(
         "vehicle_model": report.vehicle_model,
         "personnel_count": report.personnel_count if report.personnel_count is not None else board_personnel,
         "personnel_count_corrected": report.personnel_count_corrected,
-        "vehicle_count": report.vehicle_count if report.vehicle_count is not None else board_vehicles,
-        "vehicle_count_corrected": report.vehicle_count_corrected,
         "cost_snapshot_json": report.cost_snapshot_json,
         "arrived_at": report.arrived_at,
         "created_by_name": names["created_by_name"],
@@ -1167,8 +1287,6 @@ async def save_rapport(
     was_draft = report.is_draft
 
     for field in (
-        "damage_type",
-        "damage_type_other",
         "work_started_at",
         "work_ended_at",
         "extra_material_note",
@@ -1220,18 +1338,45 @@ async def save_rapport(
             )
         report.materials_json = _jsonable_materials(merged)
 
-    # The Kostenpflicht counts. A corrected value is stored AS corrected — the
-    # divergence is itself information, it says the board was behind reality —
+    if "vehicles" in provided and payload.vehicles is not None:
+        board_vehicle_units, board_vehicles_by_assignment = await _board_vehicle_units(db, incident.id)
+        vehicle_ticks = {tick.assignment_id: tick for tick in payload.vehicles}
+        # Reconcile FIRST, then apply the ticks — same reason as the materials: a
+        # vehicle the KP added while the crew was typing has to appear, and one
+        # the board took away must not come back through a stale form.
+        merged_vehicles = reconcile_vehicles(report.vehicles_json, board_vehicle_units, board_vehicles_by_assignment)
+        for vehicle_row in merged_vehicles:
+            vehicle_tick = vehicle_ticks.get(vehicle_row["assignment_id"])
+            if vehicle_tick is None:
+                continue
+            vehicle_row["present"] = bool(vehicle_tick.present)
+        # A vehicle that vanished from the board but was UNTICKED in THIS payload
+        # keeps that answer; a still-ticked one carries nothing the board does
+        # not already know, so it is not resurrected.
+        known_ids = {vehicle_row["assignment_id"] for vehicle_row in merged_vehicles}
+        for assignment_id, vehicle_tick in vehicle_ticks.items():
+            if assignment_id in known_ids or assignment_id in board_vehicles_by_assignment or vehicle_tick.present:
+                continue
+            merged_vehicles.append(
+                {
+                    "assignment_id": assignment_id,
+                    "vehicle_id": None,
+                    "name": "Unbekannt",
+                    "present": False,
+                    "on_board": False,
+                }
+            )
+        report.vehicles_json = _jsonable_vehicles(merged_vehicles)
+
+    # The head count the crew confirms. A corrected value is stored AS corrected —
+    # the divergence is itself information, it says the board was behind reality —
     # and a value that matches the board clears the flag again.
-    board_personnel, board_vehicles = await _resource_counts(db, incident.id)
+    board_personnel = await _board_personnel_count(db, incident.id)
     if "personnel_count" in provided:
         report.personnel_count = payload.personnel_count
         report.personnel_count_corrected = (
             payload.personnel_count is not None and payload.personnel_count != board_personnel
         )
-    if "vehicle_count" in provided:
-        report.vehicle_count = payload.vehicle_count
-        report.vehicle_count_corrected = payload.vehicle_count is not None and payload.vehicle_count != board_vehicles
 
     submitting = payload.is_draft is False
     if submitting:
@@ -1244,8 +1389,14 @@ async def save_rapport(
             report.cost_snapshot_json = await _build_cost_snapshot(db, incident.id)
         if report.personnel_count is None:
             report.personnel_count = board_personnel
-        if report.vehicle_count is None:
-            report.vehicle_count = board_vehicles
+        # A rapport filed without the crew touching the vehicle checklist still
+        # has to record which vehicles the board had — the all-ticked prefill IS
+        # the answer, so it gets frozen into the row rather than staying implicit.
+        if report.vehicles_json is None:
+            board_vehicle_units, board_vehicles_by_assignment = await _board_vehicle_units(db, incident.id)
+            report.vehicles_json = _jsonable_vehicles(
+                reconcile_vehicles(None, board_vehicle_units, board_vehicles_by_assignment)
+            )
 
     _stamp_updated_by(report, actor)
 
@@ -1259,7 +1410,6 @@ async def save_rapport(
         # everyone with an account, and the owner block is citizen PII (§9).
         changes={
             "is_draft": report.is_draft,
-            "damage_type": report.damage_type,
             "source": "feld" if actor.is_field else "kp",
         },
         request=request,

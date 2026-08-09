@@ -847,7 +847,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     # SCHADENPLATZ-RAPPORT (plan 25)
     # One filed rapport on the closed Einliegerwohnung, so a visitor sees the
     # whole feature — the card badge, "Material zurück – freigeben", the
-    # Restliste/Abholliste and the Kostenpflicht export — without ever opening
+    # Restliste/Abholliste and the Einsätze export — without ever opening
     # `/feld`. Filed AFTER the crew was released, which is exactly the moment
     # the form exists for.
     #
@@ -903,7 +903,6 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         models.SchadenplatzReport(
             id=uuid4(),
             incident_id=rapport_incident.id,
-            damage_type="wasserschaden",
             work_started_at=ago(148),
             work_ended_at=ago(58),
             arrived_at=ago(148),
@@ -936,7 +935,6 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             owner_street="Musterstrasse 12",
             owner_city="4104 Oberwil",
             personnel_count=2,
-            vehicle_count=0,
             cost_snapshot_json=[
                 {"kind": "personnel", "name": member.name, "from": ago(150).isoformat(), "to": ago(55).isoformat()}
                 for member in rapport_crew

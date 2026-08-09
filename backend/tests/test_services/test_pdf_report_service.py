@@ -36,6 +36,7 @@ from app.services.pdf_report_service import (
     format_material_unit,
     material_left_on_site_names,
     material_used_label,
+    vehicle_present_names,
 )
 
 
@@ -713,6 +714,16 @@ def _material_row(name: str, *, used: bool | None, left_on_site: bool = False, c
     }
 
 
+def _vehicle_row(name: str, *, present: bool = True) -> dict:
+    """One `vehicles_json` entry, prefilled ticked as both doors store it."""
+    return {
+        "assignment_id": str(uuid4()),
+        "vehicle_id": str(uuid4()),
+        "name": name,
+        "present": present,
+    }
+
+
 def _rapport(incident_id, **overrides) -> SchadenplatzReport:
     defaults: dict = {
         "id": uuid4(),
@@ -722,7 +733,6 @@ def _rapport(incident_id, **overrides) -> SchadenplatzReport:
         "created_at": datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
         "updated_at": datetime(2026, 6, 1, 12, 32, tzinfo=UTC),
         "personnel_count_corrected": False,
-        "vehicle_count_corrected": False,
     }
     defaults.update(overrides)
     return SchadenplatzReport(**defaults)
@@ -767,6 +777,15 @@ class TestRapportHelpers:
         )
         assert material_left_on_site_names(report) == ["Tauchpumpe"]
 
+    def test_only_the_ticked_vehicles_are_named(self):
+        """The list replaced the count: an unticked vehicle simply was not there."""
+        report = _rapport(
+            uuid4(),
+            vehicles_json=[_vehicle_row("TLF 1"), _vehicle_row("MTW", present=False)],
+        )
+        assert vehicle_present_names(report) == ["TLF 1"]
+        assert vehicle_present_names(_rapport(uuid4())) == []
+
 
 class TestRapportInThePdf:
     def _data(self, event: Event, incident: Incident, report: SchadenplatzReport, **kwargs) -> EventReportData:
@@ -784,7 +803,6 @@ class TestRapportInThePdf:
     def test_block_renders_with_its_fields(self, simple_event: Event, simple_incident: Incident):
         report = _rapport(
             simple_incident.id,
-            damage_type="wasserschaden",
             work_started_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
             work_ended_at=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
             kurzbericht="Keller ausgepumpt.",
@@ -795,7 +813,6 @@ class TestRapportInThePdf:
         )
         text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
         assert "Schadenplatz-Rapport" in text
-        assert "Wasserschaden" in text
         assert "Keller ausgepumpt." in text
         assert "Hauswart" in text
         assert "Muster Hans" in text
@@ -816,6 +833,16 @@ class TestRapportInThePdf:
         data = self._data(simple_event, simple_incident, report, assignments=assignments)
         text = _extract_text(build_event_report_pdf(data, "tester"))
         assert "8 (vom Board: 6)" in text
+
+    def test_the_vehicles_are_printed_by_name_not_as_a_count(self, simple_event: Event, simple_incident: Incident):
+        report = _rapport(
+            simple_incident.id,
+            vehicles_json=[_vehicle_row("TLF 1"), _vehicle_row("MTW", present=False)],
+        )
+        text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
+        assert "Eingesetzte Fahrzeuge" in text
+        assert "TLF 1" in text
+        assert "MTW" not in text
 
     def test_unanswered_material_renders_keine_angabe(self, simple_event: Event, simple_incident: Incident):
         report = _rapport(simple_incident.id, materials_json=[_material_row("Nassauger", used=None)])

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
+import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -15,7 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints, Flag, FileText, FileX } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints, FileText } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -339,29 +340,22 @@ function DraggableOperationBase({
                   <Building2 className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
+              {/* Reko carries the Binoculars everywhere else in the app — a
+                  second document glyph next to the Rapport's only invited the
+                  operator to tell two near-identical papers apart. */}
               {operation.hasCompletedReko && (
                 <div
                   className="p-1.5 rounded-md bg-muted/60"
                   title={t('card.rekoDoneTooltip')}
                 >
-                  <FileCheck className="h-4 w-4 text-muted-foreground/80" />
+                  <Binoculars className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
-              {/* "Feld meldet: beendet" — reported, not closed. The operator
-                  still decides; this is the nudge that a card is ready to be. */}
-              {operation.fieldCompleteReportedAt && operation.status !== 'complete' && (
-                <div
-                  className="p-1.5 rounded-md bg-muted/60"
-                  title={tFeld('cardCompleteTooltip')}
-                >
-                  <Flag className="h-4 w-4 text-muted-foreground/80" />
-                </div>
-              )}
-              {/* The Schadenplatz-Rapport. Filed = a quiet chip; missing on a
-                  card that already reached `complete` = a muted marker, so the
-                  gap is visible without a dialog and without a block
-                  (decision 10 — a blocking gate is a gate people defeat with
-                  empty forms). */}
+              {/* The Schadenplatz-Rapport — ONE glyph, two brightnesses. Filed =
+                  a quiet chip; missing on a card that already reached `complete`
+                  = the same paper dimmed, so the gap is visible without a dialog
+                  and without a block (decision 10 — a blocking gate is a gate
+                  people defeat with empty forms). */}
               {operation.hasSchadenplatzRapport ? (
                 <div
                   className="p-1.5 rounded-md bg-muted/60"
@@ -374,7 +368,7 @@ function DraggableOperationBase({
                   className="p-1.5 rounded-md bg-muted/40"
                   title={tFeld('cardNoRapportTooltip')}
                 >
-                  <FileX className="h-4 w-4 text-muted-foreground/50" />
+                  <FileText className="h-4 w-4 text-muted-foreground/40" />
                 </div>
               ) : null}
               <Link
@@ -398,6 +392,18 @@ function DraggableOperationBase({
               (amber/red once it has sat too long), which is a separate signal from
               whichever number the mode happens to show. */}
           <IncidentTimeRow operation={operation} colorByAge className="justify-between" />
+
+          {/* What the field reported, as a question instead of a second status
+              display. Rendered conditionally so only the handful of cards that
+              actually have a field report subscribe to the operations context —
+              the card body itself stays behind its memo. */}
+          {(operation.fieldCompleteReportedAt || operation.fieldArrivedAt) && (
+            <FieldStatusNudge
+              operation={operation}
+              canEdit={canDrag}
+              onRequestComplete={onRequestComplete}
+            />
+          )}
 
           {/* Meldung (notes) - shown when toggle is enabled */}
           {showMeldung && operation.notes && (
@@ -794,6 +800,10 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.pickupRequestedAt?.getTime() === nextProps.operation.pickupRequestedAt?.getTime() &&
     prevProps.operation.fieldCompleteReportedAt?.getTime() ===
       nextProps.operation.fieldCompleteReportedAt?.getTime() &&
+    // Both field reports drive the nudge row, so an arrival that lands over the
+    // WebSocket has to get through this comparator too.
+    prevProps.operation.fieldArrivedAt?.getTime() ===
+      nextProps.operation.fieldArrivedAt?.getTime() &&
     prevProps.operation.hasSchadenplatzRapport === nextProps.operation.hasSchadenplatzRapport &&
     prevProps.operation.groupId === nextProps.operation.groupId &&
     prevProps.operation.groupPosition === nextProps.operation.groupPosition &&

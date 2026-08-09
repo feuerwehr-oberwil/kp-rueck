@@ -16,13 +16,13 @@ from ..models import Material, Personnel, Vehicle
 from .audit_export_service import EventReportData
 from .pdf_report_service import (
     LOCAL_TZ,
-    board_resource_counts,
-    damage_type_label,
+    board_personnel_count,
     material_checklist_rows,
     material_left_on_site_names,
     material_used_label,
     rapport_by_incident,
     rapport_filing_lines,
+    vehicle_present_names,
 )
 
 # Column definitions
@@ -357,28 +357,28 @@ def _build_export_workbook(
 
 
 # ---------------------------------------------------------------------------
-# Kostenpflicht export (plan 25, §7 / decision 21)
+# Einsätze export (plan 25, §7 / decision 21)
 #
 # One wide row per Schadenplatz. It matches **no** external format on purpose:
-# it is retyped by hand into a system archaic enough that mirroring its layout
-# buys nothing, so the sheet optimises for being *read while retyping* — human
-# headers, everything about one Schadenplatz on one line, and no derived
-# person-hours column (nothing downstream asked for one; `cost_snapshot_json`
-# keeps the per-person from/to if that ever changes).
+# somebody retypes this into the billing system by hand, and that system is
+# archaic enough that mirroring its layout buys nothing — so the sheet optimises
+# for being *read while retyping*: human headers, everything about one
+# Schadenplatz on one line, and no derived person-hours column (nothing
+# downstream asked for one; `cost_snapshot_json` keeps the per-person from/to if
+# that ever changes). It just does not need that name on it: the crew filling
+# the slip is recording an Einsatz, not writing an invoice.
 # ---------------------------------------------------------------------------
 
 # (header, column width), in the reading order of the paper slip.
-KOSTENPFLICHT_COLUMNS: list[tuple[str, int]] = [
+EINSAETZE_COLUMNS: list[tuple[str, int]] = [
     ("Einsatz-Nr.", 11),
     ("Adresse", 34),
-    ("Schadensart", 18),
     ("Beginn", 17),
     ("Ende", 17),
     ("Dauer", 9),
     ("Personal", 9),
     ("Personal korrigiert", 20),
-    ("Fahrzeuge", 10),
-    ("Fahrzeuge korrigiert", 20),
+    ("Fahrzeuge", 34),
     ("Eigentümer Name", 24),
     ("Eigentümer Strasse", 24),
     ("Eigentümer Ort", 20),
@@ -432,7 +432,7 @@ def _corrected_cell(corrected: bool, board_value: int) -> str:
     return f"Ja (Board: {board_value})" if corrected else ""
 
 
-def build_kostenpflicht_workbook(data: EventReportData) -> BytesIO:
+def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
     """One row per Schadenplatz, including the ones **without** a rapport.
 
     A missing rapport is a blank row carrying its address, never a missing row:
@@ -441,9 +441,9 @@ def build_kostenpflicht_workbook(data: EventReportData) -> BytesIO:
     """
     wb = Workbook()
     wb.remove(wb.active)
-    ws = wb.create_sheet("Kostenpflicht")
+    ws = wb.create_sheet("Einsätze")
 
-    for col_num, (header, width) in enumerate(KOSTENPFLICHT_COLUMNS, 1):
+    for col_num, (header, width) in enumerate(EINSAETZE_COLUMNS, 1):
         cell = ws.cell(row=1, column=col_num, value=header)
         cell.font = Font(bold=True)
         cell.alignment = Alignment(horizontal="left", vertical="top")
@@ -454,23 +454,23 @@ def build_kostenpflicht_workbook(data: EventReportData) -> BytesIO:
 
     for row_num, (index, incident) in enumerate(enumerate(data.incidents, 1), 2):
         report = reports.get(incident.id)
-        board_personnel, board_vehicles = board_resource_counts(data, incident.id)
 
         values: list[Any]
         if report is None:
-            values = [index, incident.location_address or "", *[""] * (len(KOSTENPFLICHT_COLUMNS) - 2)]
+            values = [index, incident.location_address or "", *[""] * (len(EINSAETZE_COLUMNS) - 2)]
         else:
             values = [
                 index,
                 incident.location_address or "",
-                damage_type_label(report) if report.damage_type else "",
                 _local_dt(report.work_started_at),
                 _local_dt(report.work_ended_at),
                 format_duration(report.work_started_at, report.work_ended_at),
                 report.personnel_count if report.personnel_count is not None else "",
-                _corrected_cell(report.personnel_count_corrected, board_personnel),
-                report.vehicle_count if report.vehicle_count is not None else "",
-                _corrected_cell(report.vehicle_count_corrected, board_vehicles),
+                _corrected_cell(report.personnel_count_corrected, board_personnel_count(data, incident.id)),
+                # The vehicles the crew ticked, by name: which ones were there is
+                # the question the billing side actually asks, and a number
+                # answers it for nobody.
+                ", ".join(vehicle_present_names(report)),
                 report.owner_name or "",
                 report.owner_street or "",
                 report.owner_city or "",
@@ -499,6 +499,6 @@ def build_kostenpflicht_workbook(data: EventReportData) -> BytesIO:
     return output
 
 
-async def export_kostenpflicht_excel(data: EventReportData) -> BytesIO:
-    """Build the Kostenpflicht workbook off the event loop (audit H4)."""
-    return await asyncio.to_thread(build_kostenpflicht_workbook, data)
+async def export_einsaetze_excel(data: EventReportData) -> BytesIO:
+    """Build the Einsätze workbook off the event loop (audit H4)."""
+    return await asyncio.to_thread(build_einsaetze_workbook, data)

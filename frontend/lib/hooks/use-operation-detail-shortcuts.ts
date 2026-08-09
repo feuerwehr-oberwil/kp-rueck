@@ -99,3 +99,68 @@ export function useOperationDetailShortcuts({
     return () => window.removeEventListener("keydown", handleKeyPress)
   }, [enabled, operation, availableVehicles, onUpdate, onAssignVehicle, onRemoveVehicle])
 }
+
+/** The four tabs of the incident detail. Declared here, next to the shortcuts,
+ *  because the shortcuts are what decide which tab has to be in front. */
+export type OperationDetailTab = "overview" | "resources" | "rapport" | "history"
+
+/**
+ * Which tab holds the control a shortcut key manipulates — `null` when the key
+ * is none of ours.
+ *
+ * The detail is tabbed, so a shortcut can now aim at a control that is not on
+ * screen: priority lives on Übersicht, "zu Fuss" and the quick-assign fleet on
+ * Ressourcen. Pressing the key must bring that tab forward, or the operator
+ * gets a silent mutation they cannot see. This resolver shares its key matching
+ * with the handler above on purpose — one table of keys, so the two cannot
+ * drift apart.
+ */
+export function resolveShortcutTab(
+  event: Pick<KeyboardEvent, "key" | "shiftKey" | "target">,
+  availableVehicleCount: number,
+): OperationDetailTab | null {
+  if (isTypingTarget(event.target)) return null
+
+  if (event.shiftKey && SHIFT_PRIORITY_KEYS[event.key]) return "overview"
+
+  if (event.key === "0" && !event.shiftKey) return "resources"
+
+  const vehicleIndex = Number.parseInt(event.key, 10) - 1
+  if (
+    !Number.isNaN(vehicleIndex) &&
+    vehicleIndex >= 0 &&
+    vehicleIndex < 5 &&
+    vehicleIndex < availableVehicleCount
+  ) {
+    return "resources"
+  }
+
+  return null
+}
+
+/**
+ * Keeps the visible tab in step with the shortcut keys. Purely a view concern —
+ * it never mutates the incident, so it is safe to mount next to (or without)
+ * `useOperationDetailShortcuts`.
+ */
+export function useOperationDetailShortcutTabs({
+  enabled,
+  availableVehicleCount,
+  onFocusTab,
+}: {
+  enabled: boolean
+  availableVehicleCount: number
+  onFocusTab: (tab: OperationDetailTab) => void
+}): void {
+  useEffect(() => {
+    if (!enabled) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const tab = resolveShortcutTab(event, availableVehicleCount)
+      if (tab) onFocusTab(tab)
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [enabled, availableVehicleCount, onFocusTab])
+}

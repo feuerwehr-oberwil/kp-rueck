@@ -119,7 +119,6 @@ async def _mixed_event(
         f"/api/incidents/{submitted.id}/rapport",
         json={
             "is_draft": False,
-            "damage_type": "wasserschaden",
             "materials": [
                 {"assignment_id": str(stays.id), "used": True, "left_on_site": True},
                 {"assignment_id": str(goes_home.id), "used": True, "left_on_site": False},

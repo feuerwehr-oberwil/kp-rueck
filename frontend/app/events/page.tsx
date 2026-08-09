@@ -79,7 +79,7 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [reportLoadingId, setReportLoadingId] = useState<string | null>(null)
   const [auditLoadingId, setAuditLoadingId] = useState<string | null>(null)
-  const [kostenpflichtLoadingId, setKostenpflichtLoadingId] = useState<string | null>(null)
+  const [einsaetzeLoadingId, setEinsaetzeLoadingId] = useState<string | null>(null)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -209,28 +209,29 @@ export default function EventsPage() {
   }
 
   /**
-   * Kostenpflicht (plan 25, §7): the billing sheet, one row per Schadenplatz —
-   * including the ones without a rapport, so the gaps stay visible.
+   * Einsätze (plan 25, §7): one wide row per Schadenplatz — including the ones
+   * without a rapport, so the gaps stay visible. Somebody retypes it into the
+   * billing system by hand; it just does not need that name on it.
    */
-  const handleKostenpflichtExport = async (event: Event) => {
-    setKostenpflichtLoadingId(event.id)
+  const handleEinsaetzeExport = async (event: Event) => {
+    setEinsaetzeLoadingId(event.id)
     try {
-      const blob = await apiClient.exportEventKostenpflicht(event.id)
+      const blob = await apiClient.exportEventEinsaetze(event.id)
       const date = new Date().toISOString().slice(0, 10)
-      downloadBlob(blob, `kostenpflicht-${slugifyEventName(event.name)}-${date}.xlsx`)
+      downloadBlob(blob, `einsaetze-${slugifyEventName(event.name)}-${date}.xlsx`)
     } catch (err) {
-      toast.error(t('page.kostenpflichtExportFailed'), {
+      toast.error(t('page.einsaetzeExportFailed'), {
         description: err instanceof Error ? err.message : undefined,
       })
     } finally {
-      setKostenpflichtLoadingId(null)
+      setEinsaetzeLoadingId(null)
     }
   }
 
   // Compact export control: one button, both formats in a dropdown.
   const renderExportMenu = (event: Event) => {
     const busy =
-      reportLoadingId === event.id || auditLoadingId === event.id || kostenpflichtLoadingId === event.id
+      reportLoadingId === event.id || auditLoadingId === event.id || einsaetzeLoadingId === event.id
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -252,9 +253,9 @@ export default function EventsPage() {
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             {t('page.exportAudit')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleKostenpflichtExport(event)} className="cursor-pointer">
+          <DropdownMenuItem onClick={() => handleEinsaetzeExport(event)} className="cursor-pointer">
             <ReceiptText className="mr-2 h-4 w-4" />
-            {t('page.exportKostenpflicht')}
+            {t('page.exportEinsaetze')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

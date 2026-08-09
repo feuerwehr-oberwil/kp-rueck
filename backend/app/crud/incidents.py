@@ -187,11 +187,16 @@ async def get_incidents(
     feld_result = await db.execute(feld_query)
     field_arrived_map: dict[uuid.UUID, tuple[datetime | None, uuid.UUID | None]] = {}
     submitted_rapports: set[uuid.UUID] = set()
+    # Kept apart rather than derived from each other: "nobody has filed" and
+    # "somebody started and walked away" are different states on the board.
+    draft_rapports: set[uuid.UUID] = set()
     # Own loop variable: `row` above is a differently-shaped Row and mypy holds
     # the first binding's type for the whole function.
     for feld_row in feld_result:
         field_arrived_map[feld_row.incident_id] = (feld_row.arrived_at, feld_row.arrived_by_personnel_id)
-        if not feld_row.is_draft:
+        if feld_row.is_draft:
+            draft_rapports.add(feld_row.incident_id)
+        else:
             submitted_rapports.add(feld_row.incident_id)
 
     # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
@@ -200,6 +205,7 @@ async def get_incidents(
         incident.field_arrived_at = arrival[0] if arrival else None
         incident.field_arrived_by = arrival[1] if arrival else None
         incident.has_schadenplatz_rapport = incident.id in submitted_rapports
+        incident.has_schadenplatz_rapport_draft = incident.id in draft_rapports
         # Set status_changed_at from batch-loaded map
         incident.status_changed_at = transitions_map.get(incident.id, incident.created_at)
 
@@ -269,6 +275,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         incident.field_arrived_at = feld_row.arrived_at if feld_row else None
         incident.field_arrived_by = feld_row.arrived_by_personnel_id if feld_row else None
         incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
+        incident.has_schadenplatz_rapport_draft = bool(feld_row and feld_row.is_draft)
 
     return incident
 

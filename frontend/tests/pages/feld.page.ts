@@ -103,9 +103,8 @@ export class FeldPage extends BasePage {
     return this.page.getByText(state, { exact: true });
   }
 
-  /** Fill the two fields a submit actually needs, then file it. */
-  async fileRapport(damageType: string, kurzbericht: string) {
-    await this.page.getByRole('button', { name: damageType, exact: true }).click();
+  /** Type the Kurzbericht and file it. Nothing on this form is required. */
+  async fileRapport(kurzbericht: string) {
     await this.kurzberichtField.fill(kurzbericht);
     await this.submitRapportButton.click();
     await expect(this.submittedBadge).toBeVisible({ timeout: 15_000 });
