@@ -18,6 +18,7 @@ from ..crud import events as events_crud
 from ..crud import incidents as crud
 from ..database import get_db
 from ..services import incident_display
+from ..services.incident_leader import effective_leader_ids
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_group_update, broadcast_incident_update
 
@@ -450,9 +451,19 @@ async def get_incident_participants(
         )
         reko_ids = {row[0] for row in reko_rows.all()}
 
+    # Who led it. `is_leader` is cleared when an assignment is released, so rolling
+    # the raw flag up leaves a completed incident with nobody flagged — in the one
+    # view whose entire job is to answer "who was here" long after it closed.
+    # Resolve it the way every other reader does.
+    active_leader_ids = {
+        a.resource_id for a in assignments if a.resource_type == "personnel" and a.is_leader and a.unassigned_at is None
+    }
+    leader_ids = effective_leader_ids(incident, active_leader_ids)
+
     rolled: dict[tuple[str, uuid.UUID], schemas.IncidentParticipant] = {}
     for a in assignments:
         key = (a.resource_type, a.resource_id)
+        is_leader = a.resource_type == "personnel" and a.resource_id in leader_ids
         existing = rolled.get(key)
         if existing is None:
             rolled[key] = schemas.IncidentParticipant(
@@ -463,11 +474,11 @@ async def get_incident_participants(
                 last_released_at=a.unassigned_at,
                 stints=1,
                 is_reko=a.resource_type == "personnel" and a.resource_id in reko_ids,
-                is_leader=a.is_leader,
+                is_leader=is_leader,
             )
             continue
         existing.stints += 1
-        existing.is_leader = existing.is_leader or a.is_leader
+        existing.is_leader = existing.is_leader or is_leader
         # A single still-open stint makes the whole participation still open,
         # whatever order the rows arrived in.
         if existing.last_released_at is not None:
