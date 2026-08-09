@@ -485,6 +485,16 @@ function FeldSurface() {
                           filename,
                         )
                       },
+                      // Reading is a door too. The board's photo endpoint wants
+                      // a session and this page has none, so its `<img>` came
+                      // back 401 — one crew, its own photo, a broken icon.
+                      url: filename =>
+                        apiClient.feldPhotoUrl(
+                          selectedAssignment.incident_id,
+                          selectedPerson.personnel_id,
+                          token,
+                          filename,
+                        ),
                     },
                   }}
                   onSaved={applyRapportState}

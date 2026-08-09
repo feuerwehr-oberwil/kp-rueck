@@ -33,9 +33,7 @@ export function FeldVehicleChecklist({ rows, disabled, onChange }: FeldVehicleCh
 
   return (
     <div className="space-y-2">
-      <div>
-        <p className="text-xs text-muted-foreground">{t('label')}</p>
-      </div>
+      <p className="text-xs text-muted-foreground">{t('label')}</p>
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">

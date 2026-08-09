@@ -16,7 +16,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronDown, ChevronRight, FileText } from 'lucide-react'
+import { FileText } from 'lucide-react'
 
 import { FeldRapportForm, type RapportTransport } from '@/components/feld/feld-rapport-form'
 import { MaterialReturnList } from '@/components/kanban/material-return-list'
@@ -36,9 +36,6 @@ export function SchadenplatzRapportSection({
   hasRapport = false,
 }: SchadenplatzRapportSectionProps) {
   const t = useTranslations('feld.rapport')
-  // Collapsed by default: the board is dense, and the rapport is the paperwork
-  // end of an incident, not the thing an operator looks at during it.
-  const [open, setOpen] = useState(false)
   const [returnKey, setReturnKey] = useState(0)
 
   const transport: RapportTransport = useMemo(
@@ -67,35 +64,28 @@ export function SchadenplatzRapportSection({
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => setOpen(value => !value)}
-        className="flex w-full items-center gap-2 text-left"
-        aria-expanded={open}
-      >
-        {open ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        )}
+      {/* Always open, like the Reko-Meldungen beside it. It was collapsed by
+          default on the theory that the rapport is paperwork nobody looks at
+          during an incident — but the Rapport tab IS that click, and a form
+          behind a second one is a form that does not get filled. Nothing about
+          the collapse is persisted, so there is no stored flag to clear. */}
+      <div className="flex w-full items-center gap-2">
         <FileText className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-semibold text-muted-foreground">{t('sectionTitle')}</span>
         <span className="ml-auto text-xs text-muted-foreground">
           {hasRapport ? t('stateSubmitted') : t('stateMissing')}
         </span>
-      </button>
+      </div>
 
-      {open && (
-        <div className="rounded-lg border border-border p-4">
-          <FeldRapportForm
-            incidentId={incidentId}
-            transport={transport}
-            mount="kp"
-            disabled={!canEdit}
-            onSaved={handleSaved}
-          />
-        </div>
-      )}
+      <div className="rounded-lg border border-border p-4">
+        <FeldRapportForm
+          incidentId={incidentId}
+          transport={transport}
+          mount="kp"
+          disabled={!canEdit}
+          onSaved={handleSaved}
+        />
+      </div>
 
       {/* Outside the collapse on purpose: "Material zurück – freigeben" is the
           KP's own to-do, and hiding it behind the form would put it exactly

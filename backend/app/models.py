@@ -828,11 +828,14 @@ class SchadenplatzReport(Base):
     handed_over_to: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # --- Eigentümer-/Halterdaten (citizen PII) ---
-    owner_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    owner_street: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    owner_city: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    vehicle_plate: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    vehicle_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # ONE free-text box, not five columns (§18.10). The paper form has five ruled
+    # lines because paper cannot do otherwise; a phone in the rain asking for
+    # Name, Strasse, Ort, Kennzeichen and Typ in five separate inputs got four
+    # empty ones and a name. What a crew actually writes is "Fam. Meier, unten
+    # links, Tel 079 …" — and every reader of this field (PDF, xlsx, the
+    # operator) wants the same thing: whatever is known about whose property
+    # this was. Structure that nobody fills is not structure.
+    owner_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # --- Mannschaft und Fahrzeuge, as the crew confirms them ---
     # The head count is a number the crew corrects; the vehicles are a checklist it

@@ -127,7 +127,6 @@ LABELS: dict[str, str] = {
     "rapport_material": "Material",
     "rapport_extra_material": "Weiteres Material",
     "rapport_owner": "Eigentümer / Halter",
-    "rapport_vehicle": "KFZ",
     "rapport_pickup": "Abholung nötig",
     "rapport_filed_field": "Erfasst von {name} (Feld), {at}",
     "rapport_filed_kp": "Erfasst im KP durch {name} (Funkmeldung), {at}",
@@ -1162,12 +1161,10 @@ def _rapport_block(
     if report.handed_over_to:
         flow.append(_field(LABELS["rapport_handed_over"], report.handed_over_to, styles))
 
-    owner = ", ".join(p for p in (report.owner_name, report.owner_street, report.owner_city) if p)
-    if owner:
-        flow.append(_field(LABELS["rapport_owner"], owner, styles))
-    vehicle = " ".join(p for p in (report.vehicle_plate, report.vehicle_model) if p)
-    if vehicle:
-        flow.append(_field(LABELS["rapport_vehicle"], vehicle, styles))
+    # One free-text block (§18.10) — printed as the crew wrote it, newlines and
+    # all, because the line breaks are the only structure it has.
+    if report.owner_note:
+        flow.append(_field(LABELS["rapport_owner"], report.owner_note, styles))
 
     if inc.pickup_needed:
         note = f" ({inc.pickup_note})" if inc.pickup_note else ""

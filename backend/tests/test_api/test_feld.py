@@ -52,6 +52,7 @@ PERSON_SCOPED_ENDPOINTS: list[tuple[str, str, bool, dict[str, Any] | None]] = [
     ("PUT", "/api/feld/incidents/{incident_id}/rapport", True, {"is_draft": True, "kurzbericht": "Keller ausgepumpt"}),
     ("POST", "/api/feld/incidents/{incident_id}/photos", True, None),
     ("DELETE", "/api/feld/incidents/{incident_id}/photos/{filename}", True, None),
+    ("GET", "/api/feld/incidents/{incident_id}/photos/{filename}", True, None),
 ]
 
 ENDPOINT_IDS = [f"{spec[0]} {spec[1].rsplit('/', 1)[-1]}" for spec in PERSON_SCOPED_ENDPOINTS]
@@ -872,6 +873,43 @@ class TestFieldMessage:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_messages_come_back_on_the_incident_timeline(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """The bell is dismissible; the incident's own Verlauf is not.
+
+        This is the round-trip that makes a Freitext-Meldung reviewable at all:
+        the crew radios it in, and hours later somebody opens the incident and
+        reads what was said, in order, with a name on it.
+        """
+        incident = await _make_incident(db_session, test_event, test_user, "Keller Wasser")
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person)
+        params = {"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)}
+
+        for text in ("Pumpe läuft", "Wasser steigt weiter"):
+            assert (
+                await editor_client.post(
+                    f"/api/feld/incidents/{incident.id}/message", params=params, json={"message": text}
+                )
+            ).status_code == 204
+
+        response = await editor_client.get(f"/api/incidents/{incident.id}/timeline")
+        assert response.status_code == 200
+        messages = [e for e in response.json()["events"] if e["event_type"] == "field_message"]
+
+        # Both survive: two messages seconds apart are two messages, never one
+        # deduplicated event.
+        assert [m["message"] for m in messages] == ["Wasser steigt weiter", "Pumpe läuft"]
+        assert {m["actor_name"] for m in messages} == {"Muster Hans"}
+        assert {m["source"] for m in messages} == {"feld"}
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_empty_message_is_rejected(
         self,
         client: AsyncClient,
@@ -1211,17 +1249,14 @@ class TestRapport:
             params={"token": token, "personnel_id": str(person.id)},
             json={
                 "is_draft": True,
-                "owner_name": "A. Bürgin",
-                "owner_street": "Hauptstrasse 4",
-                "owner_city": "Oberwil",
-                "vehicle_plate": "BL 12345",
-                "vehicle_model": "VW Golf",
+                "owner_note": "A. Bürgin\nHauptstrasse 4, Oberwil\nBL 12345 VW Golf",
             },
         )
         assert response.status_code == 200
         report = (await db_session.execute(select(SchadenplatzReport))).scalars().one()
-        assert report.owner_name == "A. Bürgin"
-        assert report.vehicle_plate == "BL 12345"
+        assert report.owner_note is not None
+        assert report.owner_note.startswith("A. Bürgin")
+        assert "BL 12345" in report.owner_note
 
     @pytest.mark.asyncio
     @pytest.mark.api
@@ -1322,6 +1357,95 @@ class TestPhotos:
             await db_session.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
         ).scalar_one()
         assert report.photos_json == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_field_can_read_its_own_photo_back(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """The bug: `/feld` could upload a photo and never see it again.
+
+        The board's `GET /api/photos/...` is session-authenticated and the phone
+        has no session, so every field photo rendered as a broken image. The
+        read now runs the feld two-step like every other handler here.
+        """
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+
+        upload = await client.post(
+            f"/api/feld/incidents/{incident.id}/photos",
+            params=params,
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        filename = upload.json()["filename"]
+
+        served = await client.get(f"/api/feld/incidents/{incident.id}/photos/{filename}", params=params)
+        assert served.status_code == 200
+        assert served.headers["content-type"] == "image/jpeg"
+        assert served.content[:2] == b"\xff\xd8"  # a real JPEG came back, not an error page
+        # Never a shared cache: the URL carries a token.
+        assert "private" in served.headers["cache-control"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_reading_a_photo_still_needs_the_token(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """§9: a rapport photo can be a citizen's property. No credential, no photo."""
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+        upload = await client.post(
+            f"/api/feld/incidents/{incident.id}/photos",
+            params=params,
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        filename = upload.json()["filename"]
+        path = f"/api/feld/incidents/{incident.id}/photos/{filename}"
+
+        assert (await client.get(path, params={"personnel_id": str(person.id)})).status_code == 422
+        assert (
+            await client.get(path, params={"token": "nicht-echt", "personnel_id": str(person.id)})
+        ).status_code == 401
+
+        stranger = await _make_person(db_session, "Fremd Frieda")
+        assert (await client.get(path, params={"token": token, "personnel_id": str(stranger.id)})).status_code == 403
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_photo_from_another_incident_is_not_readable(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """The assignment says which Schadenplatz; `photos_json` says which files.
+
+        A filename that exists on disk under a different incident must not be
+        served just because the caller is assigned to *some* incident.
+        """
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        other = await _make_incident(db_session, test_event, test_user, "Nicht meiner")
+        upload = await client.post(
+            f"/api/feld/incidents/{incident.id}/photos",
+            params={"token": token, "personnel_id": str(person.id)},
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        filename = upload.json()["filename"]
+
+        response = await client.get(
+            f"/api/feld/incidents/{other.id}/photos/{filename}",
+            params={"token": token, "personnel_id": str(person.id)},
+        )
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     @pytest.mark.api

@@ -379,10 +379,9 @@ EINSAETZE_COLUMNS: list[tuple[str, int]] = [
     ("Personal", 9),
     ("Personal korrigiert", 20),
     ("Fahrzeuge", 34),
-    ("Eigentümer Name", 24),
-    ("Eigentümer Strasse", 24),
-    ("Eigentümer Ort", 20),
-    ("KFZ", 22),
+    # One column, not four (§18.10): the form asks one free-text question, so
+    # splitting the answer back into Name/Strasse/Ort/KFZ here would be guessing.
+    ("Eigentümer / Halter", 46),
     ("Material gebraucht", 46),
     ("Material vor Ort verblieben", 34),
     ("Weiteres Material", 28),
@@ -471,10 +470,7 @@ def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
                 # the question the billing side actually asks, and a number
                 # answers it for nobody.
                 ", ".join(vehicle_present_names(report)),
-                report.owner_name or "",
-                report.owner_street or "",
-                report.owner_city or "",
-                " ".join(p for p in (report.vehicle_plate, report.vehicle_model) if p),
+                report.owner_note or "",
                 # Every unit with its own answer, "nicht gebraucht" included
                 # (decision 16) and "keine Angabe" as the third state a crew can
                 # give (decision 14). Consumables carry no left-on-site state at

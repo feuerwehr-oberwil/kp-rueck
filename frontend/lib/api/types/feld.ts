@@ -169,7 +169,8 @@ export interface ApiRapportPrefill {
   incident_ref: string
   leader_personnel_id: string | null
   leader_name: string | null
-  /** "Melder übernehmen": one tap COPIES these. Melder ≠ Eigentümer. */
+  /** "Melder übernehmen": one tap PREFILLS the owner free text with these,
+   *  as lines. Copies, never equates — Melder ≠ Eigentümer. */
   melder_name: string | null
   melder_street: string | null
   melder_city: string | null
@@ -203,11 +204,8 @@ export interface ApiSchadenplatzRapport {
   extra_material_note: string | null
   kurzbericht: string | null
   handed_over_to: string | null
-  owner_name: string | null
-  owner_street: string | null
-  owner_city: string | null
-  vehicle_plate: string | null
-  vehicle_model: string | null
+  /** ONE free-text block since §18.10 — see the model for why the five went. */
+  owner_note: string | null
   personnel_count: number | null
   personnel_count_corrected: boolean
   /** Frozen at submit; null while the rapport is a draft. */
@@ -237,11 +235,7 @@ export interface ApiRapportUpdate {
   extra_material_note?: string | null
   kurzbericht?: string | null
   handed_over_to?: string | null
-  owner_name?: string | null
-  owner_street?: string | null
-  owner_city?: string | null
-  vehicle_plate?: string | null
-  vehicle_model?: string | null
+  owner_note?: string | null
   personnel_count?: number | null
 }
 

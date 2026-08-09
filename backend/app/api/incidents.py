@@ -701,9 +701,10 @@ async def get_incident_timeline(
 ) -> schemas.IncidentTimelineResponse:
     """Get the merged event timeline for an incident.
 
-    Combines status transitions and resource assignments (assign + unassign)
-    into a single chronologically sorted list. Used by the timeline popover
-    in the kanban operation detail modal.
+    Combines status transitions, resource assignments (assign + unassign) and
+    the field's Freitext-Meldungen into a single chronologically sorted list.
+    It is the whole content of the "Verlauf" tab in the operation detail, and
+    the source of the message thread shown next to the Feldmeldungen.
     """
     # Verify incident exists
     incident = await crud.get_incident(db, incident_id)
@@ -725,6 +726,23 @@ async def get_incident_timeline(
         .where(models.IncidentAssignment.incident_id == incident_id)
     )
     assignments = assignments_result.all()
+
+    # Freitext-Meldungen from the field. They have no table of their own — see
+    # `crud/feld.record_field_message`, which writes them as an append-only
+    # audit-log entry plus a notification. That was exactly the problem: the
+    # notification is dismissible and the audit log is not rendered anywhere on
+    # the incident, so what a crew radioed in was visible nowhere afterwards.
+    # Reading them back here is what puts them in the incident's own history.
+    messages_result = await db.execute(
+        select(models.AuditLog, models.User)
+        .outerjoin(models.User, models.AuditLog.user_id == models.User.id)
+        .where(
+            models.AuditLog.resource_type == "incident",
+            models.AuditLog.resource_id == incident_id,
+            models.AuditLog.action_type == "field_message",
+        )
+    )
+    field_messages = messages_result.all()
 
     # Bulk-fetch resource names so we don't N+1 query
     personnel_ids = {a.resource_id for a, _ in assignments if a.resource_type == "personnel"}
@@ -800,6 +818,24 @@ async def get_incident_timeline(
                 )
             )
 
+    for entry, user in field_messages:
+        changes = entry.changes_json or {}
+        text = changes.get("message")
+        if not text:
+            continue
+        # Provenance, never faked: a crew member's name when the message came
+        # through /feld, the operator's when it was typed in the KP.
+        personnel_name = changes.get("personnel_name")
+        events.append(
+            schemas.IncidentTimelineEvent(
+                event_type="field_message",
+                timestamp=entry.timestamp,
+                actor_name=personnel_name or _actor(user),
+                message=str(text),
+                source=changes.get("source"),
+            )
+        )
+
     events.sort(key=lambda e: e.timestamp)
 
     # Collapse near-duplicate events: same payload within a short time window
@@ -809,6 +845,12 @@ async def get_incident_timeline(
     last_seen: dict[tuple[str, str | None, str | None, str | None, str | None, str | None], datetime] = {}
     deduped: list[schemas.IncidentTimelineEvent] = []
     for event in events:
+        # Messages are never deduplicated. They are human input, they are the
+        # one kind of entry here nobody can reconstruct from board state, and a
+        # crew tapping the same chip twice is itself information.
+        if event.event_type == "field_message":
+            deduped.append(event)
+            continue
         payload_key = (
             event.event_type,
             event.from_status,

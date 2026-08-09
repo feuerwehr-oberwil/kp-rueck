@@ -1011,8 +1011,8 @@ async def test_simulate_rapport_leaves_the_kfz_block_empty_on_a_non_vehicle_type
     assert response.status_code == 200
 
     rapport = (await editor_client.get(f"/api/incidents/{rapport_incident.id}/rapport")).json()
-    assert rapport["vehicle_plate"] is None
-    assert rapport["vehicle_model"] is None
+    note = rapport["owner_note"] or ""
+    assert not any(line.startswith("BL ") for line in note.splitlines())
 
 
 @pytest.mark.asyncio

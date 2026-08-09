@@ -57,11 +57,7 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
     extra_material_note: null,
     kurzbericht: null,
     handed_over_to: null,
-    owner_name: null,
-    owner_street: null,
-    owner_city: null,
-    vehicle_plate: null,
-    vehicle_model: null,
+    owner_note: null,
     personnel_count: 6,
     personnel_count_corrected: false,
     cost_snapshot_json: null,
@@ -113,7 +109,7 @@ describe('hasContent', () => {
   it('counts every text field', () => {
     expect(hasContent(form({ kurzbericht: '   ' }))).toBe(false)
     expect(hasContent(form({ kurzbericht: 'Keller ausgepumpt' }))).toBe(true)
-    expect(hasContent(form({ owner_name: 'A. Bürgin' }))).toBe(true)
+    expect(hasContent(form({ owner_note: 'A. Bürgin' }))).toBe(true)
   })
 })
 
@@ -260,9 +256,9 @@ describe('toFormData / toUpdate', () => {
   })
 
   it('sends blank text as null, not as an empty string', () => {
-    const update = toUpdate(form({ kurzbericht: '   ', owner_name: 'A. Bürgin' }), false)
+    const update = toUpdate(form({ kurzbericht: '   ', owner_note: 'A. Bürgin' }), false)
     expect(update.kurzbericht).toBeNull()
-    expect(update.owner_name).toBe('A. Bürgin')
+    expect(update.owner_note).toBe('A. Bürgin')
     expect(update.is_draft).toBe(false)
   })
 

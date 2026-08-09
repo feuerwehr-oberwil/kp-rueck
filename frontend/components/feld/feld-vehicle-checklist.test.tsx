@@ -60,7 +60,7 @@ describe('FeldVehicleChecklist', () => {
 
   it('says so when the incident has no vehicle at all', () => {
     renderWithIntl(<FeldVehicleChecklist rows={[]} onChange={vi.fn()} />)
-    expect(screen.getByText(/kein Fahrzeug erfasst/)).toBeInTheDocument()
+    expect(screen.getByText(/Kein Fahrzeug erfasst/)).toBeInTheDocument()
   })
 
   it('does not offer a tick to a read-only mount', () => {

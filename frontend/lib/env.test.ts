@@ -248,14 +248,24 @@ describe('the Content-Security-Policy header', () => {
     expect(directive(csp, 'default-src')).toBe("default-src 'self'")
     expect(directive(csp, 'script-src')).toBe("script-src 'self' 'unsafe-inline'")
     expect(directive(csp, 'style-src')).toBe("style-src 'self' 'unsafe-inline'")
-    expect(directive(csp, 'img-src')).toBe(
-      "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080",
-    )
     expect(directive(csp, 'font-src')).toBe("font-src 'self' data:")
     expect(directive(csp, 'frame-ancestors')).toBe("frame-ancestors 'none'")
     expect(directive(csp, 'form-action')).toBe("form-action 'self'")
     expect(directive(csp, 'base-uri')).toBe("base-uri 'self'")
     expect(directive(csp, 'object-src')).toBe("object-src 'none'")
+  })
+
+  it('names the backend in img-src, because the photos are served from it', () => {
+    // The bug this covers: the backend was in connect-src and not in img-src, so a rapport
+    // photo's <img> was refused by the policy while every fetch to the same host succeeded.
+    const csp = buildContentSecurityPolicy({ apiUrl: 'https://kp-api.fwo.li', isProduction: true })
+    expect(directive(csp, 'img-src')).toBe(
+      "img-src 'self' data: blob: http://localhost:8000 https://kp-api.fwo.li " +
+        'https://*.tile.openstreetmap.org https://tile.openstreetmap.org ' +
+        'https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080',
+    )
+    // And only the http half — a wss origin in img-src would be noise.
+    expect(directive(csp, 'img-src')).not.toContain('wss://')
   })
 
   it('adds unsafe-eval only outside production, for the dev hot reload', () => {

@@ -90,6 +90,18 @@ export interface PhotoTransport {
   /** Store the file; resolve with the server-side filename. */
   upload: (file: File) => Promise<string>
   remove: (filename: string) => Promise<void>
+  /**
+   * Where to READ a stored photo back from. Optional, and the default is the
+   * session-authenticated board endpoint — which is right for every door that
+   * has a session and wrong for the only one that doesn't.
+   *
+   * `/feld` overrides it: it holds an event token and a personnel id, not a
+   * cookie, so `GET /api/photos/...` answered its `<img>` with a 401 and the
+   * crew saw a broken-image icon where its own photo should be. The fix is a
+   * read path behind the feld two-step, not a photo endpoint without a
+   * credential — the picture can be a citizen's cellar.
+   */
+  url?: (filename: string) => string
 }
 
 interface PhotoUploadProps {
@@ -221,7 +233,10 @@ export default function PhotoUpload({
     if (localUrl) {
       return localUrl
     }
-    // Fall back to server URL
+    // Fall back to the server URL the door supplies, else the board's.
+    if (transport.url) {
+      return transport.url(filename)
+    }
     const apiUrl = getApiUrl()
     return `${apiUrl}/api/photos/${incidentId}/${filename}`
   }

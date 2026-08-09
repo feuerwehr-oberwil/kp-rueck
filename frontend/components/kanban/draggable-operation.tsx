@@ -64,6 +64,8 @@ interface DraggableOperationProps {
   /** Editor-only: open the Auftrag picker to distribute this incident into a route. */
   onDistributeToAuftrag?: () => void
   showMeldung?: boolean
+  /** The Reko block on the card, on its own switch (§18.12). */
+  showReko?: boolean
   printerEnabled?: boolean
   /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
   doubleBookedCrewNames?: Set<string>
@@ -118,6 +120,7 @@ function DraggableOperationBase({
   onTransfer,
   onDistributeToAuftrag,
   showMeldung,
+  showReko = true,
   printerEnabled,
   doubleBookedCrewNames,
   canDrag = true,
@@ -309,6 +312,8 @@ function DraggableOperationBase({
                   <PickupBadge
                     requestedAt={operation.pickupRequestedAt}
                     note={operation.pickupNote}
+                    incidentId={operation.id}
+                    canEdit={canDrag}
                     className="mt-1"
                   />
                 )}
@@ -629,8 +634,8 @@ function DraggableOperationBase({
             </div>
           )}
 
-          {/* Reko Summary */}
-          {operation.rekoSummary && (
+          {/* Reko Summary — its own toggle, not the Meldung's (§18.12). */}
+          {showReko && operation.rekoSummary && (
             <div className="border-t pt-3 space-y-1.5">
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
@@ -820,6 +825,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
     prevProps.index === nextProps.index &&
     prevProps.showMeldung === nextProps.showMeldung &&
+    prevProps.showReko === nextProps.showReko &&
     !rekoSummaryChanged &&
     !assignedRekoChanged &&
     // Conflict set: identity check is enough — page.tsx memoizes the Set

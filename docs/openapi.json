@@ -4828,7 +4828,7 @@
           "incidents"
         ],
         "summary": "Get Incident Timeline",
-        "description": "Get the merged event timeline for an incident.\n\nCombines status transitions and resource assignments (assign + unassign)\ninto a single chronologically sorted list. Used by the timeline popover\nin the kanban operation detail modal.",
+        "description": "Get the merged event timeline for an incident.\n\nCombines status transitions, resource assignments (assign + unassign) and\nthe field's Freitext-Meldungen into a single chronologically sorted list.\nIt is the whole content of the \"Verlauf\" tab in the operation detail, and\nthe source of the message thread shown next to the Feldmeldungen.",
         "operationId": "get_incident_timeline_api_incidents__incident_id__timeline_get",
         "parameters": [
           {
@@ -11272,7 +11272,7 @@
           "feld"
         ],
         "summary": "Upload Photo",
-        "description": "A photo of the Schadenplatz, onto the Schadenplatz-Rapport.\n\nSame storage as the Reko form (`services/photo_storage.py`), same files, and\nthe same `GET /api/photos/...` to read them back — but **the two doors stay\nseparate**. `validate_form_token` is deliberately not widened to accept feld\ntokens: coupling two doors for the sake of one handler is how a token type\nstops meaning anything. This handler runs the ordinary feld two-step like\nevery other endpoint here.\n\nKeeps ``PHOTO_UPLOAD`` rather than the looser ``FELD`` limit — an upload is\norders of magnitude more expensive than a poll.",
+        "description": "A photo of the Schadenplatz, onto the Schadenplatz-Rapport.\n\nSame storage as the Reko form (`services/photo_storage.py`), same files —\nbut **the two doors stay separate**, reading included: `GET /api/photos/...`\nis session-authenticated and `/feld` has no session, so the read-back lives\nnext to this handler (``serve_feld_photo`` below) behind the same two-step.\n`validate_form_token` is deliberately not widened to accept feld tokens:\ncoupling two doors for the sake of one handler is how a token type stops\nmeaning anything. This handler runs the ordinary feld two-step like every\nother endpoint here.\n\nKeeps ``PHOTO_UPLOAD`` rather than the looser ``FELD`` limit — an upload is\norders of magnitude more expensive than a poll.",
         "operationId": "upload_photo_api_feld_incidents__incident_id__photos_post",
         "parameters": [
           {
@@ -11403,6 +11403,78 @@
                 "schema": {
                   "$ref": "#/components/schemas/RapportPhotosResponse"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Serve Feld Photo",
+        "description": "Read a rapport photo back on `/feld` — the crew looking at what it shot.\n\n`GET /api/photos/{incident}/{file}` (`api/reko.py`) is the board's read path\nand requires a session; `/feld` has none, which is why the phone got a\nbroken image where its own photo should be. The answer is NOT to drop the\ncredential from that endpoint — a rapport photo can be a citizen's cellar.\nIt is the same two-step every other handler in this module runs, so a photo\nis readable exactly by someone who holds the event's link AND is assigned to\nthat Schadenplatz.\n\n``photos_json`` is checked as well as the disk: the assignment says which\nincident you may look at, the report says which files belong to it. Neither\nalone is enough — `get_photo_path` only proves a file exists on disk under\nthat incident's directory.",
+        "operationId": "serve_feld_photo_api_feld_incidents__incident_id__photos__filename__get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is looking",
+              "title": "Personnel Id"
+            },
+            "description": "Who is looking"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -19987,6 +20059,28 @@
               }
             ],
             "title": "Resource Name"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
           }
         },
         "type": "object",
@@ -19995,7 +20089,7 @@
           "timestamp"
         ],
         "title": "IncidentTimelineEvent",
-        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name"
+        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp')"
       },
       "IncidentTimelineResponse": {
         "properties": {
@@ -22676,65 +22770,17 @@
             ],
             "title": "Handed Over To"
           },
-          "owner_name": {
+          "owner_note": {
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 200
+                "maxLength": 2000
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Owner Name"
-          },
-          "owner_street": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Street"
-          },
-          "owner_city": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner City"
-          },
-          "vehicle_plate": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 50
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vehicle Plate"
-          },
-          "vehicle_model": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vehicle Model"
+            "title": "Owner Note"
           },
           "personnel_count": {
             "anyOf": [
@@ -23762,7 +23808,7 @@
             ],
             "title": "Handed Over To"
           },
-          "owner_name": {
+          "owner_note": {
             "anyOf": [
               {
                 "type": "string"
@@ -23771,51 +23817,7 @@
                 "type": "null"
               }
             ],
-            "title": "Owner Name"
-          },
-          "owner_street": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Street"
-          },
-          "owner_city": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner City"
-          },
-          "vehicle_plate": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vehicle Plate"
-          },
-          "vehicle_model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vehicle Model"
+            "title": "Owner Note"
           },
           "personnel_count": {
             "anyOf": [

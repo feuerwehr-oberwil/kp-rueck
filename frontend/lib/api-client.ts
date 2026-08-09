@@ -1738,6 +1738,21 @@ class ApiClient {
     )
   }
 
+  /**
+   * The `<img src>` for a rapport photo on `/feld` — an absolute URL, because it
+   * goes into markup rather than through `request()`.
+   *
+   * The board's `GET /api/photos/...` needs a session cookie and `/feld` has
+   * none, so it answered every field photo with a 401. This is the same
+   * two-step (event token + assigned personnel) as every other feld call.
+   */
+  feldPhotoUrl(incidentId: string, personnelId: string, token: string, filename: string): string {
+    return (
+      this.getBaseUrl() +
+      this.feldQuery(incidentId, `photos/${encodeURIComponent(filename)}`, personnelId, token)
+    )
+  }
+
   async uploadRapportPhoto(incidentId: string, file: File): Promise<ApiRapportPhotosResponse> {
     return this.uploadPhotoFile<ApiRapportPhotosResponse>(`/api/incidents/${incidentId}/rapport/photos`, file)
   }

@@ -266,6 +266,29 @@
     }
   }
 
+  /* The board's two scroll containers reserve their scrollbar's width whether
+     or not the bar is drawn.
+
+     Opening any footer sheet on desktop runs a hand-rolled scroll lock
+     (`app/page.tsx`) that sets `overflow: hidden` on `#kanban-main` and on
+     every column body, so the board cannot scroll away under a panel that is
+     deliberately non-modal. The bars are custom `::-webkit-scrollbar` bars,
+     which on every platform that draws classic scrollbars take real layout
+     width — so hiding them handed 10px back to the content and the whole board
+     jumped sideways the moment a sheet opened, and jumped back when it closed.
+     Two shifts per panel, on the surface whose entire job is to sit still.
+
+     `stable` is the fix rather than compensating padding in the lock, because
+     the lock would then have to know which elements currently *have* a bar: a
+     column with three cards has none, and giving it a gutter only while a sheet
+     is open would shift it the other way. Reserved always = never shifts.
+     Verified in Chrome to survive `overflow: hidden`, which is what the lock
+     sets and what the whole fix depends on. */
+  #kanban-main,
+  [data-board-scroll] {
+    scrollbar-gutter: stable;
+  }
+
   /* Mobile-first responsive utilities */
   @media (max-width: 768px) {
     /* Prevent iOS zoom on input focus by ensuring minimum 16px font size */

@@ -319,11 +319,12 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     const detail = authenticatedPage.locator('[data-testid="operation-detail-content"]').first();
     await expect(detail).toBeVisible({ timeout: SMOKE_TIMEOUT });
 
-    // Collapsed by default — the rapport is the paperwork end of an incident.
-    await detail.getByRole('button', { name: /Schadenplatz-Rapport/ }).click();
+    // The rapport lives on the Rapport tab now — three tabs since the detail
+    // absorbed Ressourcen into Übersicht — and it is permanently open there,
+    // like the Reko-Meldungen beside it. No accordion header to click.
+    await detail.getByRole('tab', { name: /^Rapport/ }).click();
     await expect(detail.getByText('kein Rapport')).toBeVisible();
 
-    await detail.getByRole('button', { name: 'Sturmschaden', exact: true }).click();
     await detail.getByPlaceholder('Lage, Tätigkeit, Geräte').fill('Baum auf Fahrbahn, per Funk gemeldet.');
     await detail.getByRole('button', { name: 'Rapport abschliessen (Funkmeldung)' }).click();
 

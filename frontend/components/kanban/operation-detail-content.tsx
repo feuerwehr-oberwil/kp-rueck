@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints } from 'lucide-react'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -21,9 +22,13 @@ import { type Operation, type Material, type OperationStatus } from "@/lib/conte
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import {
+  readRememberedTab,
+  rememberDetailTab,
   useOperationDetailShortcutTabs,
+  useOperationDetailTabArrows,
   type OperationDetailTab,
 } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { useIncidentTimeline } from "@/lib/hooks/use-incident-timeline"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { columns } from "@/lib/kanban-utils"
 import { IncidentTime, useIncidentTimeVisible } from "@/components/ui/incident-time"
@@ -41,10 +46,10 @@ import { cn, sanitizePhoneInput } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
-import { IncidentTimelinePopover } from "@/components/kanban/incident-timeline-popover"
+import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
-import { FieldReportsRow } from "@/components/kanban/field-reports-row"
+import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
@@ -153,7 +158,20 @@ export function OperationDetailContent({
     </span>
   ) : null
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [tab, setTab] = useState<OperationDetailTab>('overview')
+  // Reopening a Schadenplatz lands on the tab it was left on. An operator
+  // working through the rapports of a storm night reopens the same card again
+  // and again; sending them back to Übersicht every time is a click per visit.
+  const [tab, setTab] = useState<OperationDetailTab>(() => readRememberedTab(operation.id) ?? 'overview')
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  /** The one way the tab changes — so nothing can move it without recording it. */
+  const selectTab = useCallback(
+    (next: OperationDetailTab) => {
+      setTab(next)
+      rememberDetailTab(operation.id, next)
+    },
+    [operation.id],
+  )
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, active)
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
@@ -220,21 +238,38 @@ export function OperationDetailContent({
     setIsTransferring(false)
     setRekoDialogOpen(false)
     setRekoTransferDialogOpen(false)
-    // A different incident always starts on Übersicht. The modal remounts by
-    // key, but the side panel keeps this component alive across selections.
-    setTab('overview')
+    // A different incident brings its own remembered tab, Übersicht if it has
+    // none. The modal remounts by key, but the side panel keeps this component
+    // alive across selections — read it here rather than trusting the mount.
+    setTab(readRememberedTab(operation.id) ?? 'overview')
   }, [selectedEvent?.id, operation.id])
 
-  // Shortcut targets that are no longer on screen: Shift+1/2/3 sets the
-  // priority (Übersicht), `0` and `1`..`5` touch "zu Fuss" / the quick-assign
-  // fleet (Ressourcen). Bring the owning tab forward so the operator sees the
-  // change they just made. Editors only — a viewer's keypress changes nothing,
-  // so it must not move the view either.
+  // Shortcut targets that are not on screen: Shift+1/2/3 sets the priority,
+  // `0` and `1`..`5` touch "zu Fuss" / the quick-assign fleet — all on
+  // Übersicht. Bring that tab forward so the operator sees the change they just
+  // made. Editors only — a viewer's keypress changes nothing, so it must not
+  // move the view either.
   useOperationDetailShortcutTabs({
     enabled: active && canEdit,
     availableVehicleCount: availableVehicles.length,
-    onFocusTab: setTab,
+    onFocusTab: selectTab,
   })
+
+  // ← / → walk the tabs from anywhere inside the detail. Viewers included: this
+  // is navigation, not a mutation, and reading is most of what a viewer does.
+  useOperationDetailTabArrows({
+    enabled: active,
+    tab,
+    containerRef: rootRef,
+    focusTrapped: layout === 'modal',
+    onFocusTab: selectTab,
+  })
+
+  // Status changes, assignments and the crew's Freitext-Meldungen, fetched once
+  // for the two tabs that show them: Verlauf renders all of it, Rapport renders
+  // the messages as a thread. Not fetched at all while Übersicht is in front,
+  // which is where a board click lands.
+  const timeline = useIncidentTimeline(operation.id, active && (tab === 'history' || tab === 'rapport'))
 
   const { isCopying: isCopyingWhatsApp, copy: handleCopyWhatsApp } =
     useWhatsAppCopy({ operation, materials, vehicleDrivers })
@@ -306,33 +341,53 @@ export function OperationDetailContent({
   // tabs must never resize it or scroll the header away.
   const tabPanelClass = "min-h-0 flex-1 overflow-y-auto"
 
-  // What the Ressourcen tab actually lists — a grouped incident shows the
-  // Auftrag's roll-up there, so the badge has to count that, not its own
-  // (always empty) assignments.
-  const assignedCount = auftrag
-    ? (auftragResources?.personnel.length ?? 0) +
-      (auftragResources?.vehicles.length ?? 0) +
-      (auftragResources?.materials.length ?? 0)
-    : operation.crew.length + operation.vehicles.length + operation.materials.length
-
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="operation-detail-content" data-layout={layout}>
-        <header className="flex-shrink-0 space-y-1.5">
-          <h2 className="text-xl font-semibold leading-none tracking-tight flex items-center gap-2.5">
-            <MapPin className="h-5 w-5 text-muted-foreground" />
-            {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
-            {/* Stays visible on a completed incident on purpose — see PickupBadge. */}
-            {operation.pickupNeeded && (
-              <PickupBadge requestedAt={operation.pickupRequestedAt} note={operation.pickupNote} />
-            )}
-          </h2>
-          <div className="flex items-center gap-1">
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col" data-testid="operation-detail-content" data-layout={layout}>
+        {/* Radix Tabs: the trigger list is one tab stop with arrow-key roving
+            focus between the three triggers, the panel is the next. Nothing here
+            overrides tabIndex, so that stays intact. The root wraps the header
+            too, because the tab bar lives IN the header row — the modal is
+            already taller than a 1280x800 laptop likes, and a tab bar on a line
+            of its own was a whole row spent on nothing but the empty space to
+            the right of the address. */}
+        <Tabs
+          value={tab}
+          onValueChange={(value) => selectTab(value as OperationDetailTab)}
+          className="flex min-h-0 flex-1 flex-col gap-0"
+        >
+        {/* One centre line for the whole row, and — in the modal — a reserved
+            strip on the right for the dialog's close X. The X is a window
+            control and owns the true corner (`absolute top-4 right-4`, which
+            reaches 24px into the content box); the tabs are content and must
+            not be pushed under it. */}
+        <header
+          className={cn(
+            "flex flex-shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2",
+            layout === 'modal' && "pr-8",
+          )}
+        >
+          <div className="min-w-0 space-y-1.5">
+            <h2 className="text-xl font-semibold leading-none tracking-tight flex items-center gap-2.5">
+              <MapPin className="h-5 w-5 text-muted-foreground" />
+              {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
+              {/* Stays visible on a completed incident on purpose, and is the
+                  KP's "Abholung erledigt" control here as everywhere else —
+                  passing `incidentId` is what turns the chip into that button. */}
+              {operation.pickupNeeded && (
+                <PickupBadge
+                  requestedAt={operation.pickupRequestedAt}
+                  note={operation.pickupNote}
+                  incidentId={operation.id}
+                  canEdit={canEdit}
+                />
+              )}
+            </h2>
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
               {/* The board-wide time chip (start / in status / since alarm). Its
                   durations are dropped once the incident is closed: a running clock
                   on a finished Einsatz reads «19h 40'» the next morning and answers
-                  nothing. The Verlauf beside it holds the actual times. */}
+                  nothing. The Verlauf tab holds the actual times. */}
               {showIncidentTime && (
                 <>
                   <span className="text-muted-foreground/40">·</span>
@@ -340,50 +395,50 @@ export function OperationDetailContent({
                 </>
               )}
             </p>
-            <IncidentTimelinePopover incidentId={operation.id} />
+          </div>
+
+          <div className={cn("flex min-w-0 items-center gap-2", layout === 'panel' && "w-full")}>
+            <TabsList className={cn("flex-shrink-0", layout === 'panel' && "w-full")}>
+              <TabsTrigger value="overview">{t('detail.tabs.overview')}</TabsTrigger>
+              <TabsTrigger value="rapport">
+                {t('detail.tabs.rapport')}
+                {/* Whitespace-only text nodes generate no box in a flex
+                    container, so this costs nothing visually and keeps the
+                    trigger's accessible name from reading «Rapport·erfasst». */}
+                {' '}
+                {/* Filed and draft are mutually exclusive board flags. «Entwurf»
+                    is the one worth surfacing — somebody started and walked away
+                    — so it must not hide behind a silent tab. Nothing is shown
+                    when no rapport exists at all; the card already carries that. */}
+                {(operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft) && (
+                  <span className="text-2xs font-normal text-muted-foreground">
+                    ·{' '}
+                    {operation.hasSchadenplatzRapport
+                      ? t('detail.tabs.rapportFiled')
+                      : t('detail.tabs.rapportDraft')}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="history">{t('detail.tabs.history')}</TabsTrigger>
+            </TabsList>
+
+            {/* The shortcut has to be visible or it does not exist. Same Kbd the
+                rest of the board hints with, in a KbdGroup so the two keys stay
+                one horizontal line — `shrink-0` because the row is
+                `justify-between` and a long address would otherwise squeeze
+                exactly this element. Hidden on the panel mount, where the bar
+                already takes the full width. */}
+            {layout === 'modal' && (
+              <KbdGroup
+                className="hidden shrink-0 whitespace-nowrap text-muted-foreground lg:inline-flex"
+                title={t('detail.tabs.switchHint')}
+              >
+                <Kbd aria-label={t('detail.tabs.switchHint')}>←</Kbd>
+                <Kbd aria-hidden="true">→</Kbd>
+              </KbdGroup>
+            )}
           </div>
         </header>
-
-        {/* Radix Tabs: the trigger list is one tab stop with arrow-key roving
-            focus between the four triggers, the panel is the next. Nothing here
-            overrides tabIndex, so that stays intact. */}
-        <Tabs
-          value={tab}
-          onValueChange={(value) => setTab(value as OperationDetailTab)}
-          className="flex min-h-0 flex-1 flex-col gap-0"
-        >
-          <TabsList className={cn("mt-3 flex-shrink-0", layout === 'panel' ? "w-full" : "self-start")}>
-            <TabsTrigger value="overview">{t('detail.tabs.overview')}</TabsTrigger>
-            <TabsTrigger value="resources">
-              {t('detail.tabs.resources')}
-              {/* Whitespace-only text nodes generate no box in a flex container,
-                  so this costs nothing visually and keeps the trigger's
-                  accessible name from reading «Ressourcen4». */}
-              {' '}
-              {assignedCount > 0 && (
-                <span className="rounded-sm bg-foreground/10 px-1 text-2xs font-medium tabular-nums text-muted-foreground">
-                  {assignedCount}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="rapport">
-              {t('detail.tabs.rapport')}
-              {' '}
-              {/* Filed and draft are mutually exclusive board flags. «Entwurf»
-                  is the one worth surfacing — somebody started and walked away
-                  — so it must not hide behind a silent tab. Nothing is shown
-                  when no rapport exists at all; the card already carries that. */}
-              {(operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft) && (
-                <span className="text-2xs font-normal text-muted-foreground">
-                  ·{' '}
-                  {operation.hasSchadenplatzRapport
-                    ? t('detail.tabs.rapportFiled')
-                    : t('detail.tabs.rapportDraft')}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="history">{t('detail.tabs.history')}</TabsTrigger>
-          </TabsList>
 
           {/* ------------------------------------------------------ Übersicht */}
           <TabsContent value="overview" className={tabPanelClass}>
@@ -508,10 +563,10 @@ export function OperationDetailContent({
               className="mt-1.5"
             />
           </div>
-          </div>
 
-          {/* Right Column - Notes and the flags that qualify the incident */}
-          <div className={tabColumnBreakClass}>
+          {/* Notes and the flags that qualify the incident stay in this column:
+              together with the fields above they are one reading — what this
+              incident IS. The other column answers who is on it. */}
           {/* Internal Notes */}
           <div>
             <Label htmlFor="internalNotes" className="text-sm font-semibold text-muted-foreground">{t('common.notes')}</Label>
@@ -591,12 +646,19 @@ export function OperationDetailContent({
             )}
           </div>
 
+          </div>
+
+          {/* Right column — who is on it. Ressourcen used to be a tab of its
+              own; an operator asking "what is this and who is there" was made
+              to click twice for one question, and the modal is wide enough to
+              answer it in one look. */}
+          <div className={tabColumnBreakClass}>
           {/* Status quick-change — one-click move across the board (drops the
               card at the top of the target column) instead of drag & drop. It
-              belongs to Übersicht: it is the last of the controls that say what
-              this incident currently IS. */}
+              opens this column because it is the most-used control on the tab
+              and must not sit below a resource list of unpredictable length. */}
           {canEdit && onChangeStatus && (
-          <div>
+          <div className="mb-5">
             <div className="flex items-center gap-2 mb-1.5">
               <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{t('detail.changeStatus')}</span>
@@ -619,14 +681,8 @@ export function OperationDetailContent({
             </div>
           </div>
           )}
-          </div>
-          </div>
-          </TabsContent>
 
-          {/* ----------------------------------------------------- Ressourcen */}
-          <TabsContent value="resources" className={tabPanelClass}>
-          {/* Full width above the split: it titles both columns. */}
-          <div className="flex flex-wrap items-center gap-2 pt-4">
+          <div className="flex flex-wrap items-center gap-2">
             <Label className="text-sm font-semibold text-muted-foreground">
               {t('common.assignedResources')}
             </Label>
@@ -641,8 +697,7 @@ export function OperationDetailContent({
             )}
           </div>
 
-          <div className={cn("grid grid-cols-1 gap-8 pt-4 pb-4", layout === 'modal' && "lg:grid-cols-2")}>
-          <div>
+          <div className="mt-4">
             {/* Reko Personnel */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -732,9 +787,9 @@ export function OperationDetailContent({
             </div>
           </div>
 
-          {/* The resource sections bring their own `mt-4` rhythm — strip it off
-              the first one so this column starts level with the Reko block. */}
-          <div className={cn(tabColumnBreakClass, "space-y-0 [&>*:first-child]:mt-0")}>
+          {/* The resource sections bring their own `mt-4` rhythm, which is what
+              spaces them from the Reko block above. */}
+          <div>
           {/* Mannschaft / Fahrzeuge / Material. A grouped incident carries no
               resources itself — the Auftrag (route) owns them, so render the
               route's roll-up through the shared section UI (assign/remove target
@@ -1046,16 +1101,17 @@ export function OperationDetailContent({
           )}
           </div>
           </div>
+          </div>
           </TabsContent>
 
           {/* -------------------------------------------------------- Rapport */}
           {/* `forceMount` on this one panel only: it is the sole tab holding an
-              editing surface with its own state (the rapport form's expand,
-              its autosave, the material return list). Unmounting it on every
-              tab switch would refetch, re-collapse and re-restore the local
-              draft mid-entry. The other three are read-and-act surfaces where a
-              remount costs nothing. `hidden` is set explicitly because Radix
-              leaves visibility to the caller once forceMount is on. */}
+              editing surface with its own state (the rapport form's autosave
+              and the material return list). Unmounting it on every tab switch
+              would refetch and re-restore the local draft mid-entry. The other
+              two are read-and-act surfaces where a remount costs nothing.
+              `hidden` is set explicitly because Radix leaves visibility to the
+              caller once forceMount is on. */}
           <TabsContent
             value="rapport"
             forceMount
@@ -1063,23 +1119,8 @@ export function OperationDetailContent({
             className={tabPanelClass}
           >
           <div className={tabGridClass}>
+          {/* Left — Reko: what somebody went to look at, before the work. */}
           <div className="space-y-5">
-            {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps on
-                /feld, an operator enters here from a radio message. */}
-            <FieldReportsRow operation={operation} canEdit={canEdit} />
-
-            {/* The Schadenplatz-Rapport itself, as a FULL editing surface: the KP
-                must be able to file one for an incident that never had any field
-                contact. Same form component /feld mounts, different transport. */}
-            <SchadenplatzRapportSection
-              incidentId={operation.id}
-              canEdit={canEdit}
-              hasRapport={operation.hasSchadenplatzRapport}
-            />
-          </div>
-
-          <div className={tabColumnBreakClass}>
-            {/* Reko Reports */}
             <div>
               <Label className="text-sm font-semibold text-muted-foreground">
                 {t('common.rekoReports')}
@@ -1092,22 +1133,54 @@ export function OperationDetailContent({
               </div>
             </div>
           </div>
+
+          {/* Right — one flow, not three scattered things: what the crew
+              reported (the three toggles), what they said (the thread), and
+              what they filed (the rapport). All three came from the same people
+              on the same Schadenplatz, and they belong on one page. */}
+          <div className={tabColumnBreakClass}>
+            {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps on
+                /feld, an operator enters here from a radio message. */}
+            <FieldReportsRow operation={operation} canEdit={canEdit} />
+
+            {/* The Freitext-Meldungen themselves. Before this they became a
+                notification and an audit entry and showed up on the incident
+                nowhere at all — dismiss the bell and the sentence was gone. */}
+            <FieldMessageThread
+              events={timeline.events}
+              isLoading={timeline.isLoading}
+              failed={timeline.failed}
+              onRetry={timeline.reload}
+            />
+
+            {/* The Schadenplatz-Rapport itself, as a FULL editing surface: the KP
+                must be able to file one for an incident that never had any field
+                contact. Same form component /feld mounts, different transport. */}
+            <SchadenplatzRapportSection
+              incidentId={operation.id}
+              canEdit={canEdit}
+              hasRapport={operation.hasSchadenplatzRapport}
+            />
+          </div>
           </div>
           </TabsContent>
 
           {/* -------------------------------------------------------- Verlauf */}
           <TabsContent value="history" className={tabPanelClass}>
-          {/* Who was here — the same three resource kinds as the Ressourcen
-              tab, but including everything already released. It answers the
-              same question one tense back: that tab shows who IS on the
-              incident, this shows who WAS. On a completed incident it is the
-              only one of the two left with anything in it, so it opens
-              expanded there. Single column on purpose — it is one list. */}
-          <div className="py-4">
-            <IncidentParticipants
-              incidentId={operation.id}
-              defaultOpen={operation.status === "complete"}
+          {/* Everything, expanded, no toggles. The Verlauf tab IS the "show me
+              the history" click; a collapsed panel inside it was a second one.
+              Two lists, newest-first: what happened (status changes,
+              assignments and the crew's messages interleaved), and who was
+              here — the same three resource kinds as Übersicht but including
+              everything already released. Single column on purpose. */}
+          <div className="space-y-4 py-4">
+            <IncidentTimeline
+              events={timeline.events}
+              isLoading={timeline.isLoading}
+              failed={timeline.failed}
+              onRetry={timeline.reload}
             />
+            <IncidentParticipants incidentId={operation.id} />
           </div>
           </TabsContent>
         </Tabs>

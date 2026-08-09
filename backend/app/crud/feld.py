@@ -1154,9 +1154,9 @@ async def get_rapport(
         "incident_ref": incident.title or incident.location_address or "Unbekannt",
         "leader_personnel_id": leader[0] if leader else None,
         "leader_name": leader[1] if leader else None,
-        # "Melder übernehmen": one tap COPIES these into the owner block. The
-        # Melder is frequently not the Eigentümer, so the copy stays editable
-        # and the two are never equated.
+        # "Melder übernehmen": one tap PREFILLS the owner free text with these.
+        # The Melder is frequently not the Eigentümer, so the copy stays
+        # editable and the two are never equated.
         "melder_name": incident.contact or None,
         "melder_street": incident.location_address or None,
         "melder_city": None,
@@ -1200,11 +1200,7 @@ async def get_rapport(
         "extra_material_note": report.extra_material_note,
         "kurzbericht": report.kurzbericht,
         "handed_over_to": report.handed_over_to,
-        "owner_name": report.owner_name,
-        "owner_street": report.owner_street,
-        "owner_city": report.owner_city,
-        "vehicle_plate": report.vehicle_plate,
-        "vehicle_model": report.vehicle_model,
+        "owner_note": report.owner_note,
         "personnel_count": report.personnel_count if report.personnel_count is not None else board_personnel,
         "personnel_count_corrected": report.personnel_count_corrected,
         "cost_snapshot_json": report.cost_snapshot_json,
@@ -1292,11 +1288,7 @@ async def save_rapport(
         "extra_material_note",
         "kurzbericht",
         "handed_over_to",
-        "owner_name",
-        "owner_street",
-        "owner_city",
-        "vehicle_plate",
-        "vehicle_model",
+        "owner_note",
     ):
         if field in provided:
             setattr(report, field, getattr(payload, field))

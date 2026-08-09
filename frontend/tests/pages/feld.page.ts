@@ -44,7 +44,9 @@ export class FeldPage extends BasePage {
 
     this.arrivedButton = page.getByRole('button', { name: /^Angekommen/ });
     this.completeButton = page.getByRole('button', { name: /^(Einsatz beendet|Beendet gemeldet)$/ });
-    this.pickupButton = page.getByRole('button', { name: /^(Abholung|Abgeholt)$/ });
+    // One label, always. "Abgeholt" was removed from the field after the first
+    // real use (§18.9) — the crew asks, the KP clears.
+    this.pickupButton = page.getByRole('button', { name: /^Abholung$/ });
 
     this.pickupFollowupQuestion = page.getByText('Kommt ihr selbst zurück?');
     this.needPickupButton = page.getByRole('button', { name: 'Wir müssen abgeholt werden' });

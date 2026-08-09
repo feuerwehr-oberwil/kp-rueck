@@ -141,7 +141,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
   }
 
   const handlePickup = async (needed: boolean) => {
-    const label = needed ? tPickup('needPickup') : tPickup('collected')
+    const label = needed ? tPickup('needPickup') : tPickup('selfReturn')
     // The note is read at call time on purpose: a retry after a failed send must
     // carry whatever is in the field now, not a stale copy.
     const ok = await run('pickup', label, () =>
@@ -211,7 +211,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           onClick={() => setPanel(panel === 'pickup' ? 'none' : 'pickup')}
         >
           <CarTaxiFront className="size-4" />
-          <span className="text-sm">{pickupNeeded ? tPickup('clear') : tPickup('request')}</span>
+          <span className="text-sm">{tPickup('request')}</span>
         </Button>
 
         <Button
@@ -304,32 +304,27 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
         </div>
       )}
 
-      {/* --- Abholung, opened deliberately rather than as a follow-up -------- */}
+      {/* --- Abholung, opened deliberately rather than as a follow-up --------
+          Asking only. The "Abgeholt" half of this panel was removed after the
+          first field test (§18.9): nobody sitting in the car that just picked
+          them up gets the phone back out to say so, and an unpressed button is
+          worse than none — it makes the amber chip on the board look stale
+          instead of unanswered. Clearing is the KP's, on the chip itself.
+          Re-opening it with a changed note is allowed and simply updates the
+          note; the waiting time stays where it started. */}
       {panel === 'pickup' && (
         <div className="rounded-lg border border-border p-3 space-y-3">
-          {pickupNeeded ? (
-            <>
-              <p className="text-sm">{tPickup('clearQuestion')}</p>
-              <Button size="lg" className="w-full" disabled={busy} onClick={() => handlePickup(false)}>
-                {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
-                {tPickup('collected')}
-              </Button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm">{tPickup('requestQuestion')}</p>
-              <Input
-                placeholder={tPickup('notePlaceholder')}
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                className="text-sm"
-              />
-              <Button size="lg" className="w-full" disabled={busy} onClick={() => handlePickup(true)}>
-                {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
-                {tPickup('needPickup')}
-              </Button>
-            </>
-          )}
+          <p className="text-sm">{pickupNeeded ? tPickup('alreadyRequested') : tPickup('requestQuestion')}</p>
+          <Input
+            placeholder={tPickup('notePlaceholder')}
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            className="text-sm"
+          />
+          <Button size="lg" className="w-full" disabled={busy} onClick={() => handlePickup(true)}>
+            {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
+            {pickupNeeded ? tPickup('updateNote') : tPickup('needPickup')}
+          </Button>
         </div>
       )}
 

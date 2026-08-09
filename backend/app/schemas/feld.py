@@ -263,8 +263,10 @@ class RapportPrefill(BaseModel):
     # and that is exactly the state a crew files its rapport in.
     leader_personnel_id: UUID | None = None
     leader_name: str | None = None
-    # "Melder übernehmen" (§4): one tap copies these into the owner block.
-    # Copies, never equates — Melder ≠ Eigentümer stays correctable.
+    # "Melder übernehmen" (§4): one tap PREFILLS the owner free text with these.
+    # Copies, never equates — Melder ≠ Eigentümer stays correctable, and since
+    # §18.10 the target is one Textarea, so the button writes lines rather than
+    # populating three inputs.
     melder_name: str | None = None
     melder_street: str | None = None
     melder_city: str | None = None
@@ -311,11 +313,8 @@ class SchadenplatzRapport(BaseModel):
     kurzbericht: str | None = None
     handed_over_to: str | None = None
 
-    owner_name: str | None = None
-    owner_street: str | None = None
-    owner_city: str | None = None
-    vehicle_plate: str | None = None
-    vehicle_model: str | None = None
+    # ONE free-text box (§18.10). See the model for why the five columns went.
+    owner_note: str | None = None
 
     personnel_count: int | None = None
     personnel_count_corrected: bool = False
@@ -359,11 +358,7 @@ class RapportUpdate(BaseModel):
     kurzbericht: str | None = Field(default=None, max_length=5000)
     handed_over_to: str | None = Field(default=None, max_length=200)
 
-    owner_name: str | None = Field(default=None, max_length=200)
-    owner_street: str | None = Field(default=None, max_length=200)
-    owner_city: str | None = Field(default=None, max_length=200)
-    vehicle_plate: str | None = Field(default=None, max_length=50)
-    vehicle_model: str | None = Field(default=None, max_length=100)
+    owner_note: str | None = Field(default=None, max_length=2000)
 
     personnel_count: int | None = Field(default=None, ge=0, le=999)
 

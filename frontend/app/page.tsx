@@ -398,6 +398,17 @@ export default function FireStationDashboard() {
     }
     return true
   })
+  // The Reko block on the cards, on its own switch. It used to ride along with
+  // the Meldung toggle, which put two unrelated blocks under one control: the
+  // Meldung is what came in on the phone, the Reko is what somebody went and
+  // looked at. An operator working a storm wants the second without the first.
+  // Defaults ON, which is what the cards did before this toggle existed.
+  const [showReko, setShowReko] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('showReko') !== 'false'
+    }
+    return true
+  })
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [displayToken, setDisplayToken] = useState<string | null>(null)
   const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
@@ -444,6 +455,10 @@ export default function FireStationDashboard() {
   useEffect(() => {
     localStorage.setItem('showMeldung', String(showMeldung))
   }, [showMeldung])
+
+  useEffect(() => {
+    localStorage.setItem('showReko', String(showReko))
+  }, [showReko])
 
   // Cross-window sync (bidirectional)
   const { broadcast } = useCrossWindowSync({
@@ -1862,6 +1877,7 @@ export default function FireStationDashboard() {
                       onTransfer={isEditor ? handleOpenTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
                       showMeldung={showMeldung}
+                      showReko={showReko}
                       printerEnabled={printerEnabled}
                       doubleBookedCrewNames={doubleBookedPersons.names}
                       canDrag={isEditor}
@@ -2167,7 +2183,10 @@ export default function FireStationDashboard() {
 
               <div className="h-4 w-px bg-border mx-1" />
 
-              {/* Toggle styled as a compact pill */}
+              {/* Two toggles, styled as compact pills: what came in by phone,
+                  and what the Reko went and looked at. Separate switches
+                  because they answer different questions and a storm night
+                  wants the second without the first. */}
               <button
                 onClick={() => setShowMeldung(!showMeldung)}
                 className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs transition-colors ${
@@ -2178,6 +2197,18 @@ export default function FireStationDashboard() {
               >
                 <div className={`h-1.5 w-1.5 rounded-full ${showMeldung ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
                 {tCommon('meldung')}
+              </button>
+
+              <button
+                onClick={() => setShowReko(!showReko)}
+                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs transition-colors ${
+                  showReko
+                    ? 'bg-primary/10 text-primary border border-primary/20'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <div className={`h-1.5 w-1.5 rounded-full ${showReko ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
+                {tCommon('reko')}
               </button>
             </div>
 

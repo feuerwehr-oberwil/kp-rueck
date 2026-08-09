@@ -119,7 +119,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const isSubmittingRef = useRef(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [loadError, setLoadError] = useState(false)
-  const [showVehicleBlock, setShowVehicleBlock] = useState(false)
   // A filed rapport is amendable (decision 3: one report per Schadenplatz,
   // amendable) — but it does not sit there looking like a draft, or nobody can
   // tell a finished slip from an unfinished one.
@@ -171,7 +170,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         setRapport(data)
         setFormData(form)
         setPhotos(data.photos ?? [])
-        setShowVehicleBlock(Boolean(data.vehicle_plate || data.vehicle_model))
         if (usedLocal) toast.info(t('localRestored'))
         setLocalStorageLoaded(true)
       } catch (error) {
@@ -261,14 +259,24 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     setAmending(true)
   }
 
+  /**
+   * "Melder übernehmen" — one tap that PREFILLS the free text (§18.10).
+   *
+   * It writes the Melder's lines and stops there: an existing note is never
+   * overwritten, because the crew's own words about who owns the place beat a
+   * name the dispatcher took down. Melder and Eigentümer are frequently
+   * different people, which is why this copies and never equates.
+   */
   const takeOverMelder = () => {
     const prefill = rapport?.prefill
     if (!prefill) return
+    const lines = [prefill.melder_name, prefill.melder_street, prefill.melder_city]
+      .map(line => line?.trim())
+      .filter((line): line is string => Boolean(line))
+    if (lines.length === 0) return
     setFormData(prev => ({
       ...prev,
-      owner_name: prefill.melder_name ?? prev.owner_name,
-      owner_street: prefill.melder_street ?? prev.owner_street,
-      owner_city: prefill.melder_city ?? prev.owner_city,
+      owner_note: prev.owner_note.trim() ? prev.owner_note : lines.join('\n'),
     }))
   }
 
@@ -332,18 +340,11 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       <section className="space-y-3">
         <h3 className="text-sm font-semibold">{t('sections.einsatzdaten')}</h3>
 
-        <div className="rounded-lg bg-secondary/40 px-3 py-2 text-sm">
-          <p className="text-xs text-muted-foreground">{t('address')}</p>
-          {/* Read-only, orientation only: a wrong address is a board
-              correction, not a rapport field. */}
-          <p>{rapport.prefill.location_address || t('noAddress')}</p>
-          {rapport.prefill.leader_name && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t('leader', { name: rapport.prefill.leader_name })}
-            </p>
-          )}
-        </div>
-
+        {/* No address and no EL block here. Both mounts already state them in
+            their own header — the modal's title line, and the /feld detail's
+            header section with its LeaderLine — and a read-only copy of what
+            is two centimetres above it is a form field that asks to be read
+            and then answers nothing. */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="rapport-start" className="text-xs text-muted-foreground">
@@ -438,61 +439,20 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           </Button>
         )}
 
-        <div className="space-y-2">
-          <Input
-            value={formData.owner_name}
-            disabled={readOnly}
-            placeholder={t('ownerName')}
-            aria-label={t('ownerName')}
-            onChange={e => update('owner_name', e.target.value)}
-          />
-          <Input
-            value={formData.owner_street}
-            disabled={readOnly}
-            placeholder={t('ownerStreet')}
-            aria-label={t('ownerStreet')}
-            onChange={e => update('owner_street', e.target.value)}
-          />
-          <Input
-            value={formData.owner_city}
-            disabled={readOnly}
-            placeholder={t('ownerCity')}
-            aria-label={t('ownerCity')}
-            onChange={e => update('owner_city', e.target.value)}
-          />
-        </div>
-
-        {/* Hidden by default: a KFZ block is irrelevant on all but a few
-            Einsätze, and an always-visible one is two more empty boxes on a
-            phone in the rain. */}
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-primary"
-            checked={showVehicleBlock}
-            disabled={readOnly}
-            onChange={e => setShowVehicleBlock(e.target.checked)}
-          />
-          {t('vehicleInvolved')}
-        </label>
-        {showVehicleBlock && (
-          <div className="space-y-2">
-            <Input
-              value={formData.vehicle_plate}
-              disabled={readOnly}
-              placeholder={t('vehiclePlate')}
-              aria-label={t('vehiclePlate')}
-              onChange={e => update('vehicle_plate', e.target.value)}
-            />
-            <Input
-              value={formData.vehicle_model}
-              disabled={readOnly}
-              placeholder={t('vehicleModel')}
-              aria-label={t('vehicleModel')}
-              onChange={e => update('vehicle_model', e.target.value)}
-            />
-          </div>
-        )}
+        {/* ONE box (§18.10). It replaced three inputs plus a "Fahrzeug
+            beteiligt" reveal hiding two more — five fields of which the first
+            real use filled exactly one. A crew writes "Fam. Meier, unten links,
+            Tel 079 ..." and a plate underneath if there was a car; that is what
+            the PDF and the xlsx want too. */}
+        <Textarea
+          value={formData.owner_note}
+          disabled={readOnly}
+          rows={4}
+          maxLength={2000}
+          placeholder={t('ownerPlaceholder')}
+          aria-label={t('sections.owner')}
+          onChange={e => update('owner_note', e.target.value)}
+        />
       </section>
 
       {/* --------------------------------------- Mannschaft und Fahrzeuge */}
@@ -502,7 +462,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           whoever retypes it nothing that three names do not tell better. */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold">{t('sections.confirm')}</h3>
-        <p className="text-xs text-muted-foreground">{t('confirmHint')}</p>
 
         <div className="space-y-1.5">
           <Label htmlFor="rapport-personnel" className="text-xs text-muted-foreground">

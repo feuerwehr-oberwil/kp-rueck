@@ -67,6 +67,7 @@ interface DroppableColumnProps {
   /** Editor-only: open the Auftrag picker to distribute an incident into a route. */
   onDistributeToAuftrag?: (operationId: string) => void
   showMeldung?: boolean
+  showReko?: boolean
   printerEnabled?: boolean
   doubleBookedCrewNames?: Set<string>
   /** False for viewers: cards render without a drag source (read-only board). */
@@ -86,6 +87,7 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.selectedOperationId !== next.selectedOperationId ||
     prev.hoveredOperationId !== next.hoveredOperationId ||
     prev.showMeldung !== next.showMeldung ||
+    prev.showReko !== next.showReko ||
     prev.printerEnabled !== next.printerEnabled ||
     prev.materials !== next.materials ||
     prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
@@ -163,6 +165,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onTransfer,
   onDistributeToAuftrag,
   showMeldung,
+  showReko,
   printerEnabled,
   doubleBookedCrewNames,
   canDrag,
@@ -361,6 +364,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onTransfer={onTransfer ? () => onTransfer(operation.id) : undefined}
                 onDistributeToAuftrag={onDistributeToAuftrag ? () => onDistributeToAuftrag(operation.id) : undefined}
                 showMeldung={showMeldung}
+                showReko={showReko}
                 printerEnabled={printerEnabled}
                 doubleBookedCrewNames={doubleBookedCrewNames}
                 canDrag={canDrag}

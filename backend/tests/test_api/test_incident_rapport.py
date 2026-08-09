@@ -577,11 +577,7 @@ class TestRapportParity:
         ("kurzbericht", "Baum auf Fahrbahn, zersägt und geräumt.", "kurzbericht"),
         ("handed_over_to", "Werkhof Oberwil", "handed_over_to"),
         ("extra_material_note", "Seil vom TLF geborgt", "extra_material_note"),
-        ("owner_name", "A. Bürgin", "owner_name"),
-        ("owner_street", "Hauptstrasse 4", "owner_street"),
-        ("owner_city", "Oberwil", "owner_city"),
-        ("vehicle_plate", "BL 12345", "vehicle_plate"),
-        ("vehicle_model", "VW Golf", "vehicle_model"),
+        ("owner_note", "A. Bürgin\nHauptstrasse 4, Oberwil\nBL 12345 VW Golf", "owner_note"),
     ]
 
     @pytest.mark.asyncio

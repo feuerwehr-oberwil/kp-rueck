@@ -32,9 +32,11 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     )
 
     // A crew in the field has never seen the board and does not know the word.
-    const label = screen.getByText('Weiteres gebrauchtes Material')
-    expect(label).toBeInTheDocument()
-    expect(screen.getByText(/oben nicht aufgeführt/)).toBeInTheDocument()
+    // The label and the examples in the placeholder carry it; the sentence that
+    // used to explain the field again was dropped with the rest of the
+    // hand-holding copy.
+    expect(screen.getByText('Weiteres gebrauchtes Material')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/geliehene Tauchpumpe/)).toBeInTheDocument()
     expect(screen.queryByText(/Board/)).toBeNull()
   })
 

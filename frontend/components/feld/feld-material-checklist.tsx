@@ -106,10 +106,7 @@ export function FeldMaterialChecklist({
 
   return (
     <section className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold">{t('title')}</h3>
-        <p className="text-xs text-muted-foreground">{t('hint')}</p>
-      </div>
+      <h3 className="text-sm font-semibold">{t('title')}</h3>
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
@@ -178,7 +175,6 @@ export function FeldMaterialChecklist({
         <Label htmlFor="rapport-extra-material" className="text-xs text-muted-foreground">
           {t('extraLabel')}
         </Label>
-        <p className="text-xs text-muted-foreground">{t('extraHint')}</p>
         {/* Still free text in the data model, and it still never creates an
             assignment (decision 18): a real picker would make /feld a writer of
             assignments, a different authorization and conflict problem than

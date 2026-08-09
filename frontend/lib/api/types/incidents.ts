@@ -153,7 +153,7 @@ export interface ApiStatusTransition {
 }
 
 export interface ApiIncidentTimelineEvent {
-  event_type: 'status_change' | 'assignment'
+  event_type: 'status_change' | 'assignment' | 'field_message'
   timestamp: string
   actor_name: string | null
   // status_change fields
@@ -164,6 +164,10 @@ export interface ApiIncidentTimelineEvent {
   assignment_action?: 'assigned' | 'unassigned' | null
   resource_type?: 'personnel' | 'vehicle' | 'material' | null
   resource_name?: string | null
+  // field_message fields — the crew's own words, and which door they came
+  // through ('feld' = the field surface, 'kp' = typed from a radio message).
+  message?: string | null
+  source?: string | null
 }
 
 export interface ApiIncidentTimelineResponse {

@@ -1408,18 +1408,19 @@ def generate_rapport_data(
     if rng.random() < profile.handed_over_to:
         data["handed_over_to"] = rng.choice(_RAPPORT_HANDOVER)
 
+    # One free-text block since §18.10, so the generator writes what a crew
+    # writes: a name, sometimes an address under it, and — when a vehicle was
+    # involved — a plate on its own line. The KFZ roll stays independent of the
+    # owner roll: a crew that noted a plate but not the driver's address is the
+    # normal case, and the exercise data has to contain that shape.
+    owner_lines: list[str] = []
     if rng.random() < profile.owner_block:
-        data["owner_name"] = rng.choice(_RAPPORT_OWNER_NAMES)
-        data["owner_street"] = rng.choice(_RAPPORT_OWNER_STREETS)
-        data["owner_city"] = rng.choice(_RAPPORT_OWNER_CITIES)
-
-    # The KFZ block is a property of the Einsatz, not of the crew: it is filled
-    # only when a vehicle was actually involved, and every IncidentType outside
-    # the table is 0 %. It is rolled independently of the owner block — a crew
-    # that noted a plate but not the driver's address is the normal case.
+        owner_lines.append(rng.choice(_RAPPORT_OWNER_NAMES))
+        owner_lines.append(f"{rng.choice(_RAPPORT_OWNER_STREETS)}, {rng.choice(_RAPPORT_OWNER_CITIES)}")
     if rng.random() < RAPPORT_KFZ_RATES.get(incident_type or "", 0.0):
-        data["vehicle_plate"] = f"BL {rng.randint(10000, 999999)}"
-        data["vehicle_model"] = rng.choice(_RAPPORT_VEHICLE_MODELS)
+        owner_lines.append(f"BL {rng.randint(10000, 999999)} {rng.choice(_RAPPORT_VEHICLE_MODELS)}")
+    if owner_lines:
+        data["owner_note"] = "\n".join(owner_lines)
 
     if rng.random() < profile.times_adjusted:
         if default_work_started_at is not None:

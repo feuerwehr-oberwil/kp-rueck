@@ -19,13 +19,13 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { CarTaxiFront, Flag, Loader2, MapPin } from 'lucide-react'
+import { CarTaxiFront, Flag, Loader2, MapPin, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { apiClient } from '@/lib/api-client'
+import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
 import type { ApiFieldReportUpdate } from '@/lib/api/types'
 import { useOperations, type Operation } from '@/lib/contexts/operations-context'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
@@ -203,4 +203,93 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
       </div>
     </div>
   )
+}
+
+/**
+ * "Meldungen vom Feld" — the Freitext-Meldungen of one Schadenplatz, as a
+ * thread.
+ *
+ * The three toggles above answer *what happened*; this answers *what the crew
+ * said*. Until it existed, a `field_message` became a notification and an
+ * audit-log entry and appeared on the incident nowhere at all: the bell is
+ * dismissible, and once dismissed the sentence was gone from every surface an
+ * operator looks at.
+ *
+ * Newest **last**, like every message thread anybody has ever read — the
+ * Verlauf tab is the newest-first surface, and it carries the same entries
+ * interleaved with status changes and assignments.
+ */
+export function FieldMessageThread({
+  events,
+  isLoading,
+  failed,
+  onRetry,
+}: {
+  events: ApiIncidentTimelineEvent[] | null
+  isLoading: boolean
+  failed: boolean
+  onRetry: () => void
+}) {
+  const t = useTranslations('feld.kp')
+  const messages = useMemo(
+    () =>
+      (events ?? [])
+        .filter(event => event.event_type === 'field_message' && event.message)
+        // The feed arrives newest first; a thread reads the other way round.
+        .slice()
+        .reverse(),
+    [events],
+  )
+
+  return (
+    <div className="rounded-lg border border-border p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        <Label className="text-sm font-semibold">{t('messagesTitle')}</Label>
+        {messages.length > 0 && (
+          <span className="ml-auto text-xs tabular-nums text-muted-foreground">{messages.length}</span>
+        )}
+      </div>
+
+      {isLoading && messages.length === 0 && (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        </p>
+      )}
+
+      {failed && (
+        <p className="text-xs text-destructive">
+          {t('messagesLoadFailed')}{' '}
+          <button type="button" onClick={onRetry} className="underline">
+            {t('messagesRetry')}
+          </button>
+        </p>
+      )}
+
+      {!isLoading && !failed && messages.length === 0 && (
+        <p className="text-xs italic text-muted-foreground/60">{t('messagesEmpty')}</p>
+      )}
+
+      {messages.length > 0 && (
+        <ol className="space-y-2">
+          {messages.map((event, index) => (
+            <li key={`${event.timestamp}:${index}`} className="text-sm">
+              <p className="text-xs text-muted-foreground">
+                {/* Provenance again, same rule as the toggles above: a name for
+                    a crew report, "im KP erfasst" for a dictated one. */}
+                {event.source === 'kp' || !event.actor_name
+                  ? t('fromKp', { time: formatMessageTime(event.timestamp) })
+                  : t('fromField', { name: event.actor_name, time: formatMessageTime(event.timestamp) })}
+              </p>
+              <p className="break-words">{event.message}</p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
+function formatMessageTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
 }

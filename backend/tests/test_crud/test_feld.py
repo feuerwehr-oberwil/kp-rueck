@@ -236,7 +236,7 @@ class TestPrefillRest:
 
         assert view["prefill"]["melder_name"] == "A. Bürgin"
         assert view["prefill"]["melder_street"] == incident.location_address
-        assert view.get("owner_name") is None
+        assert view.get("owner_note") is None
 
     @pytest.mark.asyncio
     async def test_leader_comes_from_the_resolver_not_the_raw_flag(

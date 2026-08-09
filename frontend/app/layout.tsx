@@ -19,6 +19,7 @@ import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { VehicleConflictPrompt } from '@/components/vehicle-conflict-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
+import { PickupDonePrompt } from '@/components/pickup-done-prompt'
 import { ErrorReporter } from '@/components/error-reporter'
 import { RuntimeBackendOrigin } from '@/components/runtime-backend-origin'
 import { publicBackendOrigin } from '@/lib/env'
@@ -95,6 +96,7 @@ export default async function RootLayout({
                           <VehicleConflictPrompt />
                           <GpsReleasePrompt />
                           <GpsArrivalPrompt />
+                          <PickupDonePrompt />
                         </CommandPaletteProvider>
                       </NotificationProvider>
                     </GroupsProvider>

@@ -26,6 +26,7 @@ import { CarTaxiFront, ChevronDown, ChevronRight, FileWarning, Loader2, Package,
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { PickupBadge } from '@/components/kanban/pickup-badge'
 import { apiClient, type ApiEventRestliste, type ApiRestlisteIncident, type ApiRestlisteUnit } from '@/lib/api-client'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getActiveLocale } from '@/lib/i18n-messages'
@@ -59,23 +60,20 @@ export function EventRestliste({ eventId, onOpenIncident }: EventRestlisteProps)
   const [open, setOpen] = useState<Section | null>(null)
   const [printing, setPrinting] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    apiClient
-      .getEventRestliste(eventId)
-      .then(result => {
-        if (!cancelled) setData(result)
-      })
-      .catch(error => {
-        // Silent: the Restliste is an extra on a card that has to render
-        // regardless. An event list that fails to load because one roll-up
-        // query did is worse than a missing badge.
-        console.error('Failed to load Restliste:', error)
-      })
-    return () => {
-      cancelled = true
+  const reload = useCallback(async () => {
+    try {
+      setData(await apiClient.getEventRestliste(eventId))
+    } catch (error) {
+      // Silent: the Restliste is an extra on a card that has to render
+      // regardless. An event list that fails to load because one roll-up
+      // query did is worse than a missing badge.
+      console.error('Failed to load Restliste:', error)
     }
   }, [eventId])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
 
   const handlePrintAbholliste = useCallback(async () => {
     setPrinting(true)
@@ -195,7 +193,22 @@ export function EventRestliste({ eventId, onOpenIncident }: EventRestlisteProps)
           </button>
           {open === 'pickup' && (
             <div className="ml-4 space-y-0.5 border-l border-border/60 pl-2">
-              {pickups.map(row => incidentRow(row, formatSince(row.since)))}
+              {/* The chip is the "erledigt" control here too (§18.9). The
+                  Restliste is where somebody works the open pickups off one by
+                  one, so it is the surface that most needs to tick them off
+                  without opening each card. */}
+              {pickups.map(row => (
+                <div key={row.incident_id} className="flex items-center gap-1">
+                  <div className="min-w-0 flex-1">{incidentRow(row, formatSince(row.since))}</div>
+                  <PickupBadge
+                    requestedAt={row.since ? new Date(row.since) : null}
+                    variant="compact"
+                    incidentId={row.incident_id}
+                    onCleared={reload}
+                    className="shrink-0"
+                  />
+                </div>
+              ))}
             </div>
           )}
         </div>

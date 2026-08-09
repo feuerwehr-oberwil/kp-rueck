@@ -25,6 +25,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +38,7 @@ from ..crud import feld as crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
+from ..services.photo_storage import photo_storage
 from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
 from ..services.tokens import generate_feld_token, validate_feld_token
 
@@ -393,12 +395,14 @@ async def upload_photo(
     """
     A photo of the Schadenplatz, onto the Schadenplatz-Rapport.
 
-    Same storage as the Reko form (`services/photo_storage.py`), same files, and
-    the same `GET /api/photos/...` to read them back — but **the two doors stay
-    separate**. `validate_form_token` is deliberately not widened to accept feld
-    tokens: coupling two doors for the sake of one handler is how a token type
-    stops meaning anything. This handler runs the ordinary feld two-step like
-    every other endpoint here.
+    Same storage as the Reko form (`services/photo_storage.py`), same files —
+    but **the two doors stay separate**, reading included: `GET /api/photos/...`
+    is session-authenticated and `/feld` has no session, so the read-back lives
+    next to this handler (``serve_feld_photo`` below) behind the same two-step.
+    `validate_form_token` is deliberately not widened to accept feld tokens:
+    coupling two doors for the sake of one handler is how a token type stops
+    meaning anything. This handler runs the ordinary feld two-step like every
+    other endpoint here.
 
     Keeps ``PHOTO_UPLOAD`` rather than the looser ``FELD`` limit — an upload is
     orders of magnitude more expensive than a poll.
@@ -427,6 +431,51 @@ async def delete_photo(
     incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
     photos = await crud.remove_photo(db, incident, actor=_actor(person), filename=filename, request=request)
     return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
+
+
+@router.get("/incidents/{incident_id}/photos/{filename}")
+@limiter.limit(RateLimits.FELD)
+async def serve_feld_photo(
+    request: Request,
+    incident_id: uuid.UUID,
+    filename: str,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is looking"),
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    """Read a rapport photo back on `/feld` — the crew looking at what it shot.
+
+    `GET /api/photos/{incident}/{file}` (`api/reko.py`) is the board's read path
+    and requires a session; `/feld` has none, which is why the phone got a
+    broken image where its own photo should be. The answer is NOT to drop the
+    credential from that endpoint — a rapport photo can be a citizen's cellar.
+    It is the same two-step every other handler in this module runs, so a photo
+    is readable exactly by someone who holds the event's link AND is assigned to
+    that Schadenplatz.
+
+    ``photos_json`` is checked as well as the disk: the assignment says which
+    incident you may look at, the report says which files belong to it. Neither
+    alone is enough — `get_photo_path` only proves a file exists on disk under
+    that incident's directory.
+    """
+    incident, _person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    report = result.scalar_one_or_none()
+    if report is None or filename not in (report.photos_json or []):
+        raise HTTPException(status_code=404, detail="Foto nicht gefunden")
+
+    file_path = photo_storage.get_photo_path(incident.id, filename)
+    if file_path is None:
+        raise HTTPException(status_code=404, detail="Foto nicht gefunden")
+
+    return FileResponse(
+        file_path,
+        media_type="image/jpeg",
+        # `private` and short: the URL carries a token, and a shared cache must
+        # never hold a photo that a later, tokenless request could be served.
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @router.post("/incidents/{incident_id}/message", status_code=204)

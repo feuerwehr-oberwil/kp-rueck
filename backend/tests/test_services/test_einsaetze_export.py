@@ -286,19 +286,15 @@ class TestProvenance:
 
 
 class TestOwnerBlock:
-    def test_owner_and_kfz_land_in_their_own_columns(self):
+    def test_the_owner_note_lands_in_one_column_verbatim(self):
+        """§18.8: four columns became one, and it carries the crew's text as-is.
+
+        Nothing re-splits it into Name/Strasse/Ort/KFZ on the way out — the form
+        asks one question, so anything else here would be the export guessing.
+        """
         event = Event(id=uuid4(), name="Sturm 2026", training_flag=False)
         incident = _incident(event, "Bahnhofstrasse 4, Oberwil")
-        report = _report(
-            incident.id,
-            owner_name="Muster Anna",
-            owner_street="Bahnhofstrasse 4",
-            owner_city="4104 Oberwil",
-            vehicle_plate="BL 123456",
-            vehicle_model="VW Golf",
-        )
+        note = "Muster Anna\nBahnhofstrasse 4, 4104 Oberwil\nBL 123456 VW Golf"
+        report = _report(incident.id, owner_note=note)
         row = _row(_sheet(_data(event, [incident], [report])), 2)
-        assert row["Eigentümer Name"] == "Muster Anna"
-        assert row["Eigentümer Strasse"] == "Bahnhofstrasse 4"
-        assert row["Eigentümer Ort"] == "4104 Oberwil"
-        assert row["KFZ"] == "BL 123456 VW Golf"
+        assert row["Eigentümer / Halter"] == note

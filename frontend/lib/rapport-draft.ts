@@ -24,11 +24,7 @@ export interface RapportFormData {
   extra_material_note: string
   kurzbericht: string
   handed_over_to: string
-  owner_name: string
-  owner_street: string
-  owner_city: string
-  vehicle_plate: string
-  vehicle_model: string
+  owner_note: string
   personnel_count: number | null
 }
 
@@ -40,11 +36,7 @@ export const EMPTY_RAPPORT_FORM: RapportFormData = {
   extra_material_note: '',
   kurzbericht: '',
   handed_over_to: '',
-  owner_name: '',
-  owner_street: '',
-  owner_city: '',
-  vehicle_plate: '',
-  vehicle_model: '',
+  owner_note: '',
   personnel_count: null,
 }
 
@@ -58,11 +50,7 @@ export function toFormData(rapport: ApiSchadenplatzRapport): RapportFormData {
     extra_material_note: rapport.extra_material_note ?? '',
     kurzbericht: rapport.kurzbericht ?? '',
     handed_over_to: rapport.handed_over_to ?? '',
-    owner_name: rapport.owner_name ?? '',
-    owner_street: rapport.owner_street ?? '',
-    owner_city: rapport.owner_city ?? '',
-    vehicle_plate: rapport.vehicle_plate ?? '',
-    vehicle_model: rapport.vehicle_model ?? '',
+    owner_note: rapport.owner_note ?? '',
     personnel_count: rapport.personnel_count,
   }
 }
@@ -73,11 +61,7 @@ export function hasContent(form: RapportFormData): boolean {
     form.kurzbericht.trim() ||
       form.handed_over_to.trim() ||
       form.extra_material_note.trim() ||
-      form.owner_name.trim() ||
-      form.owner_street.trim() ||
-      form.owner_city.trim() ||
-      form.vehicle_plate.trim() ||
-      form.vehicle_model.trim() ||
+      form.owner_note.trim() ||
       form.materials.some(row => row.used !== null || row.left_on_site) ||
       // The vehicle list arrives all-ticked, so only an UNticked row is
       // evidence that somebody answered it.
@@ -188,11 +172,7 @@ export function toUpdate(form: RapportFormData, isDraft: boolean): ApiRapportUpd
     extra_material_note: text(form.extra_material_note),
     kurzbericht: text(form.kurzbericht),
     handed_over_to: text(form.handed_over_to),
-    owner_name: text(form.owner_name),
-    owner_street: text(form.owner_street),
-    owner_city: text(form.owner_city),
-    vehicle_plate: text(form.vehicle_plate),
-    vehicle_model: text(form.vehicle_model),
+    owner_note: text(form.owner_note),
     personnel_count: form.personnel_count,
   }
 }

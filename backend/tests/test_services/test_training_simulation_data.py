@@ -516,19 +516,29 @@ class TestRapportGeneration:
             ticks = {row["assignment_id"]: row for row in self._generate(seed).get("materials", [])}
             assert ticks[consumable_id]["left_on_site"] is False
 
-    def test_kfz_block_stays_empty_unless_a_vehicle_is_involved(self):
-        """Every IncidentType outside the table is 0 % — not "rarely"."""
-        for seed in range(300):
-            data = self._generate(seed)
-            assert "vehicle_plate" not in data
-            assert "vehicle_model" not in data
+    def test_kfz_line_stays_out_unless_a_vehicle_is_involved(self):
+        """Every IncidentType outside the table is 0 % — not "rarely".
 
-    def test_kfz_block_appears_on_strassenrettung(self):
+        Since §18.8 the owner block is ONE free-text field, so the KFZ half is a
+        line inside it rather than its own key. "BL " is the marker: the
+        generator writes a plate as `BL <digits> <Modell>` and nothing else in
+        the note starts a line that way.
+        """
+        for seed in range(300):
+            note = self._generate(seed).get("owner_note", "")
+            assert not any(line.startswith("BL ") for line in note.splitlines())
+
+    def test_kfz_line_appears_on_strassenrettung(self):
         """…and 80 % on a Strassenrettung, so the block is reachable at all."""
         filled = sum(
             1
             for seed in range(200)
-            if "vehicle_plate" in self._generate(seed, incident_type="strassenrettung", title="Verkehrsunfall")
+            if any(
+                line.startswith("BL ")
+                for line in self._generate(seed, incident_type="strassenrettung", title="Verkehrsunfall")
+                .get("owner_note", "")
+                .splitlines()
+            )
         )
         assert 130 < filled < 190
 

@@ -807,9 +807,7 @@ class TestRapportInThePdf:
             work_ended_at=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
             kurzbericht="Keller ausgepumpt.",
             handed_over_to="Hauswart",
-            owner_name="Muster Hans",
-            owner_street="Bahnhofstrasse 4",
-            owner_city="Oberwil",
+            owner_note="Muster Hans\nBahnhofstrasse 4, Oberwil",
         )
         text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
         assert "Schadenplatz-Rapport" in text

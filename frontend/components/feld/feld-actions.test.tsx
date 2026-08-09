@@ -143,14 +143,21 @@ describe('an open Abholung', () => {
     expect(screen.getByText('3 Personen')).toBeInTheDocument()
   })
 
-  it('offers "abgeholt" instead of a new request', async () => {
+  it('never offers to report itself abgeholt — that is the KP\'s chip (§18.9)', async () => {
     const user = userEvent.setup()
     render({ pickup_needed: true, pickup_requested_at: '2026-08-09T21:14:00Z' })
 
-    await user.click(screen.getByRole('button', { name: 'Abgeholt' }))
-    await user.click(screen.getByRole('button', { name: /Ja, wir sind abgeholt/ }))
+    expect(screen.queryByRole('button', { name: /Abgeholt/i })).not.toBeInTheDocument()
 
-    await waitFor(() => expect(feldReportPickup).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', false, null))
+    // The button is still there and still only asks — re-opening it updates the
+    // note rather than clearing anything.
+    await user.click(screen.getByRole('button', { name: 'Abholung' }))
+    await user.type(screen.getByPlaceholderText(/Notiz/), '5 Personen')
+    await user.click(screen.getByRole('button', { name: 'Notiz aktualisieren' }))
+
+    await waitFor(() =>
+      expect(feldReportPickup).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', true, '5 Personen'),
+    )
   })
 })
 

@@ -307,9 +307,10 @@ class IncidentTimelineEvent(BaseModel):
     - status_change → from_status, to_status, notes
     - assignment    → assignment_action ('assigned' | 'unassigned'),
                       resource_type, resource_name
+    - field_message → message, source ('feld' | 'kp')
     """
 
-    event_type: str  # 'status_change' | 'assignment'
+    event_type: str  # 'status_change' | 'assignment' | 'field_message'
     timestamp: datetime
     actor_name: str | None = None
 
@@ -322,6 +323,12 @@ class IncidentTimelineEvent(BaseModel):
     assignment_action: str | None = None
     resource_type: str | None = None
     resource_name: str | None = None
+
+    # field_message fields — the crew's own words, verbatim. `source` says which
+    # door they came through: the field surface, or an operator typing what came
+    # over the radio.
+    message: str | None = None
+    source: str | None = None
 
 
 class IncidentTimelineResponse(BaseModel):
