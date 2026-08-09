@@ -5,7 +5,18 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +29,7 @@ from ..crud import events as events_crud
 from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..services import incident_display
 from ..services.incident_leader import effective_leader_ids
 from ..utils.errors import ErrorMessages
@@ -497,6 +509,51 @@ async def save_incident_rapport(
     return schemas.SchadenplatzRapport(
         **await feld_crud.save_rapport(db, incident, actor=actor, payload=payload, request=request)
     )
+
+
+@router.post("/{incident_id}/rapport/photos", response_model=schemas.RapportPhotosResponse)
+@limiter.limit(RateLimits.PHOTO_UPLOAD)
+async def upload_rapport_photo(
+    incident_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+    file: UploadFile = File(...),
+) -> schemas.RapportPhotosResponse:
+    """The KP twin of the `/feld` photo upload — the WhatsApp-photo case (§6.1).
+
+    A crew with no signal sends the picture over whatever channel works and the
+    operator attaches it here. Same CRUD, same storage, same files on disk;
+    provenance stays honest — this stamps the user, not a personnel row.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    actor = feld_crud.FieldActor(user=current_user)
+    photos = await feld_crud.add_photo(db, incident, actor=actor, file=file, request=request)
+    return schemas.RapportPhotosResponse(
+        incident_id=incident.id,
+        photos=photos,
+        filename=photos[-1] if photos else None,
+    )
+
+
+@router.delete("/{incident_id}/rapport/photos/{filename}", response_model=schemas.RapportPhotosResponse)
+@limiter.limit(RateLimits.PHOTO_UPLOAD)
+async def delete_rapport_photo(
+    incident_id: uuid.UUID,
+    filename: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.RapportPhotosResponse:
+    """Detach a photo from the board side."""
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    actor = feld_crud.FieldActor(user=current_user)
+    photos = await feld_crud.remove_photo(db, incident, actor=actor, filename=filename, request=request)
+    return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
 
 
 @router.get("/{incident_id}/rapport/material-return", response_model=dict)

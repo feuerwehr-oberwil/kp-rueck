@@ -27,10 +27,12 @@ from app.models import (
     SchadenplatzReport,
     User,
 )
+from app.services.photo_storage import photo_storage
 from app.services.tokens import (
     generate_alarm_token,
     generate_checkin_token,
     generate_feld_token,
+    generate_form_token,
     generate_reko_dashboard_token,
     generate_viewer_token,
 )
@@ -47,9 +49,32 @@ PERSON_SCOPED_ENDPOINTS: list[tuple[str, str, bool, dict[str, Any] | None]] = [
     ("POST", "/api/feld/incidents/{incident_id}/message", True, {"message": "Verstärkung nötig"}),
     ("GET", "/api/feld/incidents/{incident_id}/rapport", True, None),
     ("PUT", "/api/feld/incidents/{incident_id}/rapport", True, {"is_draft": True, "kurzbericht": "Keller ausgepumpt"}),
+    ("POST", "/api/feld/incidents/{incident_id}/photos", True, None),
+    ("DELETE", "/api/feld/incidents/{incident_id}/photos/{filename}", True, None),
 ]
 
 ENDPOINT_IDS = [f"{spec[0]} {spec[1].rsplit('/', 1)[-1]}" for spec in PERSON_SCOPED_ENDPOINTS]
+
+# The photo DELETE is the one row with no generic happy path: authorization
+# passes and there is simply no such file on a rapport nobody has touched. 404
+# is exactly the answer that proves step 2 did NOT refuse, which is what the
+# sweeps below are checking.
+_MISSING_FILENAME = "gibt-es-nicht.jpg"
+
+
+def _expected_ok(spec: tuple[str, str, bool, dict[str, Any] | None]) -> tuple[int, ...]:
+    return (404,) if spec[1].endswith("{filename}") else (200, 204)
+
+
+def _one_pixel_jpeg() -> bytes:
+    """A real JPEG — photo_storage validates magic bytes and decodes with PIL."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (8, 8), (200, 30, 30)).save(buffer, format="JPEG")
+    return buffer.getvalue()
 
 
 async def _call(
@@ -62,10 +87,19 @@ async def _call(
 ) -> Response:
     """Fire one parametrized endpoint, whatever its shape."""
     method, path, personnel_in_query, body = spec
-    url = path.format(personnel_id=personnel_id, incident_id=incident_id)
+    url = path.format(personnel_id=personnel_id, incident_id=incident_id, filename=_MISSING_FILENAME)
     params = {"token": token}
     if personnel_in_query:
         params["personnel_id"] = str(personnel_id)
+    if method == "POST" and url.endswith("/photos"):
+        # Multipart, not JSON. The 403 sweeps never get this far, but the
+        # happy-path sweep does and a real image is what makes it a real test.
+        return await client.request(
+            method,
+            url,
+            params=params,
+            files={"file": ("feld.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
     return await client.request(method, url, params=params, json=body)
 
 
@@ -113,6 +147,12 @@ async def _assign(
     await db.commit()
     await db.refresh(assignment)
     return assignment
+
+
+@pytest.fixture(autouse=True)
+def _isolate_photo_storage(tmp_path, monkeypatch):
+    """Keep uploaded test photos out of the repo's `data/photos`."""
+    monkeypatch.setattr(photo_storage, "photos_dir", tmp_path / "photos")
 
 
 class TestGenerateLink:
@@ -357,7 +397,7 @@ class TestAuthorizationStepTwo:
             personnel_id=person.id,
             incident_id=incident.id,
         )
-        assert response.status_code in (200, 204)
+        assert response.status_code in _expected_ok(spec)
 
     @pytest.mark.asyncio
     @pytest.mark.api
@@ -583,7 +623,7 @@ class TestNeverWritesAssignments:
         assert (await client.get(f"/api/feld/personnel?token={token}")).status_code == 200
         for spec in PERSON_SCOPED_ENDPOINTS:
             response = await _call(client, spec, token=token, personnel_id=person.id, incident_id=incident.id)
-            assert response.status_code in (200, 204), (spec, response.text)
+            assert response.status_code in _expected_ok(spec), (spec, response.text)
         # Clearing the pickup again, so the "cleared" branch is covered too.
         assert (
             await client.post(
@@ -1173,3 +1213,109 @@ class TestOwnerPrivacy:
             line.strip() for line in source.splitlines() if "logger." in line and ("owner_" in line or "token" in line)
         ]
         assert offenders == [], offenders
+
+
+class TestPhotos:
+    """Fotos on the Schadenplatz-Rapport — the field door (phase 3).
+
+    Same storage as the Reko form, and deliberately **not** the same door:
+    ``validate_form_token`` was not widened to accept feld tokens, because
+    coupling two doors for the sake of one handler is how a token type stops
+    meaning anything. The last two tests are that boundary.
+    """
+
+    async def _setup(self, db: AsyncSession, event: Event, user: User) -> tuple[Incident, Personnel, str]:
+        incident = await _make_incident(db, event, user, "Keller Wasser")
+        person = await _make_person(db, "Muster Hans")
+        await _assign(db, incident, person)
+        return incident, person, generate_feld_token(event.id)
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_upload_then_delete_round_trip(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+
+        upload = await client.post(
+            f"/api/feld/incidents/{incident.id}/photos",
+            params=params,
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        assert upload.status_code == 200
+        filename = upload.json()["filename"]
+        assert filename
+        assert upload.json()["photos"] == [filename]
+
+        # The rapport GET carries them, so both mounts render the same list.
+        rapport = await client.get(f"/api/feld/incidents/{incident.id}/rapport", params=params)
+        assert rapport.status_code == 200
+        assert rapport.json()["photos"] == [filename]
+        # A photo is field contact, but it is not a filed rapport: the row
+        # exists and stays a draft, so the Restliste still counts it as missing.
+        assert rapport.json()["exists"] is True
+        assert rapport.json()["is_draft"] is True
+
+        removed = await client.delete(f"/api/feld/incidents/{incident.id}/photos/{filename}", params=params)
+        assert removed.status_code == 200
+        assert removed.json()["photos"] == []
+
+        report = (
+            await db_session.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+        ).scalar_one()
+        assert report.photos_json == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_deleting_an_unknown_photo_is_404(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        response = await client.delete(
+            f"/api/feld/incidents/{incident.id}/photos/{_MISSING_FILENAME}",
+            params={"token": token, "personnel_id": str(person.id)},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_feld_token_does_not_open_the_reko_photo_endpoints(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident, _person, token = await self._setup(db_session, test_event, test_user)
+        response = await client.post(
+            f"/api/reko/{incident.id}/photos",
+            headers={"X-Reko-Token": token},
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_reko_form_token_does_not_open_the_feld_photo_endpoints(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident, person, _token = await self._setup(db_session, test_event, test_user)
+        response = await client.post(
+            f"/api/feld/incidents/{incident.id}/photos",
+            params={"token": generate_form_token(str(incident.id)), "personnel_id": str(person.id)},
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        assert response.status_code == 401

@@ -172,6 +172,12 @@ export interface ApiSchadenplatzRapport {
   work_started_at: string | null
   work_ended_at: string | null
   materials: ApiRapportMaterialRow[]
+  /**
+   * Filenames, not URLs — read back through the shared
+   * `GET /api/photos/{incidentId}/{filename}`, the same endpoint the Reko form
+   * uses. Rendered in BOTH mounts (§6.1).
+   */
+  photos: string[]
   extra_material_note: string | null
   kurzbericht: string | null
   handed_over_to: string | null
@@ -219,6 +225,59 @@ export interface ApiRapportUpdate {
   vehicle_model?: string | null
   personnel_count?: number | null
   vehicle_count?: number | null
+}
+
+/** One Schadenplatz on the Restliste (§6, V-8). */
+export interface ApiRestlisteIncident {
+  incident_id: string
+  title: string
+  location_address: string | null
+  status: string
+  /** Only on the "ohne Rapport" list. 'none' and 'draft' read differently at 02:00. */
+  rapport_state: 'none' | 'draft' | 'submitted' | null
+  /** Only on the pickup list. */
+  pickup_note: string | null
+  since: string | null
+}
+
+/**
+ * One material unit still standing at an address — an Abholliste line.
+ *
+ * Address · unit · since when: the sheet somebody takes along the next morning
+ * (decision 25). A *different day's* job, kept apart from the Trupp-Abholung.
+ */
+export interface ApiRestlisteUnit {
+  incident_id: string
+  incident_title: string
+  location_address: string | null
+  assignment_id: string
+  material_id: string
+  name: string
+  location: string | null
+  since: string | null
+}
+
+export interface ApiEventRestliste {
+  event_id: string
+  /** The denominator of "4 von 23 Schadenplätzen ohne Rapport". */
+  incident_total: number
+  missing_rapport: ApiRestlisteIncident[]
+  material_on_site: ApiRestlisteUnit[]
+  open_pickups: ApiRestlisteIncident[]
+}
+
+/**
+ * What both photo doors answer.
+ *
+ * The whole list rather than just the new filename, so a phone at the edge of
+ * coverage that retried an upload re-syncs from the next answer instead of
+ * accumulating a duplicate.
+ */
+export interface ApiRapportPhotosResponse {
+  incident_id: string
+  photos: string[]
+  /** The file just stored; null on a delete. */
+  filename: string | null
 }
 
 /** One row of "Material zurück – freigeben" (decision 17). */

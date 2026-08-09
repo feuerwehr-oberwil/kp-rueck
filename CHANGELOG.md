@@ -53,6 +53,27 @@ will keep holding.
   reached `complete` without a rapport carries a muted "kein Rapport" marker. Not a dialog and
   not a block — during a storm, a blocking gate is a gate people defeat with empty forms.
 
+- **Fotos vom Schadenplatz, von beiden Seiten.** The crew photographs the cellar from `/feld`;
+  the operator attaches the picture that arrived by WhatsApp from the incident detail. Same
+  storage as the Reko form, and deliberately not the same door — a Reko form token does not open
+  the field upload, and a field token does not open the Reko one.
+
+- **The Einsatzzettel carries a second QR.** It opens `/feld` with that Schadenplatz already
+  selected, using the Ereignis token the poster already carries. The slip can only preselect the
+  Schadenplatz, never the person — it is printed before it is known who drives. A printed slip is
+  therefore a working credential until the token expires: collect them at the end of an Ereignis
+  ([`docs/SETUP.md`](docs/SETUP.md) §7).
+
+- **Die Restliste auf der Ereignisseite.** Three counts, each clickable through to the incidents
+  behind it: *"4 von 23 Schadenplätzen ohne Rapport"*, *"3 Geräte noch vor Ort"*, *"2 Trupps
+  warten auf Abholung"*. This is where somebody at 02:00 finds the gaps, because nobody clicks
+  twenty-three cards individually.
+
+- **Die Abholliste auf Papier.** The material half of the Restliste prints on the thermal
+  printer: address · Gerät · seit wann, one line each — the sheet somebody takes along the next
+  morning. Material left on site is a different day's job and stays separate from the
+  Trupp-Abholung.
+
 - **What `/feld` stores about third parties is written down** in
   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §8. The owner block is the first citizen PII in
   KP Rück: it lives with the incident and is deleted with it, the `/feld` QR is an event-scoped

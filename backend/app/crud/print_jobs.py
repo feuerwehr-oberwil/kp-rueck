@@ -10,6 +10,7 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from ..config import settings
 from ..database import execute_dml
 from ..models import (
     EventSpecialFunction,
@@ -22,6 +23,7 @@ from ..models import (
     RekoReport,
     Vehicle,
 )
+from ..services.tokens import generate_feld_token
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,10 @@ PRINT_JOB_TTL_SECONDS: dict[str, int] = {
     "board": 15 * 60,
     "assignment": 60 * 60,
     "qr_code": 60 * 60,
+    # The Abholliste is next morning's driving list, not a picture of now: it
+    # ages in hours, not minutes, and a stale one is still mostly right — the
+    # pump either got collected or it did not.
+    "abholliste": 60 * 60,
 }
 # Test prints are excluded on purpose: somebody is standing at the printer waiting for one,
 # and if it is late that is exactly the diagnosis they are trying to make.
@@ -203,6 +209,57 @@ async def queue_assignment_print(
 
     logger.info(f"Queued assignment print job {job.id} for incident {incident_id}")
     return job
+
+
+def public_base_url() -> str:
+    """The origin a printed QR has to point a phone at.
+
+    The slip is printed by the *auto-print on dispatch* as often as by the
+    button, and that path has no HTTP request to read a base URL from — GPS
+    automation moves a card to `enroute` with nobody's browser involved. Even
+    when there is a request, ``request.base_url`` is the **backend's** origin,
+    which on a split deployment (Railway: the browser talks to the frontend and
+    Next proxies to `API_URL`) is not the address a phone can open.
+
+    So: ``CORS_ORIGINS``, whose first entry is by definition the browser origin
+    this installation is served from. On the compose stack that is the station's
+    single Caddy origin and everything agrees; in dev it is localhost:3000.
+    """
+    origins = settings.cors_origins
+    if isinstance(origins, str):
+        origins = [origins]
+    for origin in origins:
+        candidate = (origin or "").strip().rstrip("/")
+        if candidate and candidate != "*":
+            return candidate
+    return ""
+
+
+async def build_feld_slip_link(db: AsyncSession, incident: Incident) -> str | None:
+    """The second QR on the Einsatzzettel (decision 19, §3.1).
+
+    The **same event token** with ``&incident_id=`` appended — a shortcut, not a
+    second door. The global QR on the poster stays the door; this only spares a
+    crew the person-picker detour by preselecting the Schadenplatz they were
+    just handed.
+
+    It can only preselect the *incident*, never the person: the slip is printed
+    before it is known who drives.
+
+    Accepted exposure, and it belongs in the operator docs (`docs/SETUP.md`): a
+    slip left in a vehicle is a working credential until the event token
+    expires. That is the same exposure as the poster on the wall, but it is now
+    on paper that travels — so slips join the "collect at the end of the
+    Ereignis" habit the posters already have.
+    """
+    if incident.event_id is None:
+        return None
+    base = public_base_url()
+    if not base:
+        logger.warning("No CORS origin configured — the Einsatzzettel prints without a /feld QR")
+        return None
+    token = generate_feld_token(incident.event_id)
+    return f"{base}/feld?token={token}&incident_id={incident.id}"
 
 
 async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict[str, Any]:
@@ -354,6 +411,10 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
         "internal_notes": incident.internal_notes or "",
         "zu_fuss": incident.zu_fuss,
         "reko_summary": reko_summary,
+        # The second QR (decision 19). None when the incident has no event or the
+        # installation has no configured origin — the agent then simply prints no
+        # QR block, which is what an older agent does anyway.
+        "feld_qr": await build_feld_slip_link(db, incident),
         "crew": crew,
         "vehicles": vehicles,
         "materials": materials,

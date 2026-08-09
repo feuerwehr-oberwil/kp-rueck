@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Camera, Upload, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { apiClient } from '@/lib/api-client'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { getApiUrl } from '@/lib/env'
 
@@ -78,23 +77,40 @@ async function convertToJpeg(file: File): Promise<File> {
   })
 }
 
+/**
+ * The one thing that differs between the doors this component is mounted behind.
+ *
+ * Reko passes its form token, `/feld` passes the event token plus a personnel
+ * id, the board passes nothing at all and rides on the session cookie — and the
+ * component itself knows about none of it. Same reasoning as
+ * `RapportTransport`: a component that branches on which door it is behind
+ * grows an "if" that only one side ever tests.
+ */
+export interface PhotoTransport {
+  /** Store the file; resolve with the server-side filename. */
+  upload: (file: File) => Promise<string>
+  remove: (filename: string) => Promise<void>
+}
+
 interface PhotoUploadProps {
   photos: string[]
   incidentId: string
-  token: string
+  transport: PhotoTransport
   /**
    * Functional update against the parent's CURRENT photo list. Uploads finish
    * asynchronously, so merging against a captured `photos` prop would resurrect
    * photos removed while an upload was in flight.
    */
   onPhotosChange: (update: (current: string[]) => string[]) => void
+  disabled?: boolean
 }
 
 export default function PhotoUpload({
   photos,
   incidentId,
-  token,
-  onPhotosChange
+  transport,
+  onPhotosChange,
+  disabled = false
 }: PhotoUploadProps) {
   const t = useTranslations('reko.photoUpload')
   const [isUploading, setIsUploading] = useState(false)
@@ -138,16 +154,16 @@ export default function PhotoUpload({
         const localUrl = URL.createObjectURL(uploadFile)
 
         // Upload photo
-        const response = await apiClient.uploadRekoPhoto(incidentId, token, uploadFile)
+        const filename = await transport.upload(uploadFile)
 
         // Store local preview URL mapped to the server filename
         setLocalPreviews(prev => {
           const next = new Map(prev)
-          next.set(response.filename, localUrl)
+          next.set(filename, localUrl)
           return next
         })
 
-        return response.filename
+        return filename
       })
 
       // allSettled so one failed file doesn't discard the uploads that succeeded
@@ -178,7 +194,7 @@ export default function PhotoUpload({
   async function handleRemovePhoto(filename: string) {
     try {
       // Delete from backend first
-      await apiClient.deleteRekoPhoto(incidentId, token, filename)
+      await transport.remove(filename)
 
       // Revoke local blob URL to free memory
       const localUrl = localPreviews.get(filename)
@@ -218,7 +234,7 @@ export default function PhotoUpload({
           type="button"
           variant="outline"
           onClick={() => cameraInputRef.current?.click()}
-          disabled={isUploading}
+          disabled={isUploading || disabled}
           className="flex-1"
         >
           <Camera className="size-4" />
@@ -229,7 +245,7 @@ export default function PhotoUpload({
           type="button"
           variant="outline"
           onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
+          disabled={isUploading || disabled}
           className="flex-1"
         >
           <Upload className="size-4" />
@@ -276,7 +292,8 @@ export default function PhotoUpload({
               <button
                 type="button"
                 onClick={() => handleRemovePhoto(filename)}
-                className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-md"
+                disabled={disabled}
+                className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-md disabled:hidden"
               >
                 <X className="h-4 w-4" />
               </button>

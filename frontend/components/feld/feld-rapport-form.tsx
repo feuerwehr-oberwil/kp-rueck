@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { FeldMaterialChecklist } from '@/components/feld/feld-material-checklist'
+import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
 import type { ApiDamageType, ApiRapportMaterialRow, ApiSchadenplatzRapport, ApiRapportUpdate } from '@/lib/api/types'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { getActiveLocale } from '@/lib/i18n-messages'
@@ -53,6 +54,15 @@ import { cn } from '@/lib/utils'
 export interface RapportTransport {
   load: () => Promise<ApiSchadenplatzRapport>
   save: (update: ApiRapportUpdate) => Promise<ApiSchadenplatzRapport>
+  /**
+   * Photos, if this mount has a door for them (§6.1). The crew photographs the
+   * cellar; the KP attaches the photo that arrived by WhatsApp — same storage,
+   * different door, and the form knows about neither.
+   *
+   * Photos are NOT part of the autosaved draft: they are stored server-side the
+   * moment they are taken, so a lost tab loses the typing, never the pictures.
+   */
+  photos?: PhotoTransport
 }
 
 interface FeldRapportFormProps {
@@ -89,6 +99,11 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
 
   const [rapport, setRapport] = useState<ApiSchadenplatzRapport | null>(null)
   const [formData, setFormData] = useState<RapportFormData>(EMPTY_RAPPORT_FORM)
+  // Deliberately its own state, seeded once from the load and never re-seeded
+  // from a save response: a photo is stored the moment it is taken, so the
+  // upload's own answer is the newer truth and an autosave that started before
+  // it must not roll the list back.
+  const [photos, setPhotos] = useState<string[]>([])
   const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -152,6 +167,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         const { form, usedLocal } = mergeDraft(data, loadFromLocalStorage())
         setRapport(data)
         setFormData(form)
+        setPhotos(data.photos ?? [])
         setShowVehicleBlock(Boolean(data.vehicle_plate || data.vehicle_model))
         if (usedLocal) toast.info(t('localRestored'))
         setLocalStorageLoaded(true)
@@ -557,6 +573,20 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           </div>
         </div>
       </section>
+
+      {/* ---------------------------------------------------------- Fotos */}
+      {transport.photos && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold">{t('sections.photos')}</h3>
+          <PhotoUpload
+            photos={photos}
+            incidentId={incidentId}
+            transport={transport.photos}
+            disabled={readOnly}
+            onPhotosChange={update => setPhotos(current => update(current))}
+          />
+        </section>
+      )}
 
       {/* ---------------------------------------------------- Abschluss */}
       <div className="space-y-2">

@@ -126,6 +126,12 @@ export default function FeldPage() {
 function FeldSurface() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  // The Einsatzzettel's second QR (decision 19): the SAME event token with the
+  // incident appended. A shortcut, not a second door — it can only preselect the
+  // Schadenplatz, never the person, because the slip is printed before it is
+  // known who drives. So the picker (or the cookie) still decides who you are,
+  // and this only skips the "meine Einsatzstellen" tap afterwards.
+  const preselectIncidentId = searchParams.get('incident_id')
   const t = useTranslations('feld')
   const tCommon = useTranslations('reko.common')
   const tStatus = useTranslations('kanban.statusLabels')
@@ -144,6 +150,7 @@ function FeldSurface() {
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const restoredFromCookie = useRef(false)
+  const preselectApplied = useRef(false)
 
   // Load activity goes through the global top bar, not inline spinners — the
   // page shows nothing but the bar, then content fades in.
@@ -220,6 +227,20 @@ function FeldSurface() {
     }
   }, [personnel, loading, handleSelectPerson])
 
+  // Jump straight to the Schadenplatz the scanned slip names — once. The visibility
+  // refetch below replaces `assignments` on every focus, and a preselect that fired
+  // again there would drag the crew back out of whatever they had navigated to.
+  // A slip for an incident that is not on this person's list simply lands them on
+  // their own list, which is the honest answer: visibility is "only mine".
+  useEffect(() => {
+    if (preselectApplied.current || !preselectIncidentId || assignments.length === 0) return
+    preselectApplied.current = true
+    const match = assignments.find(a => a.incident_id === preselectIncidentId)
+    if (!match) return
+    setSelectedIncidentId(match.incident_id)
+    setViewMode('detail')
+  }, [assignments, preselectIncidentId])
+
   // Coming back from another tab/app should show the current state, not what
   // the board looked like when the phone went into the pocket.
   useEffect(() => {
@@ -243,6 +264,10 @@ function FeldSurface() {
     setSearchTerm('')
     clearSelectedPersonCookie()
     restoredFromCookie.current = false
+    // The phone is being handed to whoever actually drove. If they scanned a
+    // slip, that slip still names the Schadenplatz — so the preselect gets
+    // another turn for the next person.
+    preselectApplied.current = false
     loadPersonnel()
   }
 
@@ -440,6 +465,27 @@ function FeldSurface() {
                         token,
                         update,
                       ),
+                    // Same storage as the Reko form, a different door: the feld
+                    // two-step, never a widened form token.
+                    photos: {
+                      upload: async file =>
+                        (
+                          await apiClient.uploadFeldPhoto(
+                            selectedAssignment.incident_id,
+                            selectedPerson.personnel_id,
+                            token,
+                            file,
+                          )
+                        ).filename ?? '',
+                      remove: async filename => {
+                        await apiClient.deleteFeldPhoto(
+                          selectedAssignment.incident_id,
+                          selectedPerson.personnel_id,
+                          token,
+                          filename,
+                        )
+                      },
+                    },
                   }}
                   onSaved={applyRapportState}
                 />

@@ -38,6 +38,7 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
     work_started_at: null,
     work_ended_at: null,
     materials: [],
+    photos: [],
     extra_material_note: null,
     kurzbericht: null,
     handed_over_to: null,

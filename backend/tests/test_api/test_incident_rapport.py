@@ -34,7 +34,25 @@ from app.models import (
     SchadenplatzReport,
     User,
 )
+from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_feld_token
+
+
+@pytest.fixture(autouse=True)
+def _isolate_photo_storage(tmp_path, monkeypatch):
+    """Keep uploaded test photos out of the repo's `data/photos`."""
+    monkeypatch.setattr(photo_storage, "photos_dir", tmp_path / "photos")
+
+
+def _one_pixel_jpeg() -> bytes:
+    """A real JPEG — photo_storage validates magic bytes and decodes with PIL."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (8, 8), (200, 30, 30)).save(buffer, format="JPEG")
+    return buffer.getvalue()
 
 
 async def _make_person(db: AsyncSession, name: str) -> Personnel:
@@ -937,3 +955,88 @@ class TestRapportParity:
         submitted = await editor_client.get(f"/api/incidents/{incident.id}/rapport/material-return")
         assert [unit["name"] for unit in submitted.json()["returned"]] == ["Motorsäge"]
         assert [unit["name"] for unit in submitted.json()["left_on_site"]] == ["Tauchpumpe"]
+
+
+class TestPhotoParity:
+    """Fotos, both mounts (§6.1) — the WhatsApp-photo case.
+
+    A crew with no signal gets the picture out over whatever channel works and
+    the operator attaches it from the board. Same storage and the same files as
+    the field upload; only the door and the provenance differ.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_editor_uploads_and_deletes(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+        test_editor: User,
+    ):
+        incident = await _make_incident(db_session, test_event, test_user)
+
+        upload = await editor_client.post(
+            f"/api/incidents/{incident.id}/rapport/photos",
+            files={"file": ("whatsapp.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        assert upload.status_code == 200
+        filename = upload.json()["filename"]
+        assert upload.json()["photos"] == [filename]
+
+        # The same list the field mount renders, from the board's own GET.
+        rapport = await editor_client.get(f"/api/incidents/{incident.id}/rapport")
+        assert rapport.json()["photos"] == [filename]
+
+        # Provenance is never faked: a KP write stamps the user and leaves the
+        # personnel column NULL.
+        report = await _report(db_session, incident)
+        assert report is not None
+        await db_session.refresh(report)
+        assert report.updated_by_user_id == test_editor.id
+        assert report.updated_by_personnel_id is None
+
+        removed = await editor_client.delete(f"/api/incidents/{incident.id}/rapport/photos/{filename}")
+        assert removed.status_code == 200
+        assert removed.json()["photos"] == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_photo_from_the_field_is_visible_from_the_board(
+        self,
+        client: AsyncClient,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident = await _make_incident(db_session, test_event, test_user)
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person)
+
+        upload = await client.post(
+            f"/api/feld/incidents/{incident.id}/photos",
+            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        assert upload.status_code == 200
+
+        rapport = await editor_client.get(f"/api/incidents/{incident.id}/rapport")
+        assert rapport.json()["photos"] == [upload.json()["filename"]]
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_viewer_cannot_upload(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident = await _make_incident(db_session, test_event, test_user)
+        response = await client.post(
+            f"/api/incidents/{incident.id}/rapport/photos",
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        assert response.status_code == 401

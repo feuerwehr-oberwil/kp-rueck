@@ -432,8 +432,9 @@ filled slip on a table is readable by whoever walks past), but it travels furthe
 
 - take the posters down when the Ereignis is closed, the way the check-in posters already come
   down;
-- the Einsatzzettel carries the same token once the slip QR ships, so **slips get collected at
-  the end of an Ereignis** rather than left in vehicles;
+- the Einsatzzettel carries the same token — its second QR opens `/feld` with that Schadenplatz
+  already selected — so **slips get collected at the end of an Ereignis** rather than left in
+  vehicles;
 - the token expires by itself after 30 days.
 
 Neither the token nor the owner block is written to the application log or to telemetry, and a

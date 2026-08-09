@@ -1724,6 +1724,16 @@
       "ready": "Bereit für deinen ersten Einsatz",
       "createButton": "Neues Ereignis erstellen",
       "viewButton": "Ereignisse anzeigen"
+    },
+    "restliste": {
+      "missingRapport": "{count} von {total} Schadenplätzen ohne Rapport",
+      "stateDraft": "Entwurf",
+      "materialOnSite": "{count} Geräte noch vor Ort",
+      "openPickups": "{count} Trupps warten auf Abholung",
+      "printAbholliste": "Abholliste drucken",
+      "abhollisteQueued": "Abholliste gesendet",
+      "abhollisteQueuedDescription": "Adresse · Gerät · seit wann — eine Zeile pro Gerät.",
+      "abhollisteFailed": "Abholliste konnte nicht gedruckt werden"
     }
   },
   "reko": {
@@ -1894,7 +1904,8 @@
       "subjectSlip": "Einsatzzettel",
       "subjectBoard": "Board-Snapshot",
       "subjectQr": "QR-Code",
-      "subjectTest": "Testdruck"
+      "subjectTest": "Testdruck",
+      "subjectAbholliste": "Abholliste"
     },
     "common": {
       "incidentList": "Einsatzliste",
@@ -2827,7 +2838,8 @@
         "einsatzdaten": "Einsatzdaten",
         "kurzbericht": "Kurzbericht",
         "owner": "Eigentümer- / Halterdaten",
-        "kostenpflicht": "Kostenpflicht"
+        "kostenpflicht": "Kostenpflicht",
+        "photos": "Fotos"
       },
       "address": "Adresse",
       "noAddress": "Keine Adresse erfasst",

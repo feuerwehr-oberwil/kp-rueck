@@ -24,17 +24,19 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
+from ..config import settings
 from ..crud import events as events_crud
 from ..crud import feld as crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
-from ..models import Event, Incident, Personnel
+from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
 from ..services.tokens import generate_feld_token, validate_feld_token
 
@@ -211,6 +213,27 @@ def _actor(person: Personnel) -> crud.FieldActor:
     return crud.FieldActor(personnel_id=person.id, personnel_name=person.name)
 
 
+async def _enforce_demo_photo_limits(db: AsyncSession, file: UploadFile) -> None:
+    """The demo's photo ceiling, same shape as the Reko form's (`api/reko.py`).
+
+    `/feld` works in the demo on purpose (§8) — it is a feature the demo should
+    show — but it is a *public, token-gated* upload path there, which is strictly
+    more exposed than the Reko form. So it gets the same 1 MB / 15 photos cap.
+    No-op outside the demo.
+    """
+    if not settings.demo_mode:
+        return
+
+    contents = await file.read()
+    if len(contents) > 1 * 1024 * 1024:
+        raise HTTPException(status_code=403, detail="Demo-Modus: Maximale Dateigrösse 1MB.")
+    await file.seek(0)
+
+    result = await db.execute(select(sa_func.coalesce(sa_func.array_length(SchadenplatzReport.photos_json, 1), 0)))
+    if sum(row[0] for row in result) >= 15:
+        raise HTTPException(status_code=403, detail="Demo-Modus: Maximale Anzahl Fotos (15) erreicht.")
+
+
 @router.post("/incidents/{incident_id}/arrived", response_model=schemas.FieldReportState)
 @limiter.limit(RateLimits.FELD)
 async def report_arrived(
@@ -355,6 +378,55 @@ async def save_rapport(
     return schemas.SchadenplatzRapport(
         **await crud.save_rapport(db, incident, actor=_actor(person), payload=payload, request=request)
     )
+
+
+@router.post("/incidents/{incident_id}/photos", response_model=schemas.RapportPhotosResponse)
+@limiter.limit(RateLimits.PHOTO_UPLOAD)
+async def upload_photo(
+    request: Request,
+    incident_id: uuid.UUID,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is uploading"),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.RapportPhotosResponse:
+    """
+    A photo of the Schadenplatz, onto the Schadenplatz-Rapport.
+
+    Same storage as the Reko form (`services/photo_storage.py`), same files, and
+    the same `GET /api/photos/...` to read them back — but **the two doors stay
+    separate**. `validate_form_token` is deliberately not widened to accept feld
+    tokens: coupling two doors for the sake of one handler is how a token type
+    stops meaning anything. This handler runs the ordinary feld two-step like
+    every other endpoint here.
+
+    Keeps ``PHOTO_UPLOAD`` rather than the looser ``FELD`` limit — an upload is
+    orders of magnitude more expensive than a poll.
+    """
+    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    await _enforce_demo_photo_limits(db, file)
+    photos = await crud.add_photo(db, incident, actor=_actor(person), file=file, request=request)
+    return schemas.RapportPhotosResponse(
+        incident_id=incident.id,
+        photos=photos,
+        filename=photos[-1] if photos else None,
+    )
+
+
+@router.delete("/incidents/{incident_id}/photos/{filename}", response_model=schemas.RapportPhotosResponse)
+@limiter.limit(RateLimits.PHOTO_UPLOAD)
+async def delete_photo(
+    request: Request,
+    incident_id: uuid.UUID,
+    filename: str,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is deleting"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.RapportPhotosResponse:
+    """Remove a photo again — the mis-tapped shutter, from the phone that took it."""
+    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    photos = await crud.remove_photo(db, incident, actor=_actor(person), filename=filename, request=request)
+    return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
 
 
 @router.post("/incidents/{incident_id}/message", status_code=204)

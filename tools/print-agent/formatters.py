@@ -255,6 +255,25 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
             for line in _wrap_text(f" {summary_text}", WIDTH_B):
                 _text(p, f"{line}\n")
 
+    # --- Rapport QR (plan 25, decision 19) ---
+    #
+    # The second QR on the Einsatzzettel: the same event token with the incident
+    # appended, so the crew that carries this slip lands on /feld with THIS
+    # Schadenplatz already selected. A shortcut, not a second door — the global
+    # QR on the poster stays the door, and this can only preselect the incident,
+    # never the person: the slip is printed before it is known who drives.
+    #
+    # Absent on an older backend, or when the installation has no configured
+    # origin to point a phone at. Then the slip simply prints as it always did.
+    feld_qr = payload.get("feld_qr", "")
+    if feld_qr:
+        _sep(p, "-")
+        p.set(font="a", bold=True, align="center")
+        _text(p, "RAPPORT\n")
+        p.set(font="b", bold=False, align="center")
+        _text(p, "Scannen: Angekommen / beendet / Rapport\n")
+        p.qr(feld_qr, size=_qr_box_size(feld_qr), center=True)
+
     # --- Footer ---
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")
@@ -474,6 +493,72 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
                     line += f" ({role})"
                 for wrapped in _wrap_text(line, WIDTH_B):
                     _text(p, f"{wrapped}\n")
+
+    _sep(p, "-")
+    p.set(font="b", bold=False, align="center")
+    _text(p, f"{_stamp(payload)}\n")
+    p.cut()
+
+
+# ── Abholliste ───────────────────────────────────────────────────────
+
+def format_abholliste(p: Network, payload: dict) -> None:
+    """The material half of the Restliste on paper (plan 25, decision 25).
+
+    Address · unit · since when, one line each — the sheet somebody takes along
+    the next morning. Not a report and not a board snapshot: it is a driving
+    list, so it stays flat and sorted by address rather than grouped by anything
+    clever. Material left on site is a *different day's* job and is deliberately
+    NOT merged with the Trupp-Abholung flag.
+    """
+    event_name = payload.get("event_name", "Ereignis")
+    training = payload.get("training_flag", False)
+    units = payload.get("units", [])
+
+    p.set(font="a", bold=True, align="center")
+    _text(p, "ABHOLLISTE\n")
+    p.set(font="b", bold=False, align="center")
+    if training:
+        _text(p, "ÜBUNG\n")
+    if len(event_name) > WIDTH_B:
+        event_name = event_name[:WIDTH_B - 3] + "..."
+    _text(p, f"{event_name}\n")
+    _sep(p)
+
+    if not units:
+        p.set(font="b", bold=False, align="left")
+        _text(p, "Kein Material mehr vor Ort.\n")
+    else:
+        # Address first: the sheet is read from a vehicle, and the address is
+        # what decides the order of the drive.
+        for unit in sorted(units, key=lambda u: ((u.get("address") or "").lower(), u.get("name") or "")):
+            p.set(font="a", bold=True, align="left")
+            for line in _wrap_text(unit.get("address") or "Ohne Adresse", WIDTH_A):
+                _text(p, f"{line}\n")
+
+            p.set(font="b", bold=False, align="left")
+            name = unit.get("name") or "Unbekannt"
+            location = unit.get("location")
+            detail = f" {name}" + (f" -> {location}" if location else "")
+            for line in _wrap_text(detail, WIDTH_B):
+                _text(p, f"{line}\n")
+
+            since = unit.get("since")
+            if since:
+                try:
+                    stamp = datetime.fromisoformat(since).astimezone().strftime("%d.%m. %H:%M")
+                    _text(p, f"   seit {stamp}\n")
+                except (ValueError, TypeError):
+                    pass
+            _text(p, "\n")
+
+        p.set(font="b", bold=False, align="left")
+        _text(p, f"{len(units)} Geraet(e) noch vor Ort\n")
+
+    requested_by = payload.get("requested_by", "")
+    if requested_by:
+        for line in _wrap_text(f"Ausgeloest von: {requested_by}", WIDTH_B):
+            _text(p, f"{line}\n")
 
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")

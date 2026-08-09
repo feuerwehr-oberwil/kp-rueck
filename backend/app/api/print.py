@@ -28,6 +28,7 @@ from sqlalchemy.orm import selectinload
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings as app_settings
+from ..crud import feld as feld_crud
 from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, build_assignment_payload, requeue_lost_jobs
 from ..database import execute_dml, get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
@@ -466,6 +467,64 @@ async def queue_board_print(
     print_signal.notify_job_queued()
 
     logger.info(f"Queued board print job {job.id} for event {request.event_id}")
+    return job
+
+
+@router.post("/abholliste/{event_id}/", response_model=schemas.PrintJobResponse, status_code=status.HTTP_201_CREATED)
+async def queue_abholliste_print(
+    event_id: uuid.UUID,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> PrintJob:
+    """The Abholliste — the material half of the Restliste, on paper (decision 25).
+
+    Address · unit · since when, one line each: the sheet somebody takes along
+    the next morning. It goes through the **existing print-job path** rather
+    than becoming a fourth document format, because it is a driving list, not a
+    report.
+
+    Material left on site is a *different day's* job and stays separate from the
+    Trupp-Abholung flag: a pump running in a cellar and three people standing in
+    the rain are two problems, and merging them into one sheet would lose that.
+    """
+    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
+    if enabled.lower() != "true":
+        raise HTTPException(status_code=400, detail="Printer is not enabled")
+
+    event_result = await db.execute(select(Event).where(Event.id == event_id))
+    event = event_result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    restliste = await feld_crud.event_restliste(db, event_id)
+    payload: dict[str, Any] = {
+        "printed_at": datetime.now(UTC).isoformat(),
+        "event_name": event.name,
+        "training_flag": event.training_flag,
+        "requested_by": current_user.display_name or current_user.username,
+        "units": [
+            {
+                "name": unit["name"],
+                "location": unit["location"],
+                "address": unit["location_address"] or unit["incident_title"],
+                "since": unit["since"].isoformat() if unit["since"] else None,
+            }
+            for unit in restliste["material_on_site"]
+        ],
+    }
+
+    job = PrintJob(
+        job_type="abholliste",
+        status="pending",
+        payload=payload,
+        event_id=event_id,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+    print_signal.notify_job_queued()
+
+    logger.info(f"Queued Abholliste print job {job.id} for event {event_id}")
     return job
 
 

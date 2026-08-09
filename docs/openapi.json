@@ -2824,6 +2824,82 @@
         }
       }
     },
+    "/api/events/{event_id}/restliste": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Get Event Restliste",
+        "description": "What is still open in this Ereignis (§6, V-8).\n\nThree counts — Schadenplätze without a rapport, units still on site, Trupps\nwaiting for a pickup — each carrying the incidents behind it, because the\ncount is only the way in. This is where somebody at 02:00 finds the gaps;\nnobody clicks twenty-three cards individually. It is the operational\ncounterpart of there being no acceptance step (decision 10).",
+        "operationId": "get_event_restliste_api_events__event_id__restliste_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventRestliste"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events/{event_id}/archive": {
       "post": {
         "tags": [
@@ -4250,6 +4326,177 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/rapport/photos": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Upload Rapport Photo",
+        "description": "The KP twin of the `/feld` photo upload — the WhatsApp-photo case (§6.1).\n\nA crew with no signal sends the picture over whatever channel works and the\noperator attaches it here. Same CRUD, same storage, same files on disk;\nprovenance stays honest — this stamps the user, not a personnel row.",
+        "operationId": "upload_rapport_photo_api_incidents__incident_id__rapport_photos_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_rapport_photo_api_incidents__incident_id__rapport_photos_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportPhotosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/rapport/photos/{filename}": {
+      "delete": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Delete Rapport Photo",
+        "description": "Detach a photo from the board side.",
+        "operationId": "delete_rapport_photo_api_incidents__incident_id__rapport_photos__filename__delete",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportPhotosResponse"
                 }
               }
             }
@@ -7340,6 +7587,82 @@
             }
           }
         },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/print/abholliste/{event_id}/": {
+      "post": {
+        "tags": [
+          "print"
+        ],
+        "summary": "Queue Abholliste Print",
+        "description": "The Abholliste — the material half of the Restliste, on paper (decision 25).\n\nAddress · unit · since when, one line each: the sheet somebody takes along\nthe next morning. It goes through the **existing print-job path** rather\nthan becoming a fourth document format, because it is a driving list, not a\nreport.\n\nMaterial left on site is a *different day's* job and stays separate from the\nTrupp-Abholung flag: a pump running in a cellar and three people standing in\nthe rain are two problems, and merging them into one sheet would lose that.",
+        "operationId": "queue_abholliste_print_api_print_abholliste__event_id___post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -10852,6 +11175,159 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/photos": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Upload Photo",
+        "description": "A photo of the Schadenplatz, onto the Schadenplatz-Rapport.\n\nSame storage as the Reko form (`services/photo_storage.py`), same files, and\nthe same `GET /api/photos/...` to read them back — but **the two doors stay\nseparate**. `validate_form_token` is deliberately not widened to accept feld\ntokens: coupling two doors for the sake of one handler is how a token type\nstops meaning anything. This handler runs the ordinary feld two-step like\nevery other endpoint here.\n\nKeeps ``PHOTO_UPLOAD`` rather than the looser ``FELD`` limit — an upload is\norders of magnitude more expensive than a poll.",
+        "operationId": "upload_photo_api_feld_incidents__incident_id__photos_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is uploading",
+              "title": "Personnel Id"
+            },
+            "description": "Who is uploading"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_photo_api_feld_incidents__incident_id__photos_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportPhotosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/photos/{filename}": {
+      "delete": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Delete Photo",
+        "description": "Remove a photo again — the mis-tapped shutter, from the phone that took it.",
+        "operationId": "delete_photo_api_feld_incidents__incident_id__photos__filename__delete",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is deleting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is deleting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportPhotosResponse"
                 }
               }
             }
@@ -15731,6 +16207,20 @@
         ],
         "title": "Body_preview_excel_import_api_admin_import_preview_post"
       },
+      "Body_upload_photo_api_feld_incidents__incident_id__photos_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_photo_api_feld_incidents__incident_id__photos_post"
+      },
       "Body_upload_photo_api_reko__incident_id__photos_post": {
         "properties": {
           "file": {
@@ -15744,6 +16234,20 @@
           "file"
         ],
         "title": "Body_upload_photo_api_reko__incident_id__photos_post"
+      },
+      "Body_upload_rapport_photo_api_incidents__incident_id__rapport_photos_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_rapport_photo_api_incidents__incident_id__rapport_photos_post"
       },
       "BulkAttachEmergenciesRequest": {
         "properties": {
@@ -16921,6 +17425,50 @@
         ],
         "title": "EventResponse",
         "description": "Schema for event responses."
+      },
+      "EventRestliste": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "incident_total": {
+            "type": "integer",
+            "title": "Incident Total",
+            "default": 0
+          },
+          "missing_rapport": {
+            "items": {
+              "$ref": "#/components/schemas/RestlisteIncident"
+            },
+            "type": "array",
+            "title": "Missing Rapport",
+            "default": []
+          },
+          "material_on_site": {
+            "items": {
+              "$ref": "#/components/schemas/RestlisteUnit"
+            },
+            "type": "array",
+            "title": "Material On Site",
+            "default": []
+          },
+          "open_pickups": {
+            "items": {
+              "$ref": "#/components/schemas/RestlisteIncident"
+            },
+            "type": "array",
+            "title": "Open Pickups",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id"
+        ],
+        "title": "EventRestliste",
+        "description": "The three open counts of one Ereignis (§6, V-8).\n\nAll three are lists rather than numbers, because the count is only the way\nin: nobody clicks twenty-three cards individually, so each one has to be\nclickable through to the incidents behind it."
       },
       "EventSpecialFunctionCreate": {
         "properties": {
@@ -21060,7 +21608,8 @@
           "assignment",
           "board",
           "test",
-          "qr_code"
+          "qr_code",
+          "abholliste"
         ],
         "title": "PrintJobType",
         "description": "Print job type enumeration."
@@ -21530,6 +22079,40 @@
         ],
         "title": "RapportMaterialUpdate",
         "description": "The two ticks, as the form sends them back."
+      },
+      "RapportPhotosResponse": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "photos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photos",
+            "default": []
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "RapportPhotosResponse",
+        "description": "What both photo doors answer: the rapport's photo list after the write.\n\nThe whole list rather than just the one filename, so a client that lost a\nresponse (a phone at the edge of coverage retrying an upload) re-syncs from\nthe next answer instead of accumulating a duplicate."
       },
       "RapportPrefill": {
         "properties": {
@@ -22537,6 +23120,152 @@
         "title": "RekoSummary",
         "description": "Lightweight Reko report summary for bulk loading (used in kanban board)."
       },
+      "RestlisteIncident": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "rapport_state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "draft",
+                  "submitted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rapport State"
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "status"
+        ],
+        "title": "RestlisteIncident",
+        "description": "One Schadenplatz on the Restliste, in the shape both lists need."
+      },
+      "RestlisteUnit": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "incident_title": {
+            "type": "string",
+            "title": "Incident Title"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "incident_title",
+          "assignment_id",
+          "material_id",
+          "name"
+        ],
+        "title": "RestlisteUnit",
+        "description": "One material unit still standing at an address — an Abholliste line.\n\nAddress · unit · since when, which is exactly the sheet somebody takes along\nthe next morning (decision 25). Material left on site is a **different day's**\njob and stays separate from the Trupp-Abholung flag."
+      },
       "SchadenplatzRapport": {
         "properties": {
           "incident_id": {
@@ -22624,6 +23353,14 @@
             },
             "type": "array",
             "title": "Materials",
+            "default": []
+          },
+          "photos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photos",
             "default": []
           },
           "extra_material_note": {

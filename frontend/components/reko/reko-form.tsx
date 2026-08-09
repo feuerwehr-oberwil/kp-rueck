@@ -671,7 +671,10 @@ export default function RekoForm() {
         <PhotoUpload
           photos={formData.photos_json}
           incidentId={incidentId!}
-          token={token!}
+          transport={{
+            upload: async (file) => (await apiClient.uploadRekoPhoto(incidentId!, token!, file)).filename,
+            remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
+          }}
           onPhotosChange={(update) =>
             setFormData(prev => ({ ...prev, photos_json: update(prev.photos_json) }))
           }

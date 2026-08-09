@@ -45,6 +45,16 @@ export function SchadenplatzRapportSection({
     () => ({
       load: () => apiClient.getIncidentRapport(incidentId),
       save: (update: ApiRapportUpdate) => apiClient.saveIncidentRapport(incidentId, update),
+      // The WhatsApp-photo case (§6.1): the crew has no signal for the form but
+      // gets a picture out somehow, and the operator attaches it here. Same
+      // storage and the same files as the field upload — only the door and the
+      // provenance differ.
+      photos: {
+        upload: async (file: File) => (await apiClient.uploadRapportPhoto(incidentId, file)).filename ?? '',
+        remove: async (filename: string) => {
+          await apiClient.deleteRapportPhoto(incidentId, filename)
+        },
+      },
     }),
     [incidentId],
   )

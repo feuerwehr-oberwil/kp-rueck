@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import Request
+from fastapi import HTTPException, Request, UploadFile
+from sqlalchemy import false as sa_false
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,6 +41,7 @@ from ..schemas.feld import RapportUpdate
 from ..services.audit import log_action
 from ..services.incident_leader import effective_leader_id
 from ..services.notification_service import create_field_notification
+from ..services.photo_storage import photo_storage
 from ..websocket_manager import broadcast_incident_update
 
 # ============================================
@@ -1049,6 +1051,7 @@ async def get_rapport(
             "exists": False,
             "is_draft": True,
             "materials": materials,
+            "photos": [],
             "personnel_count": board_personnel,
             "vehicle_count": board_vehicles,
             "work_started_at": default_started,
@@ -1068,6 +1071,10 @@ async def get_rapport(
         "work_started_at": report.work_started_at or default_started,
         "work_ended_at": report.work_ended_at or default_ended,
         "materials": materials,
+        # Filenames only. They are read back through the shared
+        # `GET /api/photos/{incident_id}/{filename}`, which is what the Reko
+        # form already uses — the photo bytes are not per-door.
+        "photos": list(report.photos_json or []),
         "extra_material_note": report.extra_material_note,
         "kurzbericht": report.kurzbericht,
         "handed_over_to": report.handed_over_to,
@@ -1271,6 +1278,232 @@ async def save_rapport(
     await _broadcast(incident)
 
     return await get_rapport(db, incident, actor=actor)
+
+
+# ============================================
+# Fotos (phase 3) — one implementation, two doors
+# ============================================
+#
+# The crew photographs the cellar; the KP attaches the photo that arrived by
+# WhatsApp (§6.1). Same storage as the Reko form (`services/photo_storage.py`),
+# same files on disk, same `GET /api/photos/{incident_id}/{filename}` to read
+# them back — only the door differs, and the two doors stay separate: a feld
+# token does not open the Reko photo endpoints and a Reko form token does not
+# open these (that is asserted in the tests, not left to review).
+
+
+async def add_photo(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    file: UploadFile,
+    request: Request | None = None,
+) -> list[str]:
+    """Attach a photo to the Schadenplatz-Rapport; returns the new list.
+
+    Creates the report row if there is none — a photo is field contact, the same
+    way "Angekommen" is, and it must not need a form to exist first. The row is
+    created as a draft (``is_draft`` defaults True), so an incident that only has
+    photos still counts as "kein Rapport" in the Restliste.
+    """
+    report = await _get_or_create_report(db, incident.id, actor)
+    filename = await photo_storage.save_photo(
+        incident_id=incident.id,
+        file=file,
+        current_photos=report.photos_json,
+    )
+    report.photos_json = [*(report.photos_json or []), filename]
+    _stamp_updated_by(report, actor)
+
+    await log_action(
+        db=db,
+        action_type="rapport_photo_added",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=actor.user,
+        changes={
+            "filename": filename,
+            "source": "feld" if actor.is_field else "kp",
+            "personnel_name": actor.personnel_name,
+        },
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(report)
+    await _broadcast(incident)
+    return list(report.photos_json or [])
+
+
+async def remove_photo(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    filename: str,
+    request: Request | None = None,
+) -> list[str]:
+    """Detach a photo; returns the remaining list. 404 if it was never on it.
+
+    The row is dropped from ``photos_json`` even when the file has already gone
+    from disk — a record pointing at a missing file is worse than no record.
+    """
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    report = result.scalar_one_or_none()
+    current = list(report.photos_json or []) if report else []
+    if report is None or filename not in current:
+        raise HTTPException(status_code=404, detail="Foto nicht gefunden")
+
+    photo_storage.delete_photo(incident.id, filename)
+    report.photos_json = [name for name in current if name != filename]
+    _stamp_updated_by(report, actor)
+
+    await log_action(
+        db=db,
+        action_type="rapport_photo_removed",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=actor.user,
+        changes={
+            "filename": filename,
+            "source": "feld" if actor.is_field else "kp",
+            "personnel_name": actor.personnel_name,
+        },
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(report)
+    await _broadcast(incident)
+    return list(report.photos_json or [])
+
+
+# ============================================
+# Die Restliste (phase 3, §6 / V-8)
+# ============================================
+#
+# Three counts on the events page, all clickable through to the incidents:
+# Schadenplätze without a rapport, units still on site, Trupps waiting for a
+# pickup. This is where somebody at 02:00 finds the gaps, because nobody clicks
+# twenty-three cards individually — it is the operational counterpart of there
+# being no acceptance step (decision 10).
+#
+# The material half is deliberately a *different day's* job (decision 25) and
+# stays separate from the Trupp-Abholung flag: a pump running in a cellar and
+# three people standing in the rain are not the same problem and must never be
+# merged into one number.
+
+
+async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, Any]:
+    """What is still open in this Ereignis, in three lists.
+
+    The Ereignis stays open until the material list is empty; that is a feature,
+    not an oversight, and it is why the list is printable as the Abholliste.
+    """
+    incidents_result = await db.execute(
+        select(Incident)
+        .where(Incident.event_id == event_id, Incident.deleted_at.is_(None))
+        .order_by(Incident.created_at)
+    )
+    incidents = list(incidents_result.scalars().all())
+
+    reports_result = await db.execute(
+        select(SchadenplatzReport).where(SchadenplatzReport.incident_id.in_([i.id for i in incidents]))
+        if incidents
+        else select(SchadenplatzReport).where(sa_false())
+    )
+    reports = {report.incident_id: report for report in reports_result.scalars().all()}
+
+    # Every material assignment in the event that is STILL open, in one query.
+    # An assignment the board has already released is not "vor Ort" any more, no
+    # matter what the checklist says — the board is the authority on where a
+    # unit is, the rapport only on what the crew did with it.
+    active_result = await db.execute(
+        select(IncidentAssignment, Material)
+        .join(Material, Material.id == IncidentAssignment.resource_id)
+        .join(Incident, Incident.id == IncidentAssignment.incident_id)
+        .where(
+            Incident.event_id == event_id,
+            Incident.deleted_at.is_(None),
+            IncidentAssignment.resource_type == "material",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+    )
+    active_units: dict[uuid.UUID, tuple[IncidentAssignment, Material]] = {
+        assignment.id: (assignment, material) for assignment, material in active_result.all()
+    }
+
+    missing_rapport: list[dict[str, Any]] = []
+    open_pickups: list[dict[str, Any]] = []
+    material_on_site: list[dict[str, Any]] = []
+
+    for incident in incidents:
+        report = reports.get(incident.id)
+        if report is None or report.is_draft:
+            missing_rapport.append(
+                {
+                    "incident_id": incident.id,
+                    "title": incident.title,
+                    "location_address": incident.location_address,
+                    "status": incident.status,
+                    # 'draft' reads differently from 'none' at 02:00: somebody
+                    # started and walked away, versus nobody has touched it.
+                    "rapport_state": _rapport_state(report),
+                }
+            )
+
+        if incident.pickup_needed:
+            open_pickups.append(
+                {
+                    "incident_id": incident.id,
+                    "title": incident.title,
+                    "location_address": incident.location_address,
+                    "status": incident.status,
+                    "pickup_note": incident.pickup_note,
+                    "since": incident.pickup_requested_at,
+                }
+            )
+
+        if report is None or report.is_draft or not report.materials_json:
+            continue
+        for raw in report.materials_json:
+            if not isinstance(raw, dict) or not raw.get("left_on_site"):
+                continue
+            try:
+                assignment_id = uuid.UUID(str(raw.get("assignment_id")))
+            except (TypeError, ValueError):
+                continue
+            unit = active_units.get(assignment_id)
+            if unit is None:
+                continue
+            assignment, material = unit
+            if material.consumable:
+                # A consumable that was used is gone (decision 26); nobody drives
+                # out to collect it.
+                continue
+            material_on_site.append(
+                {
+                    "incident_id": incident.id,
+                    "incident_title": incident.title,
+                    "location_address": incident.location_address,
+                    "assignment_id": assignment.id,
+                    "material_id": material.id,
+                    "name": material.name,
+                    "location": material.location or None,
+                    # When the unit went to that address — the honest answer to
+                    # "seit wann steht das dort", and the column the Abholliste
+                    # prints. The submit time would only say when somebody got
+                    # round to writing it down.
+                    "since": assignment.assigned_at,
+                }
+            )
+
+    return {
+        "event_id": event_id,
+        "incident_total": len(incidents),
+        "missing_rapport": missing_rapport,
+        "material_on_site": material_on_site,
+        "open_pickups": open_pickups,
+    }
 
 
 async def material_return_units(

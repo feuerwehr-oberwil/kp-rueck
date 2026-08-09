@@ -85,6 +85,8 @@ import {
   type ApiSchadenplatzRapport,
   type ApiRapportUpdate,
   type ApiMaterialReturnResponse,
+  type ApiRapportPhotosResponse,
+  type ApiEventRestliste,
 } from './api/types'
 
 /** Read-only payload behind a share token (board/map/status displays). */
@@ -359,6 +361,16 @@ class ApiClient {
 
   async getEvent(eventId: string, options?: { skipToast?: boolean }): Promise<ApiEvent> {
     return this.request<ApiEvent>(`/api/events/${eventId}`, options)
+  }
+
+  /**
+   * The Restliste (§6, V-8): what is still open in this Ereignis.
+   *
+   * Three counts, each carrying the incidents behind it — the count is only the
+   * way in, because nobody clicks twenty-three cards individually.
+   */
+  async getEventRestliste(eventId: string): Promise<ApiEventRestliste> {
+    return this.request<ApiEventRestliste>(`/api/events/${eventId}/restliste`)
   }
 
   async createEvent(data: ApiEventCreate): Promise<ApiEvent> {
@@ -973,10 +985,23 @@ class ApiClient {
   }
 
   async uploadRekoPhoto(incidentId: string, token: string, file: File): Promise<{ filename: string }> {
+    return this.uploadPhotoFile<{ filename: string }>(`/api/reko/${incidentId}/photos`, file, {
+      'X-Reko-Token': token,
+    })
+  }
+
+  /**
+   * The multipart photo POST, shared by every photo door.
+   *
+   * `request()` is JSON-only, and a phone photo needs its own timeout and its
+   * own error unwrapping (file size, quota, invalid type all come back as a
+   * German `detail` the user has to see). One copy of that, not one per door.
+   */
+  private async uploadPhotoFile<T>(path: string, file: File, headers: Record<string, string> = {}): Promise<T> {
     const formData = new FormData()
     formData.append('file', file)
 
-    const url = `${this.getBaseUrl()}/api/reko/${incidentId}/photos`
+    const url = `${this.getBaseUrl()}${path}`
 
     // Create AbortController for timeout
     const controller = new AbortController()
@@ -986,9 +1011,7 @@ class ApiClient {
       const response = await fetch(url, {
         method: 'POST',
         credentials: 'include',  // Include auth cookies
-        headers: {
-          'X-Reko-Token': token
-        },
+        headers,
         body: formData,
         signal: controller.signal,
       })
@@ -1634,6 +1657,45 @@ class ApiClient {
     })
   }
 
+  // Rapport photos, from both doors (§6.1). The crew photographs the cellar; the
+  // KP attaches the photo that arrived by WhatsApp. Same storage, same files —
+  // but a feld token never opens the Reko photo endpoints and vice versa.
+
+  async uploadFeldPhoto(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    file: File
+  ): Promise<ApiRapportPhotosResponse> {
+    return this.uploadPhotoFile<ApiRapportPhotosResponse>(
+      this.feldQuery(incidentId, 'photos', personnelId, token),
+      file
+    )
+  }
+
+  async deleteFeldPhoto(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    filename: string
+  ): Promise<ApiRapportPhotosResponse> {
+    return this.request<ApiRapportPhotosResponse>(
+      this.feldQuery(incidentId, `photos/${encodeURIComponent(filename)}`, personnelId, token),
+      { method: 'DELETE' }
+    )
+  }
+
+  async uploadRapportPhoto(incidentId: string, file: File): Promise<ApiRapportPhotosResponse> {
+    return this.uploadPhotoFile<ApiRapportPhotosResponse>(`/api/incidents/${incidentId}/rapport/photos`, file)
+  }
+
+  async deleteRapportPhoto(incidentId: string, filename: string): Promise<ApiRapportPhotosResponse> {
+    return this.request<ApiRapportPhotosResponse>(
+      `/api/incidents/${incidentId}/rapport/photos/${encodeURIComponent(filename)}`,
+      { method: 'DELETE' }
+    )
+  }
+
   /**
    * "Material zurück – freigeben" (decision 17): what the board MAY release.
    *
@@ -1758,6 +1820,16 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ event_id: eventId, ...options }),
     })
+  }
+
+  /**
+   * The Abholliste (decision 25): the material half of the Restliste on paper.
+   *
+   * The existing print-job path on purpose — it is a driving list, not a fourth
+   * document format.
+   */
+  async queueAbhollistePrint(eventId: string): Promise<ApiPrintJob> {
+    return this.request<ApiPrintJob>(`/api/print/abholliste/${eventId}/`, { method: 'POST' })
   }
 
   async queueTestPrint(): Promise<ApiPrintJob> {

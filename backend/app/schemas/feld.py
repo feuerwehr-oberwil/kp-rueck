@@ -273,6 +273,12 @@ class SchadenplatzRapport(BaseModel):
     work_ended_at: datetime | None = None
 
     materials: list[RapportMaterialRow] = []
+    # Filenames, not URLs. Read back through the shared
+    # `GET /api/photos/{incident_id}/{filename}` — the same endpoint the Reko
+    # form uses, because the bytes on disk are not per-door. Both mounts render
+    # them: the crew photographs the cellar, the KP attaches what arrived by
+    # WhatsApp (§6.1).
+    photos: list[str] = []
     extra_material_note: str | None = None
 
     kurzbericht: str | None = None
@@ -337,6 +343,70 @@ class RapportUpdate(BaseModel):
 
     personnel_count: int | None = Field(default=None, ge=0, le=999)
     vehicle_count: int | None = Field(default=None, ge=0, le=999)
+
+
+class RestlisteIncident(BaseModel):
+    """One Schadenplatz on the Restliste, in the shape both lists need."""
+
+    incident_id: UUID
+    title: str
+    location_address: str | None = None
+    status: str
+    # Only on the "ohne Rapport" list: 'none' and 'draft' read very differently
+    # at 02:00 — nobody touched it, versus somebody started and walked away.
+    rapport_state: RapportState | None = None
+    # Only on the pickup list.
+    pickup_note: str | None = None
+    since: datetime | None = None
+
+
+class RestlisteUnit(BaseModel):
+    """One material unit still standing at an address — an Abholliste line.
+
+    Address · unit · since when, which is exactly the sheet somebody takes along
+    the next morning (decision 25). Material left on site is a **different day's**
+    job and stays separate from the Trupp-Abholung flag.
+    """
+
+    incident_id: UUID
+    incident_title: str
+    location_address: str | None = None
+    assignment_id: UUID
+    material_id: UUID
+    name: str
+    # The depot the unit belongs to, so it goes back where it came from.
+    location: str | None = None
+    since: datetime | None = None
+
+
+class EventRestliste(BaseModel):
+    """The three open counts of one Ereignis (§6, V-8).
+
+    All three are lists rather than numbers, because the count is only the way
+    in: nobody clicks twenty-three cards individually, so each one has to be
+    clickable through to the incidents behind it.
+    """
+
+    event_id: UUID
+    # The denominator of "4 von 23 Schadenplätzen ohne Rapport".
+    incident_total: int = 0
+    missing_rapport: list[RestlisteIncident] = []
+    material_on_site: list[RestlisteUnit] = []
+    open_pickups: list[RestlisteIncident] = []
+
+
+class RapportPhotosResponse(BaseModel):
+    """What both photo doors answer: the rapport's photo list after the write.
+
+    The whole list rather than just the one filename, so a client that lost a
+    response (a phone at the edge of coverage retrying an upload) re-syncs from
+    the next answer instead of accumulating a duplicate.
+    """
+
+    incident_id: UUID
+    photos: list[str] = []
+    # The file just stored; None on a delete.
+    filename: str | None = None
 
 
 class MaterialReturnUnit(BaseModel):

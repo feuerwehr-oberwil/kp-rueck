@@ -27,6 +27,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import { EventRestliste } from '@/components/events/event-restliste'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -102,6 +103,16 @@ export default function EventsPage() {
   const handleSelectEvent = (event: Event) => {
     setSelectedEvent(event)
     router.push('/')
+  }
+
+  /**
+   * Restliste → the card itself (plan 25, §6). A count that cannot be opened is
+   * a number to write down by hand, which is exactly the work this replaces —
+   * so every row lands on the board with that Schadenplatz highlighted.
+   */
+  const handleOpenIncident = (event: Event, incidentId: string) => {
+    setSelectedEvent(event)
+    router.push(`/?highlight=${encodeURIComponent(incidentId)}`)
   }
 
   const handleArchive = async () => {
@@ -404,6 +415,16 @@ export default function EventsPage() {
                               <div>{t('page.createdAt', { date: new Date(event.created_at).toLocaleDateString('de-CH') })}</div>
                               <div>{t('page.lastActivity', { date: new Date(event.last_activity_at).toLocaleString('de-CH') })}</div>
                             </div>
+
+                            {/* The Restliste (plan 25, §6/V-8): what is still
+                                open, with a way into each incident. Active
+                                events only — an archived Ereignis has no gaps
+                                left to chase. Renders nothing when there is
+                                nothing open. */}
+                            <EventRestliste
+                              eventId={event.id}
+                              onOpenIncident={(incidentId) => handleOpenIncident(event, incidentId)}
+                            />
 
                             <div className="mt-4 flex gap-2">
                               <Button

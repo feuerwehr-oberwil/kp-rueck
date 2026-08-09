@@ -266,6 +266,10 @@ Ordered by how often they catch people.
 6. **Offline tiles are big, slow to fetch, and default to the wrong region.** Set `TILES_BOUNDS`
    for your area (§4). Not something to start the evening of an event.
 7. **Your board starts empty.** Not a broken install – production seeds no resources (§3).
+8. **A printed Einsatzzettel is a working credential.** Its second QR opens `/feld` for that
+   Schadenplatz, using the Ereignis token — so a slip left in a vehicle stays valid until that
+   token expires (30 days), the same exposure as the poster on the wall. Collect the slips at the
+   end of an Ereignis, the way the check-in and `/feld` posters already come down.
 
 ## 8. Before you rely on it in the field
 
