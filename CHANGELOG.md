@@ -74,6 +74,26 @@ will keep holding.
   morning. Material left on site is a different day's job and stays separate from the
   Trupp-Abholung.
 
+- **Der Rapport steht jetzt auch auf dem Papier, das nachher gebraucht wird.** The
+  Einsatzbericht (PDF) gains a "Schadenplatz-Rapport" block per Einsatz, and the Lageblatt gains
+  Schadensart, Tätigkeit, "übergeben an", "Material vor Ort" und eine offene Abholung — the sheet
+  the KP prints when the screens die now carries what the field reported. A count the crew
+  corrected prints **with the board's own number next to it** ("8 (vom Board: 6)"), because the
+  divergence is the information: it says the board was behind reality.
+
+- **Ein Kostenpflicht-Export für die Verrechnung.** One wide row per Schadenplatz —
+  Einsatz-Nr., Adresse, Schadensart, Beginn/Ende/Dauer, Personal und Fahrzeuge (mit
+  `korrigiert`-Vermerk), Eigentümer- und KFZ-Block, Material, Kurzbericht und wer den Rapport
+  erfasst hat. Reachable from the export menu on the Ereignisseite. It deliberately matches no
+  external format: the numbers are retyped by hand, so the sheet is built to be *read while
+  retyping*. Schadenplätze **ohne** Rapport get a row too — blank, with their address, because a
+  missing rapport has to be visible and nothing forces one to exist.
+
+  Every output keeps the three answers a crew can give about a unit apart: *gebraucht*, *nicht
+  gebraucht* and *keine Angabe*. "Niemand hat geantwortet" is a real answer and never becomes a
+  quiet "nein". Verbrauchsmaterial has no "vor Ort verblieben" state at all — what was used up is
+  not left anywhere and nobody drives out for it.
+
 - **What `/feld` stores about third parties is written down** in
   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §8. The owner block is the first citizen PII in
   KP Rück: it lives with the incident and is deleted with it, the `/feld` QR is an event-scoped

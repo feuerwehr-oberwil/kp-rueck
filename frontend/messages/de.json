@@ -1689,8 +1689,10 @@
       "export": "Export",
       "exportReport": "Bericht (PDF)",
       "exportAudit": "Audit (XLSX)",
+      "exportKostenpflicht": "Kostenpflicht (XLSX)",
       "reportExportFailed": "Bericht-Export fehlgeschlagen",
-      "auditExportFailed": "Audit-Export fehlgeschlagen"
+      "auditExportFailed": "Audit-Export fehlgeschlagen",
+      "kostenpflichtExportFailed": "Kostenpflicht-Export fehlgeschlagen"
     },
     "createDialog": {
       "title": "Neues Ereignis erstellen",

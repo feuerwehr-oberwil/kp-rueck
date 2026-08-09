@@ -23,12 +23,20 @@ from app.models import (
     IncidentAssignment,
     Personnel,
     RekoReport,
+    SchadenplatzReport,
     StatusTransition,
     User,
     Vehicle,
 )
 from app.services.audit_export_service import EventReportData, collect_event_report_data
-from app.services.pdf_report_service import build_event_report_pdf, build_journal_entries
+from app.services.pdf_report_service import (
+    build_event_report_pdf,
+    build_journal_entries,
+    format_corrected_count,
+    format_material_unit,
+    material_left_on_site_names,
+    material_used_label,
+)
 
 
 def _extract_text(pdf_bytes: bytes) -> str:
@@ -686,3 +694,192 @@ class TestEinsatztagebuch:
         pdf_bytes = build_event_report_pdf(data, generated_by="tester")
         assert pdf_bytes.startswith(b"%PDF")
         assert _page_count(pdf_bytes) > 1
+
+
+# ============================================
+# 6. Schadenplatz-Rapport block (plan 25, §7)
+# ============================================
+
+
+def _material_row(name: str, *, used: bool | None, left_on_site: bool = False, consumable: bool = False) -> dict:
+    """One `materials_json` entry as `/feld` and the KP twin both store it."""
+    return {
+        "assignment_id": str(uuid4()),
+        "material_id": str(uuid4()),
+        "name": name,
+        "consumable": consumable,
+        "used": used,
+        "left_on_site": left_on_site,
+    }
+
+
+def _rapport(incident_id, **overrides) -> SchadenplatzReport:
+    defaults: dict = {
+        "id": uuid4(),
+        "incident_id": incident_id,
+        "is_draft": False,
+        "submitted_at": datetime(2026, 6, 1, 12, 32, tzinfo=UTC),
+        "created_at": datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+        "updated_at": datetime(2026, 6, 1, 12, 32, tzinfo=UTC),
+        "personnel_count_corrected": False,
+        "vehicle_count_corrected": False,
+    }
+    defaults.update(overrides)
+    return SchadenplatzReport(**defaults)
+
+
+class TestRapportHelpers:
+    """The pure helpers the three outputs share — exact strings, no PDF."""
+
+    def test_used_three_states_never_collapse_to_a_boolean(self):
+        assert material_used_label(True) == "gebraucht"
+        assert material_used_label(False) == "nicht gebraucht"
+        assert material_used_label(None) == "keine Angabe"
+
+    def test_unanswered_unit_says_keine_angabe(self):
+        line = format_material_unit(_material_row("Nassauger", used=None))
+        assert "Nassauger: keine Angabe" in line
+
+    def test_consumable_carries_no_left_on_site_state(self):
+        """Decision 26: a consumable that was used is gone — no third answer."""
+        line = format_material_unit(_material_row("Ölbindemittel", used=True, consumable=True))
+        assert "gebraucht" in line
+        assert "vor Ort verblieben" not in line
+        assert "zurück" not in line
+
+    def test_non_consumable_says_which_way_it_went(self):
+        assert "vor Ort verblieben" in format_material_unit(_material_row("Pumpe", used=True, left_on_site=True))
+        assert "zurück" in format_material_unit(_material_row("Pumpe", used=True, left_on_site=False))
+
+    def test_corrected_count_carries_the_board_value(self):
+        assert format_corrected_count(8, True, 6) == "8 (vom Board: 6)"
+        assert format_corrected_count(6, False, 6) == "6"
+
+    def test_consumables_are_never_left_on_site_names(self):
+        report = _rapport(
+            uuid4(),
+            materials_json=[
+                _material_row("Tauchpumpe", used=True, left_on_site=True),
+                # An impossible row (the CRUD layer forbids it) — the outputs
+                # must not print it either.
+                _material_row("Ölbindemittel", used=True, left_on_site=True, consumable=True),
+            ],
+        )
+        assert material_left_on_site_names(report) == ["Tauchpumpe"]
+
+
+class TestRapportInThePdf:
+    def _data(self, event: Event, incident: Incident, report: SchadenplatzReport, **kwargs) -> EventReportData:
+        return EventReportData(
+            event=event,
+            incidents=[incident],
+            assignments=kwargs.pop("assignments", []),
+            transitions=[],
+            reko_reports=[],
+            incident_map={incident.id: incident},
+            schadenplatz_reports=[report],
+            **kwargs,
+        )
+
+    def test_block_renders_with_its_fields(self, simple_event: Event, simple_incident: Incident):
+        report = _rapport(
+            simple_incident.id,
+            damage_type="wasserschaden",
+            work_started_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
+            work_ended_at=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
+            kurzbericht="Keller ausgepumpt.",
+            handed_over_to="Hauswart",
+            owner_name="Muster Hans",
+            owner_street="Bahnhofstrasse 4",
+            owner_city="Oberwil",
+        )
+        text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
+        assert "Schadenplatz-Rapport" in text
+        assert "Wasserschaden" in text
+        assert "Keller ausgepumpt." in text
+        assert "Hauswart" in text
+        assert "Muster Hans" in text
+
+    def test_corrected_count_prints_the_board_value(self, simple_event: Event, simple_incident: Incident):
+        """Decision 5: the divergence says the board was behind reality."""
+        assignments = [
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=simple_incident.id,
+                resource_type="personnel",
+                resource_id=uuid4(),
+                assigned_at=datetime(2026, 6, 1, 9, 20, tzinfo=UTC),
+            )
+            for _ in range(6)
+        ]
+        report = _rapport(simple_incident.id, personnel_count=8, personnel_count_corrected=True)
+        data = self._data(simple_event, simple_incident, report, assignments=assignments)
+        text = _extract_text(build_event_report_pdf(data, "tester"))
+        assert "8 (vom Board: 6)" in text
+
+    def test_unanswered_material_renders_keine_angabe(self, simple_event: Event, simple_incident: Incident):
+        report = _rapport(simple_incident.id, materials_json=[_material_row("Nassauger", used=None)])
+        text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
+        assert "keine Angabe" in text
+
+    def test_consumable_never_renders_a_left_on_site_state(self, simple_event: Event, simple_incident: Incident):
+        report = _rapport(
+            simple_incident.id,
+            materials_json=[_material_row("Ölbindemittel", used=True, consumable=True)],
+        )
+        text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
+        assert "Verbrauchsmaterial" in text
+        assert "vor Ort verblieben" not in text
+        assert "zurück" not in text
+
+    def test_field_filed_report_says_feld(self, simple_event: Event, simple_incident: Incident):
+        person = Personnel(id=uuid4(), name="Muster Hans", role="mannschaft", status="available")
+        report = _rapport(
+            simple_incident.id,
+            created_by_personnel_id=person.id,
+            updated_by_personnel_id=person.id,
+        )
+        data = self._data(simple_event, simple_incident, report, personnel_map={person.id: person})
+        text = _extract_text(build_event_report_pdf(data, "tester"))
+        assert "Erfasst von Muster Hans (Feld)" in text
+        assert "Funkmeldung" not in text
+
+    def test_kp_filed_report_says_funkmeldung(self, simple_event: Event, simple_incident: Incident):
+        user = User(id=uuid4(), username="beichenberger", display_name="B. Eichenberger", role="editor")
+        report = _rapport(simple_incident.id, created_by_user_id=user.id, updated_by_user_id=user.id)
+        data = self._data(simple_event, simple_incident, report, user_map={user.id: user})
+        text = _extract_text(build_event_report_pdf(data, "tester"))
+        assert "Erfasst im KP durch B. Eichenberger (Funkmeldung)" in text
+        assert "(Feld)" not in text
+
+    def test_mixed_report_shows_both_lines(self, simple_event: Event, simple_incident: Incident):
+        """Crew filed, KP amended — provenance is never faked (decision 28)."""
+        person = Personnel(id=uuid4(), name="Muster Hans", role="mannschaft", status="available")
+        user = User(id=uuid4(), username="beichenberger", display_name="B. Eichenberger", role="editor")
+        report = _rapport(
+            simple_incident.id,
+            created_by_personnel_id=person.id,
+            updated_by_user_id=user.id,
+        )
+        data = self._data(
+            simple_event,
+            simple_incident,
+            report,
+            personnel_map={person.id: person},
+            user_map={user.id: user},
+        )
+        text = _extract_text(build_event_report_pdf(data, "tester"))
+        assert "Erfasst von Muster Hans (Feld)" in text
+        assert "Zuletzt bearbeitet im KP durch B. Eichenberger (Funkmeldung)" in text
+
+    def test_incident_without_a_rapport_renders_no_block(self, simple_event: Event, simple_incident: Incident):
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident},
+        )
+        text = _extract_text(build_event_report_pdf(data, "tester"))
+        assert "Schadenplatz-Rapport" not in text

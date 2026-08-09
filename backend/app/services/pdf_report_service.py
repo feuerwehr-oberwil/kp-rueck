@@ -12,7 +12,7 @@ Swiss spelling) so plan 06 (i18n) can localise later by swapping the dict.
 
 import re
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
@@ -35,7 +35,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from ..models import Incident, IncidentAssignment
+from ..models import Incident, IncidentAssignment, SchadenplatzReport
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
 
@@ -115,6 +115,32 @@ LABELS: dict[str, str] = {
     "reko_summary": "Zusammenfassung",
     "reko_notes": "Zusätzliche Notizen",
     "reko_draft": "Entwurf",
+    # Schadenplatz-Rapport (plan 25, §7)
+    "rapport": "Schadenplatz-Rapport",
+    "rapport_draft": "Entwurf — noch nicht abgeschlossen",
+    "rapport_damage_type": "Schadensart",
+    "rapport_work": "Tätigkeit",
+    "rapport_kurzbericht": "Kurzbericht",
+    "rapport_handed_over": "Einsatzstelle übergeben an",
+    "rapport_personnel_count": "Eingesetztes Personal (Anzahl)",
+    "rapport_vehicle_count": "Eingesetzte Fahrzeuge (Anzahl)",
+    "rapport_board_value": "vom Board: {value}",
+    "rapport_material": "Material",
+    "rapport_extra_material": "Weiteres Material",
+    "rapport_owner": "Eigentümer / Halter",
+    "rapport_vehicle": "KFZ",
+    "rapport_pickup": "Abholung nötig",
+    "rapport_filed_field": "Erfasst von {name} (Feld), {at}",
+    "rapport_filed_kp": "Erfasst im KP durch {name} (Funkmeldung), {at}",
+    "rapport_amended_field": "Zuletzt bearbeitet von {name} (Feld), {at}",
+    "rapport_amended_kp": "Zuletzt bearbeitet im KP durch {name} (Funkmeldung), {at}",
+    "rapport_unknown_person": "unbekannt",
+    "material_used_yes": "gebraucht",
+    "material_used_no": "nicht gebraucht",
+    "material_used_unknown": "keine Angabe",
+    "material_left_on_site": "vor Ort verblieben",
+    "material_returned": "zurück",
+    "material_consumable": "Verbrauchsmaterial",
     "yes": "Ja",
     "no": "Nein",
     "released": "freigegeben",
@@ -153,6 +179,16 @@ PRIORITY_LABELS: dict[str, str] = {
     "low": "Niedrig",
     "medium": "Mittel",
     "high": "Hoch",
+}
+
+# The paper slip's damage-type checkboxes (plan 25, decision 8). Deliberately a
+# separate vocabulary from TYPE_LABELS: this is a sub-classification of one
+# IncidentType value, not one of them.
+DAMAGE_TYPE_LABELS: dict[str, str] = {
+    "wasserschaden": "Wasserschaden",
+    "sturmschaden": "Sturmschaden",
+    "schneebruch": "Schneebruch",
+    "anderes": "Anderes",
 }
 
 # All DB timestamps are UTC; reports are read by people with Swiss wall clocks.
@@ -240,6 +276,156 @@ def format_location_for_display(full_address: str | None, home_city: str) -> str
         break
     formatted_street = f"{street} {house_number}" if house_number else street
     return f"{formatted_street}, {city}" if city else formatted_street
+
+
+# ---------------------------------------------------------------------------
+# Schadenplatz-Rapport rendering (plan 25, §7)
+#
+# Shared by the three outputs — this PDF, the Lageblatt and the Kostenpflicht
+# workbook — so the three-state material answer and the provenance wording can
+# never drift between them. Pure functions over the model rows; no reportlab.
+# ---------------------------------------------------------------------------
+
+
+def rapport_by_incident(data: EventReportData) -> dict[uuid.UUID, SchadenplatzReport]:
+    """The at-most-one Schadenplatz-Rapport per incident, keyed by incident id."""
+    return {report.incident_id: report for report in data.schadenplatz_reports}
+
+
+def damage_type_label(report: SchadenplatzReport) -> str:
+    """ "Wasserschaden" / … / the free text behind "Anderes", or the em dash."""
+    if not report.damage_type:
+        return LABELS["none"]
+    label = DAMAGE_TYPE_LABELS.get(report.damage_type, report.damage_type)
+    other = (report.damage_type_other or "").strip()
+    if report.damage_type == "anderes" and other:
+        return f"{label}: {other}"
+    return label
+
+
+def material_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
+    """``materials_json`` as a list of dicts, defensively (it is JSONB)."""
+    if report is None or not report.materials_json:
+        return []
+    return [row for row in report.materials_json if isinstance(row, dict)]
+
+
+def material_used_label(used: bool | None) -> str:
+    """The three-state answer. ``None`` is a real answer: nobody said.
+
+    Never collapsed to a boolean — a crew that did not answer is exactly what
+    every output has to be able to show (plan 25, decision 14).
+    """
+    if used is True:
+        return LABELS["material_used_yes"]
+    if used is False:
+        return LABELS["material_used_no"]
+    return LABELS["material_used_unknown"]
+
+
+def format_material_unit(row: Mapping[str, Any]) -> str:
+    """One checklist line: ``Tauchpumpe TP-4: gebraucht, vor Ort verblieben``.
+
+    A consumable renders **no** "vor Ort verblieben" state at all (decision 26):
+    a consumable that was used is gone, so printing "nein" there would be an
+    answer nobody gave and a unit nobody can go and collect.
+    """
+    name = str(row.get("name") or LABELS["none"])
+    used = material_used_label(row.get("used"))
+    if row.get("consumable"):
+        return f"{name}: {used} ({LABELS['material_consumable']})"
+    left = LABELS["material_left_on_site"] if row.get("left_on_site") else LABELS["material_returned"]
+    return f"{name}: {used}, {left}"
+
+
+def material_left_on_site_names(report: SchadenplatzReport | None) -> list[str]:
+    """The units the crew left at the address — the Abholliste's raw material."""
+    return [
+        str(row.get("name") or LABELS["none"])
+        for row in material_checklist_rows(report)
+        if row.get("left_on_site") and not row.get("consumable")
+    ]
+
+
+def board_resource_counts(data: EventReportData, incident_id: uuid.UUID) -> tuple[int, int]:
+    """(personnel, vehicles) the **board** has on this incident, distinct.
+
+    Released rows count and a re-assignment counts once — the same rule the
+    rapport prefill uses, so "korrigiert" compares like with like.
+    """
+    personnel = {
+        a.resource_id for a in data.assignments if a.incident_id == incident_id and a.resource_type == "personnel"
+    }
+    vehicles = {
+        a.resource_id for a in data.assignments if a.incident_id == incident_id and a.resource_type == "vehicle"
+    }
+    return len(personnel), len(vehicles)
+
+
+def format_corrected_count(value: int | None, corrected: bool, board_value: int) -> str:
+    """``7 (vom Board: 6)`` for a corrected count, ``6`` for an untouched one.
+
+    The divergence is the information (decision 5): it says the board was behind
+    reality, so the board's own number stays on the page next to it.
+    """
+    if value is None:
+        return LABELS["none"]
+    if not corrected:
+        return str(value)
+    return f"{value} ({LABELS['rapport_board_value'].format(value=board_value)})"
+
+
+def _personnel_display(data: EventReportData, personnel_id: uuid.UUID | None) -> str:
+    if not personnel_id:
+        return LABELS["rapport_unknown_person"]
+    person = data.personnel_map.get(personnel_id)
+    return person.name if person else LABELS["rapport_unknown_person"]
+
+
+def rapport_filing_lines(data: EventReportData, report: SchadenplatzReport) -> list[str]:
+    """The filing identity — one line, or two for a mixed report.
+
+    "Erfasst von Muster Hans (Feld), 08.08.2026 14:32" versus "Erfasst im KP
+    durch B. Eichenberger (Funkmeldung), …". Provenance is never faked
+    (decision 28): exactly one side of each ``*_by`` pair is populated per write,
+    and a report the crew filed and the KP amended shows both lines.
+    """
+    lines: list[str] = []
+    filed_at = _fmt_dt(report.submitted_at or report.created_at)
+    if report.created_by_personnel_id:
+        lines.append(
+            LABELS["rapport_filed_field"].format(
+                name=_personnel_display(data, report.created_by_personnel_id), at=filed_at
+            )
+        )
+    elif report.created_by_user_id:
+        lines.append(
+            LABELS["rapport_filed_kp"].format(
+                name=_user_display(data, report.created_by_user_id) or LABELS["rapport_unknown_person"],
+                at=filed_at,
+            )
+        )
+
+    same_author = (report.updated_by_personnel_id, report.updated_by_user_id) == (
+        report.created_by_personnel_id,
+        report.created_by_user_id,
+    )
+    if not same_author:
+        amended_at = _fmt_dt(report.updated_at)
+        if report.updated_by_personnel_id:
+            lines.append(
+                LABELS["rapport_amended_field"].format(
+                    name=_personnel_display(data, report.updated_by_personnel_id), at=amended_at
+                )
+            )
+        elif report.updated_by_user_id:
+            lines.append(
+                LABELS["rapport_amended_kp"].format(
+                    name=_user_display(data, report.updated_by_user_id) or LABELS["rapport_unknown_person"],
+                    at=amended_at,
+                )
+            )
+    return lines
 
 
 class NumberedCanvas:
@@ -925,8 +1111,83 @@ def _incident_detail(
             parts.append(f"({LABELS['reko_draft']})")
         block.extend(_bullet_field(LABELS["reko"], parts, styles))
 
+    # Schadenplatz-Rapport (plan 25, §7) — the field slip this app replaced.
+    report = rapport_by_incident(data).get(inc.id)
+    if report is not None:
+        block.extend(_rapport_block(data, inc, report, styles))
+
     block.append(Spacer(1, 8))
     return block
+
+
+def _rapport_block(
+    data: EventReportData,
+    inc: Incident,
+    report: SchadenplatzReport,
+    styles: dict[str, ParagraphStyle],
+) -> list[Any]:
+    """The "Schadenplatz-Rapport" lines of one incident's detail block."""
+    flow: list[Any] = [Paragraph(f"<b>{escape(LABELS['rapport'])}</b>", styles["body"])]
+    if report.is_draft:
+        flow.append(_p(LABELS["rapport_draft"], styles["meta"]))
+
+    flow.append(_field(LABELS["rapport_damage_type"], damage_type_label(report), styles))
+    if report.work_started_at or report.work_ended_at:
+        flow.append(
+            _field(
+                LABELS["rapport_work"],
+                f"{_fmt_dt(report.work_started_at)} – {_fmt_dt(report.work_ended_at)}",
+                styles,
+            )
+        )
+
+    board_personnel, board_vehicles = board_resource_counts(data, inc.id)
+    flow.append(
+        _field(
+            LABELS["rapport_personnel_count"],
+            format_corrected_count(report.personnel_count, report.personnel_count_corrected, board_personnel),
+            styles,
+        )
+    )
+    flow.append(
+        _field(
+            LABELS["rapport_vehicle_count"],
+            format_corrected_count(report.vehicle_count, report.vehicle_count_corrected, board_vehicles),
+            styles,
+        )
+    )
+
+    # Material: one bullet per unit, three-state `gebraucht` intact, and no
+    # "vor Ort verblieben" state on a consumable (decision 26).
+    flow.extend(
+        _bullet_field(
+            LABELS["rapport_material"],
+            [format_material_unit(row) for row in material_checklist_rows(report)],
+            styles,
+        )
+    )
+    if report.extra_material_note:
+        flow.append(_field(LABELS["rapport_extra_material"], report.extra_material_note, styles))
+
+    if report.kurzbericht:
+        flow.append(_field(LABELS["rapport_kurzbericht"], report.kurzbericht, styles))
+    if report.handed_over_to:
+        flow.append(_field(LABELS["rapport_handed_over"], report.handed_over_to, styles))
+
+    owner = ", ".join(p for p in (report.owner_name, report.owner_street, report.owner_city) if p)
+    if owner:
+        flow.append(_field(LABELS["rapport_owner"], owner, styles))
+    vehicle = " ".join(p for p in (report.vehicle_plate, report.vehicle_model) if p)
+    if vehicle:
+        flow.append(_field(LABELS["rapport_vehicle"], vehicle, styles))
+
+    if inc.pickup_needed:
+        note = f" ({inc.pickup_note})" if inc.pickup_note else ""
+        flow.append(_field(LABELS["rapport_pickup"], f"{_fmt_dt(inc.pickup_requested_at)}{note}", styles))
+
+    for line in rapport_filing_lines(data, report):
+        flow.append(_p(line, styles["meta"]))
+    return flow
 
 
 def build_event_report_pdf(

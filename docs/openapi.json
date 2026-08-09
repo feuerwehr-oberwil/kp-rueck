@@ -3274,6 +3274,80 @@
         }
       }
     },
+    "/api/exports/events/{event_id}/kostenpflicht.xlsx": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Export Event Kostenpflicht",
+        "description": "Generate the Kostenpflicht workbook — the billing sheet per Schadenplatz.\n\nOne wide row per Schadenplatz from its Schadenplatz-Rapport: Einsatz-Nr.,\nAdresse, Schadensart, Beginn/Ende/Dauer, the (possibly corrected) personnel\nand vehicle counts, the Eigentümer-/Halterdaten, the material answers, the\nKurzbericht and who filed it.\n\nIt matches no external format on purpose (plan 25, decision 21): the numbers\nare retyped by hand, so the sheet is optimised for being read while\nretyping. Schadenplätze **without** a rapport still get a row — the gaps\nhave to be visible, there is no acceptance step by design.\n\nRaises:\n    404: Event not found\n    500: Generation failed",
+        "operationId": "export_event_kostenpflicht_api_exports_events__event_id__kostenpflicht_xlsx_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/help/export-pdf": {
       "post": {
         "tags": [

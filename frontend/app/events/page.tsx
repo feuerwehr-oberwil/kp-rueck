@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Archive, ArchiveRestore, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, Download } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, ReceiptText, Download } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -32,6 +32,33 @@ import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
+
+/**
+ * Mirror of the backend slug (`slugify_event_name`, api/exports.py): lowercase,
+ * umlauts transliterated, every other run of non-alphanumerics collapsed to "-".
+ * The downloads name themselves client-side, so the two have to agree.
+ */
+function slugifyEventName(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'ereignis'
+  )
+}
+
+/** Hand a fetched blob to the browser as a download, then clean up the object URL. */
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+}
 
 export default function EventsPage() {
   const t = useTranslations('events')
@@ -52,6 +79,7 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [reportLoadingId, setReportLoadingId] = useState<string | null>(null)
   const [auditLoadingId, setAuditLoadingId] = useState<string | null>(null)
+  const [kostenpflichtLoadingId, setKostenpflichtLoadingId] = useState<string | null>(null)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -149,21 +177,8 @@ export default function EventsPage() {
     setReportLoadingId(event.id)
     try {
       const blob = await apiClient.exportEventReport(event.id)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      // Mirror backend slug: lowercase, umlauts transliterated, non-alnum -> "-"
-      const slug = event.name
-        .toLowerCase()
-        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'ereignis'
       const date = new Date().toISOString().slice(0, 10)
-      a.download = `einsatzbericht-${slug}-${date}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      downloadBlob(blob, `einsatzbericht-${slugifyEventName(event.name)}-${date}.pdf`)
     } catch (err) {
       // German first, technical detail second. `apiClient` ALWAYS throws an Error, so the
       // old `err instanceof Error ? err.message : t(…)` never reached the translation — the
@@ -181,21 +196,8 @@ export default function EventsPage() {
     setAuditLoadingId(event.id)
     try {
       const blob = await apiClient.exportEventAudit(event.id)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      // Mirror backend slug: lowercase, umlauts transliterated, non-alnum -> "-"
-      const slug = event.name
-        .toLowerCase()
-        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'ereignis'
       const date = new Date().toISOString().slice(0, 10)
-      a.download = `audit-${slug}-${date}.xlsx`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      downloadBlob(blob, `audit-${slugifyEventName(event.name)}-${date}.xlsx`)
     } catch (err) {
       // Same reasoning as the report export above.
       toast.error(t('page.auditExportFailed'), {
@@ -206,9 +208,29 @@ export default function EventsPage() {
     }
   }
 
+  /**
+   * Kostenpflicht (plan 25, §7): the billing sheet, one row per Schadenplatz —
+   * including the ones without a rapport, so the gaps stay visible.
+   */
+  const handleKostenpflichtExport = async (event: Event) => {
+    setKostenpflichtLoadingId(event.id)
+    try {
+      const blob = await apiClient.exportEventKostenpflicht(event.id)
+      const date = new Date().toISOString().slice(0, 10)
+      downloadBlob(blob, `kostenpflicht-${slugifyEventName(event.name)}-${date}.xlsx`)
+    } catch (err) {
+      toast.error(t('page.kostenpflichtExportFailed'), {
+        description: err instanceof Error ? err.message : undefined,
+      })
+    } finally {
+      setKostenpflichtLoadingId(null)
+    }
+  }
+
   // Compact export control: one button, both formats in a dropdown.
   const renderExportMenu = (event: Event) => {
-    const busy = reportLoadingId === event.id || auditLoadingId === event.id
+    const busy =
+      reportLoadingId === event.id || auditLoadingId === event.id || kostenpflichtLoadingId === event.id
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -229,6 +251,10 @@ export default function EventsPage() {
           <DropdownMenuItem onClick={() => handleAuditExport(event)} className="cursor-pointer">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             {t('page.exportAudit')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleKostenpflichtExport(event)} className="cursor-pointer">
+            <ReceiptText className="mr-2 h-4 w-4" />
+            {t('page.exportKostenpflicht')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

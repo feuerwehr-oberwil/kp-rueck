@@ -1171,6 +1171,21 @@ class ApiClient {
     return response.blob()
   }
 
+  // Kostenpflicht — one billing row per Schadenplatz (XLSX, plan 25 §7)
+  async exportEventKostenpflicht(eventId: string): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/kostenpflicht.xlsx`
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Kostenpflicht export failed: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
   // Lageblatt — paper-fallback board snapshot (PDF, Führungsformular layout)
   async exportEventLageblatt(eventId: string): Promise<Blob> {
     const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/lageblatt`

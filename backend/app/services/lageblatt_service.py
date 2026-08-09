@@ -41,7 +41,10 @@ from .pdf_report_service import (
     PRIORITY_LABELS,
     STATUS_LABELS,
     TYPE_LABELS,
+    damage_type_label,
     format_location_for_display,
+    material_left_on_site_names,
+    rapport_by_incident,
 )
 
 # The handwriting continuation area: empty grid rows appended after the data.
@@ -289,6 +292,31 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
 
     if inc.field_complete_reported_at:
         rows.append(("Beendet gemeldet", _dt_full(inc.field_complete_reported_at)))
+
+    # The Schadenplatz-Rapport's own family of rows (plan 25, §7) — they join
+    # "Beendet gemeldet", which is the field's other message to this sheet.
+    # Only rendered when the crew (or the KP) actually said something: 23
+    # Schadenplätze times four em dashes is noise on a sheet printed to be
+    # written on.
+    rapport = rapport_by_incident(data).get(inc.id)
+    if rapport is not None:
+        if rapport.damage_type:
+            rows.append(("Schadensart", damage_type_label(rapport)))
+        if rapport.work_started_at or rapport.work_ended_at:
+            rows.append(("Tätigkeit", f"{_dt_full(rapport.work_started_at)} – {_dt_full(rapport.work_ended_at)}"))
+        if rapport.handed_over_to:
+            rows.append(("Übergeben an", rapport.handed_over_to))
+        left = material_left_on_site_names(rapport)
+        if left:
+            rows.append(("Material vor Ort", ", ".join(left)))
+
+    # An open Abholung outlives `complete` (decision 24) — a crew still standing
+    # at an address belongs on the sheet the KP prints when the screens die.
+    if inc.pickup_needed:
+        note = f" — {inc.pickup_note}" if inc.pickup_note else ""
+        since = _dt_full(inc.pickup_requested_at) if inc.pickup_requested_at else "—"
+        rows.append(("Abholung offen", f"seit {since}{note}"))
+
     rows.append(("Interne Notizen", inc.internal_notes or "—"))
     rows.append(("Abgeschlossen", _dt_full(inc.completed_at)))
     return rows

@@ -22,6 +22,7 @@ from ..models import (
     Material,
     Personnel,
     RekoReport,
+    SchadenplatzReport,
     StatusTransition,
     User,
     Vehicle,
@@ -51,6 +52,9 @@ class EventReportData:
     reko_reports: list[RekoReport]
     # Journal-worthy audit rows (see JOURNAL_AUDIT_ACTIONS), incident-scoped.
     audit_entries: list[AuditLog] = field(default_factory=list)
+    # Schadenplatz-Rapporte (plan 25), at most one per incident. Drafts included:
+    # a half-filled rapport is still what the crew said, and the outputs mark it.
+    schadenplatz_reports: list[SchadenplatzReport] = field(default_factory=list)
     incident_map: dict[uuid.UUID, Incident] = field(default_factory=dict)
     personnel_map: dict[uuid.UUID, Personnel] = field(default_factory=dict)
     vehicle_map: dict[uuid.UUID, Vehicle] = field(default_factory=dict)
@@ -148,6 +152,21 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
     else:
         reko_reports = []
 
+    # Load Schadenplatz-Rapporte (plan 25). Their provenance is a pair of FKs —
+    # personnel for a `/feld` filing, user for a KP radio entry — and exactly one
+    # side is populated per write, so both id sets feed the lookup maps below.
+    schadenplatz_reports: list[SchadenplatzReport] = []
+    if incident_ids:
+        rapport_result = await db.execute(
+            select(SchadenplatzReport)
+            .where(SchadenplatzReport.incident_id.in_(incident_ids))
+            .order_by(SchadenplatzReport.created_at.asc())
+        )
+        schadenplatz_reports = list(rapport_result.scalars().all())
+        for report in schadenplatz_reports:
+            personnel_ids.update(pid for pid in (report.created_by_personnel_id, report.updated_by_personnel_id) if pid)
+            user_ids.update(uid for uid in (report.created_by_user_id, report.updated_by_user_id) if uid)
+
     # Load journal-worthy audit entries (Einsatztagebuch). Audit rows carry no
     # event scoping, only resource_type/resource_id — so we scope them via the
     # event's incident ids and restrict to the whitelisted action types.
@@ -191,6 +210,7 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         transitions=transitions,
         reko_reports=reko_reports,
         audit_entries=audit_entries,
+        schadenplatz_reports=schadenplatz_reports,
         incident_map=incident_map,
         personnel_map=personnel_map,
         vehicle_map=vehicle_map,
