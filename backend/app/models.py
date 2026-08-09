@@ -447,6 +447,25 @@ class Incident(Base):
     # operator's decision must not be silently overwritten by the next arrival.
     leader_manual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # Leader OF RECORD: who led this Schadenplatz, kept beyond the crew's
+    # release. `is_leader` lives on the assignment row and is cleared when that
+    # row is released — and completing an incident releases the crew ONE AT A
+    # TIME, each release promoting the next person (crud/assignments.py), so
+    # once an incident is done the assignment rows can no longer answer "who was
+    # Einsatzleiter here". That is exactly the state an incident is in when a
+    # crew opens /feld to file its rapport, when the event report PDF is built
+    # and when the Lageblatt is printed.
+    #
+    # Written only when a leader is genuinely CHOSEN (manual pick, or the
+    # automatic pick on a crew change), and frozen from the then-active leader
+    # right before the completion cascade starts. Never written by the
+    # promotions that cascade produces, and never cleared by a release.
+    # Read through `services.incident_leader` — active `is_leader` assignment
+    # first, this column as the fallback.
+    leader_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+
     # Relationships
     creator: Mapped[Optional["User"]] = relationship(
         "User", back_populates="created_incidents", foreign_keys=[created_by]

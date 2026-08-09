@@ -323,6 +323,59 @@ class TestAssignments:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_completed_incident_still_names_its_einsatzleiter(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # The value case of decision 22. Completing an incident releases the crew
+        # and clears `is_leader` from every row, so a finished Schadenplatz — the
+        # only kind a crew opens to file a rapport — would read "kein EL erfasst"
+        # for everybody. `Incident.leader_personnel_id` is what keeps the answer
+        # (decision 29).
+        incident = await _make_incident(db_session, test_event, test_user, "Fertig")
+        incident.status = "complete"
+        person = await _make_person(db_session, "Muster Hans")
+        leader = await _make_person(db_session, "Chef Karl", role="Offizier")
+        incident.leader_personnel_id = leader.id
+        await _assign(db_session, incident, person, released=True)
+        await _assign(db_session, incident, leader, released=True)
+        await db_session.commit()
+
+        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        assert response.status_code == 200
+        row = response.json()["assignments"][0]
+        assert row["incident_id"] == str(incident.id)
+        assert row["leader_name"] == "Chef Karl"
+        assert row["leader_personnel_id"] == str(leader.id)
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_active_flag_wins_over_the_recorded_leader(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # Order matters: a running incident whose leader has changed since the
+        # last stamp must show the person actually leading it now.
+        incident = await _make_incident(db_session, test_event, test_user, "Läuft noch")
+        old = await _make_person(db_session, "Alt Anton", role="Offizier")
+        now_leading = await _make_person(db_session, "Neu Nadia", role="Offizier")
+        incident.leader_personnel_id = old.id
+        await _assign(db_session, incident, old, released=True)
+        await _assign(db_session, incident, now_leading, is_leader=True)
+        await db_session.commit()
+
+        response = await client.get(f"/api/feld/assignments/{old.id}?token={generate_feld_token(test_event.id)}")
+        row = response.json()["assignments"][0]
+        assert row["leader_name"] == "Neu Nadia"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_viewer_is_the_leader(
         self,
         client: AsyncClient,

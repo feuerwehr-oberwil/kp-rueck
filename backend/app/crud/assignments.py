@@ -163,6 +163,10 @@ async def update_assignment(
             # for this incident until someone explicitly hands it back.
             if incident is not None:
                 incident.leader_manual = True
+                # The most deliberate choose-site there is, so it stamps the
+                # leader of record directly — `sync_auto_leader` does not run on
+                # this branch (it would immediately undo the pin).
+                incident.leader_personnel_id = assignment.resource_id
             # Single-holder, guarded by a partial unique index, so the old holder
             # has to be demoted in the SAME transaction — writing the new one
             # first would hit the index instead of replacing the role. Not
@@ -203,6 +207,8 @@ async def unassign_resource(
     assignment_id: uuid.UUID,
     current_user: User,
     request: Request | None,
+    *,
+    stamp_leader_of_record: bool = True,
 ) -> bool:
     """
     Release resource from incident.
@@ -213,6 +219,10 @@ async def unassign_resource(
     operations (incident completion auto-release); a commit here would let a
     crash mid-completion leave status=complete with crew still assigned and
     no StatusTransition/audit row (audit H3).
+
+    ``stamp_leader_of_record=False`` is for the bulk release only — see
+    ``auto_release_incident_resources``. A single release IS a leader change
+    (the EL drives off, the next person takes over) and must move the record.
     """
     result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
     assignment = result.scalar_one_or_none()
@@ -248,7 +258,7 @@ async def unassign_resource(
     # one — unless an operator picked deliberately, in which case it stays gone
     # until they pick again.
     if assignment.resource_type == "personnel":
-        await sync_auto_leader(db, assignment.incident_id)
+        await sync_auto_leader(db, assignment.incident_id, stamp_leader_of_record=stamp_leader_of_record)
 
     return True
 
@@ -380,7 +390,37 @@ async def auto_release_incident_resources(
         request: HTTP request for audit logging
         exclude_materials: If True, only release personnel and vehicles (keep materials assigned)
                           Default: True (materials may be left on site)
+
+    Freezes the Einsatzleiter of record FIRST, then releases with the stamp
+    switched off. Both halves matter:
+
+    * The crew leaves one row at a time and every release promotes whoever is
+      still there, so a stamping cascade would walk the record through the whole
+      crew and leave it on whoever happened to go last. That is the same bug the
+      comment in ``unassign_resource`` describes, one level up.
+    * Nothing else can answer the question afterwards: the flag is gone from
+      every row by the time this returns.
+
+    The guard lives here rather than at the call sites so a future bulk-release
+    caller cannot forget it — this function *is* "the crew is done here", and a
+    bulk release is never a leader decision.
     """
+    incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if incident is not None:
+        active_leader_id = await db.scalar(
+            select(IncidentAssignment.resource_id).where(
+                IncidentAssignment.incident_id == incident_id,
+                IncidentAssignment.resource_type == "personnel",
+                IncidentAssignment.unassigned_at.is_(None),
+                IncidentAssignment.is_leader.is_(True),
+            )
+        )
+        # Only ever overwritten by a real answer: an incident finishing with
+        # nobody flagged keeps whatever the last genuine choice was.
+        if active_leader_id is not None:
+            incident.leader_personnel_id = active_leader_id
+            await db.flush()
+
     assignments = await get_incident_assignments(db, incident_id)
 
     for assignment in assignments:
@@ -388,7 +428,7 @@ async def auto_release_incident_resources(
         if exclude_materials and assignment.resource_type == "material":
             continue
 
-        await unassign_resource(db, assignment.id, current_user, request)
+        await unassign_resource(db, assignment.id, current_user, request, stamp_leader_of_record=False)
 
 
 _RESOURCE_TYPE_LABELS = {"personnel": "Person", "vehicle": "Fahrzeug", "material": "Material"}
@@ -574,7 +614,12 @@ async def _reko_personnel_ids(db: AsyncSession, event_id: uuid.UUID | None) -> s
     return {row[0] for row in rows.all()}
 
 
-async def sync_auto_leader(db: AsyncSession, incident_id: uuid.UUID) -> None:
+async def sync_auto_leader(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    *,
+    stamp_leader_of_record: bool = True,
+) -> None:
     """Keep the Einsatzleiter on the highest-ranking person present.
 
     An incident that nobody has explicitly assigned a leader to still has one in
@@ -587,6 +632,17 @@ async def sync_auto_leader(db: AsyncSession, incident_id: uuid.UUID) -> None:
     breaks a tie. The moment an operator picks someone by hand,
     ``Incident.leader_manual`` is set and this stops touching it — a human
     decision must not be undone by the next person to arrive.
+
+    Every pick here is a genuine one — somebody joined, somebody left, a pin was
+    handed back — so it also stamps ``Incident.leader_personnel_id``, the leader
+    of record that outlives the assignment rows. Stamping is the DEFAULT on
+    purpose: a call site added later gets the right behaviour without knowing
+    this exists, and the one exception (the completion cascade, which walks the
+    whole crew and would end on whoever left last) opts out explicitly in
+    ``auto_release_incident_resources``. Do not invert this.
+
+    A pick with no candidates never clears the record: an incident whose crew
+    has all gone home still had a leader.
 
     Flushes only; the caller owns the transaction.
     """
@@ -635,5 +691,7 @@ async def sync_auto_leader(db: AsyncSession, incident_id: uuid.UUID) -> None:
     )
     if winner is not None:
         winner.is_leader = True
+        if stamp_leader_of_record:
+            incident.leader_personnel_id = winner.resource_id
 
     await db.flush()

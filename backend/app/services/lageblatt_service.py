@@ -35,6 +35,7 @@ from reportlab.platypus import (
 
 from ..models import Incident, Material, Personnel, RekoReport, StatusTransition, Vehicle
 from .audit_export_service import EventReportData
+from .incident_leader import effective_leader_ids
 from .pdf_report_service import (
     LOCAL_TZ,
     PRIORITY_LABELS,
@@ -132,17 +133,22 @@ def _active_resources(
     return crew, vehicles, materials
 
 
-def _leader_ids(data: EventReportData, incident_id: uuid.UUID) -> set[uuid.UUID]:
-    """The Einsatzleiter(s) of ONE incident, from its active personnel assignments.
+def _leader_ids(data: EventReportData, inc: Incident) -> set[uuid.UUID]:
+    """The Einsatzleiter(s) of ONE incident.
 
     `is_leader` is a property of a single assignment, so this must never be
     computed event-wide: one incident's leader may not reorder another's crew.
+
+    Active flag first, `Incident.leader_personnel_id` behind it — a completed
+    incident has no active assignments left at all, so the flag alone answers
+    "nobody" for every Schadenplatz that is already done.
     """
-    return {
+    active = {
         a.resource_id
         for a in data.assignments
-        if a.incident_id == incident_id and a.resource_type == "personnel" and a.unassigned_at is None and a.is_leader
+        if a.incident_id == inc.id and a.resource_type == "personnel" and a.unassigned_at is None and a.is_leader
     }
+    return effective_leader_ids(inc, active)
 
 
 def _rank_key(person: Personnel) -> tuple[int, int, str]:
@@ -213,7 +219,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     """Every field the board knows, always present — empty values render as an
     em dash so operators see what is unknown (and can fill it in by hand)."""
     crew, vehicles, materials = _active_resources(data, inc.id)
-    leaders = _leader_ids(data, inc.id)
+    leaders = _leader_ids(data, inc)
 
     coords = "—"
     if inc.location_lat is not None and inc.location_lng is not None:

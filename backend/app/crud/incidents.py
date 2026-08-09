@@ -415,7 +415,9 @@ async def update_incident(
         if incident.status == "complete":
             incident.completed_at = datetime.utcnow()
 
-            # Automatically release personnel and vehicles (but keep materials)
+            # Automatically release personnel and vehicles (but keep materials).
+            # It freezes the Einsatzleiter of record before it releases anyone —
+            # after this call nothing knows who led the incident any more.
             from . import assignments as assignments_crud
 
             await assignments_crud.auto_release_incident_resources(
@@ -529,7 +531,8 @@ async def update_incident_status(
     if new_status == "complete" and old_status != "complete":
         incident.completed_at = datetime.utcnow()
 
-        # Automatically release personnel and vehicles (but keep materials)
+        # Automatically release personnel and vehicles (but keep materials).
+        # Freezes the Einsatzleiter of record first — see there.
         from . import assignments as assignments_crud
 
         await assignments_crud.auto_release_incident_resources(

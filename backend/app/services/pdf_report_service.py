@@ -37,6 +37,7 @@ from reportlab.platypus import (
 
 from ..models import Incident, IncidentAssignment
 from .audit_export_service import EventReportData
+from .incident_leader import effective_leader_ids
 
 # ---------------------------------------------------------------------------
 # Strings (German, Swiss spelling). i18n seam for plan 06.
@@ -864,6 +865,14 @@ def _incident_detail(
 
     # Assignments by resource type
     inc_assignments = [a for a in data.assignments if a.incident_id == inc.id]
+    leader_ids = effective_leader_ids(
+        inc,
+        {
+            a.resource_id
+            for a in inc_assignments
+            if a.resource_type == "personnel" and a.unassigned_at is None and a.is_leader
+        },
+    )
     for res_type, label in (
         ("personnel", LABELS["crew"]),
         ("vehicle", LABELS["vehicles"]),
@@ -873,7 +882,12 @@ def _incident_detail(
         # EL first (plan 25, decision 23). `is_leader` belongs to one assignment,
         # so this only ever reorders this incident's crew; a stable sort keeps the
         # rest in assignment order. Vehicles and materials never carry the flag.
-        items.sort(key=lambda a: not a.is_leader)
+        #
+        # Resolved, not read raw: this report is written about incidents that are
+        # over, and completing one releases every assignment and clears the flag
+        # from all of them — so the raw flag names nobody exactly where the
+        # record matters most (plan 25, decision 29).
+        items.sort(key=lambda a: a.resource_id not in leader_ids)
         lines = []
         for a in items:
             name = _resource_name(data, a)

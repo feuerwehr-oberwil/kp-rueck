@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Incident, IncidentAssignment, Personnel, SchadenplatzReport
+from ..services.incident_leader import effective_leader_id
 
 # ============================================
 # Authorization — step 2
@@ -127,24 +128,52 @@ async def get_incident_leaders(
     """The Einsatzleiter per incident: {incident_id: (personnel_id, name)}.
 
     ``is_leader`` belongs to ONE assignment, so this is keyed per incident and
-    must never be flattened across them. Only the *active* personnel assignment
-    counts, which is also what the prefill and the Lageblatt use. Incidents with
-    nobody carrying the role are simply absent from the mapping — the caller
-    renders "kein EL erfasst", never a blank line (decision 22).
+    must never be flattened across them.
+
+    The active flag first, ``Incident.leader_personnel_id`` behind it
+    (``services.incident_leader``). The fallback is the whole reason this page
+    works: completing an incident releases the crew and clears the flag from
+    every row, so *every* finished Schadenplatz — exactly the ones a crew opens
+    to file its rapport — would otherwise read "kein EL erfasst".
+
+    Incidents nobody ever led stay absent from the mapping; the caller renders
+    "kein EL erfasst" for them, never a blank line (decision 22).
     """
     if not incident_ids:
         return {}
-    result = await db.execute(
-        select(IncidentAssignment.incident_id, Personnel.id, Personnel.name)
-        .join(Personnel, Personnel.id == IncidentAssignment.resource_id)
-        .where(
+
+    active_result = await db.execute(
+        select(IncidentAssignment.incident_id, IncidentAssignment.resource_id).where(
             IncidentAssignment.incident_id.in_(incident_ids),
             IncidentAssignment.resource_type == "personnel",
             IncidentAssignment.unassigned_at.is_(None),
             IncidentAssignment.is_leader.is_(True),
         )
     )
-    return {row[0]: (row[1], row[2]) for row in result.all()}
+    active: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for incident_id, personnel_id in active_result.all():
+        active.setdefault(incident_id, set()).add(personnel_id)
+
+    incidents_result = await db.execute(select(Incident).where(Incident.id.in_(incident_ids)))
+    resolved: dict[uuid.UUID, uuid.UUID] = {}
+    for incident in incidents_result.scalars().all():
+        leader_id = effective_leader_id(incident, active.get(incident.id, set()))
+        if leader_id is not None:
+            resolved[incident.id] = leader_id
+
+    if not resolved:
+        return {}
+
+    names_result = await db.execute(
+        select(Personnel.id, Personnel.name).where(Personnel.id.in_(set(resolved.values())))
+    )
+    names = {row[0]: row[1] for row in names_result.all()}
+
+    return {
+        incident_id: (personnel_id, names[personnel_id])
+        for incident_id, personnel_id in resolved.items()
+        if personnel_id in names
+    }
 
 
 async def get_feld_personnel_for_event(

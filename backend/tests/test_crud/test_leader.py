@@ -21,12 +21,13 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app import schemas
 from app.crud import assignments as assignment_crud
+from app.crud import incidents as incident_crud
 from app.crud import print_jobs as print_job_crud
 from app.models import Event, EventSpecialFunction, Incident, IncidentAssignment, Personnel, User, Vehicle
 
@@ -93,6 +94,10 @@ async def _assign(db_session, incident, person, user, request=None) -> IncidentA
         current_user=user,
         request=request or _mock_request(),
     )
+
+
+async def _person_name(db_session: AsyncSession, personnel_id) -> str | None:
+    return (await db_session.execute(select(Personnel.name).where(Personnel.id == personnel_id))).scalar_one_or_none()
 
 
 async def _leaders(db_session: AsyncSession, incident_id, *, active_only: bool = True) -> list[str]:
@@ -321,3 +326,156 @@ class TestEinsatzzettelCrewOrder:
 
         assert crew[0] == "Offi Olivia"
         assert crew[1:] == [name for name in unsorted if name != "Offi Olivia"]
+
+
+class TestLeaderOfRecord:
+    """`Incident.leader_personnel_id` — who led it, after everyone has gone home.
+
+    `is_leader` answers "who leads it now" and is cleared on release, which means
+    a finished incident has the role on nobody at all. That is the state /feld,
+    the event report PDF and the Lageblatt see it in. The column carries the
+    answer past the release; these tests exist so a later "simplification" of the
+    promotion guard is a red build rather than a silent loss (plan 25,
+    decision 29).
+    """
+
+    async def _record(self, db_session, incident_id):
+        return (
+            await db_session.execute(select(Incident.leader_personnel_id).where(Incident.id == incident_id))
+        ).scalar_one()
+
+    async def test_completion_records_the_leader_not_whoever_was_released_last(
+        self, db_session, incident, user, mock_request
+    ):
+        # THE case. Completion releases the crew one at a time and every release
+        # promotes the next person, so a record written by those promotions ends
+        # up on whoever happened to leave last.
+        crew = []
+        for name, role in (
+            ("Mann Anna", "Mannschaft"),
+            ("Mann Bea", "Mannschaft"),
+            ("Offi Olivia", "Offizier"),
+            ("Mann Cara", "Mannschaft"),
+            ("Mann Dora", "Mannschaft"),
+        ):
+            person = await _person(db_session, name, role)
+            crew.append(person)
+            await _assign(db_session, incident, person, user)
+        assert await _leaders(db_session, incident.id) == ["Offi Olivia"]
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=incident.id,
+            new_status="complete",
+            current_user=user,
+            request=mock_request,
+        )
+        await db_session.commit()
+
+        leader = next(p for p in crew if p.name == "Offi Olivia")
+        assert await self._record(db_session, incident.id) == leader.id
+        # And the assignment side is untouched by all this: nobody keeps the flag.
+        assert await _leaders(db_session, incident.id, active_only=False) == []
+
+    async def test_completion_through_update_incident_records_the_leader_too(
+        self, db_session, incident, user, mock_request
+    ):
+        # The board has two ways into `complete` (the status endpoint and a plain
+        # incident update); both run the same release cascade.
+        await _assign(db_session, incident, await _person(db_session, "Mann Milo", "Mannschaft"), user)
+        boss = await _person(db_session, "Offi Oskar", "Offizier")
+        await _assign(db_session, incident, boss, user)
+
+        await incident_crud.update_incident(
+            db=db_session,
+            incident_id=incident.id,
+            incident_update=schemas.IncidentUpdate(status="complete"),
+            current_user=user,
+            request=mock_request,
+        )
+        await db_session.commit()
+
+        assert await self._record(db_session, incident.id) == boss.id
+
+    async def test_a_mid_incident_leader_change_moves_the_record(self, db_session, incident, user, mock_request):
+        # A single release IS a leader change — the EL drives off, the next
+        # person takes over — and the record has to follow it. Only the
+        # completion cascade is exempt.
+        boss = await _person(db_session, "Offi Olga", "Offizier")
+        rest = await _person(db_session, "Wacht Willi", "Wachtmeister")
+        boss_assignment = await _assign(db_session, incident, boss, user, mock_request)
+        await _assign(db_session, incident, rest, user, mock_request)
+        assert await self._record(db_session, incident.id) == boss.id
+
+        await assignment_crud.unassign_resource(db_session, boss_assignment.id, user, mock_request)
+        await db_session.commit()
+
+        assert await _leaders(db_session, incident.id) == ["Wacht Willi"]
+        assert await self._record(db_session, incident.id) == rest.id
+
+    async def test_a_manual_pick_moves_the_record_and_still_pins(self, db_session, incident, user, mock_request):
+        mann = await _person(db_session, "Mann Mia", "Mannschaft")
+        offi = await _person(db_session, "Offi Otto", "Offizier")
+        mann_assignment = await _assign(db_session, incident, mann, user, mock_request)
+        await _assign(db_session, incident, offi, user, mock_request)
+        assert await self._record(db_session, incident.id) == offi.id
+
+        await assignment_crud.update_assignment(
+            db_session, mann_assignment.id, schemas.AssignmentUpdate(is_leader=True), incident_id=incident.id
+        )
+
+        assert await _leaders(db_session, incident.id) == ["Mann Mia"]
+        assert await self._record(db_session, incident.id) == mann.id
+        # leader_manual behaviour unchanged: the pin holds against a new arrival.
+        await _assign(db_session, incident, await _person(db_session, "Offi Olaf", "Offizier"), user)
+        assert await _leaders(db_session, incident.id) == ["Mann Mia"]
+        assert await self._record(db_session, incident.id) == mann.id
+
+    async def test_releasing_the_whole_crew_without_completing_never_clears_it(
+        self, db_session, incident, user, mock_request
+    ):
+        # Releasing is not "there was no leader". The last person to hold the
+        # role keeps the record even when the incident is left empty.
+        solo = await _person(db_session, "Solo Sarah", "Mannschaft")
+        solo_assignment = await _assign(db_session, incident, solo, user, mock_request)
+        assert await self._record(db_session, incident.id) == solo.id
+
+        await assignment_crud.unassign_resource(db_session, solo_assignment.id, user, mock_request)
+        await db_session.commit()
+
+        assert await _leaders(db_session, incident.id) == []
+        assert await self._record(db_session, incident.id) == solo.id
+
+    async def test_bulk_release_without_completing_keeps_the_leader(self, db_session, incident, user, mock_request):
+        # `release-all` is the same cascade shape as completion and gets the same
+        # guard — the record must not walk down the crew list to the last row.
+        for name, role in (("Offi Oskar", "Offizier"), ("Wacht Wanda", "Wachtmeister"), ("Mann Milo", "Mannschaft")):
+            await _assign(db_session, incident, await _person(db_session, name, role), user)
+        boss_id = await self._record(db_session, incident.id)
+
+        await assignment_crud.auto_release_incident_resources(
+            db=db_session, incident_id=incident.id, current_user=user, request=mock_request
+        )
+        await db_session.commit()
+
+        assert await self._record(db_session, incident.id) == boss_id
+        assert (await _person_name(db_session, boss_id)) == "Offi Oskar"
+
+    async def test_deleting_the_person_nulls_the_record_and_keeps_the_incident(
+        self, db_session, incident, user, mock_request
+    ):
+        # ON DELETE SET NULL: retiring somebody from the roster must never take an
+        # incident with it.
+        solo = await _person(db_session, "Solo Sarah", "Mannschaft")
+        await _assign(db_session, incident, solo, user, mock_request)
+        assert await self._record(db_session, incident.id) == solo.id
+
+        await db_session.execute(delete(IncidentAssignment).where(IncidentAssignment.resource_id == solo.id))
+        await db_session.execute(delete(Personnel).where(Personnel.id == solo.id))
+        await db_session.commit()
+
+        still_there = (
+            await db_session.execute(select(Incident).where(Incident.id == incident.id))
+        ).scalar_one_or_none()
+        assert still_there is not None
+        assert await self._record(db_session, incident.id) is None
