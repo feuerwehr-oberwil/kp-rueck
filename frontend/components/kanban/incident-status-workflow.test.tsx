@@ -16,8 +16,16 @@ function rapport(overrides: Partial<{
   returned: unknown[]
   left_on_site: unknown[]
   rapport_by: string | null
+  rapport_is_draft: boolean
 }> = {}) {
-  return { returned: [], left_on_site: [], rapport_by: null, rapport_submitted_at: null, ...overrides }
+  return {
+    returned: [],
+    left_on_site: [],
+    rapport_by: null,
+    rapport_submitted_at: null,
+    rapport_is_draft: false,
+    ...overrides,
+  }
 }
 
 beforeEach(() => {
@@ -387,11 +395,42 @@ describe("the material gate takes the crew's word for it", () => {
     expect(removeMaterial).toHaveBeenCalledExactlyOnceWith("incident-1", "pumpe")
   })
 
+  it("prefills from a DRAFT rapport, and says that it is one (§18.23)", async () => {
+    // The bug: a crew fills the checklist on /feld and never presses "Rapport
+    // abschliessen" — on a phone, in the rain, that is the normal case. The
+    // gate used to throw those answers away and ask the operator from scratch.
+    // `used: null` next to `left_on_site: true` is the crew answering where a
+    // unit stays and not whether it was used; it is an answer, not a blank.
+    getRapportMaterialReturn.mockResolvedValue(rapport({
+      left_on_site: [unit("pumpe", { used: null, answered: true })],
+      rapport_by: "Muster Hans",
+      rapport_is_draft: true,
+    }))
+    const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe"] }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(result.current.materialRapportBy).toBe("Muster Hans"))
+
+    const [item] = result.current.materialDecisionItems
+    expect(result.current.materialChoice(item)).toBe("vorort")
+    expect(result.current.materialDecisionOpenCount).toBe(0)
+    // The operator has to be able to weigh a half-finished answer.
+    expect(result.current.materialRapportIsDraft).toBe(true)
+  })
+
+  it("calls the gate's own door — the release list must not read drafts", async () => {
+    const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe"] }))
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() =>
+      expect(getRapportMaterialReturn).toHaveBeenCalledWith("incident-1", { includeDraft: true }),
+    )
+  })
+
   it("asks from scratch when no rapport was submitted", async () => {
     const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe"] }))
 
     act(() => result.current.requestCompletion("incident-1"))
-    await waitFor(() => expect(getRapportMaterialReturn).toHaveBeenCalledWith("incident-1"))
+    await waitFor(() => expect(getRapportMaterialReturn).toHaveBeenCalledWith("incident-1", { includeDraft: true }))
 
     expect(result.current.materialRapportBy).toBeNull()
     expect(result.current.materialDecisionOpenCount).toBe(1)
@@ -403,7 +442,7 @@ describe("the material gate takes the crew's word for it", () => {
     const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe"] }))
 
     act(() => result.current.requestCompletion("incident-1"))
-    await waitFor(() => expect(getRapportMaterialReturn).toHaveBeenCalledWith("incident-1"))
+    await waitFor(() => expect(getRapportMaterialReturn).toHaveBeenCalledWith("incident-1", { includeDraft: true }))
 
     expect(result.current.materialDecisionOperation?.id).toBe("incident-1")
     expect(result.current.materialRapportBy).toBeNull()

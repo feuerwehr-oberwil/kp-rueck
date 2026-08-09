@@ -600,7 +600,7 @@ async def simulate_escalation(
         Notification(
             type="training_emergency",
             severity="critical",
-            message=f"Lage verschärft: {incident.title} — {text}",
+            message=f"Lage verschärft: {incident.title} – {text}",
             incident_id=incident.id,
             event_id=event_id,
             dismissed=False,
@@ -636,7 +636,7 @@ async def simulate_reinforcement_request(
         )
 
     request_text = generate_reinforcement_request(incident.type)
-    message = f"Feld fordert Verstärkung: {request_text} — {incident.title}"
+    message = f"Feld fordert Verstärkung: {request_text} – {incident.title}"
     db.add(
         Notification(
             type="training_emergency",
@@ -963,7 +963,7 @@ async def simulate_vehicle_breakdown(
     vehicle = random.choice(candidates)
     vehicle.status = "unavailable"
 
-    message = f"Fahrzeug {vehicle.name} ausgefallen: {incident.title} — Ersatz disponieren"
+    message = f"Fahrzeug {vehicle.name} ausgefallen: {incident.title} – Ersatz disponieren"
     db.add(
         Notification(
             type="training_emergency",

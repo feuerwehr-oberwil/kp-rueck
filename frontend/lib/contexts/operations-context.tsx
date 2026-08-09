@@ -109,6 +109,11 @@ export interface Operation {
   fieldArrivedAt?: Date | null
   /** Who reported it — null means the KP took it over the radio. */
   fieldArrivedBy?: string | null
+  /** …or the GPS automation stamped it (§18.24): an assigned vehicle was
+   *  confirmed at the address and the automation advanced the incident. Its own
+   *  provenance — the thread must not word a machine's inference as a person's
+   *  report, in either direction. */
+  fieldArrivedByAutomation?: boolean
   /** "Abholung nötig": finished here, but the crew cannot get back on its own.
    *  Survives the card moving to `complete` — completing releases the personnel
    *  while they are still standing at the address, which is the whole point. */
@@ -448,6 +453,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       fieldCompleteReportedBy: incident.field_complete_reported_by ?? null,
       fieldArrivedAt: incident.field_arrived_at ? new Date(incident.field_arrived_at) : null,
       fieldArrivedBy: incident.field_arrived_by ?? null,
+      fieldArrivedByAutomation: incident.field_arrived_by_automation ?? false,
       pickupNeeded: incident.pickup_needed ?? false,
       pickupNote: incident.pickup_note || "",
       pickupRequestedAt: incident.pickup_requested_at ? new Date(incident.pickup_requested_at) : null,

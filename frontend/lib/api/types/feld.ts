@@ -27,11 +27,44 @@ export interface ApiFeldPersonnelListResponse {
   event_name: string
 }
 
+/** One line of the briefing's material list: a name and how many of it. */
+export interface ApiFeldMaterialLine {
+  name: string
+  count: number
+}
+
+/**
+ * What the Reko found here. Only ever a *submitted* report — a draft is
+ * somebody still typing, and half a sentence quoted back at the next crew as
+ * fact is worse than nothing. `dangers` are `DangersAssessment` keys, rendered
+ * with the board's own `reko.reportSection.dangerBadges` labels.
+ */
+export interface ApiFeldReko {
+  summary: string | null
+  notes: string | null
+  dangers: string[]
+  submitted_at: string | null
+  submitted_by_name: string | null
+}
+
 export interface ApiFeldAssignment {
   incident_id: string
   incident_title: string
   incident_type: string
   incident_status: string
+  /**
+   * The briefing (§18.22): the Meldung, the Melder, what the board dispatched
+   * and what the Reko found. Released crew/vehicles/material stay in the lists
+   * for the same reason the row itself survives its own release — completing an
+   * incident releases everything while the crew is still at the address filing.
+   */
+  description: string | null
+  contact: string | null
+  contact_phone: string | null
+  crew: string[]
+  vehicles: string[]
+  materials: ApiFeldMaterialLine[]
+  reko: ApiFeldReko | null
   location_address: string | null
   location_lat: string | null
   location_lng: string | null
@@ -39,6 +72,12 @@ export interface ApiFeldAssignment {
   is_active_assignment: boolean
   rapport_state: ApiFeldRapportState
   arrived_at: string | null
+  /**
+   * True when the GPS automation stamped the arrival rather than the crew
+   * (§18.24). `/feld` words it as "Angekommen erkannt" instead of letting a
+   * crew that never tapped read the report as its own.
+   */
+  arrived_by_automation: boolean
   field_complete_reported_at: string | null
   /** "Abholung nötig" — on the row so a returning crew sees its own request. */
   pickup_needed: boolean
@@ -78,6 +117,8 @@ export interface ApiFieldReportState {
   incident_id: string
   arrived_at: string | null
   arrived_by_personnel_id: string | null
+  /** The third provenance: the GPS automation saw an assigned vehicle arrive. */
+  arrived_by_automation: boolean
   arrived_in_kp: boolean
   field_complete_reported_at: string | null
   field_complete_reported_by: string | null
@@ -306,7 +347,14 @@ export interface ApiMaterialReturnResponse {
   returned: ApiMaterialReturnUnit[]
   /** Listed separately and deliberately NOT in the release set (decision 15). */
   left_on_site: ApiMaterialReturnUnit[]
-  /** Who filed the rapport these answers come from; null while none is submitted. */
+  /** Who filed the rapport these answers come from; null when there is none. */
   rapport_by: string | null
   rapport_submitted_at: string | null
+  /**
+   * True when the answers come from a rapport the crew has NOT filed (§18.23).
+   * Only ever true for a caller that asked for drafts — the completion gate —
+   * and that caller must say so ("Aus dem Rapport-Entwurf von X"): an operator
+   * weighing a half-finished answer has to know it is half-finished.
+   */
+  rapport_is_draft: boolean
 }

@@ -86,6 +86,9 @@ export interface ApiIncident {
   field_arrived_at?: string | null
   /** Who reported the arrival. null = im KP erfasst. */
   field_arrived_by?: string | null
+  /** True when the GPS automation stamped the arrival (§18.24) — its own
+   *  provenance, never a person and never "im KP erfasst". */
+  field_arrived_by_automation?: boolean
   /** A submitted Schadenplatz-Rapport exists (the "kein Rapport" marker reads
    *  this; it lands with the form in phase 2). */
   has_schadenplatz_rapport?: boolean

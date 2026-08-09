@@ -45,6 +45,12 @@ export function MaterialReturnList({ incidentId, canEdit = true, refreshKey = 0 
 
   const load = useCallback(async () => {
     try {
+      // Submitted rapports only — no `includeDraft` here, deliberately
+      // (§18.23). "Freigeben" on this list RELEASES assignments on one click,
+      // and doing that against a checklist somebody is still filling in on a
+      // phone is how a pump gets freed while it is running in a cellar. The
+      // completion gate reads drafts because it only prefills a question the
+      // operator then confirms; this list has no such second step.
       const data = await apiClient.getRapportMaterialReturn(incidentId)
       setReturned(data.returned)
       setLeftOnSite(data.left_on_site)

@@ -293,7 +293,7 @@ _SUMMARIES: dict[str, list[str]] = {
         "Person in Lift eingeschlossen. Spricht über Gegensprechanlage. Ruhig, keine Panik.",
         "Lift zwischen 3. und 4. OG stehen geblieben. Person mit Kinderwagen drin. Ungeduldig.",
         "Lift im UG, Tür öffnet nicht. Bewohner spricht durch Spalt, alles ok.",
-        "Aufzug Pflegeheim — Bewohnerin und Pflegerin eingeschlossen. Liftmonteur unterwegs.",
+        "Aufzug Pflegeheim – Bewohnerin und Pflegerin eingeschlossen. Liftmonteur unterwegs.",
     ],
     "personenrettung_absturz": [
         "Absturz aus geringer Höhe. Person bei Bewusstsein. Sanität unterwegs.",
@@ -806,7 +806,7 @@ def _linked_summary(reported: int, unit: str, ladder: list[int], verb_small: str
     actual = _nice_near(round(reported * 1.7), ladder)
     if actual <= reported:
         actual = next((v for v in ladder if v > reported), reported)
-    return f"Gemeldet {reported}{unit}, tatsächlich mehr — ~{actual}{unit}. {verb_large}"
+    return f"Gemeldet {reported}{unit}, tatsächlich mehr – ~{actual}{unit}. {verb_large}"
 
 
 def _dispatch_linked_summary(resolved_type: str | None, description: str | None) -> str | None:
@@ -995,7 +995,7 @@ _ESCALATIONS: dict[str, list[str]] = {
         "Behälter undicht, Stoff noch nicht identifiziert.",
     ],
     "bma_unechte_alarme": [
-        "Doch Rauchentwicklung im Untergeschoss festgestellt — kein Fehlalarm.",
+        "Doch Rauchentwicklung im Untergeschoss festgestellt – kein Fehlalarm.",
     ],
     "_default": [
         "Lage vor Ort deutlich schlimmer als gemeldet, weitere Kräfte nötig.",

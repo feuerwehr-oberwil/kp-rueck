@@ -689,14 +689,34 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
 
 
 async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: str, actor: User) -> None:
-    """Silently advance the incident enroute -> active via the normal CRUD path."""
+    """Silently advance the incident enroute -> active via the normal CRUD path.
+
+    …and stamp the arrival on the Schadenplatz-Rapport (§18.24). The board has
+    just concluded that the crew is at the address; `/feld` must not then ask
+    them to tap "Angekommen" about a fact the system already acted on.
+
+    **Only on this path, and that is the whole point.** Rule A prompts by
+    default; silent advance is an explicit opt-in (``gps.rule_arrival_silent``).
+    Where the automation only *asks*, nothing is stamped — the GPS rules ask
+    rather than act by design, and an operator confirming a prompt is a status
+    decision, not an arrival report. Here the automation genuinely acted,
+    because a station switched that on.
+
+    Attributed to the ``gps-automation`` user — the same actor as the status
+    change above — and never to a person. ``FieldActor.automation`` is what
+    keeps the bell entry from reading "im KP erfasst", and readers tell the
+    third provenance apart by that user id (``crud.feld.is_automation_user``).
+
+    ``only_if_unset=True``: a crew that already tapped keeps its own name on the
+    arrival. The automation never overwrites a human's report.
+    """
     logger.info(
         "GPS automation: auto-advancing incident %s to einsatz (vehicle %s at location)",
         incident_id,
         vehicle_name,
     )
     # request=None — log_action handles a missing request (no IP/user-agent captured).
-    await incidents_crud.update_incident_status(
+    incident = await incidents_crud.update_incident_status(
         db=db,
         incident_id=incident_id,
         new_status="active",
@@ -704,6 +724,19 @@ async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: 
         request=None,
         notes=ARRIVAL_NOTE,
     )
+    if incident is not None:
+        # Imported here rather than at module level: `crud.feld` reaches back
+        # into this module for GPS_SYSTEM_USER_ID, and a pair of module-level
+        # imports would close that cycle.
+        from ..crud import feld as feld_crud
+
+        await feld_crud.record_arrival(
+            db,
+            incident,
+            actor=feld_crud.FieldActor(user=actor, automation=True),
+            at=_now(),
+            only_if_unset=True,
+        )
     await broadcast_incident_update({"id": str(incident_id), "status": "active"}, "update")
 
 

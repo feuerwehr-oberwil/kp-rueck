@@ -707,7 +707,7 @@ function MaterialGroupSettings({
                 <TableCell className="font-medium">{group.name}</TableCell>
                 <TableCell>
                   <span className="px-2 py-1 rounded text-xs bg-accent text-accent-foreground">
-                    {group.location || '—'}
+                    {group.location || '–'}
                   </span>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">

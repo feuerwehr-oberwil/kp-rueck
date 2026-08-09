@@ -76,6 +76,18 @@ describe('an absent rapport (§18.16)', () => {
     expect(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
   })
 
+  it('says nothing at all on /feld — an empty form is its own explanation', async () => {
+    // The KP scans many incidents and needs "nothing filed" told apart from
+    // "not loaded"; on a phone the form IS the screen, so the line is one more
+    // thing to scroll past in the rain.
+    const load = vi.fn().mockResolvedValue(rapport())
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
+    expect(screen.queryByText('Noch kein Rapport')).not.toBeInTheDocument()
+    expect(screen.queryByText('Rapport konnte nicht geladen werden.')).not.toBeInTheDocument()
+  })
+
   it('opens as an empty form when localStorage holds a draft of an older shape', async () => {
     // The form has already lost a Schadensart, a vehicle count, five owner
     // inputs and the two Tätigkeit times. A draft from any of those versions
@@ -84,11 +96,11 @@ describe('an absent rapport (§18.16)', () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    expect(await screen.findByText('Noch kein Rapport')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
     expect(screen.queryByText('Rapport konnte nicht geladen werden.')).not.toBeInTheDocument()
   })
 
-  it('keeps an error with a retry when the load genuinely fails', async () => {
+  it('keeps an error with a retry when the load genuinely fails — on BOTH mounts', async () => {
     const user = userEvent.setup()
     const load = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
@@ -96,8 +108,21 @@ describe('an absent rapport (§18.16)', () => {
     expect(await screen.findByText('Rapport konnte nicht geladen werden.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
 
-    expect(await screen.findByText('Noch kein Rapport')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
     expect(load).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('the two coaching lines are gone (§18.22)', () => {
+  it('prints neither the dictation tip nor the retention sentence', async () => {
+    const load = vi.fn().mockResolvedValue(rapport())
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')
+    expect(screen.queryByText(/Diktiertaste/)).not.toBeInTheDocument()
+    // The retention rule itself is unchanged — it lives in docs/DEPLOYMENT.md,
+    // where the person who has to answer for it reads it.
+    expect(screen.queryByText(/Wird mit dem Ereignis gelöscht/)).not.toBeInTheDocument()
   })
 })
 

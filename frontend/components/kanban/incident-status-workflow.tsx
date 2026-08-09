@@ -104,6 +104,9 @@ export function useIncidentStatusWorkflow({
   // was not there to overrule somebody who was.
   const [materialAnswers, setMaterialAnswers] = useState<Record<string, "magazin" | "vorort">>({})
   const [materialRapportBy, setMaterialRapportBy] = useState<string | null>(null)
+  // Was that rapport filed, or is it still a draft the crew never submitted?
+  // The gate reads both (§18.23) and must say which it is reading.
+  const [materialRapportIsDraft, setMaterialRapportIsDraft] = useState(false)
 
   // Moving a card into a working column auto-clears «Am Warten» (see
   // `updateOperation`). The gates below move FIRST and ask afterwards, so
@@ -316,12 +319,19 @@ export function useIncidentStatusWorkflow({
     setMaterialDecisions({})
     setMaterialAnswers({})
     setMaterialRapportBy(null)
+    setMaterialRapportIsDraft(false)
     if (!materialDecisionOperationId) return
 
     let cancelled = false
     void (async () => {
       try {
-        const data = await apiClient.getRapportMaterialReturn(materialDecisionOperationId)
+        // `includeDraft` (§18.23): a crew that filled the checklist and never
+        // pressed *Rapport abschliessen* on a phone in the rain has answered
+        // the question anyway, and asking the operator from scratch is exactly
+        // the complaint. Nothing is auto-applied — the operator still confirms,
+        // which is what makes reading a draft safe here. The release list in
+        // the incident detail does NOT pass it: its click releases assignments.
+        const data = await apiClient.getRapportMaterialReturn(materialDecisionOperationId, { includeDraft: true })
         if (cancelled) return
         const answers: Record<string, "magazin" | "vorort"> = {}
         // `returned` also carries the units nobody answered — those are still
@@ -330,11 +340,16 @@ export function useIncidentStatusWorkflow({
         for (const unit of data.returned) {
           if (unit.answered && unit.material_id) answers[unit.material_id] = "magazin"
         }
+        // `left_on_site` needs no `answered` check: saying where a unit stays
+        // IS the answer. `used: null` next to `left_on_site: true` is the crew
+        // answering one question and not the other, not an untouched row.
         for (const unit of data.left_on_site) {
           if (unit.material_id) answers[unit.material_id] = "vorort"
         }
         setMaterialAnswers(answers)
-        setMaterialRapportBy(Object.keys(answers).length > 0 ? data.rapport_by : null)
+        const hasAnswers = Object.keys(answers).length > 0
+        setMaterialRapportBy(hasAnswers ? data.rapport_by : null)
+        setMaterialRapportIsDraft(hasAnswers && data.rapport_is_draft)
       } catch (error) {
         // A gate that fails open is right here: no prefill, ask everything, the
         // way it worked before the rapport existed.
@@ -461,6 +476,8 @@ export function useIncidentStatusWorkflow({
     materialDecisions,
     /** Who filed the rapport the prefilled answers come from; null when none did. */
     materialRapportBy,
+    /** …and whether that rapport is still a draft, which the dialog must say. */
+    materialRapportIsDraft,
     /** Units the operator genuinely still has to decide (0 = a pure confirmation). */
     materialDecisionOpenCount,
     materialChoice,
@@ -767,7 +784,12 @@ export function IncidentStatusWorkflowDialogs({
           {controller.materialRapportBy && (
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <ClipboardCheck className="h-3.5 w-3.5 flex-shrink-0" />
-              {tMat("rapportSource", { name: controller.materialRapportBy })}
+              {/* "Rapport" vs "Rapport-Entwurf" (§18.23): the gate reads a
+                  draft too now, and an operator weighing a half-finished
+                  answer has to know it is half-finished. */}
+              {tMat(controller.materialRapportIsDraft ? "rapportSourceDraft" : "rapportSource", {
+                name: controller.materialRapportBy,
+              })}
             </p>
           )}
           {controller.materialDecisionOperation && (

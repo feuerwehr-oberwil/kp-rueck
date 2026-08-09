@@ -495,7 +495,10 @@ class TestMaterialReturnUnits:
         return report
 
     @pytest.mark.asyncio
-    async def test_draft_offers_nothing(self, db_session: AsyncSession, test_event: Event, test_user: User):
+    async def test_draft_offers_nothing_to_the_release_list(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        """The default stays strict: one click there frees a unit (§18.23)."""
         incident = await _incident(db_session, test_event, test_user)
         pump = await _material(db_session, "Tauchpumpe")
         assignment = await _assign(db_session, incident, "material", pump.id)
@@ -670,7 +673,7 @@ class TestMaterialReturnAttribution:
         await db_session.commit()
         await _report(db_session, incident, created_by_personnel_id=person.id)
 
-        assert await crud.material_return_attribution(db_session, incident) == (None, None)
+        assert await crud.material_return_attribution(db_session, incident) == (None, None, False)
 
     @pytest.mark.asyncio
     async def test_names_the_last_person_to_touch_the_report(
@@ -693,9 +696,10 @@ class TestMaterialReturnAttribution:
         report.submitted_at = datetime.now(UTC)
         await db_session.commit()
 
-        name, submitted_at = await crud.material_return_attribution(db_session, incident)
+        name, submitted_at, is_draft = await crud.material_return_attribution(db_session, incident)
         assert name == "Roth Til"
         assert submitted_at is not None
+        assert is_draft is False
 
     @pytest.mark.asyncio
     async def test_falls_back_to_the_creator(self, db_session: AsyncSession, test_event: Event, test_user: User):
@@ -708,8 +712,131 @@ class TestMaterialReturnAttribution:
         report.is_draft = False
         await db_session.commit()
 
-        name, _ = await crud.material_return_attribution(db_session, incident)
+        name, _at, _draft = await crud.material_return_attribution(db_session, incident)
         assert name == "Muster Hans"
+
+
+class TestDraftPrefillsTheCompletionGate:
+    """A draft rapport answers the completion gate too (§18.23).
+
+    The bug: a crew fills the material checklist on `/feld` and — on a phone, in
+    the rain — never presses *Rapport abschliessen*. The rapport stays a draft,
+    ``material_return_units`` refused to look at it, and the operator was asked
+    "Material vor Ort oder ins Magazin?" from scratch about units the crew had
+    already answered. That is the complaint, and the phone is where it keeps
+    happening.
+
+    The two call sites diverge here and nowhere else: the completion gate
+    prefills a question the operator still confirms, while the release list in
+    the incident detail *releases assignments on one click* and stays
+    submitted-only.
+    """
+
+    async def _draft_with(
+        self, db: AsyncSession, incident: Incident, rows: list[dict[str, object]]
+    ) -> SchadenplatzReport:
+        return await _report(db, incident, materials_json=rows)
+
+    @pytest.mark.asyncio
+    async def test_a_draft_left_on_site_prefills_the_gate(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user)
+        pump = await _material(db_session, "Tauchpumpe Gr.")
+        assignment = await _assign(db_session, incident, "material", pump.id)
+        await self._draft_with(
+            db_session,
+            incident,
+            [
+                {
+                    "assignment_id": str(assignment.id),
+                    "material_id": str(pump.id),
+                    "name": "Tauchpumpe Gr.",
+                    "consumable": False,
+                    # The crew said where it stays and never said whether it was
+                    # used. That is one answered question, not an untouched row.
+                    "used": None,
+                    "left_on_site": True,
+                }
+            ],
+        )
+
+        returned, left = await crud.material_return_units(db_session, incident, include_draft=True)
+        assert returned == []
+        assert [unit["name"] for unit in left] == ["Tauchpumpe Gr."]
+        assert left[0]["used"] is None
+        assert left[0]["answered"] is True
+
+    @pytest.mark.asyncio
+    async def test_the_release_list_still_sees_nothing(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Same row, default flag. Releasing against a half-typed checklist is
+        # how a pump gets freed while it is still running in a cellar.
+        incident = await _incident(db_session, test_event, test_user)
+        pump = await _material(db_session, "Tauchpumpe Gr.")
+        assignment = await _assign(db_session, incident, "material", pump.id)
+        await self._draft_with(
+            db_session,
+            incident,
+            [
+                {
+                    "assignment_id": str(assignment.id),
+                    "material_id": str(pump.id),
+                    "name": "Tauchpumpe Gr.",
+                    "consumable": False,
+                    "used": None,
+                    "left_on_site": True,
+                }
+            ],
+        )
+
+        assert await crud.material_return_units(db_session, incident) == ([], [])
+
+    @pytest.mark.asyncio
+    async def test_an_untouched_unit_in_a_draft_stays_an_open_question(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Reading drafts must not turn "nobody looked at it" into "Magazin".
+        incident = await _incident(db_session, test_event, test_user)
+        pump = await _material(db_session, "Tauchpumpe")
+        saw = await _material(db_session, "Motorsäge")
+        pump_a = await _assign(db_session, incident, "material", pump.id)
+        await _assign(db_session, incident, "material", saw.id)
+        await self._draft_with(
+            db_session,
+            incident,
+            [
+                {
+                    "assignment_id": str(pump_a.id),
+                    "material_id": str(pump.id),
+                    "name": "Tauchpumpe",
+                    "consumable": False,
+                    "used": True,
+                    "left_on_site": False,
+                }
+            ],
+        )
+
+        returned, _left = await crud.material_return_units(db_session, incident, include_draft=True)
+        answered = {unit["name"]: unit["answered"] for unit in returned}
+        assert answered == {"Tauchpumpe": True, "Motorsäge": False}
+
+    @pytest.mark.asyncio
+    async def test_the_attribution_says_it_is_a_draft(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user)
+        person = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        db_session.add(person)
+        await db_session.commit()
+        await _report(db_session, incident, created_by_personnel_id=person.id)
+
+        name, submitted_at, is_draft = await crud.material_return_attribution(db_session, incident, include_draft=True)
+        assert name == "Muster Hans"
+        # Never filed, so there is no filing time to show — only a draft.
+        assert submitted_at is None
+        assert is_draft is True
 
 
 class TestConcurrentEditor:
@@ -767,3 +894,148 @@ class TestConcurrentEditor:
         view = await crud.get_rapport(db_session, incident, actor=ACTOR)
         assert view["concurrent_editor"] is not None
         assert view["concurrent_editor"]["in_kp"] is True
+
+
+class TestFieldBriefing:
+    """What the board knows, on the row a crew opens at the address (§18.22).
+
+    Until the second field test `/feld` carried an address, an EL and two state
+    chips — so a crew that arrived somewhere could not find out what had been
+    dispatched with it or what the Reko had found.
+    """
+
+    @pytest.mark.asyncio
+    async def test_the_row_carries_meldung_melder_and_what_was_dispatched(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user)
+        incident.description = "Wasser im Keller, Steigleitung defekt"
+        incident.contact_phone = "079 000 00 00"
+        me = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        mate = Personnel(id=uuid.uuid4(), name="Frey Marc", role="Offizier", status="available")
+        vehicle = Vehicle(id=uuid.uuid4(), name="TLF 1", type="TLF", status="available")
+        db_session.add_all([me, mate, vehicle])
+        await db_session.commit()
+        await _assign(db_session, incident, "personnel", me.id)
+        await _assign(db_session, incident, "personnel", mate.id)
+        await _assign(db_session, incident, "vehicle", vehicle.id)
+        pump = await _material(db_session, "Tauchpumpe")
+        await _assign(db_session, incident, "material", pump.id)
+        await _assign(db_session, incident, "material", pump.id)
+
+        rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id)
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["description"] == "Wasser im Keller, Steigleitung defekt"
+        assert row["contact"] == "A. Bürgin"
+        assert row["contact_phone"] == "079 000 00 00"
+        assert sorted(row["crew"]) == ["Frey Marc", "Muster Hans"]
+        assert row["vehicles"] == ["TLF 1"]
+        # Grouped by NAME: two units of one pump are "Tauchpumpe ×2".
+        assert row["materials"] == [{"name": "Tauchpumpe", "count": 2}]
+
+    @pytest.mark.asyncio
+    async def test_a_released_crew_still_reads_its_own_briefing(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Completing an incident releases everything while the crew is still at
+        # the address filing. A briefing that empties out underneath them is
+        # worse than one naming a vehicle that has already driven off.
+        incident = await _incident(db_session, test_event, test_user)
+        me = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        vehicle = Vehicle(id=uuid.uuid4(), name="TLF 1", type="TLF", status="available")
+        db_session.add_all([me, vehicle])
+        await db_session.commit()
+        await _assign(db_session, incident, "personnel", me.id, released=True)
+        await _assign(db_session, incident, "vehicle", vehicle.id, released=True)
+        pump = await _material(db_session, "Tauchpumpe")
+        await _assign(db_session, incident, "material", pump.id, released=True)
+
+        row = (await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id))[0]
+        assert row["is_active_assignment"] is False
+        assert row["crew"] == ["Muster Hans"]
+        assert row["vehicles"] == ["TLF 1"]
+        assert row["materials"] == [{"name": "Tauchpumpe", "count": 1}]
+
+    @pytest.mark.asyncio
+    async def test_a_person_assigned_twice_is_one_name(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user)
+        me = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        db_session.add(me)
+        await db_session.commit()
+        await _assign(db_session, incident, "personnel", me.id, released=True)
+        await _assign(db_session, incident, "personnel", me.id)
+
+        row = (await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id))[0]
+        assert row["crew"] == ["Muster Hans"]
+
+    @pytest.mark.asyncio
+    async def test_the_reko_is_summarised_with_its_dangers(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.models import RekoReport
+
+        incident = await _incident(db_session, test_event, test_user)
+        me = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        scout = Personnel(id=uuid.uuid4(), name="Frey Marc", role="Offizier", status="available")
+        db_session.add_all([me, scout])
+        await db_session.commit()
+        await _assign(db_session, incident, "personnel", me.id)
+        db_session.add(
+            RekoReport(
+                incident_id=incident.id,
+                token="t",
+                is_draft=False,
+                summary_text="Keller 20 cm unter Wasser.",
+                additional_notes="Zugang über Hinterhof.",
+                dangers_json={"collapse": True, "electrical": True, "fire": False, "other_notes": "Kabel"},
+                submitted_by_personnel_id=scout.id,
+            )
+        )
+        await db_session.commit()
+
+        row = (await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id))[0]
+        assert row["reko"]["summary"] == "Keller 20 cm unter Wasser."
+        assert row["reko"]["notes"] == "Zugang über Hinterhof."
+        assert row["reko"]["submitted_by_name"] == "Frey Marc"
+        # Only the true flags, and `other_notes` is free text — never a badge.
+        assert row["reko"]["dangers"] == ["collapse", "electrical"]
+
+    @pytest.mark.asyncio
+    async def test_a_draft_reko_is_not_quoted_at_the_next_crew(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.models import RekoReport
+
+        incident = await _incident(db_session, test_event, test_user)
+        me = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        db_session.add(me)
+        await db_session.commit()
+        await _assign(db_session, incident, "personnel", me.id)
+        db_session.add(RekoReport(incident_id=incident.id, token="t", is_draft=True, summary_text="halb getippt"))
+        await db_session.commit()
+
+        row = (await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id))[0]
+        assert row["reko"] is None
+
+    @pytest.mark.asyncio
+    async def test_the_briefing_stays_scoped_to_my_own_schadenplaetze(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The briefing must not become a way around "visibility is only mine":
+        # it is built from the SAME row set the list already returns.
+        mine = await _incident(db_session, test_event, test_user, title="Meins")
+        theirs = await _incident(db_session, test_event, test_user, title="Fremd")
+        theirs.description = "Nicht für mich"
+        me = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        other = Personnel(id=uuid.uuid4(), name="Frey Marc", role="Offizier", status="available")
+        db_session.add_all([me, other])
+        await db_session.commit()
+        await _assign(db_session, mine, "personnel", me.id)
+        await _assign(db_session, theirs, "personnel", other.id)
+
+        rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id)
+        assert [row["incident_id"] for row in rows] == [mine.id]
+        assert all(row["description"] != "Nicht für mich" for row in rows)

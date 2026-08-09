@@ -611,7 +611,7 @@ async def send_incident_alarm(
             foreign_id=foreign_id,
             sent=[],
             skipped=skipped,
-            error=f"Keine mit {provider.display_name} verknüpften Empfänger — nichts gesendet",
+            error=f"Keine mit {provider.display_name} verknüpften Empfänger – nichts gesendet",
         )
 
     # Prefer the client-rendered override (it can fill crew/vehicle/material names

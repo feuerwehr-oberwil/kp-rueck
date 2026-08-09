@@ -235,6 +235,111 @@ async def test_arrival_silent_opt_in_advances(
 
 
 @pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_silent_arrival_marks_the_crew_arrived(
+    _bc, _bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """§18.24: the board just concluded the crew is there — `/feld` must not ask.
+
+    Stamped as the automation, never as a person: `arrived_by_personnel_id`
+    stays NULL and `arrived_by_user_id` is the `gps-automation` system user,
+    which is what `crud.feld.is_automation_user` reads back as the third
+    provenance.
+    """
+    from app.crud import feld as feld_crud
+    from app.models import SchadenplatzReport
+
+    incident_id = enroute_incident.id
+    await _enable_arrival(db_session, silent=True)
+    clock = _Clock(datetime.now(UTC))
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    assert await _status(db_session, incident_id) == "active"
+
+    db_session.expire_all()
+    report = (
+        await db_session.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident_id))
+    ).scalar_one()
+    assert report.arrived_at is not None
+    assert report.arrived_by_personnel_id is None
+    assert report.arrived_by_user_id == gps_automation.GPS_SYSTEM_USER_ID
+    assert feld_crud.is_automation_user(report.arrived_by_user_id) is True
+
+    incident = (await db_session.execute(select(Incident).where(Incident.id == incident_id))).scalar_one()
+    state = await feld_crud.field_report_state(db_session, incident)
+    assert state["arrived_by_automation"] is True
+    # …and NOT "im KP erfasst": no operator did anything.
+    assert state["arrived_in_kp"] is False
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_the_prompt_path_stamps_nothing(
+    _bc, _bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """The GPS rules ask rather than act by design, and asking is not arriving.
+
+    Rule A prompts by default; an operator confirming a prompt is a status
+    decision, not an arrival report. Nothing may be written on this path.
+    """
+    from app.models import SchadenplatzReport
+
+    incident_id = enroute_incident.id
+    await _enable_arrival(db_session, silent=False)
+    clock = _Clock(datetime.now(UTC))
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+
+    db_session.expire_all()
+    report = (
+        await db_session.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident_id))
+    ).scalar_one_or_none()
+    assert report is None
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_the_automation_never_overwrites_a_crews_own_arrival(
+    _bc, _bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """A crew that already tapped keeps its own name on the arrival."""
+    from app.crud import feld as feld_crud
+    from app.models import Personnel, SchadenplatzReport
+
+    incident_id = enroute_incident.id
+    person_id = uuid.uuid4()
+    person = Personnel(id=person_id, name="Muster Hans", role="Feuerwehrmann", status="available")
+    db_session.add(person)
+    await db_session.commit()
+
+    incident = (await db_session.execute(select(Incident).where(Incident.id == incident_id))).scalar_one()
+    tapped_at = datetime.now(UTC) - timedelta(minutes=5)
+    await feld_crud.record_arrival(
+        db_session,
+        incident,
+        actor=feld_crud.FieldActor(personnel_id=person_id, personnel_name="Muster Hans"),
+        at=tapped_at,
+        only_if_unset=True,
+    )
+
+    await _enable_arrival(db_session, silent=True)
+    clock = _Clock(datetime.now(UTC))
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+
+    db_session.expire_all()
+    report = (
+        await db_session.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident_id))
+    ).scalar_one()
+    assert report.arrived_by_personnel_id == person_id
+    assert report.arrived_by_user_id is None
+    assert report.arrived_at == tapped_at
+
+
+@pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_route_level_vehicle_advances_stop_on_arrival(
     _bc, db_session: AsyncSession, enroute_incident: Incident, test_user: User, test_event: Event

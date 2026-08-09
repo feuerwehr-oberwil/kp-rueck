@@ -102,6 +102,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
   const busy = delivery.status === 'pending'
 
   const arrived = Boolean(assignment.arrived_at)
+  const arrivedByAutomation = arrived && assignment.arrived_by_automation
   const completed = Boolean(assignment.field_complete_reported_at)
   const pickupNeeded = assignment.pickup_needed
   const pickupSince = toDate(assignment.pickup_requested_at)
@@ -198,7 +199,16 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           ) : (
             <MapPin className="size-4" />
           )}
-          <span className="text-sm">{arrived ? t('arrivedDone') : t('arrived')}</span>
+          {/* Three states, not two (§18.24). "Angekommen erkannt" is what the
+              GPS automation stamped when an assigned vehicle reached the
+              address: the board already knows, so the crew is not asked to
+              confirm it — but the button must not claim they reported it
+              either. A crew that went zu Fuss or was dropped off has no
+              vehicle, so the plain "Angekommen" tap is unchanged and stays the
+              only route for them. */}
+          <span className="text-sm">
+            {arrived ? (arrivedByAutomation ? t('arrivedAuto') : t('arrivedDone')) : t('arrived')}
+          </span>
         </Button>
 
         <Button

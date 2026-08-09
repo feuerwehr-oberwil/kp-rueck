@@ -88,7 +88,7 @@ def _time(dt: datetime | None) -> str:
 
 def _dt_full(dt: datetime | None) -> str:
     if dt is None:
-        return "—"
+        return "–"
     return dt.astimezone(LOCAL_TZ).strftime("%d.%m.%Y %H:%M")
 
 
@@ -226,7 +226,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     crew, vehicles, materials = _active_resources(data, inc.id)
     leaders = _leader_ids(data, inc)
 
-    coords = "—"
+    coords = "–"
     if inc.location_lat is not None and inc.location_lng is not None:
         coords = f"{float(inc.location_lat):.5f}, {float(inc.location_lng):.5f}"
 
@@ -241,13 +241,13 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
             "Typ / Priorität",
             f"{TYPE_LABELS.get(inc.type, inc.type)} / {PRIORITY_LABELS.get(inc.priority, inc.priority)}",
         ),
-        ("Adresse", inc.location_address or "—"),
+        ("Adresse", inc.location_address or "–"),
         ("Koordinaten", coords),
         ("Eingang", _dt_full(inc.created_at)),
         ("Quelle", {"intake": "Telefon", "divera": "Divera"}.get(inc.source or "", "Operator")),
-        ("Beschreibung", inc.description or "—"),
-        ("Kontakt", inc.contact or "—"),
-        ("Merkmale", ", ".join(flags) or "—"),
+        ("Beschreibung", inc.description or "–"),
+        ("Kontakt", inc.contact or "–"),
+        ("Merkmale", ", ".join(flags) or "–"),
         (
             "Personal",
             # EL first (plan 25, decision 23), rank order underneath — the sort key
@@ -256,15 +256,15 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
                 f"{p.name}" + (f" ({p.role})" if p.role else "")
                 for p in sorted(crew, key=lambda p: (p.id not in leaders, _rank_key(p)))
             )
-            or "—",
+            or "–",
         ),
-        ("Mittel", ", ".join(_mittel(inc, vehicles)) or "—"),
-        ("Material", ", ".join(m.name for m in materials) or "—"),
+        ("Mittel", ", ".join(_mittel(inc, vehicles)) or "–"),
+        ("Material", ", ".join(m.name for m in materials) or "–"),
     ]
 
     reports = [r for r in data.reko_reports if r.incident_id == inc.id and not r.is_draft]
     if not reports:
-        rows.append(("Reko", "—"))
+        rows.append(("Reko", "–"))
     for report in reports:
         who = ""
         if report.submitted_by_personnel_id in data.personnel_map:
@@ -282,7 +282,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
             parts.append(f"Strom: {report.power_supply}")
         if report.additional_notes:
             parts.append(f"Notizen: {report.additional_notes}")
-        rows.append((f"Reko {_time(report.submitted_at)}{who}", " — ".join(parts) or "—"))
+        rows.append((f"Reko {_time(report.submitted_at)}{who}", " – ".join(parts) or "–"))
 
     # Compact status history: when each stage was first reached.
     transitions = sorted((t for t in data.transitions if t.incident_id == inc.id), key=lambda t: t.timestamp)
@@ -290,7 +290,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     for t in transitions:
         seen.setdefault(t.to_status, _time(t.timestamp))
     verlauf = " → ".join(f"{STATUS_LABELS.get(s, s)} {ts}" for s, ts in seen.items())
-    rows.append(("Verlauf", verlauf or "—"))
+    rows.append(("Verlauf", verlauf or "–"))
 
     if inc.field_complete_reported_at:
         rows.append(("Beendet gemeldet", _dt_full(inc.field_complete_reported_at)))
@@ -319,11 +319,11 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     # An open Abholung outlives `complete` (decision 24) — a crew still standing
     # at an address belongs on the sheet the KP prints when the screens die.
     if inc.pickup_needed:
-        note = f" — {inc.pickup_note}" if inc.pickup_note else ""
-        since = _dt_full(inc.pickup_requested_at) if inc.pickup_requested_at else "—"
+        note = f" – {inc.pickup_note}" if inc.pickup_note else ""
+        since = _dt_full(inc.pickup_requested_at) if inc.pickup_requested_at else "–"
         rows.append(("Abholung offen", f"seit {since}{note}"))
 
-    rows.append(("Interne Notizen", inc.internal_notes or "—"))
+    rows.append(("Interne Notizen", inc.internal_notes or "–"))
     rows.append(("Abgeschlossen", _dt_full(inc.completed_at)))
     return rows
 
@@ -331,9 +331,9 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
 def _detail_block(data: EventReportData, inc: Incident, index: int, home_city: str) -> list[Any]:
     """One bordered card per incident: shaded header row, generous row spacing."""
     head = (
-        f"{index} — {inc.title}"
+        f"{index} – {inc.title}"
         f"  ·  {STATUS_LABELS.get(inc.status, inc.status)}"
-        f"  ·  Prio {_PRIORITY_SHORT.get(inc.priority, '—')}"
+        f"  ·  Prio {_PRIORITY_SHORT.get(inc.priority, '–')}"
     )
     usable = A4[0] - 16 * mm
     rows: list[list[Any]] = [[Paragraph(escape(head), _DETAIL_HEAD), ""]]
@@ -373,7 +373,7 @@ def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
         rightMargin=8 * mm,
         topMargin=10 * mm,
         bottomMargin=10 * mm,
-        title=f"Lageblatt — {data.event.name}",
+        title=f"Lageblatt – {data.event.name}",
     )
 
     title_style = ParagraphStyle("lageblatt_title", fontName="Helvetica-Bold", fontSize=11, leading=14)
@@ -382,7 +382,7 @@ def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
     story = [
         Paragraph(f"Ereignis: {data.event.name}", title_style),
         Paragraph(
-            f"Datum: {now_local.strftime('%d.%m.%Y')} — Stand: {now_local.strftime('%H:%M')} Uhr",
+            f"Datum: {now_local.strftime('%d.%m.%Y')} – Stand: {now_local.strftime('%H:%M')} Uhr",
             meta_style,
         ),
         Spacer(1, 3 * mm),
@@ -463,7 +463,7 @@ def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
     story.append(Spacer(1, 2 * mm))
     story.append(
         Paragraph(
-            "KP Rück — Lageblatt (angelehnt an Führungsformular Elementarschaden FWI BL/BS)",
+            "KP Rück – Lageblatt (angelehnt an Führungsformular Elementarschaden FWI BL/BS)",
             footer_style,
         )
     )
@@ -471,7 +471,7 @@ def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
     # Detail pages: everything the board knows per incident.
     if data.incidents:
         story.append(PageBreak())
-        story.append(Paragraph(f"Einsatzdetails — Stand {now_local.strftime('%H:%M')} Uhr", title_style))
+        story.append(Paragraph(f"Einsatzdetails – Stand {now_local.strftime('%H:%M')} Uhr", title_style))
         for index, inc in enumerate(data.incidents, start=1):
             story.extend(_detail_block(data, inc, index, home_city))
 

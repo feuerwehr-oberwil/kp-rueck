@@ -23,6 +23,7 @@ from ..models import (
 )
 from ..services.audit import calculate_changes, log_action
 from . import events as events_crud
+from . import feld as feld_crud
 
 
 class InvalidIncidentGroupError(ValueError):
@@ -183,9 +184,10 @@ async def get_incidents(
         SchadenplatzReport.arrived_at,
         SchadenplatzReport.is_draft,
         SchadenplatzReport.arrived_by_personnel_id,
+        SchadenplatzReport.arrived_by_user_id,
     ).where(SchadenplatzReport.incident_id.in_(incident_ids))
     feld_result = await db.execute(feld_query)
-    field_arrived_map: dict[uuid.UUID, tuple[datetime | None, uuid.UUID | None]] = {}
+    field_arrived_map: dict[uuid.UUID, tuple[datetime | None, uuid.UUID | None, bool]] = {}
     submitted_rapports: set[uuid.UUID] = set()
     # Kept apart rather than derived from each other: "nobody has filed" and
     # "somebody started and walked away" are different states on the board.
@@ -193,7 +195,11 @@ async def get_incidents(
     # Own loop variable: `row` above is a differently-shaped Row and mypy holds
     # the first binding's type for the whole function.
     for feld_row in feld_result:
-        field_arrived_map[feld_row.incident_id] = (feld_row.arrived_at, feld_row.arrived_by_personnel_id)
+        field_arrived_map[feld_row.incident_id] = (
+            feld_row.arrived_at,
+            feld_row.arrived_by_personnel_id,
+            feld_crud.is_automation_user(feld_row.arrived_by_user_id),
+        )
         if feld_row.is_draft:
             draft_rapports.add(feld_row.incident_id)
         else:
@@ -204,6 +210,7 @@ async def get_incidents(
         arrival = field_arrived_map.get(incident.id)
         incident.field_arrived_at = arrival[0] if arrival else None
         incident.field_arrived_by = arrival[1] if arrival else None
+        incident.field_arrived_by_automation = bool(arrival and arrival[2])
         incident.has_schadenplatz_rapport = incident.id in submitted_rapports
         incident.has_schadenplatz_rapport_draft = incident.id in draft_rapports
         # Set status_changed_at from batch-loaded map
@@ -269,11 +276,15 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
                 SchadenplatzReport.arrived_at,
                 SchadenplatzReport.is_draft,
                 SchadenplatzReport.arrived_by_personnel_id,
+                SchadenplatzReport.arrived_by_user_id,
             ).where(SchadenplatzReport.incident_id == incident.id)
         )
         feld_row = feld_check.first()
         incident.field_arrived_at = feld_row.arrived_at if feld_row else None
         incident.field_arrived_by = feld_row.arrived_by_personnel_id if feld_row else None
+        incident.field_arrived_by_automation = bool(
+            feld_row and feld_crud.is_automation_user(feld_row.arrived_by_user_id)
+        )
         incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
         incident.has_schadenplatz_rapport_draft = bool(feld_row and feld_row.is_draft)
 

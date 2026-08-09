@@ -976,10 +976,19 @@ class TestRapportParity:
         draft = await editor_client.get(f"/api/incidents/{incident.id}/rapport/material-return")
         assert draft.json()["returned"] == []
 
+        # …but the completion gate reads it (§18.23): it only PREFILLS a dialog
+        # the operator confirms, and a crew that filled the checklist without
+        # pressing "Rapport abschliessen" on a phone has answered anyway.
+        gate = await editor_client.get(f"/api/incidents/{incident.id}/rapport/material-return?include_draft=true")
+        assert [unit["name"] for unit in gate.json()["returned"]] == ["Motorsäge"]
+        assert [unit["name"] for unit in gate.json()["left_on_site"]] == ["Tauchpumpe"]
+        assert gate.json()["rapport_is_draft"] is True
+
         await editor_client.put(f"/api/incidents/{incident.id}/rapport", json={"is_draft": False})
         submitted = await editor_client.get(f"/api/incidents/{incident.id}/rapport/material-return")
         assert [unit["name"] for unit in submitted.json()["returned"]] == ["Motorsäge"]
         assert [unit["name"] for unit in submitted.json()["left_on_site"]] == ["Tauchpumpe"]
+        assert submitted.json()["rapport_is_draft"] is False
 
 
 class TestPhotoParity:

@@ -228,6 +228,10 @@ class IncidentResponse(IncidentBase):
     # "Angekommen" from /feld (batched off schadenplatz_reports).
     field_arrived_at: datetime | None = None
     field_arrived_by: UUID | None = None
+    # True when the GPS automation stamped the arrival (§18.24): an assigned
+    # vehicle was confirmed at the address and the automation advanced the
+    # incident. Its own provenance — never a person, never "im KP erfasst".
+    field_arrived_by_automation: bool = False
     # A *submitted* Schadenplatz-Rapport exists. Same query as the arrival, so
     # it is free here; the "kein Rapport" card marker that reads it lands with
     # the form in phase 2.

@@ -245,8 +245,10 @@ class TestNullTolerance:
         pdf_bytes = build_event_report_pdf(data, generated_by="u")
         assert pdf_bytes.startswith(b"%PDF")
         text = _extract_text(pdf_bytes)
-        # Em-dash placeholder for missing fields
-        assert "—" in text
+        # En-dash placeholder for missing fields (§18.25: German typography uses
+        # the en dash, and the report is German output).
+        assert "–" in text
+        assert "—" not in text
 
 
 # ============================================

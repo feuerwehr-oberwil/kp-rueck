@@ -118,7 +118,7 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
   const t = useTranslations('kanban')
   // Translate known statuses; unknown values fall back to the raw status string.
   const statusLabel = (status: string | null | undefined): string => {
-    if (!status) return "—"
+    if (!status) return "–"
     return status in STATUS_LABELS ? t(`statusLabels.${status}`) : status
   }
   if (event.event_type === "status_change") {

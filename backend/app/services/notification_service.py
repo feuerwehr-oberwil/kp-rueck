@@ -704,7 +704,7 @@ async def create_reko_notification(
         parts.append(f"von {submitted_by_name}")
 
     relevance_text = "Einsatz relevant" if is_relevant else "Kein Einsatz nötig"
-    parts.append(f"— {relevance_text}")
+    parts.append(f"– {relevance_text}")
 
     # Add details on new line
     details = []

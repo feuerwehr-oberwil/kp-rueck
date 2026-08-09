@@ -1771,8 +1771,16 @@ class ApiClient {
    * time — a field form must not silently write assignments, and the decision
    * stays with the operator.
    */
-  async getRapportMaterialReturn(incidentId: string): Promise<ApiMaterialReturnResponse> {
-    return this.request<ApiMaterialReturnResponse>(`/api/incidents/${incidentId}/rapport/material-return`)
+  async getRapportMaterialReturn(
+    incidentId: string,
+    options: { includeDraft?: boolean } = {},
+  ): Promise<ApiMaterialReturnResponse> {
+    // `includeDraft` is the completion gate's flag and nobody else's (§18.23):
+    // that dialog only PREFILLS and the operator still confirms, while this
+    // endpoint's other caller releases assignments on one click and must not
+    // reach a half-typed checklist by accident. Server-side default is strict.
+    const query = options.includeDraft ? '?include_draft=true' : ''
+    return this.request<ApiMaterialReturnResponse>(`/api/incidents/${incidentId}/rapport/material-return${query}`)
   }
 
   async getAvailableRekoPersonnel(incidentId: string): Promise<ApiAvailableRekoPersonnelResponse> {

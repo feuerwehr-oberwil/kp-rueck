@@ -50,13 +50,69 @@ class FeldPersonnelListResponse(BaseModel):
     event_name: str
 
 
+class FeldMaterialLine(BaseModel):
+    """One line of the briefing's material list: a name and how many of it.
+
+    Grouped by NAME rather than listed per assignment — "Tauchpumpe ×2" is what
+    a crew reads off a slip, while the per-unit rows (keyed on the assignment,
+    with their two ticks) are the *rapport's* job and live in
+    ``RapportMaterialRow``. Two lists, two questions: this one says what came
+    with you, that one asks what you did with it.
+    """
+
+    name: str
+    count: int = 1
+
+
+class FeldReko(BaseModel):
+    """What the Reko found here — the only *submitted* report, flattened.
+
+    A draft Reko is somebody still typing and is deliberately absent: the field
+    briefing must not quote half a sentence back at the next crew as fact.
+    ``dangers`` carries the keys of ``DangersAssessment`` that are true, so the
+    phone renders the same badges the board does instead of a second wording.
+    """
+
+    summary: str | None = None
+    notes: str | None = None
+    dangers: list[str] = []
+    submitted_at: datetime | None = None
+    submitted_by_name: str | None = None
+
+
 class FeldAssignment(BaseModel):
-    """One Schadenplatz a person is (or was) assigned to in this event."""
+    """One Schadenplatz a person is (or was) assigned to in this event.
+
+    Since §18.22 the row also carries the **briefing**: the Meldung, the Melder,
+    what the board dispatched (crew, vehicles, material) and what the Reko
+    found. It rides on this response rather than on a per-incident endpoint of
+    its own for the same reason ``message_chips`` does — a crew on the edge of
+    coverage taps a row and must get a screen, not a second round trip — and
+    because the list row itself shows a condensed form of the same facts.
+
+    Released assignments are included in ``crew`` / ``vehicles`` / ``materials``
+    on purpose, exactly like the row itself survives its own release: completing
+    an incident releases everything while the crew is still standing at the
+    address filing, and a briefing that empties out underneath them at 02:00 is
+    worse than one that names a vehicle which has already driven off.
+    """
 
     incident_id: UUID
     incident_title: str
     incident_type: str
     incident_status: str
+    # The Meldung — what the dispatch said this is. The single most-asked
+    # question of a crew standing in front of an address.
+    description: str | None = None
+    # The Melder: who to ring when nobody answers the door. Already reachable
+    # through this door via the rapport prefill's `melder_*`, so it widens no
+    # exposure (§9) — it just stops being a thing you have to open a form for.
+    contact: str | None = None
+    contact_phone: str | None = None
+    crew: list[str] = []
+    vehicles: list[str] = []
+    materials: list[FeldMaterialLine] = []
+    reko: FeldReko | None = None
     location_address: str | None = None
     location_lat: str | None = None
     location_lng: str | None = None
@@ -65,6 +121,10 @@ class FeldAssignment(BaseModel):
     is_active_assignment: bool = True
     rapport_state: RapportState = "none"
     arrived_at: datetime | None = None
+    # True when the GPS automation stamped the arrival rather than the crew
+    # (§18.24). `/feld` words the line accordingly instead of letting a crew
+    # that never tapped "Angekommen" read the report as its own.
+    arrived_by_automation: bool = False
     field_complete_reported_at: datetime | None = None
     # "Abholung nötig" — carried on the list row so a crew reopening /feld sees
     # its own open request, not just the response of the tap that made it.
@@ -112,8 +172,14 @@ class FieldReportState(BaseModel):
     incident_id: UUID
     arrived_at: datetime | None = None
     arrived_by_personnel_id: UUID | None = None
-    # True when the arrival was entered in the KP: no personnel id AND a time.
-    # The UI needs to tell "im KP erfasst" from "nobody has reported it".
+    # True when the GPS automation stamped it: an assigned vehicle was confirmed
+    # at the address and the automation advanced the incident (§18.24). Its own
+    # provenance, never folded into either of the other two — a machine's
+    # inference must not be worded as a person's report.
+    arrived_by_automation: bool = False
+    # True when the arrival was entered in the KP: a time, no personnel id, and
+    # not the automation. The UI needs to tell "im KP erfasst" from "nobody has
+    # reported it" and from "die Automatik hat es gesehen".
     arrived_in_kp: bool = False
     field_complete_reported_at: datetime | None = None
     field_complete_reported_by: UUID | None = None
@@ -453,7 +519,12 @@ class MaterialReturnResponse(BaseModel):
     returned: list[MaterialReturnUnit] = []
     # Listed separately and deliberately NOT in the release set (decision 15).
     left_on_site: list[MaterialReturnUnit] = []
-    # None while no rapport has been submitted; then there is nothing to prefill
-    # from and the gate asks from scratch, exactly as it always did.
+    # None when there is no rapport to answer from; then there is nothing to
+    # prefill and the gate asks from scratch, exactly as it always did.
     rapport_by: str | None = None
     rapport_submitted_at: datetime | None = None
+    # True when these answers come from a rapport the crew has NOT filed
+    # (§18.23). Only ever true for a caller that asked for drafts, and the
+    # caller has to say so — "Aus dem Rapport-Entwurf von X" — because an
+    # operator weighing a half-finished answer must know it is half-finished.
+    rapport_is_draft: bool = False

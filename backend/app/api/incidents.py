@@ -561,14 +561,16 @@ async def get_rapport_material_return(
     incident_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
+    include_draft: bool = Query(
+        False,
+        description="Also answer from a rapport that is still a draft. For the completion gate's prefill only.",
+    ),
 ) -> schemas.MaterialReturnResponse:
     """ "Material zurück – freigeben" (decision 17): what the board may release.
 
     A read only. The releasing itself goes through the existing per-assignment
     release — a field form must not silently write assignments, and the decision
-    stays with the operator. Empty until the rapport is submitted: a draft is a
-    crew still typing, and offering a half-answered checklist as a release list
-    is how a pump gets freed while it is still running in a cellar.
+    stays with the operator.
 
     ``left_on_site`` is returned separately and is **not** in the release set;
     consumables are in neither (decision 26).
@@ -576,17 +578,30 @@ async def get_rapport_material_return(
     Also the source of truth for the completion gate's prefill (§18): the same
     answers, plus who filed them, so "Material vor Ort oder ins Magazin?" arrives
     already answered instead of asking the crew's question a second time.
+
+    **The two callers differ in exactly one flag (§18.23).** The release list in
+    the incident detail is submitted-only (the default): its click releases
+    assignments, and doing that off a half-typed checklist is how a pump gets
+    freed while it is still running in a cellar. The completion gate passes
+    ``include_draft=true``: it only prefills a dialog the operator confirms, and
+    a crew that filled the checklist without pressing *Rapport abschliessen* on
+    a phone in the rain is the normal case — throwing its answers away is the
+    thing this parameter exists to stop. ``rapport_is_draft`` tells the caller
+    which it got, so a draft is never quoted as a filed rapport.
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
-    returned, left = await feld_crud.material_return_units(db, incident)
-    rapport_by, submitted_at = await feld_crud.material_return_attribution(db, incident)
+    returned, left = await feld_crud.material_return_units(db, incident, include_draft=include_draft)
+    rapport_by, submitted_at, is_draft = await feld_crud.material_return_attribution(
+        db, incident, include_draft=include_draft
+    )
     return schemas.MaterialReturnResponse(
         returned=[schemas.MaterialReturnUnit(**unit) for unit in returned],
         left_on_site=[schemas.MaterialReturnUnit(**unit) for unit in left],
         rapport_by=rapport_by,
         rapport_submitted_at=submitted_at,
+        rapport_is_draft=is_draft,
     )
 
 

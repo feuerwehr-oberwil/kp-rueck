@@ -378,6 +378,10 @@ class Incident(Base):
     # Who reported the arrival — NULL when the KP took it over the radio, which is
     # the provenance rule itself and not a missing lookup (decision 28).
     field_arrived_by: UUID | None
+    # …or NULL because the GPS automation stamped it (§18.24). A third
+    # provenance, carried as its own flag rather than folded into the NULL: the
+    # board must not word a machine's inference as "im KP erfasst".
+    field_arrived_by_automation: bool
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 

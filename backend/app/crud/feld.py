@@ -32,6 +32,7 @@ from ..models import (
     Material,
     Notification,
     Personnel,
+    RekoReport,
     SchadenplatzReport,
     User,
     Vehicle,
@@ -253,6 +254,124 @@ async def get_feld_personnel_for_event(
     return rows
 
 
+async def _briefings(
+    db: AsyncSession,
+    incident_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, dict[str, Any]]:
+    """What the board knows about these Schadenplätze, batched (§18.22).
+
+    Crew, vehicles and material per incident in **three** queries for the whole
+    list, not three per row: a storm night is forty Schadenplätze and this
+    response is refetched on every window focus.
+
+    Released rows are included, deliberately — see ``FeldAssignment``. The unit
+    of a material line is its NAME: two identical pumps are "Tauchpumpe ×2",
+    because a crew reads a slip, not an assignment table.
+    """
+    briefings: dict[uuid.UUID, dict[str, Any]] = {
+        incident_id: {"crew": [], "vehicles": [], "materials": []} for incident_id in incident_ids
+    }
+    if not incident_ids:
+        return briefings
+
+    crew_result = await db.execute(
+        select(IncidentAssignment.incident_id, Personnel.id, Personnel.name)
+        .join(Personnel, Personnel.id == IncidentAssignment.resource_id)
+        .where(
+            IncidentAssignment.incident_id.in_(incident_ids),
+            IncidentAssignment.resource_type == "personnel",
+        )
+        .order_by(Personnel.name)
+    )
+    seen_crew: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    for incident_id, personnel_id, name in crew_result.all():
+        # One person can hold several rows on one incident (assigned, released,
+        # re-assigned) and is still one person on the slip.
+        if (incident_id, personnel_id) in seen_crew:
+            continue
+        seen_crew.add((incident_id, personnel_id))
+        briefings[incident_id]["crew"].append(name)
+
+    vehicle_result = await db.execute(
+        select(IncidentAssignment.incident_id, Vehicle.id, Vehicle.name)
+        .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
+        .where(
+            IncidentAssignment.incident_id.in_(incident_ids),
+            IncidentAssignment.resource_type == "vehicle",
+        )
+        .order_by(Vehicle.display_order, Vehicle.name)
+    )
+    seen_vehicles: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    for incident_id, vehicle_id, name in vehicle_result.all():
+        if (incident_id, vehicle_id) in seen_vehicles:
+            continue
+        seen_vehicles.add((incident_id, vehicle_id))
+        briefings[incident_id]["vehicles"].append(name)
+
+    material_result = await db.execute(
+        select(IncidentAssignment.incident_id, Material.name)
+        .join(Material, Material.id == IncidentAssignment.resource_id)
+        .where(
+            IncidentAssignment.incident_id.in_(incident_ids),
+            IncidentAssignment.resource_type == "material",
+        )
+        .order_by(Material.location_sort_order, Material.location, Material.name)
+    )
+    for incident_id, name in material_result.all():
+        lines: list[dict[str, Any]] = briefings[incident_id]["materials"]
+        for line in lines:
+            if line["name"] == name:
+                line["count"] += 1
+                break
+        else:
+            lines.append({"name": name, "count": 1})
+
+    return briefings
+
+
+#: The ``DangersAssessment`` keys, in the order the board renders its badges.
+#: Kept as an explicit tuple rather than "every truthy key": ``other_notes`` is
+#: free text and must never be turned into a badge label.
+_DANGER_KEYS = ("fire", "fire_danger", "explosion", "collapse", "chemical", "electrical")
+
+
+async def _reko_briefings(
+    db: AsyncSession,
+    incident_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, dict[str, Any]]:
+    """The newest SUBMITTED Reko per incident, flattened for the field.
+
+    Drafts are excluded: a draft Reko is somebody still typing, and quoting half
+    a sentence back at the next crew as fact is worse than saying nothing. This
+    is the same rule the board's ``has_completed_reko`` already uses.
+    """
+    if not incident_ids:
+        return {}
+
+    result = await db.execute(
+        select(RekoReport, Personnel.name)
+        .outerjoin(Personnel, Personnel.id == RekoReport.submitted_by_personnel_id)
+        .where(
+            RekoReport.incident_id.in_(incident_ids),
+            RekoReport.is_draft.is_(False),
+        )
+        .order_by(RekoReport.submitted_at)
+    )
+    briefings: dict[uuid.UUID, dict[str, Any]] = {}
+    for report, personnel_name in result.all():
+        dangers_raw = report.dangers_json or {}
+        # Newest wins: the query is ordered oldest-first, so a later row simply
+        # replaces an earlier one.
+        briefings[report.incident_id] = {
+            "summary": report.summary_text or None,
+            "notes": report.additional_notes or None,
+            "dangers": [key for key in _DANGER_KEYS if dangers_raw.get(key)],
+            "submitted_at": report.submitted_at,
+            "submitted_by_name": personnel_name,
+        }
+    return briefings
+
+
 async def get_feld_assignments_for_personnel(
     db: AsyncSession,
     event_id: uuid.UUID,
@@ -291,24 +410,43 @@ async def get_feld_assignments_for_personnel(
     mine_ids = list(mine)
     reports = await _rapport_states(db, mine_ids)
     leaders = await get_incident_leaders(db, mine_ids)
+    briefings = await _briefings(db, mine_ids)
+    rekos = await _reko_briefings(db, mine_ids)
 
     rows: list[dict[str, Any]] = []
     for incident_id, is_active in mine.items():
         incident = incidents[incident_id]
         report = reports.get(incident_id)
         leader = leaders.get(incident_id)
+        briefing = briefings.get(incident_id, {})
         rows.append(
             {
                 "incident_id": incident.id,
                 "incident_title": incident.title or incident.location_address or "Unbekannt",
                 "incident_type": incident.type,
                 "incident_status": incident.status,
+                # The briefing (§18.22): what a crew standing at the address
+                # needs before it opens a form.
+                "description": incident.description,
+                "contact": incident.contact,
+                "contact_phone": incident.contact_phone,
+                "crew": briefing.get("crew", []),
+                "vehicles": briefing.get("vehicles", []),
+                "materials": briefing.get("materials", []),
+                "reko": rekos.get(incident_id),
                 "location_address": incident.location_address,
                 "location_lat": str(incident.location_lat) if incident.location_lat is not None else None,
                 "location_lng": str(incident.location_lng) if incident.location_lng is not None else None,
                 "is_active_assignment": is_active,
                 "rapport_state": _rapport_state(report),
                 "arrived_at": report.arrived_at if report else None,
+                # Who said so: the crew's own tap, or the GPS automation having
+                # watched an assigned vehicle reach the address (§18.24). The
+                # phone has to be able to word it — a crew that never tapped
+                # "Angekommen" must not read its own name off that line.
+                "arrived_by_automation": bool(
+                    report and report.arrived_at and is_automation_user(report.arrived_by_user_id)
+                ),
                 "field_complete_reported_at": incident.field_complete_reported_at,
                 # The crew must see an open pickup when it comes back to the
                 # page, not only in the response of the tap that set it.
@@ -354,6 +492,26 @@ async def get_feld_assignments_for_personnel(
 # in the tests rather than left to review.
 
 
+def is_automation_user(user_id: uuid.UUID | None) -> bool:
+    """Was this write made by the GPS automation rather than by a person?
+
+    The third provenance (§18.24). ``arrived_by_user_id`` pointing at the
+    ``gps-automation`` system user is not "im KP erfasst" — no operator typed
+    it — and rendering it as such would attribute a machine's inference to
+    whoever happened to be sitting at the board.
+
+    The constant is imported **inside** the function on purpose:
+    ``services/gps_automation`` imports ``crud.incidents``, so a module-level
+    import here would close a cycle through the ``crud`` package. One lazy
+    import beats a duplicated UUID literal that can drift.
+    """
+    if user_id is None:
+        return False
+    from ..services.gps_automation import GPS_SYSTEM_USER_ID
+
+    return user_id == GPS_SYSTEM_USER_ID
+
+
 @dataclass(frozen=True)
 class FieldActor:
     """Who is filing — and **exactly one side of this is ever populated**.
@@ -364,11 +522,20 @@ class FieldActor:
     entry instead. A ``User`` is never guessed to be a ``Personnel`` — they are
     different people often enough that a wrong attribution on a billing document
     is worse than no attribution.
+
+    **A third kind exists since §18.24: the GPS automation.** It is a ``User``
+    actor like the KP one — the ``gps-automation`` row, which is already the
+    actor of the status change it makes — but it must never be *worded* as a KP
+    entry, because no operator did anything. Readers tell them apart by the user
+    id (``is_automation_user``), so nothing has to be stored twice; this flag
+    exists only so the notification wording is right at write time, where the
+    row is not loaded yet.
     """
 
     personnel_id: uuid.UUID | None = None
     personnel_name: str | None = None
     user: User | None = None
+    automation: bool = False
 
     @property
     def is_field(self) -> bool:
@@ -380,6 +547,8 @@ class FieldActor:
         """The " · von wem" tail of every notification this module writes."""
         if self.is_field:
             return f" · {self.personnel_name}" if self.personnel_name else " · vom Feld"
+        if self.automation:
+            return " · automatisch (GPS)"
         return " · im KP erfasst"
 
 
@@ -681,7 +850,7 @@ async def record_field_message(
             notification_type="field_message",
             incident_id=incident.id,
             event_id=incident.event_id,
-            message=f"Meldung vom Feld ({who}) — {_location(incident)}: {text}" if who else f"Meldung vom Feld: {text}",
+            message=f"Meldung vom Feld ({who}) – {_location(incident)}: {text}" if who else f"Meldung vom Feld: {text}",
         )
     await _broadcast(incident)
     return notification
@@ -692,14 +861,23 @@ async def field_report_state(db: AsyncSession, incident: Incident) -> dict[str, 
 
     ``arrived_by_*`` is the arrival's own pair, not the row's ``created_by_*`` —
     see the note in ``record_arrival``.
+
+    Three provenances, not two (§18.24): a crew tapping on `/feld`, an operator
+    taking it over the radio, and the GPS automation having watched an assigned
+    vehicle reach the address. ``arrived_in_kp`` deliberately excludes the third
+    — it is what the UI words as "im KP erfasst", and no operator was involved.
     """
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
+    by_automation = bool(report and report.arrived_at and is_automation_user(report.arrived_by_user_id))
     return {
         "incident_id": incident.id,
         "arrived_at": report.arrived_at if report else None,
         "arrived_by_personnel_id": report.arrived_by_personnel_id if report else None,
-        "arrived_in_kp": bool(report and report.arrived_at and report.arrived_by_personnel_id is None),
+        "arrived_by_automation": by_automation,
+        "arrived_in_kp": bool(
+            report and report.arrived_at and report.arrived_by_personnel_id is None and not by_automation
+        ),
         "field_complete_reported_at": incident.field_complete_reported_at,
         "field_complete_reported_by": incident.field_complete_reported_by,
         "pickup_needed": incident.pickup_needed,
@@ -1603,12 +1781,10 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
 async def material_return_units(
     db: AsyncSession,
     incident: Incident,
+    *,
+    include_draft: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """ "Material zurück – freigeben" (decision 17): (returned, left_on_site).
-
-    Only for a **submitted** rapport — a draft is a crew still typing, and
-    offering a half-answered checklist as a release list is how a pump gets
-    freed while it is still running in a cellar.
 
     Consumables are in neither list: a consumable that was used is gone
     (decision 26). Units the board has already released are gone too — there is
@@ -1624,10 +1800,31 @@ async def material_return_units(
     still a unit nobody claimed is on site — but the completion gate must not:
     it prefills from the rapport and has to know which questions the crew already
     settled and which it still needs to ask (§18).
+
+    **``include_draft`` — two callers, two different actions (§18.23).** One
+    function, and until the field test one rule, which was wrong for exactly one
+    of them:
+
+    * **The release list** in the incident detail stays submitted-only, the
+      default. One click there *releases assignments* — it frees a pump against
+      a checklist. Doing that off a half-typed draft is how a pump gets freed
+      while it is still running in a cellar, so the strong action keeps the
+      strict rule and cannot reach a draft by accident.
+    * **The completion gate** passes ``include_draft=True``. It only *prefills*
+      a dialog the operator still confirms, and the thing being fixed is that a
+      crew which filled the checklist and never pressed *Rapport abschliessen*
+      had its answers thrown away and its operator asked the same question from
+      scratch. On `/feld` the submit is a manual tap on a phone in the rain;
+      "they typed it but did not file it" is the normal case, not the edge one.
+      The caller renders the attribution as *Rapport-Entwurf* so an operator can
+      weigh a half-finished answer — see ``material_return_attribution``.
+
+    Nothing is auto-applied either way. The operator's click is still what
+    decides, which is what makes the looser rule safe on that call site.
     """
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
-    if report is None or report.is_draft:
+    if report is None or (report.is_draft and not include_draft):
         return [], []
 
     active = await db.execute(
@@ -1662,22 +1859,30 @@ async def material_return_units(
 async def material_return_attribution(
     db: AsyncSession,
     incident: Incident,
-) -> tuple[str | None, datetime | None]:
-    """Who filed the rapport the material answers come from, and when.
+    *,
+    include_draft: bool = False,
+) -> tuple[str | None, datetime | None, bool]:
+    """Who filed the rapport the material answers come from, when, and whether
+    it is still a draft.
 
-    The completion gate says "aus dem Rapport von Muster Hans" over the answers
+    The completion gate says "Aus dem Rapport von Muster Hans" over the answers
     it prefilled. Without the name the operator sees a dialog that decided by
     itself; with it, they know whose word they are confirming — and whether to
     trust it, which is the whole reason the provenance columns exist.
 
+    The third element is what keeps that honest once drafts prefill too
+    (§18.23): a half-finished checklist must not be quoted as a filed rapport,
+    so the caller says *Rapport-Entwurf* instead. ``include_draft`` mirrors
+    ``material_return_units`` exactly — the two are always called as a pair, or
+    the gate would show answers with no name over them.
+
     The *last* editor rather than the creator: several crews amend one report,
     and the material checklist is whatever the most recent one left behind.
-    Falls back to the creator when nobody has amended it. ``(None, None)`` while
-    the report is a draft, matching ``material_return_units``.
+    Falls back to the creator when nobody has amended it.
     """
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
-    if report is None or report.is_draft:
-        return None, None
+    if report is None or (report.is_draft and not include_draft):
+        return None, None, False
     names = await _names(db, report)
-    return names["updated_by_name"] or names["created_by_name"], report.submitted_at
+    return names["updated_by_name"] or names["created_by_name"], report.submitted_at, report.is_draft

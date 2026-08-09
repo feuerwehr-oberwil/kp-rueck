@@ -86,7 +86,7 @@ describe("FieldStatusNudge", () => {
       />,
     )
 
-    expect(screen.getByText("Feld meldet beendet — nach Abgeschlossen verschieben?")).toBeDefined()
+    expect(screen.getByText("Feld meldet beendet – nach Abgeschlossen verschieben?")).toBeDefined()
   })
 
   it("stays silent once the card already sits in Abgeschlossen", () => {
@@ -103,7 +103,7 @@ describe("FieldStatusNudge", () => {
   it("asks to move an arrival that has not reached Einsatz yet", () => {
     renderWithIntl(<FieldStatusNudge operation={operation({ status: "enroute", fieldArrivedAt: new Date() })} />)
 
-    expect(screen.getByText("Feld meldet angekommen — nach Einsatz verschieben?")).toBeDefined()
+    expect(screen.getByText("Feld meldet angekommen – nach Einsatz verschieben?")).toBeDefined()
   })
 
   it("does not re-ask about an arrival on a card already in or past Einsatz", () => {

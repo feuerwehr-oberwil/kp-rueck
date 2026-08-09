@@ -27,6 +27,7 @@ import {
   type ApiSchadenplatzRapport,
 } from '@/lib/api-client'
 import { FeldActions } from '@/components/feld/feld-actions'
+import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
@@ -297,6 +298,7 @@ function FeldSurface() {
           ? {
               ...a,
               arrived_at: state.arrived_at,
+              arrived_by_automation: state.arrived_by_automation,
               field_complete_reported_at: state.field_complete_reported_at,
               pickup_needed: state.pickup_needed,
               pickup_note: state.pickup_note,
@@ -424,7 +426,15 @@ function FeldSurface() {
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span>{tStatus(selectedAssignment.incident_status)}</span>
                 {selectedAssignment.arrived_at && (
-                  <span>{t('detail.arrivedAt', { time: formatTime(selectedAssignment.arrived_at) })}</span>
+                  <span>
+                    {/* Said differently when the automation saw it (§18.24), so
+                        a crew that never tapped "Angekommen" does not read the
+                        line as somebody's report. */}
+                    {t(
+                      selectedAssignment.arrived_by_automation ? 'detail.arrivedAtAuto' : 'detail.arrivedAt',
+                      { time: formatTime(selectedAssignment.arrived_at) },
+                    )}
+                  </span>
                 )}
                 {selectedAssignment.field_complete_reported_at && (
                   <span>
@@ -435,7 +445,11 @@ function FeldSurface() {
             </section>
 
             {/* Section: field actions — Angekommen / Einsatz beendet /
-                Abholung / Meldung. Fotos join them in phase 3. */}
+                Abholung / Meldung. Fotos join them in phase 3.
+
+                They stay directly under the header, above the briefing: they
+                are what a crew does with one wet thumb, and the briefing is
+                reading. "A phone in the rain gets one tap, not a scroll." */}
             {token && selectedPerson && (
               <FeldActions
                 assignment={selectedAssignment}
@@ -445,6 +459,11 @@ function FeldSurface() {
                 onReported={applyFieldReport}
               />
             )}
+
+            {/* Section: the briefing (§18.22) — what the board knows about
+                this Schadenplatz. Read-only, and it sits above the Rapport
+                because it is what the crew fills the Rapport against. */}
+            <FeldBriefing assignment={selectedAssignment} />
 
             {/* Section: the Schadenplatz-Rapport itself — the paper
                 replacement. The SAME component the board's detail mounts
@@ -567,6 +586,10 @@ function FeldSurface() {
                 {address && <p className="text-sm text-muted-foreground mb-1.5">{address}</p>}
                 {/* The EL briefing on the list, before the form is ever opened. */}
                 <LeaderLine assignment={assignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
+                {/* Meldung, Fahrzeuge, Gefahren — the three facts that decide
+                    which of six rows you open (§18.22). The rest of the
+                    briefing is one tap away and stays there. */}
+                <FeldBriefingLine assignment={assignment} />
                 <div className="flex flex-wrap items-center gap-2">
                   <RapportStateChip state={assignment.rapport_state} />
                   <span className="text-xs text-muted-foreground">{tStatus(assignment.incident_status)}</span>

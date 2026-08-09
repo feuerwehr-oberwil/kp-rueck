@@ -598,6 +598,87 @@ class TestAssignments:
         assert [r["incident_id"] for r in response.json()["assignments"]] == [str(alive.id)]
 
 
+class TestBriefing:
+    """The row carries what the board knows about the Schadenplatz (§18.22).
+
+    Through the ordinary two-step door and nothing else: the briefing is built
+    from the SAME rows the list already returns, so it cannot become a way
+    around "visibility is only mine".
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_meldung_resources_and_reko_come_back_on_the_row(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        from app.models import RekoReport
+
+        incident = await _make_incident(db_session, test_event, test_user, "Keller Wasser")
+        incident.description = "Wasser im Keller"
+        incident.contact = "A. Bürgin"
+        incident.contact_phone = "079 000 00 00"
+        person = await _make_person(db_session, "Muster Hans")
+        scout = await _make_person(db_session, "Frey Marc", role="Offizier")
+        await _assign(db_session, incident, person)
+        vehicle = Vehicle(id=uuid4(), name="TLF 1", type="TLF", status="available")
+        material = Material(id=uuid4(), name="Tauchpumpe", type="Sonstiges", location="Depot", status="available")
+        db_session.add_all([vehicle, material])
+        await db_session.commit()
+        db_session.add_all(
+            [
+                IncidentAssignment(incident_id=incident.id, resource_type="vehicle", resource_id=vehicle.id),
+                IncidentAssignment(incident_id=incident.id, resource_type="material", resource_id=material.id),
+                RekoReport(
+                    incident_id=incident.id,
+                    token="t",
+                    is_draft=False,
+                    summary_text="Keller 20 cm unter Wasser.",
+                    dangers_json={"electrical": True},
+                    submitted_by_personnel_id=scout.id,
+                ),
+            ]
+        )
+        await db_session.commit()
+
+        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        assert response.status_code == 200
+        row = response.json()["assignments"][0]
+        assert row["description"] == "Wasser im Keller"
+        assert row["contact"] == "A. Bürgin"
+        assert row["contact_phone"] == "079 000 00 00"
+        assert row["crew"] == ["Muster Hans"]
+        assert row["vehicles"] == ["TLF 1"]
+        assert row["materials"] == [{"name": "Tauchpumpe", "count": 1}]
+        assert row["reko"]["summary"] == "Keller 20 cm unter Wasser."
+        assert row["reko"]["dangers"] == ["electrical"]
+        assert row["reko"]["submitted_by_name"] == "Frey Marc"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_bare_schadenplatz_carries_empty_lists_not_nulls(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident = await _make_incident(db_session, test_event, test_user, "Nur eine Adresse")
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person)
+
+        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        row = response.json()["assignments"][0]
+        assert row["crew"] == ["Muster Hans"]
+        assert row["vehicles"] == []
+        assert row["materials"] == []
+        assert row["reko"] is None
+        assert row["description"] is None
+
+
 class TestNeverWritesAssignments:
     """The boundary decisions 17 and 18 rest on.
 

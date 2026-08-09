@@ -19,6 +19,7 @@ const STATE: ApiFieldReportState = {
   incident_id: 'inc-1',
   arrived_at: null,
   arrived_by_personnel_id: null,
+  arrived_by_automation: false,
   arrived_in_kp: false,
   field_complete_reported_at: '2026-08-09T21:00:00Z',
   field_complete_reported_by: 'p-1',
@@ -34,12 +35,20 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     incident_title: 'Keller Wasser',
     incident_type: 'elementarereignis',
     incident_status: 'active',
+    description: null,
+    contact: null,
+    contact_phone: null,
+    crew: [],
+    vehicles: [],
+    materials: [],
+    reko: null,
     location_address: 'Hauptstrasse 1',
     location_lat: null,
     location_lng: null,
     is_active_assignment: true,
     rapport_state: 'none',
     arrived_at: null,
+    arrived_by_automation: false,
     field_complete_reported_at: null,
     pickup_needed: false,
     pickup_note: null,
@@ -110,6 +119,29 @@ describe('Angekommen', () => {
   it('is already done when the crew reported it before', () => {
     render({ arrived_at: '2026-08-09T20:00:00Z' })
     expect(screen.getByRole('button', { name: /Angekommen gemeldet/ })).toBeDisabled()
+  })
+
+  it('stops asking once the GPS automation saw the vehicle arrive (§18.24)', () => {
+    // The board already concluded the crew is there — asking them to confirm it
+    // is asking for a tap that changes nothing. The wording is its own, because
+    // nobody reported anything: "erkannt", not "gemeldet".
+    render({ arrived_at: '2026-08-09T20:00:00Z', arrived_by_automation: true })
+
+    const button = screen.getByRole('button', { name: /Angekommen erkannt/ })
+    expect(button).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Angekommen gemeldet/ })).not.toBeInTheDocument()
+  })
+
+  it('still offers the tap to a crew that went zu Fuss — no vehicle, no GPS', async () => {
+    // The manual route must stay, and must not look broken when it is the only
+    // one: nothing about it changes when there is no automation arrival.
+    const user = userEvent.setup()
+    render({ arrived_at: null, arrived_by_automation: false })
+
+    const button = screen.getByRole('button', { name: /Angekommen/ })
+    expect(button).not.toBeDisabled()
+    await confirmArrived(user)
+    await waitFor(() => expect(feldReportArrived).toHaveBeenCalledWith('inc-1', 'p-1', 'tok'))
   })
 })
 

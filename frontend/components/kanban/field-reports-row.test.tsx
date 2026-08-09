@@ -116,6 +116,24 @@ describe('the Meldungen thread', () => {
     expect(within(entry).getByText(/im KP erfasst/)).toBeInTheDocument()
   })
 
+  it('says "automatisch (GPS)" for an arrival the automation inferred (§18.24)', () => {
+    // Neither the crew nor the KP. "im KP erfasst" here would name an operator
+    // who did nothing, which is exactly the attribution decision 28 forbids.
+    thread(
+      operation({
+        fieldArrivedAt: new Date('2026-08-09T21:14:00Z'),
+        fieldArrivedBy: null,
+        fieldArrivedByAutomation: true,
+      }),
+      [],
+    )
+
+    const entry = screen.getByRole('listitem')
+    expect(within(entry).getByText('Angekommen')).toBeInTheDocument()
+    expect(within(entry).getByText(/automatisch \(GPS\)/)).toBeInTheDocument()
+    expect(within(entry).queryByText(/im KP erfasst/)).not.toBeInTheDocument()
+  })
+
   it('is empty only when nothing was reported and nothing was said', () => {
     thread(operation(), [])
     expect(screen.getByText('Noch keine Meldungen.')).toBeInTheDocument()

@@ -52,7 +52,7 @@ LABELS: dict[str, str] = {
     "funkrufname": "Funkrufname",
     "generated_at": "Erstellt am",
     "generated_by": "Erstellt von",
-    "none": "—",
+    "none": "–",
     # Summary
     "summary_title": "Zusammenfassung",
     "incidents_total": "Einsätze gesamt",
@@ -117,7 +117,7 @@ LABELS: dict[str, str] = {
     "reko_draft": "Entwurf",
     # Schadenplatz-Rapport (plan 25, §7)
     "rapport": "Schadenplatz-Rapport",
-    "rapport_draft": "Entwurf — noch nicht abgeschlossen",
+    "rapport_draft": "Entwurf – noch nicht abgeschlossen",
     "rapport_work": "Tätigkeit",
     "rapport_kurzbericht": "Kurzbericht",
     "rapport_handed_over": "Einsatzstelle übergeben an",
@@ -1267,7 +1267,7 @@ def build_event_report_pdf(
         rightMargin=_PAGE_MARGIN,
         topMargin=_PAGE_MARGIN,
         bottomMargin=_PAGE_MARGIN,
-        title=f"{LABELS['report_title']} — {event.name}",
+        title=f"{LABELS['report_title']} – {event.name}",
         author=generated_by or "",
     )
 

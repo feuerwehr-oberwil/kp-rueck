@@ -418,8 +418,17 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {/* The normal state, said plainly — same register as the Reko section's
           "Noch keine Reko-Meldung" next to it. It used to be a red error line,
           which read as "something is broken" for the majority of Schadenplätze
-          at any moment of a storm. */}
-      {!rapport.exists && (
+          at any moment of a storm.
+
+          **KP mount only.** In the board's detail it earns its place: it is what
+          tells "nothing has been filed here" apart from "the section has not
+          loaded", on a surface where an operator scans many incidents. On a
+          phone the form is the whole screen — an empty rapport is self-evident
+          from the empty fields under this line, and the line is one more thing
+          to scroll past in the rain. A genuine load failure keeps its error and
+          its retry on BOTH mounts; that distinction is the point of §18.16 and
+          is untouched here. */}
+      {isKp && !rapport.exists && (
         <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-muted-foreground">
           <FileText className="h-4 w-4" />
           <p className="text-sm">{t('empty')}</p>
@@ -466,18 +475,16 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {/* ------------------------------------------------- Kurzbericht */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold">{t('sections.kurzbericht')}</h3>
-        <div className="space-y-1.5">
-          <Textarea
-            value={formData.kurzbericht}
-            disabled={readOnly}
-            rows={5}
-            placeholder={t('kurzberichtPlaceholder')}
-            onChange={e => update('kurzbericht', e.target.value)}
-          />
-          {/* Dictation needs no code: every phone keyboard has a microphone
-              key, and one line of hint copy is the whole feature. */}
-          <p className="text-xs text-muted-foreground">{t('kurzberichtHint')}</p>
-        </div>
+        {/* No dictation tip under the box. Every phone keyboard has had a
+            microphone key for a decade; the people who use it already do, and
+            the ones who do not are not reading a caption in the rain. */}
+        <Textarea
+          value={formData.kurzbericht}
+          disabled={readOnly}
+          rows={5}
+          placeholder={t('kurzberichtPlaceholder')}
+          onChange={e => update('kurzbericht', e.target.value)}
+        />
         <div className="space-y-1.5">
           <Label htmlFor="rapport-handover" className="text-xs text-muted-foreground">
             {t('handedOverTo')}
@@ -497,8 +504,11 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         <h3 className="text-sm font-semibold">{t('sections.owner')}</h3>
         {/* The first citizen PII in kp-rueck (§9): names, home addresses and
             plates of people who are not members. It lives with the incident and
-            is deleted with the event; there is no second retention rule. */}
-        <p className="text-xs text-muted-foreground">{t('ownerHint')}</p>
+            is deleted with the event; there is no second retention rule.
+            That rule is unchanged and is written down where the person who has
+            to answer for it reads it — `docs/DEPLOYMENT.md`, "Was die App über
+            Dritte speichert" — rather than printed at a crew that cannot act on
+            it. The line under the heading is gone, the retention is not. */}
 
         {rapport.prefill.melder_name && (
           <Button type="button" variant="outline" size="sm" disabled={readOnly} onClick={takeOverMelder}>

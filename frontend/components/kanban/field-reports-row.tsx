@@ -233,17 +233,31 @@ export function FieldMessageThread({
       }))
 
     // Provenance rule, unchanged and read the same way everywhere: a personnel
-    // FK means the crew tapped it, its absence means the KP wrote it down.
-    const report = (at: Date | null | undefined, by: string | null | undefined, label: string) => {
+    // FK means the crew tapped it, its absence means the KP wrote it down —
+    // unless the GPS automation stamped it (§18.24), which is a third thing and
+    // must be worded as one. "im KP erfasst" about a machine's inference names
+    // an operator who did nothing.
+    const report = (
+      at: Date | null | undefined,
+      by: string | null | undefined,
+      label: string,
+      byAutomation = false,
+    ) => {
       if (!at) return
       rows.push({
         at,
         fromField: Boolean(by),
+        byAutomation: byAutomation && !by,
         who: by ? (nameById.get(by) ?? t('unknownPerson')) : null,
         label,
       })
     }
-    report(operation.fieldArrivedAt, operation.fieldArrivedBy, t('arrived'))
+    report(
+      operation.fieldArrivedAt,
+      operation.fieldArrivedBy,
+      t('arrived'),
+      operation.fieldArrivedByAutomation,
+    )
     report(operation.fieldCompleteReportedAt, operation.fieldCompleteReportedBy, t('complete'))
 
     return rows.sort((a, b) => a.at.getTime() - b.at.getTime())
@@ -252,6 +266,7 @@ export function FieldMessageThread({
     nameById,
     operation.fieldArrivedAt,
     operation.fieldArrivedBy,
+    operation.fieldArrivedByAutomation,
     operation.fieldCompleteReportedAt,
     operation.fieldCompleteReportedBy,
     t,
@@ -291,11 +306,14 @@ export function FieldMessageThread({
           {entries.map((entry, index) => (
             <li key={`${entry.at.toISOString()}:${index}`} className="text-sm">
               <p className="text-xs text-muted-foreground">
-                {/* Provenance, the same rule for all three kinds: a name for a
-                    crew report, "im KP erfasst" for a dictated one. */}
+                {/* Provenance, the same rule for all kinds: a name for a crew
+                    report, "im KP erfasst" for a dictated one, "automatisch
+                    (GPS)" for one the automation inferred. */}
                 {entry.fromField && entry.who
                   ? t('fromField', { name: entry.who, time: formatMessageTime(entry.at) })
-                  : t('fromKp', { time: formatMessageTime(entry.at) })}
+                  : entry.byAutomation
+                    ? t('fromAutomation', { time: formatMessageTime(entry.at) })
+                    : t('fromKp', { time: formatMessageTime(entry.at) })}
               </p>
               {entry.label ? (
                 <p className="flex items-center gap-1.5 font-medium">
@@ -328,6 +346,8 @@ function formatMessageTime(at: Date): string {
 interface ThreadEntry {
   at: Date
   fromField: boolean
+  /** Neither the crew nor the KP: the GPS automation stamped it (§18.24). */
+  byAutomation?: boolean
   who: string | null
   label?: string
   message?: string
