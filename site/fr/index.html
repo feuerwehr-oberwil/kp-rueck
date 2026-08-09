@@ -1,0 +1,627 @@
+<!doctype html>
+<!-- Built from site/index.template.html + site/content/fr.json.
+     Edits here are lost on the next `node site/build.mjs`. -->
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>KP Rück – le tableau d’intervention du poste de commandement</title>
+<meta name="description" content="KP Rück reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé.">
+<link rel="canonical" href="https://kp-rueck.ch/fr/">
+<link rel="alternate" hreflang="de-CH" href="https://kp-rueck.ch/">
+<link rel="alternate" hreflang="fr-CH" href="https://kp-rueck.ch/fr/">
+<link rel="alternate" hreflang="x-default" href="https://kp-rueck.ch/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Crect x='3.5' y='10.5' width='7' height='11' rx='2' fill='%23e8392b'/%3E%3Crect x='12.5' y='10.5' width='7' height='11' rx='2' fill='%23ffffff'/%3E%3Crect x='21.5' y='10.5' width='7' height='11' rx='2' fill='%23b8c4d3'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:title" content="KP Rück – le tableau d’intervention du poste de commandement">
+<meta property="og:description" content="Reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé.">
+<meta property="og:url" content="https://kp-rueck.ch/fr/">
+<meta property="og:image" content="https://kp-rueck.ch/shots/board.jpg">
+<meta property="og:image:width" content="1500">
+<meta property="og:image:height" content="937">
+<meta property="og:locale" content="fr_CH">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../landing.css">
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-gh" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 16 16">
+    <path d="M4.5 3.1a.7.7 0 0 1 1.05-.6l7.2 4.9a.7.7 0 0 1 0 1.2l-7.2 4.9a.7.7 0 0 1-1.05-.6z"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16">
+    <path d="M8.8 2.3a.9.9 0 0 0-1.3 1.25L10.4 6.6H2.2a.9.9 0 0 0 0 1.8h8.2l-2.9 3.05a.9.9 0 0 0 1.3 1.25l4.3-4.5a.9.9 0 0 0 0-1.2z"/>
+  </symbol>
+  <symbol id="i-bug" viewBox="0 0 16 16">
+    <path d="M8 1.2A6.8 6.8 0 1 0 8 14.8 6.8 6.8 0 0 0 8 1.2zm0 3.1a.95.95 0 0 1 .95 1l-.22 3.4a.73.73 0 0 1-1.46 0l-.22-3.4a.95.95 0 0 1 .95-1zm0 6.2a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1z"/>
+  </symbol>
+  <symbol id="i-idea" viewBox="0 0 16 16">
+    <path d="M8 1.2a4.8 4.8 0 0 0-2.95 8.58c.4.32.63.75.7 1.22l.08.5h4.34l.08-.5c.07-.47.3-.9.7-1.22A4.8 4.8 0 0 0 8 1.2zM6.25 12.9a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5z"/>
+  </symbol>
+  <symbol id="i-mail" viewBox="0 0 16 16">
+    <path d="M2 4.6c0-.77.63-1.4 1.4-1.4h9.2c.77 0 1.4.63 1.4 1.4v.2L8 8.4 2 4.8zm0 1.95 5.6 3.36c.25.15.55.15.8 0L14 6.55v4.85c0 .77-.63 1.4-1.4 1.4H3.4A1.4 1.4 0 0 1 2 11.4z"/>
+  </symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="mark" href="#">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#1b2330"/>
+        <g>
+          <rect x="5.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#e8392b"/>
+          <rect x="5.5" y="14" width="6.5" height="5.2" rx="1.5" fill="#e7edf4"/>
+          <rect x="5.5" y="21" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+          <rect x="13.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#ffffff"/>
+          <rect x="13.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+          <rect x="21.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#d8e1ec"/>
+          <rect x="21.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+        </g>
+      </svg>
+      <span>KP Rück</span></a>
+    <nav aria-label="Navigation principale">
+      <a href="#funktionen">Fonctions</a>
+      <a href="#kontakt">Contact</a>
+      <span class="langs" role="group" aria-label="Langue"><a class="lang" href="https://kp-rueck.ch/" hreflang="de" lang="de"><abbr title="Deutsch">DE</abbr></a><a class="lang on" href="https://kp-rueck.ch/fr/" hreflang="fr" lang="fr" aria-current="page"><abbr title="Français">FR</abbr></a></span>
+      <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener" aria-label="KP Rück sur GitHub"><svg class="ico"><use href="#i-gh"/></svg></a>
+      <a class="cta" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Démo</a>
+    </nav>
+  </div>
+</header>
+
+<div class="notice">
+  <p class="wrap">Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers. Un terme qui sonne faux ? <a href="#kontakt">Dites-le-nous</a>, nous corrigeons.</p>
+</div>
+<main>
+  <section class="hero wrap">
+    <p class="eyebrow">Open source&nbsp;· Suisse</p>
+    <h1>Le tableau d’intervention du poste de commandement.</h1>
+    <p class="lede">KP Rück reproduit sous forme numérique le tableau magnétique du PC arrière :
+      <strong>interventions, personnel, véhicules et matériel</strong> sur un seul tableau –
+      en direct sur chaque appareil.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Ouvrir la démo</a>
+      <span class="cta-note">Sans compte – choisir un rôle et commencer</span>
+    </div>
+    <figure class="frame">
+      <div class="frame-bar" aria-hidden="true">
+        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
+        <span class="addr">BOARD · UNWETTER · 17 EINSÄTZE AKTIV</span>
+      </div>
+      <img src="../shots/board.jpg" alt="Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite" width="1500" height="937">
+    </figure>
+  </section>
+
+  <section class="fit">
+    <div class="wrap">
+      <div class="fit-row">
+        <p class="fit-k">Pour qui</p>
+        <ul class="fit-v">
+          <li>Sapeurs-pompiers de milice</li>
+          <li>Corps locaux</li>
+          <li>Centres de renfort</li>
+        </ul>
+      </div>
+      <div class="fit-row">
+        <p class="fit-k">Pour quoi</p>
+        <ul class="fit-v">
+          <li>Interventions courantes</li>
+          <li>Intempéries</li>
+          <li>Plusieurs événements à la fois</li>
+        </ul>
+      </div>
+      <p class="fit-note">Né du service opérationnel réel des
+        <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">sapeurs-pompiers d’Oberwil BL</a>
+        – éprouvé sur le terrain et développé en continu.</p>
+    </div>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">La mesure de toute chose</p>
+      <blockquote>«&nbsp;Quand le réseau tombe, c’est le <em>papier</em> qui conduit&nbsp;»</blockquote>
+      <p class="expl">Un tableau qui devient noir à la première coupure de courant n’est pas un document de
+        conduite. D’où une redondance à plusieurs niveaux – <strong>chaque niveau fonctionne
+        sans celui du dessus</strong>.</p>
+      <div class="stages">
+        <div class="stage">
+          <p class="stage-n">Niveau 1</p>
+          <h3>Plusieurs appareils au même état</h3>
+          <p>Tablettes, écrans de projection et téléphones sont reliés en direct au même tableau.
+            Si un appareil tombe ou se fige, un autre continue – il n’y a rien à sauver et rien
+            à reporter.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Niveau 2</p>
+          <h3>Une deuxième instance à la caserne</h3>
+          <p>KP Rück peut en plus tourner localement. La synchronisation intégrée tient à jour
+            événements, interventions, personnel, véhicules, matériel et réglages entre le cloud
+            et la base de données locale. La carte vient de votre propre serveur de tuiles, et
+            l’imprimante est de toute façon sur le réseau local.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Niveau 3</p>
+          <h3>Le papier conduit</h3>
+          <p>L’état du tableau part toutes les quelques minutes sur l’imprimante thermique, la
+            feuille de situation sur simple pression. Si tout tombe, la dernière feuille devient
+            le tableau. Au redémarrage, <strong>une seule</strong> personne reporte dans
+            l’application ce qui a été fait à la main.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="einsatz">
+    <div class="sec-head">
+      <p class="eyebrow">De l’alarme au rapport</p>
+      <h2>Un événement, un tableau.</h2>
+      <p>Voilà à quoi ressemble une nuit d’intempéries au PC – ce qui se passe sur le tableau se
+        retrouve ensuite dans le rapport d’intervention.</p>
+    </div>
+    <div class="verlauf-list">
+      <article class="entry">
+        <div class="time">21:14</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Réception</p>
+          <h3>Les annonces arrivent.</h3>
+          <p>Par le formulaire d’annonce, par téléphone ou par l’interface ouverte depuis le
+            système d’alarme (p.&nbsp;ex. Divera). L’aide à la conduite reprend l’annonce d’un
+            clic – elle devient une intervention sur le tableau.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:19</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Engagement</p>
+          <h3>Effectif et véhicules sont attribués.</h3>
+          <p>Personnel, véhicules et matériel se glissent sur l’intervention. Le système aide la direction
+            d’intervention à repérer et à rendre visibles les doubles affectations, les ressources
+            manquantes ou les contradictions. Qui arrive s’annonce lui-même par code QR.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:26</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Carte</p>
+          <h3>Qui est où.</h3>
+          <p>Toutes les interventions sur une carte, et les véhicules avec leur position GPS en
+            option. Dès qu’un véhicule arrive sur les lieux, le tableau propose lui-même le
+            changement de statut.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:48</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Reconnaissance</p>
+          <h3>La reconnaissance annonce en retour.</h3>
+          <p>Elle remplit le formulaire sur son propre téléphone – photos comprises. L’annonce est
+            rattachée à la bonne intervention, au lieu de se perdre dans un groupe de discussion.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">23:30</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Tableau</p>
+          <h3>Tout le monde voit le même tableau.</h3>
+          <p>Le projecteur au PC, la tablette sur la table et le téléphone du fourrier montrent le
+            même état – sans que personne n’ait à appuyer sur «&nbsp;actualiser&nbsp;».</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">06:40</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Rapport</p>
+          <h3>Le rapport d’intervention s’écrit tout seul.</h3>
+          <p>Journal d’intervention et temps de réaction naissent en cours de route et deviennent
+            un PDF. On corrige par une nouvelle entrée, pas à la gomme – la nuit reste ainsi
+            documentée.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Tiré de la démo</p>
+      <h2>Voilà à quoi cela ressemble.</h2>
+      <p>Toutes les images proviennent de la démo publique. Cliquez sur
+        «&nbsp;Ouvrir la démo&nbsp;» et vous serez devant le même tableau.</p>
+      <p class="sec-note">Les captures d’écran sont en allemand – comme l’application elle-même pour l’instant.
+        La mécanique multilingue est en place, les traductions manquent encore ; cette page est
+        le premier morceau, l’application suivra.</p>
+    </div>
+    <div class="shots-grid">
+      <figure class="shot">
+        <img src="../shots/display.jpg" alt="Vue projecteur : toutes les phases d’intervention côte à côte sur un écran" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Vue projecteur</div>
+          <div class="cap-s">Pour le mur du PC dans la pénombre : toutes les phases côte à côte, sans éléments de commande</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/status.jpg" alt="Vue Statut : véhicules, interventions, personnel et matériel côte à côte, chacun avec sa disponibilité et son affectation" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Statut</div>
+          <div class="cap-s">Véhicules, interventions, personnel et matériel côte à côte – qui est libre, qui est engagé, qui est où</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/karte.jpg" alt="Vue carte : interventions par priorité, positions des véhicules et affectations" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Carte</div>
+          <div class="cap-s">Toutes les interventions par priorité, avec les positions des véhicules et les affectations entre les deux</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/disposition.jpg" alt="Statut des véhicules : véhicules avec indicatif radio, conducteur, destination et statut" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Véhicules</div>
+          <div class="cap-s">Indicatif radio, conducteur, destination et statut de chaque véhicule d’un coup d’œil</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/meldung.jpg" alt="Formulaire d’annonce : adresse, annonce, priorité, type d’intervention et indications sur l’annonceur" width="900" height="562" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Formulaire d’annonce</div>
+          <div class="cap-s">Saisir de façon structurée les annonces téléphoniques et les personnes qui se présentent – par lien ou code QR, sans compte</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/reko.jpg" alt="Formulaire de reconnaissance : intervention, «&nbsp;je suis sur place&nbsp;» et dangers à cocher" width="900" height="562" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Formulaire de reconnaissance</div>
+          <div class="cap-s">Sur le téléphone privé de la reconnaissance : s’annoncer sur place, cocher les dangers, joindre des photos</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/auftraege.jpg" alt="Missions : plusieurs interventions regroupées en une tournée" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Missions</div>
+          <div class="cap-s">Plusieurs interventions comme une seule tournée – avec l’effectif, les moyens et un ordre que le tableau optimise selon la distance</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/training.jpg" alt="Commande d’exercice : générer des interventions isolées ou ciblées, automatisme et simulation de terrain" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Exercice</div>
+          <div class="cap-s">Injecter des situations d’exercice au lieu de les inventer – proprement séparées du cas réel</div>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="aenderung">
+    <div class="sec-head">
+      <p class="eyebrow">Le changement</p>
+      <h2>Ce qui change.</h2>
+      <p>Rien de tout cela n’est cassé aujourd’hui – le tableau magnétique fonctionne depuis des
+        décennies. KP Rück prend les mêmes places, simplement sans recopier.</p>
+    </div>
+    <div class="change-wrap">
+      <table class="change">
+        <thead>
+          <tr><th scope="col">Aujourd’hui</th><th scope="col">Avec KP Rück</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Tableau magnétique au mur</td><td>Tableau numérique sur chaque appareil</td></tr>
+          <tr><td>Notes téléphoniques sur des bouts de papier</td><td>Un formulaire d’annonce rattaché à l’intervention</td></tr>
+          <tr><td>Liste Excel pour l’effectif et les véhicules</td><td>Une vue en direct qui se tient à jour toute seule</td></tr>
+          <tr><td>Groupe WhatsApp pour les retours</td><td>Des annonces structurées avec photos</td></tr>
+          <tr><td>Rapport après l’intervention</td><td>Le rapport naît pendant l’intervention</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wrap" id="funktionen">
+    <div class="sec-head">
+      <p class="eyebrow">Étendue des fonctions</p>
+      <h2>Ce qu’il y a dedans.</h2>
+      <p>Né d’événements et d’exercices réels, pas d’une liste de fonctions. Tout ce qui vient de
+        l’extérieur – alarme, GPS, imprimante – est <strong>facultatif</strong> : KP Rück
+        fonctionne aussi entièrement sans ces raccordements.</p>
+    </div>
+    <div class="feature-cols">
+      <div class="fgroup">
+        <h3>Tableau &amp; engagement</h3>
+        <ul class="flist">
+          <li><strong>Les colonnes sont les phases de l’intervention</strong> – les cartes se déplacent de gauche à droite</li>
+          <li>Attribuer personnel, véhicules et matériel, avec avertissement en cas de double affectation</li>
+          <li>Priorités, durées et délais visibles par intervention</li>
+          <li>Missions : plusieurs interventions comme une tournée pour une équipe, ordre optimisé selon la distance d’une pression</li>
+          <li>Enregistrement par code QR – qui arrive s’annonce lui-même</li>
+          <li>Vue projecteur pour le mur du PC</li>
+          <li>Palette de commandes et raccourcis clavier pour aller vite</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Alarme &amp; annonces</h3>
+        <ul class="flist">
+          <li><strong>Interface ouverte</strong> – n’importe quel système d’engagement peut ouvrir des interventions</li>
+          <li>Peut reprendre les alarmes de Divera <span class="opt">facultatif</span></li>
+          <li>Formulaire d’annonce par lien ou QR, pour le téléphone et pour les gens qui se présentent</li>
+          <li>Réception dans un pool, reprise d’un clic</li>
+          <li>Alarmer l’effectif depuis le tableau <span class="opt">facultatif</span></li>
+          <li>Annonces de reconnaissance avec photos, directement depuis le téléphone privé</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Carte &amp; véhicules</h3>
+        <ul class="flist">
+          <li>Toutes les interventions par priorité et par statut sur une carte</li>
+          <li>Positions des véhicules par GPS <span class="opt">facultatif</span></li>
+          <li>Proposition de statut dès qu’un véhicule arrive sur les lieux</li>
+          <li>Les affectations comme une ligne – quel véhicule appartient à quelle intervention</li>
+          <li>Tuiles cartographiques aussi depuis votre propre serveur à la caserne</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Après &amp; exploitation</h3>
+        <ul class="flist">
+          <li><strong>Rapport d’intervention en PDF</strong> avec journal d’intervention et temps de réaction</li>
+          <li>Un procès-verbal continu qui ne fait que s’allonger et n’est jamais écrasé</li>
+          <li><strong>Espace d’administration propre</strong> à chaque corps : effectif, parc de véhicules, listes de matériel, types d’intervention et priorités</li>
+          <li>Import et export en Excel</li>
+          <li>Impression thermique à la caserne via un agent d’impression dédié <span class="opt">facultatif</span></li>
+          <li>Rôles : modifier ou seulement suivre, interface sombre pour le PC dans la pénombre</li>
+          <li>Mode exercice avec générateur et courses simulées, proprement séparé du cas réel</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sibling">
+    <div class="wrap">
+      <div class="sibling-txt">
+        <p class="eyebrow">Projet apparenté</p>
+        <h2>KP Rück garde la vue d’ensemble à l’arrière. KP Front conduit à l’avant.</h2>
+        <p><strong>KP Front</strong> reproduit sous forme numérique la carte de situation et la table
+          de conduite sur les lieux : signes conventionnels, plans d’objet et surveillance PR, même
+          sans réseau. Application distincte, même écriture – les deux peuvent se transmettre des
+          alarmes, mais n’ont pas besoin l’une de l’autre.</p>
+        <a class="btn btn-ghost" href="https://kp-front.ch">Découvrir KP Front<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="fragen">
+    <div class="sec-head">
+      <p class="eyebrow">Questions &amp; réponses</p>
+      <h2>Les questions les plus fréquentes.</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <h3>Pourquoi changer ?</h3>
+        <p>Plus de doubles affectations. Plus d’annonce qui se perd dans un groupe de discussion.
+          Moins de trafic radio pour des questions dont la réponse est déjà sur le tableau. Tout
+          le monde voit le même tableau de la situation au même moment – et le rapport
+          d’intervention est déjà là à la rentrée, au lieu du week-end suivant.</p>
+      </div>
+      <div class="faq-item">
+        <h3>À qui appartiennent les données ?</h3>
+        <p>À vous. Chaque corps exploite son propre KP Rück – sur sa propre machine à la caserne ou
+          dans le cloud. Vous décidez où se trouvent les données d’intervention, l’effectif et le
+          parc de véhicules ; rien ne part chez un fabricant ou chez des tiers.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Combien cela coûte-t-il ?</h3>
+        <p>Rien. KP Rück est open source (AGPL) – <strong>pas de licence, pas d’abonnement,
+          pas de coût par appareil</strong>. Restent vos propres frais d’exploitation : un petit
+          serveur ou une machine à la caserne.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Que faut-il pour l’exploiter ?</h3>
+        <p>Moins qu’on ne le croit. Un petit mini-PC ou serveur à la caserne suffit, l’installation
+          prend quelques heures. Ensuite, le système tourne largement tout seul, et les mises à
+          jour tiennent en un geste. Il faut quelqu’un qui l’installe une fois – dans le corps, à
+          la commune, ou une connaissance de l’informatique. Et si vous n’avez personne :
+          écrivez-nous, nous aidons à l’installation.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Peut-on l’adapter à nos procédures ?</h3>
+        <p>Oui. Chaque corps a son propre espace d’administration : types d’intervention,
+          priorités, effectif, parc de véhicules et listes de matériel y sont librement réglables,
+          l’import et l’export passent par Excel. Et comme tout le code est sur
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>,
+          tout le reste peut être construit – par vous-mêmes ou sur mandat.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Dans quelles langues l’application fonctionne-t-elle ?</h3>
+        <p>L’interface est aujourd’hui en <strong>allemand</strong>. La mécanique pour d’autres
+          langues est en place, les traductions manquent encore – cette page existe donc en
+          français, l’application pas encore. Qui veut aider à traduire est le bienvenu.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Comment commencer ?</h3>
+        <p>Par la <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">démo</a>,
+          sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode
+          exercice est proprement séparé du cas réel. Et si cela convient : écrivez-nous, nous
+          aidons à l’installation.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="kontakt">
+    <div class="contact-grid">
+      <div class="contact-side">
+        <p class="eyebrow">Contact</p>
+        <h2>Dites-nous ce que vous en pensez.</h2>
+        <p>Vous voulez essayer KP Rück chez vous ? Quelque chose manque, ou ne fonctionne pas
+          comme vous l’attendiez ? Écrivez-nous – nous lisons tout.</p>
+        <p class="alt">Pour les questions et les idées ouvertes, il y a les
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">discussions GitHub</a>.</p>
+      </div>
+      <div class="contact-ways">
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=bug_report.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Signaler une erreur</span>
+            <span class="way-s">Que s’est-il passé, et qu’attendiez-vous ? Les captures d’écran se glissent directement dans le formulaire.</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Proposer quelque chose</span>
+            <span class="way-s">Il manque un geste qui fait partie de vos procédures ? Décrivez le cas, pas la solution.</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <form class="way way-form" action="https://api.staticforms.dev/submit" method="POST">
+          <span class="way-ico"><svg class="ico"><use href="#i-mail"/></svg></span>
+          <div class="way-body">
+            <span class="way-t">Écrire directement</span>
+            <span class="way-s">Sans compte GitHub, ou si quelque chose ne doit pas être public – également pour «&nbsp;nous aimerions l’essayer chez nous&nbsp;».</span>
+            <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
+            <input type="hidden" name="subject" value="KP Rück – Landingpage (fr)">
+            <p class="hp"><label>Merci de laisser ce champ vide
+              <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
+            <div class="f-fields">
+              <div class="f-row">
+                <label class="f-lab" for="f-name">Nom</label>
+                <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Qui écrit ?">
+              </div>
+              <div class="f-row">
+                <label class="f-lab" for="f-mail">E-mail</label>
+                <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="Pour que nous puissions répondre">
+              </div>
+              <div class="f-row">
+                <label class="f-lab" for="f-msg">Message</label>
+                <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="De quoi s’agit-il ?"></textarea>
+              </div>
+            </div>
+            <button class="btn btn-primary f-send" type="submit">Envoyer le message</button>
+            <p class="f-note" role="status" hidden></p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-origin">Né du service opérationnel des <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">sapeurs-pompiers d’Oberwil BL</a> –
+      parce qu’en intervention nous avons vu revenir les mêmes sources d’erreur : doubles
+      affectations, informations éparpillées et erreurs de recopie à la main.
+      Chaque corps exploite son propre KP Rück, avec son effectif, ses véhicules et ses données.</p>
+    <div class="foot-row">
+      <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Démo</a>
+      <a href="https://kp-front.ch">KP Front</a>
+      <a href="#kontakt">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Scroll-Reveal: nur mit JS und ohne Reduced-Motion; bereits sichtbare
+  // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
+  document.documentElement.classList.add('js');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { rootMargin: '0px 0px -60px' });
+    els.forEach(function (el) {
+      el.classList.add('reveal');
+      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      else io.observe(el);
+    });
+  }
+
+  // Kontaktformular. Ohne JS bleibt es ein gewöhnlicher POST – der Absender
+  // landet dann auf der Bestätigungsseite des Dienstes. Mit JS senden wir im
+  // Hintergrund und bleiben auf der Seite. Der Honigtopf ist für Menschen
+  // unsichtbar: ist er ausgefüllt, war es ein Bot, und wir brechen still ab.
+  (function () {
+    var form = document.querySelector('.way-form');
+    if (!form || !window.fetch || !window.FormData) return;
+    var fields = form.querySelector('.f-fields');
+    var note = form.querySelector('.f-note');
+    var send = form.querySelector('.f-send');
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var hp = form.querySelector('input[name="website"]');
+      if (hp && hp.value) return;
+
+      send.disabled = true;
+      note.hidden = false;
+      note.className = 'f-note';
+      note.textContent = 'Envoi en cours …';
+
+      fetch(form.action, { method: 'POST', body: new FormData(form) })
+        .then(function (r) {
+          if (!r.ok) throw new Error(String(r.status));
+          fields.hidden = true;
+          send.hidden = true;
+          note.className = 'f-note ok';
+          note.textContent = 'Merci – le message est arrivé. Nous revenons vers vous.';
+        })
+        .catch(function () {
+          send.disabled = false;
+          note.className = 'f-note err';
+          note.textContent = 'Cela n’a pas fonctionné. Écrivez directement à bastian.eichenberger@feuerwehr-oberwil.ch.';
+        });
+    });
+  })();
+
+  // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
+  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
+  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  (function () {
+    var shots = [].slice.call(document.querySelectorAll('.shot'));
+    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+
+    var dlg = document.createElement('dialog');
+    dlg.className = 'lb';
+    dlg.innerHTML =
+      '<button class="lb-x" type="button" aria-label="Fermer">×</button>' +
+      '<button class="lb-nav lb-prev" type="button" aria-label="Image précédente">‹</button>' +
+      '<button class="lb-nav lb-next" type="button" aria-label="Image suivante">›</button>' +
+      '<figure class="lb-fig"><img alt=""><figcaption></figcaption></figure>';
+    document.body.appendChild(dlg);
+
+    var img = dlg.querySelector('.lb-fig img');
+    var cap = dlg.querySelector('.lb-fig figcaption');
+    var idx = 0;
+
+    var show = function (i) {
+      idx = (i + shots.length) % shots.length;
+      var s = shots[idx];
+      var src = s.querySelector('img');
+      img.src = src.src;
+      img.alt = src.alt;
+      cap.innerHTML = '<b>' + s.querySelector('.cap-t').textContent + '</b> – '
+        + s.querySelector('.cap-s').textContent;
+    };
+
+    shots.forEach(function (s, i) {
+      var im = s.querySelector('img');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'shot-zoom';
+      btn.setAttribute('aria-label', 'Agrandir: ' + s.querySelector('.cap-t').textContent);
+      im.parentNode.insertBefore(btn, im);
+      btn.appendChild(im);
+      btn.addEventListener('click', function () { show(i); dlg.showModal(); });
+    });
+
+    dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    // Klick auf den Hintergrund schliesst, ein Klick aufs Bild nicht.
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+    // Escape erledigt <dialog> selber; hier nur das Blättern.
+    dlg.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+    });
+  })();
+</script>

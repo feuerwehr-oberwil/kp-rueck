@@ -15,6 +15,19 @@ class AlarmSendError(Exception):
     """Sending failed at the provider (network, auth, rejected payload)."""
 
 
+class AlarmBlockedError(Exception):
+    """This deployment refuses to alert at all, whatever the settings say.
+
+    Deliberately NOT an AlarmSendError: nothing failed at the provider, we never went there,
+    and the existing ``except AlarmSendError`` blocks turn everything into a 502 "provider
+    failed" — which would send somebody debugging the alerting service at 02:00 over a policy
+    decision. Staying outside that hierarchy lets it travel to the single handler in
+    ``main.py`` that answers 403 with the reason, so no route needs its own check.
+
+    It is never a silent no-op. Whoever pressed the button is told nobody was alarmed.
+    """
+
+
 @dataclass
 class AlarmChannels:
     """Which delivery channels the operator selected."""

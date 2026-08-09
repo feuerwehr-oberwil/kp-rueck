@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { DemoBanner } from '@/components/demo-banner'
+import { DeploymentBanner } from '@/components/deployment-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
 import { IncidentTruncationBanner } from '@/components/incident-truncation-banner'
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
@@ -36,6 +37,7 @@ export function AppShell({ children }: AppShellProps) {
   if (isDocumentFlow) {
     return (
       <>
+        <DeploymentBanner />
         <DemoBanner />
         <StaleDataBanner />
         <IncidentTruncationBanner />

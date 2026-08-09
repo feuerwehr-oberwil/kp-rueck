@@ -76,6 +76,7 @@ import {
   type ApiDiveraMemberPreview,
   type ApiDiveraPollingStatus,
   type ApiIntegrations,
+  type ApiDeployment,
   type SendDiveraAlarmOptions,
   type ApiRekoDashboardPersonnelListResponse,
   type ApiRekoDashboardAssignmentsResponse,
@@ -1970,6 +1971,22 @@ class ApiClient {
     return this.request<void>(url, {
       method: 'DELETE',
     })
+  }
+
+  /**
+   * What this deployment is allowed to do to the outside world.
+   *
+   * Public, and read at runtime rather than baked in at build time: the same image runs in
+   * production and on staging, so the role can only come from the server it is talking to.
+   * Returns null when the backend cannot be reached — the caller then assumes production,
+   * which changes nothing on screen.
+   */
+  async getDeployment(): Promise<ApiDeployment | null> {
+    try {
+      return await this.request<ApiDeployment>('/api/deployment', { skipToast: true })
+    } catch {
+      return null
+    }
   }
 
   // Demo Mode

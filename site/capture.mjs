@@ -10,7 +10,8 @@
  * Fährt eine echte Instanz mit Playwright an, meldet sich als Editor an, schaltet
  * auf das dunkle Board-Theme, blendet Demo-Chrome (Willkommensdialog, DEMO-Banderole,
  * Toasts) aus und legt die Bilder in site/shots/ ab. Die Bildnamen sind der Vertrag
- * mit site/index.html – wer hier umbenennt, muss dort mitziehen.
+ * mit `shots.items` in site/content/de.json – wer hier umbenennt, muss dort
+ * mitziehen (nur dort: die Übersetzungen erben den Dateinamen und beschriften bloss).
  *
  * Gegen eine nicht-öffentliche Instanz: KP_RUECK_USER / KP_RUECK_PASS setzen.
  */
@@ -49,7 +50,7 @@ const docsOnly = argv.includes('--docs-only')
 // Auflösung der Aufnahme. 1 reicht für die Landingpage (sie bindet die Bilder inline ein,
 // Seitengewicht zählt dort). Die README-Bilder werden auf GitHub auf Retina-Displays
 // betrachtet und wurden früher von Hand mit 2x geschossen — darum `--scale 2` für den
-// docs-Durchgang. Die width/height-Attribute in index.html bleiben davon unberührt.
+// docs-Durchgang. Die width/height-Angaben in content/de.json bleiben davon unberührt.
 const scale = Number(arg('scale') || 1)
 
 /** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.). */

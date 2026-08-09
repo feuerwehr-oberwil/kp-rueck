@@ -693,6 +693,14 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
+      # GitHub Pages serves site/ verbatim, so the generated pages are committed.
+      # This fails if index.html / fr/index.html are behind the template or the
+      # texts – otherwise the site in the repo stops being the site on the web.
+      # Plain node, no install: build.mjs has no dependencies.
+      - name: Landing page is built from its sources
+        working-directory: ${{ github.workspace }}
+        run: node site/build.mjs --check
+
   # ============================================
   # E2E — the @smoke subset only.
   #

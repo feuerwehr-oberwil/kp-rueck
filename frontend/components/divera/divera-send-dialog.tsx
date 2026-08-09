@@ -27,6 +27,7 @@ import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
+import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import { toast } from "sonner"
 
 interface DiveraSendDialogProps {
@@ -43,8 +44,14 @@ interface Recipient {
 
 export function DiveraSendDialog({ open, onOpenChange, operation, materials }: DiveraSendDialogProps) {
   const t = useTranslations("divera.sendDialog")
+  const tBlocked = useTranslations("common.deploymentBlocked")
   const { personnel } = usePersonnel()
   const { selectedEvent } = useEvent()
+  // A deployment role can refuse to alert at all (staging runs on a copy of the production
+  // database, so the settings toggle says nothing). Show the lock rather than a button that
+  // silently 403s.
+  const alerting = useDeploymentBlock("alerting")
+  const blockedReason = alerting.blocked ? tBlocked("alerting", { label: alerting.label ?? "" }) : null
 
   // Recipients = the incident's assigned crew (pre-selected) plus the drivers of
   // its assigned vehicles (listed, but NOT pre-selected).
@@ -184,6 +191,15 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
         </DialogHeader>
 
         <div className="space-y-4">
+          {blockedReason && (
+            <p
+              role="note"
+              className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
+            >
+              {blockedReason}
+            </p>
+          )}
+
           {/* Recipients */}
           <div className="space-y-1.5">
             <Label className="text-xs tracking-wide text-muted-foreground">
@@ -275,7 +291,11 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
               {t("cancel")}
             </Button>
-            <Button onClick={handleSend} disabled={isSending || selectedLinkedCount === 0 || !templatesReady}>
+            <Button
+              onClick={handleSend}
+              title={blockedReason ?? undefined}
+              disabled={Boolean(blockedReason) || isSending || selectedLinkedCount === 0 || !templatesReady}
+            >
               {isSending ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (

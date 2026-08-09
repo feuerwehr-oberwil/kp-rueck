@@ -21,7 +21,7 @@ from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
-from ..services import alerting, divera_alarm, incident_display
+from ..services import alerting, incident_display
 from ..services import settings as settings_service
 from ..services.audit import log_action
 from ..services.divera_intake import (
@@ -764,8 +764,13 @@ async def send_test_alarm(
     Used from Settings to verify the Divera connection. Same gating as a real
     alarm minus the incident/training checks. Targets the chosen Divera user
     directly, so it works before any local personnel are linked.
+
+    Goes through the AlarmProvider seam rather than calling the Divera client
+    directly, so the one place that can refuse to alert (deployment role) covers
+    the test button too — a test alarm is a real push to a real phone.
     """
-    if not settings.divera_access_key:
+    provider = alerting.get_provider()
+    if provider is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Divera access key not configured",
@@ -793,14 +798,14 @@ async def send_test_alarm(
     await db.commit()
 
     try:
-        data = await divera_alarm.send_alarm(
-            user_cluster_relation=[request_data.divera_user_id],
+        result = await provider.send_alarm(
+            external_ids=[str(request_data.divera_user_id)],
             title="KP-Rück Test",
             text="Testalarm – bitte ignorieren. Verifiziert die Divera-Anbindung.",
             foreign_id=foreign_id,
-            send_push=True,
+            channels=alerting.AlarmChannels(push=True),
         )
-    except divera_alarm.DiveraAlarmError as e:
+    except alerting.AlarmSendError as e:
         logger.error("Divera test alarm failed: %s", e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
@@ -810,14 +815,14 @@ async def send_test_alarm(
         resource_type="settings",
         resource_id=None,
         user=current_user,
-        changes={"divera_user_id": request_data.divera_user_id, "divera_alarm_id": data.get("id")},
+        changes={"divera_user_id": request_data.divera_user_id, "divera_alarm_id": result.provider_alarm_id},
         request=request,
     )
 
     return schemas.DiveraAlarmResponse(
         success=True,
         foreign_id=foreign_id,
-        divera_alarm_id=data.get("id"),
+        divera_alarm_id=result.provider_alarm_id,
         sent=[
             schemas.DiveraAlarmRecipient(
                 personnel_id=None,  # no local person — direct Divera target
@@ -825,7 +830,7 @@ async def send_test_alarm(
                 divera_user_id=request_data.divera_user_id,
             )
         ],
-        count_recipients=data.get("count_recipients"),
+        count_recipients=result.count_recipients,
     )
 
 

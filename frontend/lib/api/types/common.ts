@@ -73,6 +73,22 @@ export interface ApiProviderCapability {
   display_name: string | null
   configured: boolean
   capabilities: string[]
+  /** True when the deployment role refuses this domain outright. Orthogonal to `configured`:
+   *  a staging copy is fully configured for alerting and still will not send. */
+  blocked: boolean
+  /** German sentence naming why, when `blocked`. */
+  blocked_reason: string | null
+}
+
+/** What this instance may do to the outside world (GET /api/deployment, backend
+ *  `app/environment.py`). Set by the DEPLOYMENT_ROLE variable, deliberately not by a
+ *  setting — staging runs on a copy of the production database. */
+export interface ApiDeployment {
+  role: string
+  /** Short German label for a non-production role ("Staging – Übungssystem"), else null. */
+  label: string | null
+  /** Effect domains this role refuses ("alerting", "sync"). Empty on production. */
+  blocked_domains: string[]
 }
 
 /** One provider this build knows about, whether or not this station uses it. `implemented`
@@ -101,4 +117,6 @@ export interface ApiIntegrations {
   builtin_alarm_paths: string[]
   /** Every provider this build knows about — the domains above say which one is active. */
   known_providers: ApiKnownProvider[]
+  /** What this instance may do to the outside world, whatever the database says. */
+  deployment: ApiDeployment
 }

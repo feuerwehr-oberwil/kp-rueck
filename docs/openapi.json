@@ -46,6 +46,26 @@
         }
       }
     },
+    "/api/deployment": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Deployment Info",
+        "description": "What this instance is allowed to do to the outside world (see app/environment.py).\n\nUnauthenticated on purpose. The band that says *Staging – Übungssystem* has to be on the\nlogin screen and on the public phone forms too — the tab you mistake at 02:00 is usually\nthe one you have not logged into yet. It exposes a role name and nothing else.\n\nThe same answer is embedded in ``/api/integrations`` per domain; this is the small public\nversion the frontend shell asks for on every page.",
+        "operationId": "deployment_info_api_deployment_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/demo/status": {
       "get": {
         "tags": [
@@ -2290,7 +2310,7 @@
           "divera"
         ],
         "summary": "Send Test Alarm",
-        "description": "Send a setup test alarm (push only) to a single Divera member.\n\nUsed from Settings to verify the Divera connection. Same gating as a real\nalarm minus the incident/training checks. Targets the chosen Divera user\ndirectly, so it works before any local personnel are linked.",
+        "description": "Send a setup test alarm (push only) to a single Divera member.\n\nUsed from Settings to verify the Divera connection. Same gating as a real\nalarm minus the incident/training checks. Targets the chosen Divera user\ndirectly, so it works before any local personnel are linked.\n\nGoes through the AlarmProvider seam rather than calling the Divera client\ndirectly, so the one place that can refuse to alert (deployment role) covers\nthe test button too — a test alarm is a real push to a real phone.",
         "operationId": "send_test_alarm_api_divera_test_alarm_post",
         "parameters": [
           {
@@ -16937,6 +16957,38 @@
         "title": "DangersAssessment",
         "description": "Structured danger checklist."
       },
+      "DeploymentRole": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "blocked_domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Domains"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "DeploymentRole",
+        "description": "What this instance is allowed to do to the outside world (see app/environment.py)."
+      },
       "DiveraAlarmRecipient": {
         "properties": {
           "personnel_id": {
@@ -20537,6 +20589,9 @@
             },
             "type": "array",
             "title": "Known Providers"
+          },
+          "deployment": {
+            "$ref": "#/components/schemas/DeploymentRole"
           }
         },
         "type": "object",
@@ -22596,6 +22651,22 @@
             },
             "type": "array",
             "title": "Capabilities"
+          },
+          "blocked": {
+            "type": "boolean",
+            "title": "Blocked",
+            "default": false
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
           }
         },
         "type": "object",

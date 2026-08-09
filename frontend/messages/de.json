@@ -1,5 +1,13 @@
 {
   "common": {
+    "deploymentBanner": {
+      "ariaLabel": "{label} – dieses System wirkt nicht nach aussen",
+      "hint": "Es wird niemand alarmiert."
+    },
+    "deploymentBlocked": {
+      "alerting": "Ausalarmierung ist auf diesem System gesperrt ({label}). Es wird niemand alarmiert.",
+      "sync": "Datenabgleich mit einem anderen System ist auf diesem System gesperrt ({label})."
+    },
     "demoBanner": {
       "resettingTitle": "Demo wird zurückgesetzt...",
       "resettingDescription": "Die Seite wird in wenigen Sekunden neu geladen.",

@@ -30,6 +30,30 @@ will keep holding.
 
 ### Added
 
+- **The landing page speaks French, and it is generated rather than written twice.**
+  `site/index.html` used to be the page; it is now the *output* of `site/index.template.html`
+  plus one text file per language (`site/content/de.json`, `fr.json`). German is the base and
+  every other language is laid over it, so a translation writes only what it translates, a gap
+  falls back to German *visibly*, and `build.mjs` prints the coverage after every run. A third
+  language is one entry in `content/config.json` and one file in `content/`; the template does
+  not change. The switcher is two plain text links (no flags, no dropdown, no cookie, and
+  deliberately **no `Accept-Language` redirect**), with `hreflang` alternates both ways and a
+  per-language `canonical`.
+  This is **one** piece of work across both repos, not two: `site/build.mjs` and `site/landing.css`
+  are byte-identical with kp-front, and duplicating either would drift on every design change.
+  ⚠️ **The built pages are committed**, because GitHub Pages serves `site/` verbatim: the page in
+  the repo *is* the page on the web. `node site/build.mjs --check` runs in `frontend-build` so a
+  stale build fails loudly instead of silently serving yesterday's text.
+  ⚠️ **The French page says twice, in plain words, that the app itself does not speak French yet**
+  (`frontend/messages/fr.json` is still `{}` – plan 06). Both spots are named in `site/README.md`
+  so they get corrected when plan 06 lands, rather than promising an interface that does not
+  exist. It also carries a visible line saying no French-speaking firefighter has read the
+  translation yet – that line comes off when somebody has, and it is the same reviewer plan 06
+  needs.
+  French terminology follows the **CSSP** (the FKS's French name) rather than French-from-France
+  usage: *signes conventionnels* not *signes tactiques*, *équipe* not *binôme*, *surveillance PR*
+  not *surveillance ARI*, *assistance technique* not *secours techniques*.
+
 - **Schadenplatz-Rapport — the paper `fahrzeugrapport.pdf` becomes a form on the phone.** A crew
   opens `/feld`, taps its Schadenplatz and fills the slip: damage type, start/end of work, the
   Kurzbericht, "übergeben an", the owner block and the Kostenpflicht counts. The draft survives
