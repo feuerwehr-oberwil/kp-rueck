@@ -385,6 +385,91 @@ async def create_public_incident(
     return db_incident
 
 
+async def _apply_completion_release(
+    db: AsyncSession,
+    incident: Incident,
+    transition: StatusTransition,
+    current_user: User,
+    request: Request | None,
+) -> None:
+    """Completion's release side effects, recorded on the transition that caused them.
+
+    Releases personnel and vehicles (materials stay — they may be on site) and,
+    when this was the Auftrag's last open stop, the route's shared resources. It
+    freezes the Einsatzleiter of record before releasing anyone: after that call
+    nothing else knows who led the incident.
+
+    Everything it closed is written to ``transition.released_assignments_json``.
+    That record is what makes the move undoable — see ``_undo_completion_release``.
+    """
+    from . import assignments as assignments_crud
+    from . import group_assignments as group_assignments_crud
+
+    released = await assignments_crud.auto_release_incident_resources(
+        db=db,
+        incident_id=incident.id,
+        current_user=current_user,
+        request=request,
+        exclude_materials=True,
+    )
+
+    group_released, group_entries = await group_assignments_crud.auto_release_group_resources_if_last_stop(
+        db=db, incident=incident, current_user=current_user, request=request
+    )
+    incident.group_resources_released = group_released
+
+    transition.released_assignments_json = released + group_entries or None
+
+
+async def _undo_completion_release(
+    db: AsyncSession,
+    incident: Incident,
+    current_user: User,
+    request: Request | None,
+) -> None:
+    """Leaving ``complete`` puts the crew back.
+
+    Completing an incident empties its card — every person and every vehicle is
+    released, and the Auftrag's squad with them on the last stop. Until this
+    existed, reverting the move (the Abbrechen of any completion gate, or simply
+    dragging the card back out of Abgeschlossen) restored the status and nothing
+    else: the incident reappeared with no crew, no vehicles, no Einsatzleiter, and
+    the operator had to rebuild it from memory.
+
+    It runs inside the same transaction as the status change, which is the whole
+    point of doing it here rather than as a second call from the browser: there is
+    no window in which the incident is open again but its crew is still released.
+
+    Only the most recent completion is undone, and only once — its record is
+    cleared as it is consumed, so a later reopen cannot replay it.
+    """
+    from . import assignments as assignments_crud
+    from . import group_assignments as group_assignments_crud
+
+    result = await db.execute(
+        select(StatusTransition)
+        .where(
+            StatusTransition.incident_id == incident.id,
+            StatusTransition.to_status == "complete",
+            StatusTransition.released_assignments_json.isnot(None),
+        )
+        .order_by(StatusTransition.timestamp.desc())
+        .limit(1)
+    )
+    completion = result.scalar_one_or_none()
+    if completion is None:
+        return
+
+    entries = completion.released_assignments_json
+    await assignments_crud.restore_released_assignments(db, entries, current_user, request)
+    group_restored = await group_assignments_crud.restore_released_group_resources(db, entries, current_user, request)
+    completion.released_assignments_json = None
+    # Same flag the release sets: it is what makes the caller broadcast the
+    # Auftrag, and the route's card changed here just as much as it did there.
+    incident.group_resources_released = group_restored > 0
+    await db.flush()
+
+
 async def update_incident(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -465,29 +550,10 @@ async def update_incident(
         # Entering complete always runs release side effects, even after reopening.
         if incident.status == "complete":
             incident.completed_at = datetime.utcnow()
-
-            # Automatically release personnel and vehicles (but keep materials).
-            # It freezes the Einsatzleiter of record before it releases anyone —
-            # after this call nothing knows who led the incident any more.
-            from . import assignments as assignments_crud
-
-            await assignments_crud.auto_release_incident_resources(
-                db=db,
-                incident_id=incident.id,
-                current_user=current_user,
-                request=request,
-                exclude_materials=True,
-            )
-
-            # Route resources belong to the Auftrag: release them only when this
-            # was the last still-open stop of the group.
-            from . import group_assignments as group_assignments_crud
-
-            incident.group_resources_released = await group_assignments_crud.auto_release_group_resources_if_last_stop(
-                db=db, incident=incident, current_user=current_user, request=request
-            )
+            await _apply_completion_release(db, incident, transition, current_user, request)
         elif old_status == "complete":
             incident.completed_at = None
+            await _undo_completion_release(db, incident, current_user, request)
 
     # Capture after state
     after_state = {
@@ -578,33 +644,9 @@ async def update_incident_status(
     incident.status = new_status
     incident.updated_at = datetime.utcnow()
 
-    # Entering complete always runs release side effects, even after reopening.
-    if new_status == "complete" and old_status != "complete":
-        incident.completed_at = datetime.utcnow()
-
-        # Automatically release personnel and vehicles (but keep materials).
-        # Freezes the Einsatzleiter of record first — see there.
-        from . import assignments as assignments_crud
-
-        await assignments_crud.auto_release_incident_resources(
-            db=db,
-            incident_id=incident_id,
-            current_user=current_user,
-            request=request,
-            exclude_materials=True,
-        )
-
-        # Route resources belong to the Auftrag: release them only when this was
-        # the last still-open stop of the group.
-        from . import group_assignments as group_assignments_crud
-
-        incident.group_resources_released = await group_assignments_crud.auto_release_group_resources_if_last_stop(
-            db=db, incident=incident, current_user=current_user, request=request
-        )
-    elif old_status == "complete":
-        incident.completed_at = None
-
-    # Create status transition record
+    # Create status transition record. It is written BEFORE the release below so
+    # the release has a transition to hang its record on — undoing a completion
+    # means undoing exactly what THAT completion closed.
     transition = StatusTransition(
         incident_id=incident.id,
         from_status=old_status,
@@ -613,6 +655,14 @@ async def update_incident_status(
         notes=notes,
     )
     db.add(transition)
+
+    # Entering complete always runs release side effects, even after reopening.
+    if new_status == "complete" and old_status != "complete":
+        incident.completed_at = datetime.utcnow()
+        await _apply_completion_release(db, incident, transition, current_user, request)
+    elif old_status == "complete":
+        incident.completed_at = None
+        await _undo_completion_release(db, incident, current_user, request)
 
     # Log to audit
     await log_action(

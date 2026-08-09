@@ -17,8 +17,6 @@ import type {
 
 /** The form's own state — flat, all strings where the input is a string. */
 export interface RapportFormData {
-  work_started_at: string | null
-  work_ended_at: string | null
   materials: ApiRapportMaterialRow[]
   vehicles: ApiRapportVehicleRow[]
   extra_material_note: string
@@ -29,8 +27,6 @@ export interface RapportFormData {
 }
 
 export const EMPTY_RAPPORT_FORM: RapportFormData = {
-  work_started_at: null,
-  work_ended_at: null,
   materials: [],
   vehicles: [],
   extra_material_note: '',
@@ -43,8 +39,6 @@ export const EMPTY_RAPPORT_FORM: RapportFormData = {
 /** The server's answer as the form holds it. */
 export function toFormData(rapport: ApiSchadenplatzRapport): RapportFormData {
   return {
-    work_started_at: rapport.work_started_at,
-    work_ended_at: rapport.work_ended_at,
     materials: rapport.materials,
     vehicles: rapport.vehicles,
     extra_material_note: rapport.extra_material_note ?? '',
@@ -57,15 +51,20 @@ export function toFormData(rapport: ApiSchadenplatzRapport): RapportFormData {
 
 /** Has anybody actually typed anything? Ticks count; a prefilled list does not. */
 export function hasContent(form: RapportFormData): boolean {
+  // Every field is read defensively: this also runs against whatever a phone
+  // put in localStorage weeks ago, and the form has already lost a Schadensart,
+  // a vehicle count and five owner inputs. A draft from an older shape must
+  // open as an empty form, never as "Rapport konnte nicht geladen werden".
+  const text = (value: string | null | undefined): string => (value ?? '').trim()
   return Boolean(
-    form.kurzbericht.trim() ||
-      form.handed_over_to.trim() ||
-      form.extra_material_note.trim() ||
-      form.owner_note.trim() ||
-      form.materials.some(row => row.used !== null || row.left_on_site) ||
+    text(form.kurzbericht) ||
+      text(form.handed_over_to) ||
+      text(form.extra_material_note) ||
+      text(form.owner_note) ||
+      (form.materials ?? []).some(row => row.used !== null || row.left_on_site) ||
       // The vehicle list arrives all-ticked, so only an UNticked row is
       // evidence that somebody answered it.
-      form.vehicles.some(row => !row.present),
+      (form.vehicles ?? []).some(row => !row.present),
   )
 }
 
@@ -102,6 +101,7 @@ export function mergeDraft(
   // back onto the rows that still exist.
   return {
     form: {
+      ...EMPTY_RAPPORT_FORM,
       ...local.data,
       materials: mergeMaterialTicks(server.materials, local.data.materials),
       vehicles: mergeVehicleTicks(server.vehicles, local.data.vehicles ?? []),
@@ -158,8 +158,6 @@ export function toUpdate(form: RapportFormData, isDraft: boolean): ApiRapportUpd
   const text = (value: string): string | null => (value.trim() ? value.trim() : null)
   return {
     is_draft: isDraft,
-    work_started_at: form.work_started_at,
-    work_ended_at: form.work_ended_at,
     materials: form.materials.map(row => ({
       assignment_id: row.assignment_id,
       used: row.used,

@@ -271,10 +271,6 @@ class RapportPrefill(BaseModel):
     melder_street: str | None = None
     melder_city: str | None = None
     board_personnel_count: int = 0
-    # The prefill defaults for the two time fields, kept separate from the
-    # stored values so the form can tell "board says" from "crew typed".
-    default_work_started_at: datetime | None = None
-    default_work_ended_at: datetime | None = None
     # Names from the material catalogue for the "Weiteres Material" autosuggest.
     # A naming aid, nothing else: it deliberately carries NO ids, precisely so no
     # client can turn it into a picker. `/feld` must never write an assignment —
@@ -295,9 +291,9 @@ class SchadenplatzRapport(BaseModel):
     is_draft: bool = True
     submitted_at: datetime | None = None
 
-    work_started_at: datetime | None = None
-    work_ended_at: datetime | None = None
-
+    # No Beginn/Ende Tätigkeit: the crew never told the board anything it did not
+    # already know, so the window is derived at output time instead of typed in
+    # the field. See the model.
     materials: list[RapportMaterialRow] = []
     # Prefilled from the board's vehicle assignments, all ticked. The crew
     # unticks what was not actually there.
@@ -347,9 +343,6 @@ class RapportUpdate(BaseModel):
     # True = autosave, False = "Rapport abschliessen": stamps `submitted_at`,
     # freezes `cost_snapshot_json` and emits `rapport_submitted`.
     is_draft: bool = True
-
-    work_started_at: datetime | None = None
-    work_ended_at: datetime | None = None
 
     materials: list[RapportMaterialUpdate] | None = None
     vehicles: list[RapportVehicleUpdate] | None = None
@@ -441,3 +434,26 @@ class MaterialReturnUnit(BaseModel):
     name: str
     location: str | None = None
     used: bool | None = None
+    # Did the crew actually say something about this unit? An unanswered row
+    # lands in ``returned`` because *not marked as left on site* is its default,
+    # which is right for the release list and wrong for the completion gate: the
+    # gate prefills from the rapport and still has to ask about the rest.
+    answered: bool = False
+
+
+class MaterialReturnResponse(BaseModel):
+    """Everything the board needs to stop asking the crew's question twice.
+
+    The two lists are the release view (decision 17). The attribution is what the
+    completion gate puts over the answers it prefilled — "aus dem Rapport von
+    Muster Hans" — so the operator confirms somebody's word instead of a dialog
+    that decided by itself.
+    """
+
+    returned: list[MaterialReturnUnit] = []
+    # Listed separately and deliberately NOT in the release set (decision 15).
+    left_on_site: list[MaterialReturnUnit] = []
+    # None while no rapport has been submitted; then there is nothing to prefill
+    # from and the gate asks from scratch, exactly as it always did.
+    rapport_by: str | None = None
+    rapport_submitted_at: datetime | None = None

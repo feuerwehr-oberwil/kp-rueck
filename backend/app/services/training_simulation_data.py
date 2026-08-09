@@ -4,7 +4,6 @@ import random
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from typing import Any
 
 # Danger profiles per incident type: which dangers are likely and their probability
@@ -1084,7 +1083,6 @@ class RapportSimProfile:
     personnel_count_corrected: float = 0.10
     # Per vehicle: the crew unticking one the board thought was there.
     vehicle_absent: float = 0.10
-    times_adjusted: float = 0.10
     # Decision 22 briefs the Einsatzleiter without enforcing them, so the EL
     # files most of the rapports but by no means all of them.
     filed_by_leader: float = 0.70
@@ -1339,8 +1337,6 @@ def generate_rapport_data(
     materials: Sequence[Mapping[str, Any]],
     vehicles: Sequence[Mapping[str, Any]],
     board_personnel_count: int,
-    default_work_started_at: datetime | None,
-    default_work_ended_at: datetime | None,
     rng: random.Random,
     profile: RapportSimProfile = RAPPORT_SIM_PROFILE,
 ) -> dict[str, Any]:
@@ -1348,10 +1344,11 @@ def generate_rapport_data(
 
     Only the keys the simulated crew actually filled in are returned: the upsert
     writes exactly the fields present in the payload, so an omitted key leaves
-    the derived default in place — which is precisely what "die Crew hat das
-    Feld nicht angefasst" means. The times and the head count are therefore sent
-    **only when the crew changed them by hand**, which is what makes the
-    `korrigiert` marker mean something in the export.
+    the stored value alone — which is precisely what "die Crew hat das Feld nicht
+    angefasst" means. The head count is therefore sent **only when the crew
+    changed it by hand**, which is what makes the `korrigiert` marker mean
+    something in the export. Beginn/Ende Tätigkeit are not generated at all any
+    more: no crew types them, the outputs derive them from the board.
 
     ``rng`` is injected rather than taken from the module, so a test can seed it
     and assert the rules instead of a distribution.
@@ -1421,12 +1418,6 @@ def generate_rapport_data(
         owner_lines.append(f"BL {rng.randint(10000, 999999)} {rng.choice(_RAPPORT_VEHICLE_MODELS)}")
     if owner_lines:
         data["owner_note"] = "\n".join(owner_lines)
-
-    if rng.random() < profile.times_adjusted:
-        if default_work_started_at is not None:
-            data["work_started_at"] = default_work_started_at - timedelta(minutes=rng.randint(10, 20))
-        if default_work_ended_at is not None:
-            data["work_ended_at"] = default_work_ended_at + timedelta(minutes=rng.randint(10, 20))
 
     if rng.random() < profile.personnel_count_corrected:
         data["personnel_count"] = max(0, board_personnel_count + rng.choice([-1, 1]))

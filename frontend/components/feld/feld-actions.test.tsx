@@ -63,6 +63,21 @@ function render(overrides: Partial<ApiFeldAssignment> = {}, onReported = vi.fn()
   return onReported
 }
 
+/**
+ * The two irreversible reports ask first (§18.18) — from the field neither can
+ * be taken back, only the KP can clear them. Every test that wants the report
+ * itself goes through the question, exactly as a thumb does.
+ */
+async function confirmArrived(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /Angekommen/ }))
+  await user.click(screen.getByRole('button', { name: 'Ja, angekommen' }))
+}
+
+async function confirmComplete(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /Einsatz beendet/ }))
+  await user.click(screen.getByRole('button', { name: 'Ja, beendet' }))
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   feldReportArrived.mockResolvedValue(STATE)
@@ -75,8 +90,21 @@ describe('Angekommen', () => {
   it('reports once and then locks the button', async () => {
     const user = userEvent.setup()
     render()
-    await user.click(screen.getByRole('button', { name: /Angekommen/ }))
+    await confirmArrived(user)
     await waitFor(() => expect(feldReportArrived).toHaveBeenCalledWith('inc-1', 'p-1', 'tok'))
+  })
+
+  it('asks before it reports — a mistap in the rain sends nothing', async () => {
+    const user = userEvent.setup()
+    render()
+
+    await user.click(screen.getByRole('button', { name: /Angekommen/ }))
+    expect(screen.getByText('Angekommen melden?')).toBeInTheDocument()
+    expect(feldReportArrived).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    expect(screen.queryByText('Angekommen melden?')).not.toBeInTheDocument()
+    expect(feldReportArrived).not.toHaveBeenCalled()
   })
 
   it('is already done when the crew reported it before', () => {
@@ -91,7 +119,7 @@ describe('the Abholung follow-up (decision 24)', () => {
     render()
     expect(screen.queryByText('Kommt ihr selbst zurück?')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /Einsatz beendet/ }))
+    await confirmComplete(user)
 
     await waitFor(() => expect(screen.getByText('Kommt ihr selbst zurück?')).toBeInTheDocument())
   })
@@ -103,7 +131,7 @@ describe('the Abholung follow-up (decision 24)', () => {
     const user = userEvent.setup()
     render()
 
-    await user.click(screen.getByRole('button', { name: /Einsatz beendet/ }))
+    await confirmComplete(user)
 
     await waitFor(() => expect(screen.getByText(/nicht gesendet werden/)).toBeInTheDocument())
     expect(screen.queryByText('Kommt ihr selbst zurück?')).not.toBeInTheDocument()
@@ -112,7 +140,7 @@ describe('the Abholung follow-up (decision 24)', () => {
   it('"Wir fahren selbst" clears the flag and closes the question', async () => {
     const user = userEvent.setup()
     render()
-    await user.click(screen.getByRole('button', { name: /Einsatz beendet/ }))
+    await confirmComplete(user)
     await waitFor(() => expect(screen.getByText('Kommt ihr selbst zurück?')).toBeInTheDocument())
 
     await user.click(screen.getByRole('button', { name: 'Wir fahren selbst' }))
@@ -124,7 +152,7 @@ describe('the Abholung follow-up (decision 24)', () => {
   it('"Wir müssen abgeholt werden" sends the flag with the note', async () => {
     const user = userEvent.setup()
     render()
-    await user.click(screen.getByRole('button', { name: /Einsatz beendet/ }))
+    await confirmComplete(user)
     await waitFor(() => expect(screen.getByText('Kommt ihr selbst zurück?')).toBeInTheDocument())
 
     await user.type(screen.getByPlaceholderText(/Notiz/), '3 Personen')
@@ -133,6 +161,22 @@ describe('the Abholung follow-up (decision 24)', () => {
     await waitFor(() =>
       expect(feldReportPickup).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', true, '3 Personen'),
     )
+  })
+})
+
+describe('Einsatz beendet', () => {
+  it('asks before it reports, and cancelling sends nothing', async () => {
+    const user = userEvent.setup()
+    render()
+
+    await user.click(screen.getByRole('button', { name: /Einsatz beendet/ }))
+    expect(screen.getByText('Einsatz beendet melden?')).toBeInTheDocument()
+    expect(feldReportComplete).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    expect(feldReportComplete).not.toHaveBeenCalled()
+    // …and the Abholung question never opens off an unsent report.
+    expect(screen.queryByText('Kommt ihr selbst zurück?')).not.toBeInTheDocument()
   })
 })
 
@@ -216,7 +260,7 @@ describe('delivery feedback (a phone on a bad connection)', () => {
   it('confirms Angekommen too, not just the free text', async () => {
     const user = userEvent.setup()
     render()
-    await user.click(screen.getByRole('button', { name: /Angekommen/ }))
+    await confirmArrived(user)
     await waitFor(() => expect(screen.getByText(/«Angekommen» ist beim KP angekommen/)).toBeInTheDocument())
   })
 

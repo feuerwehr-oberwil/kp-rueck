@@ -809,9 +809,12 @@ class SchadenplatzReport(Base):
     )
 
     # --- Einsatzdaten ---
-    # Derived on first open from the arrival ping / status transitions, then editable.
-    work_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    work_ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # There is deliberately no Beginn/Ende Tätigkeit here. The two timestamps were
+    # asked of the crew and then never disagreed with the board: the window is
+    # already implied by the arrival, the status transitions and the field's
+    # "beendet" message, so every output derives it instead
+    # (`services.pdf_report_service.rapport_work_windows`). Typing in the rain what
+    # the board already knows is the one cost a field form must not have.
     # Material checklist. One entry per material unit that was assigned to this
     # incident, carried over from incident_assignments on first open:
     #   {"assignment_id": ..., "material_id": ..., "name": "Tauchpumpe TP-4",
@@ -919,6 +922,21 @@ class StatusTransition(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     user_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What THIS transition released, so leaving the status again can put it back.
+    #
+    # Only completion writes it: moving to `complete` auto-releases the whole crew
+    # and every vehicle (`auto_release_incident_resources`), plus the Auftrag's
+    # shared resources when this was the last stop. Reopening the incident used to
+    # leave all of that released — the board came back with an empty card. Undoing
+    # a release needs to know WHICH rows that particular completion closed, and
+    # nothing else in the schema can answer it: `unassigned_at` is a timestamp
+    # shared with every ordinary release, and by the time the incident reopens the
+    # `is_leader` flag is gone from every row.
+    #
+    # Shape: [{"kind": "incident"|"group", "id": "<assignment uuid>",
+    #          "was_leader": bool}, ...]. Cleared when consumed, so a second
+    # reopen cannot replay a restore that already happened.
+    released_assignments_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="status_transitions")

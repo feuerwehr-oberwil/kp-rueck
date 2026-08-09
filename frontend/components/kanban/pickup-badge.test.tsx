@@ -55,6 +55,42 @@ describe('the Abholung chip', () => {
     await waitFor(() => expect(onCleared).toHaveBeenCalled())
   })
 
+  it('never reaches the card it sits in — not the chip, not the dialog', async () => {
+    const user = userEvent.setup()
+    // The kanban card is a click target that opens the incident. The chip and
+    // its confirmation both live inside it; the dialog is a PORTAL in the DOM
+    // but still a child in the React tree, which is how the confirm click used
+    // to open the card behind it.
+    const cardClicked = vi.fn()
+    renderWithIntl(
+      <div onClick={cardClicked}>
+        <PickupBadge requestedAt={REQUESTED} incidentId="inc-1" />
+      </div>,
+    )
+
+    await user.click(screen.getByRole('button'))
+    expect(cardClicked).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Abholung erledigt' }))
+    await waitFor(() => expect(setIncidentFieldReport).toHaveBeenCalled())
+    expect(cardClicked).not.toHaveBeenCalled()
+  })
+
+  it('does not reach the card when the confirmation is cancelled either', async () => {
+    const user = userEvent.setup()
+    const cardClicked = vi.fn()
+    renderWithIntl(
+      <div onClick={cardClicked}>
+        <PickupBadge requestedAt={REQUESTED} incidentId="inc-1" />
+      </div>,
+    )
+
+    await user.click(screen.getByRole('button'))
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+
+    expect(cardClicked).not.toHaveBeenCalled()
+  })
+
   it('leaves the pickup alone when the confirmation is cancelled', async () => {
     const user = userEvent.setup()
     renderWithIntl(<PickupBadge requestedAt={REQUESTED} incidentId="inc-1" />)

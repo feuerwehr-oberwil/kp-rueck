@@ -556,12 +556,12 @@ async def delete_rapport_photo(
     return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
 
 
-@router.get("/{incident_id}/rapport/material-return", response_model=dict)
+@router.get("/{incident_id}/rapport/material-return", response_model=schemas.MaterialReturnResponse)
 async def get_rapport_material_return(
     incident_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-) -> dict[str, list[schemas.MaterialReturnUnit]]:
+) -> schemas.MaterialReturnResponse:
     """ "Material zurück – freigeben" (decision 17): what the board may release.
 
     A read only. The releasing itself goes through the existing per-assignment
@@ -572,15 +572,22 @@ async def get_rapport_material_return(
 
     ``left_on_site`` is returned separately and is **not** in the release set;
     consumables are in neither (decision 26).
+
+    Also the source of truth for the completion gate's prefill (§18): the same
+    answers, plus who filed them, so "Material vor Ort oder ins Magazin?" arrives
+    already answered instead of asking the crew's question a second time.
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
     returned, left = await feld_crud.material_return_units(db, incident)
-    return {
-        "returned": [schemas.MaterialReturnUnit(**unit) for unit in returned],
-        "left_on_site": [schemas.MaterialReturnUnit(**unit) for unit in left],
-    }
+    rapport_by, submitted_at = await feld_crud.material_return_attribution(db, incident)
+    return schemas.MaterialReturnResponse(
+        returned=[schemas.MaterialReturnUnit(**unit) for unit in returned],
+        left_on_site=[schemas.MaterialReturnUnit(**unit) for unit in left],
+        rapport_by=rapport_by,
+        rapport_submitted_at=submitted_at,
+    )
 
 
 @router.get("/{incident_id}/history", response_model=list[schemas.StatusTransitionResponse])

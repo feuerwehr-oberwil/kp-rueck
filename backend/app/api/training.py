@@ -794,8 +794,6 @@ async def _file_simulated_rapport(
         # The prefilled checklist itself, which is what a crew answers against.
         vehicles=[{"assignment_id": row["assignment_id"]} for row in view["vehicles"]],
         board_personnel_count=prefill["board_personnel_count"],
-        default_work_started_at=prefill["default_work_started_at"],
-        default_work_ended_at=prefill["default_work_ended_at"],
         rng=rng,
     )
     saved = await feld_crud.save_rapport(db, incident, actor=actor, payload=RapportUpdate(**data), request=request)

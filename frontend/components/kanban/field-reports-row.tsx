@@ -1,20 +1,24 @@
 'use client'
 
 /**
- * "Feldmeldungen" — the KP twin of the `/feld` field actions (plan 25,
- * decision 28 and §6.1).
+ * "Abholung" — the KP's one settable field report (plan 25, decision 28, §18.19).
  *
- * KP parity is a hard requirement, not a convenience. The normal case is a
- * radio message: the crew has no signal, no phone or no hands, and dictates. A
- * field surface whose data could only arrive through that surface would make
- * the KP a spectator to its own board — and `field_complete_reported_at` was
- * exactly that until this row existed, a column the frontend rendered and only
- * the training simulator could write.
+ * This was three toggles: Angekommen, Einsatz beendet, Abholung. The first two
+ * are gone as *controls*. Status belongs to the columns — `Einsatz` and
+ * `Abgeschlossen` — and a second settable control for the same fact is a second
+ * truth to keep in step. What matters is that the field can **tell** the KP, so
+ * both reports now read as entries in the Meldungen thread below, timestamped
+ * and attributed, next to the crew's own sentences. The nudge stays: "Feld
+ * meldet beendet — nach Abgeschlossen verschieben?" is exactly the shape this
+ * change is after, the field informs and the KP decides.
  *
- * Three toggles, each with its timestamp and an editable time, each saying who
- * reported it. **Provenance is never faked**: a KP write leaves the personnel
- * columns NULL and the audit-log entry carries the operator, so "im KP erfasst"
- * is a real state and not a guess dressed up as a crew report.
+ * Abholung keeps its control, and deliberately: it has no column to be moved
+ * into, and clearing it is a real KP action (the chip does the same job on the
+ * card and in the Restliste).
+ *
+ * **Provenance is never faked**: a KP write leaves the personnel columns NULL
+ * and the audit-log entry carries the operator, so "im KP erfasst" is a real
+ * state and not a guess dressed up as a crew report.
  */
 
 import { useCallback, useMemo, useState } from 'react'
@@ -38,7 +42,7 @@ interface FieldReportsRowProps {
   canEdit?: boolean
 }
 
-type Row = 'arrived' | 'complete' | 'pickup'
+type Row = 'pickup'
 
 export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowProps) {
   const t = useTranslations('feld.kp')
@@ -89,33 +93,6 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
     onTimeChange: (time: string) => void
   }> = [
     {
-      key: 'arrived',
-      icon: <MapPin className="h-4 w-4 text-muted-foreground" />,
-      label: t('arrived'),
-      at: operation.fieldArrivedAt,
-      on: Boolean(operation.fieldArrivedAt),
-      by: operation.fieldArrivedBy,
-      onToggle: checked => save('arrived', { arrived_at: checked ? new Date().toISOString() : null }),
-      onTimeChange: time => {
-        const next = applyTimeEdit(operation.fieldArrivedAt, time)
-        if (next) save('arrived', { arrived_at: next.toISOString() })
-      },
-    },
-    {
-      key: 'complete',
-      icon: <Flag className="h-4 w-4 text-muted-foreground" />,
-      label: t('complete'),
-      at: operation.fieldCompleteReportedAt,
-      on: Boolean(operation.fieldCompleteReportedAt),
-      by: operation.fieldCompleteReportedBy,
-      onToggle: checked =>
-        save('complete', { field_complete_reported_at: checked ? new Date().toISOString() : null }),
-      onTimeChange: time => {
-        const next = applyTimeEdit(operation.fieldCompleteReportedAt, time)
-        if (next) save('complete', { field_complete_reported_at: next.toISOString() })
-      },
-    },
-    {
       key: 'pickup',
       icon: <CarTaxiFront className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
       label: t('pickup'),
@@ -133,10 +110,10 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
   return (
     <div className="rounded-lg border border-border p-4 space-y-3">
       <div>
-        <Label className="text-sm font-semibold">{t('title')}</Label>
+        <Label className="text-sm font-semibold">{t('pickupTitle')}</Label>
         {/* Says out loud that this is the radio-message path, so nobody looks
             for a field device that does not exist. */}
-        <p className="text-xs text-muted-foreground">{t('description')}</p>
+        <p className="text-xs text-muted-foreground">{t('pickupDescription')}</p>
       </div>
 
       <div className="space-y-2.5">
@@ -206,52 +183,91 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
 }
 
 /**
- * "Meldungen vom Feld" — the Freitext-Meldungen of one Schadenplatz, as a
- * thread.
+ * "Meldungen vom Feld" — everything the crew told the KP about one
+ * Schadenplatz, in one thread.
  *
- * The three toggles above answer *what happened*; this answers *what the crew
- * said*. Until it existed, a `field_message` became a notification and an
- * audit-log entry and appeared on the incident nowhere at all: the bell is
- * dismissible, and once dismissed the sentence was gone from every surface an
- * operator looks at.
+ * Three kinds of entry, chronological: **Angekommen**, **Einsatz beendet** and
+ * the Freitext-Meldungen. The first two used to be toggles above (§18.19) —
+ * they are information, not a switch an operator flips, because the status
+ * itself lives in the columns. Until this thread existed a `field_message`
+ * became a notification and an audit-log entry and appeared on the incident
+ * nowhere at all: the bell is dismissible, and once dismissed the sentence was
+ * gone from every surface an operator looks at.
+ *
+ * The two reports are read straight off the incident rather than out of the
+ * timeline feed: the board already carries `fieldArrivedAt` / `fieldArrivedBy`
+ * and their beendet twins, and they are what the `/feld` action writes. One
+ * fewer thing that can be missing because a feed request failed.
  *
  * Newest **last**, like every message thread anybody has ever read — the
  * Verlauf tab is the newest-first surface, and it carries the same entries
  * interleaved with status changes and assignments.
  */
 export function FieldMessageThread({
+  operation,
   events,
   isLoading,
   failed,
   onRetry,
 }: {
+  operation: Operation
   events: ApiIncidentTimelineEvent[] | null
   isLoading: boolean
   failed: boolean
   onRetry: () => void
 }) {
   const t = useTranslations('feld.kp')
-  const messages = useMemo(
-    () =>
-      (events ?? [])
-        .filter(event => event.event_type === 'field_message' && event.message)
-        // The feed arrives newest first; a thread reads the other way round.
-        .slice()
-        .reverse(),
-    [events],
-  )
+  const { personnel } = usePersonnel()
+  const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
+
+  const entries = useMemo<ThreadEntry[]>(() => {
+    const rows: ThreadEntry[] = (events ?? [])
+      .filter(event => event.event_type === 'field_message' && event.message)
+      .map(event => ({
+        at: new Date(event.timestamp),
+        // `source === 'kp'` is the dictated one; a message with no actor name
+        // cannot be attributed either way and reads as the KP's own note.
+        fromField: event.source !== 'kp' && Boolean(event.actor_name),
+        who: event.actor_name ?? null,
+        message: event.message ?? '',
+      }))
+
+    // Provenance rule, unchanged and read the same way everywhere: a personnel
+    // FK means the crew tapped it, its absence means the KP wrote it down.
+    const report = (at: Date | null | undefined, by: string | null | undefined, label: string) => {
+      if (!at) return
+      rows.push({
+        at,
+        fromField: Boolean(by),
+        who: by ? (nameById.get(by) ?? t('unknownPerson')) : null,
+        label,
+      })
+    }
+    report(operation.fieldArrivedAt, operation.fieldArrivedBy, t('arrived'))
+    report(operation.fieldCompleteReportedAt, operation.fieldCompleteReportedBy, t('complete'))
+
+    return rows.sort((a, b) => a.at.getTime() - b.at.getTime())
+  }, [
+    events,
+    nameById,
+    operation.fieldArrivedAt,
+    operation.fieldArrivedBy,
+    operation.fieldCompleteReportedAt,
+    operation.fieldCompleteReportedBy,
+    t,
+  ])
 
   return (
     <div className="rounded-lg border border-border p-4 space-y-3">
       <div className="flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
         <Label className="text-sm font-semibold">{t('messagesTitle')}</Label>
-        {messages.length > 0 && (
-          <span className="ml-auto text-xs tabular-nums text-muted-foreground">{messages.length}</span>
+        {entries.length > 0 && (
+          <span className="ml-auto text-xs tabular-nums text-muted-foreground">{entries.length}</span>
         )}
       </div>
 
-      {isLoading && messages.length === 0 && (
+      {isLoading && entries.length === 0 && (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
         </p>
@@ -266,22 +282,33 @@ export function FieldMessageThread({
         </p>
       )}
 
-      {!isLoading && !failed && messages.length === 0 && (
+      {!isLoading && !failed && entries.length === 0 && (
         <p className="text-xs italic text-muted-foreground/60">{t('messagesEmpty')}</p>
       )}
 
-      {messages.length > 0 && (
+      {entries.length > 0 && (
         <ol className="space-y-2">
-          {messages.map((event, index) => (
-            <li key={`${event.timestamp}:${index}`} className="text-sm">
+          {entries.map((entry, index) => (
+            <li key={`${entry.at.toISOString()}:${index}`} className="text-sm">
               <p className="text-xs text-muted-foreground">
-                {/* Provenance again, same rule as the toggles above: a name for
-                    a crew report, "im KP erfasst" for a dictated one. */}
-                {event.source === 'kp' || !event.actor_name
-                  ? t('fromKp', { time: formatMessageTime(event.timestamp) })
-                  : t('fromField', { name: event.actor_name, time: formatMessageTime(event.timestamp) })}
+                {/* Provenance, the same rule for all three kinds: a name for a
+                    crew report, "im KP erfasst" for a dictated one. */}
+                {entry.fromField && entry.who
+                  ? t('fromField', { name: entry.who, time: formatMessageTime(entry.at) })
+                  : t('fromKp', { time: formatMessageTime(entry.at) })}
               </p>
-              <p className="break-words">{event.message}</p>
+              {entry.label ? (
+                <p className="flex items-center gap-1.5 font-medium">
+                  {entry.label === t('arrived') ? (
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Flag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  )}
+                  {entry.label}
+                </p>
+              ) : (
+                <p className="break-words">{entry.message}</p>
+              )}
             </li>
           ))}
         </ol>
@@ -290,6 +317,18 @@ export function FieldMessageThread({
   )
 }
 
-function formatMessageTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
+function formatMessageTime(at: Date): string {
+  return at.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * One line of the thread. `label` is a report (Angekommen / Einsatz beendet),
+ * `message` is what somebody wrote — never both.
+ */
+interface ThreadEntry {
+  at: Date
+  fromField: boolean
+  who: string | null
+  label?: string
+  message?: string
 }

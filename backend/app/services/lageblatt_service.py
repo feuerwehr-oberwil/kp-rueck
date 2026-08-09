@@ -41,9 +41,11 @@ from .pdf_report_service import (
     PRIORITY_LABELS,
     STATUS_LABELS,
     TYPE_LABELS,
+    WorkWindow,
     format_location_for_display,
     material_left_on_site_names,
     rapport_by_incident,
+    rapport_work_windows,
     vehicle_present_names,
 )
 
@@ -300,8 +302,11 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     # written on.
     rapport = rapport_by_incident(data).get(inc.id)
     if rapport is not None:
-        if rapport.work_started_at or rapport.work_ended_at:
-            rows.append(("Tätigkeit", f"{_dt_full(rapport.work_started_at)} – {_dt_full(rapport.work_ended_at)}"))
+        # Derived, not stored (see `rapport_work_windows`): the crew stopped
+        # typing a window the board had already recorded twice over.
+        window = rapport_work_windows(data).get(inc.id, WorkWindow(None, None))
+        if window.started_at or window.ended_at:
+            rows.append(("Tätigkeit", f"{_dt_full(window.started_at)} – {_dt_full(window.ended_at)}"))
         if rapport.handed_over_to:
             rows.append(("Übergeben an", rapport.handed_over_to))
         rapport_vehicles = vehicle_present_names(rapport)

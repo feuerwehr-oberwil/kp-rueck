@@ -7,7 +7,6 @@ a kitchen fire never produces a Reko summary about a dachstock fire.
 
 import random
 import re
-from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.seed_training import EMERGENCY_TEMPLATES
@@ -504,8 +503,6 @@ class TestRapportGeneration:
             materials=self.UNITS,
             vehicles=self.VEHICLES,
             board_personnel_count=4,
-            default_work_started_at=datetime(2026, 8, 9, 20, 0, tzinfo=UTC),
-            default_work_ended_at=datetime(2026, 8, 9, 22, 0, tzinfo=UTC),
             rng=random.Random(seed),
         )
 
@@ -584,12 +581,17 @@ class TestRapportGeneration:
         # that it stays a signal.
         assert 20 < unticked < 110
 
-    def test_counts_and_times_are_sent_only_when_the_crew_changed_them(self):
-        """10 % each — the `korrigiert` marker has to stay a signal (§16.1)."""
+    def test_the_head_count_is_sent_only_when_the_crew_changed_it(self):
+        """10 % — the `korrigiert` marker has to stay a signal (§16.1)."""
         corrected = sum(1 for seed in range(300) if "personnel_count" in self._generate(seed))
-        adjusted = sum(1 for seed in range(300) if "work_started_at" in self._generate(seed))
         assert 10 < corrected < 70
-        assert 10 < adjusted < 70
+
+    def test_no_times_are_generated_at_all_any_more(self):
+        """There is no Beginn/Ende field left to fill; the outputs derive it."""
+        for seed in range(50):
+            data = self._generate(seed)
+            assert "work_started_at" not in data
+            assert "work_ended_at" not in data
 
     def test_every_rapport_is_submitted_with_a_kurzbericht(self):
         """100 % Kurzbericht, and the inject always files rather than drafts."""

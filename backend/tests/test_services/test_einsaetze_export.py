@@ -16,7 +16,15 @@ from uuid import uuid4
 
 import openpyxl
 
-from app.models import Event, Incident, IncidentAssignment, Personnel, SchadenplatzReport, User
+from app.models import (
+    Event,
+    Incident,
+    IncidentAssignment,
+    Personnel,
+    SchadenplatzReport,
+    StatusTransition,
+    User,
+)
 from app.services.audit_export_service import EventReportData
 from app.services.excel_import_export import (
     EINSAETZE_COLUMNS,
@@ -97,7 +105,7 @@ def _data(event: Event, incidents: list[Incident], reports: list[SchadenplatzRep
         event=event,
         incidents=incidents,
         assignments=kwargs.pop("assignments", []),
-        transitions=[],
+        transitions=kwargs.pop("transitions", []),
         reko_reports=[],
         incident_map={inc.id: inc for inc in incidents},
         schadenplatz_reports=reports,
@@ -139,16 +147,54 @@ class TestSheetShape:
 
 
 class TestDuration:
-    def test_duration_matches_beginn_and_ende(self):
+    def test_beginn_ende_and_dauer_come_from_the_board_not_the_crew(self):
+        """The rapport stores no times any more — the three columns are derived."""
         event = Event(id=uuid4(), name="Sturm 2026", training_flag=False)
         incident = _incident(event, "Bahnhofstrasse 4, Oberwil")
-        report = _report(
-            incident.id,
-            work_started_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
-            work_ended_at=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
-        )
+        incident.field_complete_reported_at = datetime(2026, 6, 1, 11, 10, tzinfo=UTC)
+        report = _report(incident.id, arrived_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC))
+
         row = _row(_sheet(_data(event, [incident], [report])), 2)
         assert row["Beginn"] == "01.06.2026 11:30"  # 09:30 UTC = 11:30 CEST
+        assert row["Ende"] == "01.06.2026 13:10"
+        assert row["Dauer"] == "1:40"
+
+    def test_a_rapport_that_stored_nothing_still_gets_all_three(self):
+        """No arrival, no "beendet" — the transitions and assignments carry it."""
+        event = Event(id=uuid4(), name="Sturm 2026", training_flag=False)
+        incident = _incident(event, "Bahnhofstrasse 4, Oberwil")
+        report = _report(incident.id, kurzbericht="Keller ausgepumpt.")
+        assignments = [
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=incident.id,
+                resource_type="personnel",
+                resource_id=uuid4(),
+                assigned_at=datetime(2026, 6, 1, 9, 20, tzinfo=UTC),
+            )
+        ]
+        transitions = [
+            StatusTransition(
+                id=uuid4(),
+                incident_id=incident.id,
+                from_status="dispatched",
+                to_status="active",
+                timestamp=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
+            ),
+            StatusTransition(
+                id=uuid4(),
+                incident_id=incident.id,
+                from_status="active",
+                to_status="returning",
+                timestamp=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
+            ),
+        ]
+
+        row = _row(
+            _sheet(_data(event, [incident], [report], assignments=assignments, transitions=transitions)),
+            2,
+        )
+        assert row["Beginn"] == "01.06.2026 11:30"
         assert row["Ende"] == "01.06.2026 13:10"
         assert row["Dauer"] == "1:40"
 

@@ -37,6 +37,10 @@ export function SchadenplatzRapportSection({
 }: SchadenplatzRapportSectionProps) {
   const t = useTranslations('feld.rapport')
   const [returnKey, setReturnKey] = useState(0)
+  // The board's own flag is the starting point; the form knows sooner. Since
+  // the KP mount files as it saves (§18.17) there is no submit click to hang
+  // this on, so the state chip follows the save instead of the ~5 s poll.
+  const [filed, setFiled] = useState(hasRapport)
 
   const transport: RapportTransport = useMemo(
     () => ({
@@ -57,6 +61,7 @@ export function SchadenplatzRapportSection({
   )
 
   const handleSaved = useCallback((saved: ApiSchadenplatzRapport) => {
+    setFiled(!saved.is_draft)
     // The return list only exists for a submitted rapport, so it has to be
     // refetched the moment one is filed.
     if (!saved.is_draft) setReturnKey(key => key + 1)
@@ -73,7 +78,7 @@ export function SchadenplatzRapportSection({
         <FileText className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-semibold text-muted-foreground">{t('sectionTitle')}</span>
         <span className="ml-auto text-xs text-muted-foreground">
-          {hasRapport ? t('stateSubmitted') : t('stateMissing')}
+          {filed ? t('stateSubmitted') : t('stateMissing')}
         </span>
       </div>
 
@@ -93,7 +98,7 @@ export function SchadenplatzRapportSection({
           been filed — the list is empty for a draft by definition, and every
           incident detail opening would otherwise pay for a request that can
           only answer "nothing". */}
-      {(hasRapport || returnKey > 0) && (
+      {(filed || returnKey > 0) && (
         <MaterialReturnList incidentId={incidentId} canEdit={canEdit} refreshKey={returnKey} />
       )}
     </div>

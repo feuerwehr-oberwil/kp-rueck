@@ -16,12 +16,14 @@ from ..models import Material, Personnel, Vehicle
 from .audit_export_service import EventReportData
 from .pdf_report_service import (
     LOCAL_TZ,
+    WorkWindow,
     board_personnel_count,
     material_checklist_rows,
     material_left_on_site_names,
     material_used_label,
     rapport_by_incident,
     rapport_filing_lines,
+    rapport_work_windows,
     vehicle_present_names,
 )
 
@@ -407,7 +409,7 @@ def format_duration(start: datetime | None, end: datetime | None) -> str:
     """``h:mm`` between the two Tätigkeit timestamps, or empty.
 
     Computed, never stored, so it always agrees with the Beginn/Ende on its own
-    row — including after the crew corrected them.
+    row — which are themselves derived from the board (`rapport_work_windows`).
     """
     if start is None or end is None:
         return ""
@@ -450,6 +452,10 @@ def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
     ws.freeze_panes = "A2"
 
     reports = rapport_by_incident(data)
+    # Beginn/Ende are derived from the board once for the whole sheet — the crew
+    # no longer types them, and this walks the already-loaded assignments and
+    # transitions rather than querying per row.
+    windows = rapport_work_windows(data)
 
     for row_num, (index, incident) in enumerate(enumerate(data.incidents, 1), 2):
         report = reports.get(incident.id)
@@ -458,12 +464,13 @@ def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
         if report is None:
             values = [index, incident.location_address or "", *[""] * (len(EINSAETZE_COLUMNS) - 2)]
         else:
+            window = windows.get(incident.id, WorkWindow(None, None))
             values = [
                 index,
                 incident.location_address or "",
-                _local_dt(report.work_started_at),
-                _local_dt(report.work_ended_at),
-                format_duration(report.work_started_at, report.work_ended_at),
+                _local_dt(window.started_at),
+                _local_dt(window.ended_at),
+                format_duration(window.started_at, window.ended_at),
                 report.personnel_count if report.personnel_count is not None else "",
                 _corrected_cell(report.personnel_count_corrected, board_personnel_count(data, incident.id)),
                 # The vehicles the crew ticked, by name: which ones were there is

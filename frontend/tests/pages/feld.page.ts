@@ -24,6 +24,10 @@ export class FeldPage extends BasePage {
   readonly completeButton: Locator;
   readonly pickupButton: Locator;
 
+  // --- the confirmation both irreversible reports ask for (§18.18) ---
+  readonly confirmArrivedButton: Locator;
+  readonly confirmCompleteButton: Locator;
+
   // --- the Abholung follow-up that "Einsatz beendet" opens (decision 24) ---
   readonly pickupFollowupQuestion: Locator;
   readonly needPickupButton: Locator;
@@ -48,14 +52,17 @@ export class FeldPage extends BasePage {
     // real use (§18.9) — the crew asks, the KP clears.
     this.pickupButton = page.getByRole('button', { name: /^Abholung$/ });
 
+    this.confirmArrivedButton = page.getByRole('button', { name: 'Ja, angekommen' });
+    this.confirmCompleteButton = page.getByRole('button', { name: 'Ja, beendet' });
+
     this.pickupFollowupQuestion = page.getByText('Kommt ihr selbst zurück?');
     this.needPickupButton = page.getByRole('button', { name: 'Wir müssen abgeholt werden' });
     this.selfReturnButton = page.getByRole('button', { name: 'Wir fahren selbst' });
     this.pickupBadge = page.getByText('Abholung', { exact: false });
 
     this.kurzberichtField = page.getByPlaceholder('Lage, Tätigkeit, Geräte');
-    // `exact` matters: the KP mount of the SAME component reads
-    // "Rapport abschliessen (Funkmeldung)".
+    // The `/feld` mount is the ONLY one with this button since §18.17 — the KP
+    // has no submit at all and files what it autosaves.
     this.submitRapportButton = page.getByRole('button', { name: 'Rapport abschliessen', exact: true });
     this.submittedBadge = page.getByText(/^Abgeschlossen /);
   }
@@ -112,9 +119,16 @@ export class FeldPage extends BasePage {
     await expect(this.submittedBadge).toBeVisible({ timeout: 15_000 });
   }
 
-  /** "Einsatz beendet" and the follow-up it opens by itself. */
+  /** "Angekommen", through the confirmation it asks for first (§18.18). */
+  async reportArrived() {
+    await this.arrivedButton.click();
+    await this.confirmArrivedButton.click();
+  }
+
+  /** "Einsatz beendet", its confirmation, and the follow-up it opens by itself. */
   async reportComplete() {
     await this.completeButton.click();
+    await this.confirmCompleteButton.click();
     await expect(this.pickupFollowupQuestion).toBeVisible({ timeout: 15_000 });
   }
 }

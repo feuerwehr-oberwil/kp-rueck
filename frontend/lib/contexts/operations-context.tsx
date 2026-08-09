@@ -1241,6 +1241,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     // When completing an operation, auto-release personnel and vehicles (backend does this too)
     const isCompletingOperation = normalizedUpdates.status === "complete"
+    // ...and the other direction: leaving `complete` gives the crew back. The
+    // backend undoes the release inside the same transaction as the status
+    // change (`_undo_completion_release`), so the card is right on the server
+    // the moment the PATCH returns — but the optimistic state above emptied it
+    // when it was completed, and nothing local knows what was there. Refetch.
+    //
+    // This is the fix for the Abbrechen in every completion gate: the gate moves
+    // the card first and asks afterwards, so cancelling it is a reopen.
+    const isReopeningOperation = Boolean(
+      normalizedUpdates.status && normalizedUpdates.status !== "complete" && currentOp?.status === "complete",
+    )
 
     setOperations((ops) =>
       ops.map((op) => {
@@ -1320,6 +1331,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         try {
           await apiClient.updateIncident(operationId, apiUpdates)
+          if (isReopeningOperation) await refreshOperations()
         } catch (err) {
           console.error("Failed to update operation:", err)
           if (ApiError.isConflictError(err)) {

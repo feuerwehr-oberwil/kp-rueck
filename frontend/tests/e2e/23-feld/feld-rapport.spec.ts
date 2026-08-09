@@ -42,8 +42,9 @@ import {
  *     card auto-releases the crew while they are physically still at the
  *     address, so this chip is the only thing left saying they are there.
  *  4. KP parity (decision 28): an editor files the same rapport from the
- *     incident detail on an incident with no field contact at all, and the
- *     provenance reads "(Funkmeldung)" — never "(Feld)".
+ *     incident detail on an incident with no field contact at all — with no
+ *     submit button, because the KP mount autosaves and files what it saves
+ *     (§18.17) — and the provenance reads "(Funkmeldung)", never "(Feld)".
  *
  * Tagged @smoke (plan 15): the four tests arrange over REST and share one worker
  * login, so the whole file runs in ~15 s on a warm dev server — cheap enough for
@@ -246,6 +247,8 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       // …and it is still there in the detail header, where the form opens.
       await feld.openAssignment(finished.title);
       await expect(feld.leaderLine(leader.name).first()).toBeVisible();
+      // The field keeps its explicit "I am done" (§18.17) — a crew on a phone
+      // needs a definite moment, and this is where draft-vs-filed earns it.
       await expect(feld.submitRapportButton).toBeVisible({ timeout: SMOKE_TIMEOUT });
     } finally {
       await phone.context().close();
@@ -267,8 +270,10 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       await feld.pickPerson(crew.name);
       await feld.openAssignment(incident.title);
 
-      // The follow-up opens by itself, and only after the beendet-Meldung has
-      // actually landed (components/feld/feld-actions.tsx).
+      // «Einsatz beendet» asks first (§18.18) — from the field the report
+      // cannot be taken back — and the Abholung follow-up opens by itself
+      // afterwards, only once the beendet-Meldung has actually landed
+      // (components/feld/feld-actions.tsx).
       await feld.reportComplete();
       await feld.needPickupButton.click();
 
@@ -323,10 +328,17 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     // absorbed Ressourcen into Übersicht — and it is permanently open there,
     // like the Reko-Meldungen beside it. No accordion header to click.
     await detail.getByRole('tab', { name: /^Rapport/ }).click();
-    await expect(detail.getByText('kein Rapport')).toBeVisible();
+    // Two lines say it now, and they say different things: the section's state
+    // chip, and the plain "Noch kein Rapport" that replaced the red error an
+    // absent rapport used to render as (§18.16).
+    await expect(detail.getByText('kein Rapport', { exact: true })).toBeVisible();
+    await expect(detail.getByText('Noch kein Rapport')).toBeVisible();
 
+    // No submit button on this mount any more (§18.17): the board autosaves
+    // everything else, and a KP rapport is filed from its first saved
+    // keystroke. Typing IS the filing.
+    await expect(detail.getByRole('button', { name: /Rapport abschliessen/ })).toHaveCount(0);
     await detail.getByPlaceholder('Lage, Tätigkeit, Geräte').fill('Baum auf Fahrbahn, per Funk gemeldet.');
-    await detail.getByRole('button', { name: 'Rapport abschliessen (Funkmeldung)' }).click();
 
     // Provenance is never faked: a KP write leaves the personnel columns NULL,
     // and that absence — not a guess — is what the line renders.

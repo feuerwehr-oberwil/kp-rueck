@@ -1143,10 +1143,12 @@ export function OperationDetailContent({
                 /feld, an operator enters here from a radio message. */}
             <FieldReportsRow operation={operation} canEdit={canEdit} />
 
-            {/* The Freitext-Meldungen themselves. Before this they became a
-                notification and an audit entry and showed up on the incident
-                nowhere at all — dismiss the bell and the sentence was gone. */}
+            {/* Everything the crew said, plus the two reports that used to be
+                toggles above (§18.19). Before this thread existed a Meldung
+                became a notification and an audit entry and showed up on the
+                incident nowhere at all — dismiss the bell and it was gone. */}
             <FieldMessageThread
+              operation={operation}
               events={timeline.events}
               isLoading={timeline.isLoading}
               failed={timeline.failed}

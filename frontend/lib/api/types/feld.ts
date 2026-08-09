@@ -175,8 +175,6 @@ export interface ApiRapportPrefill {
   melder_street: string | null
   melder_city: string | null
   board_personnel_count: number
-  default_work_started_at: string | null
-  default_work_ended_at: string | null
   /**
    * Known material names from the catalogue, offered as suggestions under
    * "Weiteres Material". Names only, deliberately no ids: this is a spelling
@@ -191,8 +189,6 @@ export interface ApiSchadenplatzRapport {
   exists: boolean
   is_draft: boolean
   submitted_at: string | null
-  work_started_at: string | null
-  work_ended_at: string | null
   materials: ApiRapportMaterialRow[]
   vehicles: ApiRapportVehicleRow[]
   /**
@@ -228,8 +224,6 @@ export interface ApiSchadenplatzRapport {
  */
 export interface ApiRapportUpdate {
   is_draft: boolean
-  work_started_at?: string | null
-  work_ended_at?: string | null
   materials?: ApiRapportMaterialUpdate[]
   vehicles?: ApiRapportVehicleUpdate[]
   extra_material_note?: string | null
@@ -299,10 +293,20 @@ export interface ApiMaterialReturnUnit {
   name: string
   location: string | null
   used: boolean | null
+  /**
+   * Did the crew say anything about this unit? An unanswered row still lands in
+   * `returned` (its default is "not left on site"), which is right for the
+   * release list and wrong for the completion gate — that one prefills from the
+   * rapport and has to know what it still needs to ask.
+   */
+  answered: boolean
 }
 
 export interface ApiMaterialReturnResponse {
   returned: ApiMaterialReturnUnit[]
   /** Listed separately and deliberately NOT in the release set (decision 15). */
   left_on_site: ApiMaterialReturnUnit[]
+  /** Who filed the rapport these answers come from; null while none is submitted. */
+  rapport_by: string | null
+  rapport_submitted_at: string | null
 }

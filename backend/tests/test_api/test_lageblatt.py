@@ -80,7 +80,7 @@ class TestLageblattRapportRows:
     crew still waiting for a pickup have to be on it.
     """
 
-    def _pdf_text(self, event: Event, incident: Incident, report=None) -> str:
+    def _pdf_text(self, event: Event, incident: Incident, report=None, transitions=()) -> str:
         from app.services.audit_export_service import EventReportData
         from app.services.lageblatt_service import build_lageblatt_pdf
 
@@ -88,7 +88,7 @@ class TestLageblattRapportRows:
             event=event,
             incidents=[incident],
             assignments=[],
-            transitions=[],
+            transitions=list(transitions),
             reko_reports=[],
             incident_map={incident.id: incident},
             schadenplatz_reports=[report] if report is not None else [],
@@ -100,8 +100,7 @@ class TestLageblattRapportRows:
         report = SchadenplatzReport(
             id=uuid4(),
             incident_id=test_incident.id,
-            work_started_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
-            work_ended_at=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
+            arrived_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
             handed_over_to="Hauswart Meier",
             vehicles_json=[
                 {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "TLF 1", "present": True},
@@ -124,6 +123,42 @@ class TestLageblattRapportRows:
         assert "MTW" not in text
         assert "Material vor Ort" in text
         assert "Tauchpumpe" in text
+
+    @pytest.mark.asyncio
+    async def test_taetigkeit_is_derived_when_the_rapport_stored_nothing(
+        self, db_session, test_event: Event, test_incident: Incident
+    ):
+        """No arrival and no "beendet": the status transitions carry the window."""
+        from app.models import StatusTransition
+
+        report = SchadenplatzReport(
+            id=uuid4(),
+            incident_id=test_incident.id,
+            is_draft=False,
+            created_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+        )
+        transitions = [
+            StatusTransition(
+                id=uuid4(),
+                incident_id=test_incident.id,
+                from_status="dispatched",
+                to_status="active",
+                timestamp=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
+            ),
+            StatusTransition(
+                id=uuid4(),
+                incident_id=test_incident.id,
+                from_status="active",
+                to_status="returning",
+                timestamp=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
+            ),
+        ]
+        text = self._pdf_text(test_event, test_incident, report, transitions=transitions)
+        assert "Tätigkeit" in text
+        # Swiss local time: 09:30 UTC = 11:30 CEST, 11:10 UTC = 13:10 CEST.
+        assert "11:30" in text
+        assert "13:10" in text
 
     @pytest.mark.asyncio
     async def test_consumable_never_reaches_material_vor_ort(

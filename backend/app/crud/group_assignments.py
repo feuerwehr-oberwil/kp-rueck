@@ -170,7 +170,7 @@ async def auto_release_group_resources_if_last_stop(
     incident: Incident,
     current_user: User | None,
     request: Request | None,
-) -> bool:
+) -> tuple[bool, list[dict[str, Any]]]:
     """Release an Auftrag's shared resources once its LAST stop is completed.
 
     Route resources belong to the whole Auftrag, so they must not be released
@@ -179,10 +179,12 @@ async def auto_release_group_resources_if_last_stop(
     (``exclude_materials``): vehicles + personnel are released, materials stay on
     site for manual return. Flushes only — the caller owns the commit.
 
-    Returns True if the group's resources were released (i.e. this was the last stop).
+    Returns ``(released, entries)``: whether this was the last stop, and the rows
+    it closed in ``StatusTransition.released_assignments_json`` shape so reopening
+    the stop can put the route's squad back (see ``restore_released_assignments``).
     """
     if incident.group_id is None:
-        return False
+        return False, []
 
     # Serialize competing final-stop transitions before checking route state.
     group = await db.scalar(
@@ -191,7 +193,7 @@ async def auto_release_group_resources_if_last_stop(
         .with_for_update()
     )
     if group is None:
-        return False
+        return False, []
 
     # Any other stop of this group still open (not completed, not deleted)?
     other_open = await db.execute(
@@ -205,7 +207,7 @@ async def auto_release_group_resources_if_last_stop(
         )
     )
     if (other_open.scalar() or 0) > 0:
-        return False  # not the last stop — keep the route's resources
+        return False, []  # not the last stop — keep the route's resources
 
     # Last stop: soft-release the group's active vehicle + personnel assignments.
     result = await db.execute(
@@ -217,11 +219,11 @@ async def auto_release_group_resources_if_last_stop(
             )
         )
     )
-    released = False
+    entries: list[dict[str, Any]] = []
     now = datetime.utcnow()
     for assignment in result.scalars().all():
         assignment.unassigned_at = now
-        released = True
+        entries.append({"kind": "group", "id": str(assignment.id), "was_leader": assignment.is_leader})
         await log_action(
             db=db,
             action_type="unassign",
@@ -231,9 +233,62 @@ async def auto_release_group_resources_if_last_stop(
             request=request,
             changes={"reason": "auftrag_last_stop_completed"},
         )
-    if released:
+    if entries:
         await db.flush()
-    return released
+    return bool(entries), entries
+
+
+async def restore_released_group_resources(
+    db: AsyncSession,
+    entries: list[Any] | None,
+    current_user: User | None,
+    request: Request | None,
+) -> int:
+    """Undo the last-stop release when the stop is reopened — the group twin of
+    ``assignments.restore_released_assignments``.
+
+    Simpler than the per-incident one: the release here only stamps
+    ``unassigned_at`` and never touches ``is_leader``, so putting the row back is
+    literally clearing the stamp. Rows whose resource is active somewhere else are
+    skipped for the same reason as there. Flushes only.
+    """
+    from .assignments import parse_released_entries
+
+    wanted = parse_released_entries(entries, "group")
+    if not wanted:
+        return 0
+
+    result = await db.execute(select(IncidentGroupAssignment).where(IncidentGroupAssignment.id.in_(wanted)))
+
+    restored = 0
+    for assignment in result.scalars().all():
+        if assignment.unassigned_at is None:
+            continue
+        conflict = await db.scalar(
+            select(IncidentGroupAssignment.id).where(
+                IncidentGroupAssignment.incident_group_id == assignment.incident_group_id,
+                IncidentGroupAssignment.resource_type == assignment.resource_type,
+                IncidentGroupAssignment.resource_id == assignment.resource_id,
+                IncidentGroupAssignment.unassigned_at.is_(None),
+            )
+        )
+        if conflict is not None:
+            continue
+        assignment.unassigned_at = None
+        restored += 1
+        await log_action(
+            db=db,
+            action_type="assign",
+            resource_type=f"{assignment.resource_type}_group_assignment",
+            resource_id=assignment.id,
+            user=current_user,
+            request=request,
+            changes={"reason": "completion_undone"},
+        )
+
+    if restored:
+        await db.flush()
+    return restored
 
 
 async def get_group_assignments(db: AsyncSession, group_id: uuid.UUID) -> list[IncidentGroupAssignment]:

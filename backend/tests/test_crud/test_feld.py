@@ -2,9 +2,10 @@
 
 Two things live here, and neither is reachable through the routers alone:
 
-* **the prefill fallback chains of §4**, every level exercised — the chains are
-  the part that decays silently, because a wrong level still produces a
-  plausible-looking timestamp;
+* **the prefill of §4** — address, Einsatzleiter, Melder, head count and the
+  material name suggestions. (The Beginn/Ende chain used to be prefilled here
+  too; it is now derived at output time and tested in
+  ``test_services/test_rapport_work_windows.py``.)
 * **the material reconciliation**, including the answered/unanswered split. That
   rule is the difference between a checklist that remembers what a crew said and
   one that quietly forgets it the moment the board changes.
@@ -24,7 +25,6 @@ from app.models import (
     Material,
     Personnel,
     SchadenplatzReport,
-    StatusTransition,
     User,
     Vehicle,
 )
@@ -89,137 +89,12 @@ async def _assign(
     return assignment
 
 
-async def _transition(db: AsyncSession, incident: Incident, to_status: str, at: datetime) -> None:
-    db.add(
-        StatusTransition(
-            incident_id=incident.id,
-            from_status="dispatched",
-            to_status=to_status,
-            timestamp=at,
-        )
-    )
-    await db.commit()
-
-
 async def _report(db: AsyncSession, incident: Incident, **kwargs: object) -> SchadenplatzReport:
     report = SchadenplatzReport(incident_id=incident.id, is_draft=True, **kwargs)
     db.add(report)
     await db.commit()
     await db.refresh(report)
     return report
-
-
-class TestPrefillWorkStarted:
-    """Beginn Tätigkeit: arrival → first `active` → earliest assignment (§4)."""
-
-    @pytest.mark.asyncio
-    async def test_arrival_wins_over_everything(self, db_session: AsyncSession, test_event: Event, test_user: User):
-        incident = await _incident(db_session, test_event, test_user)
-        arrived = datetime(2026, 8, 8, 22, 10, tzinfo=UTC)
-        await _transition(db_session, incident, "active", datetime(2026, 8, 8, 21, 0, tzinfo=UTC))
-        await _assign(
-            db_session,
-            incident,
-            "personnel",
-            uuid.uuid4(),
-            assigned_at=datetime(2026, 8, 8, 20, 0, tzinfo=UTC),
-        )
-        await _report(db_session, incident, arrived_at=arrived)
-
-        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
-        assert view["prefill"]["default_work_started_at"] == arrived
-
-    @pytest.mark.asyncio
-    async def test_falls_back_to_the_first_transition_into_active(
-        self, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        incident = await _incident(db_session, test_event, test_user)
-        first = datetime(2026, 8, 8, 21, 0, tzinfo=UTC)
-        await _transition(db_session, incident, "active", first)
-        # A second one, later: the FIRST is the beginning of the work.
-        await _transition(db_session, incident, "active", datetime(2026, 8, 8, 23, 0, tzinfo=UTC))
-        await _assign(
-            db_session,
-            incident,
-            "personnel",
-            uuid.uuid4(),
-            assigned_at=datetime(2026, 8, 8, 20, 0, tzinfo=UTC),
-        )
-
-        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
-        assert view["prefill"]["default_work_started_at"] == first
-
-    @pytest.mark.asyncio
-    async def test_falls_back_to_the_earliest_assignment(
-        self, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        incident = await _incident(db_session, test_event, test_user)
-        earliest = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
-        await _assign(db_session, incident, "personnel", uuid.uuid4(), assigned_at=earliest)
-        await _assign(
-            db_session,
-            incident,
-            "personnel",
-            uuid.uuid4(),
-            assigned_at=datetime(2026, 8, 8, 20, 45, tzinfo=UTC),
-        )
-
-        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
-        assert view["prefill"]["default_work_started_at"] == earliest
-
-    @pytest.mark.asyncio
-    async def test_nothing_at_all_stays_empty(self, db_session: AsyncSession, test_event: Event, test_user: User):
-        incident = await _incident(db_session, test_event, test_user)
-        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
-        assert view["prefill"]["default_work_started_at"] is None
-
-    @pytest.mark.asyncio
-    async def test_a_stored_value_beats_the_whole_chain(
-        self, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        # The prefill is a default, never authoritative once the crew has typed.
-        incident = await _incident(db_session, test_event, test_user)
-        await _transition(db_session, incident, "active", datetime(2026, 8, 8, 21, 0, tzinfo=UTC))
-        typed = datetime(2026, 8, 8, 21, 35, tzinfo=UTC)
-        await _report(db_session, incident, work_started_at=typed)
-
-        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
-        assert view["work_started_at"] == typed
-        assert view["prefill"]["default_work_started_at"] == datetime(2026, 8, 8, 21, 0, tzinfo=UTC)
-
-
-class TestPrefillWorkEnded:
-    """Ende Tätigkeit: field report → first `returning`/`complete` → empty (§4)."""
-
-    @pytest.mark.asyncio
-    async def test_field_complete_wins(self, db_session: AsyncSession, test_event: Event, test_user: User):
-        incident = await _incident(db_session, test_event, test_user)
-        reported = datetime(2026, 8, 8, 23, 40, tzinfo=UTC)
-        incident.field_complete_reported_at = reported
-        await db_session.commit()
-        await _transition(db_session, incident, "complete", datetime(2026, 8, 9, 0, 30, tzinfo=UTC))
-
-        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
-        assert view["prefill"]["default_work_ended_at"] == reported
-
-    @pytest.mark.asyncio
-    async def test_falls_back_to_returning_or_complete(
-        self, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        incident = await _incident(db_session, test_event, test_user)
-        returning = datetime(2026, 8, 9, 0, 10, tzinfo=UTC)
-        await _transition(db_session, incident, "returning", returning)
-        await _transition(db_session, incident, "complete", datetime(2026, 8, 9, 0, 30, tzinfo=UTC))
-
-        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
-        assert view["prefill"]["default_work_ended_at"] == returning
-
-    @pytest.mark.asyncio
-    async def test_a_running_incident_has_no_end(self, db_session: AsyncSession, test_event: Event, test_user: User):
-        incident = await _incident(db_session, test_event, test_user)
-        await _transition(db_session, incident, "active", datetime(2026, 8, 8, 21, 0, tzinfo=UTC))
-        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
-        assert view["prefill"]["default_work_ended_at"] is None
 
 
 class TestPrefillRest:
@@ -713,6 +588,128 @@ class TestMaterialReturnUnits:
 
         returned, left = await crud.material_return_units(db_session, incident)
         assert returned == [] and left == []
+
+    @pytest.mark.asyncio
+    async def test_an_unanswered_unit_is_flagged_even_though_it_lands_in_returned(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        """The completion gate must be able to tell "Magazin" from "nobody looked".
+
+        An unanswered row defaults to *not left on site* and so lands in the
+        release list — right for the release list, wrong for the gate, which
+        prefills from these answers and still has to ask about the rest (§18).
+        """
+        incident = await _incident(db_session, test_event, test_user)
+        pump = await _material(db_session, "Tauchpumpe")
+        ladder = await _material(db_session, "Schiebleiter")
+        pump_a = await _assign(db_session, incident, "material", pump.id)
+        ladder_a = await _assign(db_session, incident, "material", ladder.id)
+
+        await self._submitted(
+            db_session,
+            incident,
+            [
+                {
+                    "assignment_id": str(pump_a.id),
+                    "material_id": str(pump.id),
+                    "name": "Tauchpumpe",
+                    "consumable": False,
+                    "used": True,
+                    "left_on_site": False,
+                },
+                {
+                    "assignment_id": str(ladder_a.id),
+                    "material_id": str(ladder.id),
+                    "name": "Schiebleiter",
+                    "consumable": False,
+                    "used": None,
+                    "left_on_site": False,
+                },
+            ],
+        )
+
+        returned, left = await crud.material_return_units(db_session, incident)
+        assert {unit["name"]: unit["answered"] for unit in returned} == {
+            "Tauchpumpe": True,
+            "Schiebleiter": False,
+        }
+        assert left == []
+
+    @pytest.mark.asyncio
+    async def test_left_on_site_counts_as_answered(self, db_session: AsyncSession, test_event: Event, test_user: User):
+        incident = await _incident(db_session, test_event, test_user)
+        pump = await _material(db_session, "Tauchpumpe")
+        pump_a = await _assign(db_session, incident, "material", pump.id)
+        await self._submitted(
+            db_session,
+            incident,
+            [
+                {
+                    "assignment_id": str(pump_a.id),
+                    "material_id": str(pump.id),
+                    "name": "Tauchpumpe",
+                    "consumable": False,
+                    "used": None,
+                    "left_on_site": True,
+                }
+            ],
+        )
+
+        _, left = await crud.material_return_units(db_session, incident)
+        assert [unit["answered"] for unit in left] == [True]
+
+
+class TestMaterialReturnAttribution:
+    """ "Aus dem Rapport von Muster Hans" — whose word the operator confirms."""
+
+    @pytest.mark.asyncio
+    async def test_a_draft_attributes_nothing(self, db_session: AsyncSession, test_event: Event, test_user: User):
+        incident = await _incident(db_session, test_event, test_user)
+        person = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        db_session.add(person)
+        await db_session.commit()
+        await _report(db_session, incident, created_by_personnel_id=person.id)
+
+        assert await crud.material_return_attribution(db_session, incident) == (None, None)
+
+    @pytest.mark.asyncio
+    async def test_names_the_last_person_to_touch_the_report(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        """Several crews amend one report; the checklist is the last one's work."""
+        incident = await _incident(db_session, test_event, test_user)
+        first = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        second = Personnel(id=uuid.uuid4(), name="Roth Til", role="Gruppenführer", status="available")
+        db_session.add_all([first, second])
+        await db_session.commit()
+
+        report = await _report(
+            db_session,
+            incident,
+            created_by_personnel_id=first.id,
+            updated_by_personnel_id=second.id,
+        )
+        report.is_draft = False
+        report.submitted_at = datetime.now(UTC)
+        await db_session.commit()
+
+        name, submitted_at = await crud.material_return_attribution(db_session, incident)
+        assert name == "Roth Til"
+        assert submitted_at is not None
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_the_creator(self, db_session: AsyncSession, test_event: Event, test_user: User):
+        incident = await _incident(db_session, test_event, test_user)
+        person = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        db_session.add(person)
+        await db_session.commit()
+
+        report = await _report(db_session, incident, created_by_personnel_id=person.id)
+        report.is_draft = False
+        await db_session.commit()
+
+        name, _ = await crud.material_return_attribution(db_session, incident)
+        assert name == "Muster Hans"
 
 
 class TestConcurrentEditor:

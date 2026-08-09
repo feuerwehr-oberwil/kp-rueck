@@ -903,8 +903,6 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         models.SchadenplatzReport(
             id=uuid4(),
             incident_id=rapport_incident.id,
-            work_started_at=ago(148),
-            work_ended_at=ago(58),
             arrived_at=ago(148),
             arrived_by_personnel_id=rapport_filer.id,
             materials_json=[

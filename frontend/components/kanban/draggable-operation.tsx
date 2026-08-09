@@ -29,6 +29,8 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
+import { telHref } from "@/lib/phone"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
@@ -63,9 +65,11 @@ interface DraggableOperationProps {
   onTransfer?: () => void
   /** Editor-only: open the Auftrag picker to distribute this incident into a route. */
   onDistributeToAuftrag?: () => void
-  showMeldung?: boolean
-  /** The Reko block on the card, on its own switch (§18.12). */
-  showReko?: boolean
+  /** Which detail blocks this device shows. See lib/card-view.ts — the address,
+   *  the priority marker and every warning/status chip are deliberately NOT in
+   *  here. Pass a stable object: the memo comparator reads it field by field,
+   *  but a fresh identity every render still costs nine comparisons per card. */
+  cardView?: CardViewSettings
   printerEnabled?: boolean
   /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
   doubleBookedCrewNames?: Set<string>
@@ -119,8 +123,7 @@ function DraggableOperationBase({
   onRequestComplete,
   onTransfer,
   onDistributeToAuftrag,
-  showMeldung,
-  showReko = true,
+  cardView = DEFAULT_CARD_VIEW,
   printerEnabled,
   doubleBookedCrewNames,
   canDrag = true,
@@ -161,6 +164,27 @@ function DraggableOperationBase({
         .filter(Boolean)
         .join(' · ')
     : ''
+
+  // What this device actually renders. Resolved once, up front, because the
+  // resource block owns a `border-t` divider and its own padding: if the wrapper
+  // stayed conditional on "has any resources" while the rows inside became
+  // conditional on the view switches, a Kompakt card kept an empty bordered box.
+  // A hidden block has to take its separator and its gap with it.
+  const showRekoPerson = cardView.reko && !!operation.assignedReko
+  const showCrewRow = cardView.mannschaft && !auftrag && operation.crew.length > 0
+  const showVehicleRow = cardView.fahrzeuge && !auftrag && (operation.zuFuss || operation.vehicles.length > 0)
+  const showMaterialRow = cardView.material && !auftrag && operation.materials.length > 0
+  // Nachbarhilfe is a status, not a detail — it stays on every preset, same as
+  // the header chips. Kompakt hides what you can look up; it does not hide who
+  // else is on the address.
+  const showNachbarhilfeRow = !!operation.nachbarhilfe
+  const showResourceBlock =
+    showRekoPerson || showCrewRow || showVehicleRow || showMaterialRow || showNachbarhilfeRow
+  const showMeldungBlock = cardView.meldung && !!operation.notes
+  const showMelderBlock = cardView.melder && !!(operation.contact || operation.contactPhone)
+  const showAuftragBlock = cardView.auftrag && !!auftrag
+  const showRekoSummary = cardView.reko && !!operation.rekoSummary
+  const melderTel = telHref(operation.contactPhone)
 
   // Handle thermal print. The "gesendet" toast is now the START of the story —
   // trackPrintJob replaces it with what the printer actually did.
@@ -387,16 +411,18 @@ function DraggableOperationBase({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-sm text-muted-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
-          </div>
+          {cardView.einsatzart && (
+            <div className="flex items-center gap-2">
+              <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm text-muted-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
+            </div>
+          )}
 
           {/* Start time on the left, the board-wide mode chip on the right — see
               components/ui/incident-time.tsx. The chip carries the age colouring
               (amber/red once it has sat too long), which is a separate signal from
               whichever number the mode happens to show. */}
-          <IncidentTimeRow operation={operation} colorByAge className="justify-between" />
+          {cardView.zeiten && <IncidentTimeRow operation={operation} colorByAge className="justify-between" />}
 
           {/* What the field reported, as a question instead of a second status
               display. Rendered conditionally so only the handful of cards that
@@ -410,12 +436,41 @@ function DraggableOperationBase({
             />
           )}
 
-          {/* Meldung (notes) - shown when toggle is enabled */}
-          {showMeldung && operation.notes && (
+          {/* Meldung (notes) — what came in on the phone. */}
+          {showMeldungBlock && (
             <div className="border-t pt-3">
               <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
                 {operation.notes}
               </p>
+            </div>
+          )}
+
+          {/* Melder — who called, and the number to call back. Off in Standard
+              because the card never showed it; on in Alles, where an operator
+              working the phones wants to reach the address without opening the
+              incident first. */}
+          {showMelderBlock && (
+            <div className="border-t pt-3 flex items-start gap-1.5 text-xs">
+              <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
+                {operation.contact && (
+                  <span className="text-muted-foreground break-words">{operation.contact}</span>
+                )}
+                {operation.contactPhone && (
+                  melderTel ? (
+                    <a
+                      href={melderTel}
+                      onClick={(e) => e.stopPropagation()}
+                      className="tabular-nums text-foreground/80 hover:text-foreground hover:underline"
+                      title={t('common.callContact')}
+                    >
+                      {operation.contactPhone}
+                    </a>
+                  ) : (
+                    <span className="tabular-nums text-muted-foreground">{operation.contactPhone}</span>
+                  )
+                )}
+              </div>
             </div>
           )}
 
@@ -424,10 +479,12 @@ function DraggableOperationBase({
               (the route owns those, summarised in the Auftrag row below), so this
               block — and its top divider — only renders when something inside it
               will actually show; otherwise it left an orphan divider line. */}
-          {(operation.assignedReko || (!auftrag && (operation.crew.length > 0 || operation.zuFuss || operation.vehicles.length > 0 || operation.materials.length > 0)) || operation.nachbarhilfe) && (
+          {showResourceBlock && (
             <div className="border-t pt-3 space-y-1.5 text-xs">
-              {/* Assigned Reko Person */}
-              {operation.assignedReko && (
+              {/* Assigned Reko Person — rides the "Reko" switch, not "Mannschaft":
+                  one label, one concept, so turning Reko off really does take the
+                  whole reconnaissance off the card. */}
+              {showRekoPerson && operation.assignedReko && (
                 <div className="flex items-start gap-1.5">
                   <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
@@ -450,7 +507,7 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {!auftrag && operation.crew.length > 0 && (
+              {showCrewRow && (
                 <div className="flex items-start gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap gap-1 min-w-0">
@@ -488,7 +545,7 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {!auftrag && (operation.zuFuss || operation.vehicles.length > 0) && (
+              {showVehicleRow && (
                 <div className="flex items-start gap-1.5">
                   <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap gap-1 min-w-0">
@@ -540,7 +597,7 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {!auftrag && operation.materials.length > 0 && (
+              {showMaterialRow && (
                 <div className="flex items-start gap-1.5">
                   <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap gap-1 min-w-0">
@@ -586,7 +643,7 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {operation.nachbarhilfe && (
+              {showNachbarhilfeRow && (
                 <div className="flex items-start gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
@@ -604,7 +661,7 @@ function DraggableOperationBase({
               pill. Resources live on the route, so the row carries the route name,
               its done/total progress, and the route's resource roll-up. The whole
               row opens the Aufträge sheet. */}
-          {auftrag && (
+          {showAuftragBlock && auftrag && (
             <div className="border-t pt-3 text-xs">
               <button
                 type="button"
@@ -634,8 +691,8 @@ function DraggableOperationBase({
             </div>
           )}
 
-          {/* Reko Summary — its own toggle, not the Meldung's (§18.12). */}
-          {showReko && operation.rekoSummary && (
+          {/* Reko Summary — its own switch, not the Meldung's (§18.12). */}
+          {showRekoSummary && operation.rekoSummary && (
             <div className="border-t pt-3 space-y-1.5">
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
@@ -794,6 +851,11 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.priority === nextProps.operation.priority &&
     prevProps.operation.location === nextProps.operation.location &&
     prevProps.operation.notes === nextProps.operation.notes &&
+    // The Melder block reads both — without them a corrected callback number
+    // would sit stale on the card until something else forced a repaint.
+    prevProps.operation.contact === nextProps.operation.contact &&
+    prevProps.operation.contactPhone === nextProps.operation.contactPhone &&
+    prevProps.operation.incidentType === nextProps.operation.incidentType &&
     prevProps.operation.nachbarhilfe === nextProps.operation.nachbarhilfe &&
     prevProps.operation.amWarten === nextProps.operation.amWarten &&
     prevProps.operation.zuFuss === nextProps.operation.zuFuss &&
@@ -824,8 +886,12 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
     prevProps.index === nextProps.index &&
-    prevProps.showMeldung === nextProps.showMeldung &&
-    prevProps.showReko === nextProps.showReko &&
+    // Every view switch, field by field. `cardViewEquals` iterates
+    // CARD_VIEW_KEYS and CardViewSettings is derived from that same list, so a
+    // flag added later cannot exist without landing in this comparison — the one
+    // failure mode of a hand-written comparator (a switch that flips but never
+    // repaints) is closed by the type, not by remembering.
+    cardViewEquals(prevProps.cardView ?? DEFAULT_CARD_VIEW, nextProps.cardView ?? DEFAULT_CARD_VIEW) &&
     !rekoSummaryChanged &&
     !assignedRekoChanged &&
     // Conflict set: identity check is enough — page.tsx memoizes the Set

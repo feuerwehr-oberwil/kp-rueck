@@ -608,31 +608,63 @@ class TestRapportParity:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_the_times_land_too(
+    async def test_the_form_no_longer_carries_the_two_times(
         self,
         editor_client: AsyncClient,
         db_session: AsyncSession,
         test_event: Event,
         test_user: User,
     ):
+        """Beginn/Ende Tätigkeit is derived at output time, never asked for."""
         incident = await _make_incident(db_session, test_event, test_user)
-        started = datetime(2026, 8, 8, 21, 15, tzinfo=UTC)
-        ended = datetime(2026, 8, 8, 23, 40, tzinfo=UTC)
 
-        response = await editor_client.put(
-            f"/api/incidents/{incident.id}/rapport",
-            json={
-                "is_draft": True,
-                "work_started_at": started.isoformat(),
-                "work_ended_at": ended.isoformat(),
-            },
-        )
+        response = await editor_client.get(f"/api/incidents/{incident.id}/rapport")
         assert response.status_code == 200
+        body = response.json()
+        assert "work_started_at" not in body
+        assert "work_ended_at" not in body
+        assert "default_work_started_at" not in body["prefill"]
+        assert "default_work_ended_at" not in body["prefill"]
 
-        report = await _report(db_session, incident)
-        assert report is not None
-        assert report.work_started_at == started
-        assert report.work_ended_at == ended
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_rapport_submitted_is_logged_once_not_on_every_autosave(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """The KP mount autosaves with ``is_draft: false``.
+
+        Keying the journal entry on "submitting" alone would write a "Rapport
+        erfasst" row every few seconds while an operator types, so only the
+        draft→filed transition counts.
+        """
+        incident = await _make_incident(db_session, test_event, test_user)
+
+        for text in ("Keller", "Keller ausgepumpt", "Keller ausgepumpt, Hauswart informiert"):
+            response = await editor_client.put(
+                f"/api/incidents/{incident.id}/rapport",
+                json={"is_draft": False, "kurzbericht": text},
+            )
+            assert response.status_code == 200, response.text
+
+        rows = (
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.resource_id == incident.id,
+                        AuditLog.action_type.in_(["rapport_submitted", "rapport_saved"]),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        actions = [row.action_type for row in rows]
+        assert actions.count("rapport_submitted") == 1
+        assert actions.count("rapport_saved") == 2
 
     @pytest.mark.asyncio
     @pytest.mark.api

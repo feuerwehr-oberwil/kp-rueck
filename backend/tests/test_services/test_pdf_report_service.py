@@ -793,7 +793,7 @@ class TestRapportInThePdf:
             event=event,
             incidents=[incident],
             assignments=kwargs.pop("assignments", []),
-            transitions=[],
+            transitions=kwargs.pop("transitions", []),
             reko_reports=[],
             incident_map={incident.id: incident},
             schadenplatz_reports=[report],
@@ -803,8 +803,7 @@ class TestRapportInThePdf:
     def test_block_renders_with_its_fields(self, simple_event: Event, simple_incident: Incident):
         report = _rapport(
             simple_incident.id,
-            work_started_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
-            work_ended_at=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
+            arrived_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
             kurzbericht="Keller ausgepumpt.",
             handed_over_to="Hauswart",
             owner_note="Muster Hans\nBahnhofstrasse 4, Oberwil",
@@ -814,6 +813,29 @@ class TestRapportInThePdf:
         assert "Keller ausgepumpt." in text
         assert "Hauswart" in text
         assert "Muster Hans" in text
+
+    def test_taetigkeit_is_derived_for_a_rapport_that_stored_no_times(
+        self, simple_event: Event, simple_incident: Incident
+    ):
+        """The crew types no times any more; the board's own record prints instead."""
+        simple_incident.field_complete_reported_at = datetime(2026, 6, 1, 11, 10, tzinfo=UTC)
+        report = _rapport(simple_incident.id, kurzbericht="Keller ausgepumpt.")
+        transitions = [
+            StatusTransition(
+                id=uuid4(),
+                incident_id=simple_incident.id,
+                from_status="dispatched",
+                to_status="active",
+                timestamp=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
+            )
+        ]
+        text = _extract_text(
+            build_event_report_pdf(self._data(simple_event, simple_incident, report, transitions=transitions), "tester")
+        )
+        assert "Tätigkeit" in text
+        # Swiss local time: 09:30 UTC = 11:30 CEST, 11:10 UTC = 13:10 CEST.
+        assert "11:30" in text
+        assert "13:10" in text
 
     def test_corrected_count_prints_the_board_value(self, simple_event: Event, simple_incident: Incident):
         """Decision 5: the divergence says the board was behind reality."""

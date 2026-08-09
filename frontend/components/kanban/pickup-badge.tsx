@@ -33,6 +33,11 @@ import { apiClient } from '@/lib/api-client'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
 
+/** Everything the chip does happens inside the chip — nothing above it reacts. */
+function stopEvent(event: { stopPropagation: () => void }) {
+  event.stopPropagation()
+}
+
 interface PickupBadgeProps {
   requestedAt: Date | null | undefined
   note?: string
@@ -145,16 +150,24 @@ export function PickupBadge({
         {body}
       </button>
 
-      <ConfirmDialog
-        open={confirming}
-        onOpenChange={setConfirming}
-        title={t('clearConfirmTitle')}
-        description={
-          waiting ? t('clearConfirmBodyWaiting', { duration: waiting }) : t('clearConfirmBody')
-        }
-        confirmText={t('clear')}
-        onConfirm={handleClear}
-      />
+      {/* The dialog is a portal in the DOM but still a CHILD in the React tree,
+          and React bubbles portalled events to the React parent. So a click on
+          "Abholung erledigt" — or on Abbrechen, or anywhere on the overlay —
+          reached the kanban card's own onClick and opened the incident behind
+          the dialog. `display: contents` so this wrapper adds no box of its own
+          to the card's flex row (the dialog itself renders elsewhere). */}
+      <span className="contents" onClick={stopEvent} onPointerDown={stopEvent} onMouseDown={stopEvent}>
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={t('clearConfirmTitle')}
+          description={
+            waiting ? t('clearConfirmBodyWaiting', { duration: waiting }) : t('clearConfirmBody')
+          }
+          confirmText={t('clear')}
+          onConfirm={handleClear}
+        />
+      </span>
     </>
   )
 }

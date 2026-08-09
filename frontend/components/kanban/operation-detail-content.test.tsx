@@ -277,7 +277,9 @@ describe("OperationDetailContent", () => {
     await user.click(tab(/^Rapport/))
     expect(screen.getByText("Reko-Meldungen")).toBeVisible()
     expect(screen.getByText("Schadenplatz-Rapport-Formular")).toBeVisible()
-    expect(screen.getByText("Feldmeldungen")).toBeVisible()
+    // Only Abholung is settable from the KP since §18.19 — Angekommen and
+    // Einsatz beendet are information in the thread, not switches.
+    expect(screen.getByText("Abholung")).toBeVisible()
     expect(screen.getByText("Meldungen vom Feld")).toBeVisible()
     expect(screen.queryByText("Zugewiesene Ressourcen")).not.toBeInTheDocument()
 

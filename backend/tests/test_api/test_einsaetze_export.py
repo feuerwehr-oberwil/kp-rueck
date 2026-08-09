@@ -84,11 +84,12 @@ class TestEinsaetzeExportSuccess:
         test_personnel,
     ):
         """End to end through ``collect_event_report_data``, not a hand-built object."""
+        test_incident.field_complete_reported_at = datetime(2026, 6, 1, 11, 10, tzinfo=UTC)
         db_session.add(
             SchadenplatzReport(
                 incident_id=test_incident.id,
-                work_started_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
-                work_ended_at=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
+                # No stored times: Beginn/Ende/Dauer are derived from the board.
+                arrived_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
                 kurzbericht="Baum von der Fahrbahn geräumt.",
                 materials_json=[
                     {"assignment_id": str(uuid4()), "name": "Motorsäge", "used": True, "left_on_site": False},

@@ -245,6 +245,30 @@
         "total": "Zeit seit Alarmierung ({since})"
       }
     },
+    "cardView": {
+      "label": "Ansicht",
+      "tooltip": "Was auf den Karten steht — nur für dieses Gerät",
+      "presetsHeading": "Vorlage",
+      "blocksHeading": "Blöcke",
+      "custom": "{count}/9",
+      "alwaysVisibleHint": "Adresse, Priorität und alle Warnhinweise bleiben immer sichtbar.",
+      "preset": {
+        "kompakt": "Kompakt",
+        "standard": "Standard",
+        "alles": "Alles"
+      },
+      "block": {
+        "einsatzart": "Einsatzart",
+        "zeiten": "Zeiten",
+        "meldung": "Meldung",
+        "melder": "Melder",
+        "mannschaft": "Mannschaft",
+        "fahrzeuge": "Fahrzeuge",
+        "material": "Material",
+        "auftrag": "Auftrag",
+        "reko": "Reko"
+      }
+    },
     "common": {
       "search": "Suchen...",
       "clearSearch": "Suche löschen",
@@ -421,13 +445,19 @@
     "materialDecision": {
       "title": "Material vor Ort oder ins Magazin?",
       "description": "<hl>{location}</hl> wurde abgeschlossen. Entscheide pro Mittel, ob es vor Ort blieb oder zurück ins Magazin kommt.",
+      "descriptionFromRapport": "<hl>{location}</hl> wurde abgeschlossen. Die Mannschaft hat vor Ort bereits pro Mittel geantwortet – kontrolliere und bestätige.",
+      "descriptionPartialRapport": "<hl>{location}</hl> wurde abgeschlossen. Die Antworten der Mannschaft sind übernommen; {count, plural, one {ein Mittel ist} other {# Mittel sind}} noch offen.",
       "toMagazinShort": "Magazin",
       "onSiteShort": "Vor Ort",
       "toastToMagazin": "Ins Magazin zurück",
       "toastOnSite": "Vor Ort gelassen",
       "confirm": "Bestätigen",
+      "confirmRapport": "Übernehmen",
       "cancel": "Abbrechen",
-      "leftOnSite": "Vor Ort gelassen"
+      "leftOnSite": "Vor Ort gelassen",
+      "rapportSource": "Aus dem Rapport von {name}",
+      "answeredHint": "Laut Rapport",
+      "consumableHint": "Verbrauchsmaterial – kommt nicht zurück"
     },
     "disponiert": {
       "whatsappCopied": "WhatsApp-Nachricht kopiert",
@@ -2824,6 +2854,11 @@
       "arrivedDone": "Angekommen gemeldet",
       "complete": "Einsatz beendet",
       "completeDone": "Beendet gemeldet",
+      "cancel": "Abbrechen",
+      "confirmArrivedQuestion": "Angekommen melden?",
+      "confirmArrivedYes": "Ja, angekommen",
+      "confirmCompleteQuestion": "Einsatz beendet melden?",
+      "confirmCompleteYes": "Ja, beendet",
       "message": "Meldung",
       "messageTitle": "Meldung an den KP",
       "messagePlaceholder": "Kurze Meldung schreiben...",
@@ -2872,8 +2907,8 @@
       "nudgeDismiss": "Hinweis ausblenden"
     },
     "kp": {
-      "title": "Feldmeldungen",
-      "description": "Was der Trupp über Funk meldet – hier erfassen, wenn es nicht über /feld kommt.",
+      "pickupTitle": "Abholung",
+      "pickupDescription": "Meldet der Trupp die Abholung über Funk, hier erfassen.",
       "arrived": "Angekommen",
       "complete": "Einsatz beendet",
       "pickup": "Abholung nötig",
@@ -2894,14 +2929,11 @@
       "stateSubmitted": "erfasst",
       "stateMissing": "kein Rapport",
       "sections": {
-        "einsatzdaten": "Einsatzdaten",
         "kurzbericht": "Kurzbericht",
         "owner": "Eigentümer- / Halterdaten",
         "confirm": "Mannschaft und Fahrzeuge",
         "photos": "Fotos"
       },
-      "workStarted": "Beginn Tätigkeit",
-      "workEnded": "Ende Tätigkeit",
       "material": {
         "title": "Material",
         "empty": "Kein Material erfasst.",
@@ -2941,12 +2973,14 @@
       "lastSaved": "Zwischengespeichert um {at}",
       "localRestored": "Lokaler Entwurf wiederhergestellt.",
       "submit": "Rapport abschliessen",
-      "submitKp": "Rapport abschliessen (Funkmeldung)",
+      "autosaveHint": "Wird laufend gespeichert – kein Abschliessen nötig.",
       "submitted": "Rapport erfasst.",
       "submittedBadge": "Abgeschlossen {at}",
       "submitError": "Rapport konnte nicht abgeschlossen werden. Nochmals versuchen.",
       "amend": "Rapport ergänzen",
-      "loadError": "Rapport konnte nicht geladen werden."
+      "empty": "Noch kein Rapport",
+      "loadError": "Rapport konnte nicht geladen werden.",
+      "loadRetry": "Erneut versuchen"
     },
     "materialReturn": {
       "title": "Material zurück – freigeben",

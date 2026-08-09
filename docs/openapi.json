@@ -4594,7 +4594,7 @@
           "incidents"
         ],
         "summary": "Get Rapport Material Return",
-        "description": "\"Material zurück – freigeben\" (decision 17): what the board may release.\n\nA read only. The releasing itself goes through the existing per-assignment\nrelease — a field form must not silently write assignments, and the decision\nstays with the operator. Empty until the rapport is submitted: a draft is a\ncrew still typing, and offering a half-answered checklist as a release list\nis how a pump gets freed while it is still running in a cellar.\n\n``left_on_site`` is returned separately and is **not** in the release set;\nconsumables are in neither (decision 26).",
+        "description": "\"Material zurück – freigeben\" (decision 17): what the board may release.\n\nA read only. The releasing itself goes through the existing per-assignment\nrelease — a field form must not silently write assignments, and the decision\nstays with the operator. Empty until the rapport is submitted: a draft is a\ncrew still typing, and offering a half-answered checklist as a release list\nis how a pump gets freed while it is still running in a cellar.\n\n``left_on_site`` is returned separately and is **not** in the release set;\nconsumables are in neither (decision 26).\n\nAlso the source of truth for the completion gate's prefill (§18): the same\nanswers, plus who filed them, so \"Material vor Ort oder ins Magazin?\" arrives\nalready answered instead of asking the crew's question a second time.",
         "operationId": "get_rapport_material_return_api_incidents__incident_id__rapport_material_return_get",
         "parameters": [
           {
@@ -4646,9 +4646,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Rapport Material Return Api Incidents  Incident Id  Rapport Material Return Get"
+                  "$ref": "#/components/schemas/MaterialReturnResponse"
                 }
               }
             }
@@ -20809,6 +20807,105 @@
         "title": "MaterialGroupUpdate",
         "description": "Schema for updating a material group."
       },
+      "MaterialReturnResponse": {
+        "properties": {
+          "returned": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialReturnUnit"
+            },
+            "type": "array",
+            "title": "Returned",
+            "default": []
+          },
+          "left_on_site": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialReturnUnit"
+            },
+            "type": "array",
+            "title": "Left On Site",
+            "default": []
+          },
+          "rapport_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rapport By"
+          },
+          "rapport_submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rapport Submitted At"
+          }
+        },
+        "type": "object",
+        "title": "MaterialReturnResponse",
+        "description": "Everything the board needs to stop asking the crew's question twice.\n\nThe two lists are the release view (decision 17). The attribution is what the\ncompletion gate puts over the answers it prefilled — \"aus dem Rapport von\nMuster Hans\" — so the operator confirms somebody's word instead of a dialog\nthat decided by itself."
+      },
+      "MaterialReturnUnit": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used"
+          },
+          "answered": {
+            "type": "boolean",
+            "title": "Answered",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id",
+          "material_id",
+          "name"
+        ],
+        "title": "MaterialReturnUnit",
+        "description": "One row of \"Material zurück – freigeben\" (decision 17).\n\nThe board is *offered* the units the crew did not mark as left on site and\nclicks; `/feld` never writes an assignment itself. Units marked *vor Ort\nverblieben* come back in ``left_on_site`` and are NOT in the release set;\nconsumables are in neither list — a consumable that was used is gone."
+      },
       "MaterialUpdate": {
         "properties": {
           "name": {
@@ -22635,30 +22732,6 @@
             "title": "Board Personnel Count",
             "default": 0
           },
-          "default_work_started_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Default Work Started At"
-          },
-          "default_work_ended_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Default Work Ended At"
-          },
           "material_name_suggestions": {
             "items": {
               "type": "string"
@@ -22681,30 +22754,6 @@
             "type": "boolean",
             "title": "Is Draft",
             "default": true
-          },
-          "work_started_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Work Started At"
-          },
-          "work_ended_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Work Ended At"
           },
           "materials": {
             "anyOf": [
@@ -23726,30 +23775,6 @@
               }
             ],
             "title": "Submitted At"
-          },
-          "work_started_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Work Started At"
-          },
-          "work_ended_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Work Ended At"
           },
           "materials": {
             "items": {

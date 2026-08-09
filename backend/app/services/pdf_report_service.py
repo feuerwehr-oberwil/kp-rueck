@@ -16,7 +16,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import Any
+from typing import Any, NamedTuple
 from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
 
@@ -351,6 +351,66 @@ def board_personnel_count(data: EventReportData, incident_id: uuid.UUID) -> int:
         a.resource_id for a in data.assignments if a.incident_id == incident_id and a.resource_type == "personnel"
     }
     return len(personnel)
+
+
+class WorkWindow(NamedTuple):
+    """Beginn/Ende Tätigkeit, derived — never stored, never typed."""
+
+    started_at: datetime | None
+    ended_at: datetime | None
+
+
+def rapport_work_windows(data: EventReportData) -> dict[uuid.UUID, WorkWindow]:
+    """Beginn/Ende Tätigkeit per incident, derived from what the board recorded.
+
+    The crew used to type these two times into the field form. It never told the
+    board anything the board did not already have, so the columns went and the
+    chain that used to prefill them is now the only source:
+
+    * **Beginn** — the rapport's ``arrived_at`` ("Angekommen" on `/feld`), else
+      the first transition into ``active``, else the earliest assignment.
+    * **Ende** — the incident's ``field_complete_reported_at`` ("beendet"
+      gemeldet), else the first transition into ``returning``/``complete``.
+
+    Either side may stay ``None``: a Schadenplatz nobody has left yet has no Ende,
+    and printing a guess would be worse than printing nothing.
+
+    Batched on purpose. ``EventReportData`` already carries every assignment and
+    every transition of the event, so an export of forty Schadenplätze walks
+    those two lists **once** instead of issuing three queries per row. This is
+    the single implementation for all three outputs (Einsätze-xlsx, Lageblatt,
+    Einsatzbericht) — they must not be able to disagree about when a crew worked.
+    """
+    first_active: dict[uuid.UUID, datetime] = {}
+    first_end: dict[uuid.UUID, datetime] = {}
+    for t in data.transitions:
+        if t.timestamp is None:
+            continue
+        if t.to_status == "active":
+            current = first_active.get(t.incident_id)
+            if current is None or t.timestamp < current:
+                first_active[t.incident_id] = t.timestamp
+        elif t.to_status in ("returning", "complete"):
+            current = first_end.get(t.incident_id)
+            if current is None or t.timestamp < current:
+                first_end[t.incident_id] = t.timestamp
+
+    earliest_assigned: dict[uuid.UUID, datetime] = {}
+    for a in data.assignments:
+        if a.assigned_at is None:
+            continue
+        current = earliest_assigned.get(a.incident_id)
+        if current is None or a.assigned_at < current:
+            earliest_assigned[a.incident_id] = a.assigned_at
+
+    reports = rapport_by_incident(data)
+    windows: dict[uuid.UUID, WorkWindow] = {}
+    for inc in data.incidents:
+        report = reports.get(inc.id)
+        started = (report.arrived_at if report else None) or first_active.get(inc.id) or earliest_assigned.get(inc.id)
+        ended = inc.field_complete_reported_at or first_end.get(inc.id)
+        windows[inc.id] = WorkWindow(started, ended)
+    return windows
 
 
 def format_corrected_count(value: int | None, corrected: bool, board_value: int) -> str:
@@ -1122,11 +1182,14 @@ def _rapport_block(
     if report.is_draft:
         flow.append(_p(LABELS["rapport_draft"], styles["meta"]))
 
-    if report.work_started_at or report.work_ended_at:
+    # Beginn/Ende Tätigkeit is derived (see `rapport_work_windows`), not stored:
+    # the crew never typed it, the board recorded it.
+    window = rapport_work_windows(data).get(inc.id, WorkWindow(None, None))
+    if window.started_at or window.ended_at:
         flow.append(
             _field(
                 LABELS["rapport_work"],
-                f"{_fmt_dt(report.work_started_at)} – {_fmt_dt(report.work_ended_at)}",
+                f"{_fmt_dt(window.started_at)} – {_fmt_dt(window.ended_at)}",
                 styles,
             )
         )

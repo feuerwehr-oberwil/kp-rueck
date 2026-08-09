@@ -5,11 +5,13 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
+from app.crud import assignments as assignment_crud
 from app.crud import incidents as incident_crud
-from app.models import Incident, IncidentAssignment, SchadenplatzReport, User, Vehicle
+from app.models import Incident, IncidentAssignment, Personnel, SchadenplatzReport, User, Vehicle
 
 
 @pytest.fixture
@@ -409,3 +411,255 @@ class TestRestoreIncident:
                 current_user=test_user,
                 request=mock_request,
             )
+
+
+class TestCompletionIsUndoable:
+    """Leaving `complete` puts back exactly what entering it released.
+
+    The field test that produced these: an operator drags a card to
+    Abgeschlossen, the "Material vor Ort oder ins Magazin?" gate opens, they
+    press Abbrechen — and the incident comes back with its crew and vehicles
+    gone. The status change is applied before the gate opens, and completing
+    auto-releases everyone; reverting the status put the status back and nothing
+    else.
+
+    The undo lives in the same transaction as the status change on purpose, so
+    there is no window in which the incident is open again but its crew is not.
+    """
+
+    @staticmethod
+    async def _active(db: AsyncSession, incident_id) -> list[IncidentAssignment]:
+        result = await db.execute(
+            select(IncidentAssignment).where(
+                IncidentAssignment.incident_id == incident_id,
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def test_cancelling_the_completion_gate_keeps_the_crew(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """Complete, then revert: the crew and the vehicle are still there."""
+        for resource_type, resource_id in (("personnel", test_personnel.id), ("vehicle", test_vehicle.id)):
+            await assignment_crud.assign_resource(
+                db=db_session,
+                incident_id=test_incident.id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                current_user=test_user,
+                request=mock_request,
+            )
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="complete",
+            current_user=test_user,
+            request=mock_request,
+        )
+        assert await self._active(db_session, test_incident.id) == []
+
+        # Abbrechen: the gate reverts the status it moved.
+        reverted = await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="active",
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert reverted is not None
+        assert reverted.completed_at is None
+        active = await self._active(db_session, test_incident.id)
+        assert {(a.resource_type, a.resource_id) for a in active} == {
+            ("personnel", test_personnel.id),
+            ("vehicle", test_vehicle.id),
+        }
+
+    async def test_the_einsatzleiter_comes_back_too(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_user: User,
+        mock_request,
+    ):
+        """A crew restored without its EL is a card the operator still has to repair."""
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="personnel",
+            resource_id=test_personnel.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        active = await self._active(db_session, test_incident.id)
+        assert active[0].is_leader is True  # derived by sync_auto_leader
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="complete",
+            current_user=test_user,
+            request=mock_request,
+        )
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="active",
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        restored = await self._active(db_session, test_incident.id)
+        assert len(restored) == 1
+        assert restored[0].is_leader is True
+
+    async def test_patch_path_reverts_the_same_way(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """The board drags through PATCH /incidents/{id}, not through /status."""
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        await incident_crud.update_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            incident_update=schemas.IncidentUpdate(status="complete"),
+            current_user=test_user,
+            request=mock_request,
+        )
+        assert await self._active(db_session, test_incident.id) == []
+
+        await incident_crud.update_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            incident_update=schemas.IncidentUpdate(status="active"),
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        active = await self._active(db_session, test_incident.id)
+        assert [a.resource_type for a in active] == ["vehicle"]
+
+    async def test_a_resource_taken_by_another_incident_is_left_alone(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_event,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """An undo must not silently put a vehicle on two incidents at once."""
+        other = Incident(
+            id=uuid4(),
+            title="Zweiter Einsatz",
+            type="elementarereignis",
+            priority="medium",
+            status="active",
+            event_id=test_event.id,
+            created_by=test_user.id,
+        )
+        db_session.add(other)
+        await db_session.commit()
+
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="complete",
+            current_user=test_user,
+            request=mock_request,
+        )
+        # The vehicle went out again while the incident sat in Abgeschlossen.
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=other.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="active",
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert await self._active(db_session, test_incident.id) == []
+        assert len(await self._active(db_session, other.id)) == 1
+
+    async def test_the_undo_is_consumed_not_replayed(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """Reopening twice must not resurrect a release the operator undid once."""
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="complete",
+            current_user=test_user,
+            request=mock_request,
+        )
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="active",
+            current_user=test_user,
+            request=mock_request,
+        )
+        # Operator releases the vehicle by hand, then reopens again later.
+        active = await self._active(db_session, test_incident.id)
+        await assignment_crud.unassign_resource(db_session, active[0].id, test_user, mock_request)
+        await db_session.commit()
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="returning",
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert await self._active(db_session, test_incident.id) == []

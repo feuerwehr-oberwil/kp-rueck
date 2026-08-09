@@ -1,10 +1,29 @@
-import { act, renderHook } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { act, renderHook, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
 import type { Material, Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
 
+// The material gate prefills itself from the Schadenplatz-Rapport. Every gate
+// test opens one, so the door has to be mocked for all of them, not just the
+// prefill cases.
+const getRapportMaterialReturn = vi.hoisted(() => vi.fn())
+vi.mock("@/lib/api-client", () => ({ apiClient: { getRapportMaterialReturn } }))
+
 const emptyGroupResources: GroupResources = { personnel: [], vehicles: [], materials: [] }
+
+function rapport(overrides: Partial<{
+  returned: unknown[]
+  left_on_site: unknown[]
+  rapport_by: string | null
+}> = {}) {
+  return { returned: [], left_on_site: [], rapport_by: null, rapport_submitted_at: null, ...overrides }
+}
+
+beforeEach(() => {
+  getRapportMaterialReturn.mockReset()
+  getRapportMaterialReturn.mockResolvedValue(rapport())
+})
 
 function operation(overrides: Partial<Operation> = {}): Operation {
   return {
@@ -49,6 +68,7 @@ function renderWorkflow(
   currentOperation: Operation,
   groupResources: GroupResources = emptyGroupResources,
   groups: { id: string; stopIds: string[] }[] = [],
+  consumableIds: string[] = [],
 ) {
   const changeStatusToTop = vi.fn()
   const getGroupResources = vi.fn(() => groupResources)
@@ -59,19 +79,21 @@ function renderWorkflow(
     category: "Magazin",
     categorySortOrder: 0,
     status: "assigned",
-    consumable: false,
+    consumable: consumableIds.includes(id),
     groupId: null,
   }))
+  const removeMaterial = vi.fn()
+  const unassignGroupResource = vi.fn()
   const result = renderHook(() => useIncidentStatusWorkflow({
     operations: [currentOperation],
     materials,
     groups: groups as never,
     changeStatusToTop,
     getGroupResources,
-    removeMaterial: vi.fn(),
-    unassignGroupResource: vi.fn(),
+    removeMaterial,
+    unassignGroupResource,
   }))
-  return { ...result, changeStatusToTop }
+  return { ...result, changeStatusToTop, removeMaterial, unassignGroupResource }
 }
 
 describe("shared incident detail status workflow", () => {
@@ -247,5 +269,144 @@ describe("shared incident detail status workflow", () => {
 
     act(() => result.current.resumeGateAfterAssignment())
     expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
+  })
+})
+
+describe("the material gate takes the crew's word for it", () => {
+  // The crew answered "vor Ort oder ins Magazin" per unit at the Schadenplatz.
+  // Asking the operator the same question from scratch at completion asks
+  // somebody who was not there to overrule somebody who was.
+
+  const unit = (id: string, extra: Record<string, unknown> = {}) => ({
+    assignment_id: `a-${id}`,
+    material_id: id,
+    name: id,
+    location: null,
+    used: true,
+    answered: true,
+    ...extra,
+  })
+
+  it("prefills every unit the rapport answered, attributed to its author", async () => {
+    getRapportMaterialReturn.mockResolvedValue(rapport({
+      returned: [unit("pumpe")],
+      left_on_site: [unit("nasssauger")],
+      rapport_by: "Muster Hans",
+    }))
+    const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe", "nasssauger"] }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(result.current.materialRapportBy).toBe("Muster Hans"))
+
+    const byId = Object.fromEntries(result.current.materialDecisionItems.map((item) => [item.id, item]))
+    expect(result.current.materialChoice(byId.pumpe)).toBe("magazin")
+    expect(result.current.materialChoice(byId.nasssauger)).toBe("vorort")
+    // Nothing left to decide: the dialog is a confirmation, not a questionnaire.
+    expect(result.current.materialDecisionOpenCount).toBe(0)
+    expect(byId.pumpe.source).toBe("rapport")
+  })
+
+  it("still asks about the units the rapport did not answer", async () => {
+    // `returned` also carries what nobody looked at — an unanswered row defaults
+    // to "not left on site". Treating that as an answer would put words in the
+    // crew's mouth about a unit it never saw.
+    getRapportMaterialReturn.mockResolvedValue(rapport({
+      returned: [unit("pumpe"), unit("leiter", { answered: false, used: null })],
+      rapport_by: "Muster Hans",
+    }))
+    const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe", "leiter"] }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(result.current.materialRapportBy).toBe("Muster Hans"))
+
+    const byId = Object.fromEntries(result.current.materialDecisionItems.map((item) => [item.id, item]))
+    expect(byId.pumpe.source).toBe("rapport")
+    expect(byId.leiter.source).toBeNull()
+    expect(result.current.materialDecisionOpenCount).toBe(1)
+  })
+
+  it("never treats a consumable as an open question", async () => {
+    // A consumable has no "vor Ort" state at all (decision 26), so the rapport
+    // does not carry one and the gate must not ask for one.
+    const { result } = renderWorkflow(
+      operation({ status: "returning", materials: ["oelbinder"] }),
+      emptyGroupResources,
+      [],
+      ["oelbinder"],
+    )
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(result.current.materialDecisionItems).toHaveLength(1))
+
+    const [item] = result.current.materialDecisionItems
+    expect(item.consumable).toBe(true)
+    expect(item.source).toBe("consumable")
+    expect(result.current.materialChoice(item)).toBe("magazin")
+    expect(result.current.materialDecisionOpenCount).toBe(0)
+  })
+
+  it("an operator click overrules the rapport", async () => {
+    getRapportMaterialReturn.mockResolvedValue(rapport({
+      left_on_site: [unit("pumpe")],
+      rapport_by: "Muster Hans",
+    }))
+    const { result, removeMaterial } = renderWorkflow(
+      operation({ status: "returning", materials: ["pumpe"] }),
+    )
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(result.current.materialRapportBy).toBe("Muster Hans"))
+    act(() => result.current.setMaterialDecision("pumpe", "magazin"))
+
+    let resolved: { returned: string[]; kept: string[] } | undefined
+    act(() => {
+      resolved = result.current.resolveMaterialDecision()
+    })
+    expect(resolved).toEqual({ returned: ["pumpe"], kept: [] })
+    expect(removeMaterial).toHaveBeenCalledWith("incident-1", "pumpe")
+  })
+
+  it("releases what the rapport sent back without a single click", async () => {
+    getRapportMaterialReturn.mockResolvedValue(rapport({
+      returned: [unit("pumpe")],
+      left_on_site: [unit("nasssauger")],
+      rapport_by: "Muster Hans",
+    }))
+    const { result, removeMaterial } = renderWorkflow(
+      operation({ status: "returning", materials: ["pumpe", "nasssauger"] }),
+    )
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(result.current.materialRapportBy).toBe("Muster Hans"))
+
+    let resolved: { returned: string[]; kept: string[] } | undefined
+    act(() => {
+      resolved = result.current.resolveMaterialDecision()
+    })
+    expect(resolved).toEqual({ returned: ["pumpe"], kept: ["nasssauger"] })
+    expect(removeMaterial).toHaveBeenCalledExactlyOnceWith("incident-1", "pumpe")
+  })
+
+  it("asks from scratch when no rapport was submitted", async () => {
+    const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe"] }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(getRapportMaterialReturn).toHaveBeenCalledWith("incident-1"))
+
+    expect(result.current.materialRapportBy).toBeNull()
+    expect(result.current.materialDecisionOpenCount).toBe(1)
+    expect(result.current.materialDecisionItems[0].source).toBeNull()
+  })
+
+  it("falls back to asking when the rapport cannot be read", async () => {
+    getRapportMaterialReturn.mockRejectedValue(new Error("offline"))
+    const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe"] }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(getRapportMaterialReturn).toHaveBeenCalledWith("incident-1"))
+
+    expect(result.current.materialDecisionOperation?.id).toBe("incident-1")
+    expect(result.current.materialRapportBy).toBeNull()
+    expect(result.current.materialDecisionOpenCount).toBe(1)
   })
 })

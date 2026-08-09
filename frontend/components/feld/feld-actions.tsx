@@ -8,6 +8,12 @@
  * the form is what it does afterwards, and a phone in the rain gets one tap,
  * not a scroll.
  *
+ * **Angekommen and Einsatz beendet ask first (§18.18).** A misplaced tap on a
+ * wet phone cannot be undone from the field — only the KP can clear either of
+ * them — so both open the same one-line follow-up panel the Abholung question
+ * uses rather than a foreign dialog. One question, one tap. Abholung and Meldung
+ * already have their own panels and are left exactly as they were.
+ *
  * The one piece of real logic here is the **Abholung follow-up** (decision 24):
  * tapping *Einsatz beendet* immediately asks "Kommt ihr selbst zurück?", because
  * that is the moment the answer is known. It is deliberately a second request,
@@ -42,7 +48,13 @@ import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
  *
  * `pickup-followup` is the one that opens by itself, right after *beendet*.
  */
-export type FeldPanel = 'none' | 'pickup-followup' | 'pickup' | 'message'
+export type FeldPanel =
+  | 'none'
+  | 'confirm-arrived'
+  | 'confirm-complete'
+  | 'pickup-followup'
+  | 'pickup'
+  | 'message'
 
 /** How long a green "übermittelt" line stays before the panel goes quiet again. */
 const CONFIRMATION_MS = 6000
@@ -125,12 +137,15 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
     [onReported],
   )
 
-  const handleArrived = () =>
-    run('arrived', t('arrived'), () =>
+  const handleArrived = () => {
+    setPanel('none')
+    return run('arrived', t('arrived'), () =>
       apiClient.feldReportArrived(assignment.incident_id, personnelId, token),
     )
+  }
 
   const handleComplete = async () => {
+    setPanel('none')
     const ok = await run('complete', t('complete'), () =>
       apiClient.feldReportComplete(assignment.incident_id, personnelId, token),
     )
@@ -174,7 +189,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           size="lg"
           className="h-14 flex-col gap-0.5"
           disabled={arrived || busy}
-          onClick={handleArrived}
+          onClick={() => setPanel(panel === 'confirm-arrived' ? 'none' : 'confirm-arrived')}
         >
           {isBusy(delivery, 'arrived') ? (
             <Loader2 className="size-4 animate-spin" />
@@ -191,7 +206,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           size="lg"
           className="h-14 flex-col gap-0.5"
           disabled={busy}
-          onClick={handleComplete}
+          onClick={() => setPanel(panel === 'confirm-complete' ? 'none' : 'confirm-complete')}
         >
           {isBusy(delivery, 'complete') ? (
             <Loader2 className="size-4 animate-spin" />
@@ -281,6 +296,32 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           </div>
         )}
       </div>
+
+      {/* --- Ask first (§18.18) ---------------------------------------------
+          Same panel shape as the Abholung question below, deliberately: one
+          line, one tap, no modal. Neither report can be taken back from a
+          phone — the KP is the only surface that can clear them — and a thumb
+          in the rain hits the wrong half of a 2×2 grid often enough that the
+          first field test found it. */}
+      {(panel === 'confirm-arrived' || panel === 'confirm-complete') && (
+        <div className="rounded-lg border border-border p-3 space-y-3">
+          <p className="text-sm font-medium">
+            {panel === 'confirm-arrived' ? t('confirmArrivedQuestion') : t('confirmCompleteQuestion')}
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            <Button size="lg" variant="outline" disabled={busy} onClick={() => setPanel('none')}>
+              {t('cancel')}
+            </Button>
+            <Button
+              size="lg"
+              disabled={busy}
+              onClick={panel === 'confirm-arrived' ? handleArrived : handleComplete}
+            >
+              {panel === 'confirm-arrived' ? t('confirmArrivedYes') : t('confirmCompleteYes')}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* --- The follow-up (decision 24) ------------------------------------ */}
       {panel === 'pickup-followup' && (

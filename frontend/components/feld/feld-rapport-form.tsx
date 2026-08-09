@@ -18,11 +18,23 @@
  * survives a closed tab and a dead network *while typing*, but not a dead server
  * *at submit*. For that day the blank `fahrzeugrapport.pdf` stays in the folder
  * as the Ausfall-Variante.
+ *
+ * **The two mounts save differently, and only there (§18.17).** `/feld` keeps an
+ * explicit *Rapport abschliessen*: a crew on a phone needs a definite "I am
+ * done" moment, and that is where the draft-vs-filed distinction earns its keep.
+ * The KP has no submit button at all — the board autosaves everything else, and
+ * a modal that makes an operator press Save is out of place on it. A KP save
+ * therefore always writes `is_draft: false`: **a KP rapport is filed from its
+ * first saved keystroke.** Two guards keep that honest — it saves only when the
+ * form actually changed, and only once it has content — so opening a detail
+ * never creates an empty rapport and never stamps a KP editor onto a crew's.
+ * Because no KP save ever carries `is_draft: true`, no late KP autosave can
+ * un-submit anything, which is the bug `isSubmittingRef` exists for.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, Copy, Loader2, Send, UserRound } from 'lucide-react'
+import { AlertTriangle, Check, Copy, FileText, Loader2, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -38,10 +50,10 @@ import type {
   ApiSchadenplatzRapport,
   ApiRapportUpdate,
 } from '@/lib/api/types'
-import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import {
   EMPTY_RAPPORT_FORM,
+  hasContent,
   isCorrected,
   mergeDraft,
   toFormData,
@@ -80,6 +92,12 @@ interface FeldRapportFormProps {
 }
 
 const AUTOSAVE_MS = 30000
+/**
+ * The KP's own beat. The 30 s interval is a phone's compromise — a modal an
+ * operator closes after dictating two sentences must not lose them, so the KP
+ * mount also saves shortly after the typing stops (and once more on close).
+ */
+const KP_DEBOUNCE_MS = 2000
 
 function localStorageKey(incidentId: string): string {
   return `feld-rapport-${incidentId}`
@@ -100,6 +118,7 @@ function formatDateTime(value: string | null): string {
 
 export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
+  const isKp = mount === 'kp'
 
   const [rapport, setRapport] = useState<ApiSchadenplatzRapport | null>(null)
   const [formData, setFormData] = useState<RapportFormData>(EMPTY_RAPPORT_FORM)
@@ -110,13 +129,26 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const [photos, setPhotos] = useState<string[]>([])
   const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+  // A ref, not state: the interval, the debounce and the unmount flush can all
+  // fire within the same tick, and only a synchronous flag keeps two saves of
+  // the same form off the wire.
+  const isSavingRef = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Ref mirror of the submission state: the auto-save interval captures stale
   // closures, so it must check this ref (set synchronously on submit) instead
   // of the isSubmitting state. Once a submit succeeds it stays true forever so
   // no late draft-save can un-submit the report.
   const isSubmittingRef = useRef(false)
+  // What the server last confirmed, serialised. Every save compares against it,
+  // so an open modal that nobody typed in writes nothing at all — otherwise the
+  // KP mount would stamp "zuletzt bearbeitet im KP durch X" on a crew's rapport
+  // for the crime of being looked at, and the 30 s interval would create an
+  // empty row for every incident anybody opened.
+  const savedRef = useRef<string | null>(null)
+  // The interval, the debounce and the unmount flush all read the CURRENT form,
+  // never the one their closure was born with.
+  const formRef = useRef<RapportFormData>(EMPTY_RAPPORT_FORM)
+  formRef.current = formData
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [loadError, setLoadError] = useState(false)
   // A filed rapport is amendable (decision 3: one report per Schadenplatz,
@@ -158,35 +190,49 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   }, [key])
 
   // ------------------------------------------------------------------ load
-  useEffect(() => {
-    let cancelled = false
-    const init = async () => {
-      setIsLoading(true)
-      setLoadError(false)
+  const cancelledRef = useRef(false)
+  const load = useCallback(async () => {
+    setIsLoading(true)
+    setLoadError(false)
+    try {
+      const data = await transport.load()
+      if (cancelledRef.current) return
+      // A local draft is untrusted input: it can have been written weeks ago by
+      // a version of this form with different fields. A merge that throws must
+      // cost the typing, never turn "there is no rapport yet" into "Rapport
+      // konnte nicht geladen werden" — an absent rapport is the normal state.
+      let merged: { form: RapportFormData; usedLocal: boolean }
       try {
-        const data = await transport.load()
-        if (cancelled) return
-        const { form, usedLocal } = mergeDraft(data, loadFromLocalStorage())
-        setRapport(data)
-        setFormData(form)
-        setPhotos(data.photos ?? [])
-        if (usedLocal) toast.info(t('localRestored'))
-        setLocalStorageLoaded(true)
+        merged = mergeDraft(data, loadFromLocalStorage())
       } catch (error) {
-        console.error('Failed to load rapport:', error)
-        if (!cancelled) setLoadError(true)
-      } finally {
-        if (!cancelled) setIsLoading(false)
+        console.error('Discarding an unreadable local rapport draft:', error)
+        clearLocalStorage()
+        merged = { form: toFormData(data), usedLocal: false }
       }
-    }
-    init()
-    return () => {
-      cancelled = true
+      setRapport(data)
+      setFormData(merged.form)
+      savedRef.current = JSON.stringify(merged.form)
+      setPhotos(data.photos ?? [])
+      if (merged.usedLocal) toast.info(t('localRestored'))
+      setLocalStorageLoaded(true)
+    } catch (error) {
+      console.error('Failed to load rapport:', error)
+      if (!cancelledRef.current) setLoadError(true)
+    } finally {
+      if (!cancelledRef.current) setIsLoading(false)
     }
     // The transport identity changes on every render of the parent; the
     // incident is what actually decides which rapport this is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentId])
+
+  useEffect(() => {
+    cancelledRef.current = false
+    load()
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [load])
 
   // Persist on every change, so a closed tab or a dead network loses nothing.
   useEffect(() => {
@@ -194,13 +240,27 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     saveToLocalStorage(formData)
   }, [formData, localStorageLoaded, isLoading, saveToLocalStorage])
 
-  const saveDraft = useCallback(async () => {
+  /**
+   * The one write path for everything that is not the `/feld` submit.
+   *
+   * On `/feld` it is the 30 s draft-save it always was. On the KP mount it is
+   * the *whole* save story and it files (`is_draft: false`) — see the module
+   * docstring. Two guards, both load-bearing on the KP side: nothing is written
+   * unless the form differs from what the server last confirmed, and nothing is
+   * written until the form has content.
+   */
+  const autoSave = useCallback(async () => {
     // Check the ref (not isSubmitting state): stale interval closures would
     // otherwise fire a draft-save mid-/post-submit and un-submit the report.
-    if (isSaving || isSubmittingRef.current || isLoading || disabled) return
-    setIsSaving(true)
+    if (isSavingRef.current || isSubmittingRef.current || isLoading || disabled) return
+    const data = formRef.current
+    const serialised = JSON.stringify(data)
+    if (serialised === savedRef.current) return
+    if (isKp && !hasContent(data)) return
+    isSavingRef.current = true
     try {
-      const saved = await transport.save(toUpdate(formData, true))
+      const saved = await transport.save(toUpdate(data, !isKp))
+      savedRef.current = serialised
       setRapport(saved)
       setLastSaved(new Date())
       onSaved?.(saved)
@@ -208,18 +268,40 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       // Background save: no toast. The crew is typing, not watching.
       console.error('Rapport auto-save failed:', error)
     } finally {
-      setIsSaving(false)
+      isSavingRef.current = false
     }
-  }, [formData, isSaving, isLoading, disabled, transport, onSaved])
+  }, [isLoading, disabled, isKp, transport, onSaved])
+
+  // Same reason as `formRef`: the unmount flush must call the newest version.
+  const autoSaveRef = useRef(autoSave)
+  autoSaveRef.current = autoSave
 
   useEffect(() => {
     if (isLoading || isSubmitting || disabled) return
     const interval = setInterval(() => {
-      saveDraft()
+      void autoSaveRef.current()
     }, AUTOSAVE_MS)
     return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData, isLoading, isSubmitting, disabled])
+  }, [isLoading, isSubmitting, disabled])
+
+  // The KP's short debounce: an operator dictating from the radio gets the
+  // sentence onto the shared board seconds after typing it, not half a minute.
+  useEffect(() => {
+    if (!isKp || isLoading || disabled) return
+    const timer = setTimeout(() => {
+      void autoSaveRef.current()
+    }, KP_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [formData, isKp, isLoading, disabled])
+
+  // …and once more when the detail closes, so the last two words are not lost
+  // to a modal somebody dismissed straight after typing them.
+  useEffect(() => {
+    if (!isKp) return
+    return () => {
+      void autoSaveRef.current()
+    }
+  }, [isKp])
 
   const update = <K extends keyof RapportFormData>(field: K, value: RapportFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -312,8 +394,20 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     )
   }
 
+  // A load that failed, and nothing else. "Es gibt noch keinen Rapport" is the
+  // normal state of almost every Schadenplatz and is NOT this (§18.16) — the
+  // GET computes a prefilled, non-existent rapport and writes nothing, so an
+  // error here really does mean the request did not come back.
   if (loadError || !rapport) {
-    return <p className="text-sm text-destructive">{t('loadError')}</p>
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-destructive">{t('loadError')}</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => load()}>
+          <RotateCcw className="size-3.5" />
+          {t('loadRetry')}
+        </Button>
+      </div>
+    )
   }
 
   const submitted = !rapport.is_draft && !amending
@@ -321,6 +415,17 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
 
   return (
     <div className="space-y-6">
+      {/* The normal state, said plainly — same register as the Reko section's
+          "Noch keine Reko-Meldung" next to it. It used to be a red error line,
+          which read as "something is broken" for the majority of Schadenplätze
+          at any moment of a storm. */}
+      {!rapport.exists && (
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-muted-foreground">
+          <FileText className="h-4 w-4" />
+          <p className="text-sm">{t('empty')}</p>
+        </div>
+      )}
+
       {/* Visibility, not a lock (§3): two crews on one Schadenplatz overwriting
           each other's Kurzbericht is an accepted cost, and a real lock in the
           field is worse than the problem it solves. */}
@@ -336,54 +441,17 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         </div>
       )}
 
-      {/* ------------------------------------------------ Einsatzdaten */}
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{t('sections.einsatzdaten')}</h3>
+      {/* No "Einsatzdaten" block (§18.20). Beginn und Ende Tätigkeit were two
+          time inputs and are now derived for the outputs: the column the card
+          sits in, the Angekommen- and Beendet-Meldungen and the status
+          transitions already say when the work ran. Asking a crew in the rain
+          to retype what the board watched happen only costs time.
 
-        {/* No address and no EL block here. Both mounts already state them in
-            their own header — the modal's title line, and the /feld detail's
-            header section with its LeaderLine — and a read-only copy of what
-            is two centimetres above it is a form field that asks to be read
-            and then answers nothing. */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="rapport-start" className="text-xs text-muted-foreground">
-              {t('workStarted')}
-            </Label>
-            <Input
-              id="rapport-start"
-              type="time"
-              disabled={readOnly}
-              value={toTimeInput(formData.work_started_at ? new Date(formData.work_started_at) : null)}
-              onChange={e => {
-                const next = applyTimeEdit(
-                  formData.work_started_at ? new Date(formData.work_started_at) : null,
-                  e.target.value,
-                )
-                if (next) update('work_started_at', next.toISOString())
-              }}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="rapport-end" className="text-xs text-muted-foreground">
-              {t('workEnded')}
-            </Label>
-            <Input
-              id="rapport-end"
-              type="time"
-              disabled={readOnly}
-              value={toTimeInput(formData.work_ended_at ? new Date(formData.work_ended_at) : null)}
-              onChange={e => {
-                const next = applyTimeEdit(
-                  formData.work_ended_at ? new Date(formData.work_ended_at) : null,
-                  e.target.value,
-                )
-                if (next) update('work_ended_at', next.toISOString())
-              }}
-            />
-          </div>
-        </div>
-      </section>
+          No address and no EL block either. Both mounts already state them in
+          their own header — the modal's title line, and the /feld detail's
+          header section with its LeaderLine — and a read-only copy of what is
+          two centimetres above it is a form field that asks to be read and then
+          answers nothing. */}
 
       {/* ---------------------------------------------------- Material */}
       <FeldMaterialChecklist
@@ -513,13 +581,26 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             {line}
           </p>
         ))}
-        {lastSaved && !submitted && (
+        {lastSaved && (!submitted || isKp) && (
           <p className="text-xs text-muted-foreground">
             {t('lastSaved', { at: lastSaved.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' }) })}
           </p>
         )}
 
-        {submitted ? (
+        {/* The KP has no submit button (§18.17). It saves as it is typed, and a
+            saved KP rapport is a filed one — so the only thing left to say is
+            that nobody has to press anything. */}
+        {isKp ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {rapport.submitted_at && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
+                <Check className="h-3.5 w-3.5" />
+                {t('submittedBadge', { at: formatDateTime(rapport.submitted_at) })}
+              </span>
+            )}
+            {!readOnly && <p className="text-xs text-muted-foreground">{t('autosaveHint')}</p>}
+          </div>
+        ) : submitted ? (
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
               <Check className="h-3.5 w-3.5" />
@@ -534,7 +615,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         ) : (
           <Button type="button" className="w-full" disabled={readOnly || isSubmitting} onClick={handleSubmit}>
             {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            {mount === 'kp' ? t('submitKp') : t('submit')}
+            {t('submit')}
           </Button>
         )}
       </div>

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { DraggableOperation } from "./draggable-operation"
+import { type CardViewSettings } from "@/lib/card-view"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown } from "lucide-react"
@@ -66,8 +67,8 @@ interface DroppableColumnProps {
   onTransfer?: (operationId: string) => void
   /** Editor-only: open the Auftrag picker to distribute an incident into a route. */
   onDistributeToAuftrag?: (operationId: string) => void
-  showMeldung?: boolean
-  showReko?: boolean
+  /** Which card blocks this device shows — plumbing only, see lib/card-view.ts. */
+  cardView?: CardViewSettings
   printerEnabled?: boolean
   doubleBookedCrewNames?: Set<string>
   /** False for viewers: cards render without a drag source (read-only board). */
@@ -86,8 +87,9 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.highlightedOperationId !== next.highlightedOperationId ||
     prev.selectedOperationId !== next.selectedOperationId ||
     prev.hoveredOperationId !== next.hoveredOperationId ||
-    prev.showMeldung !== next.showMeldung ||
-    prev.showReko !== next.showReko ||
+    // Identity is enough here — the store hands out one stable object per
+    // settings value, and the card runs the field-by-field comparison anyway.
+    prev.cardView !== next.cardView ||
     prev.printerEnabled !== next.printerEnabled ||
     prev.materials !== next.materials ||
     prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
@@ -164,8 +166,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onRequestComplete,
   onTransfer,
   onDistributeToAuftrag,
-  showMeldung,
-  showReko,
+  cardView,
   printerEnabled,
   doubleBookedCrewNames,
   canDrag,
@@ -363,8 +364,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onRequestComplete={onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
                 onTransfer={onTransfer ? () => onTransfer(operation.id) : undefined}
                 onDistributeToAuftrag={onDistributeToAuftrag ? () => onDistributeToAuftrag(operation.id) : undefined}
-                showMeldung={showMeldung}
-                showReko={showReko}
+                cardView={cardView}
                 printerEnabled={printerEnabled}
                 doubleBookedCrewNames={doubleBookedCrewNames}
                 canDrag={canDrag}

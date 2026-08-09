@@ -61,6 +61,8 @@ import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
+import { CardViewMenu } from "@/components/kanban/card-view-menu"
+import { useCardView } from "@/lib/card-view"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
@@ -386,29 +388,12 @@ export default function FireStationDashboard() {
   const cmdHint = useCommandPaletteHint()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)
-  const [showMeldung, setShowMeldung] = useState(() => {
-    if (typeof window !== 'undefined') {
-      // Migration: force showMeldung=true for existing users (v2 key)
-      if (!localStorage.getItem('showMeldung_v2')) {
-        localStorage.setItem('showMeldung_v2', '1')
-        localStorage.setItem('showMeldung', 'true')
-        return true
-      }
-      return localStorage.getItem('showMeldung') === 'true'
-    }
-    return true
-  })
-  // The Reko block on the cards, on its own switch. It used to ride along with
-  // the Meldung toggle, which put two unrelated blocks under one control: the
-  // Meldung is what came in on the phone, the Reko is what somebody went and
-  // looked at. An operator working a storm wants the second without the first.
-  // Defaults ON, which is what the cards did before this toggle existed.
-  const [showReko, setShowReko] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('showReko') !== 'false'
-    }
-    return true
-  })
+  // What the cards show. Per device (localStorage), not a station setting: one
+  // workstation must be able to run Kompakt while the second screen runs Alles,
+  // without either operator's click repainting the other's board mid-Einsatz.
+  // The store keeps one stable object per value, so `cardView` can go straight
+  // into the memoised column/card tree without a useMemo wrapper here.
+  const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [displayToken, setDisplayToken] = useState<string | null>(null)
   const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
@@ -450,15 +435,6 @@ export default function FireStationDashboard() {
     triggerRekoFormCheck,
     promptMaterialDecision,
   } = statusWorkflow
-
-  // Persist showMeldung to localStorage
-  useEffect(() => {
-    localStorage.setItem('showMeldung', String(showMeldung))
-  }, [showMeldung])
-
-  useEffect(() => {
-    localStorage.setItem('showReko', String(showReko))
-  }, [showReko])
 
   // Cross-window sync (bidirectional)
   const { broadcast } = useCrossWindowSync({
@@ -1876,8 +1852,7 @@ export default function FireStationDashboard() {
                       onRequestComplete={isEditor ? requestCompletion : undefined}
                       onTransfer={isEditor ? handleOpenTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
-                      showMeldung={showMeldung}
-                      showReko={showReko}
+                      cardView={cardView}
                       printerEnabled={printerEnabled}
                       doubleBookedCrewNames={doubleBookedPersons.names}
                       canDrag={isEditor}
@@ -2183,33 +2158,16 @@ export default function FireStationDashboard() {
 
               <div className="h-4 w-px bg-border mx-1" />
 
-              {/* Two toggles, styled as compact pills: what came in by phone,
-                  and what the Reko went and looked at. Separate switches
-                  because they answer different questions and a storm night
-                  wants the second without the first. */}
-              <button
-                onClick={() => setShowMeldung(!showMeldung)}
-                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs transition-colors ${
-                  showMeldung
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <div className={`h-1.5 w-1.5 rounded-full ${showMeldung ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
-                {tCommon('meldung')}
-              </button>
-
-              <button
-                onClick={() => setShowReko(!showReko)}
-                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs transition-colors ${
-                  showReko
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <div className={`h-1.5 w-1.5 rounded-full ${showReko ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
-                {tCommon('reko')}
-              </button>
+              {/* One control where the two pills used to be. The pills only ever
+                  reached two of the nine card blocks — and never the long ones
+                  (Mannschaft, Fahrzeuge, Material) that decide whether forty
+                  cards fit on the screen. */}
+              <CardViewMenu
+                view={cardView}
+                preset={cardViewPreset}
+                onApplyPreset={applyCardViewPreset}
+                onToggleKey={toggleCardViewKey}
+              />
             </div>
 
             {/* Right: Help hint */}

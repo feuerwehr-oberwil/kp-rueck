@@ -33,7 +33,6 @@ from ..models import (
     Notification,
     Personnel,
     SchadenplatzReport,
-    StatusTransition,
     User,
     Vehicle,
 )
@@ -1002,46 +1001,6 @@ async def _material_name_suggestions(db: AsyncSession) -> list[str]:
     return [row[0] for row in result.all() if row[0]]
 
 
-async def _default_work_started_at(
-    db: AsyncSession, incident: Incident, report: SchadenplatzReport | None
-) -> datetime | None:
-    """Beginn Tätigkeit: the arrival, else the first `active`, else the earliest assignment (§4)."""
-    if report is not None and report.arrived_at is not None:
-        return report.arrived_at
-
-    transition = await db.execute(
-        select(StatusTransition.timestamp)
-        .where(StatusTransition.incident_id == incident.id, StatusTransition.to_status == "active")
-        .order_by(StatusTransition.timestamp.asc())
-        .limit(1)
-    )
-    first_active = transition.scalar_one_or_none()
-    if first_active is not None:
-        return first_active
-
-    assigned = await db.execute(
-        select(IncidentAssignment.assigned_at)
-        .where(IncidentAssignment.incident_id == incident.id)
-        .order_by(IncidentAssignment.assigned_at.asc())
-        .limit(1)
-    )
-    return assigned.scalar_one_or_none()
-
-
-async def _default_work_ended_at(db: AsyncSession, incident: Incident) -> datetime | None:
-    """Ende Tätigkeit: the field report, else the first `returning`/`complete`, else empty (§4)."""
-    if incident.field_complete_reported_at is not None:
-        return incident.field_complete_reported_at
-
-    transition = await db.execute(
-        select(StatusTransition.timestamp)
-        .where(StatusTransition.incident_id == incident.id, StatusTransition.to_status.in_(["returning", "complete"]))
-        .order_by(StatusTransition.timestamp.asc())
-        .limit(1)
-    )
-    return transition.scalar_one_or_none()
-
-
 async def _names(db: AsyncSession, report: SchadenplatzReport | None) -> dict[str, str | None]:
     """The four provenance names, resolved in one round trip each side."""
     if report is None:
@@ -1143,9 +1102,6 @@ async def get_rapport(
     leader = leaders.get(incident.id)
     names = await _names(db, report)
 
-    default_started = await _default_work_started_at(db, incident, report)
-    default_ended = await _default_work_ended_at(db, incident)
-
     prefill = {
         "location_address": incident.location_address,
         # The reference the exports use. `title` is what the board shows on the
@@ -1161,8 +1117,6 @@ async def get_rapport(
         "melder_street": incident.location_address or None,
         "melder_city": None,
         "board_personnel_count": board_personnel,
-        "default_work_started_at": default_started,
-        "default_work_ended_at": default_ended,
         "material_name_suggestions": await _material_name_suggestions(db),
     }
 
@@ -1177,8 +1131,6 @@ async def get_rapport(
             "vehicles": vehicles,
             "photos": [],
             "personnel_count": board_personnel,
-            "work_started_at": default_started,
-            "work_ended_at": default_ended,
             "prefill": prefill,
             "concurrent_editor": None,
         }
@@ -1188,9 +1140,6 @@ async def get_rapport(
         "exists": True,
         "is_draft": report.is_draft,
         "submitted_at": report.submitted_at,
-        # A stored value wins; the derived default fills the blank the first time.
-        "work_started_at": report.work_started_at or default_started,
-        "work_ended_at": report.work_ended_at or default_ended,
         "materials": materials,
         "vehicles": vehicles,
         # Filenames only. They are read back through the shared
@@ -1283,8 +1232,6 @@ async def save_rapport(
     was_draft = report.is_draft
 
     for field in (
-        "work_started_at",
-        "work_ended_at",
         "extra_material_note",
         "kurzbericht",
         "handed_over_to",
@@ -1394,7 +1341,12 @@ async def save_rapport(
 
     await log_action(
         db=db,
-        action_type="rapport_submitted" if submitting else "rapport_saved",
+        # `rapport_submitted` marks the draft→filed transition and nothing else.
+        # The KP mount autosaves with `is_draft: false`, so keying the action on
+        # `submitting` alone would write a "Rapport erfasst" journal entry every
+        # few seconds while an operator types. Same condition as the
+        # notification below, for the same reason.
+        action_type="rapport_submitted" if (submitting and was_draft) else "rapport_saved",
         resource_type="incident",
         resource_id=incident.id,
         user=actor.user,
@@ -1665,6 +1617,13 @@ async def material_return_units(
     The board does the releasing through the existing per-assignment release.
     `/feld` never writes an assignment, and this function does not either; it
     only says which units the crew did not mark as left on site.
+
+    Each unit carries ``answered``: did the crew say anything about this one, or
+    is it merely in ``returned`` because an unanswered row defaults to *not left
+    on site*? The release list treats the two the same — an unanswered unit is
+    still a unit nobody claimed is on site — but the completion gate must not:
+    it prefills from the rapport and has to know which questions the crew already
+    settled and which it still needs to ask (§18).
     """
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
@@ -1694,6 +1653,31 @@ async def material_return_units(
             "name": row["name"],
             "location": row["location"],
             "used": row["used"],
+            "answered": _is_answered(row),
         }
         (left if row["left_on_site"] else returned).append(unit)
     return returned, left
+
+
+async def material_return_attribution(
+    db: AsyncSession,
+    incident: Incident,
+) -> tuple[str | None, datetime | None]:
+    """Who filed the rapport the material answers come from, and when.
+
+    The completion gate says "aus dem Rapport von Muster Hans" over the answers
+    it prefilled. Without the name the operator sees a dialog that decided by
+    itself; with it, they know whose word they are confirming — and whether to
+    trust it, which is the whole reason the provenance columns exist.
+
+    The *last* editor rather than the creator: several crews amend one report,
+    and the material checklist is whatever the most recent one left behind.
+    Falls back to the creator when nobody has amended it. ``(None, None)`` while
+    the report is a draft, matching ``material_return_units``.
+    """
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    report = result.scalar_one_or_none()
+    if report is None or report.is_draft:
+        return None, None
+    names = await _names(db, report)
+    return names["updated_by_name"] or names["created_by_name"], report.submitted_at
