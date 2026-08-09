@@ -367,6 +367,13 @@ class Incident(Base):
     has_completed_reko: bool
     reko_arrived_at: datetime | None
     has_schadenplatz_rapport: bool
+    # "Angekommen" from /feld. It lives on schadenplatz_reports (one row per incident),
+    # so the board's list query batches it onto the incident the same way reko_arrived_at
+    # is batched — the detail's "Feldmeldungen" row needs it without a second round trip.
+    field_arrived_at: datetime | None
+    # Who reported the arrival — NULL when the KP took it over the radio, which is
+    # the provenance rule itself and not a missing lookup (decision 28).
+    field_arrived_by: UUID | None
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 

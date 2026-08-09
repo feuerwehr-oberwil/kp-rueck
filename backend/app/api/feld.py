@@ -21,6 +21,7 @@ line here. The field surface is the first place kp-rueck touches citizen PII.
 
 import logging
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -33,7 +34,8 @@ from ..crud import events as events_crud
 from ..crud import feld as crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
-from ..models import Event, Personnel
+from ..models import Event, Incident, Personnel
+from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
 from ..services.tokens import generate_feld_token, validate_feld_token
 
 logger = logging.getLogger(__name__)
@@ -156,6 +158,7 @@ async def get_feld_assignments(
     person = await require_feld_person(db, event_id, personnel_id)
 
     assignments = await crud.get_feld_assignments_for_personnel(db, event_id, personnel_id)
+    chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
 
     return schemas.FeldAssignmentsResponse(
         personnel_id=person.id,
@@ -164,4 +167,169 @@ async def get_feld_assignments(
         event_id=event.id,
         event_name=event.name,
         assignments=[schemas.FeldAssignment(**a) for a in assignments],
+        message_chips=chips,
+    )
+
+
+# ============================================
+# The four field actions (phase 1)
+# ============================================
+#
+# All four run BOTH authorization steps and all four take `request: Request` —
+# without that parameter slowapi's decorator silently does nothing, which on a
+# public token-gated write path is the failure you never notice.
+#
+# None of them writes `incident_assignments`. That is asserted in the tests, not
+# left to review: it is the boundary that keeps `/feld` out of the board's
+# conflict model.
+
+
+async def _authorized_incident(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+    incident_id: uuid.UUID,
+) -> tuple[Incident, Personnel]:
+    """Both steps at once, for the incident-scoped writes.
+
+    The person check runs first so an unassigned caller gets the same 403
+    whether or not the incident exists — a public token must not become a way to
+    probe the board.
+    """
+    person = await require_feld_person(db, event_id, personnel_id)
+    incident = await crud.get_authorized_incident(db, event_id, personnel_id, incident_id)
+    if incident is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Diese Einsatzstelle ist dir nicht zugeteilt.",
+        )
+    return incident, person
+
+
+def _actor(person: Personnel) -> crud.FieldActor:
+    """A `/feld` write is always a field write — never a user (decision 28)."""
+    return crud.FieldActor(personnel_id=person.id, personnel_name=person.name)
+
+
+@router.post("/incidents/{incident_id}/arrived", response_model=schemas.FieldReportState)
+@limiter.limit(RateLimits.FELD)
+async def report_arrived(
+    request: Request,
+    incident_id: uuid.UUID,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FieldReportState:
+    """
+    "Angekommen" — the crew is at the Schadenplatz.
+
+    Upserts the Schadenplatz-Rapport row (that is why `is_draft` defaults to
+    True: a row exists long before any form does) and stamps `arrived_at`.
+
+    **Idempotent.** A second tap does nothing — a crew re-opening the page and
+    hitting the big button again must not move a timestamp the KP has acted on.
+    """
+    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    await crud.record_arrival(
+        db,
+        incident,
+        actor=_actor(person),
+        at=datetime.now(UTC),
+        only_if_unset=True,
+        request=request,
+    )
+    return schemas.FieldReportState(**await crud.field_report_state(db, incident))
+
+
+@router.post("/incidents/{incident_id}/complete", response_model=schemas.FieldReportState)
+@limiter.limit(RateLimits.FELD)
+async def report_field_complete(
+    request: Request,
+    incident_id: uuid.UUID,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FieldReportState:
+    """
+    "Einsatz beendet" — the crew has finished here.
+
+    Stamps `field_complete_reported_at` + `field_complete_reported_by` and
+    **does not change `Incident.status`**: closing a Schadenplatz stays the
+    operator's decision, which is the rule the column's own comment states.
+
+    The client asks the Abholung follow-up ("Kommt ihr selbst zurück?")
+    immediately afterwards and sends the answer to `/pickup` — deliberately a
+    second call, so the *beendet* report reaches the KP even if the crew walks
+    away from the question.
+    """
+    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    await crud.record_field_complete(
+        db,
+        incident,
+        actor=_actor(person),
+        at=datetime.now(UTC),
+        only_if_unset=True,
+        request=request,
+    )
+    return schemas.FieldReportState(**await crud.field_report_state(db, incident))
+
+
+@router.post("/incidents/{incident_id}/pickup", response_model=schemas.FieldReportState)
+@limiter.limit(RateLimits.FELD)
+async def report_pickup(
+    request: Request,
+    incident_id: uuid.UUID,
+    payload: schemas.FeldPickupRequest,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FieldReportState:
+    """
+    "Abholung nötig" / "abgeholt" (decision 24).
+
+    `needed=true` is the *"Wir müssen abgeholt werden"* half of the follow-up
+    that "Einsatz beendet" asks; `needed=false` is *"Wir fahren selbst"* and,
+    later, the crew tapping *abgeholt*.
+
+    Not a status: a Schadenplatz can be finished and still have three people
+    standing in the rain, which is precisely why the flag outlives the card
+    moving to `complete`.
+    """
+    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    await crud.record_pickup(
+        db,
+        incident,
+        actor=_actor(person),
+        needed=payload.needed,
+        note=payload.note,
+        request=request,
+    )
+    return schemas.FieldReportState(**await crud.field_report_state(db, incident))
+
+
+@router.post("/incidents/{incident_id}/message", status_code=204)
+@limiter.limit(RateLimits.FELD)
+async def report_message(
+    request: Request,
+    incident_id: uuid.UUID,
+    payload: schemas.FeldMessageRequest,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Freitext-Meldung an den KP — a configurable chip or a typed sentence.
+
+    Becomes a `field_message` notification (how the KP sees it now) **and** an
+    audit-log entry (how it survives into the Journal once somebody dismisses
+    the bell). The chips themselves are station config, not translation — see
+    `feld.message_chips` in `services/settings.py`.
+    """
+    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    await crud.record_field_message(
+        db,
+        incident,
+        actor=_actor(person),
+        message=payload.message,
+        request=request,
     )

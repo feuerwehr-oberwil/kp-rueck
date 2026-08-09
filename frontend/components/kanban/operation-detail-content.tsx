@@ -38,6 +38,8 @@ import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimelinePopover } from "@/components/kanban/incident-timeline-popover"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { FieldReportsRow } from "@/components/kanban/field-reports-row"
+import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
@@ -281,6 +283,10 @@ export function OperationDetailContent({
           <h2 className="text-xl font-semibold leading-none tracking-tight flex items-center gap-2.5">
             <MapPin className="h-5 w-5 text-muted-foreground" />
             {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
+            {/* Stays visible on a completed incident on purpose — see PickupBadge. */}
+            {operation.pickupNeeded && (
+              <PickupBadge requestedAt={operation.pickupRequestedAt} note={operation.pickupNote} />
+            )}
           </h2>
           <div className="flex items-center gap-1">
             <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -501,6 +507,10 @@ export function OperationDetailContent({
               />
             )}
           </div>
+
+          {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps on
+              /feld, an operator enters here from a radio message. */}
+          <FieldReportsRow operation={operation} canEdit={canEdit} />
 
           </div>
 

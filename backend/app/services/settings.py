@@ -117,7 +117,31 @@ DEFAULT_SETTINGS = {
     # short so the prompt lands while the vehicle is still rolling to a stop; the
     # speed gate + confirm-modal carry the false-positive protection.
     "gps.speed_gate_kmh": "10",  # Treat as stationary only below this speed
+    # `/feld` Freitext-Meldung: the one-tap chips a crew sends instead of typing
+    # (plan 25, decision 20). Station-configurable and deliberately NOT i18n —
+    # the same reasoning that already makes the outbound message templates above
+    # deployment config rather than translation: a station rewords them without a
+    # translation round.
+    #
+    # Stored ONE CHIP PER LINE, because the settings table is string-valued and
+    # the Einstellungen page edits it in the same Textarea shape as the templates
+    # next to it. Blank lines are dropped on read (`parse_message_chips`).
+    "feld.message_chips": "Verstärkung nötig\nMaterial nötig\nfertig in ~30 Min\nEinsatzstelle übergeben",
 }
+
+FELD_MESSAGE_CHIPS_KEY = "feld.message_chips"
+
+
+def parse_message_chips(value: str | None) -> list[str]:
+    """The `/feld` chips as a list, from the newline-separated settings value.
+
+    Tolerant on purpose: an operator editing a Textarea leaves blank lines and
+    trailing spaces, and a chip row is not worth a validation error on a page
+    that saves on blur.
+    """
+    if not value:
+        return []
+    return [line.strip() for line in value.splitlines() if line.strip()]
 
 
 async def get_setting(db: AsyncSession, key: str) -> str | None:

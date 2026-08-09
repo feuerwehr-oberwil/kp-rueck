@@ -15,6 +15,7 @@ from .. import models, schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings
 from ..crud import events as events_crud
+from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..database import get_db
 from ..services import incident_display
@@ -378,6 +379,76 @@ async def update_status(
         )
 
     return incident_response
+
+
+@router.get("/{incident_id}/field-report", response_model=schemas.FieldReportState)
+async def get_field_report(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> schemas.FieldReportState:
+    """The three field reports of one Schadenplatz, as `/feld` returns them."""
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    return schemas.FieldReportState(**await feld_crud.field_report_state(db, incident))
+
+
+@router.post("/{incident_id}/field-report", response_model=schemas.FieldReportState)
+async def set_field_report(
+    incident_id: uuid.UUID,
+    payload: schemas.FieldReportUpdate,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.FieldReportState:
+    """The KP twin of the `/feld` field actions (decision 28).
+
+    The normal case is a radio message: the crew has no signal, no phone or no
+    hands and dictates. A field surface whose data can only arrive through that
+    surface would make the KP a spectator to its own board — so *everything* a
+    crew can tap here, an operator can enter, through the **same CRUD module**
+    (`crud/feld.py`). Two thin routers, one implementation.
+
+    Set or clear any of the three: a field present in the body with a value sets
+    it, present as `null` clears it, absent leaves it alone. Without that
+    distinction an operator correcting the pickup note would wipe the arrival.
+
+    **Provenance is never faked.** This path leaves `field_complete_reported_by`
+    and `pickup_requested_by` NULL — they are personnel FKs and no operator is
+    the crew — and puts the user in the audit-log entry instead.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+
+    actor = feld_crud.FieldActor(user=current_user)
+    provided = payload.model_fields_set
+
+    if "arrived_at" in provided:
+        await feld_crud.record_arrival(db, incident, actor=actor, at=payload.arrived_at, request=request)
+
+    if "field_complete_reported_at" in provided:
+        await feld_crud.record_field_complete(
+            db, incident, actor=actor, at=payload.field_complete_reported_at, request=request
+        )
+
+    if "pickup_needed" in provided and payload.pickup_needed is not None:
+        await feld_crud.record_pickup(
+            db,
+            incident,
+            actor=actor,
+            needed=payload.pickup_needed,
+            note=payload.pickup_note,
+            at=payload.pickup_requested_at,
+            request=request,
+        )
+    elif "pickup_note" in provided and incident.pickup_needed:
+        # Editing only the note of an open pickup. The waiting time is the
+        # operationally decisive fact at 02:00, so `pickup_requested_at` stays.
+        await feld_crud.record_pickup(db, incident, actor=actor, needed=True, note=payload.pickup_note, request=request)
+
+    return schemas.FieldReportState(**await feld_crud.field_report_state(db, incident))
 
 
 @router.get("/{incident_id}/history", response_model=list[schemas.StatusTransitionResponse])

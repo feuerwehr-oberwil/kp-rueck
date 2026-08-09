@@ -11,7 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, IncidentAssignment, IncidentGroup, RekoReport, StatusTransition, User, Vehicle
+from ..models import (
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    RekoReport,
+    SchadenplatzReport,
+    StatusTransition,
+    User,
+    Vehicle,
+)
 from ..services.audit import calculate_changes, log_action
 from . import events as events_crud
 
@@ -167,8 +176,30 @@ async def get_incidents(
         ):
             reko_arrived_at_map[row.incident_id] = row.arrived_at
 
+    # Batch load the /feld arrival ("Angekommen") and whether a rapport exists.
+    # One row per incident (UNIQUE(incident_id)), so this is a plain map.
+    feld_query = select(
+        SchadenplatzReport.incident_id,
+        SchadenplatzReport.arrived_at,
+        SchadenplatzReport.is_draft,
+        SchadenplatzReport.created_by_personnel_id,
+    ).where(SchadenplatzReport.incident_id.in_(incident_ids))
+    feld_result = await db.execute(feld_query)
+    field_arrived_map: dict[uuid.UUID, tuple[datetime | None, uuid.UUID | None]] = {}
+    submitted_rapports: set[uuid.UUID] = set()
+    # Own loop variable: `row` above is a differently-shaped Row and mypy holds
+    # the first binding's type for the whole function.
+    for feld_row in feld_result:
+        field_arrived_map[feld_row.incident_id] = (feld_row.arrived_at, feld_row.created_by_personnel_id)
+        if not feld_row.is_draft:
+            submitted_rapports.add(feld_row.incident_id)
+
     # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
     for incident in incidents:
+        arrival = field_arrived_map.get(incident.id)
+        incident.field_arrived_at = arrival[0] if arrival else None
+        incident.field_arrived_by = arrival[1] if arrival else None
+        incident.has_schadenplatz_rapport = incident.id in submitted_rapports
         # Set status_changed_at from batch-loaded map
         incident.status_changed_at = transitions_map.get(incident.id, incident.created_at)
 
@@ -225,6 +256,19 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         incident.has_completed_reko = any(not row.is_draft for row in reko_rows)
         # Get the earliest arrived_at timestamp
         incident.reko_arrived_at = next((row.arrived_at for row in reko_rows if row.arrived_at), None)
+
+        # The /feld arrival + rapport state (one row per incident).
+        feld_check = await db.execute(
+            select(
+                SchadenplatzReport.arrived_at,
+                SchadenplatzReport.is_draft,
+                SchadenplatzReport.created_by_personnel_id,
+            ).where(SchadenplatzReport.incident_id == incident.id)
+        )
+        feld_row = feld_check.first()
+        incident.field_arrived_at = feld_row.arrived_at if feld_row else None
+        incident.field_arrived_by = feld_row.created_by_personnel_id if feld_row else None
+        incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
 
     return incident
 

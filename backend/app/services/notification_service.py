@@ -789,6 +789,48 @@ async def create_vehicle_returned_notification(
     return notification
 
 
+async def create_field_notification(
+    db: AsyncSession,
+    *,
+    notification_type: str,
+    incident_id: UUID,
+    event_id: UUID,
+    message: str,
+    severity: str = "info",
+) -> Notification:
+    """Bell entry for a `/feld` field report (plan 25).
+
+    One helper for all five field types rather than five near-identical
+    functions: the only thing that differs between them is the message the
+    caller has already built and the severity. ``field_pickup`` is the one that
+    is a `warning` — a crew waiting to be collected is the single field event
+    that is time-critical for the KP; the rest are `info`.
+
+    No dedup window. Unlike ``vehicle_arrived`` (a geofence that can flap),
+    every one of these is a deliberate human tap, and swallowing a second one
+    would swallow a second crew reporting from the same Schadenplatz.
+    """
+    notification = Notification(
+        type=notification_type,
+        severity=severity,
+        message=message,
+        incident_id=incident_id,
+        event_id=event_id,
+    )
+    db.add(notification)
+    await db.commit()
+    await db.refresh(notification)
+
+    from ..websocket_manager import broadcast_notification_update
+
+    await broadcast_notification_update(
+        {"id": str(notification.id), "type": notification.type, "incident_id": str(incident_id)},
+        "create",
+    )
+
+    return notification
+
+
 async def create_reko_arrived_notification(
     db: AsyncSession,
     incident_id: UUID,

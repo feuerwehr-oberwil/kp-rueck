@@ -16,13 +16,19 @@ this module exists to prevent.
 """
 
 import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
+from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Incident, IncidentAssignment, Personnel, SchadenplatzReport
+from ..models import Incident, IncidentAssignment, Notification, Personnel, SchadenplatzReport, User
+from ..services.audit import log_action
 from ..services.incident_leader import effective_leader_id
+from ..services.notification_service import create_field_notification
+from ..websocket_manager import broadcast_incident_update
 
 # ============================================
 # Authorization — step 2
@@ -291,6 +297,11 @@ async def get_feld_assignments_for_personnel(
                 "rapport_state": _rapport_state(report),
                 "arrived_at": report.arrived_at if report else None,
                 "field_complete_reported_at": incident.field_complete_reported_at,
+                # The crew must see an open pickup when it comes back to the
+                # page, not only in the response of the tap that set it.
+                "pickup_needed": incident.pickup_needed,
+                "pickup_note": incident.pickup_note,
+                "pickup_requested_at": incident.pickup_requested_at,
                 "leader_personnel_id": leader[0] if leader else None,
                 "leader_name": leader[1] if leader else None,
                 # Sort-only, stripped below.
@@ -314,3 +325,369 @@ async def get_feld_assignments_for_personnel(
         row.pop("_created_at", None)
 
     return rows
+
+
+# ============================================
+# Field reports — the writes (phase 1)
+# ============================================
+#
+# Everything below is called from BOTH doors: token-gated on `/api/feld/...` for
+# the crew, editor-gated on `/api/incidents/{id}/field-report` for the KP taking
+# the same thing over the radio (decision 28). Two thin routers over one module —
+# a second implementation is how the KP path silently loses a field.
+#
+# None of it touches ``incident_assignments``. That boundary (decisions 17/18) is
+# what keeps this surface out of the board's conflict model, and it is asserted
+# in the tests rather than left to review.
+
+
+@dataclass(frozen=True)
+class FieldActor:
+    """Who is filing — and **exactly one side of this is ever populated**.
+
+    Provenance is never faked (decision 28). A `/feld` write carries the
+    ``Personnel`` row and stamps the ``*_by`` personnel FKs; a KP write carries
+    the ``User``, leaves those columns NULL, and puts the user in the audit-log
+    entry instead. A ``User`` is never guessed to be a ``Personnel`` — they are
+    different people often enough that a wrong attribution on a billing document
+    is worse than no attribution.
+    """
+
+    personnel_id: uuid.UUID | None = None
+    personnel_name: str | None = None
+    user: User | None = None
+
+    @property
+    def is_field(self) -> bool:
+        """True for a crew filing on `/feld`, False for a KP radio entry."""
+        return self.personnel_id is not None
+
+    @property
+    def suffix(self) -> str:
+        """The " · von wem" tail of every notification this module writes."""
+        if self.is_field:
+            return f" · {self.personnel_name}" if self.personnel_name else " · vom Feld"
+        return " · im KP erfasst"
+
+
+def _location(incident: Incident) -> str:
+    """How a Schadenplatz is named in a notification: address first."""
+    return incident.location_address or incident.title or "Unbekannt"
+
+
+async def _get_or_create_report(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    actor: FieldActor,
+) -> SchadenplatzReport:
+    """The one Schadenplatz-Rapport row for this incident, created if absent.
+
+    ``UNIQUE(incident_id)`` (decision 3): whoever files first creates it, anyone
+    else assigned amends the same row. Created with ``is_draft=True`` — a row
+    appears the moment someone taps "Angekommen", long before any form exists,
+    so its default state must be "not yet filed".
+    """
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident_id))
+    report = result.scalar_one_or_none()
+    if report is not None:
+        return report
+
+    report = SchadenplatzReport(
+        incident_id=incident_id,
+        is_draft=True,
+        created_by_personnel_id=actor.personnel_id,
+        created_by_user_id=actor.user.id if actor.user and not actor.is_field else None,
+    )
+    db.add(report)
+    await db.flush()
+    return report
+
+
+def _stamp_updated_by(report: SchadenplatzReport, actor: FieldActor) -> None:
+    """Record who last touched the report — one side only, never both."""
+    if actor.is_field:
+        report.updated_by_personnel_id = actor.personnel_id
+        report.updated_by_user_id = None
+    else:
+        report.updated_by_personnel_id = None
+        report.updated_by_user_id = actor.user.id if actor.user else None
+
+
+async def _broadcast(incident: Incident) -> None:
+    """Push the field state to the board without waiting for the 5 s poll.
+
+    Deliberately ``broadcast_incident_update`` only: `/feld` never writes an
+    assignment, so ``broadcast_assignment_update`` has no business here.
+    """
+    await broadcast_incident_update(
+        {
+            "id": str(incident.id),
+            "field_complete_reported_at": (
+                incident.field_complete_reported_at.isoformat() if incident.field_complete_reported_at else None
+            ),
+            "pickup_needed": incident.pickup_needed,
+        },
+        "update",
+    )
+
+
+async def record_arrival(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    at: datetime | None,
+    only_if_unset: bool = False,
+    request: Request | None = None,
+) -> bool:
+    """ "Angekommen" — set or clear the arrival on the Schadenplatz-Rapport row.
+
+    ``only_if_unset`` is what the field tap passes: a second tap does nothing,
+    because a crew re-opening the page and hitting the big button again must not
+    move a timestamp the KP has already acted on. The KP path leaves it False so
+    an operator can correct or clear the time (``at=None``).
+
+    Returns whether anything changed — the caller only notifies when it did.
+
+    Note the arrival's own provenance is read back off the report's
+    ``created_by_*`` pair (``field_report_state``). In phase 1 that is exact: the
+    arrival is the only thing that creates the row. Phase 2 lets the KP create a
+    rapport first, at which point the arrival needs its own pair of columns.
+    """
+    report = await _get_or_create_report(db, incident.id, actor)
+    if only_if_unset and report.arrived_at is not None:
+        return False
+    if report.arrived_at == at:
+        return False
+
+    report.arrived_at = at
+    _stamp_updated_by(report, actor)
+    # A brand-new row created BY the arrival carries the arrival's author, so the
+    # "vom Feld / im KP erfasst" line stays honest for the row it describes.
+    if at is not None and report.created_by_personnel_id is None and report.created_by_user_id is None:
+        report.created_by_personnel_id = actor.personnel_id
+        report.created_by_user_id = actor.user.id if actor.user and not actor.is_field else None
+
+    await log_action(
+        db=db,
+        action_type="field_arrived" if at is not None else "field_arrived_cleared",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=actor.user,
+        changes={"arrived_at": at.isoformat() if at else None, "source": "feld" if actor.is_field else "kp"},
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(report)
+
+    if at is not None and incident.event_id:
+        await create_field_notification(
+            db,
+            notification_type="field_arrived",
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            message=f"Angekommen: {_location(incident)}{actor.suffix}",
+        )
+    await _broadcast(incident)
+    return True
+
+
+async def record_field_complete(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    at: datetime | None,
+    only_if_unset: bool = False,
+    request: Request | None = None,
+) -> bool:
+    """ "Einsatz beendet" — the field reports it, the operator decides to close.
+
+    **Does not change ``Incident.status``**, which is the rule the column's own
+    comment states: a Schadenplatz is finished when the KP says so, and a crew
+    that has packed up is not the same fact as a card in `complete`. This is the
+    first real writer of ``field_complete_reported_at`` — until now only the
+    training simulator could set it.
+
+    ``field_complete_reported_by`` stays NULL for a KP write (decision 28); the
+    audit-log entry carries the user instead.
+    """
+    if only_if_unset and incident.field_complete_reported_at is not None:
+        return False
+    if incident.field_complete_reported_at == at and (
+        at is None or incident.field_complete_reported_by == actor.personnel_id
+    ):
+        return False
+
+    incident.field_complete_reported_at = at
+    incident.field_complete_reported_by = actor.personnel_id if at is not None else None
+
+    await log_action(
+        db=db,
+        action_type="field_complete" if at is not None else "field_complete_cleared",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=actor.user,
+        changes={
+            "field_complete_reported_at": at.isoformat() if at else None,
+            "source": "feld" if actor.is_field else "kp",
+        },
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(incident)
+
+    if at is not None and incident.event_id:
+        await create_field_notification(
+            db,
+            notification_type="field_complete",
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            message=f"Einsatz beendet gemeldet: {_location(incident)}{actor.suffix}",
+        )
+    await _broadcast(incident)
+    return True
+
+
+async def record_pickup(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    needed: bool,
+    note: str | None = None,
+    at: datetime | None = None,
+    request: Request | None = None,
+) -> bool:
+    """ "Abholung nötig" / "abgeholt" (decision 24).
+
+    Not a status: a Schadenplatz can be finished and still have three people
+    standing in the rain. Deliberately **not** cleared by completing the
+    incident — ``crud/incidents.auto_release_incident_resources`` releases the
+    crew on `complete` while they are physically still at the address, which is
+    exactly the moment this flag has to survive.
+
+    Clearing wipes the note and both provenance columns: "abgeholt" is the end of
+    the fact, not a historical record, and the audit log keeps the history.
+    """
+    if incident.pickup_needed == needed and (not needed or (incident.pickup_note or None) == (note or None)):
+        return False
+
+    incident.pickup_needed = needed
+    if needed:
+        incident.pickup_note = note or None
+        # Keep the ORIGINAL request time when only the note is edited — the
+        # operationally decisive fact at 02:00 is how long they have been waiting.
+        incident.pickup_requested_at = at or incident.pickup_requested_at or datetime.now(UTC)
+        incident.pickup_requested_by = actor.personnel_id
+    else:
+        incident.pickup_note = None
+        incident.pickup_requested_at = None
+        incident.pickup_requested_by = None
+
+    await log_action(
+        db=db,
+        action_type="field_pickup_requested" if needed else "field_pickup_cleared",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=actor.user,
+        changes={"pickup_needed": needed, "pickup_note": note, "source": "feld" if actor.is_field else "kp"},
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(incident)
+
+    if incident.event_id:
+        if needed:
+            detail = f" ({note})" if note else ""
+            await create_field_notification(
+                db,
+                notification_type="field_pickup",
+                incident_id=incident.id,
+                event_id=incident.event_id,
+                message=f"Abholung nötig: {_location(incident)}{detail}{actor.suffix}",
+                # The only warning of the five. A waiting crew is the one field
+                # event that is time-critical for the KP.
+                severity="warning",
+            )
+        else:
+            await create_field_notification(
+                db,
+                notification_type="field_pickup",
+                incident_id=incident.id,
+                event_id=incident.event_id,
+                message=f"Abholung erledigt: {_location(incident)}{actor.suffix}",
+            )
+    await _broadcast(incident)
+    return True
+
+
+async def record_field_message(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    message: str,
+    request: Request | None = None,
+) -> Notification | None:
+    """Freitext-Meldung an den KP — a bell entry **and** a Journal entry.
+
+    Both on purpose: the notification is how the KP sees it now, the audit-log
+    entry is how it survives into the Einsatztagebuch after somebody dismisses
+    the bell. Append-only and attributed, which is also the mitigation for two
+    crews overwriting one another's Kurzbericht (§12).
+    """
+    text = message.strip()
+    if not text:
+        return None
+
+    await log_action(
+        db=db,
+        action_type="field_message",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=actor.user,
+        changes={
+            "message": text,
+            "personnel_id": str(actor.personnel_id) if actor.personnel_id else None,
+            "personnel_name": actor.personnel_name,
+            "source": "feld" if actor.is_field else "kp",
+        },
+        request=request,
+    )
+    await db.commit()
+
+    notification: Notification | None = None
+    if incident.event_id:
+        who = actor.personnel_name if actor.is_field else "im KP erfasst"
+        notification = await create_field_notification(
+            db,
+            notification_type="field_message",
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            message=f"Meldung vom Feld ({who}) — {_location(incident)}: {text}" if who else f"Meldung vom Feld: {text}",
+        )
+    await _broadcast(incident)
+    return notification
+
+
+async def field_report_state(db: AsyncSession, incident: Incident) -> dict[str, Any]:
+    """The three field reports of one incident, as both routers return them.
+
+    ``arrived_by_*`` comes off the report's ``created_by_*`` pair — see the note
+    in ``record_arrival``.
+    """
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    report = result.scalar_one_or_none()
+    return {
+        "incident_id": incident.id,
+        "arrived_at": report.arrived_at if report else None,
+        "arrived_by_personnel_id": report.created_by_personnel_id if report else None,
+        "arrived_in_kp": bool(report and report.arrived_at and report.created_by_personnel_id is None),
+        "field_complete_reported_at": incident.field_complete_reported_at,
+        "field_complete_reported_by": incident.field_complete_reported_by,
+        "pickup_needed": incident.pickup_needed,
+        "pickup_note": incident.pickup_note,
+        "pickup_requested_at": incident.pickup_requested_at,
+        "pickup_requested_by": incident.pickup_requested_by,
+    }

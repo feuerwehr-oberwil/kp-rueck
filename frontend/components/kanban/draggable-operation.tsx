@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { PickupBadge } from "@/components/kanban/pickup-badge"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,7 +15,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints } from 'lucide-react'
+import { Users, Package, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints, Flag } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -123,6 +124,7 @@ function DraggableOperationBase({
 }: DraggableOperationProps) {
   const t = useTranslations('kanban')
   const tPrint = useTranslations('print.toasts')
+  const tFeld = useTranslations('feld.board')
   const trackPrint = usePrintJobToast()
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -299,6 +301,16 @@ function DraggableOperationBase({
                 {formatLocation(operation.location) && (
                   <h3 className="font-bold text-base text-foreground leading-tight break-words">{formatLocation(operation.location)}</h3>
                 )}
+                {/* Abholung. Deliberately NOT gated on status: completing the
+                    card auto-releases the crew while they are still standing at
+                    the address, so this is the moment it matters most. */}
+                {operation.pickupNeeded && (
+                  <PickupBadge
+                    requestedAt={operation.pickupRequestedAt}
+                    note={operation.pickupNote}
+                    className="mt-1"
+                  />
+                )}
               </div>
             </div>
             {/* Non-draggable icons area */}
@@ -333,6 +345,16 @@ function DraggableOperationBase({
                   title={t('card.rekoDoneTooltip')}
                 >
                   <FileCheck className="h-4 w-4 text-muted-foreground/80" />
+                </div>
+              )}
+              {/* "Feld meldet: beendet" — reported, not closed. The operator
+                  still decides; this is the nudge that a card is ready to be. */}
+              {operation.fieldCompleteReportedAt && operation.status !== 'complete' && (
+                <div
+                  className="p-1.5 rounded-md bg-muted/60"
+                  title={tFeld('cardCompleteTooltip')}
+                >
+                  <Flag className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
               <Link
@@ -745,6 +767,13 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.amWarten === nextProps.operation.amWarten &&
     prevProps.operation.zuFuss === nextProps.operation.zuFuss &&
     prevProps.operation.source === nextProps.operation.source &&
+    // The field reports drive two card badges; without them here a card that
+    // just got "Abholung nötig" over the WebSocket would not repaint.
+    prevProps.operation.pickupNeeded === nextProps.operation.pickupNeeded &&
+    prevProps.operation.pickupNote === nextProps.operation.pickupNote &&
+    prevProps.operation.pickupRequestedAt?.getTime() === nextProps.operation.pickupRequestedAt?.getTime() &&
+    prevProps.operation.fieldCompleteReportedAt?.getTime() ===
+      nextProps.operation.fieldCompleteReportedAt?.getTime() &&
     prevProps.operation.groupId === nextProps.operation.groupId &&
     prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
     prevProps.operation.leaderName === nextProps.operation.leaderName &&

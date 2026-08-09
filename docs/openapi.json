@@ -3947,6 +3947,166 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/field-report": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Field Report",
+        "description": "The three field reports of one Schadenplatz, as `/feld` returns them.",
+        "operationId": "get_field_report_api_incidents__incident_id__field_report_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Set Field Report",
+        "description": "The KP twin of the `/feld` field actions (decision 28).\n\nThe normal case is a radio message: the crew has no signal, no phone or no\nhands and dictates. A field surface whose data can only arrive through that\nsurface would make the KP a spectator to its own board — so *everything* a\ncrew can tap here, an operator can enter, through the **same CRUD module**\n(`crud/feld.py`). Two thin routers, one implementation.\n\nSet or clear any of the three: a field present in the body with a value sets\nit, present as `null` clears it, absent leaves it alone. Without that\ndistinction an operator correcting the pickup note would wipe the arrival.\n\n**Provenance is never faked.** This path leaves `field_complete_reported_by`\nand `pickup_requested_by` NULL — they are personnel FKs and no operator is\nthe crew — and puts the user in the audit-log entry instead.",
+        "operationId": "set_field_report_api_incidents__incident_id__field_report_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FieldReportUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/history": {
       "get": {
         "tags": [
@@ -10104,6 +10264,287 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/arrived": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report Arrived",
+        "description": "\"Angekommen\" — the crew is at the Schadenplatz.\n\nUpserts the Schadenplatz-Rapport row (that is why `is_draft` defaults to\nTrue: a row exists long before any form does) and stamps `arrived_at`.\n\n**Idempotent.** A second tap does nothing — a crew re-opening the page and\nhitting the big button again must not move a timestamp the KP has acted on.",
+        "operationId": "report_arrived_api_feld_incidents__incident_id__arrived_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/complete": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report Field Complete",
+        "description": "\"Einsatz beendet\" — the crew has finished here.\n\nStamps `field_complete_reported_at` + `field_complete_reported_by` and\n**does not change `Incident.status`**: closing a Schadenplatz stays the\noperator's decision, which is the rule the column's own comment states.\n\nThe client asks the Abholung follow-up (\"Kommt ihr selbst zurück?\")\nimmediately afterwards and sends the answer to `/pickup` — deliberately a\nsecond call, so the *beendet* report reaches the KP even if the crew walks\naway from the question.",
+        "operationId": "report_field_complete_api_feld_incidents__incident_id__complete_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/pickup": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report Pickup",
+        "description": "\"Abholung nötig\" / \"abgeholt\" (decision 24).\n\n`needed=true` is the *\"Wir müssen abgeholt werden\"* half of the follow-up\nthat \"Einsatz beendet\" asks; `needed=false` is *\"Wir fahren selbst\"* and,\nlater, the crew tapping *abgeholt*.\n\nNot a status: a Schadenplatz can be finished and still have three people\nstanding in the rain, which is precisely why the flag outlives the card\nmoving to `complete`.",
+        "operationId": "report_pickup_api_feld_incidents__incident_id__pickup_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldPickupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/message": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report Message",
+        "description": "Freitext-Meldung an den KP — a configurable chip or a typed sentence.\n\nBecomes a `field_message` notification (how the KP sees it now) **and** an\naudit-log entry (how it survives into the Journal once somebody dismisses\nthe bell). The chips themselves are station config, not translation — see\n`feld.message_chips` in `services/settings.py`.",
+        "operationId": "report_message_api_feld_incidents__incident_id__message_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -16487,6 +16928,34 @@
             ],
             "title": "Field Complete Reported At"
           },
+          "pickup_needed": {
+            "type": "boolean",
+            "title": "Pickup Needed",
+            "default": false
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          },
           "leader_personnel_id": {
             "anyOf": [
               {
@@ -16558,6 +17027,14 @@
             },
             "type": "array",
             "title": "Assignments"
+          },
+          "message_chips": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Message Chips",
+            "default": []
           }
         },
         "type": "object",
@@ -16570,6 +17047,22 @@
         ],
         "title": "FeldAssignmentsResponse",
         "description": "Response for \"meine Einsatzstellen\"."
+      },
+      "FeldMessageRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "FeldMessageRequest",
+        "description": "Freitext-Meldung an den KP — a chip or a typed sentence."
       },
       "FeldPersonnel": {
         "properties": {
@@ -16644,6 +17137,206 @@
         ],
         "title": "FeldPersonnelListResponse",
         "description": "Response for the `/feld` person picker."
+      },
+      "FeldPickupRequest": {
+        "properties": {
+          "needed": {
+            "type": "boolean",
+            "title": "Needed"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "needed"
+        ],
+        "title": "FeldPickupRequest",
+        "description": "The Abholung answer from `/feld`.\n\n``needed=False`` is the crew tapping *abgeholt*, and it is also the\n*\"Wir fahren selbst\"* half of the follow-up that \"Einsatz beendet\" asks\n(decision 24)."
+      },
+      "FieldReportState": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "arrived_by_personnel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived By Personnel Id"
+          },
+          "arrived_in_kp": {
+            "type": "boolean",
+            "title": "Arrived In Kp",
+            "default": false
+          },
+          "field_complete_reported_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported At"
+          },
+          "field_complete_reported_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported By"
+          },
+          "pickup_needed": {
+            "type": "boolean",
+            "title": "Pickup Needed",
+            "default": false
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          },
+          "pickup_requested_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "FieldReportState",
+        "description": "The three field reports of one Schadenplatz.\n\nReturned identically by `/api/feld/...` and by the editor twin, because they\nare one CRUD module underneath. ``*_by`` is a personnel id and is populated\n**only** for a field write — a KP write leaves it NULL and puts the user in\nthe audit log (decision 28). That asymmetry is the provenance rule; do not\n\"fix\" it by filling in the operator."
+      },
+      "FieldReportUpdate": {
+        "properties": {
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "field_complete_reported_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported At"
+          },
+          "pickup_needed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Needed"
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          }
+        },
+        "type": "object",
+        "title": "FieldReportUpdate",
+        "description": "The KP twin's payload: set **or clear** any of the three (decision 28).\n\nEvery field is optional and the handler acts only on the ones actually\npresent (``model_fields_set``), so ``null`` means \"clear this\" and absence\nmeans \"leave it alone\". Without that distinction an operator correcting the\npickup note would silently wipe the arrival time."
       },
       "FunctionType": {
         "type": "string",
@@ -17789,6 +18482,87 @@
               }
             ],
             "title": "Field Complete Reported At"
+          },
+          "field_complete_reported_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported By"
+          },
+          "field_arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Arrived At"
+          },
+          "field_arrived_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Arrived By"
+          },
+          "has_schadenplatz_rapport": {
+            "type": "boolean",
+            "title": "Has Schadenplatz Rapport",
+            "default": false
+          },
+          "pickup_needed": {
+            "type": "boolean",
+            "title": "Pickup Needed",
+            "default": false
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          },
+          "pickup_requested_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested By"
           },
           "location_display": {
             "anyOf": [

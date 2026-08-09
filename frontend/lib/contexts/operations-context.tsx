@@ -99,9 +99,23 @@ export interface Operation {
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
-  /** Set when the field crew reported the incident finished (training). Drives the
+  /** Set when the field crew reported the incident finished. Drives the
    *  "Feld meldet: beendet" card badge; the operator still closes it manually. */
   fieldCompleteReportedAt?: Date | null
+  /** Who reported it — null means the KP took it over the radio. Provenance is
+   *  never faked, so the absence of an id IS the "im KP erfasst" case. */
+  fieldCompleteReportedBy?: string | null
+  /** "Angekommen" from /feld. */
+  fieldArrivedAt?: Date | null
+  /** Who reported it — null means the KP took it over the radio. */
+  fieldArrivedBy?: string | null
+  /** "Abholung nötig": finished here, but the crew cannot get back on its own.
+   *  Survives the card moving to `complete` — completing releases the personnel
+   *  while they are still standing at the address, which is the whole point. */
+  pickupNeeded?: boolean
+  pickupNote?: string
+  pickupRequestedAt?: Date | null
+  pickupRequestedBy?: string | null
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
   /** Name of the crew member marked Einsatzleiter for THIS incident, or null.
@@ -423,6 +437,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
       fieldCompleteReportedAt: incident.field_complete_reported_at ? new Date(incident.field_complete_reported_at) : null,
+      fieldCompleteReportedBy: incident.field_complete_reported_by ?? null,
+      fieldArrivedAt: incident.field_arrived_at ? new Date(incident.field_arrived_at) : null,
+      fieldArrivedBy: incident.field_arrived_by ?? null,
+      pickupNeeded: incident.pickup_needed ?? false,
+      pickupNote: incident.pickup_note || "",
+      pickupRequestedAt: incident.pickup_requested_at ? new Date(incident.pickup_requested_at) : null,
+      pickupRequestedBy: incident.pickup_requested_by ?? null,
       rekoSummary: null,
       assignedReko: null,
       leaderName: null,

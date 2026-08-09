@@ -17,6 +17,7 @@ import type { GroupResources } from "@/lib/types/groups"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { formatPickupSince } from "@/lib/pickup"
 
 const CARD: CSSProperties = {
   width: 220,
@@ -34,6 +35,16 @@ const ROUTE_BLOCK: CSSProperties = {
   borderTop: "1px solid #e5e7eb",
 }
 const ROUTE_TITLE: CSSProperties = { margin: 0, fontSize: 11, fontWeight: 600, color: "#374151" }
+const PICKUP: CSSProperties = {
+  margin: "3px 0 0",
+  fontSize: 11,
+  fontWeight: 600,
+  color: "#92400e",
+  background: "#fef3c7",
+  borderRadius: 4,
+  padding: "1px 5px",
+  display: "inline-block",
+}
 const NOTES: CSSProperties = {
   margin: "3px 0 0",
   fontSize: 11,
@@ -63,6 +74,7 @@ export function OperationHoverCard({
   const tKanban = useTranslations("kanban")
   const tIncidents = useTranslations("incidents")
   const tTime = useTranslations("kanban.incidentTime")
+  const tFeld = useTranslations("feld")
   const { mode: timeMode } = useIncidentTimeMode()
   const address =
     (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || operation.location
@@ -87,6 +99,19 @@ export function OperationHoverCard({
         {" · "}
         {tIncidents(`priority.${operation.priority}`)}
       </p>
+      {/* Abholung (decision 24). The pickup is a driving job and whoever assigns
+          it is looking at where things are, so the map carries the chip too.
+          Inline amber rather than <PickupBadge>: this tooltip lives outside the
+          app's styled tree, where Tailwind classes do not reach. */}
+      {operation.pickupNeeded && (
+        <p style={PICKUP}>
+          {tFeld("pickup.badge")}
+          {formatPickupSince(operation.pickupRequestedAt)
+            ? ` · ${tFeld("pickup.since", { time: formatPickupSince(operation.pickupRequestedAt) })}`
+            : ""}
+          {operation.pickupNote ? ` · ${operation.pickupNote}` : ""}
+        </p>
+      )}
       {/* The same time every other surface shows. Spelled out rather than left to
           the mode icon: a Leaflet tooltip has pointer-events off, so there is no
           hovering the chip to find out what the number means. */}

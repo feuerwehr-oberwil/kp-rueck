@@ -80,6 +80,8 @@ import {
   type ApiAvailableRekoPersonnelResponse,
   type ApiFeldPersonnelListResponse,
   type ApiFeldAssignmentsResponse,
+  type ApiFieldReportState,
+  type ApiFieldReportUpdate,
 } from './api/types'
 
 /** Read-only payload behind a share token (board/map/status displays). */
@@ -1539,6 +1541,60 @@ class ApiClient {
     return this.request<ApiFeldAssignmentsResponse>(
       `/api/feld/assignments/${personnelId}?token=${encodeURIComponent(token)}`
     )
+  }
+
+  // The four field actions. Every one is token + assignment gated server-side;
+  // none of them writes an assignment, which is what keeps /feld out of the
+  // board's conflict model.
+  private feldQuery(incidentId: string, action: string, personnelId: string, token: string): string {
+    return (
+      `/api/feld/incidents/${incidentId}/${action}` +
+      `?token=${encodeURIComponent(token)}&personnel_id=${encodeURIComponent(personnelId)}`
+    )
+  }
+
+  /** "Angekommen". Idempotent — a second tap does not move the timestamp. */
+  async feldReportArrived(incidentId: string, personnelId: string, token: string): Promise<ApiFieldReportState> {
+    return this.request<ApiFieldReportState>(this.feldQuery(incidentId, 'arrived', personnelId, token), {
+      method: 'POST',
+    })
+  }
+
+  /** "Einsatz beendet". Does NOT close the card — that stays the KP's call. */
+  async feldReportComplete(incidentId: string, personnelId: string, token: string): Promise<ApiFieldReportState> {
+    return this.request<ApiFieldReportState>(this.feldQuery(incidentId, 'complete', personnelId, token), {
+      method: 'POST',
+    })
+  }
+
+  /** "Abholung nötig" / "abgeholt" — also the answer to the beendet follow-up. */
+  async feldReportPickup(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    needed: boolean,
+    note?: string | null
+  ): Promise<ApiFieldReportState> {
+    return this.request<ApiFieldReportState>(this.feldQuery(incidentId, 'pickup', personnelId, token), {
+      method: 'POST',
+      body: JSON.stringify({ needed, note: note ?? null }),
+    })
+  }
+
+  /** Freitext-Meldung an den KP — a chip or a typed sentence. */
+  async feldSendMessage(incidentId: string, personnelId: string, token: string, message: string): Promise<void> {
+    await this.request<void>(this.feldQuery(incidentId, 'message', personnelId, token), {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
+  }
+
+  /** The KP twin (decision 28): the same three reports, dictated over the radio. */
+  async setIncidentFieldReport(incidentId: string, update: ApiFieldReportUpdate): Promise<ApiFieldReportState> {
+    return this.request<ApiFieldReportState>(`/api/incidents/${incidentId}/field-report`, {
+      method: 'POST',
+      body: JSON.stringify(update),
+    })
   }
 
   async getAvailableRekoPersonnel(incidentId: string): Promise<ApiAvailableRekoPersonnelResponse> {

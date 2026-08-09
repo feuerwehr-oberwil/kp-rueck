@@ -9,6 +9,16 @@ export type NotificationType =
   | 'event_size_limit'
   | 'vehicle_arrived'
   | 'vehicle_returned'
+  // Field reporting (/feld, plan 25). The sidebar renders by severity, so these
+  // need no card of their own — but the union has to know them, or a field
+  // notification arrives typed as something it is not.
+  // `field_pickup` is the only warning of the group: a crew waiting to be
+  // collected is the one field event that is time-critical for the KP.
+  | 'rapport_submitted'
+  | 'field_arrived'
+  | 'field_complete'
+  | 'field_message'
+  | 'field_pickup'
 
 export interface Notification {
   id: string

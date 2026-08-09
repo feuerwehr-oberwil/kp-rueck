@@ -1291,7 +1291,10 @@
         "message2Hint": "Direkter Aufruf: ins Magazin einrücken.",
         "incidentTemplateTitle": "WhatsApp-Einsatznachricht",
         "incidentTemplateDescription": "Vorlage für die aus einem Einsatz kopierte WhatsApp-Meldung. Reihenfolge ändern = Zeilen verschieben. Eine Zeile, deren Platzhalter alle leer sind, fällt weg. Platzhalter:",
-        "templateLabel": "Vorlage"
+        "templateLabel": "Vorlage",
+        "feldChipsTitle": "Meldungs-Chips für /feld",
+        "feldChipsDescription": "Ein-Tipp-Meldungen, die ein Trupp im Feld an den KP schicken kann. Eine Meldung pro Zeile. Bewusst keine Übersetzung: jede Feuerwehr formuliert das selbst.",
+        "feldChipsLabel": "Meldungen (eine pro Zeile)"
       },
       "demo": {
         "sync": "Synchronisation ist im Demo-Modus nicht verfügbar.",
@@ -2769,10 +2772,51 @@
     "detail": {
       "arrivedAt": "Angekommen: {time}",
       "completeAt": "Einsatz beendet: {time}",
-      "actionsTitle": "Meldungen an den KP",
-      "actionsPlaceholder": "Angekommen, Einsatz beendet, Fotos und Freitext-Meldungen folgen.",
       "rapportTitle": "Schadenplatz-Rapport",
       "rapportPlaceholder": "Das Rapport-Formular folgt."
+    },
+    "actions": {
+      "title": "Meldungen an den KP",
+      "arrived": "Angekommen",
+      "arrivedDone": "Angekommen gemeldet",
+      "complete": "Einsatz beendet",
+      "completeDone": "Beendet gemeldet",
+      "message": "Meldung",
+      "messageTitle": "Meldung an den KP",
+      "messagePlaceholder": "Kurze Meldung schreiben...",
+      "failed": "Konnte nicht gesendet werden. Nochmals versuchen."
+    },
+    "pickup": {
+      "badge": "Abholung",
+      "since": "seit {time}",
+      "waiting": "wartet seit {duration}",
+      "waitingTooltip": "Wartet seit {duration}",
+      "request": "Abholung",
+      "clear": "Abgeholt",
+      "followupQuestion": "Kommt ihr selbst zurück?",
+      "selfReturn": "Wir fahren selbst",
+      "needPickup": "Wir müssen abgeholt werden",
+      "requestQuestion": "Ihr kommt nicht selbst zurück?",
+      "clearQuestion": "Seid ihr abgeholt worden?",
+      "collected": "Ja, wir sind abgeholt",
+      "notePlaceholder": "Notiz (optional): wie viele, wo genau"
+    },
+    "board": {
+      "cardCompleteTooltip": "Feld meldet: Einsatz beendet"
+    },
+    "kp": {
+      "title": "Feldmeldungen",
+      "description": "Was der Trupp über Funk meldet – hier erfassen, wenn es nicht über /feld kommt.",
+      "arrived": "Angekommen",
+      "complete": "Einsatz beendet",
+      "pickup": "Abholung nötig",
+      "fromField": "vom Feld, {name}, {time}",
+      "fromKp": "im KP erfasst, {time}",
+      "unknownPerson": "unbekannt",
+      "timeLabel": "Zeit für «{what}»",
+      "pickupNotePlaceholder": "Notiz: wie viele, wo genau",
+      "waiting": "Wartet seit {duration}",
+      "saveFailed": "Speichern fehlgeschlagen"
     }
   }
 }

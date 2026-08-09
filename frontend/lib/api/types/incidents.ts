@@ -79,6 +79,24 @@ export interface ApiIncident {
   reko_arrived_at: string | null
   /** When the field crew reported the incident finished (operator decides to close) */
   field_complete_reported_at: string | null
+  /** Who reported it. null = the KP took it over the radio — provenance is
+   *  never faked, so "im KP erfasst" is the absence of a personnel id. */
+  field_complete_reported_by?: string | null
+  /** "Angekommen" from /feld (lives on the Schadenplatz-Rapport row). */
+  field_arrived_at?: string | null
+  /** Who reported the arrival. null = im KP erfasst. */
+  field_arrived_by?: string | null
+  /** A submitted Schadenplatz-Rapport exists (the "kein Rapport" marker reads
+   *  this; it lands with the form in phase 2). */
+  has_schadenplatz_rapport?: boolean
+  /** "Abholung nötig": the crew is finished and cannot get back on its own.
+   *  NOT a status, and deliberately NOT cleared when the card is completed —
+   *  that transition releases the personnel while they are still standing at
+   *  the address, which is exactly when this has to survive. */
+  pickup_needed?: boolean
+  pickup_note?: string | null
+  pickup_requested_at?: string | null
+  pickup_requested_by?: string | null
   /** Server-computed short label for location_address (home city stripped).
    *  "" when the address is only the home city; null/absent when no address. */
   location_display?: string | null

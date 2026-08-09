@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * `/feld` — the field surface (plan 25, phase 0).
+ * `/feld` — the field surface (plan 25, phases 0-1).
  *
  * One login-less page per Ereignis: everyone in the field finds themselves in a
- * list and sees exactly their own Schadenplätze. Phase 0 builds the door, not
- * the form — the detail view is deliberately a STACK OF SECTIONS with the
- * header and placeholders, so the later phases (field actions, the Rapport
- * form, the material checklist, photos) each add a section instead of
- * rewriting a page.
+ * list and sees exactly their own Schadenplätze. Phase 0 built the door; phase 1
+ * hangs the four actions on it (Angekommen · Einsatz beendet · Abholung ·
+ * Meldung). The detail view stays a STACK OF SECTIONS, so the remaining phases
+ * (the Rapport form, the material checklist, photos — and plans 13 and 24, which
+ * mount here too) each add a section instead of rewriting a page.
  *
  * Mobile is the viewport that matters here. KP Rück is a desktop board, but the
  * field pages are the exception — this one is read on a phone in the rain.
@@ -17,9 +17,10 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Star, User } from 'lucide-react'
+import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Star, User } from 'lucide-react'
 
-import { apiClient, type ApiFeldPersonnel, type ApiFeldAssignment } from '@/lib/api-client'
+import { apiClient, type ApiFeldPersonnel, type ApiFeldAssignment, type ApiFieldReportState } from '@/lib/api-client'
+import { FeldActions } from '@/components/feld/feld-actions'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
@@ -121,12 +122,15 @@ function FeldSurface() {
   const t = useTranslations('feld')
   const tCommon = useTranslations('reko.common')
   const tStatus = useTranslations('kanban.statusLabels')
+  const tPickup = useTranslations('feld.pickup')
 
   const [personnel, setPersonnel] = useState<ApiFeldPersonnel[]>([])
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
   const [assignments, setAssignments] = useState<ApiFeldAssignment[]>([])
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [eventName, setEventName] = useState<string>('')
+  // Station-configurable Freitext chips (decision 20), served with the list.
+  const [messageChips, setMessageChips] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
@@ -169,6 +173,7 @@ function FeldSurface() {
     try {
       const data = await apiClient.getFeldAssignments(personnelId, token)
       setAssignments(data.assignments)
+      setMessageChips(data.message_chips ?? [])
     } catch (err) {
       console.error('Failed to load field assignments:', err)
       setAssignments([])
@@ -245,6 +250,30 @@ function FeldSurface() {
     () => assignments.find(a => a.incident_id === selectedIncidentId) ?? null,
     [assignments, selectedIncidentId],
   )
+
+  /**
+   * Fold the server's answer to a field action back into the list row.
+   *
+   * Merged locally rather than refetched: the crew is on a phone at the edge of
+   * coverage, and a full round trip after every tap is the one thing that makes
+   * a big button feel like it did not work.
+   */
+  const applyFieldReport = useCallback((state: ApiFieldReportState) => {
+    setAssignments(prev =>
+      prev.map(a =>
+        a.incident_id === state.incident_id
+          ? {
+              ...a,
+              arrived_at: state.arrived_at,
+              field_complete_reported_at: state.field_complete_reported_at,
+              pickup_needed: state.pickup_needed,
+              pickup_note: state.pickup_note,
+              pickup_requested_at: state.pickup_requested_at,
+            }
+          : a,
+      ),
+    )
+  }, [])
 
   if (error) {
     return (
@@ -356,12 +385,17 @@ function FeldSurface() {
               </div>
             </section>
 
-            {/* Section: field actions — Angekommen / Einsatz beendet / Fotos /
-                Meldung. Phase 1. */}
-            <section className="rounded-xl border border-dashed border-border p-4">
-              <h2 className="text-sm font-medium mb-1">{t('detail.actionsTitle')}</h2>
-              <p className="text-sm text-muted-foreground">{t('detail.actionsPlaceholder')}</p>
-            </section>
+            {/* Section: field actions — Angekommen / Einsatz beendet /
+                Abholung / Meldung. Fotos join them in phase 3. */}
+            {token && selectedPerson && (
+              <FeldActions
+                assignment={selectedAssignment}
+                personnelId={selectedPerson.personnel_id}
+                token={token}
+                messageChips={messageChips}
+                onReported={applyFieldReport}
+              />
+            )}
 
             {/* Section: the Schadenplatz-Rapport itself. Phase 2. */}
             <section className="rounded-xl border border-dashed border-border p-4">
@@ -439,6 +473,14 @@ function FeldSurface() {
                   <span className="text-xs text-muted-foreground">{tStatus(assignment.incident_status)}</span>
                   {!assignment.is_active_assignment && (
                     <span className="text-xs text-muted-foreground">{t('assignments.released')}</span>
+                  )}
+                  {/* An open Abholung is the one thing on this list that is
+                      about the crew rather than the Schadenplatz. */}
+                  {assignment.pickup_needed && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                      <CarTaxiFront className="h-3 w-3" />
+                      {tPickup('badge')}
+                    </span>
                   )}
                 </div>
               </button>

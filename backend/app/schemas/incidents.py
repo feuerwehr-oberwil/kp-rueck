@@ -221,11 +221,45 @@ class IncidentResponse(IncidentBase):
     reko_arrived_at: datetime | None = None
     # Field crew reported the incident finished; operator decides to close it.
     field_complete_reported_at: datetime | None = None
+    # NULL when the KP took the message over the radio — provenance is never
+    # faked (decision 28), so "im KP erfasst" is the absence of a personnel id,
+    # not a guessed one.
+    field_complete_reported_by: UUID | None = None
+    # "Angekommen" from /feld (batched off schadenplatz_reports).
+    field_arrived_at: datetime | None = None
+    field_arrived_by: UUID | None = None
+    # A *submitted* Schadenplatz-Rapport exists. Same query as the arrival, so
+    # it is free here; the "kein Rapport" card marker that reads it lands with
+    # the form in phase 2.
+    has_schadenplatz_rapport: bool = False
+    # "Abholung nötig" (decision 24): the crew is finished and cannot get back on
+    # its own. NOT a status, and deliberately NOT cleared when the card moves to
+    # `complete` — that transition releases the personnel while they are still
+    # standing at the address, which is exactly when this must survive.
+    pickup_needed: bool = False
+    pickup_note: str | None = None
+    pickup_requested_at: datetime | None = None
+    pickup_requested_by: UUID | None = None
     # Server-computed short label for location_address (home city stripped) so
     # clients can render the final string on first paint — no reformat flash
     # once the home_city setting loads client-side. "" when the address is only
     # the home city; None when there is no address (or on older backends).
     location_display: str | None = None
+
+    @field_validator("pickup_needed", "has_schadenplatz_rapport", mode="before")
+    @classmethod
+    def _false_when_unset(cls, value: object) -> object:
+        """None means "not set yet", not "invalid".
+
+        ``Incident.pickup_needed`` carries a Python-side default that SQLAlchemy
+        only applies on flush, so an incident validated straight after
+        construction — which is what the training generator and every
+        create-then-broadcast path does — still has ``None`` on the attribute.
+        ``has_schadenplatz_rapport`` is a transient the board query attaches, so
+        it is simply absent anywhere else. Both mean "no", and a 500 on a freshly
+        built card is the wrong way to say it.
+        """
+        return False if value is None else value
 
     @field_serializer("location_lat", "location_lng")
     def serialize_decimal(self, value: str | Decimal | None) -> str | None:
