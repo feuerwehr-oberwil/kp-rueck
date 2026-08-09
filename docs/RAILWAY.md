@@ -357,6 +357,62 @@ required, MINOR means new features and automatic migrations, PATCH means fixes.
 To roll back, redeploy an earlier deployment from the Railway dashboard. **A database dump from
 a newer version will not restore into an older one** — migrations only run forwards.
 
+### 8.1 Rolling back code leaves the database ahead — and the app will not start
+
+This one has bitten this project, so it is written down rather than learned twice.
+
+`start.sh` runs `alembic upgrade head` on every boot. If a newer version ever ran — even for a
+single deploy, even by accident — its migrations are already applied and `alembic_version`
+holds a revision id that **the older code does not contain**. Roll the code back and the boot
+fails with `Can't locate revision identified by '<id>'`; `set -e` ends the container, the
+health check never passes, and the service serves 502 while the dashboard cheerfully reports
+the last good deployment as "Online".
+
+The symptom looks like a broken rollback. It is a database that is ahead of its code.
+
+**Recovering, in order:**
+
+1. Find the older code's head revision — the one migration file in that version whose id is
+   nobody's `down_revision`.
+2. Decide which way to go:
+   - **Forward** (usually right): redeploy the newer version. The database already matches it.
+   - **Back**: run the *newer* version's `alembic downgrade <older-head>` against the database.
+     Use the migrations' own `downgrade()` functions; do not hand-write `DROP`s. You need a
+     checkout of the newer code to do this, because the older one does not contain the files.
+3. `alembic stamp` is the emergency lever, not the fix: it changes the version pointer without
+   touching the schema, so the database and the pointer disagree afterwards. If you use it to
+   get a service up, write down that the schema is still ahead — the next real upgrade will try
+   to create objects that already exist and fail.
+
+**Prevention:** never let a deployment target a branch that carries migrations the running
+version does not have. That includes "just to see if it builds".
+
+### 8.2 Two Railway settings that do not behave the way they read
+
+- **`railway.json` beats the dashboard.** A value committed in `deploy` cannot be changed in the
+  UI — the file is reapplied on every deploy. To differ per environment, use the schema's
+  top-level `environments` key instead of editing the dashboard:
+
+  ```json
+  {
+    "deploy": { "sleepApplication": false },
+    "environments": {
+      "staging": { "deploy": { "sleepApplication": true } }
+    }
+  }
+  ```
+
+- **A service's source is one setting shared by every environment.** In the CLI,
+  `railway service source connect --branch X --environment Y` accepts `--environment` and
+  ignores it: a service has one id across all environments, and the branch hangs on the
+  service. Pointing a staging environment at another branch this way **also repoints
+  production**, which then deploys and migrates. Set the branch per environment in the
+  dashboard, or give the second environment its own services.
+
+  General rule for a shared service: before changing anything, establish whether the setting is
+  per environment or per service. `railway environment edit --service-config …` is
+  environment-scoped by construction; `railway service …` is not.
+
 ---
 
 ## 9. Backups

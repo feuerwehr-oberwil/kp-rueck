@@ -10,5 +10,12 @@
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "startCommand": "./start.sh"
+  },
+  "environments": {
+    "staging": {
+      "deploy": {
+        "sleepApplication": true
+      }
+    }
   }
 }
