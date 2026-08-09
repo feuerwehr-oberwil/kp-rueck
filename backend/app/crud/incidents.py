@@ -182,7 +182,7 @@ async def get_incidents(
         SchadenplatzReport.incident_id,
         SchadenplatzReport.arrived_at,
         SchadenplatzReport.is_draft,
-        SchadenplatzReport.created_by_personnel_id,
+        SchadenplatzReport.arrived_by_personnel_id,
     ).where(SchadenplatzReport.incident_id.in_(incident_ids))
     feld_result = await db.execute(feld_query)
     field_arrived_map: dict[uuid.UUID, tuple[datetime | None, uuid.UUID | None]] = {}
@@ -190,7 +190,7 @@ async def get_incidents(
     # Own loop variable: `row` above is a differently-shaped Row and mypy holds
     # the first binding's type for the whole function.
     for feld_row in feld_result:
-        field_arrived_map[feld_row.incident_id] = (feld_row.arrived_at, feld_row.created_by_personnel_id)
+        field_arrived_map[feld_row.incident_id] = (feld_row.arrived_at, feld_row.arrived_by_personnel_id)
         if not feld_row.is_draft:
             submitted_rapports.add(feld_row.incident_id)
 
@@ -262,12 +262,12 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
             select(
                 SchadenplatzReport.arrived_at,
                 SchadenplatzReport.is_draft,
-                SchadenplatzReport.created_by_personnel_id,
+                SchadenplatzReport.arrived_by_personnel_id,
             ).where(SchadenplatzReport.incident_id == incident.id)
         )
         feld_row = feld_check.first()
         incident.field_arrived_at = feld_row.arrived_at if feld_row else None
-        incident.field_arrived_by = feld_row.created_by_personnel_id if feld_row else None
+        incident.field_arrived_by = feld_row.arrived_by_personnel_id if feld_row else None
         incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
 
     return incident

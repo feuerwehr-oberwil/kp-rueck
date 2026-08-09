@@ -451,6 +451,81 @@ async def set_field_report(
     return schemas.FieldReportState(**await feld_crud.field_report_state(db, incident))
 
 
+@router.get("/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)
+async def get_incident_rapport(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.SchadenplatzRapport:
+    """The Schadenplatz-Rapport from the board — the same prefill as `/feld` (§4).
+
+    KP parity is a hard requirement, not a convenience (decision 28): the normal
+    case is a radio message, and an editor must be able to create a rapport for
+    an incident that never had any field contact, fill every field, tick the
+    checklist and submit it. **One CRUD module, two thin routers** — the board's
+    detail section renders the same form component over this pair.
+
+    Editor-gated rather than `CurrentUser`: the response carries the owner block,
+    which is the first citizen PII in kp-rueck (§9).
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    actor = feld_crud.FieldActor(user=current_user)
+    return schemas.SchadenplatzRapport(**await feld_crud.get_rapport(db, incident, actor=actor))
+
+
+@router.put("/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)
+async def save_incident_rapport(
+    incident_id: uuid.UUID,
+    payload: schemas.RapportUpdate,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.SchadenplatzRapport:
+    """The KP twin of the `/feld` upsert, over the same CRUD (decision 28).
+
+    **Provenance is never faked.** This path stamps `*_by_user_id`, leaves the
+    personnel columns NULL, and every output prints "(Funkmeldung)". A mixed
+    report — crew filed, KP amended — shows both lines, which is why the two
+    pairs exist rather than one resolved author.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    actor = feld_crud.FieldActor(user=current_user)
+    return schemas.SchadenplatzRapport(
+        **await feld_crud.save_rapport(db, incident, actor=actor, payload=payload, request=request)
+    )
+
+
+@router.get("/{incident_id}/rapport/material-return", response_model=dict)
+async def get_rapport_material_return(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> dict[str, list[schemas.MaterialReturnUnit]]:
+    """ "Material zurück – freigeben" (decision 17): what the board may release.
+
+    A read only. The releasing itself goes through the existing per-assignment
+    release — a field form must not silently write assignments, and the decision
+    stays with the operator. Empty until the rapport is submitted: a draft is a
+    crew still typing, and offering a half-answered checklist as a release list
+    is how a pump gets freed while it is still running in a cellar.
+
+    ``left_on_site`` is returned separately and is **not** in the release set;
+    consumables are in neither (decision 26).
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    returned, left = await feld_crud.material_return_units(db, incident)
+    return {
+        "returned": [schemas.MaterialReturnUnit(**unit) for unit in returned],
+        "left_on_site": [schemas.MaterialReturnUnit(**unit) for unit in left],
+    }
+
+
 @router.get("/{incident_id}/history", response_model=list[schemas.StatusTransitionResponse])
 async def get_status_history(
     incident_id: uuid.UUID,

@@ -849,6 +849,17 @@ class SchadenplatzReport(Base):
     # Set by "Angekommen" on /feld. Independent of RekoReport.arrived_at, which
     # belongs to the reconnaissance flow and answers a different question.
     arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The arrival's OWN author. Phase 1 read this off the created_by pair, which
+    # was exact only while an arrival was the only thing that could create the
+    # row; the KP can now create a rapport first, and a crew arriving afterwards
+    # would then be rendered as "im KP erfasst". Same rule as every other pair
+    # here: exactly one side per write, never guess a Personnel from a User.
+    arrived_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    arrived_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     photos_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
 
     # --- Provenance ---

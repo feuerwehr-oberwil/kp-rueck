@@ -4107,6 +4107,244 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/rapport": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Incident Rapport",
+        "description": "The Schadenplatz-Rapport from the board — the same prefill as `/feld` (§4).\n\nKP parity is a hard requirement, not a convenience (decision 28): the normal\ncase is a radio message, and an editor must be able to create a rapport for\nan incident that never had any field contact, fill every field, tick the\nchecklist and submit it. **One CRUD module, two thin routers** — the board's\ndetail section renders the same form component over this pair.\n\nEditor-gated rather than `CurrentUser`: the response carries the owner block,\nwhich is the first citizen PII in kp-rueck (§9).",
+        "operationId": "get_incident_rapport_api_incidents__incident_id__rapport_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Save Incident Rapport",
+        "description": "The KP twin of the `/feld` upsert, over the same CRUD (decision 28).\n\n**Provenance is never faked.** This path stamps `*_by_user_id`, leaves the\npersonnel columns NULL, and every output prints \"(Funkmeldung)\". A mixed\nreport — crew filed, KP amended — shows both lines, which is why the two\npairs exist rather than one resolved author.",
+        "operationId": "save_incident_rapport_api_incidents__incident_id__rapport_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RapportUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/rapport/material-return": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Rapport Material Return",
+        "description": "\"Material zurück – freigeben\" (decision 17): what the board may release.\n\nA read only. The releasing itself goes through the existing per-assignment\nrelease — a field form must not silently write assignments, and the decision\nstays with the operator. Empty until the rapport is submitted: a draft is a\ncrew still typing, and offering a half-answered checklist as a release list\nis how a pump gets freed while it is still running in a cellar.\n\n``left_on_site`` is returned separately and is **not** in the release set;\nconsumables are in neither (decision 26).",
+        "operationId": "get_rapport_material_return_api_incidents__incident_id__rapport_material_return_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Rapport Material Return Api Incidents  Incident Id  Rapport Material Return Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/history": {
       "get": {
         "tags": [
@@ -10489,6 +10727,148 @@
         }
       }
     },
+    "/api/feld/incidents/{incident_id}/rapport": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Rapport",
+        "description": "The Schadenplatz-Rapport, **prefilled if it does not exist yet** (§4).\n\nA GET that computes and does not write: opening the form must not create a\nrow, or \"kein Rapport\" would stop meaning anything the moment somebody\nlooked. The material checklist is re-reconciled against the board on every\ncall — a unit assigned after the draft started appears unticked, one the\nboard took away keeps its row only if the crew already answered for it.",
+        "operationId": "get_rapport_api_feld_incidents__incident_id__rapport_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is filing",
+              "title": "Personnel Id"
+            },
+            "description": "Who is filing"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Save Rapport",
+        "description": "Upsert the Rapport. `is_draft: true` is the 30 s autosave, `false` files it.\n\nOne row per Schadenplatz (decision 3): whoever files first creates it,\nanyone else assigned amends the same row, and the form shows \"zuletzt\nbearbeitet von X\" so the next person knows. Filing freezes\n`cost_snapshot_json` — a later board edit cannot change a filed rapport.\n\nStill writes no assignment. The material checklist records two ticks against\nthe board's units; releasing what came back is the board's own one-click\naction (decision 17).",
+        "operationId": "save_rapport_api_feld_incidents__incident_id__rapport_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is filing",
+              "title": "Personnel Id"
+            },
+            "description": "Who is filing"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RapportUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents/{incident_id}/message": {
       "post": {
         "tags": [
@@ -15544,6 +15924,31 @@
         "type": "object",
         "title": "ClientError",
         "description": "A bounded report of a frontend error. All fields optional/length-capped."
+      },
+      "ConcurrentEditor": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "in_kp": {
+            "type": "boolean",
+            "title": "In Kp",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "at"
+        ],
+        "title": "ConcurrentEditor",
+        "description": "\"Frey Marc bearbeitet diesen Rapport gerade\" (§3).\n\nVisibility, **not a lock**: a real lock in the field is worse than the\nproblem it solves. Present only when the last save was somebody else inside\nthe last five minutes."
       },
       "ConsentUpdate": {
         "properties": {
@@ -21032,6 +21437,416 @@
         "title": "PublicIncidentCreate",
         "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and\noperator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later\nby an editor on the board. Validators mirror ``IncidentBase``."
       },
+      "RapportMaterialRow": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "consumable": {
+            "type": "boolean",
+            "title": "Consumable",
+            "default": false
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used"
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site",
+            "default": false
+          },
+          "on_board": {
+            "type": "boolean",
+            "title": "On Board",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id",
+          "material_id",
+          "name"
+        ],
+        "title": "RapportMaterialRow",
+        "description": "One material unit on the checklist (decision 14).\n\nKeyed on the **assignment**, not the material: the same pump assigned twice\nis two units on the slip, and the assignment id is also what the board's\n\"Material zurück – freigeben\" list releases against.\n\n``used`` is nullable on purpose — \"die Crew hat nicht geantwortet\" is a third\nanswer and every output has to be able to show it. ``left_on_site`` is a\nplain bool: not answering it means the unit came back."
+      },
+      "RapportMaterialUpdate": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used"
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id"
+        ],
+        "title": "RapportMaterialUpdate",
+        "description": "The two ticks, as the form sends them back."
+      },
+      "RapportPrefill": {
+        "properties": {
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "incident_ref": {
+            "type": "string",
+            "title": "Incident Ref"
+          },
+          "leader_personnel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Personnel Id"
+          },
+          "leader_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Name"
+          },
+          "melder_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Melder Name"
+          },
+          "melder_street": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Melder Street"
+          },
+          "melder_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Melder City"
+          },
+          "board_personnel_count": {
+            "type": "integer",
+            "title": "Board Personnel Count",
+            "default": 0
+          },
+          "board_vehicle_count": {
+            "type": "integer",
+            "title": "Board Vehicle Count",
+            "default": 0
+          },
+          "default_work_started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Work Started At"
+          },
+          "default_work_ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Work Ended At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_ref"
+        ],
+        "title": "RapportPrefill",
+        "description": "What the board knows, computed on every GET and never written (§4).\n\nThese are defaults and orientation, never authoritative once the crew has\ntouched the form. The two board counts stay on the response after a\ncorrection as well — that is what lets the form (and the export) say\n\"vom Board: 6\" next to a corrected 8."
+      },
+      "RapportUpdate": {
+        "properties": {
+          "is_draft": {
+            "type": "boolean",
+            "title": "Is Draft",
+            "default": true
+          },
+          "damage_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "wasserschaden",
+                  "sturmschaden",
+                  "schneebruch",
+                  "anderes"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Type"
+          },
+          "damage_type_other": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Type Other"
+          },
+          "work_started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Started At"
+          },
+          "work_ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Ended At"
+          },
+          "materials": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportMaterialUpdate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Materials"
+          },
+          "extra_material_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Material Note"
+          },
+          "kurzbericht": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kurzbericht"
+          },
+          "handed_over_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handed Over To"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "owner_street": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Street"
+          },
+          "owner_city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner City"
+          },
+          "vehicle_plate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Plate"
+          },
+          "vehicle_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model"
+          },
+          "personnel_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel Count"
+          },
+          "vehicle_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Count"
+          }
+        },
+        "type": "object",
+        "title": "RapportUpdate",
+        "description": "The upsert payload. ``is_draft=False`` is the submit.\n\nEvery field is optional and only the ones actually present are written\n(``model_fields_set``), for the same reason the field-report twin works that\nway: an autosave that carries half the form must not blank the other half."
+      },
       "RekoDashboardAssignment": {
         "properties": {
           "incident_id": {
@@ -21721,6 +22536,317 @@
         ],
         "title": "RekoSummary",
         "description": "Lightweight Reko report summary for bulk loading (used in kanban board)."
+      },
+      "SchadenplatzRapport": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "exists": {
+            "type": "boolean",
+            "title": "Exists",
+            "default": false
+          },
+          "is_draft": {
+            "type": "boolean",
+            "title": "Is Draft",
+            "default": true
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "damage_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "wasserschaden",
+                  "sturmschaden",
+                  "schneebruch",
+                  "anderes"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Type"
+          },
+          "damage_type_other": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Type Other"
+          },
+          "work_started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Started At"
+          },
+          "work_ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Ended At"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/RapportMaterialRow"
+            },
+            "type": "array",
+            "title": "Materials",
+            "default": []
+          },
+          "extra_material_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Material Note"
+          },
+          "kurzbericht": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kurzbericht"
+          },
+          "handed_over_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handed Over To"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "owner_street": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Street"
+          },
+          "owner_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner City"
+          },
+          "vehicle_plate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Plate"
+          },
+          "vehicle_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model"
+          },
+          "personnel_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel Count"
+          },
+          "personnel_count_corrected": {
+            "type": "boolean",
+            "title": "Personnel Count Corrected",
+            "default": false
+          },
+          "vehicle_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Count"
+          },
+          "vehicle_count_corrected": {
+            "type": "boolean",
+            "title": "Vehicle Count Corrected",
+            "default": false
+          },
+          "cost_snapshot_json": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Snapshot Json"
+          },
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "created_in_kp": {
+            "type": "boolean",
+            "title": "Created In Kp",
+            "default": false
+          },
+          "updated_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By Name"
+          },
+          "updated_in_kp": {
+            "type": "boolean",
+            "title": "Updated In Kp",
+            "default": false
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "concurrent_editor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConcurrentEditor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prefill": {
+            "$ref": "#/components/schemas/RapportPrefill"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "prefill"
+        ],
+        "title": "SchadenplatzRapport",
+        "description": "The Schadenplatz-Rapport as both doors return it."
       },
       "Setting": {
         "properties": {

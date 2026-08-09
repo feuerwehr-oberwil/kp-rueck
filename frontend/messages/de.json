@@ -2772,8 +2772,7 @@
     "detail": {
       "arrivedAt": "Angekommen: {time}",
       "completeAt": "Einsatz beendet: {time}",
-      "rapportTitle": "Schadenplatz-Rapport",
-      "rapportPlaceholder": "Das Rapport-Formular folgt."
+      "rapportTitle": "Schadenplatz-Rapport"
     },
     "actions": {
       "title": "Meldungen an den KP",
@@ -2802,7 +2801,9 @@
       "notePlaceholder": "Notiz (optional): wie viele, wo genau"
     },
     "board": {
-      "cardCompleteTooltip": "Feld meldet: Einsatz beendet"
+      "cardCompleteTooltip": "Feld meldet: Einsatz beendet",
+      "cardRapportTooltip": "Schadenplatz-Rapport erfasst",
+      "cardNoRapportTooltip": "Kein Rapport erfasst"
     },
     "kp": {
       "title": "Feldmeldungen",
@@ -2817,6 +2818,86 @@
       "pickupNotePlaceholder": "Notiz: wie viele, wo genau",
       "waiting": "Wartet seit {duration}",
       "saveFailed": "Speichern fehlgeschlagen"
+    },
+    "rapport": {
+      "sectionTitle": "Schadenplatz-Rapport",
+      "stateSubmitted": "erfasst",
+      "stateMissing": "kein Rapport",
+      "sections": {
+        "einsatzdaten": "Einsatzdaten",
+        "kurzbericht": "Kurzbericht",
+        "owner": "Eigentümer- / Halterdaten",
+        "kostenpflicht": "Kostenpflicht"
+      },
+      "address": "Adresse",
+      "noAddress": "Keine Adresse erfasst",
+      "leader": "EL: {name}",
+      "damageType": "Schadensart",
+      "damageTypes": {
+        "wasserschaden": "Wasserschaden",
+        "sturmschaden": "Sturmschaden",
+        "schneebruch": "Schneebruch",
+        "anderes": "Anderes"
+      },
+      "damageTypeOtherPlaceholder": "Welche Schadensart?",
+      "damageTypeMissing": "Schadensart fehlt. Nochmals tippen, um trotzdem abzuschliessen.",
+      "workStarted": "Beginn Tätigkeit",
+      "workEnded": "Ende Tätigkeit",
+      "material": {
+        "title": "Material",
+        "hint": "Pro Gerät: gebraucht? Und ist es vor Ort geblieben?",
+        "empty": "Für diese Einsatzstelle ist kein Material auf dem Board erfasst.",
+        "noLongerAssigned": "Nicht mehr zugeteilt",
+        "consumable": "Verbrauch",
+        "used": "gebraucht",
+        "usedYes": "Ja, gebraucht",
+        "usedNo": "Nein, nicht gebraucht",
+        "usedUnknown": "Keine Angabe",
+        "usedAria": "Gebraucht: {name}",
+        "leftOnSite": "vor Ort verblieben",
+        "leftOnSiteAria": "Vor Ort verblieben: {name}",
+        "extraLabel": "Weiteres Material",
+        "extraPlaceholder": "Was da war, aber nicht auf dem Board stand"
+      },
+      "kurzberichtPlaceholder": "Lage, Tätigkeit, Geräte",
+      "kurzberichtHint": "Lage, Tätigkeit, Geräte · Tipp: Diktiertaste der Tastatur",
+      "handedOverTo": "Einsatzstelle übergeben an",
+      "handedOverToPlaceholder": "Wem wurde die Einsatzstelle übergeben?",
+      "ownerHint": "Angaben zur betroffenen Person. Werden mit dem Ereignis gelöscht.",
+      "takeOverMelder": "Melder übernehmen: {name}",
+      "ownerName": "Name",
+      "ownerStreet": "Strasse / Nr.",
+      "ownerCity": "Ort",
+      "vehicleInvolved": "Fahrzeug beteiligt",
+      "vehiclePlate": "KFZ-Kennzeichen",
+      "vehicleModel": "KFZ-Typ",
+      "personnelCount": "Eingesetztes Personal",
+      "vehicleCount": "Eingesetzte Fahrzeuge",
+      "fromBoard": "vom Board: {count}",
+      "concurrentEditor": "{name} bearbeitet diesen Rapport gerade ({at})",
+      "createdInField": "Erfasst von {name} (Feld), {at}",
+      "createdInKp": "Erfasst im KP durch {name} (Funkmeldung), {at}",
+      "updatedInField": "Zuletzt bearbeitet von {name} (Feld), {at}",
+      "updatedInKp": "Zuletzt bearbeitet im KP durch {name} (Funkmeldung), {at}",
+      "lastSaved": "Zwischengespeichert um {at}",
+      "localRestored": "Lokaler Entwurf wiederhergestellt.",
+      "submit": "Rapport abschliessen",
+      "submitKp": "Rapport abschliessen (Funkmeldung)",
+      "submitted": "Rapport erfasst.",
+      "submittedBadge": "Abgeschlossen {at}",
+      "submitError": "Rapport konnte nicht abgeschlossen werden. Nochmals versuchen.",
+      "amend": "Rapport ergänzen",
+      "loadError": "Rapport konnte nicht geladen werden."
+    },
+    "materialReturn": {
+      "title": "Material zurück – freigeben",
+      "description": "Der Trupp hat diese Geräte nicht als «vor Ort verblieben» markiert.",
+      "notUsed": "nicht gebraucht",
+      "releaseAll": "{count, plural, one {# Gerät freigeben} other {# Geräte freigeben}}",
+      "released": "{count, plural, one {# Gerät freigegeben} other {# Geräte freigegeben}}",
+      "releaseFailed": "Freigeben fehlgeschlagen",
+      "stillOnSiteTitle": "Vor Ort verblieben",
+      "stillOnSiteHint": "Bleibt zugeteilt, bis es abgeholt ist – erscheint in der Restliste."
     }
   }
 }

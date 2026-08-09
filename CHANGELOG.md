@@ -28,6 +28,37 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **Schadenplatz-Rapport — the paper `fahrzeugrapport.pdf` becomes a form on the phone.** A crew
+  opens `/feld`, taps its Schadenplatz and fills the slip: damage type, start/end of work, the
+  Kurzbericht, "übergeben an", the owner block and the Kostenpflicht counts. The draft survives
+  locally with a 30-second autosave, so a closed tab or a dead spot costs nothing. Filing it
+  freezes who and which vehicles were there — a later board edit cannot change a rapport that has
+  been handed in.
+
+- **A material checklist instead of a material hunt.** Every unit the board has on that
+  Schadenplatz is one row with two ticks: *gebraucht* and *vor Ort verblieben*. Consumables have
+  only the first — what was used up is not left anywhere. What came back is then offered in the
+  incident detail as **"Material zurück – freigeben"**: one list, one click. Until now somebody
+  worked out by hand which of fourteen units were still out.
+
+- **The KP can do everything the field can.** The rapport in the incident detail is a full
+  editing surface, not a read-only view: an editor creates a rapport for an incident that never
+  had any field contact, fills it and files it — the normal case is a radio message. Both doors
+  write the same columns, and every rapport says where it came from ("Feld" vs. "Funkmeldung");
+  a KP entry leaves the personnel attribution empty rather than guessing it.
+
+- **A rapport marker on the card.** A card with a filed rapport carries a quiet chip; one that
+  reached `complete` without a rapport carries a muted "kein Rapport" marker. Not a dialog and
+  not a block — during a storm, a blocking gate is a gate people defeat with empty forms.
+
+- **What `/feld` stores about third parties is written down** in
+  [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §8. The owner block is the first citizen PII in
+  KP Rück: it lives with the incident and is deleted with it, the `/feld` QR is an event-scoped
+  credential that reaches it, and posters and Einsatzzettel belong in the "collect at the end of
+  the Ereignis" habit.
+
 ## [0.5.0] – 2026-08-08
 
 > ⚠️ **Operator action for anyone running the Divera webhook without a secret.** It now answers

@@ -29,6 +29,7 @@ import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
+import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
@@ -511,6 +512,15 @@ export function OperationDetailContent({
           {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps on
               /feld, an operator enters here from a radio message. */}
           <FieldReportsRow operation={operation} canEdit={canEdit} />
+
+          {/* The Schadenplatz-Rapport itself, as a FULL editing surface: the KP
+              must be able to file one for an incident that never had any field
+              contact. Same form component /feld mounts, different transport. */}
+          <SchadenplatzRapportSection
+            incidentId={operation.id}
+            canEdit={canEdit}
+            hasRapport={operation.hasSchadenplatzRapport}
+          />
 
           </div>
 

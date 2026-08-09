@@ -16,15 +16,27 @@ this module exists to prevent.
 """
 
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Incident, IncidentAssignment, Notification, Personnel, SchadenplatzReport, User
+from ..models import (
+    Incident,
+    IncidentAssignment,
+    Material,
+    Notification,
+    Personnel,
+    SchadenplatzReport,
+    StatusTransition,
+    User,
+    Vehicle,
+)
+from ..schemas.feld import RapportUpdate
 from ..services.audit import log_action
 from ..services.incident_leader import effective_leader_id
 from ..services.notification_service import create_field_notification
@@ -449,10 +461,12 @@ async def record_arrival(
 
     Returns whether anything changed — the caller only notifies when it did.
 
-    Note the arrival's own provenance is read back off the report's
-    ``created_by_*`` pair (``field_report_state``). In phase 1 that is exact: the
-    arrival is the only thing that creates the row. Phase 2 lets the KP create a
-    rapport first, at which point the arrival needs its own pair of columns.
+    The arrival carries its **own** ``arrived_by_*`` pair rather than borrowing
+    the row's ``created_by_*``. That shortcut was exact only while an arrival was
+    the only thing that could create the row; since the KP can create a rapport
+    first (decision 28), a crew arriving afterwards would otherwise have its
+    arrival rendered "im KP erfasst". Exactly one side is written, and clearing
+    the arrival clears both — "nobody has reported it" is not a KP report.
     """
     report = await _get_or_create_report(db, incident.id, actor)
     if only_if_unset and report.arrived_at is not None:
@@ -462,11 +476,12 @@ async def record_arrival(
 
     report.arrived_at = at
     _stamp_updated_by(report, actor)
-    # A brand-new row created BY the arrival carries the arrival's author, so the
-    # "vom Feld / im KP erfasst" line stays honest for the row it describes.
-    if at is not None and report.created_by_personnel_id is None and report.created_by_user_id is None:
-        report.created_by_personnel_id = actor.personnel_id
-        report.created_by_user_id = actor.user.id if actor.user and not actor.is_field else None
+    if at is not None:
+        report.arrived_by_personnel_id = actor.personnel_id
+        report.arrived_by_user_id = actor.user.id if actor.user and not actor.is_field else None
+    else:
+        report.arrived_by_personnel_id = None
+        report.arrived_by_user_id = None
 
     await log_action(
         db=db,
@@ -674,16 +689,16 @@ async def record_field_message(
 async def field_report_state(db: AsyncSession, incident: Incident) -> dict[str, Any]:
     """The three field reports of one incident, as both routers return them.
 
-    ``arrived_by_*`` comes off the report's ``created_by_*`` pair — see the note
-    in ``record_arrival``.
+    ``arrived_by_*`` is the arrival's own pair, not the row's ``created_by_*`` —
+    see the note in ``record_arrival``.
     """
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
     return {
         "incident_id": incident.id,
         "arrived_at": report.arrived_at if report else None,
-        "arrived_by_personnel_id": report.created_by_personnel_id if report else None,
-        "arrived_in_kp": bool(report and report.arrived_at and report.created_by_personnel_id is None),
+        "arrived_by_personnel_id": report.arrived_by_personnel_id if report else None,
+        "arrived_in_kp": bool(report and report.arrived_at and report.arrived_by_personnel_id is None),
         "field_complete_reported_at": incident.field_complete_reported_at,
         "field_complete_reported_by": incident.field_complete_reported_by,
         "pickup_needed": incident.pickup_needed,
@@ -691,3 +706,619 @@ async def field_report_state(db: AsyncSession, incident: Incident) -> dict[str, 
         "pickup_requested_at": incident.pickup_requested_at,
         "pickup_requested_by": incident.pickup_requested_by,
     }
+
+
+# ============================================
+# The Schadenplatz-Rapport (phase 2)
+# ============================================
+#
+# The paper replacement. Same rule as everything above it: ONE implementation,
+# two thin routers over it (decision 28). The GET computes a prefill and
+# deliberately does not write; only the PUT creates a row.
+#
+# And, still: nothing here touches `incident_assignments`. The material
+# checklist READS the assignments and records two ticks against them; releasing
+# what came back is a board action offered by "Material zurück – freigeben"
+# (decision 17), never a side effect of filing.
+
+# How long another person's save is shown as "bearbeitet gerade" (§3).
+CONCURRENT_EDITOR_WINDOW = timedelta(minutes=5)
+
+
+def _is_answered(row: Mapping[str, Any]) -> bool:
+    """Did the crew say anything about this unit?
+
+    Both ticks count. An unanswered row is one nobody looked at, and it is the
+    only kind the reconciliation is allowed to drop when the board takes the
+    unit away again.
+    """
+    return row.get("used") is not None or bool(row.get("left_on_site"))
+
+
+async def _board_material_units(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+) -> tuple[list[dict[str, Any]], dict[uuid.UUID, dict[str, Any]]]:
+    """Every material unit the board has (or had) on this incident.
+
+    **Including already-released ones** (§4): a pump that came back early still
+    belongs in the record, and the crew that used it is the only one who can say
+    so. Ordered by depot, then name, so a crew with fourteen units reads them in
+    the order it knows from the shelf.
+    """
+    result = await db.execute(
+        select(IncidentAssignment, Material)
+        .join(Material, Material.id == IncidentAssignment.resource_id)
+        .where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.resource_type == "material",
+        )
+        .order_by(Material.location_sort_order, Material.location, Material.name, IncidentAssignment.assigned_at)
+    )
+    ordered: list[dict[str, Any]] = []
+    by_assignment: dict[uuid.UUID, dict[str, Any]] = {}
+    for assignment, material in result.all():
+        unit = {
+            "assignment_id": assignment.id,
+            "material_id": material.id,
+            "name": material.name,
+            "location": material.location or None,
+            "consumable": material.consumable,
+        }
+        ordered.append(unit)
+        by_assignment[assignment.id] = unit
+    return ordered, by_assignment
+
+
+def reconcile_materials(
+    stored: list[Any] | None,
+    board_units: list[dict[str, Any]],
+    board_by_assignment: dict[uuid.UUID, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Re-reconcile the checklist against the board — **never replace it** (§4).
+
+    Three rules, and the third is the one that matters:
+
+    * a unit the KP assigned after the draft started appears, unticked;
+    * a unit that is still on the board keeps whatever the crew answered;
+    * a unit the board no longer has keeps its row **if it was already
+      answered** (they saw it, they used it) and drops if it was not. Deleting an
+      answered row would lose exactly the information the checklist exists to
+      capture.
+
+    Consumables can never carry *vor Ort verblieben* (decision 26): a consumable
+    that was used is gone. Enforced here rather than only in the UI, so neither
+    door and no later caller can write the impossible state.
+    """
+    stored_rows: dict[uuid.UUID, dict[str, Any]] = {}
+    orphans: list[dict[str, Any]] = []
+    for raw in stored or []:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            assignment_id = uuid.UUID(str(raw.get("assignment_id")))
+        except (TypeError, ValueError):
+            continue
+        row = dict(raw)
+        row["assignment_id"] = assignment_id
+        if assignment_id in board_by_assignment:
+            stored_rows[assignment_id] = row
+        elif _is_answered(row):
+            row["on_board"] = False
+            orphans.append(row)
+
+    merged: list[dict[str, Any]] = []
+    for unit in board_units:
+        previous = stored_rows.get(unit["assignment_id"], {})
+        consumable = bool(unit["consumable"])
+        merged.append(
+            {
+                "assignment_id": unit["assignment_id"],
+                "material_id": unit["material_id"],
+                "name": unit["name"],
+                "location": unit["location"],
+                "consumable": consumable,
+                "used": previous.get("used"),
+                "left_on_site": False if consumable else bool(previous.get("left_on_site")),
+                "on_board": True,
+            }
+        )
+
+    # The answered orphans go last: they are history, not a to-do.
+    for row in orphans:
+        consumable = bool(row.get("consumable"))
+        merged.append(
+            {
+                "assignment_id": row["assignment_id"],
+                "material_id": row.get("material_id"),
+                "name": row.get("name") or "Unbekannt",
+                "location": row.get("location"),
+                "consumable": consumable,
+                "used": row.get("used"),
+                "left_on_site": False if consumable else bool(row.get("left_on_site")),
+                "on_board": False,
+            }
+        )
+    return merged
+
+
+def _jsonable_materials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The checklist as it goes into JSONB: ids as strings, no derived flags.
+
+    ``location`` and ``on_board`` are recomputed on every read from the live
+    catalogue and the live assignments, so storing them would be storing a
+    second, staler copy of the board.
+    """
+    return [
+        {
+            "assignment_id": str(row["assignment_id"]),
+            "material_id": str(row["material_id"]) if row.get("material_id") else None,
+            "name": row.get("name"),
+            "consumable": bool(row.get("consumable")),
+            "used": row.get("used"),
+            "left_on_site": bool(row.get("left_on_site")),
+        }
+        for row in rows
+    ]
+
+
+async def _resource_counts(db: AsyncSession, incident_id: uuid.UUID) -> tuple[int, int]:
+    """The board's own personnel and vehicle counts for the Kostenpflicht block.
+
+    Distinct resources, not assignment rows: somebody assigned, released and
+    re-assigned worked one Einsatz, not two. Released rows count — the crew that
+    left an hour ago was still eingesetzt.
+    """
+    result = await db.execute(
+        select(IncidentAssignment.resource_type, IncidentAssignment.resource_id).where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.resource_type.in_(["personnel", "vehicle"]),
+        )
+    )
+    personnel_ids: set[uuid.UUID] = set()
+    vehicle_ids: set[uuid.UUID] = set()
+    for resource_type, resource_id in result.all():
+        (personnel_ids if resource_type == "personnel" else vehicle_ids).add(resource_id)
+    return len(personnel_ids), len(vehicle_ids)
+
+
+async def _default_work_started_at(
+    db: AsyncSession, incident: Incident, report: SchadenplatzReport | None
+) -> datetime | None:
+    """Beginn Tätigkeit: the arrival, else the first `active`, else the earliest assignment (§4)."""
+    if report is not None and report.arrived_at is not None:
+        return report.arrived_at
+
+    transition = await db.execute(
+        select(StatusTransition.timestamp)
+        .where(StatusTransition.incident_id == incident.id, StatusTransition.to_status == "active")
+        .order_by(StatusTransition.timestamp.asc())
+        .limit(1)
+    )
+    first_active = transition.scalar_one_or_none()
+    if first_active is not None:
+        return first_active
+
+    assigned = await db.execute(
+        select(IncidentAssignment.assigned_at)
+        .where(IncidentAssignment.incident_id == incident.id)
+        .order_by(IncidentAssignment.assigned_at.asc())
+        .limit(1)
+    )
+    return assigned.scalar_one_or_none()
+
+
+async def _default_work_ended_at(db: AsyncSession, incident: Incident) -> datetime | None:
+    """Ende Tätigkeit: the field report, else the first `returning`/`complete`, else empty (§4)."""
+    if incident.field_complete_reported_at is not None:
+        return incident.field_complete_reported_at
+
+    transition = await db.execute(
+        select(StatusTransition.timestamp)
+        .where(StatusTransition.incident_id == incident.id, StatusTransition.to_status.in_(["returning", "complete"]))
+        .order_by(StatusTransition.timestamp.asc())
+        .limit(1)
+    )
+    return transition.scalar_one_or_none()
+
+
+async def _names(db: AsyncSession, report: SchadenplatzReport | None) -> dict[str, str | None]:
+    """The four provenance names, resolved in one round trip each side."""
+    if report is None:
+        return {"created_by_name": None, "updated_by_name": None}
+
+    personnel_ids = {i for i in (report.created_by_personnel_id, report.updated_by_personnel_id) if i}
+    user_ids = {i for i in (report.created_by_user_id, report.updated_by_user_id) if i}
+
+    personnel_names: dict[uuid.UUID, str] = {}
+    if personnel_ids:
+        rows = await db.execute(select(Personnel.id, Personnel.name).where(Personnel.id.in_(personnel_ids)))
+        personnel_names = {row[0]: row[1] for row in rows.all()}
+
+    user_names: dict[uuid.UUID, str] = {}
+    if user_ids:
+        rows = await db.execute(select(User.id, User.username).where(User.id.in_(user_ids)))
+        user_names = {row[0]: row[1] for row in rows.all()}
+
+    def resolve(personnel_id: uuid.UUID | None, user_id: uuid.UUID | None) -> str | None:
+        if personnel_id is not None:
+            return personnel_names.get(personnel_id)
+        if user_id is not None:
+            return user_names.get(user_id)
+        return None
+
+    return {
+        "created_by_name": resolve(report.created_by_personnel_id, report.created_by_user_id),
+        "updated_by_name": resolve(report.updated_by_personnel_id, report.updated_by_user_id),
+    }
+
+
+def _concurrent_editor(
+    report: SchadenplatzReport | None,
+    actor: FieldActor,
+    updated_by_name: str | None,
+) -> dict[str, Any] | None:
+    """ "Frey Marc bearbeitet diesen Rapport gerade" — or nothing (§3).
+
+    Only when the last save was **somebody else** inside the window. Visibility,
+    not a lock: two crews on one Schadenplatz overwriting each other's
+    Kurzbericht is an accepted cost (§12), and a lock in the field is worse than
+    the problem it solves.
+    """
+    if report is None or report.updated_at is None or not updated_by_name:
+        return None
+
+    same_person = (
+        actor.is_field
+        and report.updated_by_personnel_id is not None
+        and report.updated_by_personnel_id == actor.personnel_id
+    ) or (
+        not actor.is_field
+        and actor.user is not None
+        and report.updated_by_user_id is not None
+        and report.updated_by_user_id == actor.user.id
+    )
+    if same_person:
+        return None
+
+    updated_at = report.updated_at
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=UTC)
+    if datetime.now(UTC) - updated_at > CONCURRENT_EDITOR_WINDOW:
+        return None
+
+    return {
+        "name": updated_by_name,
+        "at": report.updated_at,
+        "in_kp": report.updated_by_personnel_id is None and report.updated_by_user_id is not None,
+    }
+
+
+async def get_rapport(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+) -> dict[str, Any]:
+    """The Schadenplatz-Rapport — **prefilled if it does not exist yet** (§4).
+
+    A GET that computes and does **not** write. The prefill is defaults and
+    orientation, never authoritative once the crew has touched the form, and it
+    stays on the response afterwards so both the form and the export can show
+    "vom Board: 6" next to a corrected 8.
+    """
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    report = result.scalar_one_or_none()
+
+    board_units, board_by_assignment = await _board_material_units(db, incident.id)
+    materials = reconcile_materials(report.materials_json if report else None, board_units, board_by_assignment)
+
+    board_personnel, board_vehicles = await _resource_counts(db, incident.id)
+    leaders = await get_incident_leaders(db, [incident.id])
+    leader = leaders.get(incident.id)
+    names = await _names(db, report)
+
+    default_started = await _default_work_started_at(db, incident, report)
+    default_ended = await _default_work_ended_at(db, incident)
+
+    prefill = {
+        "location_address": incident.location_address,
+        # The reference the exports use. `title` is what the board shows on the
+        # card and what the PDF prints, so the crew recognises the slip it is
+        # filling from the row it tapped.
+        "incident_ref": incident.title or incident.location_address or "Unbekannt",
+        "leader_personnel_id": leader[0] if leader else None,
+        "leader_name": leader[1] if leader else None,
+        # "Melder übernehmen": one tap COPIES these into the owner block. The
+        # Melder is frequently not the Eigentümer, so the copy stays editable
+        # and the two are never equated.
+        "melder_name": incident.contact or None,
+        "melder_street": incident.location_address or None,
+        "melder_city": None,
+        "board_personnel_count": board_personnel,
+        "board_vehicle_count": board_vehicles,
+        "default_work_started_at": default_started,
+        "default_work_ended_at": default_ended,
+    }
+
+    concurrent = _concurrent_editor(report, actor, names["updated_by_name"])
+
+    if report is None:
+        return {
+            "incident_id": incident.id,
+            "exists": False,
+            "is_draft": True,
+            "materials": materials,
+            "personnel_count": board_personnel,
+            "vehicle_count": board_vehicles,
+            "work_started_at": default_started,
+            "work_ended_at": default_ended,
+            "prefill": prefill,
+            "concurrent_editor": None,
+        }
+
+    return {
+        "incident_id": incident.id,
+        "exists": True,
+        "is_draft": report.is_draft,
+        "submitted_at": report.submitted_at,
+        "damage_type": report.damage_type,
+        "damage_type_other": report.damage_type_other,
+        # A stored value wins; the derived default fills the blank the first time.
+        "work_started_at": report.work_started_at or default_started,
+        "work_ended_at": report.work_ended_at or default_ended,
+        "materials": materials,
+        "extra_material_note": report.extra_material_note,
+        "kurzbericht": report.kurzbericht,
+        "handed_over_to": report.handed_over_to,
+        "owner_name": report.owner_name,
+        "owner_street": report.owner_street,
+        "owner_city": report.owner_city,
+        "vehicle_plate": report.vehicle_plate,
+        "vehicle_model": report.vehicle_model,
+        "personnel_count": report.personnel_count if report.personnel_count is not None else board_personnel,
+        "personnel_count_corrected": report.personnel_count_corrected,
+        "vehicle_count": report.vehicle_count if report.vehicle_count is not None else board_vehicles,
+        "vehicle_count_corrected": report.vehicle_count_corrected,
+        "cost_snapshot_json": report.cost_snapshot_json,
+        "arrived_at": report.arrived_at,
+        "created_by_name": names["created_by_name"],
+        "created_in_kp": report.created_by_personnel_id is None and report.created_by_user_id is not None,
+        "updated_by_name": names["updated_by_name"],
+        "updated_in_kp": report.updated_by_personnel_id is None and report.updated_by_user_id is not None,
+        "updated_at": report.updated_at,
+        "concurrent_editor": concurrent,
+        "prefill": prefill,
+    }
+
+
+async def _build_cost_snapshot(db: AsyncSession, incident_id: uuid.UUID) -> list[dict[str, str | None]]:
+    """Freeze who and which vehicles, with from/to, at the moment of submission.
+
+    Decision 6: a later board edit cannot silently change a filed rapport. The
+    per-person from/to is kept even though no output derives person-hours from
+    it today — the snapshot is the thing that has to survive, and recomputing it
+    later is exactly what it exists to prevent.
+    """
+    result = await db.execute(
+        select(IncidentAssignment).where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.resource_type.in_(["personnel", "vehicle"]),
+        )
+    )
+    assignments = list(result.scalars().all())
+    if not assignments:
+        return []
+
+    personnel_ids = [a.resource_id for a in assignments if a.resource_type == "personnel"]
+    vehicle_ids = [a.resource_id for a in assignments if a.resource_type == "vehicle"]
+
+    personnel_names: dict[uuid.UUID, str] = {}
+    if personnel_ids:
+        rows = await db.execute(select(Personnel.id, Personnel.name).where(Personnel.id.in_(personnel_ids)))
+        personnel_names = {row[0]: row[1] for row in rows.all()}
+    vehicle_names: dict[uuid.UUID, str] = {}
+    if vehicle_ids:
+        rows = await db.execute(select(Vehicle.id, Vehicle.name).where(Vehicle.id.in_(vehicle_ids)))
+        vehicle_names = {row[0]: row[1] for row in rows.all()}
+
+    snapshot: list[dict[str, str | None]] = []
+    for assignment in sorted(assignments, key=lambda a: (a.resource_type, a.assigned_at)):
+        names = personnel_names if assignment.resource_type == "personnel" else vehicle_names
+        snapshot.append(
+            {
+                "kind": assignment.resource_type,
+                "name": names.get(assignment.resource_id, "Unbekannt"),
+                "from": assignment.assigned_at.isoformat() if assignment.assigned_at else None,
+                "to": assignment.unassigned_at.isoformat() if assignment.unassigned_at else None,
+            }
+        )
+    return snapshot
+
+
+async def save_rapport(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    payload: RapportUpdate,
+    request: Request | None = None,
+) -> dict[str, Any]:
+    """Upsert the Schadenplatz-Rapport. ``is_draft=False`` files it.
+
+    One row per incident (decision 3): whoever files first creates it, anyone
+    else assigned amends the same row, and "zuletzt bearbeitet von X" is how the
+    next person knows. Only the fields actually present in the payload are
+    written — an autosave that carries half the form must not blank the rest.
+
+    Submitting stamps ``submitted_at``, freezes ``cost_snapshot_json`` and emits
+    ``rapport_submitted``. **A later board edit cannot change a filed rapport**
+    (decision 6), which is the entire reason the snapshot exists.
+    """
+    report = await _get_or_create_report(db, incident.id, actor)
+    provided = payload.model_fields_set
+    was_draft = report.is_draft
+
+    for field in (
+        "damage_type",
+        "damage_type_other",
+        "work_started_at",
+        "work_ended_at",
+        "extra_material_note",
+        "kurzbericht",
+        "handed_over_to",
+        "owner_name",
+        "owner_street",
+        "owner_city",
+        "vehicle_plate",
+        "vehicle_model",
+    ):
+        if field in provided:
+            setattr(report, field, getattr(payload, field))
+
+    if "materials" in provided and payload.materials is not None:
+        board_units, board_by_assignment = await _board_material_units(db, incident.id)
+        ticks = {row.assignment_id: row for row in payload.materials}
+        # Reconcile FIRST, then apply the ticks: a unit the KP added while the
+        # crew was typing has to appear even though the payload knows nothing
+        # about it, and one the board took away must not come back through a
+        # stale form.
+        merged = reconcile_materials(report.materials_json, board_units, board_by_assignment)
+        for row in merged:
+            tick = ticks.get(row["assignment_id"])
+            if tick is None:
+                continue
+            row["used"] = tick.used
+            row["left_on_site"] = False if row["consumable"] else bool(tick.left_on_site)
+        # A unit that vanished from the board but was answered in THIS payload
+        # keeps that answer — the reconciliation would otherwise have dropped a
+        # row the crew just filled in.
+        answered_ids = {row["assignment_id"] for row in merged}
+        for assignment_id, tick in ticks.items():
+            if assignment_id in answered_ids or assignment_id in board_by_assignment:
+                continue
+            if tick.used is None and not tick.left_on_site:
+                continue
+            merged.append(
+                {
+                    "assignment_id": assignment_id,
+                    "material_id": None,
+                    "name": "Unbekannt",
+                    "location": None,
+                    "consumable": False,
+                    "used": tick.used,
+                    "left_on_site": bool(tick.left_on_site),
+                    "on_board": False,
+                }
+            )
+        report.materials_json = _jsonable_materials(merged)
+
+    # The Kostenpflicht counts. A corrected value is stored AS corrected — the
+    # divergence is itself information, it says the board was behind reality —
+    # and a value that matches the board clears the flag again.
+    board_personnel, board_vehicles = await _resource_counts(db, incident.id)
+    if "personnel_count" in provided:
+        report.personnel_count = payload.personnel_count
+        report.personnel_count_corrected = (
+            payload.personnel_count is not None and payload.personnel_count != board_personnel
+        )
+    if "vehicle_count" in provided:
+        report.vehicle_count = payload.vehicle_count
+        report.vehicle_count_corrected = payload.vehicle_count is not None and payload.vehicle_count != board_vehicles
+
+    submitting = payload.is_draft is False
+    if submitting:
+        report.is_draft = False
+        if report.submitted_at is None:
+            report.submitted_at = datetime.now(UTC)
+        # Frozen once. Re-submitting an amended rapport must not silently
+        # re-derive the counts from a board that has moved on since.
+        if report.cost_snapshot_json is None:
+            report.cost_snapshot_json = await _build_cost_snapshot(db, incident.id)
+        if report.personnel_count is None:
+            report.personnel_count = board_personnel
+        if report.vehicle_count is None:
+            report.vehicle_count = board_vehicles
+
+    _stamp_updated_by(report, actor)
+
+    await log_action(
+        db=db,
+        action_type="rapport_submitted" if submitting else "rapport_saved",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=actor.user,
+        # Deliberately no owner_* and no free text: the audit log is read by
+        # everyone with an account, and the owner block is citizen PII (§9).
+        changes={
+            "is_draft": report.is_draft,
+            "damage_type": report.damage_type,
+            "source": "feld" if actor.is_field else "kp",
+        },
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(report)
+
+    if submitting and was_draft and incident.event_id:
+        await create_field_notification(
+            db,
+            notification_type="rapport_submitted",
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            message=f"Rapport erfasst: {_location(incident)}{actor.suffix}",
+        )
+    await _broadcast(incident)
+
+    return await get_rapport(db, incident, actor=actor)
+
+
+async def material_return_units(
+    db: AsyncSession,
+    incident: Incident,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """ "Material zurück – freigeben" (decision 17): (returned, left_on_site).
+
+    Only for a **submitted** rapport — a draft is a crew still typing, and
+    offering a half-answered checklist as a release list is how a pump gets
+    freed while it is still running in a cellar.
+
+    Consumables are in neither list: a consumable that was used is gone
+    (decision 26). Units the board has already released are gone too — there is
+    nothing left to free.
+
+    The board does the releasing through the existing per-assignment release.
+    `/feld` never writes an assignment, and this function does not either; it
+    only says which units the crew did not mark as left on site.
+    """
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    report = result.scalar_one_or_none()
+    if report is None or report.is_draft:
+        return [], []
+
+    active = await db.execute(
+        select(IncidentAssignment.id).where(
+            IncidentAssignment.incident_id == incident.id,
+            IncidentAssignment.resource_type == "material",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+    )
+    still_assigned = {row[0] for row in active.all()}
+
+    board_units, board_by_assignment = await _board_material_units(db, incident.id)
+    rows = reconcile_materials(report.materials_json, board_units, board_by_assignment)
+
+    returned: list[dict[str, Any]] = []
+    left: list[dict[str, Any]] = []
+    for row in rows:
+        if row["consumable"] or row["assignment_id"] not in still_assigned:
+            continue
+        unit = {
+            "assignment_id": row["assignment_id"],
+            "material_id": row["material_id"],
+            "name": row["name"],
+            "location": row["location"],
+            "used": row["used"],
+        }
+        (left if row["left_on_site"] else returned).append(unit)
+    return returned, left

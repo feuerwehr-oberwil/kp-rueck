@@ -116,6 +116,10 @@ export interface Operation {
   pickupNote?: string
   pickupRequestedAt?: Date | null
   pickupRequestedBy?: string | null
+  /** A Schadenplatz-Rapport has been FILED for this incident (not a draft).
+   *  Drives the card chip, and the muted "kein Rapport" marker once a card
+   *  reaches `complete` without one — a marker, never a block (decision 10). */
+  hasSchadenplatzRapport?: boolean
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
   /** Name of the crew member marked Einsatzleiter for THIS incident, or null.
@@ -444,6 +448,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       pickupNote: incident.pickup_note || "",
       pickupRequestedAt: incident.pickup_requested_at ? new Date(incident.pickup_requested_at) : null,
       pickupRequestedBy: incident.pickup_requested_by ?? null,
+      hasSchadenplatzRapport: incident.has_schadenplatz_rapport ?? false,
       rekoSummary: null,
       assignedReko: null,
       leaderName: null,

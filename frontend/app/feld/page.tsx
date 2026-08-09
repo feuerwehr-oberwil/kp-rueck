@@ -19,8 +19,15 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Star, User } from 'lucide-react'
 
-import { apiClient, type ApiFeldPersonnel, type ApiFeldAssignment, type ApiFieldReportState } from '@/lib/api-client'
+import {
+  apiClient,
+  type ApiFeldPersonnel,
+  type ApiFeldAssignment,
+  type ApiFieldReportState,
+  type ApiSchadenplatzRapport,
+} from '@/lib/api-client'
 import { FeldActions } from '@/components/feld/feld-actions'
+import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
@@ -275,6 +282,23 @@ function FeldSurface() {
     )
   }, [])
 
+  /**
+   * Fold a rapport save back into the list row's state chip.
+   *
+   * Same reason as `applyFieldReport`: the crew is on a phone at the edge of
+   * coverage, and a refetch after every autosave is what makes a big form feel
+   * like it did not work.
+   */
+  const applyRapportState = useCallback((rapport: ApiSchadenplatzRapport) => {
+    setAssignments(prev =>
+      prev.map(a =>
+        a.incident_id === rapport.incident_id
+          ? { ...a, rapport_state: rapport.is_draft ? 'draft' : 'submitted', arrived_at: rapport.arrived_at }
+          : a,
+      ),
+    )
+  }, [])
+
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -397,11 +421,30 @@ function FeldSurface() {
               />
             )}
 
-            {/* Section: the Schadenplatz-Rapport itself. Phase 2. */}
-            <section className="rounded-xl border border-dashed border-border p-4">
-              <h2 className="text-sm font-medium mb-1">{t('detail.rapportTitle')}</h2>
-              <p className="text-sm text-muted-foreground">{t('detail.rapportPlaceholder')}</p>
-            </section>
+            {/* Section: the Schadenplatz-Rapport itself — the paper
+                replacement. The SAME component the board's detail mounts
+                (decision 28); only the transport and the identity differ. */}
+            {token && selectedPerson && (
+              <section className="rounded-xl bg-secondary/30 p-4">
+                <h2 className="text-sm font-medium mb-3">{t('detail.rapportTitle')}</h2>
+                <FeldRapportForm
+                  key={selectedAssignment.incident_id}
+                  incidentId={selectedAssignment.incident_id}
+                  transport={{
+                    load: () =>
+                      apiClient.getFeldRapport(selectedAssignment.incident_id, selectedPerson.personnel_id, token),
+                    save: update =>
+                      apiClient.saveFeldRapport(
+                        selectedAssignment.incident_id,
+                        selectedPerson.personnel_id,
+                        token,
+                        update,
+                      ),
+                  }}
+                  onSaved={applyRapportState}
+                />
+              </section>
+            )}
           </div>
         </div>
       </div>

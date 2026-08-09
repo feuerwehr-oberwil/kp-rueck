@@ -307,6 +307,56 @@ async def report_pickup(
     return schemas.FieldReportState(**await crud.field_report_state(db, incident))
 
 
+@router.get("/incidents/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)
+@limiter.limit(RateLimits.FELD)
+async def get_rapport(
+    request: Request,
+    incident_id: uuid.UUID,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is filing"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.SchadenplatzRapport:
+    """
+    The Schadenplatz-Rapport, **prefilled if it does not exist yet** (§4).
+
+    A GET that computes and does not write: opening the form must not create a
+    row, or "kein Rapport" would stop meaning anything the moment somebody
+    looked. The material checklist is re-reconciled against the board on every
+    call — a unit assigned after the draft started appears unticked, one the
+    board took away keeps its row only if the crew already answered for it.
+    """
+    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    return schemas.SchadenplatzRapport(**await crud.get_rapport(db, incident, actor=_actor(person)))
+
+
+@router.put("/incidents/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)
+@limiter.limit(RateLimits.FELD)
+async def save_rapport(
+    request: Request,
+    incident_id: uuid.UUID,
+    payload: schemas.RapportUpdate,
+    event_id: FeldEventId,
+    personnel_id: uuid.UUID = Query(..., description="Who is filing"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.SchadenplatzRapport:
+    """
+    Upsert the Rapport. `is_draft: true` is the 30 s autosave, `false` files it.
+
+    One row per Schadenplatz (decision 3): whoever files first creates it,
+    anyone else assigned amends the same row, and the form shows "zuletzt
+    bearbeitet von X" so the next person knows. Filing freezes
+    `cost_snapshot_json` — a later board edit cannot change a filed rapport.
+
+    Still writes no assignment. The material checklist records two ticks against
+    the board's units; releasing what came back is the board's own one-click
+    action (decision 17).
+    """
+    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    return schemas.SchadenplatzRapport(
+        **await crud.save_rapport(db, incident, actor=_actor(person), payload=payload, request=request)
+    )
+
+
 @router.post("/incidents/{incident_id}/message", status_code=204)
 @limiter.limit(RateLimits.FELD)
 async def report_message(

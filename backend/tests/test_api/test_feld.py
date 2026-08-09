@@ -16,7 +16,17 @@ from httpx import AsyncClient, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuditLog, Event, Incident, IncidentAssignment, Notification, Personnel, SchadenplatzReport, User
+from app.models import (
+    AuditLog,
+    Event,
+    Incident,
+    IncidentAssignment,
+    Material,
+    Notification,
+    Personnel,
+    SchadenplatzReport,
+    User,
+)
 from app.services.tokens import (
     generate_alarm_token,
     generate_checkin_token,
@@ -35,6 +45,8 @@ PERSON_SCOPED_ENDPOINTS: list[tuple[str, str, bool, dict[str, Any] | None]] = [
     ("POST", "/api/feld/incidents/{incident_id}/complete", True, None),
     ("POST", "/api/feld/incidents/{incident_id}/pickup", True, {"needed": True, "note": "Zu Fuss unterwegs"}),
     ("POST", "/api/feld/incidents/{incident_id}/message", True, {"message": "Verstärkung nötig"}),
+    ("GET", "/api/feld/incidents/{incident_id}/rapport", True, None),
+    ("PUT", "/api/feld/incidents/{incident_id}/rapport", True, {"is_draft": True, "kurzbericht": "Keller ausgepumpt"}),
 ]
 
 ENDPOINT_IDS = [f"{spec[0]} {spec[1].rsplit('/', 1)[-1]}" for spec in PERSON_SCOPED_ENDPOINTS]
@@ -860,3 +872,304 @@ class TestMessageChips:
         # Station config, not i18n (decision 20).
         assert "Verstärkung nötig" in chips
         assert "" not in chips
+
+
+class TestRapport:
+    """GET/PUT /api/feld/incidents/{id}/rapport — the paper replacement."""
+
+    async def _setup(
+        self,
+        db: AsyncSession,
+        event: Event,
+        user: User,
+    ) -> tuple[Incident, Personnel, str]:
+        incident = await _make_incident(db, event, user, "Keller Wasser")
+        person = await _make_person(db, "Muster Hans")
+        await _assign(db, incident, person)
+        return incident, person, generate_feld_token(event.id)
+
+    async def _material(self, db: AsyncSession, name: str, *, consumable: bool = False) -> Material:
+        material = Material(
+            id=uuid4(),
+            name=name,
+            type="Sonstiges",
+            location="Depot",
+            status="available",
+            consumable=consumable,
+        )
+        db.add(material)
+        await db.commit()
+        await db.refresh(material)
+        return material
+
+    async def _assign_material(self, db: AsyncSession, incident: Incident, material: Material) -> IncidentAssignment:
+        assignment = IncidentAssignment(
+            incident_id=incident.id,
+            resource_type="material",
+            resource_id=material.id,
+        )
+        db.add(assignment)
+        await db.commit()
+        await db.refresh(assignment)
+        return assignment
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_get_prefills_without_writing_a_row(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+
+        response = await client.get(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params={"token": token, "personnel_id": str(person.id)},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["exists"] is False
+        assert body["prefill"]["location_address"] == incident.location_address
+        # A GET that computes and does not write: "kein Rapport" has to keep
+        # meaning something after somebody looked at the form.
+        assert (await db_session.execute(select(SchadenplatzReport))).scalars().all() == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_put_twice_creates_one_row_not_two(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # UNIQUE(incident_id) plus the upsert path. Two crews on one
+        # Schadenplatz amend the same report; they never file competing ones.
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+
+        first = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={"is_draft": True, "kurzbericht": "Keller ausgepumpt"},
+        )
+        assert first.status_code == 200
+        second = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={"is_draft": True, "handed_over_to": "Hauswart"},
+        )
+        assert second.status_code == 200
+
+        rows = (await db_session.execute(select(SchadenplatzReport))).scalars().all()
+        assert len(rows) == 1
+        # And a partial autosave does not blank what the previous one wrote.
+        assert rows[0].kurzbericht == "Keller ausgepumpt"
+        assert rows[0].handed_over_to == "Hauswart"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_submit_freezes_the_cost_snapshot_against_later_board_edits(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # Decision 6, and the whole reason the snapshot exists: a later board
+        # edit cannot silently change a filed rapport.
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+
+        response = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={"is_draft": False, "kurzbericht": "Keller ausgepumpt"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["is_draft"] is False
+        assert body["submitted_at"] is not None
+        snapshot = body["cost_snapshot_json"]
+        assert [entry["name"] for entry in snapshot] == ["Muster Hans"]
+        assert body["personnel_count"] == 1
+
+        # The KP adds two more people afterwards.
+        for name in ("Frey Marc", "Meier Anna"):
+            extra = await _make_person(db_session, name)
+            await _assign(db_session, incident, extra)
+
+        after = await client.get(f"/api/feld/incidents/{incident.id}/rapport", params=params)
+        assert after.status_code == 200
+        assert after.json()["cost_snapshot_json"] == snapshot
+        assert after.json()["personnel_count"] == 1
+        # The board's own count moved; the filed number did not.
+        assert after.json()["prefill"]["board_personnel_count"] == 3
+
+        # A `rapport_submitted` bell entry, once.
+        notifications = (
+            (await db_session.execute(select(Notification).where(Notification.type == "rapport_submitted")))
+            .scalars()
+            .all()
+        )
+        assert len(notifications) == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_corrected_count_is_marked_and_an_unchanged_one_is_not(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # The divergence is itself information: it says the board was behind
+        # reality. An agreeing number must not carry the marker, or the export's
+        # "korrigiert" flag stops being a signal.
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+
+        corrected = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={"is_draft": True, "personnel_count": 6, "vehicle_count": 0},
+        )
+        assert corrected.status_code == 200
+        assert corrected.json()["personnel_count_corrected"] is True
+        assert corrected.json()["vehicle_count_corrected"] is False
+
+        agreeing = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={"is_draft": True, "personnel_count": 1},
+        )
+        assert agreeing.json()["personnel_count_corrected"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_material_checklist_round_trips_and_obeys_the_consumable_rule(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+        pump = await self._material(db_session, "Tauchpumpe TP-4")
+        foam = await self._material(db_session, "Ölbindemittel", consumable=True)
+        pump_assignment = await self._assign_material(db_session, incident, pump)
+        foam_assignment = await self._assign_material(db_session, incident, foam)
+
+        response = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={
+                "is_draft": True,
+                "materials": [
+                    {"assignment_id": str(pump_assignment.id), "used": True, "left_on_site": True},
+                    # A consumable that was used is gone — it can never be left
+                    # on site, even when the payload says so (decision 26).
+                    {"assignment_id": str(foam_assignment.id), "used": True, "left_on_site": True},
+                ],
+            },
+        )
+        assert response.status_code == 200
+        rows = {row["name"]: row for row in response.json()["materials"]}
+        assert rows["Tauchpumpe TP-4"]["left_on_site"] is True
+        assert rows["Ölbindemittel"]["consumable"] is True
+        assert rows["Ölbindemittel"]["left_on_site"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_owner_block_is_stored_as_typed(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # The first citizen PII in kp-rueck (§9). It lives with the incident and
+        # dies with it; the demo does NOT block it (decision 27).
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        response = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params={"token": token, "personnel_id": str(person.id)},
+            json={
+                "is_draft": True,
+                "owner_name": "A. Bürgin",
+                "owner_street": "Hauptstrasse 4",
+                "owner_city": "Oberwil",
+                "vehicle_plate": "BL 12345",
+                "vehicle_model": "VW Golf",
+            },
+        )
+        assert response.status_code == 200
+        report = (await db_session.execute(select(SchadenplatzReport))).scalars().one()
+        assert report.owner_name == "A. Bürgin"
+        assert report.vehicle_plate == "BL 12345"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_bad_damage_type_is_rejected(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # Mirrors the `valid_damage_type` CheckConstraint. Schadensart is its own
+        # field and never writes `Incident.type` (decision 8).
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        response = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params={"token": token, "personnel_id": str(person.id)},
+            json={"is_draft": True, "damage_type": "elementarereignis"},
+        )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_released_crew_can_still_file(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # The rapport is filed AFTER the crew leaves. Requiring an active
+        # assignment would lock out exactly the moment the form is for.
+        incident = await _make_incident(db_session, test_event, test_user, "Sturmschaden")
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person, released=True)
+
+        response = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            json={"is_draft": False, "kurzbericht": "Baum entfernt"},
+        )
+        assert response.status_code == 200
+        assert response.json()["is_draft"] is False
+
+
+class TestOwnerPrivacy:
+    """§9 — the owner block and the token never reach a log line.
+
+    Asserted against the source rather than by capturing logs: the failure this
+    prevents is somebody ADDING a debug line during a storm, and a source scan
+    catches that in review where a runtime assertion would only catch the paths
+    a test happens to walk.
+    """
+
+    def test_no_log_call_in_api_feld_interpolates_owner_data_or_a_token(self):
+        from pathlib import Path
+
+        import app.api.feld as feld_module
+
+        source = Path(feld_module.__file__).read_text(encoding="utf-8")
+        offenders = [
+            line.strip() for line in source.splitlines() if "logger." in line and ("owner_" in line or "token" in line)
+        ]
+        assert offenders == [], offenders

@@ -82,6 +82,9 @@ import {
   type ApiFeldAssignmentsResponse,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
+  type ApiSchadenplatzRapport,
+  type ApiRapportUpdate,
+  type ApiMaterialReturnResponse,
 } from './api/types'
 
 /** Read-only payload behind a share token (board/map/status displays). */
@@ -1595,6 +1598,51 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(update),
     })
+  }
+
+  // The Schadenplatz-Rapport, from both doors. Same CRUD module underneath, so
+  // the four calls below are two pairs of the same thing with a different
+  // identity — which is exactly what lets one form component mount twice.
+
+  /** The Rapport as the crew sees it. Prefilled when nothing has been filed yet. */
+  async getFeldRapport(incidentId: string, personnelId: string, token: string): Promise<ApiSchadenplatzRapport> {
+    return this.request<ApiSchadenplatzRapport>(this.feldQuery(incidentId, 'rapport', personnelId, token))
+  }
+
+  /** Autosave (`is_draft: true`) or file it (`false`). */
+  async saveFeldRapport(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    update: ApiRapportUpdate
+  ): Promise<ApiSchadenplatzRapport> {
+    return this.request<ApiSchadenplatzRapport>(this.feldQuery(incidentId, 'rapport', personnelId, token), {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    })
+  }
+
+  /** The same Rapport from the board — the radio-message case. */
+  async getIncidentRapport(incidentId: string): Promise<ApiSchadenplatzRapport> {
+    return this.request<ApiSchadenplatzRapport>(`/api/incidents/${incidentId}/rapport`)
+  }
+
+  async saveIncidentRapport(incidentId: string, update: ApiRapportUpdate): Promise<ApiSchadenplatzRapport> {
+    return this.request<ApiSchadenplatzRapport>(`/api/incidents/${incidentId}/rapport`, {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    })
+  }
+
+  /**
+   * "Material zurück – freigeben" (decision 17): what the board MAY release.
+   *
+   * A read. The releasing itself goes through `unassignResource`, one unit at a
+   * time — a field form must not silently write assignments, and the decision
+   * stays with the operator.
+   */
+  async getRapportMaterialReturn(incidentId: string): Promise<ApiMaterialReturnResponse> {
+    return this.request<ApiMaterialReturnResponse>(`/api/incidents/${incidentId}/rapport/material-return`)
   }
 
   async getAvailableRekoPersonnel(incidentId: string): Promise<ApiAvailableRekoPersonnelResponse> {

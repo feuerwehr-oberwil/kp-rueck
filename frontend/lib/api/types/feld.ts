@@ -99,3 +99,139 @@ export interface ApiFieldReportUpdate {
   pickup_note?: string | null
   pickup_requested_at?: string | null
 }
+
+// ============================================
+// The Schadenplatz-Rapport — one shape, two mounts
+// ============================================
+//
+// `/feld` and the board's detail section render the SAME form component over
+// these types (decision 28, §6.1); only the transport and the identity differ.
+// A second shape here is how the KP path silently loses a field six months
+// later.
+
+/** The paper's damage-type checkboxes. Never written to `Incident.type`. */
+export type ApiDamageType = 'wasserschaden' | 'sturmschaden' | 'schneebruch' | 'anderes'
+
+/**
+ * One material unit on the checklist, keyed on the **assignment** rather than
+ * the material: the same pump assigned twice is two units on the slip, and the
+ * assignment id is what "Material zurück – freigeben" releases against.
+ */
+export interface ApiRapportMaterialRow {
+  assignment_id: string
+  material_id: string | null
+  name: string
+  /** The depot the unit lives in — the order a crew knows it from. */
+  location: string | null
+  /** A consumable renders `gebraucht` only: used means gone (decision 26). */
+  consumable: boolean
+  /** null = the crew did not answer. A third answer, not a false. */
+  used: boolean | null
+  left_on_site: boolean
+  /** False once the board dropped the unit; the row survives because it was answered. */
+  on_board: boolean
+}
+
+export interface ApiRapportMaterialUpdate {
+  assignment_id: string
+  used: boolean | null
+  left_on_site: boolean
+}
+
+/** "Frey Marc bearbeitet diesen Rapport gerade" — visibility, never a lock. */
+export interface ApiRapportConcurrentEditor {
+  name: string
+  at: string
+  in_kp: boolean
+}
+
+/** What the board knows. Computed on every GET, never written (§4). */
+export interface ApiRapportPrefill {
+  location_address: string | null
+  incident_ref: string
+  leader_personnel_id: string | null
+  leader_name: string | null
+  /** "Melder übernehmen": one tap COPIES these. Melder ≠ Eigentümer. */
+  melder_name: string | null
+  melder_street: string | null
+  melder_city: string | null
+  board_personnel_count: number
+  board_vehicle_count: number
+  default_work_started_at: string | null
+  default_work_ended_at: string | null
+}
+
+export interface ApiSchadenplatzRapport {
+  incident_id: string
+  /** False = nothing filed yet; the GET computed a prefill and wrote nothing. */
+  exists: boolean
+  is_draft: boolean
+  submitted_at: string | null
+  damage_type: ApiDamageType | null
+  damage_type_other: string | null
+  work_started_at: string | null
+  work_ended_at: string | null
+  materials: ApiRapportMaterialRow[]
+  extra_material_note: string | null
+  kurzbericht: string | null
+  handed_over_to: string | null
+  owner_name: string | null
+  owner_street: string | null
+  owner_city: string | null
+  vehicle_plate: string | null
+  vehicle_model: string | null
+  personnel_count: number | null
+  personnel_count_corrected: boolean
+  vehicle_count: number | null
+  vehicle_count_corrected: boolean
+  /** Frozen at submit; null while the rapport is a draft. */
+  cost_snapshot_json: Array<Record<string, string | null>> | null
+  arrived_at: string | null
+  created_by_name: string | null
+  created_in_kp: boolean
+  updated_by_name: string | null
+  updated_in_kp: boolean
+  updated_at: string | null
+  concurrent_editor: ApiRapportConcurrentEditor | null
+  prefill: ApiRapportPrefill
+}
+
+/**
+ * The upsert payload. `is_draft: false` files the rapport.
+ *
+ * Only the keys actually sent are written, the same rule the field-report twin
+ * follows: an autosave carrying half the form must not blank the other half.
+ */
+export interface ApiRapportUpdate {
+  is_draft: boolean
+  damage_type?: ApiDamageType | null
+  damage_type_other?: string | null
+  work_started_at?: string | null
+  work_ended_at?: string | null
+  materials?: ApiRapportMaterialUpdate[]
+  extra_material_note?: string | null
+  kurzbericht?: string | null
+  handed_over_to?: string | null
+  owner_name?: string | null
+  owner_street?: string | null
+  owner_city?: string | null
+  vehicle_plate?: string | null
+  vehicle_model?: string | null
+  personnel_count?: number | null
+  vehicle_count?: number | null
+}
+
+/** One row of "Material zurück – freigeben" (decision 17). */
+export interface ApiMaterialReturnUnit {
+  assignment_id: string
+  material_id: string | null
+  name: string
+  location: string | null
+  used: boolean | null
+}
+
+export interface ApiMaterialReturnResponse {
+  returned: ApiMaterialReturnUnit[]
+  /** Listed separately and deliberately NOT in the release set (decision 15). */
+  left_on_site: ApiMaterialReturnUnit[]
+}

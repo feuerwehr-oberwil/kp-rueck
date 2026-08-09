@@ -15,7 +15,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints, Flag } from 'lucide-react'
+import { Users, Package, Truck, Siren, FileCheck, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints, Flag, FileText, FileX } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -357,6 +357,26 @@ function DraggableOperationBase({
                   <Flag className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
+              {/* The Schadenplatz-Rapport. Filed = a quiet chip; missing on a
+                  card that already reached `complete` = a muted marker, so the
+                  gap is visible without a dialog and without a block
+                  (decision 10 — a blocking gate is a gate people defeat with
+                  empty forms). */}
+              {operation.hasSchadenplatzRapport ? (
+                <div
+                  className="p-1.5 rounded-md bg-muted/60"
+                  title={tFeld('cardRapportTooltip')}
+                >
+                  <FileText className="h-4 w-4 text-muted-foreground/80" />
+                </div>
+              ) : operation.status === 'complete' ? (
+                <div
+                  className="p-1.5 rounded-md bg-muted/40"
+                  title={tFeld('cardNoRapportTooltip')}
+                >
+                  <FileX className="h-4 w-4 text-muted-foreground/50" />
+                </div>
+              ) : null}
               <Link
                 href={`/map?highlight=${operation.id}`}
                 onClick={(e) => e.stopPropagation()}
@@ -774,6 +794,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.pickupRequestedAt?.getTime() === nextProps.operation.pickupRequestedAt?.getTime() &&
     prevProps.operation.fieldCompleteReportedAt?.getTime() ===
       nextProps.operation.fieldCompleteReportedAt?.getTime() &&
+    prevProps.operation.hasSchadenplatzRapport === nextProps.operation.hasSchadenplatzRapport &&
     prevProps.operation.groupId === nextProps.operation.groupId &&
     prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
     prevProps.operation.leaderName === nextProps.operation.leaderName &&
