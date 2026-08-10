@@ -38,6 +38,8 @@ interface EventSetupChecklistProps {
   onChecklistLoaded?: () => void
   /** Opens the Fahrzeuge sheet — the one place a driver is assigned per vehicle. */
   onOpenVehicles?: () => void
+  /** Opens the Appell — where the count on the check-in row is actually made. */
+  onOpenAttendance?: () => void
 }
 
 export function EventSetupChecklist({
@@ -46,6 +48,7 @@ export function EventSetupChecklist({
   onAllTasksComplete,
   onChecklistLoaded,
   onOpenVehicles,
+  onOpenAttendance,
 }: EventSetupChecklistProps) {
   const t = useTranslations('checklist.setup')
   const tPrint = useTranslations('print.toasts')
@@ -181,7 +184,7 @@ export function EventSetupChecklist({
 
       const [attendance, specialFunctions, vehicles, settings, printerStatus, mapTilesAvailable] =
         await Promise.all([
-          apiClient.getEventAttendance(eventId).catch(() => []),
+          apiClient.getEventCheckInList(eventId).catch(() => ({ personnel: [] })),
           apiClient.getEventSpecialFunctions(eventId).catch(() => []),
           apiClient.getVehicles().catch(() => []),
           apiClient.getAllSettings().catch(() => ({})),
@@ -196,7 +199,7 @@ export function EventSetupChecklist({
 
       const updatedTasks = generateChecklistTasks({
         eventId,
-        checkedInPersonnel: attendance.filter((a) => a.checked_in).length,
+        checkedInPersonnel: attendance.personnel.filter((p) => p.checked_in).length,
         totalVehicles: vehicles.length,
         driverAssignments: specialFunctions.filter((f) => f.function_type === 'driver').length,
         rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
@@ -221,6 +224,10 @@ export function EventSetupChecklist({
         onOpenVehicles: () => {
           onDismiss()
           onOpenVehicles?.()
+        },
+        onOpenAttendance: () => {
+          onDismiss()
+          onOpenAttendance?.()
         },
       })
 

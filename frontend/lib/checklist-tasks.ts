@@ -89,6 +89,8 @@ export function generateChecklistTasks(params: {
   onOpenFallbackSettings: () => void
   /** Opens the Fahrzeuge sheet, where a driver is set per vehicle. */
   onOpenVehicles: () => void
+  /** Opens the Appell — the board's own roll-call, where the count on this row is made. */
+  onOpenAttendance: () => void
 }): ChecklistTaskState[] {
   const printerAvailable = params.printerEnabled && params.printerAgentOnline
 
@@ -124,7 +126,17 @@ export function generateChecklistTasks(params: {
         count: params.checkedInPersonnel,
         details: translateOutsideReact('checklist.tasks.personnel-checkin.details', { count: params.checkedInPersonnel })
       },
-      actionButtons: [linkAction(params.onCopyCheckInLink, params.onPrintCheckInLink)]
+      // Two ways in, because there are two situations: hand the crew a link, or tick the
+      // names yourself when the phones are not an option.
+      actionButtons: [
+        linkAction(params.onCopyCheckInLink, params.onPrintCheckInLink),
+        {
+          label: translateOutsideReact('checklist.actions.openAttendance'),
+          icon: Users,
+          variant: 'outline',
+          onClick: params.onOpenAttendance
+        }
+      ]
     },
 
     // 3. Share Reko link — share link or print QR
@@ -332,7 +344,7 @@ export async function summarizeEventChecklist(
   eventId: string
 ): Promise<{ completed: number; total: number; allComplete: boolean }> {
   const [attendance, specialFunctions, vehicles, printerStatus, settings] = await Promise.all([
-    apiClient.getEventAttendance(eventId).catch(() => []),
+    apiClient.getEventCheckInList(eventId).catch(() => ({ personnel: [] })),
     apiClient.getEventSpecialFunctions(eventId).catch(() => []),
     apiClient.getVehicles().catch(() => []),
     apiClient.getPrinterStatus().catch(() => null),
@@ -349,7 +361,7 @@ export async function summarizeEventChecklist(
   const noop = () => {}
   const tasks = generateChecklistTasks({
     eventId,
-    checkedInPersonnel: attendance.filter((a) => a.checked_in).length,
+    checkedInPersonnel: attendance.personnel.filter((p) => p.checked_in).length,
     totalVehicles: vehicles.length,
     driverAssignments: specialFunctions.filter((f) => f.function_type === 'driver').length,
     rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
@@ -368,6 +380,7 @@ export async function summarizeEventChecklist(
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
+    onOpenAttendance: noop,
   })
 
   // Shares the validation used by the checklist component's reader, so a value

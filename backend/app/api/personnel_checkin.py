@@ -53,8 +53,10 @@ async def _resolve_event_and_actor(
             detail="Entweder 'token' oder 'event_id' angeben, nicht beides.",
         )
 
-    if token is not None:
-        resolved = validate_checkin_token(token)
+    if token is not None or event_id is None:
+        # `event_id is None` is unreachable — the XOR above already refused it — but it is
+        # what narrows `event_id` for the type checker on the way out.
+        resolved = validate_checkin_token(token or "")
         if not resolved:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
         return resolved, None
@@ -62,7 +64,6 @@ async def _resolve_event_and_actor(
     user = await get_current_user(request, access_token, authorization, db)
     if require_editor and user.role not in ("editor", "admin"):
         raise HTTPException(status_code=403, detail="Editor-Berechtigung erforderlich")
-    assert event_id is not None  # narrowed by the XOR check above
     return event_id, user
 
 

@@ -25,6 +25,7 @@ function tasks(overrides: Partial<Parameters<typeof generateChecklistTasks>[0]> 
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
+    onOpenAttendance: noop,
     ...overrides,
   })
 }

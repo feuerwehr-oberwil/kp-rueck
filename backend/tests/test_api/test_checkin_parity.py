@@ -62,9 +62,7 @@ async def other_event(db_session: AsyncSession) -> Event:
 @pytest_asyncio.fixture
 async def crew(db_session: AsyncSession) -> list[Personnel]:
     """Four available people plus one who is unavailable."""
-    people = [
-        Personnel(id=uuid4(), name=f"Alpha {i}", role="atemschutz", status="available") for i in range(4)
-    ]
+    people = [Personnel(id=uuid4(), name=f"Alpha {i}", role="atemschutz", status="available") for i in range(4)]
     people.append(Personnel(id=uuid4(), name="Zulu Krank", role="atemschutz", status="unavailable"))
     for person in people:
         db_session.add(person)
@@ -101,9 +99,7 @@ async def parity_viewer_client(client: AsyncClient, db_session: AsyncSession) ->
     return client
 
 
-async def _attendance(
-    db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID
-) -> EventAttendance | None:
+async def _attendance(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> EventAttendance | None:
     result = await db.execute(
         select(EventAttendance).where(
             EventAttendance.event_id == event_id,
@@ -174,9 +170,7 @@ async def test_editor_check_in_writes_the_same_row_but_signed(
     token = generate_checkin_token(parity_event.id)
 
     field = await editor_client.post(f"/api/personnel/check-in/{field_person.id}/in?token={token}")
-    board = await editor_client.post(
-        f"/api/personnel/check-in/{board_person.id}/in?event_id={parity_event.id}"
-    )
+    board = await editor_client.post(f"/api/personnel/check-in/{board_person.id}/in?event_id={parity_event.id}")
     assert field.status_code == 200, field.text
     assert board.status_code == 200, board.text
 
@@ -205,11 +199,7 @@ async def test_editor_check_out_is_a_full_undo(
     assert response.status_code == 200, response.text
 
     rows = (
-        (
-            await db_session.execute(
-                select(EventAttendance).where(EventAttendance.personnel_id == person.id)
-            )
-        )
+        (await db_session.execute(select(EventAttendance).where(EventAttendance.personnel_id == person.id)))
         .scalars()
         .all()
     )
@@ -228,9 +218,7 @@ async def test_editor_check_out_is_a_full_undo(
 @pytest.mark.asyncio
 @pytest.mark.api
 @pytest.mark.parametrize("leg", ["in", "out"])
-async def test_neither_token_nor_event_id_is_422(
-    editor_client: AsyncClient, crew: list[Personnel], leg: str
-):
+async def test_neither_token_nor_event_id_is_422(editor_client: AsyncClient, crew: list[Personnel], leg: str):
     response = await editor_client.post(f"/api/personnel/check-in/{crew[0].id}/{leg}")
     assert response.status_code == 422
 
@@ -333,9 +321,7 @@ async def test_unavailable_person_is_refused_from_both_channels(
     token = generate_checkin_token(parity_event.id)
 
     field = await editor_client.post(f"/api/personnel/check-in/{unavailable.id}/in?token={token}")
-    board = await editor_client.post(
-        f"/api/personnel/check-in/{unavailable.id}/in?event_id={parity_event.id}"
-    )
+    board = await editor_client.post(f"/api/personnel/check-in/{unavailable.id}/in?event_id={parity_event.id}")
     assert field.status_code == 400
     assert board.status_code == 400
 
@@ -349,9 +335,7 @@ async def test_board_list_can_show_unavailable_people_the_phone_hides(
     token = generate_checkin_token(parity_event.id)
 
     phone = await editor_client.get(f"/api/personnel/check-in/list?token={token}")
-    board = await editor_client.get(
-        f"/api/personnel/check-in/list?event_id={parity_event.id}&include_unavailable=true"
-    )
+    board = await editor_client.get(f"/api/personnel/check-in/list?event_id={parity_event.id}&include_unavailable=true")
     assert phone.status_code == 200 and board.status_code == 200
 
     phone_names = {p["name"] for p in phone.json()["personnel"]}
@@ -422,9 +406,7 @@ async def test_board_checks_an_assigned_person_out_and_leaves_the_assignment(
     editor_client: AsyncClient, db_session: AsyncSession, parity_event: Event, assigned_person: Personnel
 ):
     """Warn, don't block — and never release the assignment behind the operator's back."""
-    response = await editor_client.post(
-        f"/api/personnel/check-in/{assigned_person.id}/out?event_id={parity_event.id}"
-    )
+    response = await editor_client.post(f"/api/personnel/check-in/{assigned_person.id}/out?event_id={parity_event.id}")
     assert response.status_code == 200, response.text
     assert response.json()["checked_in"] is False
     assert response.json()["is_assigned"] is True
@@ -541,12 +523,8 @@ async def test_viewer_is_forbidden_on_every_board_door(
     parity_viewer_client: AsyncClient, parity_event: Event, crew: list[Personnel]
 ):
     person = crew[0]
-    check_in = await parity_viewer_client.post(
-        f"/api/personnel/check-in/{person.id}/in?event_id={parity_event.id}"
-    )
-    check_out = await parity_viewer_client.post(
-        f"/api/personnel/check-in/{person.id}/out?event_id={parity_event.id}"
-    )
+    check_in = await parity_viewer_client.post(f"/api/personnel/check-in/{person.id}/in?event_id={parity_event.id}")
+    check_out = await parity_viewer_client.post(f"/api/personnel/check-in/{person.id}/out?event_id={parity_event.id}")
     out_all = await parity_viewer_client.post(f"/api/personnel/check-in/event/{parity_event.id}/out-all")
 
     assert check_in.status_code == 403

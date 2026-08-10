@@ -19,13 +19,14 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe } from 'lucide-react'
+import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
 import { QrShareSheet } from "@/components/kanban/qr-share-sheet"
+import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
@@ -248,6 +249,7 @@ export default function FireStationDashboard() {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
   const tRes = useTranslations('kanban.resources')
+  const tAttendance = useTranslations('kanban.attendance')
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
 
@@ -396,6 +398,10 @@ export default function FireStationDashboard() {
   const [routeAssign, setRouteAssign] = useState<{ groupId: string; resourceType: 'crew' | 'vehicles' | 'materials' } | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  // The Appell. Not a ninth footer sheet and not a tab inside the shared QR body — it is
+  // opened from the check-in sheet's Anwesenheit row, and opening it closes that sheet.
+  const [attendanceOpen, setAttendanceOpen] = useState(false)
+  const [attendanceCounts, setAttendanceCounts] = useState<{ present: number; total: number } | null>(null)
 
   // Auto-generate check-in QR code URL when no personnel are available
   useEffect(() => {
@@ -405,6 +411,22 @@ export default function FireStationDashboard() {
       setCheckInUrl(`${window.location.origin}${response.link}`)
     }).catch(() => {})
   }, [selectedEvent, personnel, checkInUrl, isLoading])
+
+  // The Anwesenheit row's count. Only fetched while the sheet that shows it is open —
+  // it is a label, not live state, and the Appell refreshes it on every write anyway.
+  useEffect(() => {
+    if (activeFooterSheet !== 'checkin' || !selectedEvent) return
+    let cancelled = false
+    apiClient
+      .getEventCheckInStats(selectedEvent.id)
+      .then((stats) => {
+        if (!cancelled) setAttendanceCounts({ present: stats.checked_in, total: stats.total_available })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [activeFooterSheet, selectedEvent])
 
   const gPrefix = useGPrefixNavigation(router)
   const cmdHint = useCommandPaletteHint()
@@ -1347,6 +1369,21 @@ export default function FireStationDashboard() {
     }
   }
 
+  /** Opening the Appell closes the sheet underneath it — two stacked layers for one job
+   *  is one too many. */
+  const openAttendance = () => {
+    setActiveFooterSheet(null)
+    setAttendanceOpen(true)
+  }
+
+  /** Where this person is still assigned, so a check-out can warn instead of surprising.
+   *  Never used to block, and never to release the assignment. */
+  const assignmentLabelForPerson = useCallback(
+    (person: { name: string }) =>
+      operations.find((op) => op.status !== 'complete' && op.crew.includes(person.name))?.location ?? null,
+    [operations]
+  )
+
   const copyCheckInUrlToClipboard = async () => {
     if (!checkInUrl) return
 
@@ -2082,6 +2119,7 @@ export default function FireStationDashboard() {
                       onDismiss={() => setChecklistPopoverOpen(false)}
                       onAllTasksComplete={() => setChecklistPopoverOpen(false)}
                       onOpenVehicles={() => setActiveFooterSheet('vehicles')}
+                      onOpenAttendance={() => setAttendanceOpen(true)}
                     />
                   </PopoverContent>
                 </Popover>
@@ -2360,7 +2398,11 @@ export default function FireStationDashboard() {
       />
 
 
-      {/* Check-In QR Code Sheet */}
+      {/* Check-In QR Code Sheet.
+          The Anwesenheit row rides in through the existing `children` seam — the same one
+          the Anzeige sheet uses for its view selector — rather than QrShareSheet growing a
+          special case for one of its five callers. The count IS the entry: it says why one
+          would click. */}
       <QrShareSheet
         open={qrDialogOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'checkin' && setActiveFooterSheet(null)}
@@ -2371,7 +2413,33 @@ export default function FireStationDashboard() {
         printerEnabled={printerEnabled}
         isPrinting={isPrintingQR}
         onPrint={checkInUrl ? () => handlePrintQR(checkInUrl, tDash('checkInSheetTitle'), tDash('checkInSheetHint')) : undefined}
-      />
+      >
+        {selectedEvent && (
+          <div className="mb-3 flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2">
+            <Users className="size-4 shrink-0 text-muted-foreground" />
+            <span className="text-sm font-medium">{tAttendance('rowLabel')}</span>
+            <span className="flex-1 text-sm text-muted-foreground">
+              {attendanceCounts
+                ? tAttendance('rowCount', { present: attendanceCounts.present, total: attendanceCounts.total })
+                : ''}
+            </span>
+            <Button size="sm" variant="outline" onClick={openAttendance}>
+              {tAttendance('open')}
+            </Button>
+          </div>
+        )}
+      </QrShareSheet>
+
+      {/* The Appell itself */}
+      {selectedEvent && (
+        <AttendanceModal
+          open={attendanceOpen}
+          onOpenChange={setAttendanceOpen}
+          eventId={selectedEvent.id}
+          eventName={selectedEvent.name}
+          assignmentLabelFor={assignmentLabelForPerson}
+        />
+      )}
 
       {/* Reko Dashboard QR Code Sheet */}
       <QrShareSheet

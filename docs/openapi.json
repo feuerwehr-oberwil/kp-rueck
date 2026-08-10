@@ -7245,19 +7245,45 @@
           "personnel-checkin"
         ],
         "summary": "List Personnel For Checkin",
-        "description": "Get list of personnel for check-in interface with event information.\n\nRequires valid token (no user authentication).\nExcludes unavailable personnel.",
+        "description": "Get list of personnel for check-in interface with event information.\n\nTwo doors: the check-in token (phone) or a logged-in session with an explicit\n`event_id` (board). Reading the roll-call is not an edit, so a viewer may do it.\nUnavailable personnel are hidden unless asked for.",
         "operationId": "list_personnel_for_checkin_api_personnel_check_in_list_get",
         "parameters": [
           {
             "name": "token",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "Access token from QR code",
               "title": "Token"
             },
             "description": "Access token from QR code"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires a session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires a session)"
           },
           {
             "name": "checked_in_only",
@@ -7270,6 +7296,50 @@
               "title": "Checked In Only"
             },
             "description": "Only show checked-in personnel"
+          },
+          {
+            "name": "include_unavailable",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "List unavailable personnel too (board roll-call shows them disabled)",
+              "default": false,
+              "title": "Include Unavailable"
+            },
+            "description": "List unavailable personnel too (board roll-call shows them disabled)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "responses": {
@@ -7302,7 +7372,7 @@
           "personnel-checkin"
         ],
         "summary": "Check In",
-        "description": "Check in a person (mark as present for the event).\n\nRequires valid token (no user authentication).\nBroadcasts real-time update via WebSocket.",
+        "description": "Check in a person (mark as present for the event).\n\nEither a valid check-in token or an editor session with `event_id`.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_in_api_personnel_check_in__personnel_id__in_post",
         "parameters": [
           {
@@ -7318,13 +7388,71 @@
           {
             "name": "token",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "description": "Access token",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access token from the check-in link",
               "title": "Token"
             },
-            "description": "Access token"
+            "description": "Access token from the check-in link"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires an editor session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "responses": {
@@ -7357,7 +7485,7 @@
           "personnel-checkin"
         ],
         "summary": "Check Out",
-        "description": "Check out a person from the event (mark as left).\n\nRequires valid token (no user authentication).\nBroadcasts real-time update via WebSocket.",
+        "description": "Check out a person from the event (mark as left).\n\nEither a valid check-in token or an editor session with `event_id`.\nAn assigned person is refused through the phone (it has no way to release the\nassignment) and allowed through the board, which warns first and leaves the\nassignment standing.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_out_api_personnel_check_in__personnel_id__out_post",
         "parameters": [
           {
@@ -7373,13 +7501,71 @@
           {
             "name": "token",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "description": "Access token",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access token from the check-in link",
               "title": "Token"
             },
-            "description": "Access token"
+            "description": "Access token from the check-in link"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires an editor session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "responses": {
@@ -7406,25 +7592,163 @@
         }
       }
     },
+    "/api/personnel/check-in/event/{event_id}/out-all": {
+      "post": {
+        "tags": [
+          "personnel-checkin"
+        ],
+        "summary": "Check Out All",
+        "description": "Send everyone still present at this Ereignis home (\"Alle abmelden\").\n\nBoard only, deliberately: the phone is a self-report and nobody checks thirty-four\nother people out from it. That asymmetry is the direction the parity rule does not\npolice — a route with no field twin is fine, a *field* route with no board twin is\nthe hole this plan closes.\n\nAlready-departed rows keep their own departure time, nobody gains a row they never\nhad, and no assignment is released.",
+        "operationId": "check_out_all_api_personnel_check_in_event__event_id__out_all_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                  },
+                  "title": "Response Check Out All Api Personnel Check In Event  Event Id  Out All Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/personnel/check-in/stats": {
       "get": {
         "tags": [
           "personnel-checkin"
         ],
         "summary": "Get Checkin Stats",
-        "description": "Get check-in statistics for the event.\n\nRequires valid token.\nReturns counts of checked-in, available, and total personnel.",
+        "description": "Get check-in statistics for the event.\n\nEither a valid check-in token or a session with `event_id`.\n\n`left` is the third number the board's roll-call header needs: people who came and\nthen went, which is not the same fact as never having come. `checked_out` is kept\nas it was — \"not currently present\" — so the phone's reading of it does not move.",
         "operationId": "get_checkin_stats_api_personnel_check_in_stats_get",
         "parameters": [
           {
             "name": "token",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "description": "Access token",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access token from the check-in link",
               "title": "Token"
             },
-            "description": "Access token"
+            "description": "Access token from the check-in link"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires a session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires a session)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "responses": {
@@ -22131,6 +22455,11 @@
             ],
             "title": "Role"
           },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "available"
+          },
           "tags": {
             "anyOf": [
               {
@@ -22148,6 +22477,30 @@
           "checked_in": {
             "type": "boolean",
             "title": "Checked In"
+          },
+          "checked_in_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked In At"
+          },
+          "checked_out_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked Out At"
           },
           "is_assigned": {
             "type": "boolean",

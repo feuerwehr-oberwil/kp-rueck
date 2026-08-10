@@ -27,6 +27,7 @@ import {
   type ApiEventStats,
   type ApiPersonnel,
   type ApiPersonnelListItem,
+  type ApiCheckInStats,
   type ApiPersonnelCreate,
   type ApiPersonnelUpdate,
   type ApiVehicle,
@@ -930,9 +931,50 @@ class ApiClient {
     )
   }
 
-  async getCheckInStats(token: string): Promise<{ total_available: number; checked_in: number; checked_out: number }> {
-    return this.request<{ total_available: number; checked_in: number; checked_out: number }>(
+  // --- The same three routes through the board's door -----------------------
+  // Same endpoints, same rows; the difference is that these carry the editor's
+  // cookie and name the Ereignis explicitly, because only the token knows it
+  // otherwise. Kept as separate methods rather than an optional argument so a
+  // call site cannot accidentally send neither (which the backend refuses).
+
+  /** Roll-call list for the board: the whole roster, including unavailable people. */
+  async getEventCheckInList(eventId: string): Promise<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }> {
+    return this.request<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }>(
+      `/api/personnel/check-in/list?event_id=${encodeURIComponent(eventId)}&include_unavailable=true`
+    )
+  }
+
+  async checkInPersonnelForEvent(personnelId: string, eventId: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(
+      `/api/personnel/check-in/${personnelId}/in?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'POST' }
+    )
+  }
+
+  async checkOutPersonnelForEvent(personnelId: string, eventId: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(
+      `/api/personnel/check-in/${personnelId}/out?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** "Alle abmelden" — everyone still present goes to `gegangen`. Board only. */
+  async checkOutAllPersonnel(eventId: string): Promise<ApiPersonnel[]> {
+    return this.request<ApiPersonnel[]>(
+      `/api/personnel/check-in/event/${encodeURIComponent(eventId)}/out-all`,
+      { method: 'POST' }
+    )
+  }
+
+  async getCheckInStats(token: string): Promise<ApiCheckInStats> {
+    return this.request<ApiCheckInStats>(
       `/api/personnel/check-in/stats?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  async getEventCheckInStats(eventId: string): Promise<ApiCheckInStats> {
+    return this.request<ApiCheckInStats>(
+      `/api/personnel/check-in/stats?event_id=${encodeURIComponent(eventId)}`
     )
   }
 

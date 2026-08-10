@@ -792,6 +792,26 @@
       "cancel": "Abbrechen",
       "newAuftrag": "Neuer Auftrag",
       "removeFromAuftrag": "Aus Auftrag entfernen"
+    },
+    "attendance": {
+      "title": "Anwesenheit — {event}",
+      "summary": "{present} anwesend · {left} gegangen · {total} Mannschaft",
+      "rowLabel": "Anwesenheit",
+      "rowCount": "{present} von {total} angemeldet",
+      "open": "Appell öffnen",
+      "loading": "Lädt...",
+      "noneFound": "Keine Personen gefunden",
+      "since": "seit {time}",
+      "unavailable": "nicht verfügbar",
+      "assignedChip": "zugeteilt",
+      "assignedTitle": "Person ist noch zugeteilt",
+      "assignedDescription": "{name} ist noch an {where} zugeteilt – trotzdem abmelden? Die Zuteilung bleibt bestehen.",
+      "checkOutAnyway": "Trotzdem abmelden",
+      "checkOutAll": "Alle abmelden",
+      "checkOutAllTitle": "Alle abmelden?",
+      "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuteilungen bleiben bestehen.",
+      "quickAddHint": "Wird direkt angemeldet",
+      "writeFailed": "Anwesenheit konnte nicht gespeichert werden"
     }
   },
   "incidents": {
@@ -2647,7 +2667,8 @@
       "printQr": "QR drucken",
       "copyLink": "Link kopieren",
       "openVehicles": "Fahrzeuge öffnen",
-      "openRekoMode": "Reko-Modus öffnen"
+      "openRekoMode": "Reko-Modus öffnen",
+      "openAttendance": "Appell öffnen"
     },
     "setup": {
       "title": "Setup-Checkliste",
