@@ -283,8 +283,19 @@
      column with three cards has none, and giving it a gutter only while a sheet
      is open would shift it the other way. Reserved always = never shifts.
      Verified in Chrome to survive `overflow: hidden`, which is what the lock
-     sets and what the whole fix depends on. */
-  #kanban-main,
+     sets and what the whole fix depends on.
+
+     **`#kanban-main` is deliberately NOT in this list.** It only ever scrolls
+     HORIZONTALLY (`overflow-x-auto`), and `scrollbar-gutter` reserves the
+     inline-axis gutter — i.e. space for a *vertical* bar that this element can
+     never show. Measured in Chrome: with it, `offsetWidth − clientWidth = 10`
+     and `offsetHeight − clientHeight = 0`. So it bought no stability at all for
+     the bar it actually has, and spent 10px of dead space hard against the
+     right sidebar's divider — which is what made that divider read as a rule
+     floating in an empty gutter rather than as the panel's edge. Removing it
+     was re-checked against the case this whole block exists for: opening a
+     footer sheet still leaves the board's width unchanged, because the sideways
+     jump came from the COLUMN bodies below, and those keep their gutter. */
   [data-board-scroll] {
     scrollbar-gutter: stable;
   }

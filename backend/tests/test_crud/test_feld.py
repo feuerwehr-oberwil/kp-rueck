@@ -203,7 +203,7 @@ class TestMaterialReconciliation:
         view = await crud.get_rapport(db_session, incident, actor=ACTOR)
         names = {row["name"] for row in view["materials"]}
         assert names == {"Tauchpumpe TP-4", "Motorsäge"}
-        # Prefilled *ja* since §18.29 — the unit was sent here, so "gebraucht"
+        # Prefilled *ja* since §18.32 — the unit was sent here, so "gebraucht"
         # is the board's own answer and the crew unticks the exceptions.
         assert all(row["used"] is True and row["left_on_site"] is False for row in view["materials"])
 
@@ -245,7 +245,7 @@ class TestMaterialReconciliation:
         self, db_session: AsyncSession, test_event: Event, test_user: User
     ):
         # They looked at it and said it was NOT used. Deleting the row would
-        # lose exactly what the checklist exists to capture. Since §18.29 the
+        # lose exactly what the checklist exists to capture. Since §18.32 the
         # tick is prefilled ja, so an unticked row is the correction.
         incident = await _incident(db_session, test_event, test_user)
         gone = uuid.uuid4()
@@ -294,10 +294,8 @@ class TestMaterialReconciliation:
         assert view["materials"] == []
 
     @pytest.mark.asyncio
-    async def test_a_legacy_null_used_reads_as_ja(
-        self, db_session: AsyncSession, test_event: Event, test_user: User
-    ):
-        # A rapport filed before §18.29 (or a database that skipped the
+    async def test_a_legacy_null_used_reads_as_ja(self, db_session: AsyncSession, test_event: Event, test_user: User):
+        # A rapport filed before §18.32 (or a database that skipped the
         # normalising migration) must not render a blank third answer.
         incident = await _incident(db_session, test_event, test_user)
         pump = await _material(db_session, "Tauchpumpe TP-4")
@@ -385,7 +383,7 @@ class TestMaterialReconciliation:
 
 
 class TestVehicleChecklist:
-    """The crew confirms WHICH vehicles — the whole fleet, the assigned ones ticked (§18.30)."""
+    """The crew confirms WHICH vehicles — the whole fleet, the assigned ones ticked (§18.33)."""
 
     async def _actor(self, db: AsyncSession) -> crud.FieldActor:
         """A filer that really exists — `save_rapport` stores the provenance id."""
@@ -428,7 +426,7 @@ class TestVehicleChecklist:
     async def test_the_whole_fleet_is_listed_with_the_unassigned_ones_unticked(
         self, db_session: AsyncSession, test_event: Event, test_user: User
     ):
-        # §18.30: the board is routinely behind reality, so a vehicle that came
+        # §18.33: the board is routinely behind reality, so a vehicle that came
         # along without ever being dispatched must be tickable. A list that can
         # only be unticked cannot record it.
         incident = await _incident(db_session, test_event, test_user)
@@ -699,7 +697,7 @@ class TestMaterialReturnUnits:
     async def test_a_filed_rapport_answers_every_unit_on_its_checklist(
         self, db_session: AsyncSession, test_event: Event, test_user: User
     ):
-        """Since §18.29 the verdict comes from the rapport, not from a third value.
+        """Since §18.32 the verdict comes from the rapport, not from a third value.
 
         `used` no longer has a "keine Angabe" state, so an untouched material row
         cannot be told from a deliberate *ja*. Filing the rapport is what settles
@@ -904,7 +902,7 @@ class TestDraftPrefillsTheCompletionGate:
     ):
         # Reading drafts must not turn "nobody looked at it" into "Magazin".
         # In an UNFILED rapport the only evidence somebody looked is a tick that
-        # differs from the prefill (§18.29), so that is what `answered` reports.
+        # differs from the prefill (§18.32), so that is what `answered` reports.
         incident = await _incident(db_session, test_event, test_user)
         pump = await _material(db_session, "Tauchpumpe")
         saw = await _material(db_session, "Motorsäge")
@@ -1213,3 +1211,84 @@ class TestRapportOnlyAfterDisposition:
         assert rows[0]["rapport_state"] == "draft"
         picker = await crud.get_feld_personnel_for_event(db_session, test_event.id)
         assert picker[0]["missing_rapport_count"] == 1
+
+
+class TestFieldActionsReachTheBoardLive:
+    """Every field write pushes an `incident_update`, in both directions.
+
+    The report was "Abholung erledigt kommt nicht durch". The transport turned
+    out to be fine — but nothing asserted it, so the next change to
+    ``record_pickup`` could have dropped the broadcast on the clearing path only
+    and nobody would have noticed until a badge stayed on a board at 02:00.
+    Both directions are the point: setting a pickup and clearing it are two
+    different branches, and only one of them is the one people complained about.
+    """
+
+    async def _actor(self, db: AsyncSession) -> crud.FieldActor:
+        """A filer that really exists — the pickup writes its personnel id."""
+        person = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        db.add(person)
+        await db.commit()
+        return crud.FieldActor(personnel_id=person.id, personnel_name=person.name)
+
+    @pytest.mark.asyncio
+    async def test_setting_and_clearing_a_pickup_both_broadcast(
+        self, db_session: AsyncSession, test_event: Event, test_user: User, monkeypatch
+    ):
+        sent: list[tuple[dict, str]] = []
+
+        async def fake_broadcast(payload, action):
+            sent.append((payload, action))
+
+        monkeypatch.setattr(crud, "broadcast_incident_update", fake_broadcast)
+        incident = await _incident(db_session, test_event, test_user)
+        actor = await self._actor(db_session)
+
+        assert await crud.record_pickup(db_session, incident, actor=actor, needed=True, note="3 Personen")
+        assert await crud.record_pickup(db_session, incident, actor=actor, needed=False)
+
+        assert [action for _payload, action in sent] == ["update", "update"]
+        assert [payload["pickup_needed"] for payload, _action in sent] == [True, False]
+        # It carries the incident id and nothing a listener should read (see the
+        # docstring on `_broadcast`): the client refetches, it does not parse.
+        assert sent[0][0]["id"] == str(incident.id)
+
+    @pytest.mark.asyncio
+    async def test_a_no_op_pickup_stays_off_the_wire(
+        self, db_session: AsyncSession, test_event: Event, test_user: User, monkeypatch
+    ):
+        # A crew tapping "Abholung nötig" twice must not make forty boards
+        # refetch twice. `record_pickup` returns False and never reaches the
+        # broadcast.
+        sent: list[tuple[dict, str]] = []
+
+        async def fake_broadcast(payload, action):
+            sent.append((payload, action))
+
+        monkeypatch.setattr(crud, "broadcast_incident_update", fake_broadcast)
+        incident = await _incident(db_session, test_event, test_user)
+        actor = await self._actor(db_session)
+
+        assert await crud.record_pickup(db_session, incident, actor=actor, needed=True, note="3 Personen")
+        assert not await crud.record_pickup(db_session, incident, actor=actor, needed=True, note="3 Personen")
+        assert len(sent) == 1
+
+    @pytest.mark.asyncio
+    async def test_arrival_and_field_complete_broadcast_too(
+        self, db_session: AsyncSession, test_event: Event, test_user: User, monkeypatch
+    ):
+        sent: list[tuple[dict, str]] = []
+
+        async def fake_broadcast(payload, action):
+            sent.append((payload, action))
+
+        monkeypatch.setattr(crud, "broadcast_incident_update", fake_broadcast)
+        incident = await _incident(db_session, test_event, test_user)
+        actor = await self._actor(db_session)
+
+        now = datetime.now(UTC)
+        assert await crud.record_arrival(db_session, incident, actor=actor, at=now, only_if_unset=True)
+        assert await crud.record_field_complete(db_session, incident, actor=actor, at=now)
+
+        assert len(sent) == 2
+        assert sent[-1][0]["field_complete_reported_at"] is not None

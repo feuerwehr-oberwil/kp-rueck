@@ -95,7 +95,7 @@ describe('hasContent', () => {
   })
 
   it('counts a tick that CONTRADICTS the prefill, in either list', () => {
-    // §18.29/§18.30: an unticked dispatched vehicle, a ticked one nobody sent,
+    // §18.32/§18.33: an unticked dispatched vehicle, a ticked one nobody sent,
     // and an unticked "gebraucht" are the three shapes of an actual answer.
     expect(hasContent(form({ vehicles: [vehicle({ present: false })] }))).toBe(true)
     expect(hasContent(form({ vehicles: [vehicle({ present: true, on_board: false })] }))).toBe(true)
@@ -298,7 +298,7 @@ describe('parseExtraMaterial / formatExtraMaterial', () => {
   const catalogue = ['Nassauger', 'Tauchpumpe TP-4']
 
   it('splits the stored line into catalogue picks and free text', () => {
-    // §18.31: one stored string, two controls. The split has to round-trip, or
+    // §18.34: one stored string, two controls. The split has to round-trip, or
     // a draft written on one phone comes back apart wrongly on the next.
     const { picked, freeText } = parseExtraMaterial('Nassauger, Pumpe vom Nachbarzug', catalogue)
     expect(picked).toEqual(['Nassauger'])

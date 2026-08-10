@@ -261,7 +261,7 @@ class TestMaterial:
             incident.id,
             materials_json=[
                 _material("Tauchpumpe", used=True, left_on_site=True),
-                # A row written before §18.29 — it reads as *gebraucht*, never
+                # A row written before §18.32 — it reads as *gebraucht*, never
                 # as a blank third answer.
                 _material("Nassauger", used=None),
                 _material("Schlauch", used=False),
@@ -336,7 +336,7 @@ class TestProvenance:
 
 class TestOwnerBlock:
     def test_the_owner_name_and_phone_land_in_their_own_columns(self):
-        """§18.28: two columns for the two fields the form asks for.
+        """§18.31: two columns for the two fields the form asks for.
 
         The phone gets a column of its own for the same reason it gets a field
         of its own — whoever writes the invoices sorts and dials it, and can do

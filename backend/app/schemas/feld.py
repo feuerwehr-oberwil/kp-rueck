@@ -245,7 +245,7 @@ class RapportMaterialRow(BaseModel):
     is two units on the slip, and the assignment id is also what the board's
     "Material zurück – freigeben" list releases against.
 
-    ``used`` is a plain bool defaulting to **true** (§18.29). It used to be
+    ``used`` is a plain bool defaulting to **true** (§18.32). It used to be
     nullable, with `null` meaning "die Crew hat nicht geantwortet"; a three-state
     control is too fiddly for a thumb on a phone, and the unit was sent to this
     Schadenplatz in the first place — "gebraucht" is the common case and the crew
@@ -282,7 +282,7 @@ class RapportMaterialUpdate(BaseModel):
 class RapportVehicleRow(BaseModel):
     """One vehicle on the checklist — the crew confirms *which*, not how many.
 
-    **The whole fleet, not only the assigned vehicles (§18.30).** The board is
+    **The whole fleet, not only the assigned vehicles (§18.33).** The board is
     routinely behind reality on a storm night: a vehicle drives along without
     anybody assigning it, and one that was assigned never rolls. So every vehicle
     the station has gets a row, the assigned ones arrive ticked, and the crew's
@@ -344,7 +344,7 @@ class RapportPrefill(BaseModel):
     leader_personnel_id: UUID | None = None
     leader_name: str | None = None
     # "Melder übernehmen" (§4): one tap PREFILLS the two owner inputs with these.
-    # Copies, never equates — Melder ≠ Eigentümer stays correctable. Since §18.28
+    # Copies, never equates — Melder ≠ Eigentümer stays correctable. Since §18.31
     # the target is Name + Telefon, so the phone travels too; the street and the
     # city stayed behind, because neither has an input to land in any more.
     melder_name: str | None = None
@@ -374,7 +374,7 @@ class SchadenplatzRapport(BaseModel):
     # already know, so the window is derived at output time instead of typed in
     # the field. See the model.
     materials: list[RapportMaterialRow] = []
-    # The whole fleet (§18.30), with the board's assigned vehicles ticked. The
+    # The whole fleet (§18.33), with the board's assigned vehicles ticked. The
     # crew unticks what did not roll and ticks what came along unannounced.
     vehicles: list[RapportVehicleRow] = []
     # Filenames, not URLs. Read back through the shared
@@ -388,7 +388,7 @@ class SchadenplatzRapport(BaseModel):
     kurzbericht: str | None = None
     handed_over_to: str | None = None
 
-    # Name + Telefon (§18.28), the same pair the incident carries for the Melder.
+    # Name + Telefon (§18.31), the same pair the incident carries for the Melder.
     owner_name: str | None = None
     owner_phone: str | None = None
 

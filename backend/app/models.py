@@ -829,7 +829,7 @@ class SchadenplatzReport(Base):
     # incident, carried over from incident_assignments on first open:
     #   {"assignment_id": ..., "material_id": ..., "name": "Tauchpumpe TP-4",
     #    "used": true, "left_on_site": false}
-    # `used` is a plain bool, **defaulting to true** (§18.29): the unit was sent to
+    # `used` is a plain bool, **defaulting to true** (§18.32): the unit was sent to
     # this Schadenplatz, so "it was used" is the common case and the crew only
     # unticks the exceptions — exactly how the vehicle list works. It used to be
     # three-state (`null` = keine Angabe); a tri-state control was too fiddly for a
@@ -849,7 +849,7 @@ class SchadenplatzReport(Base):
 
     # --- Eigentümer-/Halterdaten (citizen PII) ---
     # Name and phone, the two fields the incident already carries for the Melder
-    # (§18.28). §18.10 collapsed five paper columns into one free-text box, and
+    # (§18.31). §18.10 collapsed five paper columns into one free-text box, and
     # the box was right about four of them (Strasse, Ort, Kennzeichen, Typ) and
     # wrong about the fifth: a phone number written inside a paragraph cannot be
     # dialled. These are deliberately the SAME two shapes as
@@ -867,7 +867,7 @@ class SchadenplatzReport(Base):
     # showing one number.
     personnel_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     personnel_count_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    # Vehicle checklist over the WHOLE fleet (§18.30), keyed on the vehicle rather
+    # Vehicle checklist over the WHOLE fleet (§18.33), keyed on the vehicle rather
     # than on an assignment, because a vehicle that came along without ever being
     # on the board has no assignment to key on:
     #   {"vehicle_id": ..., "name": "TLF 1", "present": true}

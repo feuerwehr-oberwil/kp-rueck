@@ -22,7 +22,7 @@ function material(overrides: Partial<ApiRapportMaterialRow> = {}): ApiRapportMat
 
 describe('FeldMaterialChecklist — gebraucht', () => {
   it('is a plain tick, prefilled ja', () => {
-    // §18.29: the three-state ✓/✗/– control is gone. The unit was dispatched
+    // §18.32: the three-state ✓/✗/– control is gone. The unit was dispatched
     // here, so "gebraucht" is the board's own answer and the crew unticks the
     // exceptions — the same shape as the vehicle list.
     renderWithIntl(
@@ -84,7 +84,7 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
   })
 
   it('shows the whole catalogue straight away — nothing to type first', () => {
-    // §18.31: a multi-select, in the shape the app uses for picking people.
+    // §18.34: a multi-select, in the shape the app uses for picking people.
     // Neither the datalist nor the combobox before it showed anything until you
     // had already started typing.
     renderWithIntl(

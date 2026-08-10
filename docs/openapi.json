@@ -22840,7 +22840,7 @@
           "name"
         ],
         "title": "RapportMaterialRow",
-        "description": "One material unit on the checklist (decision 14).\n\nKeyed on the **assignment**, not the material: the same pump assigned twice\nis two units on the slip, and the assignment id is also what the board's\n\"Material zurück – freigeben\" list releases against.\n\n``used`` is a plain bool defaulting to **true** (§18.29). It used to be\nnullable, with `null` meaning \"die Crew hat nicht geantwortet\"; a three-state\ncontrol is too fiddly for a thumb on a phone, and the unit was sent to this\nSchadenplatz in the first place — \"gebraucht\" is the common case and the crew\nonly unticks the exceptions, exactly like the vehicle list. ``left_on_site``\nis likewise a plain bool: not ticking it means the unit came back."
+        "description": "One material unit on the checklist (decision 14).\n\nKeyed on the **assignment**, not the material: the same pump assigned twice\nis two units on the slip, and the assignment id is also what the board's\n\"Material zurück – freigeben\" list releases against.\n\n``used`` is a plain bool defaulting to **true** (§18.32). It used to be\nnullable, with `null` meaning \"die Crew hat nicht geantwortet\"; a three-state\ncontrol is too fiddly for a thumb on a phone, and the unit was sent to this\nSchadenplatz in the first place — \"gebraucht\" is the common case and the crew\nonly unticks the exceptions, exactly like the vehicle list. ``left_on_site``\nis likewise a plain bool: not ticking it means the unit came back."
       },
       "RapportMaterialUpdate": {
         "properties": {
@@ -23125,7 +23125,7 @@
           "name"
         ],
         "title": "RapportVehicleRow",
-        "description": "One vehicle on the checklist — the crew confirms *which*, not how many.\n\n**The whole fleet, not only the assigned vehicles (§18.30).** The board is\nroutinely behind reality on a storm night: a vehicle drives along without\nanybody assigning it, and one that was assigned never rolls. So every vehicle\nthe station has gets a row, the assigned ones arrive ticked, and the crew's\njob is to correct both directions rather than to retype the fleet. Same\nreasoning as the \"Weiteres Material\" list next to it.\n\nKeyed on the **vehicle**, therefore, not on an assignment: a vehicle that was\nnever dispatched has no assignment to key on.\n\n``present`` has no third state: the list carries the board's own answer\nalready, so \"keine Angabe\" would only mean \"did not correct it\"."
+        "description": "One vehicle on the checklist — the crew confirms *which*, not how many.\n\n**The whole fleet, not only the assigned vehicles (§18.33).** The board is\nroutinely behind reality on a storm night: a vehicle drives along without\nanybody assigning it, and one that was assigned never rolls. So every vehicle\nthe station has gets a row, the assigned ones arrive ticked, and the crew's\njob is to correct both directions rather than to retype the fleet. Same\nreasoning as the \"Weiteres Material\" list next to it.\n\nKeyed on the **vehicle**, therefore, not on an assignment: a vehicle that was\nnever dispatched has no assignment to key on.\n\n``present`` has no third state: the list carries the board's own answer\nalready, so \"keine Angabe\" would only mean \"did not correct it\"."
       },
       "RapportVehicleUpdate": {
         "properties": {

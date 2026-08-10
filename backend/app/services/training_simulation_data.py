@@ -1367,7 +1367,7 @@ def generate_rapport_data(
         consumable = bool(unit.get("consumable"))
         haystack = f"{unit.get('type') or ''} {unit.get('name') or ''}".lower()
         left_on_site = False
-        # Two answers, not three (§18.29): the checklist is prefilled *ja* and
+        # Two answers, not three (§18.32): the checklist is prefilled *ja* and
         # the simulated crew only ever unticks. There is no "keine Angabe" to
         # generate any more, because there is no control that produces one.
         matches = any(keyword in haystack for keyword in matching_keywords)
@@ -1394,7 +1394,7 @@ def generate_rapport_data(
     if rng.random() < profile.handed_over_to:
         data["handed_over_to"] = rng.choice(_RAPPORT_HANDOVER)
 
-    # Name and phone since §18.28. The phone roll is nested inside the name
+    # Name and phone since §18.31. The phone roll is nested inside the name
     # roll on purpose: a number without a name is not a shape a crew produces,
     # while a name without a number is the everyday one.
     if rng.random() < profile.owner_block:

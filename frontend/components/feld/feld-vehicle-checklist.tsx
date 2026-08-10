@@ -7,7 +7,7 @@
  * and **which vehicles**. A count was the first shape of this and it was the
  * wrong one — "3" tells whoever retypes it nothing, three names do.
  *
- * **The whole fleet, not only the assigned ones (§18.30).** One tick per row
+ * **The whole fleet, not only the assigned ones (§18.33).** One tick per row
  * ("war dabei"), with the vehicles the board dispatched arriving ticked. The
  * earlier list could only be *unticked*, which recorded a vehicle that never
  * rolled and had no way at all to record one that came along without anybody

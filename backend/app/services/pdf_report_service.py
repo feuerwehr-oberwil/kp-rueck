@@ -288,7 +288,7 @@ def material_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str,
 
 
 def material_used_label(used: object) -> str:
-    """gebraucht / nicht gebraucht — two answers since §18.29.
+    """gebraucht / nicht gebraucht — two answers since §18.32.
 
     "keine Angabe" is gone with the three-state control that produced it: the
     checklist is prefilled *ja* (the unit was dispatched here) and the crew
@@ -1207,7 +1207,7 @@ def _rapport_block(
     vehicles = vehicle_present_names(report)
     flow.append(_field(LABELS["rapport_vehicles"], ", ".join(vehicles) if vehicles else LABELS["none"], styles))
 
-    # Material: one bullet per unit, `gebraucht` as ja/nein (§18.29), and no
+    # Material: one bullet per unit, `gebraucht` as ja/nein (§18.32), and no
     # "vor Ort verblieben" state on a consumable (decision 26).
     flow.extend(
         _bullet_field(
@@ -1224,7 +1224,7 @@ def _rapport_block(
     if report.handed_over_to:
         flow.append(_field(LABELS["rapport_handed_over"], report.handed_over_to, styles))
 
-    # Name and phone, on their own lines (§18.28). The phone is a field rather
+    # Name and phone, on their own lines (§18.31). The phone is a field rather
     # than a fragment of prose precisely so a reader can dial it — printing it
     # inside the name line would put it back where it could not be found.
     if report.owner_name:

@@ -41,6 +41,16 @@ type ViewMode = 'list' | 'assignments' | 'detail'
 const COOKIE_NAME = 'feld-selected-person'
 const COOKIE_EXPIRY_DAYS = 7
 
+/**
+ * How often the field list refetches while the tab is visible.
+ *
+ * Twice the board's ~5 s, because the two surfaces answer different questions:
+ * an operator watches forty cards move, a crew looks at one address between two
+ * jobs. Ten seconds is well inside "I glanced at it and it was right" and halves
+ * the requests from a phone on mobile data.
+ */
+const FELD_POLL_MS = 10000
+
 function getSelectedPersonFromCookie(): string | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(new RegExp(`(^| )${COOKIE_NAME}=([^;]+)`))
@@ -194,18 +204,29 @@ function FeldSurface() {
     }
   }, [token, t])
 
-  const loadAssignments = useCallback(async (personnelId: string) => {
+  /**
+   * ``silent`` is what the poll passes: no top loading bar, and a failed
+   * request keeps the list it already had.
+   *
+   * Both halves matter on a phone. A progress bar flashing across the top every
+   * ten seconds is a page that looks permanently busy; and a poll that missed
+   * one request in a cellar must not blank out the Schadenplatz the crew is
+   * standing at — the stale list is right far more often than an empty one.
+   * A deliberate load (picking a person, coming back to the tab) keeps both.
+   */
+  const loadAssignments = useCallback(async (personnelId: string, options?: { silent?: boolean }) => {
     if (!token) return
-    setLoadingAssignments(true)
+    const silent = options?.silent === true
+    if (!silent) setLoadingAssignments(true)
     try {
       const data = await apiClient.getFeldAssignments(personnelId, token)
       setAssignments(data.assignments)
       setMessageChips(data.message_chips ?? [])
     } catch (err) {
       console.error('Failed to load field assignments:', err)
-      setAssignments([])
+      if (!silent) setAssignments([])
     } finally {
-      setLoadingAssignments(false)
+      if (!silent) setLoadingAssignments(false)
     }
   }, [token])
 
@@ -267,6 +288,41 @@ function FeldSurface() {
       document.removeEventListener('visibilitychange', refresh)
       window.removeEventListener('focus', refresh)
     }
+  }, [selectedPerson, token, loadAssignments])
+
+  /**
+   * Live updates — **polling, deliberately, not the WebSocket**.
+   *
+   * `/feld` had no live path at all: a crew watched a page that never changed
+   * until it reloaded. Not a pickup the KP cleared, not a rapport a colleague
+   * filed, not an arrival, and — worst — not a new Schadenplatz they had just
+   * been assigned to, while the empty state promises "sobald du eingeteilt
+   * bist, erscheint sie hier".
+   *
+   * The socket was the other candidate and was rejected. It requires a JWT in
+   * the `access_token` cookie (`ws_require_auth`), so serving this page would
+   * mean teaching the socket a second identity: a token that is **printed on a
+   * poster on a wall**. That turns a login-less read surface into a persistent
+   * authenticated server connection whose credential cannot be revoked from the
+   * people holding it — a new failure mode, in exchange for a few seconds of
+   * latency on a screen somebody looks at between two hose lines. Polling is
+   * what the board itself already falls back to, it cannot leak anything, and
+   * its bad-connection behaviour is understood.
+   *
+   * Two rules keep it cheap: it runs **only while the tab is visible** (a phone
+   * in a pocket is the normal state of this page, and it must not poll from
+   * there), and it goes through the same `loadAssignments` as everything else —
+   * so the server-side "visibility is only mine" two-step is unchanged and no
+   * new door was opened for this.
+   */
+  useEffect(() => {
+    if (!selectedPerson || !token) return
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return
+      loadAssignments(selectedPerson.personnel_id, { silent: true })
+    }
+    const interval = setInterval(tick, FELD_POLL_MS)
+    return () => clearInterval(interval)
   }, [selectedPerson, token, loadAssignments])
 
   const handleNotMe = () => {

@@ -1270,7 +1270,7 @@ class TestRapport:
         test_user: User,
     ):
         # The crew confirms WHICH vehicles, not how many. The whole fleet is on
-        # the list since §18.30: the assigned ones ticked, the rest tickable,
+        # the list since §18.33: the assigned ones ticked, the rest tickable,
         # because the board is behind reality in both directions.
         incident, person, token = await self._setup(db_session, test_event, test_user)
         params = {"token": token, "personnel_id": str(person.id)}

@@ -620,6 +620,22 @@ async def _broadcast(incident: Incident) -> None:
 
     Deliberately ``broadcast_incident_update`` only: `/feld` never writes an
     assignment, so ``broadcast_assignment_update`` has no business here.
+
+    **This payload is a NOTIFICATION, not the incident** — and it is the only
+    producer of `incident_update` that is. Everywhere else (``api/intake.py``,
+    ``api/reko.py``, ``api/divera.py``, the incident routes) sends a full
+    ``IncidentResponse.model_dump()``. Do not build anything on the three fields
+    below: the client's ``handleRemoteUpdate`` takes **no argument at all**
+    (``lib/contexts/operations-context.tsx`` → ``decideRemoteUpdateAction``), it
+    refetches the board, and the payload is discarded by every listener.
+
+    It stays partial on purpose rather than being widened to match. A full
+    ``IncidentResponse`` from here would mean assembling the incident's crew,
+    vehicles, materials and Reko inside a CRUD module whose whole job is the
+    field surface — a second, divergent serialisation of the board's central
+    object, kept in step by nobody, for a payload that is thrown away on
+    arrival. If a listener ever *does* need to read this event's body, widen it
+    then, by reusing the incident serialiser rather than growing this dict.
     """
     await broadcast_incident_update(
         {
@@ -925,7 +941,7 @@ CONCURRENT_EDITOR_WINDOW = timedelta(minutes=5)
 
 
 def _material_used(row: Mapping[str, Any]) -> bool:
-    """``used`` as a plain bool, defaulting to **true** (§18.29).
+    """``used`` as a plain bool, defaulting to **true** (§18.32).
 
     Rows written before the reversal can still carry ``null`` in the JSONB of a
     database that skipped the normalising migration (or of a payload replayed
@@ -939,7 +955,7 @@ def _material_used(row: Mapping[str, Any]) -> bool:
 def _is_answered(row: Mapping[str, Any]) -> bool:
     """Did the crew contradict the board about this unit?
 
-    Since `used` is prefilled *ja* (§18.29) an untouched row is not "unanswered",
+    Since `used` is prefilled *ja* (§18.32) an untouched row is not "unanswered",
     it is the board's own answer — exactly as on the vehicle list. So the only
     rows carrying information the board does not already have are the ones where
     the crew unticked *gebraucht* or ticked *vor Ort verblieben*, and those are
@@ -993,7 +1009,7 @@ def reconcile_materials(
     Three rules, and the third is the one that matters:
 
     * a unit the KP assigned after the draft started appears, ticked *gebraucht*
-      (§18.29 — that is the default answer, not an unanswered state);
+      (§18.32 — that is the default answer, not an unanswered state);
     * a unit that is still on the board keeps whatever the crew answered;
     * a unit the board no longer has keeps its row **if the crew contradicted
       the board** (unticked *gebraucht* or ticked *vor Ort verblieben*) and drops
@@ -1082,7 +1098,7 @@ async def _fleet_vehicles(
     db: AsyncSession,
     incident_id: uuid.UUID,
 ) -> tuple[list[dict[str, Any]], set[uuid.UUID]]:
-    """The station's **whole fleet**, plus which of it this incident has (§18.30).
+    """The station's **whole fleet**, plus which of it this incident has (§18.33).
 
     Not only the assigned vehicles. On a storm night the board is routinely
     behind reality in both directions: a vehicle drives along that nobody
@@ -1115,7 +1131,7 @@ def reconcile_vehicles(
 ) -> list[dict[str, Any]]:
     """Re-reconcile the vehicle checklist against the fleet — never replace it.
 
-    Keyed on the **vehicle** since §18.30: a vehicle that came along without ever
+    Keyed on the **vehicle** since §18.33: a vehicle that came along without ever
     being dispatched has no assignment to key on, so an assignment id cannot be
     the identity of a row that exists for every vehicle the station owns.
 
@@ -1137,7 +1153,7 @@ def reconcile_vehicles(
         try:
             vehicle_id = uuid.UUID(str(raw.get("vehicle_id")))
         except (TypeError, ValueError):
-            # Pre-§18.30 rows for a vanished assignment carry no vehicle_id at
+            # Pre-§18.33 rows for a vanished assignment carry no vehicle_id at
             # all. There is nothing left to key them on, and the vehicle they
             # named is either in the fleet below (and therefore already covered)
             # or gone from the station.
@@ -1179,7 +1195,7 @@ def _jsonable_vehicles(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ``on_board`` is recomputed on every read from the live assignments, so
     storing it would be storing a second, staler copy of the board.
 
-    **Only the rows that carry an answer are stored** (§18.30). Since the fleet
+    **Only the rows that carry an answer are stored** (§18.33). Since the fleet
     row for a vehicle nobody dispatched arrives unticked, writing it down would
     mean copying the whole fleet table into every rapport — and worse, it would
     freeze a default as a decision: a vehicle the KP assigns ten minutes later
@@ -1485,7 +1501,7 @@ async def save_rapport(
         # A unit that vanished from the board but was answered in THIS payload
         # keeps that answer — the reconciliation would otherwise have dropped a
         # row the crew just filled in. "Answered" means contradicting the board
-        # (§18.29): a still-ticked `gebraucht` is the default, not a report.
+        # (§18.32): a still-ticked `gebraucht` is the default, not a report.
         answered_ids = {row["assignment_id"] for row in merged}
         for assignment_id, tick in ticks.items():
             if assignment_id in answered_ids or assignment_id in board_by_assignment:
@@ -1858,7 +1874,7 @@ async def material_return_units(
     treats the two the same — a unit nobody claimed is on site is a unit that
     comes back — but the completion gate must not: it prefills from the rapport
     and has to know which questions the crew already settled and which it still
-    needs to ask (§18). Since §18.29 that verdict comes from the rapport's state
+    needs to ask (§18). Since §18.32 that verdict comes from the rapport's state
     rather than from a third value in the row (see below).
 
     **``include_draft`` — two callers, two different actions (§18.23).** One
@@ -1910,7 +1926,7 @@ async def material_return_units(
             "name": row["name"],
             "location": row["location"],
             "used": row["used"],
-            # "Did the crew settle this unit?" Since §18.29 removed the
+            # "Did the crew settle this unit?" Since §18.32 removed the
             # three-state `used`, an untouched material row is no longer
             # distinguishable from a deliberate "ja, gebraucht" — so the honest
             # answer comes from the rapport's own state instead of from the row:

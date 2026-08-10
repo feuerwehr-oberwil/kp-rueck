@@ -792,7 +792,7 @@ async def _file_simulated_rapport(
         description=incident.description,
         materials=units,
         # The prefilled checklist itself, which is what a crew answers against.
-        # Only the rows the board dispatched (§18.30 put the whole fleet on the
+        # Only the rows the board dispatched (§18.33 put the whole fleet on the
         # list): a simulated crew correcting the board by unticking is realistic,
         # a simulated crew inventing a vehicle that was never sent is not.
         vehicles=[{"vehicle_id": row["vehicle_id"]} for row in view["vehicles"] if row["on_board"]],

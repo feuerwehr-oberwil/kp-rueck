@@ -73,3 +73,26 @@ export function decideCooldownClearAction({
   if (!pendingReplay) return "skip"
   return "fetch"
 }
+
+/**
+ * Should the fallback poller start the moment its effect mounts?
+ *
+ * Both live contexts (`operations-context`, `groups-context`) start polling
+ * from a socket **status transition**. That is not enough on its own: a socket
+ * that was already down before the effect subscribed — or one that never
+ * connects at all — produces no transition, so the poller never starts and the
+ * surface has no refresh path whatsoever.
+ *
+ * `groups-context` had this check inline and `operations-context` did not, and
+ * the asymmetry was invisible from the outside: the Aufträge kept polling, the
+ * stale-data banner kept being reset, and only the incidents went cold. That is
+ * the "Abholung erledigt kommt nicht durch" report — the backend broadcast, the
+ * socket and the room were all fine; the board simply had nothing listening and
+ * nothing polling.
+ *
+ * It lives here, next to the other sync decisions, so the two pollers share one
+ * rule rather than one of them remembering it.
+ */
+export function shouldStartPollingOnMount(status: string): boolean {
+  return status !== "connected"
+}

@@ -169,7 +169,7 @@ export interface ApiRapportMaterialRow {
   location: string | null
   /** A consumable renders `gebraucht` only: used means gone (decision 26). */
   consumable: boolean
-  /** Prefilled *true* since §18.29 — the unit was sent here. No third state. */
+  /** Prefilled *true* since §18.32 — the unit was sent here. No third state. */
   used: boolean
   left_on_site: boolean
   /** False once the board dropped the unit; the row survives because the crew contradicted it. */
@@ -183,7 +183,7 @@ export interface ApiRapportMaterialUpdate {
 }
 
 /**
- * One vehicle on the confirmation list — **the whole fleet** since §18.30, with
+ * One vehicle on the confirmation list — **the whole fleet** since §18.33, with
  * the board's assigned vehicles ticked. A vehicle that came along without ever
  * being dispatched has no assignment, so the row is keyed on the vehicle.
  */
@@ -245,7 +245,7 @@ export interface ApiSchadenplatzRapport {
   extra_material_note: string | null
   kurzbericht: string | null
   handed_over_to: string | null
-  /** Name + Telefon since §18.28 — the pair the incident carries for the Melder. */
+  /** Name + Telefon since §18.31 — the pair the incident carries for the Melder. */
   owner_name: string | null
   owner_phone: string | null
   personnel_count: number | null
@@ -346,7 +346,7 @@ export interface ApiMaterialReturnUnit {
    * for the completion gate — that one prefills from the rapport and has to
    * know what it still needs to ask.
    *
-   * Since §18.29 removed the three-state `used`, the verdict comes from the
+   * Since §18.32 removed the three-state `used`, the verdict comes from the
    * rapport rather than from the row: a **filed** rapport settled every unit on
    * its checklist, a **draft** only the ones where the crew contradicted the
    * prefill.

@@ -399,7 +399,7 @@ describe("the material gate takes the crew's word for it", () => {
     // The bug: a crew fills the checklist on /feld and never presses "Rapport
     // abschliessen" — on a phone, in the rain, that is the normal case. The
     // gate used to throw those answers away and ask the operator from scratch.
-    // `left_on_site: true` is the crew saying where a unit stays; since §18.29
+    // `left_on_site: true` is the crew saying where a unit stays; since §18.32
     // `used` has no third value, so an answered draft row is one that
     // contradicts the prefill.
     getRapportMaterialReturn.mockResolvedValue(rapport({

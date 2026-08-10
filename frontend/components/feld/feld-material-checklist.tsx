@@ -15,7 +15,7 @@
  * * **Consumables render `gebraucht` only** (decision 26). A consumable that was
  *   used is gone: it cannot be "left on site" in any sense the board should
  *   track, and it must never reach "Material zurück – freigeben".
- * * **`gebraucht` is a plain yes/no, prefilled ja** (§18.29). It used to be a
+ * * **`gebraucht` is a plain yes/no, prefilled ja** (§18.32). It used to be a
  *   three-state ✓ / ✗ / – control, and on a phone in the rain three 36px
  *   targets in a row is one target too many. The unit was dispatched to this
  *   Schadenplatz, so "gebraucht" is the board's own answer and the crew unticks
@@ -57,7 +57,7 @@ const SEARCH_THRESHOLD = 8
 
 /**
  * "Weiteres gebrauchtes Material" — a multi-select over the catalogue, plus a
- * free-text line (§18.31).
+ * free-text line (§18.34).
  *
  * The shape is the one the app already uses for picking people
  * (`resource-assignment-dialog`): a search field, a grid of tick rows with the
@@ -229,7 +229,7 @@ export function FeldMaterialChecklist({
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    {/* One tick, prefilled ja (§18.29) — the same control and
+                    {/* One tick, prefilled ja (§18.32) — the same control and
                         the same wording as "vor Ort verblieben" next to it and
                         as the vehicle list below, rather than a fourth way of
                         answering a yes/no question. */}

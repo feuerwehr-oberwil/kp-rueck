@@ -211,7 +211,7 @@ export function groupMaterialsByLocation(rows: ApiRapportMaterialRow[]): Materia
 }
 
 /**
- * "Weiteres gebrauchtes Material" — one stored string, two controls (§18.31).
+ * "Weiteres gebrauchtes Material" — one stored string, two controls (§18.34).
  *
  * The field is still a comma-separated list of **names** and nothing else: no
  * id travels with a pick, and `/feld` still never writes an assignment

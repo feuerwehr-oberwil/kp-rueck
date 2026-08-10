@@ -4,7 +4,7 @@ Revision ID: f2a7c4d1e903
 Revises: f5b13c9a4e27
 Create Date: 2026-08-10 10:00:00.000000
 
-Plan 25 §18.28 and §18.29 — two reversals from the fifth field test, in one
+Plan 25 §18.31 and §18.32 — two reversals from the fifth field test, in one
 revision because they touch one table and ship together.
 
 **Eigentümer/Halter: one free-text box becomes Name + Telefon.** §18.10 collapsed

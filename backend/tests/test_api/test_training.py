@@ -1004,7 +1004,7 @@ async def test_simulate_rapport_never_leaves_a_consumable_on_site(
 async def test_simulate_rapport_never_leaves_a_phone_without_a_name(
     editor_client: AsyncClient, training_event: Event, rapport_incident: Incident
 ):
-    """§18.28: the owner block is Name + Telefon, and the number needs an owner.
+    """§18.31: the owner block is Name + Telefon, and the number needs an owner.
 
     The KFZ line this test used to guard went with the free-text box: a plate has
     no field left to live in, and inventing one on the strength of an exercise

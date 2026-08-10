@@ -490,7 +490,7 @@ class TestRapportGeneration:
         {"assignment_id": uuid4(), "name": "Rettungsplattform", "type": "Sonstiges", "consumable": False},
     ]
 
-    # Keyed on the vehicle since §18.30 — the checklist covers the whole fleet,
+    # Keyed on the vehicle since §18.33 — the checklist covers the whole fleet,
     # so an assignment id is not the identity of a row any more. The inject only
     # ever answers about the vehicles the board actually dispatched.
     VEHICLES = [
@@ -517,7 +517,7 @@ class TestRapportGeneration:
             assert ticks[consumable_id]["left_on_site"] is False
 
     def test_the_owner_block_is_a_name_and_sometimes_a_phone(self):
-        """§18.28: two fields, and the phone roll is nested inside the name roll.
+        """§18.31: two fields, and the phone roll is nested inside the name roll.
 
         A number without a name is not a shape a crew produces, so it must never
         be generated — while a name without a number is the everyday one and has
@@ -537,7 +537,7 @@ class TestRapportGeneration:
         assert 60 < phoned < 140
 
     def test_the_material_tick_has_only_two_answers(self):
-        """§18.29 removed "keine Angabe"; there is no control that produces it."""
+        """§18.32 removed "keine Angabe"; there is no control that produces it."""
         for seed in range(200):
             for row in self._generate(seed).get("materials", []):
                 assert row["used"] in (True, False)

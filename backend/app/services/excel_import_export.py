@@ -381,7 +381,7 @@ EINSAETZE_COLUMNS: list[tuple[str, int]] = [
     ("Personal", 9),
     ("Personal korrigiert", 20),
     ("Fahrzeuge", 34),
-    # Two columns since §18.28, matching the two inputs the form asks for. The
+    # Two columns since §18.31, matching the two inputs the form asks for. The
     # phone is its own column for the same reason it is its own field: whoever
     # writes the invoices sorts and dials it, and it cannot do either from
     # inside a paragraph.
@@ -483,7 +483,7 @@ def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
                 report.owner_name or "",
                 report.owner_phone or "",
                 # Every unit with its own answer, "nicht gebraucht" included
-                # (decision 16). There is no third state any more (§18.29): the
+                # (decision 16). There is no third state any more (§18.32): the
                 # tick is prefilled ja and the crew unticks the exceptions.
                 # Consumables carry no left-on-site state at all, which is why
                 # that lives in its own column (decision 26).

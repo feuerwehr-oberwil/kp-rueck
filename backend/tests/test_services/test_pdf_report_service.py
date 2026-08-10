@@ -744,7 +744,7 @@ class TestRapportHelpers:
     """The pure helpers the three outputs share — exact strings, no PDF."""
 
     def test_used_has_two_answers_and_a_legacy_null_reads_as_ja(self):
-        """§18.29 dropped "keine Angabe" with the three-state control.
+        """§18.32 dropped "keine Angabe" with the three-state control.
 
         A rapport filed before the reversal can still carry `null` in its JSONB;
         it reads as *gebraucht*, the same way `crud.feld._material_used` reads
@@ -822,7 +822,7 @@ class TestRapportInThePdf:
         assert "Keller ausgepumpt." in text
         assert "Hauswart" in text
         assert "Muster Hans" in text
-        # The phone is its own line (§18.28) — a number nobody can find is a
+        # The phone is its own line (§18.31) — a number nobody can find is a
         # number nobody dials.
         assert "079 000 00 01" in text
 

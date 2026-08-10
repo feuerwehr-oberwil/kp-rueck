@@ -203,7 +203,7 @@ describe('the /feld mount keeps its "I am done" moment', () => {
   })
 })
 
-describe('Eigentümer / Halter is a name and a phone (§18.28)', () => {
+describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
   it('offers a tel: link as soon as the number is dialable', async () => {
     // The entire reason the phone is its own field: somebody rings from the
     // pavement when nobody answers the door. Same affordance the incident

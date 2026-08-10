@@ -344,7 +344,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   }
 
   /**
-   * "Melder übernehmen" — one tap that PREFILLS name and phone (§18.28).
+   * "Melder übernehmen" — one tap that PREFILLS name and phone (§18.31).
    *
    * It fills each of the two fields **only when that field is still empty**:
    * the crew's own words about who owns the place beat a name the dispatcher
@@ -517,7 +517,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           </Button>
         )}
 
-        {/* Name + Telefon (§18.28). §18.10's one free-text box was right about
+        {/* Name + Telefon (§18.31). §18.10's one free-text box was right about
             Strasse, Ort, Kennzeichen and Typ — those really are prose, and they
             live in the Kurzbericht now — and wrong about the number: a phone
             written inside a paragraph cannot be dialled, which is the entire

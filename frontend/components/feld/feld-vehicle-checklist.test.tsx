@@ -18,7 +18,7 @@ function vehicle(overrides: Partial<ApiRapportVehicleRow> = {}): ApiRapportVehic
 
 describe('FeldVehicleChecklist', () => {
   it('lists the dispatched vehicles ticked and the rest of the fleet unticked', () => {
-    // §18.30: the whole fleet, because the board is behind reality in both
+    // §18.33: the whole fleet, because the board is behind reality in both
     // directions on a storm night.
     renderWithIntl(
       <FeldVehicleChecklist

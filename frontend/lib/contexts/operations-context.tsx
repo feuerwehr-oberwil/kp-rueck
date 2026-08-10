@@ -18,6 +18,7 @@ import {
   decideCooldownClearAction,
   decidePollTickAction,
   decideRemoteUpdateAction,
+  shouldStartPollingOnMount,
 } from "@/lib/sync-cooldown"
 import {
   findRecentRemoval,
@@ -1050,6 +1051,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         handleRemoteUpdate()
       }
     })
+
+    // If the socket is already down when this effect runs, start polling NOW —
+    // see `shouldStartPollingOnMount` for what this cost when it was missing.
+    // Verified in a browser: two windows, clear a pickup in one, and before
+    // this the badge stayed in the other while `sync-version` visibly changed
+    // underneath it.
+    if (shouldStartPollingOnMount(wsClient.getStatus())) startPolling()
 
     return () => {
       document.removeEventListener('visibilitychange', handleWake)
