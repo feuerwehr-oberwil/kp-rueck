@@ -24,6 +24,7 @@ import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indi
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
+import { rapportApplies } from "@/lib/rapport-visibility"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -392,7 +393,11 @@ function DraggableOperationBase({
                 >
                   <FileText className="h-4 w-4 text-muted-foreground/80" />
                 </div>
-              ) : operation.status === 'complete' ? (
+              ) : operation.status === 'complete' && rapportApplies({
+                  hasBeenDispatched: operation.hasBeenDispatched,
+                  status: operation.status,
+                  hasReport: operation.hasSchadenplatzRapportDraft,
+                }) ? (
                 <div
                   className="p-1.5 rounded-md bg-muted/40"
                   title={tFeld('cardNoRapportTooltip')}
@@ -872,6 +877,10 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.fieldArrivedAt?.getTime() ===
       nextProps.operation.fieldArrivedAt?.getTime() &&
     prevProps.operation.hasSchadenplatzRapport === nextProps.operation.hasSchadenplatzRapport &&
+    // "Kein Rapport" is only shown on a Schadenplatz somebody was actually sent
+    // to, so the answer to that has to reach the card as well.
+    prevProps.operation.hasSchadenplatzRapportDraft === nextProps.operation.hasSchadenplatzRapportDraft &&
+    prevProps.operation.hasBeenDispatched === nextProps.operation.hasBeenDispatched &&
     prevProps.operation.groupId === nextProps.operation.groupId &&
     prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
     prevProps.operation.leaderName === nextProps.operation.leaderName &&

@@ -1073,12 +1073,11 @@ class RapportSimProfile:
     # Units that match the scenario (pumps on a Wasserschaden, saws on a
     # Sturmschaden) were almost certainly used.
     material_used_matching: float = 0.95
-    # "Die Crew hat nicht geantwortet" — the third answer, which every output
-    # has to be able to render.
-    material_unanswered: float = 0.10
     extra_material_note: float = 0.15
     # Many storm jobs are public ground with nobody present.
     owner_block: float = 0.60
+    # …and of the ones where somebody was, not everybody leaves a number.
+    owner_phone: float = 0.55
     handed_over_to: float = 0.25
     personnel_count_corrected: float = 0.10
     # Per vehicle: the crew unticking one the board thought was there.
@@ -1098,15 +1097,6 @@ class RapportSimProfile:
 
 
 RAPPORT_SIM_PROFILE = RapportSimProfile()
-
-# The KFZ-Block is filled **only when a vehicle is actually involved** — which
-# is a property of the Einsatz, not of the crew's diligence. Every IncidentType
-# not named here is 0 %: a Kennzeichen on a Wasserschaden im Keller is noise in
-# the billing export, not realism.
-RAPPORT_KFZ_RATES: dict[str, float] = {
-    "strassenrettung": 0.80,
-    "technische_hilfeleistung": 0.15,
-}
 
 # "Vor Ort verblieben" depends on what the thing **is**: a pump keeps running in
 # a cellar overnight, a chainsaw goes home in the vehicle. `Material.type` is a
@@ -1228,14 +1218,14 @@ _RAPPORT_OWNER_NAMES: list[str] = [
     "Muster Beat",
     "Mustermann Elsbeth",
 ]
-_RAPPORT_OWNER_STREETS: list[str] = [
-    "Musterstrasse 1",
-    "Musterweg 12",
-    "Musterplatz 4",
-    "Musterstrasse 27a",
+# Obviously fake too, and deliberately in the 079 range every Swiss reader
+# recognises as a mobile — the point of the field is that somebody can dial it.
+_RAPPORT_OWNER_PHONES: list[str] = [
+    "079 000 00 01",
+    "079 000 00 02",
+    "061 000 00 03",
+    "078 000 00 04",
 ]
-_RAPPORT_OWNER_CITIES: list[str] = ["4104 Oberwil", "4102 Binningen", "4103 Bottmingen"]
-_RAPPORT_VEHICLE_MODELS: list[str] = ["VW Golf", "Skoda Octavia", "Fiat Ducato", "Toyota Yaris", "Ford Transit"]
 
 _RAPPORT_HANDOVER: list[str] = [
     "Eigentümer Muster Hans",
@@ -1376,17 +1366,16 @@ def generate_rapport_data(
     for unit in materials:
         consumable = bool(unit.get("consumable"))
         haystack = f"{unit.get('type') or ''} {unit.get('name') or ''}".lower()
-        used: bool | None
         left_on_site = False
-        if rng.random() < profile.material_unanswered:
-            used = None
-        else:
-            matches = any(keyword in haystack for keyword in matching_keywords)
-            rate = profile.material_used_matching if matches else profile.material_used
-            used = rng.random() < rate
-            if used:
-                bucket = classify_material_bucket(unit.get("type"), unit.get("name"), consumable)
-                left_on_site = rng.random() < RAPPORT_MATERIAL_BUCKET_RATES[bucket]
+        # Two answers, not three (§18.29): the checklist is prefilled *ja* and
+        # the simulated crew only ever unticks. There is no "keine Angabe" to
+        # generate any more, because there is no control that produces one.
+        matches = any(keyword in haystack for keyword in matching_keywords)
+        rate = profile.material_used_matching if matches else profile.material_used
+        used = rng.random() < rate
+        if used:
+            bucket = classify_material_bucket(unit.get("type"), unit.get("name"), consumable)
+            left_on_site = rng.random() < RAPPORT_MATERIAL_BUCKET_RATES[bucket]
         ticks.append(
             {
                 "assignment_id": unit["assignment_id"],
@@ -1405,19 +1394,13 @@ def generate_rapport_data(
     if rng.random() < profile.handed_over_to:
         data["handed_over_to"] = rng.choice(_RAPPORT_HANDOVER)
 
-    # One free-text block since §18.10, so the generator writes what a crew
-    # writes: a name, sometimes an address under it, and — when a vehicle was
-    # involved — a plate on its own line. The KFZ roll stays independent of the
-    # owner roll: a crew that noted a plate but not the driver's address is the
-    # normal case, and the exercise data has to contain that shape.
-    owner_lines: list[str] = []
+    # Name and phone since §18.28. The phone roll is nested inside the name
+    # roll on purpose: a number without a name is not a shape a crew produces,
+    # while a name without a number is the everyday one.
     if rng.random() < profile.owner_block:
-        owner_lines.append(rng.choice(_RAPPORT_OWNER_NAMES))
-        owner_lines.append(f"{rng.choice(_RAPPORT_OWNER_STREETS)}, {rng.choice(_RAPPORT_OWNER_CITIES)}")
-    if rng.random() < RAPPORT_KFZ_RATES.get(incident_type or "", 0.0):
-        owner_lines.append(f"BL {rng.randint(10000, 999999)} {rng.choice(_RAPPORT_VEHICLE_MODELS)}")
-    if owner_lines:
-        data["owner_note"] = "\n".join(owner_lines)
+        data["owner_name"] = rng.choice(_RAPPORT_OWNER_NAMES)
+        if rng.random() < profile.owner_phone:
+            data["owner_phone"] = rng.choice(_RAPPORT_OWNER_PHONES)
 
     if rng.random() < profile.personnel_count_corrected:
         data["personnel_count"] = max(0, board_personnel_count + rng.choice([-1, 1]))
@@ -1427,8 +1410,7 @@ def generate_rapport_data(
     # correction the KP has to notice.
     if vehicles:
         data["vehicles"] = [
-            {"assignment_id": unit["assignment_id"], "present": rng.random() >= profile.vehicle_absent}
-            for unit in vehicles
+            {"vehicle_id": unit["vehicle_id"], "present": rng.random() >= profile.vehicle_absent} for unit in vehicles
         ]
 
     return data

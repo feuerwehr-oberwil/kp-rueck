@@ -120,6 +120,11 @@ class FeldAssignment(BaseModel):
     # only file then), so the row stays visible.
     is_active_assignment: bool = True
     rapport_state: RapportState = "none"
+    # The Schadenplatz was disponiert at least once (§18.27). False means the
+    # rapport does not exist for this row: no form, no "Kein Rapport" chip, no
+    # line in anybody's missing count. A crew that is standing at an address the
+    # board never dispatched has nothing to file, and an empty form is noise.
+    has_been_dispatched: bool = False
     arrived_at: datetime | None = None
     # True when the GPS automation stamped the arrival rather than the crew
     # (§18.24). `/feld` words the line accordingly instead of letting a crew
@@ -240,9 +245,12 @@ class RapportMaterialRow(BaseModel):
     is two units on the slip, and the assignment id is also what the board's
     "Material zurück – freigeben" list releases against.
 
-    ``used`` is nullable on purpose — "die Crew hat nicht geantwortet" is a third
-    answer and every output has to be able to show it. ``left_on_site`` is a
-    plain bool: not answering it means the unit came back.
+    ``used`` is a plain bool defaulting to **true** (§18.29). It used to be
+    nullable, with `null` meaning "die Crew hat nicht geantwortet"; a three-state
+    control is too fiddly for a thumb on a phone, and the unit was sent to this
+    Schadenplatz in the first place — "gebraucht" is the common case and the crew
+    only unticks the exceptions, exactly like the vehicle list. ``left_on_site``
+    is likewise a plain bool: not ticking it means the unit came back.
     """
 
     assignment_id: UUID
@@ -254,11 +262,12 @@ class RapportMaterialRow(BaseModel):
     # A consumable that was used is gone: it renders `gebraucht` only, never
     # "vor Ort verblieben", and never appears in the return list (decision 26).
     consumable: bool = False
-    used: bool | None = None
+    used: bool = True
     left_on_site: bool = False
     # False once the board no longer has this unit assigned. The row survives
-    # only because it was already answered — the crew saw it and used it, and
-    # deleting it would lose exactly what the checklist exists to capture.
+    # only because the crew contradicted the board's own answer — it unticked
+    # "gebraucht" or ticked "vor Ort verblieben". Deleting such a row would lose
+    # exactly what the checklist exists to capture.
     on_board: bool = True
 
 
@@ -266,35 +275,40 @@ class RapportMaterialUpdate(BaseModel):
     """The two ticks, as the form sends them back."""
 
     assignment_id: UUID
-    used: bool | None = None
+    used: bool = True
     left_on_site: bool = False
 
 
 class RapportVehicleRow(BaseModel):
     """One vehicle on the checklist — the crew confirms *which*, not how many.
 
-    Deliberately the same shape as ``RapportMaterialRow``: keyed on the
-    **assignment**, prefilled ticked, and surviving with ``on_board=False`` once
-    the board takes the vehicle off an incident whose crew already answered.
+    **The whole fleet, not only the assigned vehicles (§18.30).** The board is
+    routinely behind reality on a storm night: a vehicle drives along without
+    anybody assigning it, and one that was assigned never rolls. So every vehicle
+    the station has gets a row, the assigned ones arrive ticked, and the crew's
+    job is to correct both directions rather than to retype the fleet. Same
+    reasoning as the "Weiteres Material" list next to it.
 
-    ``present`` has no third state, unlike the material ``used``: the list is
-    prefilled from the board, so an untouched row already carries the board's
-    own answer and "keine Angabe" would only mean "did not correct it".
+    Keyed on the **vehicle**, therefore, not on an assignment: a vehicle that was
+    never dispatched has no assignment to key on.
+
+    ``present`` has no third state: the list carries the board's own answer
+    already, so "keine Angabe" would only mean "did not correct it".
     """
 
-    assignment_id: UUID
-    vehicle_id: UUID | None = None
+    vehicle_id: UUID
     name: str
     present: bool = True
-    # False once the board no longer has this vehicle assigned. The row survives
-    # because the crew answered it — deleting it would lose the correction.
+    # True when the board has (or had) this vehicle assigned to the incident.
+    # False for the rest of the fleet — and for a ticked vehicle that has since
+    # left the fleet entirely, whose row survives because the crew ticked it.
     on_board: bool = True
 
 
 class RapportVehicleUpdate(BaseModel):
     """The one tick, as the form sends it back."""
 
-    assignment_id: UUID
+    vehicle_id: UUID
     present: bool = True
 
 
@@ -329,13 +343,12 @@ class RapportPrefill(BaseModel):
     # and that is exactly the state a crew files its rapport in.
     leader_personnel_id: UUID | None = None
     leader_name: str | None = None
-    # "Melder übernehmen" (§4): one tap PREFILLS the owner free text with these.
-    # Copies, never equates — Melder ≠ Eigentümer stays correctable, and since
-    # §18.10 the target is one Textarea, so the button writes lines rather than
-    # populating three inputs.
+    # "Melder übernehmen" (§4): one tap PREFILLS the two owner inputs with these.
+    # Copies, never equates — Melder ≠ Eigentümer stays correctable. Since §18.28
+    # the target is Name + Telefon, so the phone travels too; the street and the
+    # city stayed behind, because neither has an input to land in any more.
     melder_name: str | None = None
-    melder_street: str | None = None
-    melder_city: str | None = None
+    melder_phone: str | None = None
     board_personnel_count: int = 0
     # Names from the material catalogue for the "Weiteres Material" autosuggest.
     # A naming aid, nothing else: it deliberately carries NO ids, precisely so no
@@ -361,8 +374,8 @@ class SchadenplatzRapport(BaseModel):
     # already know, so the window is derived at output time instead of typed in
     # the field. See the model.
     materials: list[RapportMaterialRow] = []
-    # Prefilled from the board's vehicle assignments, all ticked. The crew
-    # unticks what was not actually there.
+    # The whole fleet (§18.30), with the board's assigned vehicles ticked. The
+    # crew unticks what did not roll and ticks what came along unannounced.
     vehicles: list[RapportVehicleRow] = []
     # Filenames, not URLs. Read back through the shared
     # `GET /api/photos/{incident_id}/{filename}` — the same endpoint the Reko
@@ -375,8 +388,9 @@ class SchadenplatzRapport(BaseModel):
     kurzbericht: str | None = None
     handed_over_to: str | None = None
 
-    # ONE free-text box (§18.10). See the model for why the five columns went.
-    owner_note: str | None = None
+    # Name + Telefon (§18.28), the same pair the incident carries for the Melder.
+    owner_name: str | None = None
+    owner_phone: str | None = None
 
     personnel_count: int | None = None
     personnel_count_corrected: bool = False
@@ -417,7 +431,8 @@ class RapportUpdate(BaseModel):
     kurzbericht: str | None = Field(default=None, max_length=5000)
     handed_over_to: str | None = Field(default=None, max_length=200)
 
-    owner_note: str | None = Field(default=None, max_length=2000)
+    owner_name: str | None = Field(default=None, max_length=200)
+    owner_phone: str | None = Field(default=None, max_length=50)
 
     personnel_count: int | None = Field(default=None, ge=0, le=999)
 
@@ -465,7 +480,9 @@ class EventRestliste(BaseModel):
     """
 
     event_id: UUID
-    # The denominator of "4 von 23 Schadenplätzen ohne Rapport".
+    # The denominator of "4 von 23 Schadenplätzen ohne Rapport" — the
+    # Schadenplätze a rapport is *owed* for, not every card in the Ereignis. One
+    # that was never disponiert is on neither side of the "von" (§18.27).
     incident_total: int = 0
     missing_rapport: list[RestlisteIncident] = []
     material_on_site: list[RestlisteUnit] = []

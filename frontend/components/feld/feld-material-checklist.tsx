@@ -15,30 +15,36 @@
  * * **Consumables render `gebraucht` only** (decision 26). A consumable that was
  *   used is gone: it cannot be "left on site" in any sense the board should
  *   track, and it must never reach "Material zurück – freigeben".
- * * **Not answering is a third answer.** `used === null` means the crew did not
- *   say, which every output has to be able to show — so the tick is a
- *   three-state control, not a checkbox that defaults to "nein".
+ * * **`gebraucht` is a plain yes/no, prefilled ja** (§18.29). It used to be a
+ *   three-state ✓ / ✗ / – control, and on a phone in the rain three 36px
+ *   targets in a row is one target too many. The unit was dispatched to this
+ *   Schadenplatz, so "gebraucht" is the board's own answer and the crew unticks
+ *   the exceptions — exactly the shape the vehicle list next to it has.
  */
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, ChevronsUpDown, Minus, PackageOpen, X } from 'lucide-react'
+import { CheckCircle, Circle, PackageOpen } from 'lucide-react'
 
-import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { RemovableChip } from '@/components/ui/removable-chip'
+import { SearchInput } from '@/components/ui/search-input'
 import { cn } from '@/lib/utils'
 import type { ApiRapportMaterialRow } from '@/lib/api/types'
-import { groupMaterialsByLocation } from '@/lib/rapport-draft'
+import {
+  formatExtraMaterial,
+  groupMaterialsByLocation,
+  parseExtraMaterial,
+} from '@/lib/rapport-draft'
 
 interface FeldMaterialChecklistProps {
   rows: ApiRapportMaterialRow[]
   extraNote: string
   /**
-   * Known material names from the catalogue. Offered as a browsable list under
+   * Known material names from the catalogue. Offered as a multi-select under
    * "Weiteres Material" so the crew does not have to spell "Tauchpumpe TP-4"
-   * from memory — a naming aid, never a picker (see below).
+   * from memory — names only, never a unit (see below).
    */
   suggestions?: string[]
   disabled?: boolean
@@ -46,72 +52,29 @@ interface FeldMaterialChecklistProps {
   onExtraNoteChange: (value: string) => void
 }
 
-/** ja / nein / keine Angabe, in that cycle. `null` is a real answer here. */
-function UsedToggle({
-  value,
-  disabled,
-  onChange,
-  label,
-}: {
-  value: boolean | null
-  disabled?: boolean
-  onChange: (next: boolean | null) => void
-  label: string
-}) {
-  const t = useTranslations('feld.rapport.material')
-  const options: Array<{ value: boolean | null; icon: React.ReactNode; title: string }> = [
-    { value: true, icon: <Check className="h-3.5 w-3.5" />, title: t('usedYes') },
-    { value: false, icon: <X className="h-3.5 w-3.5" />, title: t('usedNo') },
-    { value: null, icon: <Minus className="h-3.5 w-3.5" />, title: t('usedUnknown') },
-  ]
-  return (
-    <div className="flex items-center rounded-md border border-border overflow-hidden" role="group" aria-label={label}>
-      {options.map(option => (
-        <button
-          key={String(option.value)}
-          type="button"
-          disabled={disabled}
-          aria-pressed={value === option.value}
-          title={option.title}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            'flex h-8 w-9 items-center justify-center transition-colors disabled:opacity-50',
-            value === option.value
-              ? option.value === true
-                ? 'bg-success/20 text-success'
-                : option.value === false
-                  ? 'bg-muted text-foreground'
-                  : 'bg-muted text-muted-foreground'
-              : 'text-muted-foreground/60 hover:bg-muted/60',
-          )}
-        >
-          {option.icon}
-        </button>
-      ))}
-    </div>
-  )
-}
+/** How many catalogue entries it takes before a search field earns its place. */
+const SEARCH_THRESHOLD = 8
 
 /**
- * "Weiteres gebrauchtes Material" — free text with a browsable catalogue.
+ * "Weiteres gebrauchtes Material" — a multi-select over the catalogue, plus a
+ * free-text line (§18.31).
  *
- * It used to be an `<input list=…>`. A native `datalist` only reveals itself
- * once you are already typing, which on desktop means the suggestions are
- * invisible: there is nothing to browse, and the crew is back to spelling
- * "Tauchpumpe TP-4" from memory. So the same suggestions moved into a real
- * combobox — Popover + Command, the primitives the rest of the app already
- * uses — that opens on focus or on the chevron and filters while you type.
+ * The shape is the one the app already uses for picking people
+ * (`resource-assignment-dialog`): a search field, a grid of tick rows with the
+ * CheckCircle / Circle pair, and the picked things as chips above. Not a third
+ * pattern — the previous combobox was one, and it was invisible on desktop
+ * before that as a native `datalist`.
  *
- * **The boundary of decision 18 is untouched.** This writes a plain string and
- * nothing else: no id travels with a pick, and `/feld` still never creates an
- * assignment. Anything typed stays valid, including a name that is in no
- * catalogue — the list is a spelling aid, not a picker.
+ * **Decision 18's boundary is untouched, and it is the whole point.** This
+ * writes a comma-separated string of NAMES: no id travels with a pick, nothing
+ * here is resolved to a unit, and `/feld` still never creates an assignment —
+ * a different authorization and conflict problem than anything else in this
+ * plan. Picking from a list is still just naming a thing.
  *
- * The line is a comma-separated list (its own placeholder says so), so the
- * filter runs on the segment after the LAST comma: picking a second unit has
- * to work, which it would not if the whole line were the search term.
+ * The free-text line stays for exactly the case the catalogue cannot answer: a
+ * crew that borrowed the neighbouring brigade's pump has to be able to write it.
  */
-function ExtraMaterialInput({
+function ExtraMaterialPicker({
   value,
   suggestions,
   disabled,
@@ -123,152 +86,96 @@ function ExtraMaterialInput({
   onChange: (next: string) => void
 }) {
   const t = useTranslations('feld.rapport.material')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [open, setOpen] = useState(false)
-  /** The item the arrow keys point at. Empty on purpose: with nothing pointed
-   *  at, Enter belongs to the free text and must not insert anything. */
-  const [highlight, setHighlight] = useState('')
+  const [search, setSearch] = useState('')
 
-  const cut = value.lastIndexOf(',')
-  const prefix = cut === -1 ? '' : value.slice(0, cut + 1)
-  const segment = (cut === -1 ? value : value.slice(cut + 1)).trim()
+  // The stored string is the single source of truth: the two controls are
+  // derived from it on every render, so a draft written on another phone comes
+  // back apart into the same two controls.
+  const { picked, freeText } = useMemo(() => parseExtraMaterial(value, suggestions), [value, suggestions])
 
   const filtered = useMemo(() => {
-    const needle = segment.toLowerCase()
+    const needle = search.trim().toLowerCase()
     if (!needle) return suggestions
     return suggestions.filter(name => name.toLowerCase().includes(needle))
-  }, [suggestions, segment])
+  }, [suggestions, search])
 
-  const hasList = suggestions.length > 0
-
-  const insert = (name: string) => {
-    onChange(prefix ? `${prefix} ${name}` : name)
-    setOpen(false)
-    setHighlight('')
-    inputRef.current?.focus()
-  }
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!hasList) return
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (filtered.length === 0) return
-      event.preventDefault()
-      if (!open) {
-        setOpen(true)
-        setHighlight(filtered[0])
-        return
-      }
-      const index = filtered.indexOf(highlight)
-      const next =
-        event.key === 'ArrowDown'
-          ? (index + 1) % filtered.length
-          : index <= 0
-            ? filtered.length - 1
-            : index - 1
-      setHighlight(filtered[next])
-      return
-    }
-    if (event.key === 'Enter' && open && filtered.includes(highlight)) {
-      event.preventDefault()
-      insert(highlight)
-      return
-    }
-    if (event.key === 'Escape' && open) {
-      event.preventDefault()
-      setOpen(false)
-      setHighlight('')
-    }
+  const toggle = (name: string) => {
+    const next = picked.includes(name) ? picked.filter(entry => entry !== name) : [...picked, name]
+    onChange(formatExtraMaterial(next, freeText))
   }
 
   return (
-    <Popover open={open && hasList && !disabled} onOpenChange={setOpen}>
-      <PopoverAnchor asChild>
-        <div className="relative">
-          <Input
-            ref={inputRef}
-            id="rapport-extra-material"
-            autoComplete="off"
-            role={hasList ? 'combobox' : undefined}
-            aria-expanded={hasList ? open : undefined}
-            aria-autocomplete={hasList ? 'list' : undefined}
-            aria-controls={hasList ? 'rapport-extra-material-options' : undefined}
-            value={value}
-            disabled={disabled}
-            placeholder={t('extraPlaceholder')}
-            className={cn(hasList && 'pr-10')}
-            onFocus={() => hasList && setOpen(true)}
-            onChange={e => {
-              setHighlight('')
-              if (hasList) setOpen(true)
-              onChange(e.target.value)
-            }}
-            onKeyDown={handleKeyDown}
-          />
-          {hasList && (
-            <button
-              type="button"
-              disabled={disabled}
-              // Tab order skips it: it opens the same list the field opens on
-              // focus, so for a keyboard it is a duplicate. It exists for the
-              // thumb and for the eye — the affordance the datalist never had.
-              tabIndex={-1}
-              aria-label={t('extraSuggestOpen')}
-              title={t('extraSuggestOpen')}
-              onClick={() => {
-                setOpen(current => !current)
-                inputRef.current?.focus()
-              }}
-              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50 cursor-pointer"
+    <div className="space-y-2">
+      {picked.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {picked.map(name => (
+            <RemovableChip
+              key={name}
+              onRemove={disabled ? undefined : () => toggle(name)}
+              removeTitle={t('extraRemove', { name })}
             >
-              <ChevronsUpDown className="h-4 w-4" />
-            </button>
-          )}
+              {name}
+            </RemovableChip>
+          ))}
         </div>
-      </PopoverAnchor>
-      <PopoverContent
-        align="start"
-        className="w-(--radix-popover-trigger-width) p-0"
-        // The field keeps the caret the whole time: an autofocused panel would
-        // end the typing that opened it.
-        onOpenAutoFocus={e => e.preventDefault()}
-        onCloseAutoFocus={e => e.preventDefault()}
-        onInteractOutside={e => {
-          // Clicking the field itself is not "outside" in any sense the crew
-          // would recognise — without this the list closes on every tap.
-          if (inputRef.current?.parentElement?.contains(e.target as Node)) e.preventDefault()
-        }}
-      >
-        {/* `shouldFilter={false}`: the filter runs above, on the last segment
-            of the line rather than on the whole line. cmdk is here for the
-            list semantics and the highlight, not for its matcher. */}
-        {/* The sentinel keeps cmdk from pointing at the first row on its own.
-            A highlighted row promises that Enter picks it — and Enter has to
-            belong to the free text unless the crew took the arrow keys. */}
-        <Command shouldFilter={false} value={highlight || ' '}>
-          <CommandList id="rapport-extra-material-options" className="max-h-56">
-            <CommandGroup heading={t('extraSuggestHeading')}>
-              {filtered.map(name => (
-                <CommandItem
+      )}
+
+      {suggestions.length > 0 && (
+        <>
+          {suggestions.length > SEARCH_THRESHOLD && (
+            <SearchInput
+              value={search}
+              onValueChange={setSearch}
+              placeholder={t('extraSearchPlaceholder')}
+              disabled={disabled}
+            />
+          )}
+          <div className="grid max-h-56 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
+            {filtered.map(name => {
+              const isPicked = picked.includes(name)
+              return (
+                <button
                   key={name}
-                  value={name}
-                  // Keep the caret in the field: a blur here would close the
-                  // panel before the click ever lands.
-                  onMouseDown={e => e.preventDefault()}
-                  onSelect={() => insert(name)}
-                  // The highlight is driven by the arrow keys alone, so the
-                  // mouse gets its feedback from CSS rather than from cmdk.
-                  className="min-h-11 cursor-pointer hover:bg-foreground/10"
+                  type="button"
+                  disabled={disabled}
+                  aria-pressed={isPicked}
+                  onClick={() => toggle(name)}
+                  className={cn(
+                    'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors',
+                    'hover:border-primary/50 hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50',
+                    isPicked && 'border-primary/30 bg-primary/5',
+                  )}
                 >
-                  <PackageOpen className="h-4 w-4" />
-                  {name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-          <p className="border-t px-3 py-2 text-xs text-muted-foreground">{t('extraFreeText')}</p>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                  {isPicked ? (
+                    <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500" />
+                  ) : (
+                    <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="truncate text-sm">{name}</span>
+                </button>
+              )
+            })}
+            {filtered.length === 0 && (
+              <p className="col-span-full py-2 text-xs text-muted-foreground">{t('extraNoneFound')}</p>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Anything in no catalogue at all. The panel says so, because a list
+          that looks exhaustive is a list people stop writing next to. */}
+      <div className="space-y-1">
+        <Input
+          id="rapport-extra-material"
+          autoComplete="off"
+          value={freeText}
+          disabled={disabled}
+          placeholder={t('extraPlaceholder')}
+          onChange={e => onChange(formatExtraMaterial(picked, e.target.value))}
+        />
+        <p className="text-xs text-muted-foreground">{t('extraFreeText')}</p>
+      </div>
+    </div>
   )
 }
 
@@ -322,22 +229,28 @@ export function FeldMaterialChecklist({
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">{t('used')}</span>
-                      <UsedToggle
-                        value={row.used}
+                    {/* One tick, prefilled ja (§18.29) — the same control and
+                        the same wording as "vor Ort verblieben" next to it and
+                        as the vehicle list below, rather than a fourth way of
+                        answering a yes/no question. */}
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 cursor-pointer accent-primary"
+                        checked={row.used}
                         disabled={disabled}
-                        label={t('usedAria', { name: row.name })}
-                        onChange={next => update(row.assignment_id, { used: next })}
+                        aria-label={t('usedAria', { name: row.name })}
+                        onChange={e => update(row.assignment_id, { used: e.target.checked })}
                       />
-                    </div>
+                      {t('used')}
+                    </label>
                     {/* Consumables have no second tick at all — not a disabled
                         one. A control that can never be used is noise. */}
                     {!row.consumable && (
-                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 accent-primary"
+                          className="h-4 w-4 cursor-pointer accent-primary"
                           checked={row.left_on_site}
                           disabled={disabled}
                           aria-label={t('leftOnSiteAria', { name: row.name })}
@@ -358,12 +271,12 @@ export function FeldMaterialChecklist({
         <Label htmlFor="rapport-extra-material" className="text-xs text-muted-foreground">
           {t('extraLabel')}
         </Label>
-        {/* Still free text in the data model, and it still never creates an
-            assignment (decision 18): a real picker would make /feld a writer of
-            assignments, a different authorization and conflict problem than
-            anything else in this plan. The list below only SUGGESTS a spelling —
-            anything typed stays valid, and nothing here carries an id. */}
-        <ExtraMaterialInput
+        {/* Still names in the data model, and it still never creates an
+            assignment (decision 18): a picker that resolved to units would make
+            /feld a writer of assignments, a different authorization and conflict
+            problem than anything else in this plan. The list below names things
+            — anything typed stays valid, and nothing here carries an id. */}
+        <ExtraMaterialPicker
           value={extraNote}
           suggestions={suggestions}
           disabled={disabled}

@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react'
 import type { Notification, NotificationSettings } from '@/lib/types/notification'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
+import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
@@ -25,9 +26,13 @@ interface NotificationContextValue {
   toggleSidebar: () => void
   openSidebar: () => void
   closeSidebar: () => void
-  // Navigate to incident from notification
-  navigateToIncident: (incidentId: string) => void
-  registerNavigateHandler: (handler: ((incidentId: string) => void) | null) => void
+  // Navigate to incident from notification. `tab` is which panel of the detail
+  // the notification is ABOUT — the bell points at one specific thing, so it
+  // opens on it rather than on Übersicht (§18.27).
+  navigateToIncident: (incidentId: string, tab?: OperationDetailTab) => void
+  registerNavigateHandler: (
+    handler: ((incidentId: string, tab?: OperationDetailTab) => void) | null,
+  ) => void
 }
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
@@ -73,14 +78,17 @@ export function NotificationProvider({
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), [])
 
   // Navigate to incident from notification click
-  const navigateHandlerRef = useRef<((incidentId: string) => void) | null>(null)
+  const navigateHandlerRef = useRef<((incidentId: string, tab?: OperationDetailTab) => void) | null>(null)
 
-  const registerNavigateHandler = useCallback((handler: ((incidentId: string) => void) | null) => {
-    navigateHandlerRef.current = handler
-  }, [])
+  const registerNavigateHandler = useCallback(
+    (handler: ((incidentId: string, tab?: OperationDetailTab) => void) | null) => {
+      navigateHandlerRef.current = handler
+    },
+    [],
+  )
 
-  const navigateToIncident = useCallback((incidentId: string) => {
-    navigateHandlerRef.current?.(incidentId)
+  const navigateToIncident = useCallback((incidentId: string, tab?: OperationDetailTab) => {
+    navigateHandlerRef.current?.(incidentId, tab)
   }, [])
 
   // Load previously seen notification IDs from localStorage on mount.

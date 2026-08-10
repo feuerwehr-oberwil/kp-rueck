@@ -15,12 +15,14 @@ import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import type { Notification, NotificationSeverity } from '@/lib/types/notification'
 import { formatNotificationTime } from '@/lib/notification-time'
+import { detailTabForNotification } from '@/lib/notification-detail-tab'
+import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 import { cn } from '@/lib/utils'
 
 interface NotificationCardProps {
   notification: Notification
   onDismiss?: (id: string) => void
-  onClickIncident?: (incidentId: string) => void
+  onClickIncident?: (incidentId: string, tab?: OperationDetailTab) => void
 }
 
 function NotificationCard({ notification, onDismiss, onClickIncident }: NotificationCardProps) {
@@ -85,7 +87,9 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
           if (!notification.dismissed && onDismiss) {
             onDismiss(notification.id)
           }
-          onClickIncident(notification.incident_id!)
+          // The bell is a pointer: open the tab the notification is ABOUT, not
+          // the one the operator happens to have remembered (§18.27).
+          onClickIncident(notification.incident_id!, detailTabForNotification(notification.type))
         }
       }}
     >
@@ -122,7 +126,7 @@ function NotificationCard({ notification, onDismiss, onClickIncident }: Notifica
 }
 
 interface NotificationSidebarProps {
-  onClickIncident?: (incidentId: string) => void
+  onClickIncident?: (incidentId: string, tab?: OperationDetailTab) => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }
@@ -192,9 +196,9 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
                     key={notification.id}
                     notification={notification}
                     onDismiss={dismissNotification}
-                    onClickIncident={(incidentId) => {
+                    onClickIncident={(incidentId, tab) => {
                       setIsOpen(false)
-                      onClickIncident?.(incidentId)
+                      onClickIncident?.(incidentId, tab)
                     }}
                   />
                 ))}
@@ -220,9 +224,9 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    onClickIncident={(incidentId) => {
+                    onClickIncident={(incidentId, tab) => {
                       setIsOpen(false)
-                      onClickIncident?.(incidentId)
+                      onClickIncident?.(incidentId, tab)
                     }}
                   />
                 ))}

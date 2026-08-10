@@ -1001,18 +1001,23 @@ async def test_simulate_rapport_never_leaves_a_consumable_on_site(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_simulate_rapport_leaves_the_kfz_block_empty_on_a_non_vehicle_type(
+async def test_simulate_rapport_never_leaves_a_phone_without_a_name(
     editor_client: AsyncClient, training_event: Event, rapport_incident: Incident
 ):
-    """`elementarereignis` is 0 % — a Kennzeichen on a flooded cellar is noise."""
+    """§18.28: the owner block is Name + Telefon, and the number needs an owner.
+
+    The KFZ line this test used to guard went with the free-text box: a plate has
+    no field left to live in, and inventing one on the strength of an exercise
+    would be a schema decision taken by a simulator.
+    """
     response = await editor_client.post(
         f"/api/training/events/{training_event.id}/simulate/rapport/{rapport_incident.id}"
     )
     assert response.status_code == 200
 
     rapport = (await editor_client.get(f"/api/incidents/{rapport_incident.id}/rapport")).json()
-    note = rapport["owner_note"] or ""
-    assert not any(line.startswith("BL ") for line in note.splitlines())
+    if rapport["owner_phone"]:
+        assert rapport["owner_name"]
 
 
 @pytest.mark.asyncio

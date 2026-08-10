@@ -7,12 +7,14 @@ import type {
 } from '@/lib/api/types'
 import {
   EMPTY_RAPPORT_FORM,
+  formatExtraMaterial,
   groupMaterialsByLocation,
   hasContent,
   isCorrected,
   mergeDraft,
   mergeMaterialTicks,
   mergeVehicleTicks,
+  parseExtraMaterial,
   toFormData,
   toUpdate,
   type RapportFormData,
@@ -25,7 +27,7 @@ function material(overrides: Partial<ApiRapportMaterialRow> = {}): ApiRapportMat
     name: 'Tauchpumpe TP-4',
     location: 'Magazin A',
     consumable: false,
-    used: null,
+    used: true,
     left_on_site: false,
     on_board: true,
     ...overrides,
@@ -34,7 +36,6 @@ function material(overrides: Partial<ApiRapportMaterialRow> = {}): ApiRapportMat
 
 function vehicle(overrides: Partial<ApiRapportVehicleRow> = {}): ApiRapportVehicleRow {
   return {
-    assignment_id: 'v1',
     vehicle_id: 'f1',
     name: 'TLF Oberwil',
     present: true,
@@ -55,7 +56,8 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
     extra_material_note: null,
     kurzbericht: null,
     handed_over_to: null,
-    owner_note: null,
+    owner_name: null,
+    owner_phone: null,
     personnel_count: 6,
     personnel_count_corrected: false,
     cost_snapshot_json: null,
@@ -72,8 +74,7 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
       leader_personnel_id: null,
       leader_name: 'Frey Marc',
       melder_name: 'A. Bürgin',
-      melder_street: 'Hauptstrasse 4, Oberwil',
-      melder_city: null,
+      melder_phone: '079 111 22 33',
       board_personnel_count: 6,
       material_name_suggestions: ['Nassauger', 'Tauchpumpe TP-4'],
     },
@@ -87,25 +88,26 @@ function form(overrides: Partial<RapportFormData> = {}): RapportFormData {
 
 describe('hasContent', () => {
   it('is false for a form nobody has typed in', () => {
-    // A prefilled count is not content, and neither is the vehicle list: every
-    // rapport opens with a count and an all-ticked fleet.
+    // Both lists arrive prefilled from the board, so neither an all-ticked
+    // material row nor a dispatched vehicle is content on its own.
     expect(hasContent(form({ personnel_count: 6, vehicles: [vehicle()] }))).toBe(false)
-  })
-
-  it('counts an UNticked vehicle — the only evidence somebody answered', () => {
-    expect(hasContent(form({ vehicles: [vehicle({ present: false })] }))).toBe(true)
-  })
-
-  it('counts a single material tick', () => {
-    expect(hasContent(form({ materials: [material({ used: true })] }))).toBe(true)
-    expect(hasContent(form({ materials: [material({ left_on_site: true })] }))).toBe(true)
     expect(hasContent(form({ materials: [material()] }))).toBe(false)
+  })
+
+  it('counts a tick that CONTRADICTS the prefill, in either list', () => {
+    // §18.29/§18.30: an unticked dispatched vehicle, a ticked one nobody sent,
+    // and an unticked "gebraucht" are the three shapes of an actual answer.
+    expect(hasContent(form({ vehicles: [vehicle({ present: false })] }))).toBe(true)
+    expect(hasContent(form({ vehicles: [vehicle({ present: true, on_board: false })] }))).toBe(true)
+    expect(hasContent(form({ materials: [material({ used: false })] }))).toBe(true)
+    expect(hasContent(form({ materials: [material({ left_on_site: true })] }))).toBe(true)
   })
 
   it('counts every text field', () => {
     expect(hasContent(form({ kurzbericht: '   ' }))).toBe(false)
     expect(hasContent(form({ kurzbericht: 'Keller ausgepumpt' }))).toBe(true)
-    expect(hasContent(form({ owner_note: 'A. Bürgin' }))).toBe(true)
+    expect(hasContent(form({ owner_name: 'A. Bürgin' }))).toBe(true)
+    expect(hasContent(form({ owner_phone: '079 111 22 33' }))).toBe(true)
   })
 })
 
@@ -175,20 +177,20 @@ describe('mergeDraft', () => {
     expect(result.form.materials.map(row => row.assignment_id)).toEqual(['a1', 'a2'])
     expect(result.form.materials[0].used).toBe(true)
     expect(result.form.materials[0].left_on_site).toBe(true)
-    expect(result.form.materials[1].used).toBeNull()
+    expect(result.form.materials[1].used).toBe(true)
   })
 
   it('takes the vehicle list from the server and folds the local ticks onto it', () => {
     const server = rapport({
-      vehicles: [vehicle({ assignment_id: 'v1' }), vehicle({ assignment_id: 'v2', name: 'MTW' })],
+      vehicles: [vehicle({ vehicle_id: 'f1' }), vehicle({ vehicle_id: 'f2', name: 'MTW' })],
     })
     const result = mergeDraft(server, {
-      data: form({ kurzbericht: 'Lokal', vehicles: [vehicle({ assignment_id: 'v1', present: false })] }),
+      data: form({ kurzbericht: 'Lokal', vehicles: [vehicle({ vehicle_id: 'f1', present: false })] }),
       timestamp: '2026-08-09T02:00:00Z',
     })
 
     expect(result.usedLocal).toBe(true)
-    expect(result.form.vehicles.map(row => row.assignment_id)).toEqual(['v1', 'v2'])
+    expect(result.form.vehicles.map(row => row.vehicle_id)).toEqual(['f1', 'f2'])
     expect(result.form.vehicles[0].present).toBe(false)
     expect(result.form.vehicles[1].present).toBe(true)
   })
@@ -197,10 +199,10 @@ describe('mergeDraft', () => {
 describe('mergeVehicleTicks', () => {
   it('takes the fleet from the server and folds the local ticks onto it', () => {
     const merged = mergeVehicleTicks(
-      [vehicle({ assignment_id: 'v1' }), vehicle({ assignment_id: 'v2', name: 'MTW' })],
-      [vehicle({ assignment_id: 'v1', present: false })],
+      [vehicle({ vehicle_id: 'f1' }), vehicle({ vehicle_id: 'f2', name: 'MTW' })],
+      [vehicle({ vehicle_id: 'f1', present: false })],
     )
-    expect(merged.map(row => row.assignment_id)).toEqual(['v1', 'v2'])
+    expect(merged.map(row => row.vehicle_id)).toEqual(['f1', 'f2'])
     expect(merged[0].present).toBe(false)
     // A vehicle the draft knows nothing about keeps the server's prefill.
     expect(merged[1].present).toBe(true)
@@ -219,7 +221,7 @@ describe('mergeMaterialTicks', () => {
 
   it('leaves rows the draft knows nothing about untouched', () => {
     const merged = mergeMaterialTicks([material({ assignment_id: 'neu' })], [])
-    expect(merged[0].used).toBeNull()
+    expect(merged[0].used).toBe(true)
   })
 })
 
@@ -252,20 +254,21 @@ describe('toFormData / toUpdate', () => {
   })
 
   it('sends blank text as null, not as an empty string', () => {
-    const update = toUpdate(form({ kurzbericht: '   ', owner_note: 'A. Bürgin' }), false)
+    const update = toUpdate(form({ kurzbericht: '   ', owner_name: 'A. Bürgin', owner_phone: '  ' }), false)
     expect(update.kurzbericht).toBeNull()
-    expect(update.owner_note).toBe('A. Bürgin')
+    expect(update.owner_name).toBe('A. Bürgin')
+    expect(update.owner_phone).toBeNull()
     expect(update.is_draft).toBe(false)
   })
 
-  it('round-trips the vehicle list as assignment ids and one tick', () => {
+  it('round-trips the vehicle list as vehicle ids and one tick', () => {
     const data = toFormData(
-      rapport({ vehicles: [vehicle({ assignment_id: 'v1', present: false }), vehicle({ assignment_id: 'v2' })] }),
+      rapport({ vehicles: [vehicle({ vehicle_id: 'f1', present: false }), vehicle({ vehicle_id: 'f2' })] }),
     )
     const update = toUpdate(data, true)
     expect(update.vehicles).toEqual([
-      { assignment_id: 'v1', present: false },
-      { assignment_id: 'v2', present: true },
+      { vehicle_id: 'f1', present: false },
+      { vehicle_id: 'f2', present: true },
     ])
   })
 })
@@ -288,5 +291,44 @@ describe('groupMaterialsByLocation', () => {
     ])
     expect(groups).toHaveLength(2)
     expect(groups[1].onBoard).toBe(false)
+  })
+})
+
+describe('parseExtraMaterial / formatExtraMaterial', () => {
+  const catalogue = ['Nassauger', 'Tauchpumpe TP-4']
+
+  it('splits the stored line into catalogue picks and free text', () => {
+    // §18.31: one stored string, two controls. The split has to round-trip, or
+    // a draft written on one phone comes back apart wrongly on the next.
+    const { picked, freeText } = parseExtraMaterial('Nassauger, Pumpe vom Nachbarzug', catalogue)
+    expect(picked).toEqual(['Nassauger'])
+    expect(freeText).toBe('Pumpe vom Nachbarzug')
+  })
+
+  it('matches case-insensitively and keeps the catalogue’s own spelling', () => {
+    expect(parseExtraMaterial('tauchpumpe tp-4', catalogue).picked).toEqual(['Tauchpumpe TP-4'])
+  })
+
+  it('never lets one name be picked twice', () => {
+    expect(parseExtraMaterial('Nassauger, Nassauger', catalogue).picked).toEqual(['Nassauger'])
+  })
+
+  it('leaves free text alone when there is no catalogue at all', () => {
+    const { picked, freeText } = parseExtraMaterial('Pumpe vom Nachbarzug', [])
+    expect(picked).toEqual([])
+    expect(freeText).toBe('Pumpe vom Nachbarzug')
+  })
+
+  it('writes the picks first and the free text after, comma-separated', () => {
+    expect(formatExtraMaterial(['Nassauger'], 'Pumpe vom Nachbarzug')).toBe('Nassauger, Pumpe vom Nachbarzug')
+    expect(formatExtraMaterial([], '')).toBe('')
+    expect(formatExtraMaterial(['Nassauger'], '  ,  ')).toBe('Nassauger')
+  })
+
+  it('round-trips whatever the two controls produced', () => {
+    const line = formatExtraMaterial(['Nassauger', 'Tauchpumpe TP-4'], 'Pumpe vom Nachbarzug')
+    const parsed = parseExtraMaterial(line, catalogue)
+    expect(parsed.picked).toEqual(['Nassauger', 'Tauchpumpe TP-4'])
+    expect(parsed.freeText).toBe('Pumpe vom Nachbarzug')
   })
 })

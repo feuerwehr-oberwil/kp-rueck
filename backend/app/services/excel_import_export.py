@@ -381,9 +381,12 @@ EINSAETZE_COLUMNS: list[tuple[str, int]] = [
     ("Personal", 9),
     ("Personal korrigiert", 20),
     ("Fahrzeuge", 34),
-    # One column, not four (§18.10): the form asks one free-text question, so
-    # splitting the answer back into Name/Strasse/Ort/KFZ here would be guessing.
+    # Two columns since §18.28, matching the two inputs the form asks for. The
+    # phone is its own column for the same reason it is its own field: whoever
+    # writes the invoices sorts and dials it, and it cannot do either from
+    # inside a paragraph.
     ("Eigentümer / Halter", 46),
+    ("Eigentümer / Halter Telefon", 22),
     ("Material gebraucht", 46),
     ("Material vor Ort verblieben", 34),
     ("Weiteres Material", 28),
@@ -477,11 +480,13 @@ def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
                 # the question the billing side actually asks, and a number
                 # answers it for nobody.
                 ", ".join(vehicle_present_names(report)),
-                report.owner_note or "",
+                report.owner_name or "",
+                report.owner_phone or "",
                 # Every unit with its own answer, "nicht gebraucht" included
-                # (decision 16) and "keine Angabe" as the third state a crew can
-                # give (decision 14). Consumables carry no left-on-site state at
-                # all, which is why that lives in its own column (decision 26).
+                # (decision 16). There is no third state any more (§18.29): the
+                # tick is prefilled ja and the crew unticks the exceptions.
+                # Consumables carry no left-on-site state at all, which is why
+                # that lives in its own column (decision 26).
                 "; ".join(
                     f"{row.get('name') or '?'}: {material_used_label(row.get('used'))}"
                     for row in material_checklist_rows(report)

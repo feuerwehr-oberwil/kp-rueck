@@ -284,6 +284,18 @@ export default function MapPage() {
     setColorBy((current) => (current === 'reko' ? preRekoColorByRef.current : current))
   }
 
+  // `?mode=reko` — the Setup-Checkliste's "Reko-Modus öffnen" links here rather
+  // than telling the operator where to look. Once only: leaving the mode must
+  // not be undone by a re-render, and the URL is not the state.
+  const rekoDeepLinkRef = useRef(false)
+  useEffect(() => {
+    if (rekoDeepLinkRef.current || searchParams.get('mode') !== 'reko') return
+    rekoDeepLinkRef.current = true
+    enterRekoMode()
+    // `enterRekoMode` is re-created every render; the URL is what decides here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   // Create a new Auftrag from the panel and select it for planning.
   const handleCreatePlanningGroup = async (name: string, color: string) => {
     const created = await createGroup({ name, color })

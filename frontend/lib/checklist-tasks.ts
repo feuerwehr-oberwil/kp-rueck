@@ -1,4 +1,4 @@
-import { LucideIcon, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
+import { LucideIcon, Binoculars, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { getTileBaseUrl } from '@/lib/env'
 import { translateOutsideReact } from '@/lib/i18n-messages'
@@ -87,6 +87,8 @@ export function generateChecklistTasks(params: {
   onShowTileSetup: () => void
   onTestPrint: () => void
   onOpenFallbackSettings: () => void
+  /** Opens the Fahrzeuge sheet, where a driver is set per vehicle. */
+  onOpenVehicles: () => void
 }): ChecklistTaskState[] {
   const printerAvailable = params.printerEnabled && params.printerAgentOnline
 
@@ -147,7 +149,10 @@ export function generateChecklistTasks(params: {
       actionButtons: [linkAction(params.onCopyAlarmLink, params.onPrintAlarmLink)]
     },
 
-    // 5. Assign reconnaissance officers (bullet reminder, no action)
+    // 5. Assign reconnaissance officers — the Reko-Modus on the map is where
+    //    a checked-in person is marked as Reko *and* handed their first
+    //    addresses, so the row links straight into it rather than describing
+    //    where to look.
     {
       id: 'assign-reko',
       title: translateOutsideReact('checklist.tasks.assign-reko.title'),
@@ -158,10 +163,20 @@ export function generateChecklistTasks(params: {
       metadata: {
         count: params.rekoOfficers,
         details: translateOutsideReact('checklist.tasks.assign-reko.details', { count: params.rekoOfficers })
-      }
+      },
+      actionButtons: [
+        {
+          label: translateOutsideReact('checklist.actions.openRekoMode'),
+          icon: Binoculars,
+          variant: 'outline',
+          href: '/map?mode=reko'
+        }
+      ]
     },
 
-    // 6. Assign drivers (bullet reminder, no action)
+    // 6. Assign drivers — the Fahrzeuge sheet is the one place a driver is set,
+    //    per vehicle. A checklist that only counts what is missing makes the
+    //    operator go and find it; this opens it.
     {
       id: 'assign-drivers',
       title: translateOutsideReact('checklist.tasks.assign-drivers.title'),
@@ -173,10 +188,21 @@ export function generateChecklistTasks(params: {
         count: params.driverAssignments,
         total: params.totalVehicles,
         details: translateOutsideReact('checklist.tasks.assign-drivers.details', { count: params.driverAssignments, total: params.totalVehicles })
-      }
+      },
+      actionButtons: [
+        {
+          label: translateOutsideReact('checklist.actions.openVehicles'),
+          icon: Truck,
+          variant: 'outline',
+          onClick: params.onOpenVehicles
+        }
+      ]
     },
 
-    // 7. Assign magazin staff (bullet reminder, no action)
+    // 7. Assign magazin staff. Deliberately NO action: a Magaziner is marked by
+    //    right-clicking a checked-in person in the crew sidebar, which is not a
+    //    destination anything can navigate to. A button that opened "somewhere
+    //    near it" would be worse than the sentence.
     {
       id: 'assign-magazin',
       title: translateOutsideReact('checklist.tasks.assign-magazin.title'),
@@ -341,6 +367,7 @@ export async function summarizeEventChecklist(
     onShowTileSetup: noop,
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
+    onOpenVehicles: noop,
   })
 
   // Shares the validation used by the checklist component's reader, so a value

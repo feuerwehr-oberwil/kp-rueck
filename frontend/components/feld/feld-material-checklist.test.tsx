@@ -13,12 +13,59 @@ function material(overrides: Partial<ApiRapportMaterialRow> = {}): ApiRapportMat
     name: 'Tauchpumpe TP-4',
     location: 'Magazin A',
     consumable: false,
-    used: null,
+    used: true,
     left_on_site: false,
     on_board: true,
     ...overrides,
   }
 }
+
+describe('FeldMaterialChecklist — gebraucht', () => {
+  it('is a plain tick, prefilled ja', () => {
+    // §18.29: the three-state ✓/✗/– control is gone. The unit was dispatched
+    // here, so "gebraucht" is the board's own answer and the crew unticks the
+    // exceptions — the same shape as the vehicle list.
+    renderWithIntl(
+      <FeldMaterialChecklist rows={[material()]} extraNote="" onChange={vi.fn()} onExtraNoteChange={vi.fn()} />,
+    )
+
+    expect(screen.getByRole('checkbox', { name: 'Gebraucht: Tauchpumpe TP-4' })).toBeChecked()
+    expect(screen.queryByText('Keine Angabe')).toBeNull()
+  })
+
+  it('unticks the row that was clicked and nothing else', async () => {
+    const onChange = vi.fn()
+    renderWithIntl(
+      <FeldMaterialChecklist
+        rows={[material(), material({ assignment_id: 'a2', material_id: 'm2', name: 'Motorsäge' })]}
+        extraNote=""
+        onChange={onChange}
+        onExtraNoteChange={vi.fn()}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Gebraucht: Tauchpumpe TP-4' }))
+
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ assignment_id: 'a1', used: false }),
+      expect.objectContaining({ assignment_id: 'a2', used: true }),
+    ])
+  })
+
+  it('gives a consumable one tick and no second one (decision 26)', () => {
+    renderWithIntl(
+      <FeldMaterialChecklist
+        rows={[material({ consumable: true, name: 'Ölbindemittel' })]}
+        extraNote=""
+        onChange={vi.fn()}
+        onExtraNoteChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('checkbox', { name: 'Gebraucht: Ölbindemittel' })).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /Vor Ort verblieben/ })).toBeNull()
+  })
+})
 
 describe('FeldMaterialChecklist — Weiteres Material', () => {
   it('asks in the crew’s own terms, never about "das Board"', () => {
@@ -32,16 +79,14 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     )
 
     // A crew in the field has never seen the board and does not know the word.
-    // The label and the examples in the placeholder carry it; the sentence that
-    // used to explain the field again was dropped with the rest of the
-    // hand-holding copy.
     expect(screen.getByText('Weiteres gebrauchtes Material')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText(/geliehene Tauchpumpe/)).toBeInTheDocument()
     expect(screen.queryByText(/Board/)).toBeNull()
   })
 
-  it('shows the whole catalogue on focus — nothing to type first', async () => {
-    const user = userEvent.setup()
+  it('shows the whole catalogue straight away — nothing to type first', () => {
+    // §18.31: a multi-select, in the shape the app uses for picking people.
+    // Neither the datalist nor the combobox before it showed anything until you
+    // had already started typing.
     renderWithIntl(
       <FeldMaterialChecklist
         rows={[]}
@@ -52,35 +97,11 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
       />,
     )
 
-    // This is the whole point of dropping the <datalist>: a native one only
-    // appears once you are already typing, so there was nothing to browse.
-    expect(screen.queryByText('Motorsäge')).toBeNull()
-    await user.click(screen.getByLabelText('Weiteres gebrauchtes Material'))
-
-    expect(await screen.findByText('Motorsäge')).toBeInTheDocument()
-    expect(screen.getByText('Nassauger')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Motorsäge/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Nassauger/ })).toBeInTheDocument()
   })
 
-  it('filters the list while typing', async () => {
-    const user = userEvent.setup()
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraNote="Nass"
-        suggestions={['Motorsäge', 'Nassauger']}
-        onChange={vi.fn()}
-        onExtraNoteChange={vi.fn()}
-      />,
-    )
-
-    await user.click(screen.getByLabelText('Weiteres gebrauchtes Material'))
-
-    expect(await screen.findByText('Nassauger')).toBeInTheDocument()
-    expect(screen.queryByText('Motorsäge')).toBeNull()
-  })
-
-  it('inserts a picked name as plain text, carrying no id', async () => {
-    const user = userEvent.setup()
+  it('picks a name as plain text, carrying no id', async () => {
     const onExtraNoteChange = vi.fn()
     renderWithIntl(
       <FeldMaterialChecklist
@@ -92,91 +113,87 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
       />,
     )
 
-    await user.click(screen.getByLabelText('Weiteres gebrauchtes Material'))
-    await user.click(await screen.findByText('Nassauger'))
+    await userEvent.click(screen.getByRole('button', { name: /Nassauger/ }))
 
-    // A string, and only a string (decision 18) — picking a name is not
-    // picking a unit, and /feld still never writes an assignment.
+    // A string, and only a string (decision 18) — picking a name is not picking
+    // a unit, and /feld still never writes an assignment.
     expect(onExtraNoteChange).toHaveBeenCalledWith('Nassauger')
   })
 
-  it('appends behind a comma so a second unit can be picked too', async () => {
-    const user = userEvent.setup()
+  it('adds a second pick instead of replacing the first', async () => {
     const onExtraNoteChange = vi.fn()
     renderWithIntl(
       <FeldMaterialChecklist
         rows={[]}
-        extraNote="geliehene Tauchpumpe,"
+        extraNote="Nassauger"
+        suggestions={['Nassauger', 'Motorsäge']}
+        onChange={vi.fn()}
+        onExtraNoteChange={onExtraNoteChange}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: /Motorsäge/ }))
+
+    expect(onExtraNoteChange).toHaveBeenCalledWith('Nassauger, Motorsäge')
+  })
+
+  it('shows the picked names as chips and takes them back off', async () => {
+    const onExtraNoteChange = vi.fn()
+    renderWithIntl(
+      <FeldMaterialChecklist
+        rows={[]}
+        extraNote="Nassauger"
+        suggestions={['Nassauger', 'Motorsäge']}
+        onChange={vi.fn()}
+        onExtraNoteChange={onExtraNoteChange}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Nassauger entfernen' }))
+    expect(onExtraNoteChange).toHaveBeenCalledWith('')
+  })
+
+  it('keeps free text for something that is in no catalogue at all', async () => {
+    const onExtraNoteChange = vi.fn()
+    renderWithIntl(
+      <FeldMaterialChecklist
+        rows={[]}
+        extraNote="Nassauger"
         suggestions={['Nassauger']}
         onChange={vi.fn()}
         onExtraNoteChange={onExtraNoteChange}
       />,
     )
 
-    await user.click(screen.getByLabelText('Weiteres gebrauchtes Material'))
-    await user.click(await screen.findByText('Nassauger'))
-
-    expect(onExtraNoteChange).toHaveBeenCalledWith('geliehene Tauchpumpe, Nassauger')
+    // A crew that borrowed the neighbouring brigade's pump has to be able to
+    // write it — the catalogue is a naming aid, not the vocabulary.
+    await userEvent.type(screen.getByLabelText('Weiteres gebrauchtes Material'), 'P')
+    expect(onExtraNoteChange).toHaveBeenLastCalledWith('Nassauger, P')
   })
 
-  it('accepts a name that is in no catalogue at all', async () => {
-    const user = userEvent.setup()
-    const onExtraNoteChange = vi.fn()
+  it('separates the picked catalogue names from the typed ones', () => {
     renderWithIntl(
       <FeldMaterialChecklist
         rows={[]}
-        extraNote=""
+        extraNote="Nassauger, Pumpe vom Nachbarzug"
         suggestions={['Nassauger']}
-        onChange={vi.fn()}
-        onExtraNoteChange={onExtraNoteChange}
-      />,
-    )
-
-    const input = screen.getByLabelText('Weiteres gebrauchtes Material')
-    await user.type(input, 'Z')
-    // No match, and the field neither clears nor complains: free text is the
-    // data model, the list is only a spelling aid.
-    expect(onExtraNoteChange).toHaveBeenCalledWith('Z')
-    expect(screen.getByText('Nicht dabei? Einfach tippen – jeder Text ist gültig.')).toBeInTheDocument()
-  })
-
-  it('leaves Enter to the free text until an arrow key points at a row', async () => {
-    const user = userEvent.setup()
-    const onExtraNoteChange = vi.fn()
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraNote=""
-        suggestions={['Motorsäge', 'Nassauger']}
-        onChange={vi.fn()}
-        onExtraNoteChange={onExtraNoteChange}
-      />,
-    )
-
-    const input = screen.getByLabelText('Weiteres gebrauchtes Material')
-    await user.click(input)
-    await user.keyboard('{Enter}')
-    expect(onExtraNoteChange).not.toHaveBeenCalled()
-
-    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}')
-    expect(onExtraNoteChange).toHaveBeenCalledWith('Nassauger')
-  })
-
-  it('is a plain text field when there is nothing to suggest', async () => {
-    const user = userEvent.setup()
-    renderWithIntl(
-      <FeldMaterialChecklist
-        rows={[]}
-        extraNote=""
         onChange={vi.fn()}
         onExtraNoteChange={vi.fn()}
       />,
     )
 
-    const input = screen.getByLabelText('Weiteres gebrauchtes Material')
-    expect(input).not.toHaveAttribute('role', 'combobox')
-    expect(screen.queryByRole('button', { name: 'Materialliste anzeigen' })).toBeNull()
-    await user.click(input)
-    expect(screen.queryByText('Nicht dabei? Einfach tippen – jeder Text ist gültig.')).toBeNull()
+    // The stored string is the single source of truth and comes back apart into
+    // the same two controls on the next phone.
+    expect(screen.getByRole('button', { name: 'Nassauger entfernen' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Weiteres gebrauchtes Material')).toHaveValue('Pumpe vom Nachbarzug')
+  })
+
+  it('is a plain text field when there is nothing to suggest', () => {
+    renderWithIntl(
+      <FeldMaterialChecklist rows={[]} extraNote="" onChange={vi.fn()} onExtraNoteChange={vi.fn()} />,
+    )
+
+    expect(screen.getByLabelText('Weiteres gebrauchtes Material')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Nassauger/ })).toBeNull()
   })
 })

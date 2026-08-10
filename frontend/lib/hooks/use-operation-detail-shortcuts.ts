@@ -284,6 +284,16 @@ export function resolveArrowTabStep(event: Pick<KeyboardEvent, "key" | "target" 
  * parks focus on the dialog shell (an ancestor of our root) the moment it
  * opens, and a keystroke from there is still a keystroke in the modal.
  *
+ * **The panel is the same rule, not a weaker one.** It traps nothing: the board
+ * behind it is live and Chrome spends an unclaimed ← / → scrolling
+ * `#kanban-main` sideways, which is real behaviour worth keeping. So the panel
+ * gets the keystroke on exactly the same terms as the modal — the event has to
+ * come from inside it — and the panel earns that by taking focus when it is
+ * touched (`focusPanelRoot` in `operation-detail-content.tsx`). Touch the board
+ * again, anywhere, and the arrows go back to scrolling it. What must NOT happen
+ * here is a "nobody has focus, so it is probably the panel" fallback: that would
+ * silently delete the board's own arrow keys for as long as a card is selected.
+ *
  * No wrap-around at the ends. → on the last tab does nothing, which reads as
  * "that is the end" rather than teleporting the operator back to the first.
  */

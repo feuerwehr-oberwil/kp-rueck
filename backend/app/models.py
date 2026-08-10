@@ -371,6 +371,12 @@ class Incident(Base):
     # Kept as its own flag rather than derived, because "nobody filed" and
     # "somebody started and walked away" are different states on the board.
     has_schadenplatz_rapport_draft: bool
+    # Has this incident ever been disponiert (reached `enroute` or anything past
+    # it)? Answered from `status_transitions`, batched for the whole board — see
+    # `services.incident_dispatch`. It is what decides whether the
+    # Schadenplatz-Rapport exists for this card at all: a Schadenplatz nobody
+    # was ever sent to has nothing to report on.
+    has_been_dispatched: bool
     # "Angekommen" from /feld. It lives on schadenplatz_reports (one row per incident),
     # so the board's list query batches it onto the incident the same way reko_arrived_at
     # is batched — the detail's "Feldmeldungen" row needs it without a second round trip.
@@ -823,11 +829,18 @@ class SchadenplatzReport(Base):
     # incident, carried over from incident_assignments on first open:
     #   {"assignment_id": ..., "material_id": ..., "name": "Tauchpumpe TP-4",
     #    "used": true, "left_on_site": false}
-    # `used` may be null (crew did not answer). This replaces both the read-only Geräte
-    # display and the paper's free-text "Material vor Ort verblieben".
+    # `used` is a plain bool, **defaulting to true** (§18.29): the unit was sent to
+    # this Schadenplatz, so "it was used" is the common case and the crew only
+    # unticks the exceptions — exactly how the vehicle list works. It used to be
+    # three-state (`null` = keine Angabe); a tri-state control was too fiddly for a
+    # thumb in the rain, and reading the answer twice ("nein" vs "nichts gesagt")
+    # was worth less than a tick that is actually hit correctly. Legacy nulls were
+    # rewritten to true by migration `f2a7c4d1e903`.
     materials_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
     # Material that was never on the board — improvised or borrowed. Free text on
-    # purpose: a catalog picker would make /feld a writer of assignments.
+    # purpose (names, never ids): the catalogue is offered as a multi-select so the
+    # crew does not spell "Tauchpumpe TP-4" from memory, but picking a name is not
+    # picking a unit and `/feld` never writes an assignment.
     extra_material_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # --- Kurzbericht (one box; the paper's Lage/Tätigkeit/Geräte are its hint) ---
@@ -835,14 +848,17 @@ class SchadenplatzReport(Base):
     handed_over_to: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # --- Eigentümer-/Halterdaten (citizen PII) ---
-    # ONE free-text box, not five columns (§18.10). The paper form has five ruled
-    # lines because paper cannot do otherwise; a phone in the rain asking for
-    # Name, Strasse, Ort, Kennzeichen and Typ in five separate inputs got four
-    # empty ones and a name. What a crew actually writes is "Fam. Meier, unten
-    # links, Tel 079 …" — and every reader of this field (PDF, xlsx, the
-    # operator) wants the same thing: whatever is known about whose property
-    # this was. Structure that nobody fills is not structure.
-    owner_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Name and phone, the two fields the incident already carries for the Melder
+    # (§18.28). §18.10 collapsed five paper columns into one free-text box, and
+    # the box was right about four of them (Strasse, Ort, Kennzeichen, Typ) and
+    # wrong about the fifth: a phone number written inside a paragraph cannot be
+    # dialled. These are deliberately the SAME two shapes as
+    # ``Incident.contact`` / ``Incident.contact_phone`` — same nullability, same
+    # column types, same "the phone is its own field so it can be a tel: link"
+    # reasoning. Everything else about the property still belongs in the
+    # Kurzbericht, which is where a crew was already writing it.
+    owner_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    owner_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # --- Mannschaft und Fahrzeuge, as the crew confirms them ---
     # The head count is a number the crew corrects; the vehicles are a checklist it
@@ -851,8 +867,12 @@ class SchadenplatzReport(Base):
     # showing one number.
     personnel_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     personnel_count_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    # Vehicle checklist, one entry per vehicle assignment, prefilled all-ticked:
-    #   {"assignment_id": ..., "vehicle_id": ..., "name": "TLF 1", "present": true}
+    # Vehicle checklist over the WHOLE fleet (§18.30), keyed on the vehicle rather
+    # than on an assignment, because a vehicle that came along without ever being
+    # on the board has no assignment to key on:
+    #   {"vehicle_id": ..., "name": "TLF 1", "present": true}
+    # The vehicles the board has assigned arrive ticked, the rest unticked; the
+    # crew ticks what also drove and unticks what did not.
     vehicles_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
     # Frozen at submit: [{"kind": "personnel", "name": ..., "from": ..., "to": ...}, ...]
     cost_snapshot_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)

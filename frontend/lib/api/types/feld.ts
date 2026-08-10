@@ -71,6 +71,12 @@ export interface ApiFeldAssignment {
   /** False once the board released the person — they may still file. */
   is_active_assignment: boolean
   rapport_state: ApiFeldRapportState
+  /**
+   * The Schadenplatz was disponiert at least once (§18.27). False means the
+   * rapport does not exist for this row — no form, no "kein Rapport" chip: a
+   * crew has nothing to file about a Schadenplatz nobody was ever sent to.
+   */
+  has_been_dispatched?: boolean
   arrived_at: string | null
   /**
    * True when the GPS automation stamped the arrival rather than the crew
@@ -163,37 +169,35 @@ export interface ApiRapportMaterialRow {
   location: string | null
   /** A consumable renders `gebraucht` only: used means gone (decision 26). */
   consumable: boolean
-  /** null = the crew did not answer. A third answer, not a false. */
-  used: boolean | null
+  /** Prefilled *true* since §18.29 — the unit was sent here. No third state. */
+  used: boolean
   left_on_site: boolean
-  /** False once the board dropped the unit; the row survives because it was answered. */
+  /** False once the board dropped the unit; the row survives because the crew contradicted it. */
   on_board: boolean
 }
 
 export interface ApiRapportMaterialUpdate {
   assignment_id: string
-  used: boolean | null
+  used: boolean
   left_on_site: boolean
 }
 
 /**
- * One vehicle on the confirmation list — the crew ticks off which of the
- * board's vehicles were actually there. Keyed on the **assignment** for the
- * same reason the material rows are: the board's own row is what a later
- * correction is matched against.
+ * One vehicle on the confirmation list — **the whole fleet** since §18.30, with
+ * the board's assigned vehicles ticked. A vehicle that came along without ever
+ * being dispatched has no assignment, so the row is keyed on the vehicle.
  */
 export interface ApiRapportVehicleRow {
-  assignment_id: string
-  vehicle_id: string | null
+  vehicle_id: string
   name: string
-  /** "war dabei". Prefilled true — the board's list is the starting point. */
+  /** "war dabei". Prefilled from the board: ticked when it was assigned. */
   present: boolean
-  /** False once the board dropped the vehicle; the row survives because it was answered. */
+  /** True when the board has (or had) this vehicle on the incident. */
   on_board: boolean
 }
 
 export interface ApiRapportVehicleUpdate {
-  assignment_id: string
+  vehicle_id: string
   present: boolean
 }
 
@@ -210,16 +214,16 @@ export interface ApiRapportPrefill {
   incident_ref: string
   leader_personnel_id: string | null
   leader_name: string | null
-  /** "Melder übernehmen": one tap PREFILLS the owner free text with these,
-   *  as lines. Copies, never equates — Melder ≠ Eigentümer. */
+  /** "Melder übernehmen": one tap PREFILLS the two owner inputs with these.
+   *  Copies, never equates — Melder ≠ Eigentümer. */
   melder_name: string | null
-  melder_street: string | null
-  melder_city: string | null
+  melder_phone: string | null
   board_personnel_count: number
   /**
-   * Known material names from the catalogue, offered as suggestions under
-   * "Weiteres Material". Names only, deliberately no ids: this is a spelling
-   * aid, and `/feld` must not become a writer of assignments (decision 18).
+   * Known material names from the catalogue, offered as a multi-select under
+   * "Weiteres Material". Names only, deliberately no ids: picking a name is not
+   * picking a unit, and `/feld` must not become a writer of assignments
+   * (decision 18).
    */
   material_name_suggestions: string[]
 }
@@ -241,8 +245,9 @@ export interface ApiSchadenplatzRapport {
   extra_material_note: string | null
   kurzbericht: string | null
   handed_over_to: string | null
-  /** ONE free-text block since §18.10 — see the model for why the five went. */
-  owner_note: string | null
+  /** Name + Telefon since §18.28 — the pair the incident carries for the Melder. */
+  owner_name: string | null
+  owner_phone: string | null
   personnel_count: number | null
   personnel_count_corrected: boolean
   /** Frozen at submit; null while the rapport is a draft. */
@@ -270,7 +275,8 @@ export interface ApiRapportUpdate {
   extra_material_note?: string | null
   kurzbericht?: string | null
   handed_over_to?: string | null
-  owner_note?: string | null
+  owner_name?: string | null
+  owner_phone?: string | null
   personnel_count?: number | null
 }
 
@@ -333,12 +339,17 @@ export interface ApiMaterialReturnUnit {
   material_id: string | null
   name: string
   location: string | null
-  used: boolean | null
+  used: boolean
   /**
-   * Did the crew say anything about this unit? An unanswered row still lands in
-   * `returned` (its default is "not left on site"), which is right for the
-   * release list and wrong for the completion gate — that one prefills from the
-   * rapport and has to know what it still needs to ask.
+   * Did the crew settle this unit? A row nobody ticked "vor Ort verblieben" on
+   * still lands in `returned`, which is right for the release list and wrong
+   * for the completion gate — that one prefills from the rapport and has to
+   * know what it still needs to ask.
+   *
+   * Since §18.29 removed the three-state `used`, the verdict comes from the
+   * rapport rather than from the row: a **filed** rapport settled every unit on
+   * its checklist, a **draft** only the ones where the crew contradicted the
+   * prefill.
    */
   answered: boolean
 }

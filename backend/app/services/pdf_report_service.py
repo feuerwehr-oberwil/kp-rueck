@@ -127,6 +127,7 @@ LABELS: dict[str, str] = {
     "rapport_material": "Material",
     "rapport_extra_material": "Weiteres Material",
     "rapport_owner": "Eigentümer / Halter",
+    "rapport_owner_phone": "Eigentümer / Halter – Telefon",
     "rapport_pickup": "Abholung nötig",
     "rapport_filed_field": "Erfasst von {name} (Feld), {at}",
     "rapport_filed_kp": "Erfasst im KP durch {name} (Funkmeldung), {at}",
@@ -135,7 +136,6 @@ LABELS: dict[str, str] = {
     "rapport_unknown_person": "unbekannt",
     "material_used_yes": "gebraucht",
     "material_used_no": "nicht gebraucht",
-    "material_used_unknown": "keine Angabe",
     "material_left_on_site": "vor Ort verblieben",
     "material_returned": "zurück",
     "material_consumable": "Verbrauchsmaterial",
@@ -287,17 +287,17 @@ def material_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str,
     return [row for row in report.materials_json if isinstance(row, dict)]
 
 
-def material_used_label(used: bool | None) -> str:
-    """The three-state answer. ``None`` is a real answer: nobody said.
+def material_used_label(used: object) -> str:
+    """gebraucht / nicht gebraucht — two answers since §18.29.
 
-    Never collapsed to a boolean — a crew that did not answer is exactly what
-    every output has to be able to show (plan 25, decision 14).
+    "keine Angabe" is gone with the three-state control that produced it: the
+    checklist is prefilled *ja* (the unit was dispatched here) and the crew
+    unticks the exceptions, so an untouched row is the board's answer rather than
+    a silence. Legacy ``null`` in the JSONB reads as *gebraucht*, the same way
+    ``crud.feld._material_used`` reads it, so a rapport filed before the reversal
+    prints the same thing on every surface.
     """
-    if used is True:
-        return LABELS["material_used_yes"]
-    if used is False:
-        return LABELS["material_used_no"]
-    return LABELS["material_used_unknown"]
+    return LABELS["material_used_no"] if used is False else LABELS["material_used_yes"]
 
 
 def format_material_unit(row: Mapping[str, Any]) -> str:
@@ -1207,7 +1207,7 @@ def _rapport_block(
     vehicles = vehicle_present_names(report)
     flow.append(_field(LABELS["rapport_vehicles"], ", ".join(vehicles) if vehicles else LABELS["none"], styles))
 
-    # Material: one bullet per unit, three-state `gebraucht` intact, and no
+    # Material: one bullet per unit, `gebraucht` as ja/nein (§18.29), and no
     # "vor Ort verblieben" state on a consumable (decision 26).
     flow.extend(
         _bullet_field(
@@ -1224,10 +1224,13 @@ def _rapport_block(
     if report.handed_over_to:
         flow.append(_field(LABELS["rapport_handed_over"], report.handed_over_to, styles))
 
-    # One free-text block (§18.10) — printed as the crew wrote it, newlines and
-    # all, because the line breaks are the only structure it has.
-    if report.owner_note:
-        flow.append(_field(LABELS["rapport_owner"], report.owner_note, styles))
+    # Name and phone, on their own lines (§18.28). The phone is a field rather
+    # than a fragment of prose precisely so a reader can dial it — printing it
+    # inside the name line would put it back where it could not be found.
+    if report.owner_name:
+        flow.append(_field(LABELS["rapport_owner"], report.owner_name, styles))
+    if report.owner_phone:
+        flow.append(_field(LABELS["rapport_owner_phone"], report.owner_phone, styles))
 
     if inc.pickup_needed:
         note = f" ({inc.pickup_note})" if inc.pickup_note else ""

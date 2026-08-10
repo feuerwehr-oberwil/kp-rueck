@@ -929,7 +929,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
                 "Pumpe läuft über Nacht weiter."
             ),
             handed_over_to="Eigentümer Muster Hans",
-            owner_note="Muster Hans\nMusterstrasse 12, 4104 Oberwil",
+            owner_name="Muster Hans",
+            owner_phone="079 000 00 01",
             personnel_count=2,
             cost_snapshot_json=[
                 {"kind": "personnel", "name": member.name, "from": ago(150).isoformat(), "to": ago(55).isoformat()}

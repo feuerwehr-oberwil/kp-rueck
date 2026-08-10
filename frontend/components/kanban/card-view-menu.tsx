@@ -51,10 +51,14 @@ export function CardViewMenu({
           variant="ghost"
           className="px-2.5 text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
           title={t('tooltip')}
+          aria-label={t('label')}
         >
           <SlidersHorizontal className="size-3.5" />
-          <span className="text-xs">{t('label')}</span>
-          <span className="text-2xs tabular-nums text-muted-foreground/70">
+          {/* Same rule as the ToolbarToggle pills next to it: below `xl` the
+              footer is icons, because a labelled row is wider than the window
+              and a footer that cannot shrink drags the whole page sideways. */}
+          <span className="hidden text-xs xl:inline">{t('label')}</span>
+          <span className="hidden text-2xs tabular-nums text-muted-foreground/70 xl:inline">
             {preset ? t(`preset.${preset}`) : t('custom', { count: activeCount })}
           </span>
         </Button>

@@ -223,6 +223,59 @@ class TestRestliste:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_a_schadenplatz_that_was_never_disponiert_owes_no_rapport(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """§18.27 — and it leaves BOTH sides of "x von y" alone.
+
+        A card nobody was ever sent to is not a gap somebody has to close at
+        02:00. Counting it as one is how a Restliste that can never reach zero
+        gets ignored, which costs the real gaps their audience.
+        """
+        dispatched = await _incident(db_session, test_event, test_user, "Disponiert")
+        never = await _incident(db_session, test_event, test_user, "Nie")
+        never.status = "incoming"
+        await db_session.commit()
+
+        body = (await editor_client.get(f"/api/events/{test_event.id}/restliste")).json()
+
+        assert [row["incident_id"] for row in body["missing_rapport"]] == [str(dispatched.id)]
+        # The denominator counts the same population as the numerator, or the
+        # sentence quietly lies about how much is left.
+        assert body["incident_total"] == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_rapport_filed_anyway_still_shows_up_as_a_draft_gap(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # Written work always beats the gate: a draft on a card that was never
+        # disponiert is somebody who started and walked away, and hiding it
+        # would lose exactly the state the list exists to surface.
+        never = await _incident(db_session, test_event, test_user, "Nie")
+        never.status = "incoming"
+        await db_session.commit()
+        assert (
+            await editor_client.put(
+                f"/api/incidents/{never.id}/rapport",
+                json={"is_draft": True, "kurzbericht": "Angefangen"},
+            )
+        ).status_code == 200
+
+        body = (await editor_client.get(f"/api/events/{test_event.id}/restliste")).json()
+        assert [row["incident_id"] for row in body["missing_rapport"]] == [str(never.id)]
+        assert body["incident_total"] == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_an_empty_event_has_nothing_open(
         self,
         editor_client: AsyncClient,

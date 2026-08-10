@@ -577,7 +577,8 @@ class TestRapportParity:
         ("kurzbericht", "Baum auf Fahrbahn, zersägt und geräumt.", "kurzbericht"),
         ("handed_over_to", "Werkhof Oberwil", "handed_over_to"),
         ("extra_material_note", "Seil vom TLF geborgt", "extra_material_note"),
-        ("owner_note", "A. Bürgin\nHauptstrasse 4, Oberwil\nBL 12345 VW Golf", "owner_note"),
+        ("owner_name", "A. Bürgin", "owner_name"),
+        ("owner_phone", "079 111 22 33", "owner_phone"),
     ]
 
     @pytest.mark.asyncio

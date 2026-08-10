@@ -93,6 +93,10 @@ export interface ApiIncident {
    *  this; it lands with the form in phase 2). */
   has_schadenplatz_rapport?: boolean
   has_schadenplatz_rapport_draft?: boolean
+  /** The incident has been disponiert at least once — `enroute` or anything
+   *  past it, ever, not right now. False means the Schadenplatz-Rapport does
+   *  not exist for this card (§18.27). */
+  has_been_dispatched?: boolean
   /** "Abholung nötig": the crew is finished and cannot get back on its own.
    *  NOT a status, and deliberately NOT cleared when the card is completed —
    *  that transition releases the personnel while they are still standing at

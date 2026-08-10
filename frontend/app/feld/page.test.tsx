@@ -150,3 +150,63 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
   })
 })
+
+/**
+ * §18.27 — a crew cannot file a rapport about a Schadenplatz nobody was sent to.
+ *
+ * The form and the state chip both come off the same answer, so they are
+ * asserted together: a chip reading "kein Rapport" over a page with no form
+ * would be the worst of both.
+ */
+describe('/feld before the Schadenplatz was disponiert', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    getFeldPersonnel.mockResolvedValue({
+      personnel: [PERSON],
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+    })
+  })
+
+  const openDetail = async (overrides: Partial<ApiFeldAssignment>) => {
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [assignment({ incident_id: 'inc-1', ...overrides })],
+      message_chips: [],
+    })
+    setParams({ token: 'feld-token', incident_id: 'inc-1' })
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+    await user.click(await screen.findByText('Muster Hans'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Keller Wasser' })).toBeInTheDocument())
+  }
+
+  it('says why there is no form, and shows no rapport chip', async () => {
+    await openDetail({ incident_status: 'incoming', has_been_dispatched: false })
+
+    expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Ein Rapport wird erst erfasst, wenn der Schadenplatz disponiert wurde.'),
+    ).toBeInTheDocument()
+    // "kein Rapport" would read as a to-do the crew cannot do.
+    expect(screen.queryByText('kein Rapport')).not.toBeInTheDocument()
+  })
+
+  it('offers the form on a disponierter Schadenplatz', async () => {
+    await openDetail({ incident_status: 'enroute', has_been_dispatched: true })
+
+    expect(screen.getByTestId('feld-rapport-form')).toBeInTheDocument()
+    expect(screen.getAllByText('kein Rapport').length).toBeGreaterThan(0)
+  })
+
+  it('never hides a rapport that was already filed', async () => {
+    await openDetail({ incident_status: 'incoming', has_been_dispatched: false, rapport_state: 'draft' })
+
+    expect(screen.getByTestId('feld-rapport-form')).toBeInTheDocument()
+  })
+})

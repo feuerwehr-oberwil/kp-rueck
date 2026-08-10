@@ -80,7 +80,13 @@ vi.mock("@/components/location/location-input", () => ({
 }))
 vi.mock("@/components/reko/reko-report-section", () => ({ default: () => <div>Reko-Meldungen</div> }))
 vi.mock("@/components/kanban/schadenplatz-rapport-section", () => ({
-  SchadenplatzRapportSection: () => <div>Schadenplatz-Rapport-Formular</div>,
+  // `applies` is the §18.27 gate. Surfaced on the node so the detail's own
+  // tests can assert what it hands down without re-testing the section itself.
+  SchadenplatzRapportSection: ({ applies }: { applies?: boolean }) => (
+    <div data-testid="rapport-section" data-applies={String(applies)}>
+      Schadenplatz-Rapport-Formular
+    </div>
+  ),
 }))
 vi.mock("@/components/incidents/transfer-incident-dialog", () => ({
   TransferIncidentDialog: ({ open, onTransfer }: { open: boolean; onTransfer: (id: string) => Promise<void> }) =>
@@ -421,6 +427,100 @@ describe("OperationDetailContent", () => {
     expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
   }, 20_000)
 
+  it("walks the tabs with the arrow keys in the SIDE PANEL too, without taking the board's", async () => {
+    renderWithIntl(
+      <OperationDetailContent operation={operation} layout="panel" materials={[]} onUpdate={vi.fn()} />,
+    )
+
+    // The panel traps no focus and the kanban card that opened it is not
+    // focusable, so nothing would put the keyboard in here on its own. The root
+    // is a focus sink for exactly that reason — without it every arrow goes to
+    // the board's horizontal scroll and the tabs are unreachable.
+    const root = screen.getByTestId("operation-detail-content")
+    await waitFor(() => expect(document.activeElement).toBe(root))
+
+    fireEvent.keyDown(root, { key: "ArrowRight" })
+    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+    fireEvent.keyDown(root, { key: "ArrowRight" })
+    await waitFor(() => expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true"))
+    // Same no-wrap rule as the modal.
+    fireEvent.keyDown(root, { key: "ArrowRight" })
+    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    fireEvent.keyDown(root, { key: "ArrowLeft" })
+    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+
+    // …and from a control inside the panel, not just from the root.
+    const whatsapp = screen.getByRole("button", { name: "WhatsApp kopieren" })
+    whatsapp.focus()
+    fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
+    await waitFor(() => expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true"))
+
+    // The board behind the panel is still live and Chrome spends an unclaimed
+    // arrow scrolling it sideways. A keystroke from OUTSIDE the panel is the
+    // board's, and the modal's "an ancestor counts" exception must not leak
+    // here — <body> contains the panel, and honouring that would silently
+    // delete the board's own arrow keys for as long as a card is selected.
+    fireEvent.keyDown(document.body, { key: "ArrowRight" })
+    expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
+  }, 20_000)
+
+  it("offers no Schadenplatz-Rapport before the incident was disponiert", async () => {
+    const user = userEvent.setup()
+    const section = () => screen.getByTestId("rapport-section")
+
+    const { rerender } = renderWithIntl(
+      <OperationDetailContent operation={operation} layout="modal" materials={[]} onUpdate={vi.fn()} />,
+    )
+    await user.click(tab(/^Rapport/))
+    // `incoming`, never dispatched: nothing to report on.
+    expect(section()).toHaveAttribute("data-applies", "false")
+
+    // Dragged into Disponiert — the rapport exists from that moment, without
+    // waiting for the board's next refetch to bring `hasBeenDispatched` back.
+    rerender(
+      <OperationDetailContent
+        operation={{ ...operation, status: "enroute" }}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+      />,
+    )
+    expect(section()).toHaveAttribute("data-applies", "true")
+
+    // Closed again later: "ever", not "now" — most rapports are filed here.
+    rerender(
+      <OperationDetailContent
+        operation={{ ...operation, status: "complete", hasBeenDispatched: true }}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+      />,
+    )
+    expect(section()).toHaveAttribute("data-applies", "true")
+
+    // A card closed without anybody ever going out stays empty…
+    rerender(
+      <OperationDetailContent
+        operation={{ ...operation, status: "complete" }}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+      />,
+    )
+    expect(section()).toHaveAttribute("data-applies", "false")
+
+    // …unless a rapport was filed on it anyway. Written work is never hidden.
+    rerender(
+      <OperationDetailContent
+        operation={{ ...operation, status: "complete", hasSchadenplatzRapportDraft: true }}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+      />,
+    )
+    expect(section()).toHaveAttribute("data-applies", "true")
+  }, 20_000)
+
   it("reopens a Schadenplatz on the tab it was left on, per incident", async () => {
     const user = userEvent.setup()
     const render = () =>
@@ -456,6 +556,87 @@ describe("OperationDetailContent", () => {
     render()
     expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
   }, 20_000)
+
+  it("opens on the tab a notification is about, without repointing the card for good", async () => {
+    const user = userEvent.setup()
+
+    // The operator was last working in Verlauf on this card.
+    storage.set("kp-rueck:incident-detail-tabs", JSON.stringify([["incident-1", "history"]]))
+
+    // A "Rapport erfasst" notification: they clicked one specific thing.
+    const fromBell = renderWithIntl(
+      <OperationDetailContent
+        operation={operation}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+        openOnTab={{ tab: "rapport", nonce: 1 }}
+      />,
+    )
+    expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true")
+    fromBell.unmount()
+
+    // Opened by hand afterwards: still Verlauf. The notification pointed at one
+    // opening — it did not rewrite where this card lives.
+    const byHand = renderWithIntl(
+      <OperationDetailContent operation={operation} layout="modal" materials={[]} onUpdate={vi.fn()} />,
+    )
+    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+    // …and a tab the operator picks themselves IS remembered, as before.
+    await user.click(tab("Übersicht"))
+    byHand.unmount()
+
+    renderWithIntl(
+      <OperationDetailContent operation={operation} layout="modal" materials={[]} onUpdate={vi.fn()} />,
+    )
+    expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
+  }, 20_000)
+
+  it("brings the tab forward again when the same notification is clicked twice", async () => {
+    const user = userEvent.setup()
+
+    const { rerender } = renderWithIntl(
+      <OperationDetailContent
+        operation={operation}
+        layout="panel"
+        materials={[]}
+        onUpdate={vi.fn()}
+        openOnTab={{ tab: "rapport", nonce: 1 }}
+      />,
+    )
+    expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true")
+
+    // The operator wanders off to Verlauf; the panel stays mounted because the
+    // incident has not changed.
+    await user.click(tab("Verlauf"))
+    expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
+
+    rerender(
+      <OperationDetailContent
+        operation={operation}
+        layout="panel"
+        materials={[]}
+        onUpdate={vi.fn()}
+        openOnTab={{ tab: "rapport", nonce: 2 }}
+      />,
+    )
+    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+  }, 20_000)
+
+  it("falls back to Übersicht when a notification names a tab this detail has not got", () => {
+    renderWithIntl(
+      <OperationDetailContent
+        operation={operation}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+        openOnTab={{ tab: "resources" as never, nonce: 1 }}
+      />,
+    )
+
+    // Never an empty shell: the tab has to be one this detail actually renders.
+    expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
+  })
 
   it("falls back to Übersicht when the remembered tab is one that no longer exists", () => {
     // «Ressourcen» was a tab until it was folded into Übersicht. A stored value

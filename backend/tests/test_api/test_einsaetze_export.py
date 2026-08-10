@@ -93,7 +93,7 @@ class TestEinsaetzeExportSuccess:
                 kurzbericht="Baum von der Fahrbahn geräumt.",
                 materials_json=[
                     {"assignment_id": str(uuid4()), "name": "Motorsäge", "used": True, "left_on_site": False},
-                    {"assignment_id": str(uuid4()), "name": "Beleuchtung", "used": None, "left_on_site": False},
+                    {"assignment_id": str(uuid4()), "name": "Beleuchtung", "used": False, "left_on_site": False},
                 ],
                 is_draft=False,
                 submitted_at=datetime(2026, 6, 1, 12, 32, tzinfo=UTC),
@@ -113,7 +113,7 @@ class TestEinsaetzeExportSuccess:
         assert row["Dauer"] == "1:40"
         assert row["Kurzbericht"] == "Baum von der Fahrbahn geräumt."
         assert "Motorsäge: gebraucht" in row["Material gebraucht"]
-        assert "Beleuchtung: keine Angabe" in row["Material gebraucht"]
+        assert "Beleuchtung: nicht gebraucht" in row["Material gebraucht"]
         assert f"Erfasst von {test_personnel.name} (Feld)" in row["Erfasst von"]
 
     @pytest.mark.asyncio

@@ -319,7 +319,7 @@ describe("the material gate takes the crew's word for it", () => {
     // to "not left on site". Treating that as an answer would put words in the
     // crew's mouth about a unit it never saw.
     getRapportMaterialReturn.mockResolvedValue(rapport({
-      returned: [unit("pumpe"), unit("leiter", { answered: false, used: null })],
+      returned: [unit("pumpe"), unit("leiter", { answered: false })],
       rapport_by: "Muster Hans",
     }))
     const { result } = renderWorkflow(operation({ status: "returning", materials: ["pumpe", "leiter"] }))
@@ -399,10 +399,11 @@ describe("the material gate takes the crew's word for it", () => {
     // The bug: a crew fills the checklist on /feld and never presses "Rapport
     // abschliessen" — on a phone, in the rain, that is the normal case. The
     // gate used to throw those answers away and ask the operator from scratch.
-    // `used: null` next to `left_on_site: true` is the crew answering where a
-    // unit stays and not whether it was used; it is an answer, not a blank.
+    // `left_on_site: true` is the crew saying where a unit stays; since §18.29
+    // `used` has no third value, so an answered draft row is one that
+    // contradicts the prefill.
     getRapportMaterialReturn.mockResolvedValue(rapport({
-      left_on_site: [unit("pumpe", { used: null, answered: true })],
+      left_on_site: [unit("pumpe", { answered: true })],
       rapport_by: "Muster Hans",
       rapport_is_draft: true,
     }))

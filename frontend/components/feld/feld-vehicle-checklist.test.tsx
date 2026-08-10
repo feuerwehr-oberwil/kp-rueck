@@ -8,7 +8,6 @@ import { FeldVehicleChecklist } from '@/components/feld/feld-vehicle-checklist'
 
 function vehicle(overrides: Partial<ApiRapportVehicleRow> = {}): ApiRapportVehicleRow {
   return {
-    assignment_id: 'v1',
     vehicle_id: 'f1',
     name: 'TLF Oberwil',
     present: true,
@@ -18,27 +17,42 @@ function vehicle(overrides: Partial<ApiRapportVehicleRow> = {}): ApiRapportVehic
 }
 
 describe('FeldVehicleChecklist', () => {
-  it('lists the board vehicles all-ticked', () => {
+  it('lists the dispatched vehicles ticked and the rest of the fleet unticked', () => {
+    // §18.30: the whole fleet, because the board is behind reality in both
+    // directions on a storm night.
     renderWithIntl(
       <FeldVehicleChecklist
-        rows={[vehicle(), vehicle({ assignment_id: 'v2', name: 'MTW Oberwil' })]}
+        rows={[
+          vehicle(),
+          vehicle({ vehicle_id: 'f2', name: 'ADL Oberwil', present: false, on_board: false }),
+        ]}
         onChange={vi.fn()}
       />,
     )
 
-    const tlf = screen.getByRole('checkbox', { name: /TLF Oberwil/ })
-    const mtw = screen.getByRole('checkbox', { name: /MTW Oberwil/ })
-    // The board's list is the starting point — the crew strikes out what did
-    // not roll, it does not retype the fleet.
-    expect(tlf).toBeChecked()
-    expect(mtw).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /ADL Oberwil/ })).not.toBeChecked()
+  })
+
+  it('lets the crew tick a vehicle the board never sent', async () => {
+    const onChange = vi.fn()
+    renderWithIntl(
+      <FeldVehicleChecklist
+        rows={[vehicle({ vehicle_id: 'f2', name: 'ADL Oberwil', present: false, on_board: false })]}
+        onChange={onChange}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /ADL Oberwil/ }))
+
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ vehicle_id: 'f2', present: true })])
   })
 
   it('unticks exactly the row that was clicked', async () => {
     const onChange = vi.fn()
     renderWithIntl(
       <FeldVehicleChecklist
-        rows={[vehicle(), vehicle({ assignment_id: 'v2', name: 'MTW Oberwil' })]}
+        rows={[vehicle(), vehicle({ vehicle_id: 'f2', name: 'MTW Oberwil' })]}
         onChange={onChange}
       />,
     )
@@ -46,21 +60,26 @@ describe('FeldVehicleChecklist', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /TLF Oberwil/ }))
 
     expect(onChange).toHaveBeenCalledWith([
-      expect.objectContaining({ assignment_id: 'v1', present: false }),
-      expect.objectContaining({ assignment_id: 'v2', present: true }),
+      expect.objectContaining({ vehicle_id: 'f1', present: false }),
+      expect.objectContaining({ vehicle_id: 'f2', present: true }),
     ])
   })
 
-  it('keeps a vehicle the board dropped, marked as such', () => {
+  it('marks which rows the board actually dispatched', () => {
     renderWithIntl(
-      <FeldVehicleChecklist rows={[vehicle({ on_board: false })]} onChange={vi.fn()} />,
+      <FeldVehicleChecklist
+        rows={[vehicle(), vehicle({ vehicle_id: 'f2', name: 'ADL', present: false, on_board: false })]}
+        onChange={vi.fn()}
+      />,
     )
-    expect(screen.getByText('Nicht mehr zugeteilt')).toBeInTheDocument()
+    // One badge, on the dispatched row only — otherwise the list reads as a
+    // fleet inventory and the crew cannot see what it is correcting.
+    expect(screen.getAllByText('disponiert')).toHaveLength(1)
   })
 
-  it('says so when the incident has no vehicle at all', () => {
+  it('says so when there is no fleet at all', () => {
     renderWithIntl(<FeldVehicleChecklist rows={[]} onChange={vi.fn()} />)
-    expect(screen.getByText(/Kein Fahrzeug erfasst/)).toBeInTheDocument()
+    expect(screen.getByText(/Keine Fahrzeuge erfasst/)).toBeInTheDocument()
   })
 
   it('does not offer a tick to a read-only mount', () => {

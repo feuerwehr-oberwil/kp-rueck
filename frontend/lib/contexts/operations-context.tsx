@@ -129,6 +129,11 @@ export interface Operation {
    *  away. Mutually exclusive with the flag above; the detail's Rapport tab
    *  tells the two apart because at 02:00 they read very differently. */
   hasSchadenplatzRapportDraft?: boolean
+  /** The incident has been disponiert at least once — ever, not right now
+   *  (§18.27). It is what decides whether the Schadenplatz-Rapport exists for
+   *  this card; read it through `rapportApplies` in `lib/rapport-visibility`,
+   *  never on its own, so an already-filed rapport can never be hidden. */
+  hasBeenDispatched?: boolean
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
   /** Name of the crew member marked Einsatzleiter for THIS incident, or null.
@@ -460,6 +465,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       pickupRequestedBy: incident.pickup_requested_by ?? null,
       hasSchadenplatzRapport: incident.has_schadenplatz_rapport ?? false,
       hasSchadenplatzRapportDraft: incident.has_schadenplatz_rapport_draft ?? false,
+      hasBeenDispatched: incident.has_been_dispatched ?? false,
       rekoSummary: null,
       assignedReko: null,
       leaderName: null,

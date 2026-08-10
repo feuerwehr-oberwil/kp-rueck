@@ -1062,19 +1062,24 @@ class TestRapport:
         await db.refresh(material)
         return material
 
-    async def _assign_vehicle(self, db: AsyncSession, incident: Incident, name: str) -> IncidentAssignment:
+    async def _vehicle(self, db: AsyncSession, name: str) -> Vehicle:
         vehicle = Vehicle(id=uuid4(), name=name, type="TLF", status="available")
         db.add(vehicle)
         await db.commit()
-        assignment = IncidentAssignment(
-            incident_id=incident.id,
-            resource_type="vehicle",
-            resource_id=vehicle.id,
+        await db.refresh(vehicle)
+        return vehicle
+
+    async def _assign_vehicle(self, db: AsyncSession, incident: Incident, name: str) -> Vehicle:
+        vehicle = await self._vehicle(db, name)
+        db.add(
+            IncidentAssignment(
+                incident_id=incident.id,
+                resource_type="vehicle",
+                resource_id=vehicle.id,
+            )
         )
-        db.add(assignment)
         await db.commit()
-        await db.refresh(assignment)
-        return assignment
+        return vehicle
 
     async def _assign_material(self, db: AsyncSession, incident: Incident, material: Material) -> IncidentAssignment:
         assignment = IncidentAssignment(
@@ -1264,16 +1269,22 @@ class TestRapport:
         test_event: Event,
         test_user: User,
     ):
-        # The crew confirms WHICH vehicles, not how many. The board's answer is
-        # already in the list, so the only thing the crew can add is a No.
+        # The crew confirms WHICH vehicles, not how many. The whole fleet is on
+        # the list since §18.30: the assigned ones ticked, the rest tickable,
+        # because the board is behind reality in both directions.
         incident, person, token = await self._setup(db_session, test_event, test_user)
         params = {"token": token, "personnel_id": str(person.id)}
         tlf = await self._assign_vehicle(db_session, incident, "TLF 1")
         mtw = await self._assign_vehicle(db_session, incident, "MTW")
+        adl = await self._vehicle(db_session, "ADL")
 
         opened = await client.get(f"/api/feld/incidents/{incident.id}/rapport", params=params)
         assert opened.status_code == 200
-        assert {row["name"]: row["present"] for row in opened.json()["vehicles"]} == {"TLF 1": True, "MTW": True}
+        assert {row["name"]: row["present"] for row in opened.json()["vehicles"]} == {
+            "TLF 1": True,
+            "MTW": True,
+            "ADL": False,
+        }
 
         saved = await client.put(
             f"/api/feld/incidents/{incident.id}/rapport",
@@ -1281,13 +1292,22 @@ class TestRapport:
             json={
                 "is_draft": True,
                 "vehicles": [
-                    {"assignment_id": str(tlf.id), "present": True},
-                    {"assignment_id": str(mtw.id), "present": False},
+                    {"vehicle_id": str(tlf.id), "present": True},
+                    {"vehicle_id": str(mtw.id), "present": False},
+                    # Came along without ever being dispatched.
+                    {"vehicle_id": str(adl.id), "present": True},
                 ],
             },
         )
         assert saved.status_code == 200
-        assert {row["name"]: row["present"] for row in saved.json()["vehicles"]} == {"TLF 1": True, "MTW": False}
+        assert {row["name"]: row["present"] for row in saved.json()["vehicles"]} == {
+            "TLF 1": True,
+            "MTW": False,
+            "ADL": True,
+        }
+        # Ticking is not assigning — `/feld` never writes an assignment.
+        rows = {row["name"]: row for row in saved.json()["vehicles"]}
+        assert rows["ADL"]["on_board"] is False
 
     @pytest.mark.asyncio
     @pytest.mark.api
@@ -1330,14 +1350,14 @@ class TestRapport:
             params={"token": token, "personnel_id": str(person.id)},
             json={
                 "is_draft": True,
-                "owner_note": "A. Bürgin\nHauptstrasse 4, Oberwil\nBL 12345 VW Golf",
+                "owner_name": "A. Bürgin",
+                "owner_phone": "079 111 22 33",
             },
         )
         assert response.status_code == 200
         report = (await db_session.execute(select(SchadenplatzReport))).scalars().one()
-        assert report.owner_note is not None
-        assert report.owner_note.startswith("A. Bürgin")
-        assert "BL 12345" in report.owner_note
+        assert report.owner_name == "A. Bürgin"
+        assert report.owner_phone == "079 111 22 33"
 
     @pytest.mark.asyncio
     @pytest.mark.api

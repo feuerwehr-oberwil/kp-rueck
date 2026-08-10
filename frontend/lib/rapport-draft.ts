@@ -22,7 +22,8 @@ export interface RapportFormData {
   extra_material_note: string
   kurzbericht: string
   handed_over_to: string
-  owner_note: string
+  owner_name: string
+  owner_phone: string
   personnel_count: number | null
 }
 
@@ -32,7 +33,8 @@ export const EMPTY_RAPPORT_FORM: RapportFormData = {
   extra_material_note: '',
   kurzbericht: '',
   handed_over_to: '',
-  owner_note: '',
+  owner_name: '',
+  owner_phone: '',
   personnel_count: null,
 }
 
@@ -44,7 +46,8 @@ export function toFormData(rapport: ApiSchadenplatzRapport): RapportFormData {
     extra_material_note: rapport.extra_material_note ?? '',
     kurzbericht: rapport.kurzbericht ?? '',
     handed_over_to: rapport.handed_over_to ?? '',
-    owner_note: rapport.owner_note ?? '',
+    owner_name: rapport.owner_name ?? '',
+    owner_phone: rapport.owner_phone ?? '',
     personnel_count: rapport.personnel_count,
   }
 }
@@ -53,18 +56,20 @@ export function toFormData(rapport: ApiSchadenplatzRapport): RapportFormData {
 export function hasContent(form: RapportFormData): boolean {
   // Every field is read defensively: this also runs against whatever a phone
   // put in localStorage weeks ago, and the form has already lost a Schadensart,
-  // a vehicle count and five owner inputs. A draft from an older shape must
-  // open as an empty form, never as "Rapport konnte nicht geladen werden".
+  // a vehicle count, five owner inputs and a free-text owner box. A draft from
+  // an older shape must open as an empty form, never as "Rapport konnte nicht
+  // geladen werden".
   const text = (value: string | null | undefined): string => (value ?? '').trim()
   return Boolean(
     text(form.kurzbericht) ||
       text(form.handed_over_to) ||
       text(form.extra_material_note) ||
-      text(form.owner_note) ||
-      (form.materials ?? []).some(row => row.used !== null || row.left_on_site) ||
-      // The vehicle list arrives all-ticked, so only an UNticked row is
-      // evidence that somebody answered it.
-      (form.vehicles ?? []).some(row => !row.present),
+      text(form.owner_name) ||
+      text(form.owner_phone) ||
+      // Both lists arrive prefilled from the board, so only a tick that
+      // CONTRADICTS the prefill is evidence that somebody answered.
+      (form.materials ?? []).some(row => row.used === false || row.left_on_site) ||
+      (form.vehicles ?? []).some(row => row.present !== row.on_board),
   )
 }
 
@@ -115,9 +120,9 @@ export function mergeVehicleTicks(
   serverRows: ApiRapportVehicleRow[],
   localRows: ApiRapportVehicleRow[],
 ): ApiRapportVehicleRow[] {
-  const local = new Map(localRows.map(row => [row.assignment_id, row]))
+  const local = new Map(localRows.map(row => [row.vehicle_id, row]))
   return serverRows.map(row => {
-    const draft = local.get(row.assignment_id)
+    const draft = local.get(row.vehicle_id)
     return draft ? { ...row, present: draft.present } : row
   })
 }
@@ -164,13 +169,14 @@ export function toUpdate(form: RapportFormData, isDraft: boolean): ApiRapportUpd
       left_on_site: row.left_on_site,
     })),
     vehicles: form.vehicles.map(row => ({
-      assignment_id: row.assignment_id,
+      vehicle_id: row.vehicle_id,
       present: row.present,
     })),
     extra_material_note: text(form.extra_material_note),
     kurzbericht: text(form.kurzbericht),
     handed_over_to: text(form.handed_over_to),
-    owner_note: text(form.owner_note),
+    owner_name: text(form.owner_name),
+    owner_phone: text(form.owner_phone),
     personnel_count: form.personnel_count,
   }
 }
@@ -202,4 +208,51 @@ export function groupMaterialsByLocation(rows: ApiRapportMaterialRow[]): Materia
     }
   }
   return groups
+}
+
+/**
+ * "Weiteres gebrauchtes Material" — one stored string, two controls (§18.31).
+ *
+ * The field is still a comma-separated list of **names** and nothing else: no
+ * id travels with a pick, and `/feld` still never writes an assignment
+ * (decision 18). What changed is the control — a multi-select over the material
+ * catalogue, the same tick-a-row shape the app uses for picking people — plus a
+ * free-text line for a pump borrowed from the neighbouring brigade, which is in
+ * no catalogue and has to stay writable.
+ *
+ * The split lives here rather than in the component because it is the one rule
+ * that has to round-trip: whatever the two controls produce must parse back into
+ * the same two controls when the form reloads on another phone.
+ */
+export interface ExtraMaterialSelection {
+  /** Segments that match a catalogue entry, in the catalogue's own spelling. */
+  picked: string[]
+  /** Everything else, comma-joined and left exactly as it was typed. */
+  freeText: string
+}
+
+export function parseExtraMaterial(value: string, catalogue: string[]): ExtraMaterialSelection {
+  // Case-insensitive, because a crew types "tauchpumpe tp-4" and means the unit
+  // on the shelf. The canonical spelling wins so the chip and the catalogue row
+  // read the same.
+  const canonical = new Map(catalogue.map(name => [name.trim().toLowerCase(), name]))
+  const picked: string[] = []
+  const free: string[] = []
+  for (const raw of value.split(',')) {
+    const segment = raw.trim()
+    if (!segment) continue
+    const match = canonical.get(segment.toLowerCase())
+    if (match && !picked.includes(match)) picked.push(match)
+    else if (match) continue
+    else free.push(segment)
+  }
+  return { picked, freeText: free.join(', ') }
+}
+
+export function formatExtraMaterial(picked: string[], freeText: string): string {
+  const free = freeText
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+  return [...picked, ...free].join(', ')
 }

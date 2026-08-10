@@ -18397,6 +18397,11 @@
             "title": "Rapport State",
             "default": "none"
           },
+          "has_been_dispatched": {
+            "type": "boolean",
+            "title": "Has Been Dispatched",
+            "default": false
+          },
           "arrived_at": {
             "anyOf": [
               {
@@ -20114,6 +20119,11 @@
           "has_schadenplatz_rapport_draft": {
             "type": "boolean",
             "title": "Has Schadenplatz Rapport Draft",
+            "default": false
+          },
+          "has_been_dispatched": {
+            "type": "boolean",
+            "title": "Has Been Dispatched",
             "default": false
           },
           "pickup_needed": {
@@ -22808,15 +22818,9 @@
             "default": false
           },
           "used": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Used"
+            "type": "boolean",
+            "title": "Used",
+            "default": true
           },
           "left_on_site": {
             "type": "boolean",
@@ -22836,7 +22840,7 @@
           "name"
         ],
         "title": "RapportMaterialRow",
-        "description": "One material unit on the checklist (decision 14).\n\nKeyed on the **assignment**, not the material: the same pump assigned twice\nis two units on the slip, and the assignment id is also what the board's\n\"Material zurück – freigeben\" list releases against.\n\n``used`` is nullable on purpose — \"die Crew hat nicht geantwortet\" is a third\nanswer and every output has to be able to show it. ``left_on_site`` is a\nplain bool: not answering it means the unit came back."
+        "description": "One material unit on the checklist (decision 14).\n\nKeyed on the **assignment**, not the material: the same pump assigned twice\nis two units on the slip, and the assignment id is also what the board's\n\"Material zurück – freigeben\" list releases against.\n\n``used`` is a plain bool defaulting to **true** (§18.29). It used to be\nnullable, with `null` meaning \"die Crew hat nicht geantwortet\"; a three-state\ncontrol is too fiddly for a thumb on a phone, and the unit was sent to this\nSchadenplatz in the first place — \"gebraucht\" is the common case and the crew\nonly unticks the exceptions, exactly like the vehicle list. ``left_on_site``\nis likewise a plain bool: not ticking it means the unit came back."
       },
       "RapportMaterialUpdate": {
         "properties": {
@@ -22846,15 +22850,9 @@
             "title": "Assignment Id"
           },
           "used": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Used"
+            "type": "boolean",
+            "title": "Used",
+            "default": true
           },
           "left_on_site": {
             "type": "boolean",
@@ -22954,7 +22952,7 @@
             ],
             "title": "Melder Name"
           },
-          "melder_street": {
+          "melder_phone": {
             "anyOf": [
               {
                 "type": "string"
@@ -22963,18 +22961,7 @@
                 "type": "null"
               }
             ],
-            "title": "Melder Street"
-          },
-          "melder_city": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Melder City"
+            "title": "Melder Phone"
           },
           "board_personnel_count": {
             "type": "integer",
@@ -23068,17 +23055,29 @@
             ],
             "title": "Handed Over To"
           },
-          "owner_note": {
+          "owner_name": {
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 2000
+                "maxLength": 200
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Owner Note"
+            "title": "Owner Name"
+          },
+          "owner_phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Phone"
           },
           "personnel_count": {
             "anyOf": [
@@ -23100,21 +23099,9 @@
       },
       "RapportVehicleRow": {
         "properties": {
-          "assignment_id": {
+          "vehicle_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Assignment Id"
-          },
-          "vehicle_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "title": "Vehicle Id"
           },
           "name": {
@@ -23134,18 +23121,18 @@
         },
         "type": "object",
         "required": [
-          "assignment_id",
+          "vehicle_id",
           "name"
         ],
         "title": "RapportVehicleRow",
-        "description": "One vehicle on the checklist — the crew confirms *which*, not how many.\n\nDeliberately the same shape as ``RapportMaterialRow``: keyed on the\n**assignment**, prefilled ticked, and surviving with ``on_board=False`` once\nthe board takes the vehicle off an incident whose crew already answered.\n\n``present`` has no third state, unlike the material ``used``: the list is\nprefilled from the board, so an untouched row already carries the board's\nown answer and \"keine Angabe\" would only mean \"did not correct it\"."
+        "description": "One vehicle on the checklist — the crew confirms *which*, not how many.\n\n**The whole fleet, not only the assigned vehicles (§18.30).** The board is\nroutinely behind reality on a storm night: a vehicle drives along without\nanybody assigning it, and one that was assigned never rolls. So every vehicle\nthe station has gets a row, the assigned ones arrive ticked, and the crew's\njob is to correct both directions rather than to retype the fleet. Same\nreasoning as the \"Weiteres Material\" list next to it.\n\nKeyed on the **vehicle**, therefore, not on an assignment: a vehicle that was\nnever dispatched has no assignment to key on.\n\n``present`` has no third state: the list carries the board's own answer\nalready, so \"keine Angabe\" would only mean \"did not correct it\"."
       },
       "RapportVehicleUpdate": {
         "properties": {
-          "assignment_id": {
+          "vehicle_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Assignment Id"
+            "title": "Vehicle Id"
           },
           "present": {
             "type": "boolean",
@@ -23155,7 +23142,7 @@
         },
         "type": "object",
         "required": [
-          "assignment_id"
+          "vehicle_id"
         ],
         "title": "RapportVehicleUpdate",
         "description": "The one tick, as the form sends it back."
@@ -24082,7 +24069,7 @@
             ],
             "title": "Handed Over To"
           },
-          "owner_note": {
+          "owner_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -24091,7 +24078,18 @@
                 "type": "null"
               }
             ],
-            "title": "Owner Note"
+            "title": "Owner Name"
+          },
+          "owner_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Phone"
           },
           "personnel_count": {
             "anyOf": [

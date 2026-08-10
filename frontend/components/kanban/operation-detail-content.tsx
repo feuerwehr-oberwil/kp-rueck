@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -18,10 +18,12 @@ import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Pack
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { rapportApplies } from "@/lib/rapport-visibility"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import {
+  OPERATION_DETAIL_TABS,
   readRememberedTab,
   rememberDetailTab,
   useOperationDetailShortcutTabs,
@@ -61,6 +63,15 @@ export interface OperationDetailContentProps {
   operation: Operation
   layout: 'modal' | 'panel'
   active?: boolean
+  /** "Open on THIS tab" — a notification click, which is the operator pointing
+   *  at one specific thing (§18.27). It beats the remembered tab for that one
+   *  opening and is deliberately NOT written back to the memory: reopening the
+   *  card by hand later still returns to whatever tab they were working in.
+   *
+   *  Carries a `nonce` because the panel does not remount when the same
+   *  incident is opened again — clicking the same notification twice has to
+   *  bring the tab forward both times. */
+  openOnTab?: { tab: OperationDetailTab; nonce: number }
   canEdit?: boolean
   onUpdate: (updates: Partial<Operation>) => void
   onDelete?: (operationId: string) => void
@@ -84,6 +95,7 @@ export function OperationDetailContent({
   operation,
   layout,
   active = true,
+  openOnTab,
   canEdit = true,
   onUpdate,
   onDelete,
@@ -162,7 +174,14 @@ export function OperationDetailContent({
   // Reopening a Schadenplatz lands on the tab it was left on. An operator
   // working through the rapports of a storm night reopens the same card again
   // and again; sending them back to Übersicht every time is a click per visit.
-  const [tab, setTab] = useState<OperationDetailTab>(() => readRememberedTab(operation.id) ?? 'overview')
+  /** The requested tab, but only if this detail actually has it. A tab that is
+   *  not on screen for this incident would be an empty shell, and Übersicht is
+   *  always there — the honest fallback for a pointer that misses. */
+  const requestedTab =
+    openOnTab && OPERATION_DETAIL_TABS.includes(openOnTab.tab) ? openOnTab.tab : undefined
+  const [tab, setTab] = useState<OperationDetailTab>(
+    () => requestedTab ?? readRememberedTab(operation.id) ?? 'overview',
+  )
   const rootRef = useRef<HTMLDivElement>(null)
 
   /** The one way the tab changes — so nothing can move it without recording it. */
@@ -242,8 +261,24 @@ export function OperationDetailContent({
     // A different incident brings its own remembered tab, Übersicht if it has
     // none. The modal remounts by key, but the side panel keeps this component
     // alive across selections — read it here rather than trusting the mount.
-    setTab(readRememberedTab(operation.id) ?? 'overview')
+    // A notification's tab outranks the memory: the operator clicked one
+    // specific thing. `setTab`, never `selectTab` — this must not be written
+    // back, or one bell click would repoint the card for good.
+    setTab(requestedTab ?? readRememberedTab(operation.id) ?? 'overview')
+    // openOnTab is read, not depended on: it must not re-run this reset on its
+    // own — the effect below owns that, and doing it here as well would fight
+    // an operator who switched tabs after arriving.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEvent?.id, operation.id])
+
+  // A second (or third) click on the same notification. The panel keeps this
+  // component alive for the incident already on screen, so nothing above fires
+  // — and "take me to the thing you just told me about" has to work every time,
+  // not only the first. The nonce is what makes a repeat click a new event.
+  useEffect(() => {
+    if (requestedTab) setTab(requestedTab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openOnTab])
 
   // Shortcut targets that are not on screen: Shift+1/2/3 sets the priority,
   // `0` and `1`..`5` touch "zu Fuss" / the quick-assign fleet — all on
@@ -265,6 +300,61 @@ export function OperationDetailContent({
     focusTrapped: layout === 'modal',
     onFocusTab: selectTab,
   })
+
+  /**
+   * Put the keyboard inside the panel — the half of the arrow-key story a modal
+   * gets for free.
+   *
+   * The modal traps focus, so every keystroke while it is open is a keystroke
+   * in the modal. The panel traps nothing: the board behind it is live, the
+   * kanban card that opened it is not a focusable element, and most of the
+   * panel's own surface is inert text. So a click on a card — or on the panel's
+   * own heading — leaves `document.activeElement` on `<body>`, the arrow keys
+   * belong to nobody, and Chrome spends them scrolling `#kanban-main`
+   * horizontally. That is what "the arrows do not work in the panel" was.
+   *
+   * The boundary drawn here is *the surface you last touched owns the arrows*:
+   * touch the panel and it takes them, touch the board — anywhere, including
+   * empty background — and the browser has them back for scrolling. Nothing is
+   * claimed globally, and no keystroke is stolen from a control that wants it.
+   */
+  const focusPanelRoot = useCallback(() => {
+    if (layout !== 'panel') return
+    // `preventScroll`: the panel is already on screen, and scrolling its
+    // content to the top under the operator would be a worse bug than the one
+    // this fixes.
+    rootRef.current?.focus({ preventScroll: true })
+  }, [layout])
+
+  // Selecting a card IS the act of pointing at the panel — the click has no
+  // other effect. Mount-only: the panel remounts per incident (it is keyed on
+  // event + incident), and the board opens with nothing selected, so this can
+  // never fire without an operator having asked for this incident.
+  useEffect(() => {
+    focusPanelRoot()
+  }, [focusPanelRoot])
+
+  /** A click on inert panel content — a heading, a label, whitespace — would
+   *  otherwise blur to `<body>` and hand the arrows back to the board while the
+   *  operator is looking straight at the panel. Controls keep their own click:
+   *  a button, an input or anything else focusable focuses itself, and the
+   *  arrows then follow the caret rules in `resolveArrowTabStep`. */
+  const handlePanelPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (layout !== 'panel') return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        target.closest(
+          'a[href], button, input, textarea, select, [role="combobox"], [contenteditable="true"], [tabindex]:not([tabindex="-1"])',
+        )
+      ) {
+        return
+      }
+      focusPanelRoot()
+    },
+    [layout, focusPanelRoot],
+  )
 
   // Status changes, assignments and the crew's Freitext-Meldungen, fetched once
   // for the two tabs that show them: Verlauf renders all of it, Rapport renders
@@ -343,7 +433,18 @@ export function OperationDetailContent({
   const tabPanelClass = "min-h-0 flex-1 overflow-y-auto"
 
   return (
-    <div ref={rootRef} className="flex h-full min-h-0 flex-col" data-testid="operation-detail-content" data-layout={layout}>
+    <div
+      ref={rootRef}
+      // A focus sink, and only in the panel: the modal traps focus, so "inside
+      // the modal" is already everywhere. See `focusPanelRoot` above for why
+      // the panel needs one. `outline-none` because this is not a control —
+      // it holds the keyboard, it does not invite a click.
+      tabIndex={layout === 'panel' ? -1 : undefined}
+      onPointerDown={handlePanelPointerDown}
+      className={cn("flex h-full min-h-0 flex-col", layout === 'panel' && "outline-none")}
+      data-testid="operation-detail-content"
+      data-layout={layout}
+    >
         {/* Radix Tabs: the trigger list is one tab stop with arrow-key roving
             focus between the three triggers, the panel is the next. Nothing here
             overrides tabIndex, so that stays intact. The root wraps the header
@@ -1178,6 +1279,15 @@ export function OperationDetailContent({
               incidentId={operation.id}
               canEdit={canEdit}
               hasRapport={operation.hasSchadenplatzRapport}
+              // No rapport before the Schadenplatz was disponiert (§18.27).
+              // Same gate on both shapes of the detail, because it is the same
+              // component — and on the card and the Restliste through the same
+              // helper.
+              applies={rapportApplies({
+                hasBeenDispatched: operation.hasBeenDispatched,
+                status: operation.status,
+                hasReport: operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft,
+              })}
             />
           </div>
           </div>

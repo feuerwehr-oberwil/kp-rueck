@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { getActiveLocale } from '@/lib/i18n-messages'
+import { rapportApplies } from '@/lib/rapport-visibility'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 
 type ViewMode = 'list' | 'assignments' | 'detail'
@@ -98,6 +99,16 @@ function LeaderLine({
   )
 }
 
+/** Does this row owe a rapport at all? (§18.27) — the one place `/feld` asks,
+ *  so the chip and the form section can never disagree with each other. */
+function assignmentRapportApplies(assignment: ApiFeldAssignment): boolean {
+  return rapportApplies({
+    hasBeenDispatched: assignment.has_been_dispatched,
+    status: assignment.incident_status,
+    hasReport: assignment.rapport_state !== 'none',
+  })
+}
+
 function RapportStateChip({ state }: { state: ApiFeldAssignment['rapport_state'] }) {
   const t = useTranslations('feld.rapportState')
   const styles: Record<ApiFeldAssignment['rapport_state'], string> = {
@@ -137,6 +148,7 @@ function FeldSurface() {
   const tCommon = useTranslations('reko.common')
   const tStatus = useTranslations('kanban.statusLabels')
   const tPickup = useTranslations('feld.pickup')
+  const tRapport = useTranslations('feld.rapport')
 
   const [personnel, setPersonnel] = useState<ApiFeldPersonnel[]>([])
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
@@ -366,7 +378,7 @@ function FeldSurface() {
                 <button
                   key={person.personnel_id}
                   onClick={() => handleSelectPerson(person)}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors text-left"
+                  className="w-full cursor-pointer flex items-center gap-4 p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors text-left"
                 >
                   <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center bg-muted">
                     <User className="h-5 w-5 text-muted-foreground" />
@@ -414,7 +426,11 @@ function FeldSurface() {
             <section className="rounded-xl bg-secondary/50 p-4">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <h1 className="text-lg font-semibold leading-tight">{selectedAssignment.incident_title}</h1>
-                <RapportStateChip state={selectedAssignment.rapport_state} />
+                {/* No chip on a Schadenplatz nobody was ever sent to: "kein
+                    Rapport" would read as a to-do the crew cannot do. */}
+                {assignmentRapportApplies(selectedAssignment) && (
+                  <RapportStateChip state={selectedAssignment.rapport_state} />
+                )}
               </div>
               {address && (
                 <p className="flex items-start gap-1.5 text-sm text-muted-foreground mb-2">
@@ -468,7 +484,17 @@ function FeldSurface() {
             {/* Section: the Schadenplatz-Rapport itself — the paper
                 replacement. The SAME component the board's detail mounts
                 (decision 28); only the transport and the identity differ. */}
-            {token && selectedPerson && (
+            {/* Nothing was ever sent here, so there is nothing to report on
+                (§18.27). One sentence instead of a form: the crew reads why the
+                fields are missing rather than filling an empty rapport that
+                lands on the Restliste as work somebody has to check. */}
+            {token && selectedPerson && !assignmentRapportApplies(selectedAssignment) && (
+              <section className="rounded-xl bg-secondary/30 p-4">
+                <h2 className="text-sm font-medium mb-2">{t('detail.rapportTitle')}</h2>
+                <p className="text-sm text-muted-foreground">{tRapport('notDispatched')}</p>
+              </section>
+            )}
+            {token && selectedPerson && assignmentRapportApplies(selectedAssignment) && (
               <section className="rounded-xl bg-secondary/30 p-4">
                 <h2 className="text-sm font-medium mb-3">{t('detail.rapportTitle')}</h2>
                 <FeldRapportForm
@@ -573,7 +599,7 @@ function FeldSurface() {
                   setSelectedIncidentId(assignment.incident_id)
                   setViewMode('detail')
                 }}
-                className={`w-full text-left rounded-xl p-4 transition-colors ${
+                className={`w-full cursor-pointer text-left rounded-xl p-4 transition-colors ${
                   assignment.is_active_assignment
                     ? 'bg-secondary/50 hover:bg-secondary'
                     : 'bg-muted/30 hover:bg-muted/50'
@@ -591,7 +617,9 @@ function FeldSurface() {
                     briefing is one tap away and stays there. */}
                 <FeldBriefingLine assignment={assignment} />
                 <div className="flex flex-wrap items-center gap-2">
-                  <RapportStateChip state={assignment.rapport_state} />
+                  {assignmentRapportApplies(assignment) && (
+                    <RapportStateChip state={assignment.rapport_state} />
+                  )}
                   <span className="text-xs text-muted-foreground">{tStatus(assignment.incident_status)}</span>
                   {!assignment.is_active_assignment && (
                     <span className="text-xs text-muted-foreground">{t('assignments.released')}</span>

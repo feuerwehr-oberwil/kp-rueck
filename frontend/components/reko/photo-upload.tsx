@@ -308,7 +308,7 @@ export default function PhotoUpload({
                 type="button"
                 onClick={() => handleRemovePhoto(filename)}
                 disabled={disabled}
-                className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-md disabled:hidden"
+                className="absolute top-1 right-1 cursor-pointer p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-md disabled:hidden"
               >
                 <X className="h-4 w-4" />
               </button>

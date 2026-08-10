@@ -254,13 +254,15 @@ class TestCrewConfirmation:
 
 
 class TestMaterial:
-    def test_every_answer_including_keine_angabe_reaches_the_sheet(self):
+    def test_both_answers_reach_the_sheet_and_the_third_one_is_gone(self):
         event = Event(id=uuid4(), name="Sturm 2026", training_flag=False)
         incident = _incident(event, "Bahnhofstrasse 4, Oberwil")
         report = _report(
             incident.id,
             materials_json=[
                 _material("Tauchpumpe", used=True, left_on_site=True),
+                # A row written before §18.29 — it reads as *gebraucht*, never
+                # as a blank third answer.
                 _material("Nassauger", used=None),
                 _material("Schlauch", used=False),
             ],
@@ -269,8 +271,9 @@ class TestMaterial:
         row = _row(_sheet(_data(event, [incident], [report])), 2)
         used_cell = str(row["Material gebraucht"])
         assert "Tauchpumpe: gebraucht" in used_cell
-        assert "Nassauger: keine Angabe" in used_cell  # decision 14, the third answer
+        assert "Nassauger: gebraucht" in used_cell
         assert "Schlauch: nicht gebraucht" in used_cell  # decision 16, recorded not acted on
+        assert "keine Angabe" not in used_cell
         assert row["Material vor Ort verblieben"] == "Tauchpumpe"
         assert row["Weiteres Material"] == "Pumpe vom Nachbarn"
 
@@ -332,15 +335,16 @@ class TestProvenance:
 
 
 class TestOwnerBlock:
-    def test_the_owner_note_lands_in_one_column_verbatim(self):
-        """§18.8: four columns became one, and it carries the crew's text as-is.
+    def test_the_owner_name_and_phone_land_in_their_own_columns(self):
+        """§18.28: two columns for the two fields the form asks for.
 
-        Nothing re-splits it into Name/Strasse/Ort/KFZ on the way out — the form
-        asks one question, so anything else here would be the export guessing.
+        The phone gets a column of its own for the same reason it gets a field
+        of its own — whoever writes the invoices sorts and dials it, and can do
+        neither from inside a paragraph.
         """
         event = Event(id=uuid4(), name="Sturm 2026", training_flag=False)
         incident = _incident(event, "Bahnhofstrasse 4, Oberwil")
-        note = "Muster Anna\nBahnhofstrasse 4, 4104 Oberwil\nBL 123456 VW Golf"
-        report = _report(incident.id, owner_note=note)
+        report = _report(incident.id, owner_name="Muster Anna", owner_phone="079 000 00 02")
         row = _row(_sheet(_data(event, [incident], [report])), 2)
-        assert row["Eigentümer / Halter"] == note
+        assert row["Eigentümer / Halter"] == "Muster Anna"
+        assert row["Eigentümer / Halter Telefon"] == "079 000 00 02"

@@ -743,14 +743,20 @@ def _rapport(incident_id, **overrides) -> SchadenplatzReport:
 class TestRapportHelpers:
     """The pure helpers the three outputs share — exact strings, no PDF."""
 
-    def test_used_three_states_never_collapse_to_a_boolean(self):
+    def test_used_has_two_answers_and_a_legacy_null_reads_as_ja(self):
+        """§18.29 dropped "keine Angabe" with the three-state control.
+
+        A rapport filed before the reversal can still carry `null` in its JSONB;
+        it reads as *gebraucht*, the same way `crud.feld._material_used` reads
+        it, so one rapport never prints two different answers on two surfaces.
+        """
         assert material_used_label(True) == "gebraucht"
         assert material_used_label(False) == "nicht gebraucht"
-        assert material_used_label(None) == "keine Angabe"
+        assert material_used_label(None) == "gebraucht"
 
-    def test_unanswered_unit_says_keine_angabe(self):
+    def test_a_legacy_unanswered_unit_prints_as_gebraucht(self):
         line = format_material_unit(_material_row("Nassauger", used=None))
-        assert "Nassauger: keine Angabe" in line
+        assert "Nassauger: gebraucht" in line
 
     def test_consumable_carries_no_left_on_site_state(self):
         """Decision 26: a consumable that was used is gone — no third answer."""
@@ -808,13 +814,17 @@ class TestRapportInThePdf:
             arrived_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
             kurzbericht="Keller ausgepumpt.",
             handed_over_to="Hauswart",
-            owner_note="Muster Hans\nBahnhofstrasse 4, Oberwil",
+            owner_name="Muster Hans",
+            owner_phone="079 000 00 01",
         )
         text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
         assert "Schadenplatz-Rapport" in text
         assert "Keller ausgepumpt." in text
         assert "Hauswart" in text
         assert "Muster Hans" in text
+        # The phone is its own line (§18.28) — a number nobody can find is a
+        # number nobody dials.
+        assert "079 000 00 01" in text
 
     def test_taetigkeit_is_derived_for_a_rapport_that_stored_no_times(
         self, simple_event: Event, simple_incident: Incident
@@ -866,10 +876,11 @@ class TestRapportInThePdf:
         assert "TLF 1" in text
         assert "MTW" not in text
 
-    def test_unanswered_material_renders_keine_angabe(self, simple_event: Event, simple_incident: Incident):
-        report = _rapport(simple_incident.id, materials_json=[_material_row("Nassauger", used=None)])
+    def test_an_unticked_material_renders_nicht_gebraucht(self, simple_event: Event, simple_incident: Incident):
+        report = _rapport(simple_incident.id, materials_json=[_material_row("Nassauger", used=False)])
         text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
-        assert "keine Angabe" in text
+        assert "nicht gebraucht" in text
+        assert "keine Angabe" not in text
 
     def test_consumable_never_renders_a_left_on_site_state(self, simple_event: Event, simple_incident: Incident):
         report = _rapport(

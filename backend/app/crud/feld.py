@@ -39,6 +39,7 @@ from ..models import (
 )
 from ..schemas.feld import RapportUpdate
 from ..services.audit import log_action
+from ..services.incident_dispatch import dispatched_incident_ids, rapport_applies
 from ..services.incident_leader import effective_leader_id
 from ..services.notification_service import create_field_notification
 from ..services.photo_storage import photo_storage
@@ -237,6 +238,16 @@ async def get_feld_personnel_for_event(
     reports = await _rapport_states(db, incident_ids)
     submitted = {incident_id for incident_id, report in reports.items() if not report.is_draft}
 
+    # A Schadenplatz nobody was ever sent to owes no rapport, so it must not
+    # show up in the badge that tells somebody how much work is waiting for them.
+    dispatched = await dispatched_incident_ids(db, list(incidents.values()))
+    owes_rapport = {
+        incident_id
+        for incident_id in incident_ids
+        if rapport_applies(dispatched=incident_id in dispatched, has_report=incident_id in reports)
+        and incident_id not in submitted
+    }
+
     rows = [
         {
             "personnel_id": person.id,
@@ -244,7 +255,7 @@ async def get_feld_personnel_for_event(
             "role": person.role,
             "incident_count": len(ever[person.id]),
             "open_count": len(active.get(person.id, set())),
-            "missing_rapport_count": len([i for i in ever[person.id] if i not in submitted]),
+            "missing_rapport_count": len(ever[person.id] & owes_rapport),
         }
         for person in personnel
     ]
@@ -409,6 +420,9 @@ async def get_feld_assignments_for_personnel(
 
     mine_ids = list(mine)
     reports = await _rapport_states(db, mine_ids)
+    # No rapport before the Schadenplatz was disponiert (§18.27) — one query for
+    # the whole list, so a crew with fourteen rows still costs one round trip.
+    dispatched = await dispatched_incident_ids(db, [incidents[incident_id] for incident_id in mine_ids])
     leaders = await get_incident_leaders(db, mine_ids)
     briefings = await _briefings(db, mine_ids)
     rekos = await _reko_briefings(db, mine_ids)
@@ -439,6 +453,7 @@ async def get_feld_assignments_for_personnel(
                 "location_lng": str(incident.location_lng) if incident.location_lng is not None else None,
                 "is_active_assignment": is_active,
                 "rapport_state": _rapport_state(report),
+                "has_been_dispatched": incident_id in dispatched,
                 "arrived_at": report.arrived_at if report else None,
                 # Who said so: the crew's own tap, or the GPS automation having
                 # watched an assigned vehicle reach the address (§18.24). The
@@ -455,7 +470,11 @@ async def get_feld_assignments_for_personnel(
                 "pickup_requested_at": incident.pickup_requested_at,
                 "leader_personnel_id": leader[0] if leader else None,
                 "leader_name": leader[1] if leader else None,
-                # Sort-only, stripped below.
+                # Sort-only, stripped below. "Owes a rapport" rather than "has
+                # none": a Schadenplatz that was never disponiert owes nothing,
+                # so it must not be sorted up as if it were the crew's homework.
+                "_owes_rapport": _rapport_state(report) != "submitted"
+                and rapport_applies(dispatched=incident_id in dispatched, has_report=report is not None),
                 "_position": incident.position,
                 "_created_at": incident.created_at,
             }
@@ -466,12 +485,13 @@ async def get_feld_assignments_for_personnel(
     rows.sort(
         key=lambda row: (
             not row["is_active_assignment"],
-            row["rapport_state"] == "submitted",
+            not row["_owes_rapport"],
             row["_position"],
             row["_created_at"],
         )
     )
     for row in rows:
+        row.pop("_owes_rapport", None)
         row.pop("_position", None)
         row.pop("_created_at", None)
 
@@ -904,14 +924,28 @@ async def field_report_state(db: AsyncSession, incident: Incident) -> dict[str, 
 CONCURRENT_EDITOR_WINDOW = timedelta(minutes=5)
 
 
-def _is_answered(row: Mapping[str, Any]) -> bool:
-    """Did the crew say anything about this unit?
+def _material_used(row: Mapping[str, Any]) -> bool:
+    """``used`` as a plain bool, defaulting to **true** (§18.29).
 
-    Both ticks count. An unanswered row is one nobody looked at, and it is the
-    only kind the reconciliation is allowed to drop when the board takes the
-    unit away again.
+    Rows written before the reversal can still carry ``null`` in the JSONB of a
+    database that skipped the normalising migration (or of a payload replayed
+    from an old phone), and `null` no longer means anything: the default answer
+    for a unit that was sent to this Schadenplatz is "gebraucht".
     """
-    return row.get("used") is not None or bool(row.get("left_on_site"))
+    value = row.get("used")
+    return True if value is None else bool(value)
+
+
+def _is_answered(row: Mapping[str, Any]) -> bool:
+    """Did the crew contradict the board about this unit?
+
+    Since `used` is prefilled *ja* (§18.29) an untouched row is not "unanswered",
+    it is the board's own answer — exactly as on the vehicle list. So the only
+    rows carrying information the board does not already have are the ones where
+    the crew unticked *gebraucht* or ticked *vor Ort verblieben*, and those are
+    the only ones worth keeping when the board takes the unit away again.
+    """
+    return not _material_used(row) or bool(row.get("left_on_site"))
 
 
 async def _board_material_units(
@@ -958,12 +992,13 @@ def reconcile_materials(
 
     Three rules, and the third is the one that matters:
 
-    * a unit the KP assigned after the draft started appears, unticked;
+    * a unit the KP assigned after the draft started appears, ticked *gebraucht*
+      (§18.29 — that is the default answer, not an unanswered state);
     * a unit that is still on the board keeps whatever the crew answered;
-    * a unit the board no longer has keeps its row **if it was already
-      answered** (they saw it, they used it) and drops if it was not. Deleting an
-      answered row would lose exactly the information the checklist exists to
-      capture.
+    * a unit the board no longer has keeps its row **if the crew contradicted
+      the board** (unticked *gebraucht* or ticked *vor Ort verblieben*) and drops
+      if it still carries nothing but the defaults. Deleting a contradicted row
+      would lose exactly the information the checklist exists to capture.
 
     Consumables can never carry *vor Ort verblieben* (decision 26): a consumable
     that was used is gone. Enforced here rather than only in the UI, so neither
@@ -997,7 +1032,9 @@ def reconcile_materials(
                 "name": unit["name"],
                 "location": unit["location"],
                 "consumable": consumable,
-                "used": previous.get("used"),
+                # Prefilled ticked: the unit was sent here, so "gebraucht" is the
+                # board's own answer and the crew's job is to contradict it.
+                "used": _material_used(previous),
                 "left_on_site": False if consumable else bool(previous.get("left_on_site")),
                 "on_board": True,
             }
@@ -1013,7 +1050,7 @@ def reconcile_materials(
                 "name": row.get("name") or "Unbekannt",
                 "location": row.get("location"),
                 "consumable": consumable,
-                "used": row.get("used"),
+                "used": _material_used(row),
                 "left_on_site": False if consumable else bool(row.get("left_on_site")),
                 "on_board": False,
             }
@@ -1034,97 +1071,102 @@ def _jsonable_materials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "material_id": str(row["material_id"]) if row.get("material_id") else None,
             "name": row.get("name"),
             "consumable": bool(row.get("consumable")),
-            "used": row.get("used"),
+            "used": _material_used(row),
             "left_on_site": bool(row.get("left_on_site")),
         }
         for row in rows
     ]
 
 
-async def _board_vehicle_units(
+async def _fleet_vehicles(
     db: AsyncSession,
     incident_id: uuid.UUID,
-) -> tuple[list[dict[str, Any]], dict[uuid.UUID, dict[str, Any]]]:
-    """Every vehicle the board has (or had) on this incident.
+) -> tuple[list[dict[str, Any]], set[uuid.UUID]]:
+    """The station's **whole fleet**, plus which of it this incident has (§18.30).
 
-    The exact mirror of ``_board_material_units``, released rows included: a
-    vehicle that drove back early was still at the Schadenplatz, and the crew is
-    the only one who can say otherwise.
+    Not only the assigned vehicles. On a storm night the board is routinely
+    behind reality in both directions: a vehicle drives along that nobody
+    assigned, and one that was assigned never leaves the ramp. A list that can
+    only be *unticked* can record the second and not the first, and the crew is
+    the only party that knows either.
+
+    The assigned set includes **released** assignments: a vehicle that drove back
+    early was still at the Schadenplatz, and only the crew can say otherwise.
+
+    Ordered the way the fleet is ordered everywhere else in the app, so the crew
+    reads the vehicles in the order it knows them.
     """
-    result = await db.execute(
-        select(IncidentAssignment, Vehicle)
-        .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
-        .where(
+    result = await db.execute(select(Vehicle).order_by(Vehicle.display_order, Vehicle.name))
+    ordered = [{"vehicle_id": vehicle.id, "name": vehicle.name} for vehicle in result.scalars().all()]
+
+    assigned = await db.execute(
+        select(IncidentAssignment.resource_id).where(
             IncidentAssignment.incident_id == incident_id,
             IncidentAssignment.resource_type == "vehicle",
         )
-        .order_by(Vehicle.display_order, Vehicle.name, IncidentAssignment.assigned_at)
     )
-    ordered: list[dict[str, Any]] = []
-    by_assignment: dict[uuid.UUID, dict[str, Any]] = {}
-    for assignment, vehicle in result.all():
-        unit = {
-            "assignment_id": assignment.id,
-            "vehicle_id": vehicle.id,
-            "name": vehicle.name,
-        }
-        ordered.append(unit)
-        by_assignment[assignment.id] = unit
-    return ordered, by_assignment
+    return ordered, {row[0] for row in assigned.all()}
 
 
 def reconcile_vehicles(
     stored: list[Any] | None,
-    board_units: list[dict[str, Any]],
-    board_by_assignment: dict[uuid.UUID, dict[str, Any]],
+    fleet: list[dict[str, Any]],
+    assigned_ids: set[uuid.UUID],
 ) -> list[dict[str, Any]]:
-    """Re-reconcile the vehicle checklist against the board — never replace it.
+    """Re-reconcile the vehicle checklist against the fleet — never replace it.
 
-    The same three rules as ``reconcile_materials``, with one difference that
-    follows from the list being **prefilled ticked**: an untouched row is not
-    "unanswered", it is the board's own answer. So a vehicle the board dropped
-    survives only when the crew actually contradicted the board by unticking it;
-    a still-ticked row carries no information the board does not already have.
+    Keyed on the **vehicle** since §18.30: a vehicle that came along without ever
+    being dispatched has no assignment to key on, so an assignment id cannot be
+    the identity of a row that exists for every vehicle the station owns.
+
+    Three rules:
+
+    * every vehicle in the fleet gets a row, ticked when the board has (or had)
+      it on this incident and unticked otherwise — that prefill *is* the board's
+      answer, and the crew's job is to correct it in either direction;
+    * a vehicle the crew already answered keeps that answer, whatever the board
+      has done since;
+    * a vehicle that has left the fleet entirely survives only when it was
+      **ticked** — that is a correction of the board; an unticked row for a
+      vehicle nobody owns any more says nothing at all.
     """
     stored_rows: dict[uuid.UUID, dict[str, Any]] = {}
-    orphans: list[dict[str, Any]] = []
     for raw in stored or []:
         if not isinstance(raw, dict):
             continue
         try:
-            assignment_id = uuid.UUID(str(raw.get("assignment_id")))
+            vehicle_id = uuid.UUID(str(raw.get("vehicle_id")))
         except (TypeError, ValueError):
+            # Pre-§18.30 rows for a vanished assignment carry no vehicle_id at
+            # all. There is nothing left to key them on, and the vehicle they
+            # named is either in the fleet below (and therefore already covered)
+            # or gone from the station.
             continue
         row = dict(raw)
-        row["assignment_id"] = assignment_id
-        if assignment_id in board_by_assignment:
-            stored_rows[assignment_id] = row
-        elif row.get("present") is False:
-            row["on_board"] = False
-            orphans.append(row)
+        row["vehicle_id"] = vehicle_id
+        stored_rows[vehicle_id] = row
 
     merged: list[dict[str, Any]] = []
-    for unit in board_units:
-        previous = stored_rows.get(unit["assignment_id"], {})
+    for unit in fleet:
+        previous = stored_rows.pop(unit["vehicle_id"], {})
         merged.append(
             {
-                "assignment_id": unit["assignment_id"],
                 "vehicle_id": unit["vehicle_id"],
                 "name": unit["name"],
-                # Prefilled ticked: the board says the vehicle was there, and the
-                # crew's job is to contradict it, not to confirm it by hand.
-                "present": bool(previous.get("present", True)),
-                "on_board": True,
+                "present": bool(previous.get("present", unit["vehicle_id"] in assigned_ids)),
+                "on_board": unit["vehicle_id"] in assigned_ids,
             }
         )
 
-    for row in orphans:
+    # Whatever is left was ticked for a vehicle the station no longer has.
+    for row in stored_rows.values():
+        if not row.get("present"):
+            continue
         merged.append(
             {
-                "assignment_id": row["assignment_id"],
-                "vehicle_id": row.get("vehicle_id"),
+                "vehicle_id": row["vehicle_id"],
                 "name": row.get("name") or "Unbekannt",
-                "present": False,
+                "present": True,
                 "on_board": False,
             }
         )
@@ -1136,15 +1178,24 @@ def _jsonable_vehicles(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     ``on_board`` is recomputed on every read from the live assignments, so
     storing it would be storing a second, staler copy of the board.
+
+    **Only the rows that carry an answer are stored** (§18.30). Since the fleet
+    row for a vehicle nobody dispatched arrives unticked, writing it down would
+    mean copying the whole fleet table into every rapport — and worse, it would
+    freeze a default as a decision: a vehicle the KP assigns ten minutes later
+    would then stay unticked because a form that never asked about it had
+    already "answered" no. So a row survives when it is ticked (the crew says it
+    was there) or when the board has it (an unticked one is then a real
+    contradiction). Everything else is the default, and the default is recomputed.
     """
     return [
         {
-            "assignment_id": str(row["assignment_id"]),
-            "vehicle_id": str(row["vehicle_id"]) if row.get("vehicle_id") else None,
+            "vehicle_id": str(row["vehicle_id"]),
             "name": row.get("name"),
-            "present": bool(row.get("present", True)),
+            "present": bool(row.get("present")),
         }
         for row in rows
+        if row.get("present") or row.get("on_board")
     ]
 
 
@@ -1156,7 +1207,7 @@ async def _board_personnel_count(db: AsyncSession, incident_id: uuid.UUID) -> in
     left an hour ago was still eingesetzt.
 
     The vehicles have no number of their own any more: the crew confirms the
-    LIST (``_board_vehicle_units``), and its length is the count.
+    LIST (``_fleet_vehicles``), and the ticked rows are the count.
     """
     result = await db.execute(
         select(IncidentAssignment.resource_id).where(
@@ -1270,10 +1321,8 @@ async def get_rapport(
     board_units, board_by_assignment = await _board_material_units(db, incident.id)
     materials = reconcile_materials(report.materials_json if report else None, board_units, board_by_assignment)
 
-    board_vehicle_units, board_vehicles_by_assignment = await _board_vehicle_units(db, incident.id)
-    vehicles = reconcile_vehicles(
-        report.vehicles_json if report else None, board_vehicle_units, board_vehicles_by_assignment
-    )
+    fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident.id)
+    vehicles = reconcile_vehicles(report.vehicles_json if report else None, fleet, assigned_vehicle_ids)
 
     board_personnel = await _board_personnel_count(db, incident.id)
     leaders = await get_incident_leaders(db, [incident.id])
@@ -1288,12 +1337,11 @@ async def get_rapport(
         "incident_ref": incident.title or incident.location_address or "Unbekannt",
         "leader_personnel_id": leader[0] if leader else None,
         "leader_name": leader[1] if leader else None,
-        # "Melder übernehmen": one tap PREFILLS the owner free text with these.
+        # "Melder übernehmen": one tap PREFILLS the two owner inputs with these.
         # The Melder is frequently not the Eigentümer, so the copy stays
         # editable and the two are never equated.
         "melder_name": incident.contact or None,
-        "melder_street": incident.location_address or None,
-        "melder_city": None,
+        "melder_phone": incident.contact_phone or None,
         "board_personnel_count": board_personnel,
         "material_name_suggestions": await _material_name_suggestions(db),
     }
@@ -1327,7 +1375,8 @@ async def get_rapport(
         "extra_material_note": report.extra_material_note,
         "kurzbericht": report.kurzbericht,
         "handed_over_to": report.handed_over_to,
-        "owner_note": report.owner_note,
+        "owner_name": report.owner_name,
+        "owner_phone": report.owner_phone,
         "personnel_count": report.personnel_count if report.personnel_count is not None else board_personnel,
         "personnel_count_corrected": report.personnel_count_corrected,
         "cost_snapshot_json": report.cost_snapshot_json,
@@ -1413,7 +1462,8 @@ async def save_rapport(
         "extra_material_note",
         "kurzbericht",
         "handed_over_to",
-        "owner_note",
+        "owner_name",
+        "owner_phone",
     ):
         if field in provided:
             setattr(report, field, getattr(payload, field))
@@ -1430,16 +1480,17 @@ async def save_rapport(
             tick = ticks.get(row["assignment_id"])
             if tick is None:
                 continue
-            row["used"] = tick.used
+            row["used"] = bool(tick.used)
             row["left_on_site"] = False if row["consumable"] else bool(tick.left_on_site)
         # A unit that vanished from the board but was answered in THIS payload
         # keeps that answer — the reconciliation would otherwise have dropped a
-        # row the crew just filled in.
+        # row the crew just filled in. "Answered" means contradicting the board
+        # (§18.29): a still-ticked `gebraucht` is the default, not a report.
         answered_ids = {row["assignment_id"] for row in merged}
         for assignment_id, tick in ticks.items():
             if assignment_id in answered_ids or assignment_id in board_by_assignment:
                 continue
-            if tick.used is None and not tick.left_on_site:
+            if tick.used and not tick.left_on_site:
                 continue
             merged.append(
                 {
@@ -1448,7 +1499,7 @@ async def save_rapport(
                     "name": "Unbekannt",
                     "location": None,
                     "consumable": False,
-                    "used": tick.used,
+                    "used": bool(tick.used),
                     "left_on_site": bool(tick.left_on_site),
                     "on_board": False,
                 }
@@ -1456,30 +1507,29 @@ async def save_rapport(
         report.materials_json = _jsonable_materials(merged)
 
     if "vehicles" in provided and payload.vehicles is not None:
-        board_vehicle_units, board_vehicles_by_assignment = await _board_vehicle_units(db, incident.id)
-        vehicle_ticks = {tick.assignment_id: tick for tick in payload.vehicles}
+        fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident.id)
+        vehicle_ticks = {tick.vehicle_id: tick for tick in payload.vehicles}
         # Reconcile FIRST, then apply the ticks — same reason as the materials: a
-        # vehicle the KP added while the crew was typing has to appear, and one
-        # the board took away must not come back through a stale form.
-        merged_vehicles = reconcile_vehicles(report.vehicles_json, board_vehicle_units, board_vehicles_by_assignment)
+        # vehicle the station bought while the crew was typing has to appear, and
+        # one that left the fleet must not come back through a stale form.
+        merged_vehicles = reconcile_vehicles(report.vehicles_json, fleet, assigned_vehicle_ids)
         for vehicle_row in merged_vehicles:
-            vehicle_tick = vehicle_ticks.get(vehicle_row["assignment_id"])
+            vehicle_tick = vehicle_ticks.get(vehicle_row["vehicle_id"])
             if vehicle_tick is None:
                 continue
             vehicle_row["present"] = bool(vehicle_tick.present)
-        # A vehicle that vanished from the board but was UNTICKED in THIS payload
-        # keeps that answer; a still-ticked one carries nothing the board does
-        # not already know, so it is not resurrected.
-        known_ids = {vehicle_row["assignment_id"] for vehicle_row in merged_vehicles}
-        for assignment_id, vehicle_tick in vehicle_ticks.items():
-            if assignment_id in known_ids or assignment_id in board_vehicles_by_assignment or vehicle_tick.present:
+        # A vehicle that has left the fleet but was TICKED in THIS payload keeps
+        # that answer; an unticked one carries nothing at all, so it is not
+        # resurrected.
+        known_ids = {vehicle_row["vehicle_id"] for vehicle_row in merged_vehicles}
+        for vehicle_id, vehicle_tick in vehicle_ticks.items():
+            if vehicle_id in known_ids or not vehicle_tick.present:
                 continue
             merged_vehicles.append(
                 {
-                    "assignment_id": assignment_id,
-                    "vehicle_id": None,
+                    "vehicle_id": vehicle_id,
                     "name": "Unbekannt",
-                    "present": False,
+                    "present": True,
                     "on_board": False,
                 }
             )
@@ -1510,10 +1560,8 @@ async def save_rapport(
         # has to record which vehicles the board had — the all-ticked prefill IS
         # the answer, so it gets frozen into the row rather than staying implicit.
         if report.vehicles_json is None:
-            board_vehicle_units, board_vehicles_by_assignment = await _board_vehicle_units(db, incident.id)
-            report.vehicles_json = _jsonable_vehicles(
-                reconcile_vehicles(None, board_vehicle_units, board_vehicles_by_assignment)
-            )
+            fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident.id)
+            report.vehicles_json = _jsonable_vehicles(reconcile_vehicles(None, fleet, assigned_vehicle_ids))
 
     _stamp_updated_by(report, actor)
 
@@ -1685,6 +1733,17 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
     )
     reports = {report.incident_id: report for report in reports_result.scalars().all()}
 
+    # A Schadenplatz that was never disponiert owes no rapport (§18.27), so it
+    # is neither a missing-rapport row nor part of the denominator: "4 von 23"
+    # has to count the same population on both sides of the "von", or the
+    # sentence quietly lies about how much is left.
+    dispatched = await dispatched_incident_ids(db, incidents)
+    rapport_relevant = {
+        incident.id
+        for incident in incidents
+        if rapport_applies(dispatched=incident.id in dispatched, has_report=incident.id in reports)
+    }
+
     # Every material assignment in the event that is STILL open, in one query.
     # An assignment the board has already released is not "vor Ort" any more, no
     # matter what the checklist says — the board is the authority on where a
@@ -1710,7 +1769,7 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
 
     for incident in incidents:
         report = reports.get(incident.id)
-        if report is None or report.is_draft:
+        if (report is None or report.is_draft) and incident.id in rapport_relevant:
             missing_rapport.append(
                 {
                     "incident_id": incident.id,
@@ -1771,7 +1830,7 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
 
     return {
         "event_id": event_id,
-        "incident_total": len(incidents),
+        "incident_total": len(rapport_relevant),
         "missing_rapport": missing_rapport,
         "material_on_site": material_on_site,
         "open_pickups": open_pickups,
@@ -1794,12 +1853,13 @@ async def material_return_units(
     `/feld` never writes an assignment, and this function does not either; it
     only says which units the crew did not mark as left on site.
 
-    Each unit carries ``answered``: did the crew say anything about this one, or
-    is it merely in ``returned`` because an unanswered row defaults to *not left
-    on site*? The release list treats the two the same — an unanswered unit is
-    still a unit nobody claimed is on site — but the completion gate must not:
-    it prefills from the rapport and has to know which questions the crew already
-    settled and which it still needs to ask (§18).
+    Each unit carries ``answered``: did the crew settle this one, or is it merely
+    in ``returned`` because *vor Ort verblieben* went unticked? The release list
+    treats the two the same — a unit nobody claimed is on site is a unit that
+    comes back — but the completion gate must not: it prefills from the rapport
+    and has to know which questions the crew already settled and which it still
+    needs to ask (§18). Since §18.29 that verdict comes from the rapport's state
+    rather than from a third value in the row (see below).
 
     **``include_draft`` — two callers, two different actions (§18.23).** One
     function, and until the field test one rule, which was wrong for exactly one
@@ -1850,7 +1910,15 @@ async def material_return_units(
             "name": row["name"],
             "location": row["location"],
             "used": row["used"],
-            "answered": _is_answered(row),
+            # "Did the crew settle this unit?" Since §18.29 removed the
+            # three-state `used`, an untouched material row is no longer
+            # distinguishable from a deliberate "ja, gebraucht" — so the honest
+            # answer comes from the rapport's own state instead of from the row:
+            # a **filed** rapport settled every unit on its checklist (that is
+            # what filing means), a **draft** settled only the ones where the
+            # crew contradicted the defaults. The gate never auto-applies
+            # anything either way; it only decides which rows arrive prefilled.
+            "answered": not report.is_draft or _is_answered(row),
         }
         (left if row["left_on_site"] else returned).append(unit)
     return returned, left

@@ -22,6 +22,7 @@ from ..models import (
     Vehicle,
 )
 from ..services.audit import calculate_changes, log_action
+from ..services.incident_dispatch import dispatched_incident_ids, is_dispatched
 from . import events as events_crud
 from . import feld as feld_crud
 
@@ -205,6 +206,11 @@ async def get_incidents(
         else:
             submitted_rapports.add(feld_row.incident_id)
 
+    # Was this Schadenplatz ever disponiert? One query for the whole board, on
+    # the same principle as the flags above — the rapport surfaces read it per
+    # card and a query per card is what a storm night cannot afford.
+    dispatched = await dispatched_incident_ids(db, incidents)
+
     # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
     for incident in incidents:
         arrival = field_arrived_map.get(incident.id)
@@ -213,6 +219,7 @@ async def get_incidents(
         incident.field_arrived_by_automation = bool(arrival and arrival[2])
         incident.has_schadenplatz_rapport = incident.id in submitted_rapports
         incident.has_schadenplatz_rapport_draft = incident.id in draft_rapports
+        incident.has_been_dispatched = incident.id in dispatched
         # Set status_changed_at from batch-loaded map
         incident.status_changed_at = transitions_map.get(incident.id, incident.created_at)
 
@@ -287,6 +294,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         )
         incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
         incident.has_schadenplatz_rapport_draft = bool(feld_row and feld_row.is_draft)
+        incident.has_been_dispatched = await is_dispatched(db, incident)
 
     return incident
 

@@ -20,7 +20,8 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
     extra_material_note: null,
     kurzbericht: null,
     handed_over_to: null,
-    owner_note: null,
+    owner_name: null,
+    owner_phone: null,
     personnel_count: 0,
     personnel_count_corrected: false,
     cost_snapshot_json: null,
@@ -37,8 +38,7 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
       leader_personnel_id: null,
       leader_name: null,
       melder_name: null,
-      melder_street: null,
-      melder_city: null,
+      melder_phone: null,
       board_personnel_count: 0,
       material_name_suggestions: [],
     },
@@ -200,5 +200,64 @@ describe('the /feld mount keeps its "I am done" moment', () => {
     await vi.advanceTimersByTimeAsync(30000)
     expect(save).toHaveBeenCalledTimes(1)
     expect((save.mock.calls[0][0] as ApiRapportUpdate).is_draft).toBe(true)
+  })
+})
+
+describe('Eigentümer / Halter is a name and a phone (§18.28)', () => {
+  it('offers a tel: link as soon as the number is dialable', async () => {
+    // The entire reason the phone is its own field: somebody rings from the
+    // pavement when nobody answers the door. Same affordance the incident
+    // already gives the Melder.
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, owner_phone: '079 111 22 33' }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    const link = await screen.findByRole('link', { name: /Anrufen/ })
+    expect(link).toHaveAttribute('href', 'tel:0791112233')
+  })
+
+  it('shows no call link for something that is not a number', async () => {
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, owner_phone: 'unbekannt' }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await screen.findByLabelText('Telefon')
+    expect(screen.queryByRole('link', { name: /Anrufen/ })).toBeNull()
+  })
+
+  it('"Melder übernehmen" fills both fields and overwrites neither', async () => {
+    const load = vi.fn().mockResolvedValue(
+      rapport({
+        exists: true,
+        owner_name: 'Fam. Meier',
+        prefill: {
+          ...rapport().prefill,
+          melder_name: 'A. Bürgin',
+          melder_phone: '079 000 00 00',
+        },
+      }),
+    )
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Melder übernehmen/ }))
+
+    // The crew's own words about who owns the place beat a name the dispatcher
+    // took down — but an empty field has nothing to defend.
+    expect(screen.getByLabelText('Eigentümer / Halter')).toHaveValue('Fam. Meier')
+    expect(screen.getByLabelText('Telefon')).toHaveValue('079 000 00 00')
+  })
+
+  it('sends the two fields separately', async () => {
+    vi.useFakeTimers()
+    const save = vi.fn().mockResolvedValue(rapport({ exists: true }))
+    const load = vi.fn().mockResolvedValue(rapport())
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} />)
+
+    await vi.waitFor(() => expect(screen.getByLabelText('Eigentümer / Halter')).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('Eigentümer / Halter'), { target: { value: 'Fam. Meier' } })
+    fireEvent.change(screen.getByLabelText('Telefon'), { target: { value: '079 111 22 33' } })
+    await vi.advanceTimersByTimeAsync(30000)
+
+    const update = save.mock.calls[0][0] as ApiRapportUpdate
+    expect(update.owner_name).toBe('Fam. Meier')
+    expect(update.owner_phone).toBe('079 111 22 33')
   })
 })

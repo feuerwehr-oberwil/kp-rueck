@@ -2645,7 +2645,9 @@
     },
     "actions": {
       "printQr": "QR drucken",
-      "copyLink": "Link kopieren"
+      "copyLink": "Link kopieren",
+      "openVehicles": "Fahrzeuge öffnen",
+      "openRekoMode": "Reko-Modus öffnen"
     },
     "setup": {
       "title": "Setup-Checkliste",
@@ -2951,6 +2953,8 @@
       "sectionTitle": "Schadenplatz-Rapport",
       "stateSubmitted": "erfasst",
       "stateMissing": "kein Rapport",
+      "stateNotDispatched": "noch nicht disponiert",
+      "notDispatched": "Ein Rapport wird erst erfasst, wenn der Schadenplatz disponiert wurde.",
       "sections": {
         "kurzbericht": "Kurzbericht",
         "owner": "Eigentümer- / Halterdaten",
@@ -2963,29 +2967,32 @@
         "noLongerAssigned": "Nicht mehr zugeteilt",
         "consumable": "Verbrauch",
         "used": "gebraucht",
-        "usedYes": "Ja, gebraucht",
-        "usedNo": "Nein, nicht gebraucht",
-        "usedUnknown": "Keine Angabe",
         "usedAria": "Gebraucht: {name}",
         "leftOnSite": "vor Ort verblieben",
         "leftOnSiteAria": "Vor Ort verblieben: {name}",
         "extraLabel": "Weiteres gebrauchtes Material",
-        "extraPlaceholder": "z. B. geliehene Tauchpumpe, Motorsäge vom Nachbarzug",
-        "extraSuggestOpen": "Materialliste anzeigen",
-        "extraSuggestHeading": "Aus dem Materialkatalog",
-        "extraFreeText": "Nicht dabei? Einfach tippen – jeder Text ist gültig."
+        "extraPlaceholder": "Nicht im Katalog? Hier eintippen, mit Komma trennen",
+        "extraFreeText": "Alles, was nicht in der Liste steht – z. B. eine geliehene Pumpe.",
+        "extraSearchPlaceholder": "Material suchen",
+        "extraNoneFound": "Nichts gefunden – einfach unten eintippen.",
+        "extraRemove": "{name} entfernen"
       },
       "vehicles": {
-        "label": "Fahrzeuge",
+        "label": "Fahrzeuge – alle ankreuzen, die dabei waren",
         "present": "war dabei",
         "presentAria": "War dabei: {name}",
-        "empty": "Kein Fahrzeug erfasst.",
-        "noLongerAssigned": "Nicht mehr zugeteilt"
+        "empty": "Keine Fahrzeuge erfasst.",
+        "dispatched": "disponiert",
+        "searchPlaceholder": "Fahrzeug suchen"
       },
       "kurzberichtPlaceholder": "Lage, Tätigkeit, Geräte",
       "handedOverTo": "Einsatzstelle übergeben an",
       "handedOverToPlaceholder": "z. B. Eigentümer, Polizei",
-      "ownerPlaceholder": "Name, Adresse, Telefon – bei einem Fahrzeug Kennzeichen und Typ",
+      "ownerName": "Eigentümer / Halter",
+      "ownerNamePlaceholder": "Name",
+      "ownerPhone": "Telefon",
+      "ownerPhonePlaceholder": "z. B. 079 123 45 67",
+      "ownerCall": "Anrufen",
       "takeOverMelder": "Melder übernehmen: {name}",
       "personnelCount": "Eingesetztes Personal",
       "fromBoard": "vom Board: {count}",

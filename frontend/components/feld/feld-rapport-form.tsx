@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, Copy, FileText, Loader2, RotateCcw, Send, UserRound } from 'lucide-react'
+import { AlertTriangle, Check, Copy, FileText, Loader2, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -51,6 +51,8 @@ import type {
   ApiRapportUpdate,
 } from '@/lib/api/types'
 import { getActiveLocale } from '@/lib/i18n-messages'
+import { telHref } from '@/lib/phone'
+import { sanitizePhoneInput } from '@/lib/utils'
 import {
   EMPTY_RAPPORT_FORM,
   hasContent,
@@ -342,23 +344,21 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   }
 
   /**
-   * "Melder übernehmen" — one tap that PREFILLS the free text (§18.10).
+   * "Melder übernehmen" — one tap that PREFILLS name and phone (§18.28).
    *
-   * It writes the Melder's lines and stops there: an existing note is never
-   * overwritten, because the crew's own words about who owns the place beat a
-   * name the dispatcher took down. Melder and Eigentümer are frequently
-   * different people, which is why this copies and never equates.
+   * It fills each of the two fields **only when that field is still empty**:
+   * the crew's own words about who owns the place beat a name the dispatcher
+   * took down, and a crew that typed the owner's number but not their name must
+   * keep the number. Melder and Eigentümer are frequently different people,
+   * which is why this copies and never equates.
    */
   const takeOverMelder = () => {
     const prefill = rapport?.prefill
     if (!prefill) return
-    const lines = [prefill.melder_name, prefill.melder_street, prefill.melder_city]
-      .map(line => line?.trim())
-      .filter((line): line is string => Boolean(line))
-    if (lines.length === 0) return
     setFormData(prev => ({
       ...prev,
-      owner_note: prev.owner_note.trim() ? prev.owner_note : lines.join('\n'),
+      owner_name: prev.owner_name.trim() ? prev.owner_name : (prefill.melder_name ?? '').trim(),
+      owner_phone: prev.owner_phone.trim() ? prev.owner_phone : (prefill.melder_phone ?? '').trim(),
     }))
   }
 
@@ -517,20 +517,55 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           </Button>
         )}
 
-        {/* ONE box (§18.10). It replaced three inputs plus a "Fahrzeug
-            beteiligt" reveal hiding two more — five fields of which the first
-            real use filled exactly one. A crew writes "Fam. Meier, unten links,
-            Tel 079 ..." and a plate underneath if there was a car; that is what
-            the PDF and the xlsx want too. */}
-        <Textarea
-          value={formData.owner_note}
-          disabled={readOnly}
-          rows={4}
-          maxLength={2000}
-          placeholder={t('ownerPlaceholder')}
-          aria-label={t('sections.owner')}
-          onChange={e => update('owner_note', e.target.value)}
-        />
+        {/* Name + Telefon (§18.28). §18.10's one free-text box was right about
+            Strasse, Ort, Kennzeichen and Typ — those really are prose, and they
+            live in the Kurzbericht now — and wrong about the number: a phone
+            written inside a paragraph cannot be dialled, which is the entire
+            reason for writing down who owns the flooded cellar. Deliberately
+            the same two shapes, the same input treatment and the same `tel:`
+            affordance the incident already gives the Melder. */}
+        <div className="space-y-1.5">
+          <Label htmlFor="rapport-owner-name" className="text-xs text-muted-foreground">
+            {t('ownerName')}
+          </Label>
+          <Input
+            id="rapport-owner-name"
+            value={formData.owner_name}
+            disabled={readOnly}
+            maxLength={200}
+            placeholder={t('ownerNamePlaceholder')}
+            onChange={e => update('owner_name', e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="rapport-owner-phone" className="text-xs text-muted-foreground">
+              {t('ownerPhone')}
+            </Label>
+            {/* Somebody rings from the pavement when nobody answers the door —
+                the same affordance the Melder gets on the board and on /feld. */}
+            {telHref(formData.owner_phone) && (
+              <a
+                href={telHref(formData.owner_phone) ?? undefined}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <Phone className="h-3 w-3" />
+                {t('ownerCall')}
+              </a>
+            )}
+          </div>
+          <Input
+            id="rapport-owner-phone"
+            type="tel"
+            inputMode="tel"
+            value={formData.owner_phone}
+            disabled={readOnly}
+            maxLength={50}
+            placeholder={t('ownerPhonePlaceholder')}
+            onChange={e => update('owner_phone', sanitizePhoneInput(e.target.value))}
+          />
+        </div>
       </section>
 
       {/* --------------------------------------- Mannschaft und Fahrzeuge */}

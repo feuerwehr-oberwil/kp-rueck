@@ -50,6 +50,7 @@ import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
+import type { OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -95,6 +96,16 @@ import type { LucideIcon } from "lucide-react"
  * opens is active. Replaces ~8 hand-rolled, near-identical `<Button>` blocks
  * that only differed in icon/label/state — each with its own template-literal
  * className doing the same active/inactive ternary.
+ *
+ * **The label is hidden below `xl`.** The centre group grew to nine entries and
+ * a row of nine labelled pills is wider than a 1280px window; because a footer
+ * cannot shrink below its content, that width was pushing the whole application
+ * sideways — board, sidebars and header together — rather than just itself.
+ * Dropping to icons is the option that keeps every control one click away: an
+ * overflow menu hides half of them behind a second click, and a scrolling bar
+ * hides them behind a gesture nobody looks for in a 40px strip. The name stays
+ * reachable as a tooltip and as the accessible name, which is unchanged for a
+ * screen reader either way.
  */
 function ToolbarToggle({
   icon: Icon,
@@ -126,10 +137,13 @@ function ToolbarToggle({
         onActivate()
       }}
       disabled={disabled}
-      title={title}
+      // The tooltip carries the name at every width, so the icon-only mode is
+      // never a control nobody can identify.
+      title={title ?? label}
+      aria-label={label}
     >
       <Icon className="size-3.5" />
-      <span className="text-xs">{label}</span>
+      <span className="hidden text-xs xl:inline">{label}</span>
     </Button>
   )
 }
@@ -335,7 +349,15 @@ export default function FireStationDashboard() {
   // changes at the external-monitor breakpoint.
   const [panToNonce, setPanToNonce] = useState(0)
   const [sidePanelMode, setSidePanelMode] = useState<'detail' | 'map' | 'collapsed'>('collapsed')
-  const openIncidentDetail = useCallback((operationId: string) => {
+  // "Open the detail on THIS tab" — set by a notification click and by nothing
+  // else, so every ordinary card click clears it and lands on the tab the
+  // operator was last working in. The nonce makes a repeat click on the same
+  // notification a new event; the panel does not remount for an incident that
+  // is already selected.
+  const [openDetailOnTab, setOpenDetailOnTab] = useState<{ tab: OperationDetailTab; nonce: number } | null>(null)
+
+  const openIncidentDetail = useCallback((operationId: string, tab?: OperationDetailTab) => {
+    setOpenDetailOnTab(tab ? { tab, nonce: Date.now() } : null)
     setSelectedOperationId(operationId)
     setHoveredOperationId(operationId)
     if (typeof window !== 'undefined' && window.innerWidth >= SIDE_PANEL_BREAKPOINT) {
@@ -463,21 +485,19 @@ export default function FireStationDashboard() {
   // Register notification click → scroll to card + open detail
   // Small screens: open modal overlay. Large screens (≥1536px): select in side panel.
   useEffect(() => {
-    registerNavigateHandler((incidentId: string) => {
+    registerNavigateHandler((incidentId: string, tab?: OperationDetailTab) => {
       closeNotificationSidebar()
       scrollToCard(incidentId)
       // Open detail after scroll
       setTimeout(() => {
         const operation = operations.find(op => op.id === incidentId)
         if (operation) {
-          const isLargeScreen = window.innerWidth >= SIDE_PANEL_BREAKPOINT
-          if (isLargeScreen) {
-            // Side panel selection (same as onCardSelect / handleCardSelect)
-            openIncidentDetail(incidentId)
-          } else {
-            // Modal overlay (same as onCardClick / handleCardClick)
-            openIncidentDetail(incidentId)
-          }
+          // `tab` is what the notification was about (§18.27) — a rapport, a
+          // Meldung, an arrival all live on Rapport now, and landing on
+          // Übersicht made the operator hunt for the thing they were just told
+          // about. Same call on both screen sizes; the detail decides whether
+          // it renders as a modal or in the panel.
+          openIncidentDetail(incidentId, tab)
         }
       }, 200)
     })
@@ -1870,6 +1890,7 @@ export default function FireStationDashboard() {
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
             selectedOperation={selectedOperation}
+            openOnTab={openDetailOnTab ?? undefined}
             panToNonce={panToNonce}
             operations={filteredOperations}
             materials={materials}
@@ -2021,9 +2042,17 @@ export default function FireStationDashboard() {
 
         {/* Desktop Footer - z-index lowered when modals open so dialog overlay covers it */}
         <footer className={`relative bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border ${detailModalOpen || newEmergencyModalOpen || statusWorkflow.disponiertOperation ? 'z-40' : 'z-[60]'}`}>
-          <div className="flex items-center justify-between gap-4">
+          {/* `min-w-0` on the row and on the middle group is what actually keeps
+              the page from scrolling sideways. A flex item defaults to
+              `min-width: auto`, i.e. it refuses to shrink below its content —
+              so a toolbar wider than the window made the whole column wider
+              than the window, and `<main>`'s own `overflow-auto` then scrolled
+              the board, both sidebars and the header together. The label
+              collapse on `ToolbarToggle` is what makes it fit at 1024; this is
+              what makes it *impossible* for it not to. */}
+          <div className="flex min-w-0 items-center justify-between gap-4">
             {/* Left: Primary action */}
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-3">
               <Button size="sm" className="gap-2 shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
                 <Plus className="size-3.5" />
                 {tCommon('newIncident')}
@@ -2052,16 +2081,21 @@ export default function FireStationDashboard() {
                       eventName={selectedEvent.name}
                       onDismiss={() => setChecklistPopoverOpen(false)}
                       onAllTasksComplete={() => setChecklistPopoverOpen(false)}
+                      onOpenVehicles={() => setActiveFooterSheet('vehicles')}
                     />
                   </PopoverContent>
                 </Popover>
               )}
             </div>
 
-            {/* Center: Secondary actions grouped */}
-            <div className="flex items-center gap-1">
+            {/* Center: Secondary actions grouped.
+                The scroll container is the last line of defence, not the plan:
+                at every width the icon row is meant to fit. It exists so that a
+                station with an extra toggle, a long locale or a 900px window
+                scrolls THIS strip instead of the application. */}
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {/* QR/Access group */}
-              <div className="flex items-center gap-0.5">
+              <div className="flex shrink-0 items-center gap-0.5">
                 <ToolbarToggle
                   icon={QrCode}
                   label={tDash('checkIn')}
@@ -2094,10 +2128,10 @@ export default function FireStationDashboard() {
                 />
               </div>
 
-              <div className="h-4 w-px bg-border mx-1" />
+              <div className="h-4 w-px shrink-0 bg-border mx-1" />
 
               {/* Status/Tools group */}
-              <div className="flex items-center gap-0.5">
+              <div className="flex shrink-0 items-center gap-0.5">
                 <ToolbarToggle
                   icon={Truck}
                   label={tDash('vehicles')}
@@ -2146,35 +2180,43 @@ export default function FireStationDashboard() {
 
               {selectedEvent?.training_flag && (
                 <>
-                  <div className="h-4 w-px bg-border mx-1" />
-                  <Link href="/training">
-                    <Button size="xs" variant="ghost" className="text-warning-foreground hover:text-warning-foreground hover:bg-warning/10">
+                  <div className="h-4 w-px shrink-0 bg-border mx-1" />
+                  <Link href="/training" className="shrink-0">
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="text-warning-foreground hover:text-warning-foreground hover:bg-warning/10"
+                      title={tDash('trainingControl')}
+                      aria-label={tDash('trainingControl')}
+                    >
                       <Sparkles className="size-3.5" />
-                      <span className="font-medium">{tDash('trainingControl')}</span>
+                      <span className="hidden font-medium xl:inline">{tDash('trainingControl')}</span>
                     </Button>
                   </Link>
                 </>
               )}
 
-              <div className="h-4 w-px bg-border mx-1" />
+              <div className="h-4 w-px shrink-0 bg-border mx-1" />
 
               {/* One control where the two pills used to be. The pills only ever
                   reached two of the nine card blocks — and never the long ones
                   (Mannschaft, Fahrzeuge, Material) that decide whether forty
                   cards fit on the screen. */}
-              <CardViewMenu
-                view={cardView}
-                preset={cardViewPreset}
-                onApplyPreset={applyCardViewPreset}
-                onToggleKey={toggleCardViewKey}
-              />
+              <div className="shrink-0">
+                <CardViewMenu
+                  view={cardView}
+                  preset={cardViewPreset}
+                  onApplyPreset={applyCardViewPreset}
+                  onToggleKey={toggleCardViewKey}
+                />
+              </div>
             </div>
 
             {/* Right: Help hint */}
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-3">
               <button
                 onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+                className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
               >
                 <Kbd className="h-5 text-2xs px-1.5">{cmdHint}</Kbd>
                 <span className="hidden lg:inline">{tDash('commands')}</span>
@@ -2225,6 +2267,7 @@ export default function FireStationDashboard() {
         operation={selectedOperation}
         open={detailModalOpen}
         onOpenChange={setDetailModalOpen}
+        openOnTab={openDetailOnTab ?? undefined}
         onUpdate={handleOperationUpdate}
         onDelete={isEditor ? handleOperationDelete : undefined}
         materials={materials}

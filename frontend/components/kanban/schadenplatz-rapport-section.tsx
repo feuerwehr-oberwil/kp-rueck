@@ -28,12 +28,18 @@ interface SchadenplatzRapportSectionProps {
   canEdit?: boolean
   /** The board already knows whether a rapport was filed — no extra request. */
   hasRapport?: boolean
+  /** False while the Schadenplatz has never been disponiert (§18.27): the
+   *  rapport does not exist yet, so the section states that instead of offering
+   *  an empty form nobody can fill in meaningfully. Computed by the caller
+   *  through `rapportApplies`, which never hides an already-filed rapport. */
+  applies?: boolean
 }
 
 export function SchadenplatzRapportSection({
   incidentId,
   canEdit = true,
   hasRapport = false,
+  applies = true,
 }: SchadenplatzRapportSectionProps) {
   const t = useTranslations('feld.rapport')
   const [returnKey, setReturnKey] = useState(0)
@@ -78,19 +84,30 @@ export function SchadenplatzRapportSection({
         <FileText className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-semibold text-muted-foreground">{t('sectionTitle')}</span>
         <span className="ml-auto text-xs text-muted-foreground">
-          {filed ? t('stateSubmitted') : t('stateMissing')}
+          {!applies ? t('stateNotDispatched') : filed ? t('stateSubmitted') : t('stateMissing')}
         </span>
       </div>
 
-      <div className="rounded-lg border border-border p-4">
-        <FeldRapportForm
-          incidentId={incidentId}
-          transport={transport}
-          mount="kp"
-          disabled={!canEdit}
-          onSaved={handleSaved}
-        />
-      </div>
+      {/* Nothing was ever sent to this Schadenplatz, so there is nothing to
+          report on. One sentence rather than a form: the empty rapport was the
+          noise, and the sentence is what turns "where is my form" into "ah,
+          this one was never disponiert". The section header stays so the tab
+          does not lose the thing the operator came looking for. */}
+      {!applies ? (
+        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+          {t('notDispatched')}
+        </p>
+      ) : (
+        <div className="rounded-lg border border-border p-4">
+          <FeldRapportForm
+            incidentId={incidentId}
+            transport={transport}
+            mount="kp"
+            disabled={!canEdit}
+            onSaved={handleSaved}
+          />
+        </div>
+      )}
 
       {/* Outside the collapse on purpose: "Material zurück – freigeben" is the
           KP's own to-do, and hiding it behind the form would put it exactly

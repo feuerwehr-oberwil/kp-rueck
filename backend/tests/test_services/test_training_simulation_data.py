@@ -490,9 +490,12 @@ class TestRapportGeneration:
         {"assignment_id": uuid4(), "name": "Rettungsplattform", "type": "Sonstiges", "consumable": False},
     ]
 
+    # Keyed on the vehicle since §18.30 — the checklist covers the whole fleet,
+    # so an assignment id is not the identity of a row any more. The inject only
+    # ever answers about the vehicles the board actually dispatched.
     VEHICLES = [
-        {"assignment_id": uuid4(), "name": "TLF 1"},
-        {"assignment_id": uuid4(), "name": "MTW"},
+        {"vehicle_id": uuid4(), "name": "TLF 1"},
+        {"vehicle_id": uuid4(), "name": "MTW"},
     ]
 
     def _generate(self, seed: int, incident_type: str = "elementarereignis", title: str = "Wasser im Keller"):
@@ -513,31 +516,31 @@ class TestRapportGeneration:
             ticks = {row["assignment_id"]: row for row in self._generate(seed).get("materials", [])}
             assert ticks[consumable_id]["left_on_site"] is False
 
-    def test_kfz_line_stays_out_unless_a_vehicle_is_involved(self):
-        """Every IncidentType outside the table is 0 % — not "rarely".
+    def test_the_owner_block_is_a_name_and_sometimes_a_phone(self):
+        """§18.28: two fields, and the phone roll is nested inside the name roll.
 
-        Since §18.8 the owner block is ONE free-text field, so the KFZ half is a
-        line inside it rather than its own key. "BL " is the marker: the
-        generator writes a plate as `BL <digits> <Modell>` and nothing else in
-        the note starts a line that way.
+        A number without a name is not a shape a crew produces, so it must never
+        be generated — while a name without a number is the everyday one and has
+        to appear often enough that both branches are exercised.
         """
+        named = 0
+        phoned = 0
         for seed in range(300):
-            note = self._generate(seed).get("owner_note", "")
-            assert not any(line.startswith("BL ") for line in note.splitlines())
+            data = self._generate(seed)
+            if data.get("owner_phone"):
+                assert data.get("owner_name"), "a phone number with nobody attached to it"
+                phoned += 1
+            if data.get("owner_name"):
+                named += 1
+        # 60 % of runs name somebody, 55 % of those leave a number.
+        assert 140 < named < 230
+        assert 60 < phoned < 140
 
-    def test_kfz_line_appears_on_strassenrettung(self):
-        """…and 80 % on a Strassenrettung, so the block is reachable at all."""
-        filled = sum(
-            1
-            for seed in range(200)
-            if any(
-                line.startswith("BL ")
-                for line in self._generate(seed, incident_type="strassenrettung", title="Verkehrsunfall")
-                .get("owner_note", "")
-                .splitlines()
-            )
-        )
-        assert 130 < filled < 190
+    def test_the_material_tick_has_only_two_answers(self):
+        """§18.29 removed "keine Angabe"; there is no control that produces it."""
+        for seed in range(200):
+            for row in self._generate(seed).get("materials", []):
+                assert row["used"] in (True, False)
 
     def test_material_buckets_follow_the_keyword_table(self):
         """Type AND name are matched, with the documented fallback for the rest."""
@@ -575,7 +578,7 @@ class TestRapportGeneration:
         unticked = 0
         for seed in range(300):
             rows = self._generate(seed)["vehicles"]
-            assert {row["assignment_id"] for row in rows} == {unit["assignment_id"] for unit in self.VEHICLES}
+            assert {row["vehicle_id"] for row in rows} == {unit["vehicle_id"] for unit in self.VEHICLES}
             unticked += sum(1 for row in rows if row["present"] is False)
         # 10 % per vehicle over 600 rows — often enough to train on, rare enough
         # that it stays a signal.

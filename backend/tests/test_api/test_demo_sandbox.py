@@ -353,7 +353,8 @@ class TestSeedDemoEventContent:
         assert incident.leader_personnel_id == report.created_by_personnel_id
 
         # Muster names only — the owner block is citizen PII (plan 25 §9).
-        assert report.owner_note.startswith("Muster")
+        assert report.owner_name.startswith("Muster")
+        assert report.owner_phone
 
         # One unit still on site, one that came back: the Restliste/Abholliste
         # has something to show and "Material zurück – freigeben" has something

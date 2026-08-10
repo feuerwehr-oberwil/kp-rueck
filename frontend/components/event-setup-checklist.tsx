@@ -36,9 +36,17 @@ interface EventSetupChecklistProps {
   onDismiss: () => void
   onAllTasksComplete?: () => void
   onChecklistLoaded?: () => void
+  /** Opens the Fahrzeuge sheet — the one place a driver is assigned per vehicle. */
+  onOpenVehicles?: () => void
 }
 
-export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, onChecklistLoaded }: EventSetupChecklistProps) {
+export function EventSetupChecklist({
+  eventId,
+  onDismiss,
+  onAllTasksComplete,
+  onChecklistLoaded,
+  onOpenVehicles,
+}: EventSetupChecklistProps) {
   const t = useTranslations('checklist.setup')
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
@@ -207,6 +215,12 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
         onTestPrint: handleTestPrint,
         onOpenFallbackSettings: () => {
           window.location.href = '/settings?section=fallback'
+        },
+        // A step that names a modal should open it. Closing the popover first,
+        // because the sheet it opens sits behind it.
+        onOpenVehicles: () => {
+          onDismiss()
+          onOpenVehicles?.()
         },
       })
 

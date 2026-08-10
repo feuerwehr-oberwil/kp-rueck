@@ -242,6 +242,12 @@ class IncidentResponse(IncidentBase):
     # other; the detail's Rapport tab needs to tell "erfasst" from "Entwurf",
     # and at 02:00 those two read very differently.
     has_schadenplatz_rapport_draft: bool = False
+    # The incident has been disponiert at least once — `enroute` or anything
+    # past it, ever, not right now (see `services.incident_dispatch`). Every
+    # rapport surface hangs off this: a Schadenplatz nobody was ever sent to has
+    # nothing to report on, and an empty rapport on it is noise on the card, in
+    # the detail and on the Restliste alike.
+    has_been_dispatched: bool = False
     # "Abholung nötig" (decision 24): the crew is finished and cannot get back on
     # its own. NOT a status, and deliberately NOT cleared when the card moves to
     # `complete` — that transition releases the personnel while they are still
@@ -256,7 +262,13 @@ class IncidentResponse(IncidentBase):
     # the home city; None when there is no address (or on older backends).
     location_display: str | None = None
 
-    @field_validator("pickup_needed", "has_schadenplatz_rapport", "has_schadenplatz_rapport_draft", mode="before")
+    @field_validator(
+        "pickup_needed",
+        "has_schadenplatz_rapport",
+        "has_schadenplatz_rapport_draft",
+        "has_been_dispatched",
+        mode="before",
+    )
     @classmethod
     def _false_when_unset(cls, value: object) -> object:
         """None means "not set yet", not "invalid".
@@ -265,10 +277,10 @@ class IncidentResponse(IncidentBase):
         only applies on flush, so an incident validated straight after
         construction — which is what the training generator and every
         create-then-broadcast path does — still has ``None`` on the attribute.
-        The two ``has_schadenplatz_rapport*`` flags are transients the board
-        query attaches, so they are simply absent anywhere else. All of them
-        mean "no", and a 500 on a freshly built card is the wrong way to say
-        it.
+        The two ``has_schadenplatz_rapport*`` flags and ``has_been_dispatched``
+        are transients the board query attaches, so they are simply absent
+        anywhere else. All of them mean "no", and a 500 on a freshly built card
+        is the wrong way to say it.
         """
         return False if value is None else value
 
