@@ -77,6 +77,11 @@ export interface ApiIncident {
   has_completed_reko: boolean
   /** When reko personnel arrived on site (before submitting) */
   reko_arrived_at: string | null
+  /** True when an operator logged "Reko meldet: vor Ort" from a radio message
+   *  rather than the crew tapping it on `/reko`. The Feldmeldungen row is the
+   *  one place the arrival is shown (plan 26, decision 15) — and it says which
+   *  channel it came through. */
+  reko_arrived_by_kp?: boolean
   /** When the field crew reported the incident finished (operator decides to close) */
   field_complete_reported_at: string | null
   /** Who reported it. null = the KP took it over the radio — provenance is

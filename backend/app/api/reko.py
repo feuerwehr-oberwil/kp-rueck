@@ -34,7 +34,7 @@ from ..crud import reko as crud
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
-from ..models import Incident, RekoReport
+from ..models import Incident, RekoReport, User
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update, broadcast_reko_update
 
@@ -54,15 +54,19 @@ async def _require_user_or_form_token(
     access_token: str | None,
     authorization: str | None,
     db: AsyncSession,
-) -> None:
+) -> User | None:
     """Allow a valid reko form token for this incident OR any logged-in user.
 
     Field crews open reko links without an account; operators view/edit
     reports from the cookie-authenticated board. Raises 401 otherwise.
+
+    Returns the user when the *session* opened the door and ``None`` when the
+    token did — which is the provenance question itself, answered once at the
+    door instead of re-derived by every handler (plan 26 §5.1).
     """
     if reko_token and validate_form_token(reko_token, str(incident_id)):
-        return
-    await get_current_user(request, access_token, authorization, db)
+        return None
+    return await get_current_user(request, access_token, authorization, db)
 
 
 @router.get("/form", response_model=schemas.RekoReportResponse)
@@ -116,7 +120,10 @@ async def get_reko_form(
 async def submit_reko_report(
     report_data: schemas.RekoReportCreate,
     background_tasks: BackgroundTasks,
+    request: Request,
     submit: bool = Query(default=True, description="Mark as submitted (not draft)"),
+    access_token: str | None = Cookie(None),
+    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.RekoReportResponse:
     """
@@ -124,17 +131,44 @@ async def submit_reko_report(
 
     Use submit=false for draft saves (auto-save).
     Use submit=true for final submission.
+
+    **One route, two doors** (plan 26 §5.1, decision 11). A field crew sends the
+    incident's form token; the board sends none and is identified by its session.
+    The alternative — a `…-by-editor` twin — would be two handlers that have to
+    be kept in step forever, which is the drift this is here to prevent. Neither
+    a token nor a session is still a 401.
+
+    A token that is *present but wrong* stays a 400 no matter who is logged in,
+    exactly as before: a leaked link must not become a way to write into another
+    incident, and that guarantee has to survive the auth change.
     """
-    # Validate token
-    if not validate_form_token(report_data.token, str(report_data.incident_id)):
+    field_token = report_data.token
+    if field_token is not None and not validate_form_token(field_token, str(report_data.incident_id)):
         raise HTTPException(status_code=400, detail="Invalid token")
 
-    # Get or create report
-    report = await crud.get_or_create_reko_report(db, report_data.incident_id, report_data.token)
+    user = await _require_user_or_form_token(
+        request, report_data.incident_id, field_token, access_token, authorization, db
+    )
+
+    # Get or create report. The token resolves the reporting *person*; the board
+    # has no such person to resolve, so `submitted_by_personnel_id` stays NULL and
+    # the operator lands in `created_by_user_id` instead (decision 6).
+    try:
+        if user is not None:
+            report = await crud.get_or_create_kp_reko_report(db, report_data.incident_id, user)
+        elif field_token is not None:
+            report = await crud.get_or_create_reko_report(db, report_data.incident_id, field_token)
+        else:
+            # Unreachable — the helper returns None only when a token opened the
+            # door — but it is what narrows the token for the type checker.
+            raise HTTPException(status_code=401, detail=ErrorMessages.INVALID_REQUEST)
+    except ValueError as e:
+        logger.warning("Reko report creation failed: %s", e)
+        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
     # Update with new data
     update_data = schemas.RekoReportUpdate(**report_data.model_dump(exclude={"incident_id", "token"}))
-    updated = await crud.update_reko_report(db, report.id, update_data, submit=submit)
+    updated = await crud.update_reko_report(db, report.id, update_data, submit=submit, user=user)
 
     # Fetch incident details
     incident_result = await db.execute(select(Incident).where(Incident.id == report_data.incident_id))
@@ -185,16 +219,24 @@ async def update_report(
     Requires either the incident's form token (X-Reko-Token header) or a
     logged-in user — recon reports feed operator decisions and the printed
     slip, so they must not be rewritable by anyone who can reach the API.
+
+    This is how the KP amends a crew-filed report (plan 26 §5.1): what came in
+    over the radio afterwards is added to the same row instead of filing a second
+    one, and the report then carries **both** provenance sides —
+    ``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the
+    operator — which is what a mixed report has to be able to print.
     """
     result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
     existing = result.scalar_one_or_none()
     if not existing:
         raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
 
-    await _require_user_or_form_token(request, existing.incident_id, x_reko_token, access_token, authorization, db)
+    user = await _require_user_or_form_token(
+        request, existing.incident_id, x_reko_token, access_token, authorization, db
+    )
 
     try:
-        updated = await crud.update_reko_report(db, report_id, update_data, submit=submit)
+        updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)
 
         # Fetch incident title
         incident_result = await db.execute(select(Incident).where(Incident.id == updated.incident_id))

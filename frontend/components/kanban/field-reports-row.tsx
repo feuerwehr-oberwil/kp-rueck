@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * "Abholung" — the KP's one settable field report (plan 25, decision 28, §18.19).
+ * The KP's settable field reports (plan 25, decision 28, §18.19 — plan 26 §5.2).
  *
  * This was three toggles: Angekommen, Einsatz beendet, Abholung. The first two
  * are gone as *controls*. Status belongs to the columns — `Einsatz` and
@@ -16,6 +16,14 @@
  * into, and clearing it is a real KP action (the chip does the same job on the
  * card and in the Restliste).
  *
+ * **"Reko vor Ort" joins it here, and ONLY here** (plan 26, decision 15). The
+ * Reko block used to render its own "vor Ort seit …" line; that line is gone,
+ * not linked, because a fact displayed in two places is a fact that will
+ * disagree with itself. Same reason it is a control and not just a reading: over
+ * the radio is how "Reko meldet: vor Ort" usually arrives, and until now it had
+ * nowhere to land. Accepted price: the Reko block alone no longer says whether
+ * Reko is on site.
+ *
  * **Provenance is never faked**: a KP write leaves the personnel columns NULL
  * and the audit-log entry carries the operator, so "im KP erfasst" is a real
  * state and not a guess dressed up as a crew report.
@@ -23,7 +31,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { CarTaxiFront, Flag, Loader2, MapPin, MessageSquare } from 'lucide-react'
+import { Binoculars, CarTaxiFront, Flag, Loader2, MapPin, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '@/components/ui/input'
@@ -42,7 +50,7 @@ interface FieldReportsRowProps {
   canEdit?: boolean
 }
 
-type Row = 'pickup'
+type Row = 'rekoArrived' | 'pickup'
 
 export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowProps) {
   const t = useTranslations('feld.kp')
@@ -61,6 +69,23 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
         await refreshOperations()
       } catch (error) {
         console.error('Failed to save field report:', error)
+        toast.error(t('saveFailed'))
+      } finally {
+        setSaving(null)
+      }
+    },
+    [operation.id, refreshOperations, t],
+  )
+
+  /** "Reko meldet: vor Ort" — a different table, the same gesture. */
+  const saveRekoArrived = useCallback(
+    async (at: string | null | undefined) => {
+      setSaving('rekoArrived')
+      try {
+        await apiClient.setRekoArrived(operation.id, at)
+        await refreshOperations()
+      } catch (error) {
+        console.error('Failed to save reko arrival:', error)
         toast.error(t('saveFailed'))
       } finally {
         setSaving(null)
@@ -89,9 +114,34 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
     at: Date | null | undefined
     on: boolean
     by: string | null | undefined
+    /** Overrides `provenance()` where the channel is not readable off a
+     *  personnel FK — the Reko arrival lives on `reko_reports`, and the board
+     *  carries the answer as a flag rather than an id it would have to resolve. */
+    line?: string | null
     onToggle: (checked: boolean) => void
     onTimeChange: (time: string) => void
   }> = [
+    {
+      key: 'rekoArrived',
+      icon: <Binoculars className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
+      label: t('rekoArrived'),
+      at: operation.rekoArrivedAt,
+      on: Boolean(operation.rekoArrivedAt),
+      by: null,
+      line: operation.rekoArrivedAt
+        ? operation.rekoArrivedByKp
+          ? t('fromKp', { time: formatMessageTime(operation.rekoArrivedAt) })
+          : // No name to show: the arrival is reported by whoever holds the Reko
+            // link, and inventing one would be the guessed attribution the
+            // provenance rule exists to prevent.
+            t('fromReko', { time: formatMessageTime(operation.rekoArrivedAt) })
+        : null,
+      onToggle: checked => saveRekoArrived(checked ? undefined : null),
+      onTimeChange: time => {
+        const next = applyTimeEdit(operation.rekoArrivedAt, time)
+        if (next) saveRekoArrived(next.toISOString())
+      },
+    },
     {
       key: 'pickup',
       icon: <CarTaxiFront className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
@@ -110,15 +160,15 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
   return (
     <div className="rounded-lg border border-border p-4 space-y-3">
       <div>
-        <Label className="text-sm font-semibold">{t('pickupTitle')}</Label>
+        <Label className="text-sm font-semibold">{t('reportsTitle')}</Label>
         {/* Says out loud that this is the radio-message path, so nobody looks
             for a field device that does not exist. */}
-        <p className="text-xs text-muted-foreground">{t('pickupDescription')}</p>
+        <p className="text-xs text-muted-foreground">{t('reportsDescription')}</p>
       </div>
 
       <div className="space-y-2.5">
         {rows.map(row => {
-          const line = provenance(row.at, row.by)
+          const line = row.line !== undefined ? row.line : provenance(row.at, row.by)
           return (
             <div key={row.key} className="space-y-1.5">
               <div className="flex items-center justify-between gap-3">

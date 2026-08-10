@@ -35,6 +35,13 @@ export interface ApiRekoReportCreate extends ApiRekoReportBase {
   token: string
 }
 
+/** The body of a KP write: the report's fields and nothing else.
+ *
+ * No token — the session is the identity (plan 26 §5.1) — and no `is_draft`,
+ * which only the `submit` query param may change.
+ */
+export type ApiRekoReportUpdate = Partial<Omit<ApiRekoReportBase, 'is_draft'>>
+
 export interface ApiRekoReportResponse extends ApiRekoReportBase {
   id: string
   incident_id: string
@@ -50,6 +57,20 @@ export interface ApiRekoReportResponse extends ApiRekoReportBase {
   photos_json: string[]
   submitted_by_personnel_id?: string | null
   submitted_by_personnel_name?: string | null
+  /** Provenance (plan 26 §5.3): the personnel FK above is the field side, these
+   *  three are the KP side, and a mixed report carries both. All null means the
+   *  report came in through the form link, which is the normal case. */
+  created_by_user_id?: string | null
+  updated_by_user_id?: string | null
+  arrived_reported_by_user_id?: string | null
+}
+
+/** What `POST /api/incidents/{id}/reko-arrived` answers. */
+export interface ApiRekoArrivedState {
+  incident_id: string
+  arrived_at: string | null
+  /** Set means an operator logged the radio message; null means the crew tapped it. */
+  arrived_reported_by_user_id: string | null
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

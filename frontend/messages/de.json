@@ -1912,10 +1912,11 @@
           "Ausgedehnte Lage, mehrere Bereiche betroffen. Längerer Einsatz zu erwarten.",
           "Erhebliche Gefährdung vor Ort. Umfangreiches Aufgebot erforderlich."
         ]
-      }
+      },
+      "submitKp": "Bericht speichern",
+      "submittingKp": "Wird gespeichert …"
     },
     "reportSection": {
-      "onSiteSince": "vor Ort seit {time}",
       "noReport": "Noch keine Reko-Meldung",
       "previousReports": "{count, plural, one {# frühere Meldung} other {# frühere Meldungen}}",
       "relevant": "Einsatz relevant",
@@ -1948,7 +1949,15 @@
       "updatedAt": "Aktualisiert: {date}",
       "relevantShort": "Relevant",
       "notRelevantShort": "Nicht relevant",
-      "photoCount": "{count, plural, one {# Foto} other {# Fotos}}"
+      "photoCount": "{count, plural, one {# Foto} other {# Fotos}}",
+      "create": "Reko-Bericht erfassen",
+      "createTitle": "Reko-Bericht erfassen",
+      "amend": "Reko-Bericht ergänzen",
+      "amendTitle": "Reko-Bericht ergänzen",
+      "cancel": "Abbrechen",
+      "radioHint": "Was der Trupp über Funk meldet, hier erfassen. Wird als KP-Erfassung vermerkt.",
+      "saved": "Reko-Bericht gespeichert",
+      "saveFailed": "Speichern fehlgeschlagen"
     },
     "dummyGenerator": {
       "title": "Übungs-Modus",
@@ -2952,13 +2961,15 @@
       "nudgeDismiss": "Hinweis ausblenden"
     },
     "kp": {
-      "pickupTitle": "Abholung",
-      "pickupDescription": "Meldet der Trupp die Abholung über Funk, hier erfassen.",
+      "reportsTitle": "Funkmeldungen",
+      "reportsDescription": "Meldet der Trupp etwas über Funk, hier erfassen.",
       "arrived": "Angekommen",
+      "rekoArrived": "Reko vor Ort",
       "complete": "Einsatz beendet",
       "pickup": "Abholung nötig",
       "fromField": "vom Feld, {name}, {time}",
       "fromKp": "im KP erfasst, {time}",
+      "fromReko": "von der Reko, {time}",
       "fromAutomation": "automatisch (GPS), {time}",
       "unknownPerson": "unbekannt",
       "timeLabel": "Zeit für «{what}»",

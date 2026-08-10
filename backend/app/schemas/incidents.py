@@ -219,6 +219,10 @@ class IncidentResponse(IncidentBase):
     assigned_vehicles: list[AssignedVehicle] = []
     has_completed_reko: bool = False
     reko_arrived_at: datetime | None = None
+    # True when an operator logged "Reko meldet: vor Ort" from a radio message
+    # rather than the crew tapping it on `/reko`. The Feldmeldungen row is the one
+    # place the arrival is shown (plan 26, decision 15) and it names its channel.
+    reko_arrived_by_kp: bool = False
     # Field crew reported the incident finished; operator decides to close it.
     field_complete_reported_at: datetime | None = None
     # NULL when the KP took the message over the radio — provenance is never

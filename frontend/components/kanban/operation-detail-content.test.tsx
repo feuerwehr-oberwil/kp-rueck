@@ -283,9 +283,12 @@ describe("OperationDetailContent", () => {
     await user.click(tab(/^Rapport/))
     expect(screen.getByText("Reko-Meldungen")).toBeVisible()
     expect(screen.getByText("Schadenplatz-Rapport-Formular")).toBeVisible()
-    // Only Abholung is settable from the KP since §18.19 — Angekommen and
-    // Einsatz beendet are information in the thread, not switches.
-    expect(screen.getByText("Abholung")).toBeVisible()
+    // Two settable rows since plan 26 §5.2: Abholung (§18.19) and "Reko vor
+    // Ort", which is written here and displayed nowhere else. Angekommen and
+    // Einsatz beendet stay information in the thread, not switches.
+    expect(screen.getByText("Funkmeldungen")).toBeVisible()
+    expect(screen.getByText("Abholung nötig")).toBeVisible()
+    expect(screen.getByText("Reko vor Ort")).toBeVisible()
     expect(screen.getByText("Meldungen vom Feld")).toBeVisible()
     expect(screen.queryByText("Zugewiesene Ressourcen")).not.toBeInTheDocument()
 

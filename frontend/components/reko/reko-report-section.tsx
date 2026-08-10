@@ -1,14 +1,44 @@
 'use client'
 
+/**
+ * The Reko block of the incident detail — a **read AND write** surface since
+ * plan 26 §5.1.
+ *
+ * It used to be a renderer and nothing else: it could display a recon report
+ * faithfully and produce none of it. `POST /api/reko/` took a per-incident form
+ * token and had no user path, so an editor could not file one at all — and the
+ * normal case is a radio message, because the crew has no signal in the cellar,
+ * no free hands, or simply will not open an app at 02:00.
+ *
+ * It **expands in place**, collapsed until needed, the same shape
+ * `SchadenplatzRapportSection` has one column over. Deliberately not a dialog:
+ * that would be a modal over a modal, and it would hide the Feldmeldungen the
+ * operator is reading from while dictating.
+ *
+ * "Reko-Bericht erfassen" appears on an incident that has **no report and never
+ * had field contact** — the create-from-nothing case, which is this phase's
+ * acceptance criterion. With a report present the button amends the existing one
+ * (`PATCH`) instead of filing a second, so a crew's authorship survives and the
+ * row carries both provenance lines.
+ *
+ * The "vor Ort seit …" line this section used to render is **gone** (decision
+ * 15), not moved and not linked. `arrived_at` is displayed and written in
+ * exactly one place now, the Feldmeldungen row — a fact shown twice is a fact
+ * that will eventually disagree with itself. Accepted price: this block alone no
+ * longer says whether Reko is on site.
+ */
+
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History, MapPin, CheckCheck } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
+import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { wsClient } from '@/lib/websocket-client'
@@ -18,25 +48,26 @@ interface RekoReportSectionProps {
   /** Editor-only: archive the incident (status → complete). When provided and the
       latest report is "nicht relevant", a "Einsatz abschliessen" button is shown. */
   onRequestComplete?: () => void
+  /** Whether this mount may write. False on the phone, which is viewing-first. */
+  canEdit?: boolean
 }
 
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
 
-export default function RekoReportSection({ incidentId, onRequestComplete }: RekoReportSectionProps) {
+export default function RekoReportSection({ incidentId, onRequestComplete, canEdit = false }: RekoReportSectionProps) {
   const t = useTranslations('reko.reportSection')
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
-  const [arrivedAt, setArrivedAt] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [formData, setFormData] = useState<RekoFormData>(EMPTY_REKO_FORM)
 
   const loadReports = useCallback(async () => {
     try {
       const data = await apiClient.getIncidentRekoReports(incidentId)
       // Filter out drafts, only show submitted reports (newest first)
       setReports(data.filter(r => !r.is_draft))
-      // Check if there's a draft with arrived_at (reko personnel is on site)
-      const draftWithArrival = data.find(r => r.is_draft && r.arrived_at)
-      setArrivedAt(draftWithArrival?.arrived_at || null)
     } catch (error) {
       console.error('Failed to load Reko reports:', error)
     } finally {
@@ -70,6 +101,46 @@ export default function RekoReportSection({ incidentId, onRequestComplete }: Rek
     }
   }, [loadReports, incidentId])
 
+  const latestReport: ApiRekoReportResponse | undefined = reports[0]
+  const previousReports = reports.slice(1)
+
+  /** Open the form: amending starts from what is already there. */
+  function startEditing() {
+    setFormData(toRekoFormData(latestReport))
+    setIsEditing(true)
+  }
+
+  async function handleSave() {
+    setIsSaving(true)
+    try {
+      // Only the report's own fields travel: no token (the session is the
+      // identity) and no photos, which this mount has no door for.
+      const payload = {
+        is_relevant: formData.is_relevant,
+        dangers_json: formData.dangers_json,
+        effort_json: formData.effort_json,
+        power_supply: formData.power_supply,
+        summary_text: formData.summary_text,
+        additional_notes: formData.additional_notes,
+      }
+      if (latestReport) {
+        // An amendment, not a second report: the crew keeps its authorship and
+        // the operator is added next to it (§5.3).
+        await apiClient.updateRekoReport(latestReport.id, payload)
+      } else {
+        await apiClient.createRekoReportAsEditor(incidentId, payload)
+      }
+      await loadReports()
+      setIsEditing(false)
+      toast.success(t('saved'))
+    } catch (error) {
+      console.error('Failed to save Reko report:', error)
+      toast.error(t('saveFailed'))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-4">
@@ -78,57 +149,86 @@ export default function RekoReportSection({ incidentId, onRequestComplete }: Rek
     )
   }
 
-  if (reports.length === 0) {
-    // Check if REKO personnel has arrived but not yet submitted
-    if (arrivedAt) {
-      const arrivedDate = new Date(arrivedAt)
-      return (
-        <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
-          <MapPin className="h-4 w-4" />
-          <p className="text-sm">
-            {t('onSiteSince', { time: arrivedDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}
-          </p>
-        </div>
-      )
-    }
-    return (
-      <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
-        <FileText className="h-4 w-4" />
-        <p className="text-sm">{t('noReport')}</p>
-      </div>
-    )
-  }
-
-  const latestReport = reports[0]
-  const previousReports = reports.slice(1)
-
   return (
     <div className="space-y-2">
-      {/* Latest Report - Full display */}
-      <RekoReportCard
-        report={latestReport}
-        incidentId={incidentId}
-        onRequestComplete={onRequestComplete}
-      />
+      {latestReport ? (
+        <>
+          {/* Latest Report - Full display */}
+          <RekoReportCard
+            report={latestReport}
+            incidentId={incidentId}
+            onRequestComplete={onRequestComplete}
+          />
 
-      {/* Previous Reports - Collapsible */}
-      {previousReports.length > 0 && (
-        <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-          <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50" tabIndex={-1}>
-            <History className="h-3 w-3" />
-            <span>{t('previousReports', { count: previousReports.length })}</span>
-            <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", historyOpen && "rotate-180")} />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-1 pt-1">
-            {previousReports.map((report) => (
-              <RekoReportCardCompact
-                key={report.id}
-                report={report}
-                incidentId={incidentId}
-              />
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
+          {/* Previous Reports - Collapsible */}
+          {previousReports.length > 0 && (
+            <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50" tabIndex={-1}>
+                <History className="h-3 w-3" />
+                <span>{t('previousReports', { count: previousReports.length })}</span>
+                <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", historyOpen && "rotate-180")} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 pt-1">
+                {previousReports.map((report) => (
+                  <RekoReportCardCompact
+                    key={report.id}
+                    report={report}
+                    incidentId={incidentId}
+                  />
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </>
+      ) : (
+        !isEditing && (
+          <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
+            <FileText className="h-4 w-4" />
+            <p className="text-sm">{t('noReport')}</p>
+          </div>
+        )
+      )}
+
+      {/* The editing surface. In place, not a dialog — a modal over the incident
+          detail would hide the Feldmeldungen the operator is dictating from. */}
+      {canEdit && (
+        isEditing ? (
+          <div className="rounded-lg border border-border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Binoculars className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-muted-foreground">
+                {latestReport ? t('amendTitle') : t('createTitle')}
+              </span>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                className="ml-auto"
+                disabled={isSaving}
+                onClick={() => setIsEditing(false)}
+              >
+                <X className="size-3.5" />
+                {t('cancel')}
+              </Button>
+            </div>
+            {/* Says out loud which channel this is, so nothing about the
+                resulting report reads as a crew report. */}
+            <p className="text-xs text-muted-foreground">{t('radioHint')}</p>
+            <RekoReportForm
+              incidentId={incidentId}
+              value={formData}
+              onChange={setFormData}
+              mount="kp"
+              isSubmitting={isSaving}
+              onSubmit={handleSave}
+            />
+          </div>
+        ) : (
+          <Button type="button" size="xs" variant="outline" onClick={startEditing}>
+            {latestReport ? <Pencil className="size-3.5" /> : <Plus className="size-3.5" />}
+            {latestReport ? t('amend') : t('create')}
+          </Button>
+        )
       )}
     </div>
   )

@@ -4277,6 +4277,92 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/reko-arrived": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Set Reko Arrived",
+        "description": "\"Reko meldet: vor Ort\" over the radio (plan 26 §5.2, decision 15).\n\nThe KP twin of `POST /api/reko/{incident_id}/arrived`, which is a form-token\nroute and therefore had nowhere to put a message that arrived by radio. It\nreuses `crud.mark_reko_arrived`'s body with the token lookup replaced, fires\nthe same notification and broadcasts the same two WebSocket events — **a\nboard watching for a field message must not be able to tell the difference\nin anything except the provenance line.**\n\nIdempotent, correctable and clearable: absent `arrived_at` means \"now\" and\nleaves an existing arrival alone, an explicit one lands at the time the\nmessage was actually given (five minutes ago, over the radio), and `null`\nclears it, because a mis-heard call is corrected rather than amended.\n\nThe arrival is displayed and written in exactly ONE place, the detail's\nFeldmeldungen row. Do not add a second control for it somewhere else.",
+        "operationId": "set_reko_arrived_api_incidents__incident_id__reko_arrived_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RekoArrivedUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RekoArrivedState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/rapport": {
       "get": {
         "tags": [
@@ -9867,7 +9953,7 @@
           "reko"
         ],
         "summary": "Submit Reko Report",
-        "description": "Submit or update Reko report.\n\nUse submit=false for draft saves (auto-save).\nUse submit=true for final submission.",
+        "description": "Submit or update Reko report.\n\nUse submit=false for draft saves (auto-save).\nUse submit=true for final submission.\n\n**One route, two doors** (plan 26 §5.1, decision 11). A field crew sends the\nincident's form token; the board sends none and is identified by its session.\nThe alternative — a `…-by-editor` twin — would be two handlers that have to\nbe kept in step forever, which is the drift this is here to prevent. Neither\na token nor a session is still a 401.\n\nA token that is *present but wrong* stays a 400 no matter who is logged in,\nexactly as before: a leaked link must not become a way to write into another\nincident, and that guarantee has to survive the auth change.",
         "operationId": "submit_reko_report_api_reko__post",
         "parameters": [
           {
@@ -9881,6 +9967,38 @@
               "title": "Submit"
             },
             "description": "Mark as submitted (not draft)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "requestBody": {
@@ -9923,7 +10041,7 @@
           "reko"
         ],
         "summary": "Update Report",
-        "description": "Update existing Reko report (e.g., add more photos after submission).\n\nRequires either the incident's form token (X-Reko-Token header) or a\nlogged-in user — recon reports feed operator decisions and the printed\nslip, so they must not be rewritable by anyone who can reach the API.",
+        "description": "Update existing Reko report (e.g., add more photos after submission).\n\nRequires either the incident's form token (X-Reko-Token header) or a\nlogged-in user — recon reports feed operator decisions and the printed\nslip, so they must not be rewritable by anyone who can reach the API.\n\nThis is how the KP amends a crew-filed report (plan 26 §5.1): what came in\nover the radio afterwards is added to the same row instead of filing a second\none, and the report then carries **both** provenance sides —\n``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the\noperator — which is what a mixed report has to be able to print.",
         "operationId": "update_report_api_reko__report_id__patch",
         "parameters": [
           {
@@ -20382,6 +20500,11 @@
             ],
             "title": "Reko Arrived At"
           },
+          "reko_arrived_by_kp": {
+            "type": "boolean",
+            "title": "Reko Arrived By Kp",
+            "default": false
+          },
           "field_complete_reported_at": {
             "anyOf": [
               {
@@ -23500,6 +23623,64 @@
         "title": "RapportVehicleUpdate",
         "description": "The one tick, as the form sends it back."
       },
+      "RekoArrivedState": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "arrived_reported_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived Reported By User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "RekoArrivedState",
+        "description": "What the board shows in the Feldmeldungen row after the write.\n\nThe provenance is the *absence* of the user FK, read the same way everywhere:\nNULL means a crew tapped \"Ich bin vor Ort\" on `/reko`, set means an operator\nlogged the radio message. Never a resolved \"who\" — a User is not a Personnel."
+      },
+      "RekoArrivedUpdate": {
+        "properties": {
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          }
+        },
+        "type": "object",
+        "title": "RekoArrivedUpdate",
+        "description": "\"Reko meldet: vor Ort\" as the KP hears it (plan 26 §5.2).\n\nThree shapes, and the difference between the last two is the point:\n\n* field **absent** — \"now\", and idempotent: an arrival already on the row is\n  left where it is, exactly as a crew's second tap is.\n* field **set** — that time. A radio message logged five minutes late has to\n  land at the right time or the board's waiting clocks lie.\n* field **null** — clear it. A mis-heard call is corrected, not amended, and\n  clearing takes the provenance with it: \"nobody has reported it\" is not a\n  KP report."
+      },
       "RekoDashboardAssignment": {
         "properties": {
           "incident_id": {
@@ -23802,17 +23983,23 @@
             "title": "Incident Id"
           },
           "token": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Token"
           }
         },
         "type": "object",
         "required": [
-          "incident_id",
-          "token"
+          "incident_id"
         ],
         "title": "RekoReportCreate",
-        "description": "Schema for creating Reko report."
+        "description": "Schema for creating Reko report.\n\n``token`` is optional since plan 26 §5.1: the same route is also the board's\ndoor. A field crew sends the incident's form token; an editor sends none and\nis identified by the session cookie instead. Neither is still a 401 — one\nroute, two doors, never a `…-by-editor` twin that drifts (decision 11)."
       },
       "RekoReportResponse": {
         "properties": {
@@ -24002,6 +24189,42 @@
               }
             ],
             "title": "Submitted By Personnel Name"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "updated_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By User Id"
+          },
+          "arrived_reported_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived Reported By User Id"
           }
         },
         "type": "object",

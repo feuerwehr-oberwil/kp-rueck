@@ -60,6 +60,8 @@ import {
   type ApiIncidentTimelineResponse,
   type ApiIncidentParticipantsResponse,
   type ApiRekoReportCreate,
+  type ApiRekoReportUpdate,
+  type ApiRekoArrivedState,
   type ApiRekoReportResponse,
   type ApiRekoFormResponse,
   type ApiEventRekoSummariesResponse,
@@ -1026,6 +1028,47 @@ class ApiClient {
     return this.request<ApiRekoReportResponse>(`/api/reko/?submit=true`, {
       method: 'POST',
       body: JSON.stringify({ ...data, incident_id: incidentId, token }),
+    })
+  }
+
+  /** The board's door onto the same route (plan 26 §5.1) — no token, the session
+   *  identifies the operator. The report lands in the same table and the same
+   *  list as a crew-filed one; only its provenance columns differ. */
+  async createRekoReportAsEditor(
+    incidentId: string,
+    data: ApiRekoReportUpdate,
+    submit = true,
+  ): Promise<ApiRekoReportResponse> {
+    return this.request<ApiRekoReportResponse>(`/api/reko/?submit=${submit ? 'true' : 'false'}`, {
+      method: 'POST',
+      body: JSON.stringify({ ...data, incident_id: incidentId }),
+    })
+  }
+
+  /** Amend an existing report — a crew's included, without filing a second one.
+   *  The endpoint has accepted a session since it was written; it simply never
+   *  had a caller. Without `token` this is the KP door and stamps the operator. */
+  async updateRekoReport(
+    reportId: string,
+    data: ApiRekoReportUpdate,
+    options?: { submit?: boolean; token?: string },
+  ): Promise<ApiRekoReportResponse> {
+    return this.request<ApiRekoReportResponse>(
+      `/api/reko/${reportId}?submit=${options?.submit ? 'true' : 'false'}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+        headers: options?.token ? { 'X-Reko-Token': options.token } : undefined,
+      },
+    )
+  }
+
+  /** "Reko meldet: vor Ort" as the KP hears it. Omit `arrivedAt` for "now",
+   *  pass a time for a message logged late, pass `null` to clear a mis-hear. */
+  async setRekoArrived(incidentId: string, arrivedAt?: string | null): Promise<ApiRekoArrivedState> {
+    return this.request<ApiRekoArrivedState>(`/api/incidents/${incidentId}/reko-arrived`, {
+      method: 'POST',
+      body: JSON.stringify(arrivedAt === undefined ? {} : { arrived_at: arrivedAt }),
     })
   }
 

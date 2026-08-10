@@ -100,6 +100,10 @@ export interface Operation {
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
+  /** True when an operator logged the arrival off a radio message rather than
+   *  the crew tapping it on `/reko`. Read straight through to the Feldmeldungen
+   *  row, which is the one place "vor Ort" is shown at all (plan 26 §5.2). */
+  rekoArrivedByKp?: boolean
   /** Set when the field crew reported the incident finished. Drives the
    *  "Feld meldet: beendet" card badge; the operator still closes it manually. */
   fieldCompleteReportedAt?: Date | null
@@ -455,6 +459,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
+      rekoArrivedByKp: incident.reko_arrived_by_kp ?? false,
       fieldCompleteReportedAt: incident.field_complete_reported_at ? new Date(incident.field_complete_reported_at) : null,
       fieldCompleteReportedBy: incident.field_complete_reported_by ?? null,
       fieldArrivedAt: incident.field_arrived_at ? new Date(incident.field_arrived_at) : null,

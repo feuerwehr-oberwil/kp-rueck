@@ -1245,6 +1245,7 @@ export function OperationDetailContent({
               <div className="mt-1.5">
                 <RekoReportSection
                   incidentId={operation.id}
+                  canEdit={canEdit}
                   onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
                 />
               </div>

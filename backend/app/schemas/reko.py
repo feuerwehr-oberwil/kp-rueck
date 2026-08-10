@@ -45,10 +45,16 @@ class RekoReportBase(BaseModel):
 
 
 class RekoReportCreate(RekoReportBase):
-    """Schema for creating Reko report."""
+    """Schema for creating Reko report.
+
+    ``token`` is optional since plan 26 §5.1: the same route is also the board's
+    door. A field crew sends the incident's form token; an editor sends none and
+    is identified by the session cookie instead. Neither is still a 401 — one
+    route, two doors, never a `…-by-editor` twin that drifts (decision 11).
+    """
 
     incident_id: UUID
-    token: str
+    token: str | None = None
 
 
 class RekoReportUpdate(RekoReportBase):
@@ -74,6 +80,12 @@ class RekoReportResponse(RekoReportBase):
     photos_json: list[str] = []
     submitted_by_personnel_id: UUID | None = None
     submitted_by_personnel_name: str | None = None
+    # Provenance (§5.3). The personnel FK above is the field side; these three are
+    # the KP side, and a mixed report carries both. NULL on all three means the
+    # report arrived through the form link, which is the normal case.
+    created_by_user_id: UUID | None = None
+    updated_by_user_id: UUID | None = None
+    arrived_reported_by_user_id: UUID | None = None
 
     @field_validator("photos_json", mode="before")
     @classmethod
@@ -82,6 +94,36 @@ class RekoReportResponse(RekoReportBase):
         if v is None:
             return []
         return v
+
+
+class RekoArrivedUpdate(BaseModel):
+    """ "Reko meldet: vor Ort" as the KP hears it (plan 26 §5.2).
+
+    Three shapes, and the difference between the last two is the point:
+
+    * field **absent** — "now", and idempotent: an arrival already on the row is
+      left where it is, exactly as a crew's second tap is.
+    * field **set** — that time. A radio message logged five minutes late has to
+      land at the right time or the board's waiting clocks lie.
+    * field **null** — clear it. A mis-heard call is corrected, not amended, and
+      clearing takes the provenance with it: "nobody has reported it" is not a
+      KP report.
+    """
+
+    arrived_at: datetime | None = None
+
+
+class RekoArrivedState(BaseModel):
+    """What the board shows in the Feldmeldungen row after the write.
+
+    The provenance is the *absence* of the user FK, read the same way everywhere:
+    NULL means a crew tapped "Ich bin vor Ort" on `/reko`, set means an operator
+    logged the radio message. Never a resolved "who" — a User is not a Personnel.
+    """
+
+    incident_id: UUID
+    arrived_at: datetime | None = None
+    arrived_reported_by_user_id: UUID | None = None
 
 
 class RekoSummary(BaseModel):

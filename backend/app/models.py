@@ -376,6 +376,13 @@ class Incident(Base):
     assigned_vehicles: list[Any]
     has_completed_reko: bool
     reko_arrived_at: datetime | None
+    # Which channel reported that arrival: True when an operator logged it from a
+    # radio message (`arrived_reported_by_user_id` set), False when the crew tapped
+    # "Ich bin vor Ort" on `/reko`. Batched onto the incident the same way the
+    # timestamp is, because the detail's Feldmeldungen row is the ONE place the
+    # arrival is shown (decision 15) and it must say which channel it came through
+    # without a second round trip.
+    reko_arrived_by_kp: bool
     has_schadenplatz_rapport: bool
     # The same query's other answer: a rapport row exists but is still a draft.
     # Kept as its own flag rather than derived, because "nobody filed" and
@@ -797,6 +804,29 @@ class RekoReport(Base):
         PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
     )
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # --- Provenance (plan 26 §5.3) ---
+    # `submitted_by_personnel_id` above stays the field-side answer and is never
+    # written by the board. These three are the KP side: the operator who typed a
+    # dictated Reko report, amended a crew's, or logged "Reko meldet: vor Ort" off
+    # the radio. Exactly one side of a pair is populated per write — a User is
+    # never guessed to be a Personnel (decision 6) — and a mixed report (crew
+    # filed, KP amended) legitimately carries both, which is why the amendment
+    # gets its own column rather than overwriting the creator.
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # The arrival's OWN author, for the same reason the Schadenplatz-Rapport keeps
+    # `arrived_by_user_id` apart from its created_by pair: the KP can now create a
+    # report before anybody is on site, so reading the arrival off the creator
+    # would render a crew's later "vor Ort" as a radio message. Clearing the
+    # arrival clears this too — "nobody has reported it" is not a KP report.
+    arrived_reported_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="reko_reports")

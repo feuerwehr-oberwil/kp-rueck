@@ -163,12 +163,18 @@ async def get_incidents(
             )
 
     # Batch load reko completion status and arrived_at for all incidents
-    reko_query = select(RekoReport.incident_id, RekoReport.is_draft, RekoReport.arrived_at).where(
-        RekoReport.incident_id.in_(incident_ids)
-    )
+    reko_query = select(
+        RekoReport.incident_id,
+        RekoReport.is_draft,
+        RekoReport.arrived_at,
+        RekoReport.arrived_reported_by_user_id,
+    ).where(RekoReport.incident_id.in_(incident_ids))
     reko_result = await db.execute(reko_query)
     incidents_with_completed_reko = set()
     reko_arrived_at_map: dict[uuid.UUID, datetime] = {}
+    # Which channel reported it — carried alongside the timestamp so the detail's
+    # Feldmeldungen row can say "(Funkmeldung)" without a second request.
+    reko_arrived_by_kp: set[uuid.UUID] = set()
     for row in reko_result:
         if not row.is_draft:
             incidents_with_completed_reko.add(row.incident_id)
@@ -177,6 +183,10 @@ async def get_incidents(
             row.incident_id not in reko_arrived_at_map or row.arrived_at < reko_arrived_at_map[row.incident_id]
         ):
             reko_arrived_at_map[row.incident_id] = row.arrived_at
+            if row.arrived_reported_by_user_id is not None:
+                reko_arrived_by_kp.add(row.incident_id)
+            else:
+                reko_arrived_by_kp.discard(row.incident_id)
 
     # Batch load the /feld arrival ("Angekommen") and whether a rapport exists.
     # One row per incident (UNIQUE(incident_id)), so this is a plain map.
@@ -231,6 +241,7 @@ async def get_incidents(
 
         # Set reko_arrived_at timestamp
         incident.reko_arrived_at = reko_arrived_at_map.get(incident.id)
+        incident.reko_arrived_by_kp = incident.id in reko_arrived_by_kp
 
     return incidents
 
@@ -268,14 +279,21 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 
         # Check for completed reko report and arrived_at
         reko_check = await db.execute(
-            select(RekoReport.id, RekoReport.is_draft, RekoReport.arrived_at)
+            select(
+                RekoReport.id,
+                RekoReport.is_draft,
+                RekoReport.arrived_at,
+                RekoReport.arrived_reported_by_user_id,
+            )
             .where(RekoReport.incident_id == incident.id)
             .order_by(RekoReport.arrived_at.asc().nullslast())
         )
         reko_rows = reko_check.all()
         incident.has_completed_reko = any(not row.is_draft for row in reko_rows)
-        # Get the earliest arrived_at timestamp
-        incident.reko_arrived_at = next((row.arrived_at for row in reko_rows if row.arrived_at), None)
+        # Get the earliest arrived_at timestamp, and which channel reported it
+        arrival_row = next((row for row in reko_rows if row.arrived_at), None)
+        incident.reko_arrived_at = arrival_row.arrived_at if arrival_row else None
+        incident.reko_arrived_by_kp = bool(arrival_row and arrival_row.arrived_reported_by_user_id is not None)
 
         # The /feld arrival + rapport state (one row per incident).
         feld_check = await db.execute(

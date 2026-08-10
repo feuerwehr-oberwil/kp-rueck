@@ -28,12 +28,15 @@ from ..config import settings
 from ..crud import events as events_crud
 from ..crud import feld as feld_crud
 from ..crud import incidents as crud
+from ..crud import reko as reko_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import incident_display
+from ..services.audit import log_action
 from ..services.incident_leader import effective_leader_ids
+from ..services.notification_service import create_reko_arrived_notification
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_group_update, broadcast_incident_update
+from ..websocket_manager import broadcast_group_update, broadcast_incident_update, broadcast_reko_update
 
 logger = logging.getLogger(__name__)
 
@@ -461,6 +464,88 @@ async def set_field_report(
         await feld_crud.record_pickup(db, incident, actor=actor, needed=True, note=payload.pickup_note, request=request)
 
     return schemas.FieldReportState(**await feld_crud.field_report_state(db, incident))
+
+
+@router.post("/{incident_id}/reko-arrived", response_model=schemas.RekoArrivedState)
+async def set_reko_arrived(
+    incident_id: uuid.UUID,
+    payload: schemas.RekoArrivedUpdate,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.RekoArrivedState:
+    """ "Reko meldet: vor Ort" over the radio (plan 26 §5.2, decision 15).
+
+    The KP twin of `POST /api/reko/{incident_id}/arrived`, which is a form-token
+    route and therefore had nowhere to put a message that arrived by radio. It
+    reuses `crud.mark_reko_arrived`'s body with the token lookup replaced, fires
+    the same notification and broadcasts the same two WebSocket events — **a
+    board watching for a field message must not be able to tell the difference
+    in anything except the provenance line.**
+
+    Idempotent, correctable and clearable: absent `arrived_at` means "now" and
+    leaves an existing arrival alone, an explicit one lands at the time the
+    message was actually given (five minutes ago, over the radio), and `null`
+    clears it, because a mis-heard call is corrected rather than amended.
+
+    The arrival is displayed and written in exactly ONE place, the detail's
+    Feldmeldungen row. Do not add a second control for it somewhere else.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+
+    clear = "arrived_at" in payload.model_fields_set and payload.arrived_at is None
+    try:
+        report = await reko_crud.set_reko_arrived_by_user(
+            db, incident_id, user=current_user, at=payload.arrived_at, clear=clear
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND) from e
+
+    await log_action(
+        db=db,
+        action_type="reko_arrived_cleared" if clear else "reko_arrived",
+        resource_type="incident",
+        resource_id=incident_id,
+        user=current_user,
+        changes={"arrived_at": report.arrived_at.isoformat() if report and report.arrived_at else None},
+        request=request,
+    )
+    await db.commit()
+
+    arrived_at = report.arrived_at if report else None
+
+    # The same notification the field path fires. `arrived_by_name` stays None:
+    # no operator is the Reko crew, and naming one would be exactly the guessed
+    # attribution the provenance rule forbids (decision 6).
+    if arrived_at is not None and incident.event_id:
+        await create_reko_arrived_notification(
+            db=db,
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            incident_title=incident.title or incident.location_address or "Unbekannt",
+            arrived_by_name=None,
+            incident_address=incident.location_address,
+        )
+
+    background_tasks.add_task(
+        broadcast_incident_update,
+        {"id": str(incident_id), "reko_arrived_at": arrived_at.isoformat() if arrived_at else None},
+        "update",
+    )
+    background_tasks.add_task(
+        broadcast_reko_update,
+        {"incident_id": str(incident_id)},
+        "arrived",
+    )
+
+    return schemas.RekoArrivedState(
+        incident_id=incident_id,
+        arrived_at=arrived_at,
+        arrived_reported_by_user_id=report.arrived_reported_by_user_id if report else None,
+    )
 
 
 @router.get("/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)
