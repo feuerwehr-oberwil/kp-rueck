@@ -1353,6 +1353,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.amWarten !== undefined) apiUpdates.am_warten = batchedUpdates.amWarten
         if (batchedUpdates.amWartenNote !== undefined) apiUpdates.am_warten_note = batchedUpdates.amWartenNote
         if (batchedUpdates.zuFuss !== undefined) apiUpdates.zu_fuss = batchedUpdates.zuFuss
+        // Provenance correction (plan 26 decision 8). Only the two an editor may
+        // claim travel: a card that arrived from Divera keeps its own slug, and
+        // sending it back would be a 422 on an unrelated edit.
+        if (batchedUpdates.source === 'operator' || batchedUpdates.source === 'intake') {
+          apiUpdates.source = batchedUpdates.source
+        }
 
         try {
           await apiClient.updateIncident(operationId, apiUpdates)
@@ -1498,6 +1504,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           // Attach to an Auftrag at creation when the caller preset a group
           // (streamlined "+ Stop" flow) — backend stamps group_position.
           group_id: operation.groupId ?? null,
+          // "Telefonisch gemeldet" on the new-emergency modal. Anything else the
+          // caller might carry (a webhook slug on a copied operation) is not an
+          // editor's to claim, so it collapses to the operator default.
+          source: operation.source === 'intake' ? ('intake' as const) : ('operator' as const),
         }
 
         const apiIncident = await apiClient.createIncident(incidentData)

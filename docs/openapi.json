@@ -19881,6 +19881,15 @@
             "type": "string",
             "format": "uuid",
             "title": "Event Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "operator",
+              "intake"
+            ],
+            "title": "Source",
+            "default": "operator"
           }
         },
         "type": "object",
@@ -21008,6 +21017,15 @@
               }
             ],
             "title": "Group Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "operator",
+              "intake"
+            ],
+            "title": "Source",
+            "default": "operator"
           }
         },
         "type": "object",

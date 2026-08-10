@@ -325,6 +325,8 @@
       "einsatzart": "Einsatzart",
       "einsatzartPlaceholder": "Einsatzart auswählen",
       "priority": "Priorität",
+      "phoneReported": "Telefonisch gemeldet",
+      "phoneReportedDescription": "Meldung kam per Telefon oder Walk-in ins KP",
       "contact": "Kontakt / Melder",
       "contactPlaceholder": "Name der meldenden Person",
       "contactPhone": "Telefonnummer",

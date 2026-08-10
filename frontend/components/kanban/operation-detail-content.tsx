@@ -59,6 +59,17 @@ import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import type { Incident } from "@/lib/types/incidents"
 
+/** Whether the provenance toggle applies to this card at all.
+ *
+ *  Only "operator" and "intake" are an editor's to claim. A card carrying
+ *  "divera" or a webhook slug came from a delivering system; offering a switch
+ *  that would relabel it as a phone call — and be refused with a 422 — is worse
+ *  than not offering one. A locally-created card has no `source` yet and is the
+ *  operator case. */
+function isEditorClaimedSource(source: string | undefined): boolean {
+  return !source || source === 'operator' || source === 'intake'
+}
+
 export interface OperationDetailContentProps {
   operation: Operation
   layout: 'modal' | 'panel'
@@ -626,6 +637,36 @@ export function OperationDetailContent({
               </Select>
             </div>
           </div>
+
+          {/* "Telefonisch gemeldet", correctable after the fact (plan 26
+              decision 8): the realistic order is "type it in, then realise it
+              was a phone call". Same place as in the new-emergency modal, and
+              the same sentence — somebody phoned, this is who, this is the
+              number. A card that arrived from a delivering system keeps its own
+              provenance and is not an operator's to relabel. */}
+          {isEditorClaimedSource(operation.source) ? (
+            <div
+              className="rounded-lg border border-border p-4 cursor-pointer select-none"
+              onClick={() => canEdit && onUpdate({ source: operation.source === 'intake' ? 'operator' : 'intake' })}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-semibold pointer-events-none">{t('common.phoneReported')}</Label>
+                    <p className="text-xs text-muted-foreground">{t('common.phoneReportedDescription')}</p>
+                  </div>
+                </div>
+                <Switch
+                  aria-label={t('common.phoneReported')}
+                  checked={operation.source === 'intake'}
+                  disabled={!canEdit}
+                  onCheckedChange={(checked) => onUpdate({ source: checked ? 'intake' : 'operator' })}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+          ) : null}
 
           {/* Contact */}
           <div>

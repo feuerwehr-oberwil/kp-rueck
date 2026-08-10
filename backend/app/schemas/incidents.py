@@ -3,9 +3,20 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+
+# The only two provenances an editor may claim from the board (plan 26 §6).
+# "operator" = typed in at the KP, "intake" = the operator took the call and
+# says so. Everything else that writes `Incident.source` — the Divera adapter,
+# the generic alarm webhooks, the training generator — keeps its own write path
+# and passes the slug as a keyword to `crud.create_incident`; those names are
+# reserved (`schemas.alarms.RESERVED_ALARM_SOURCES`) and a board request naming
+# one is a 422. A card claiming to come from a system that has never heard of it
+# is a worse lie than the one this field exists to fix.
+EditorIncidentSource = Literal["operator", "intake"]
 
 
 class IncidentType(str, Enum):
@@ -122,6 +133,9 @@ class IncidentCreate(IncidentBase):
     """Schema for creating incident."""
 
     event_id: UUID
+    # "Telefonisch gemeldet" on the new-emergency modal. Off by default, because
+    # typing a card on the board IS the operator case.
+    source: EditorIncidentSource = "operator"
 
 
 class PublicIncidentCreate(BaseModel):
@@ -174,6 +188,10 @@ class IncidentUpdate(BaseModel):
     zu_fuss: bool | None = None
     # Attach/detach from an Auftrag (incident group) via a normal PATCH.
     group_id: UUID | None = None
+    # Correctable after the fact (decision 8): the realistic sequence is "type it
+    # in, then realise it was a phone call", so create-only would miss the common
+    # case. Both directions, and only ever between these two values.
+    source: EditorIncidentSource = "operator"
 
 
 class IncidentReorder(BaseModel):

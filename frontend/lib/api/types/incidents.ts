@@ -21,6 +21,11 @@ export type IncidentType =
 
 export type IncidentPriority = 'low' | 'medium' | 'high'
 
+/** The two provenances an editor may claim from the board: "operator" = typed in
+ *  at the KP, "intake" = the operator took the call and says so. `ApiIncident.source`
+ *  stays a plain string, because a card can also carry a delivering system's slug. */
+export type EditorIncidentSource = 'operator' | 'intake'
+
 export type IncidentStatus =
   | 'incoming'
   | 'reko'
@@ -133,6 +138,10 @@ export interface ApiIncidentCreate {
   nachbarhilfe_note?: string | null
   /** Attach the new incident to an Auftrag (incident group) on creation. */
   group_id?: string | null
+  /** "Telefonisch gemeldet": the operator took the call and says so. Only these
+   *  two are accepted here — "divera" and webhook slugs write `source` on their
+   *  own path and a board request naming one is a 422. */
+  source?: EditorIncidentSource
 }
 
 export interface ApiIncidentUpdate {
@@ -152,6 +161,9 @@ export interface ApiIncidentUpdate {
   am_warten?: boolean
   am_warten_note?: string | null
   zu_fuss?: boolean
+  /** Correctable after the fact: the realistic order is "type it in, then
+   *  realise it was a phone call". Both directions. */
+  source?: EditorIncidentSource
 }
 
 export interface ApiStatusTransition {

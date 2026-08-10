@@ -225,8 +225,12 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         return None
 
     data = incident_create_from_emergency(emergency, event.id)
+    incident_data = data.model_dump()
+    # The editor schema's `source` only ever carries what an operator may claim
+    # ("operator"/"intake"); the sending system names itself below.
+    incident_data.pop("source")
     incident = models.Incident(
-        **data.model_dump(),
+        **incident_data,
         created_by=None,
         # Alarm provenance flows onto the board card
         source=emergency.source or "divera",

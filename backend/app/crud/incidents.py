@@ -330,8 +330,10 @@ async def create_incident(
 
     ``source``/``source_ref`` carry alarm provenance when the incident is
     created from a pool alarm ("divera" or a generic-webhook slug + the
-    alarm's id in that system); dashboard creations keep the "operator"
-    default.
+    alarm's id in that system). It wins over the schema's ``source``, which
+    only ever carries what an editor may claim ("operator"/"intake") and is
+    the modal's "Telefonisch gemeldet" toggle — the pool path builds its
+    payload with the default and names its real sender here.
 
     When ``group_id`` is set (streamlined "add stop"), the new incident is
     appended to the end of that Auftrag (``group_position = max + 1``).
@@ -348,11 +350,14 @@ async def create_incident(
         )
         group_position = (max_pos + 1) if max_pos is not None else 0
 
+    incident_data = incident.model_dump()
+    editor_source = incident_data.pop("source")
+
     db_incident = Incident(
-        **incident.model_dump(),
+        **incident_data,
         created_by=current_user.id,
         group_position=group_position,
-        **({"source": source} if source else {}),
+        source=source or editor_source,
         source_ref=source_ref,
     )
 
@@ -541,6 +546,9 @@ async def update_incident(
         "location_address": incident.location_address,
         "description": incident.description,
         "group_id": str(incident.group_id) if incident.group_id else None,
+        # "Telefonisch gemeldet" is a claim, not evidence (plan 26 §11), so a
+        # correction of one has to be readable in the audit trail.
+        "source": incident.source,
     }
 
     old_status = incident.status
@@ -601,6 +609,7 @@ async def update_incident(
         "location_address": incident.location_address,
         "description": incident.description,
         "group_id": str(incident.group_id) if incident.group_id else None,
+        "source": incident.source,
     }
 
     # Calculate changes
