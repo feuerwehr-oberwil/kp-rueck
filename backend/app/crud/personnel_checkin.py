@@ -53,6 +53,7 @@ async def get_available_personnel(
     db: AsyncSession,
     event_id: uuid.UUID,
     include_checked_out: bool = True,
+    include_unavailable: bool = False,
 ) -> list[schemas.PersonnelCheckInResponse]:
     """
     Get personnel eligible for check-in with event-specific attendance status.
@@ -62,12 +63,18 @@ async def get_available_personnel(
         event_id: Event ID to check attendance for
         include_checked_out: If True, returns all available personnel
                            If False, only returns checked-in personnel
+        include_unavailable: If True, unavailable personnel are listed too. The phone
+                           never sees them (check-in would be refused); the board's
+                           roll-call shows them greyed out with their reason, so the
+                           operator does not look for a name that is simply not offered.
 
     Returns:
         List of personnel with event-specific check-in status
     """
     # Get all available personnel
-    query = select(Personnel).where(Personnel.status != "unavailable").order_by(Personnel.name.asc())
+    query = select(Personnel).order_by(Personnel.name.asc())
+    if not include_unavailable:
+        query = query.where(Personnel.status != "unavailable")
 
     result = await db.execute(query)
     personnel_list = list(result.scalars().all())
@@ -194,6 +201,7 @@ async def check_in_personnel(
         # Update existing record
         attendance.checked_in = True
         attendance.checked_in_at = now
+        attendance.checked_in_by_user_id = current_user.id if current_user else None
         attendance.updated_at = now
     else:
         # Create new attendance record
@@ -202,6 +210,7 @@ async def check_in_personnel(
             personnel_id=personnel_id,
             checked_in=True,
             checked_in_at=now,
+            checked_in_by_user_id=current_user.id if current_user else None,
         )
         db.add(attendance)
 
@@ -238,6 +247,7 @@ async def check_out_personnel(
     personnel_id: uuid.UUID,
     current_user: User | None = None,
     request: Request | None = None,
+    allow_assigned: bool = False,
 ) -> schemas.PersonnelCheckInResponse | None:
     """
     Check out a person from a specific event (mark as left site).
@@ -248,6 +258,12 @@ async def check_out_personnel(
         personnel_id: ID of personnel to check out
         current_user: Optional user performing the action (for audit log)
         request: Optional request object (for audit log)
+        allow_assigned: Check out even while the person is assigned to an incident.
+                      The phone says no (it cannot release the assignment either, so a
+                      block is the only honest answer there); the board warns and
+                      proceeds, because it is the surface that *can* release it and a
+                      hard block would force a surface change to send somebody home.
+                      Either way the assignment is left intact — never released silently.
 
     Returns:
         Updated personnel with event-specific check-in status, or None if not found
@@ -262,7 +278,7 @@ async def check_out_personnel(
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
 
     # Prevent checkout if assigned to an incident
-    if is_assigned:
+    if is_assigned and not allow_assigned:
         raise ValueError("Cannot check out personnel who are assigned to an incident")
 
     # Get event attendance record
@@ -291,6 +307,7 @@ async def check_out_personnel(
         # Update existing record
         attendance.checked_in = False
         attendance.checked_out_at = now
+        attendance.checked_out_by_user_id = current_user.id if current_user else None
         attendance.updated_at = now
     else:
         # Create new attendance record marked as checked out
@@ -300,6 +317,7 @@ async def check_out_personnel(
             personnel_id=personnel_id,
             checked_in=False,
             checked_out_at=now,
+            checked_out_by_user_id=current_user.id if current_user else None,
         )
         db.add(attendance)
 
@@ -328,3 +346,78 @@ async def check_out_personnel(
         checked_out_at=attendance.checked_out_at,
         is_assigned=is_assigned,
     )
+
+
+async def check_out_all_personnel(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    current_user: User,
+    request: Request | None = None,
+) -> list[schemas.PersonnelCheckInResponse]:
+    """
+    Send everyone who is still present at this Ereignis home ("Alle abmelden").
+
+    The end of an Ereignis is the moment thirty-four people want to leave at once, and
+    the alternative to this is thirty-four clicks. It is deliberately narrow:
+
+    - it only touches rows that are **currently present**; somebody who already left at
+      20:40 keeps their own ``checked_out_at`` rather than having it rewritten to now,
+    - it never creates a row, so a person who never came does not acquire a departure,
+    - it never touches another Ereignis, and
+    - it never releases an assignment (plan 26 decision 16).
+
+    A loop rather than one bulk ``UPDATE``, because every person must end up with their
+    own audit entry — a single row saying "someone checked out 34 people" is not a
+    roll-call. All of it commits once, so the Ereignis never ends half-closed.
+
+    Returns:
+        The people who were checked out, in name order — empty when nobody was present.
+    """
+    now = datetime.utcnow()
+
+    result = await db.execute(
+        select(EventAttendance, Personnel)
+        .join(Personnel, EventAttendance.personnel_id == Personnel.id)
+        .where(EventAttendance.event_id == event_id, EventAttendance.checked_in)
+        .order_by(Personnel.name.asc())
+    )
+    rows = list(result.all())
+
+    checked_out: list[schemas.PersonnelCheckInResponse] = []
+    for attendance, person in rows:
+        attendance.checked_in = False
+        attendance.checked_out_at = now
+        attendance.checked_out_by_user_id = current_user.id
+        attendance.updated_at = now
+
+        if request is not None:
+            await log_action(
+                db=db,
+                action_type="check_out",
+                resource_type="personnel",
+                resource_id=person.id,
+                user=current_user,
+                changes={
+                    "name": person.name,
+                    "event_id": str(event_id),
+                    "checked_in": False,
+                    "bulk": True,
+                },
+                request=request,
+            )
+
+        checked_out.append(
+            schemas.PersonnelCheckInResponse(
+                id=person.id,
+                name=person.name,
+                role=person.role,
+                status=person.status,
+                checked_in=False,
+                checked_in_at=attendance.checked_in_at,
+                checked_out_at=now,
+                is_assigned=await _is_personnel_assigned(db, event_id, person.id),
+            )
+        )
+
+    await db.commit()
+    return checked_out

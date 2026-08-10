@@ -280,6 +280,16 @@ class EventAttendance(Base):
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Provenance: which channel wrote this row. A user FK means an operator ticked the name on
+    # the board ("Funkmeldung"); NULL means it came in through the login-less check-in link,
+    # which carries no identity at all. Never inferred in either direction — the personnel side
+    # and the user side are separate columns on purpose (plan 26 decision 6).
+    checked_in_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    checked_out_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

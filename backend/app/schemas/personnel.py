@@ -111,8 +111,13 @@ class PersonnelListItem(BaseModel):
     id: UUID
     name: str
     role: str | None = None
+    status: str = "available"
     tags: list[str] | None = None
     checked_in: bool
+    # The board's roll-call distinguishes "never came" from "came and went", which needs
+    # both stamps; the phone ignores them and stays two-state on purpose.
+    checked_in_at: datetime | None = None
+    checked_out_at: datetime | None = None
     is_assigned: bool = False  # Whether assigned to any incident in this event
 
 

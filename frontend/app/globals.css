@@ -182,6 +182,21 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
+  /* Tailwind 4's preflight dropped the browser's `cursor: pointer` on buttons,
+     so every hand-written <button> in the app renders an arrow. `<Button>` sets
+     it in its own variants, which hid the change: the shared component looked
+     right while the 121 raw buttons — the /feld Einsatzstellen cards among them
+     — did not. Restore it once here rather than sprinkling `cursor-pointer`
+     onto each new button forever.
+
+     Disabled controls keep the default arrow: a pointer promises something will
+     happen. `[role="button"]` is included because an element that claims the
+     role has to look the part. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   /* The shell is h-dvh/overflow-hidden, so the page can never scroll — but macOS
      still rubber-bands the whole view on a stray trackpad swipe, which reads as
      the board drifting for no reason. No bounce, no scroll chaining. */

@@ -28,8 +28,15 @@ async def get_all_personnel(
     """
     query = select(Personnel)
 
-    if checked_in_only and event_id:
-        # Event-specific check-in filtering
+    if checked_in_only:
+        if event_id is None:
+            # Attendance is per Ereignis and lives in `event_attendance`. The old fallback
+            # here filtered on `Personnel.checked_in`, a column nothing in the application
+            # has ever written — so it could only ever return nothing, while looking like a
+            # working filter to the next caller who reached for it. Answering "nobody"
+            # explicitly keeps that (correct) result without the loaded gun; the whole
+            # roster would be the wrong answer to "only the people who are here".
+            return []
         query = query.join(
             EventAttendance,
             and_(
@@ -38,9 +45,6 @@ async def get_all_personnel(
                 EventAttendance.checked_in,
             ),
         )
-    elif checked_in_only:
-        # Legacy: fallback to global checked_in field if no event_id provided
-        query = query.where(Personnel.checked_in)
 
     query = query.order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
 
