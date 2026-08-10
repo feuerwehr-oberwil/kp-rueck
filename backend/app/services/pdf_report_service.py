@@ -35,7 +35,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from ..models import Incident, IncidentAssignment, SchadenplatzReport
+from ..models import Incident, IncidentAssignment, RekoReport, SchadenplatzReport
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
 
@@ -115,6 +115,16 @@ LABELS: dict[str, str] = {
     "reko_summary": "Zusammenfassung",
     "reko_notes": "Zusätzliche Notizen",
     "reko_draft": "Entwurf",
+    # Reko provenance (plan 26 §5.3, §7). Same vocabulary as the Rapport's lines
+    # below — "(Feld)" for a crew filing, "(Funkmeldung)" for one the KP took over
+    # the radio — because a reader who learns it on one block must not have to
+    # learn it again on the next. "Ergänzt" rather than "Zuletzt bearbeitet": the
+    # mixed report is one the crew filed and the KP added to.
+    "reko_filed_field": "Erfasst von {name} (Feld), {at}",
+    "reko_filed_kp": "Erfasst im KP durch {name} (Funkmeldung), {at}",
+    "reko_amended_kp": "Ergänzt im KP durch {name} (Funkmeldung), {at}",
+    "reko_arrived_field": "Vor Ort {at} (Feld)",
+    "reko_arrived_kp": "Vor Ort {at} (Funkmeldung)",
     # Schadenplatz-Rapport (plan 25, §7)
     "rapport": "Schadenplatz-Rapport",
     "rapport_draft": "Entwurf – noch nicht abgeschlossen",
@@ -477,6 +487,65 @@ def rapport_filing_lines(data: EventReportData, report: SchadenplatzReport) -> l
                 )
             )
     return lines
+
+
+def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
+    """Who filed this Reko report, through which channel — one line, or two.
+
+    The Reko report is the second artefact that can now arrive through either
+    door (plan 26 §5.1), so it prints the same sentence the Schadenplatz-Rapport
+    does. Its provenance columns are not symmetrical, though, and that is on
+    purpose: ``submitted_by_personnel_id`` is the field's answer and the three
+    ``*_by_user_id`` columns are the KP's, and a User is never guessed to be a
+    Personnel (decision 6).
+
+    The mixed case — crew filed, KP amended over the radio — is the one this
+    exists for and prints both::
+
+        Erfasst von Muster Hans (Feld), 08.08.2026 19:22
+        Ergänzt im KP durch B. Eichenberger (Funkmeldung), 08.08.2026 19:41
+
+    A report the KP both created and submitted stamps the same user in both
+    columns; that is one act, not two, and prints as one line.
+    """
+    lines: list[str] = []
+    if report.submitted_by_personnel_id:
+        lines.append(
+            LABELS["reko_filed_field"].format(
+                name=_personnel_display(data, report.submitted_by_personnel_id),
+                at=_fmt_dt(report.submitted_at),
+            )
+        )
+    elif report.created_by_user_id:
+        lines.append(
+            LABELS["reko_filed_kp"].format(
+                name=_user_display(data, report.created_by_user_id) or LABELS["rapport_unknown_person"],
+                at=_fmt_dt(report.submitted_at),
+            )
+        )
+
+    if report.updated_by_user_id and report.updated_by_user_id != report.created_by_user_id:
+        lines.append(
+            LABELS["reko_amended_kp"].format(
+                name=_user_display(data, report.updated_by_user_id) or LABELS["rapport_unknown_person"],
+                at=_fmt_dt(report.updated_at),
+            )
+        )
+    return lines
+
+
+def reko_arrival_line(report: RekoReport) -> str:
+    """ "Vor Ort 19:22 (Feld)" or "(Funkmeldung)" — or nothing at all.
+
+    The arrival carries its own author column rather than being read off the
+    report's creator: since plan 26 the KP can file a report before anybody is
+    on site, so inheriting the creator would render a crew's later "vor Ort" as
+    a radio message. An arrival with no user FK came through the form link.
+    """
+    if report.arrived_at is None:
+        return ""
+    key = "reko_arrived_kp" if report.arrived_reported_by_user_id else "reko_arrived_field"
+    return LABELS[key].format(at=_fmt_dt(report.arrived_at))
 
 
 class NumberedCanvas:
@@ -1150,6 +1219,14 @@ def _incident_detail(
     inc_reko = [r for r in data.reko_reports if r.incident_id == inc.id]
     for reko in inc_reko:
         parts = []
+        # Channel first: the rest of the block is what was reported, and this is
+        # who reported it and how it reached the board (plan 26 §7). Nothing is
+        # printed for a field arrival's *absence* — "no Reko on site" is already
+        # what an empty line says.
+        arrival = reko_arrival_line(reko)
+        if arrival:
+            parts.append(arrival)
+        parts.extend(reko_filing_lines(data, reko))
         if reko.is_relevant is not None:
             parts.append(f"{LABELS['reko_relevant']}: {LABELS['yes'] if reko.is_relevant else LABELS['no']}")
         if reko.power_supply:

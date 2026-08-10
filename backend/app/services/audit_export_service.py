@@ -149,6 +149,20 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         # Get personnel IDs from reko reports
         reko_personnel_ids = {r.submitted_by_personnel_id for r in reko_reports if r.submitted_by_personnel_id}
         personnel_ids.update(reko_personnel_ids)
+        # …and the KP side of the same provenance (plan 26 §5.3): the operator who
+        # typed a dictated report, amended a crew's, or logged "vor Ort" off the
+        # radio. Without these the outputs would resolve every one of them to an
+        # empty name and print "unbekannt" for people the database knows.
+        for reko in reko_reports:
+            user_ids.update(
+                uid
+                for uid in (
+                    reko.created_by_user_id,
+                    reko.updated_by_user_id,
+                    reko.arrived_reported_by_user_id,
+                )
+                if uid
+            )
     else:
         reko_reports = []
 

@@ -178,6 +178,10 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 
 **Wo das Reko-Ergebnis landet:** Im Einsatz-Detail – auch in den Anzeige-Ansichten unter `/display` – steht unter **Reko-Ergebnis** die Beurteilung, die Gefahren, der Personal- und Zeitbedarf, der Lagetext **und die hochgeladenen Fotos**. Ein Klick auf ein Bild öffnet es in voller Grösse. Die Bilder liegen hinter der Anmeldung; über einen Freigabelink ohne Login sind sie nicht sichtbar.
 
+**Ohne Handy draussen:** Meldet der Offizier über Funk statt über den Link, wird
+derselbe Bericht im KP erfasst – siehe
+[Alles vom KP aus erfassen](#alles-vom-kp-aus-erfassen-wenn-die-telefone-ausfallen).
+
 **Reko-Status auf Karten:**
 - Kein Icon: Keine Reko-Aktivität
 - Fernglas (grau): Offizier vor Ort, prüft Lage ("vor Ort HH:MM" neben Name)
@@ -204,7 +208,79 @@ Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **
 
 ### Personal Check-In
 
-QR-Code scannen → Person als anwesend markieren.
+QR-Code scannen → Person als anwesend markieren. Wer kein Handy dabei hat oder
+nicht scannen kann, wird im **Appell** vom KP aus angemeldet – siehe unten.
+
+### Alles vom KP aus erfassen (wenn die Telefone ausfallen)
+
+Jeder Link ohne Anmeldung – Check-In, Reko, Feld, Alarm – ist ein **Eingangskanal,
+nicht der Ort, an dem die Daten wohnen**. Alles, was ein Trupp draussen eintippen
+kann, kann der KP am Board genauso erfassen. Das ist kein Komfort, sondern der
+Normalfall: kein Empfang im Keller, leerer Akku, Handschuhe, oder eine Mannschaft,
+die um 02:00 keine App öffnet – dann diktiert der Trupp über Funk, und der KP ist
+das einzige Eingabegerät, das das System noch hat.
+
+**Appell (Anwesenheit).** Fuss­zeile → *Check-In* → Zeile **Anwesenheit** →
+«Appell öffnen» (auch über die Ereignis-Checkliste erreichbar).
+
+- Eine Zeile pro Person, alphabetisch und **stabil** – die Liste sortiert sich
+  beim Abhaken nicht um. Klick auf die Zeile schaltet weiter:
+  *nicht anwesend → anwesend → gegangen*.
+- «Gegangen» ist eine Aussage, keine Abwesenheit: wer um 20:40 heimgegangen ist,
+  ist nicht dasselbe wie jemand, der nie da war. Der Ereignisbericht liest den
+  Unterschied.
+- Kopfzeile: `{anwesend} anwesend · {gegangen} gegangen · {total} Mannschaft`.
+- **«Alle abmelden»** setzt am Ende des Ereignisses alle Anwesenden auf
+  «gegangen». Zuteilungen bleiben bestehen, andere Ereignisse werden nicht berührt.
+- Wer noch einem Einsatz zugeteilt ist, bekommt beim Abmelden eine Rückfrage –
+  danach wird abgemeldet, die Zuteilung bleibt. Das Board ist die Stelle, die sie
+  auflösen kann; ein hartes Verbot würde zwingen, zum Abmelden die Ansicht zu wechseln.
+- Wer als *nicht verfügbar* geführt ist, erscheint ausgegraut mit Grund.
+- **«Person hinzufügen»** im Appell legt die Person an **und meldet sie direkt an**.
+
+> **Nachbarhilfe und Zivilschutz können sich nicht selbst anmelden.** Der Check-In
+> zeigt nur den eigenen Bestand, und Sichtbarkeit kommt aus den Zuteilungen. Der
+> vorgesehene Weg ist: im Appell (oder in der Seitenleiste) über **«Person
+> hinzufügen»** erfassen und anschliessend dem Einsatz zuteilen. Das ist kein
+> Fehler und kein fehlendes Feature – es ist der Arbeitsweg.
+
+**Reko-Bericht über Funk.** Im Einsatz-Detail, Block *Reko*:
+**«Reko-Bericht erfassen»** – auch bei einem Einsatz, bei dem noch nie jemand
+draussen war. Es ist dasselbe Formular wie auf dem Reko-Link, nur mit anderem
+Absender. Ein bereits vom Trupp eingereichter Bericht wird mit
+**«Reko-Bericht ergänzen»** im selben Datensatz nachgeführt, nicht als zweiter
+Bericht daneben. Fotos gibt es hier bewusst nicht: ein Funkspruch bringt keine mit.
+
+**«Reko vor Ort» über Funk.** Im Einsatz-Detail, Block *Funkmeldungen* – dieselbe
+Zeile, in der auch «Angekommen», «Einsatz beendet» und «Abholung nötig» stehen.
+Die Uhrzeit ist frei setzbar (eine fünf Minuten später notierte Meldung gehört
+fünf Minuten zurück) und wieder löschbar (ein missverstandener Funkspruch wird
+korrigiert, nicht ergänzt).
+
+**«Telefonisch gemeldet».** Im Dialog *Neuer Einsatz* bei Kontakt/Melder – und
+nachträglich im Einsatz-Detail korrigierbar, weil die realistische Reihenfolge
+«erst eintippen, dann merken, dass es ein Anruf war» ist. Der Einsatz bekommt
+dasselbe blaue [Telefon-Abzeichen](#telefon-walk-in-abzeichen) wie eine Meldung
+über den Alarm-Link.
+
+**Woran man sieht, welcher Weg es war.** Gedruckte und exportierte Unterlagen
+(Lageblatt, Ereignisbericht-PDF, Einsätze-Export, Thermo-Board-Snapshot) schreiben
+**«(Feld)»** neben eine Erfassung vom Feld und **«(Funkmeldung)»** neben eine im KP
+erfasste. Ein Bericht, den der Trupp eingereicht und der KP ergänzt hat, zeigt
+beide Zeilen. Beim Normalfall – jemand meldet sich selbst an – steht bewusst nichts.
+
+**Grenzen, die man kennen sollte:**
+
+- Der Check-In-Link ist **anonym**: wer den QR-Code hat, kann jede Person anmelden,
+  und diese Erfassung trägt keinen Namen. Nur eine Erfassung am Board ist einer
+  Person zugeordnet.
+- **«Telefonisch gemeldet» ist eine Behauptung, kein Nachweis** – es heisst, dass
+  eine Bedienperson es so gesagt hat. Für die Statistik ist das kein Herkunftsbeleg.
+- Das Board kennt **drei** Zustände, der Check-In auf dem Handy **zwei**: Wer dort
+  «gegangen» ist, erscheint einfach als nicht angemeldet und ist mit einem Tipp
+  wieder da. «Ich bin gegangen» tippt niemand – deshalb wird das im KP festgehalten.
+- Der Reko-Block sagt nicht mehr, ob die Reko vor Ort ist; diese Information steht
+  jetzt genau an einer Stelle, in den *Funkmeldungen*.
 
 ### Mehrere Einsätze gleichzeitig
 

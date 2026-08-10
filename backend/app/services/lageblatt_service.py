@@ -46,6 +46,8 @@ from .pdf_report_service import (
     material_left_on_site_names,
     rapport_by_incident,
     rapport_work_windows,
+    reko_arrival_line,
+    reko_filing_lines,
     vehicle_present_names,
 )
 
@@ -262,14 +264,24 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         ("Material", ", ".join(m.name for m in materials) or "–"),
     ]
 
+    # "Vor Ort" is read off every report including drafts: an arrival is a fact
+    # about the incident, and a crew that pinged and has not filed yet is exactly
+    # the state the paper fallback has to show.
+    for report in sorted(
+        (r for r in data.reko_reports if r.incident_id == inc.id and r.arrived_at is not None),
+        key=lambda r: r.arrived_at or datetime.min,
+    ):
+        rows.append(("Reko vor Ort", reko_arrival_line(report)))
+
     reports = [r for r in data.reko_reports if r.incident_id == inc.id and not r.is_draft]
     if not reports:
         rows.append(("Reko", "–"))
     for report in reports:
-        who = ""
-        if report.submitted_by_personnel_id in data.personnel_map:
-            who = f" ({data.personnel_map[report.submitted_by_personnel_id].name})"
-        parts = []
+        # Who filed it and through which channel, in the same words every other
+        # output uses (plan 26 §7). This replaces the bare name that used to sit
+        # in the row label: a crew-filed report the KP amended over the radio has
+        # two authors, which a label in brackets cannot say.
+        parts = reko_filing_lines(data, report)
         if report.summary_text:
             parts.append(report.summary_text)
         dangers = _json_true_keys(report.dangers_json)
@@ -282,7 +294,7 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
             parts.append(f"Strom: {report.power_supply}")
         if report.additional_notes:
             parts.append(f"Notizen: {report.additional_notes}")
-        rows.append((f"Reko {_time(report.submitted_at)}{who}", " – ".join(parts) or "–"))
+        rows.append((f"Reko {_time(report.submitted_at)}", " – ".join(parts) or "–"))
 
     # Compact status history: when each stage was first reached.
     transitions = sorted((t for t in data.transitions if t.incident_id == inc.id), key=lambda t: t.timestamp)

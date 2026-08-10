@@ -572,3 +572,40 @@ async def test_stats_count_present_left_and_roster(
     assert body["checked_in"] == 1
     assert body["left"] == 1
     assert body["total_available"] == 4  # the unavailable person is not Mannschaft here
+
+
+# ============================================
+# 10. The provenance reaches the paper (plan 26 §7)
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_board_snapshot_marks_a_kp_checked_in_person(
+    editor_client: AsyncClient, parity_event: Event, crew: list[Personnel], db_session: AsyncSession
+):
+    """A name an operator ticked prints with the channel; a self-report does not.
+
+    Two provenance columns are only worth having if something reads them. The
+    Einsatzzettel's present-count already comes from `event_attendance`; what the
+    board snapshot gains is the marker next to the one name nobody tapped
+    themselves — because "someone said he is here" is a weaker claim than "he
+    stood at the Magazin and scanned the code", and the slip should not flatten
+    the two.
+    """
+    from app.api.print import _build_board_payload
+
+    by_link, by_board = crew[0], crew[1]
+    token = generate_checkin_token(parity_event.id)
+    assert (await editor_client.post(f"/api/personnel/check-in/{by_link.id}/in?token={token}")).status_code == 200
+    assert (
+        await editor_client.post(f"/api/personnel/check-in/{by_board.id}/in?event_id={parity_event.id}")
+    ).status_code == 200
+
+    payload = await _build_board_payload(db_session, parity_event.id)
+    listed = {person["name"]: person for person in payload["personnel_list"]}
+
+    assert listed[by_board.name].get("channel") == "kp"
+    # The normal case carries no marker at all — a channel word next to every
+    # name would say nothing, which is how a marker stops being read.
+    assert "channel" not in listed[by_link.name]

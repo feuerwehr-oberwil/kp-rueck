@@ -278,8 +278,13 @@ async def _build_board_payload(
     # Get individual checked-in personnel for detailed listing
     personnel_list: list[dict[str, Any]] = []
     if include_personnel:
+        # `checked_in_by_user_id` rides along so the slip can mark the channel
+        # (plan 26 §7). NULL is the normal case — somebody tapped their own name
+        # on the check-in link — and prints nothing; a user id means an operator
+        # ticked the name at the board off a radio roll-call, which is a weaker
+        # claim about who is actually standing in the Magazin and says so.
         checked_in_personnel_result = await db.execute(
-            select(Personnel)
+            select(Personnel, EventAttendance.checked_in_by_user_id)
             .join(EventAttendance, Personnel.id == EventAttendance.personnel_id)
             .where(
                 and_(
@@ -289,7 +294,7 @@ async def _build_board_payload(
             )
             .order_by(Personnel.role_sort_order, Personnel.name)
         )
-        for p in checked_in_personnel_result.scalars().all():
+        for p, checked_in_by_user_id in checked_in_personnel_result.all():
             # Determine if this person is assigned to any active incident
             is_assigned = False
             for inc in incidents:
@@ -307,6 +312,9 @@ async def _build_board_payload(
                     "name": p.name,
                     "role": p.role,
                     "assigned": is_assigned,
+                    # "kp" when an operator checked this person in, otherwise absent.
+                    # A field self-check-in is the normal case and carries no marker.
+                    **({"channel": "kp"} if checked_in_by_user_id else {}),
                 }
             )
 

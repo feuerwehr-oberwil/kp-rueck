@@ -13,7 +13,7 @@ import pytest
 from httpx import AsyncClient
 from pypdf import PdfReader
 
-from app.models import Event, Incident, SchadenplatzReport
+from app.models import Event, Incident, Personnel, RekoReport, SchadenplatzReport, User
 
 
 def _extract_text(pdf_bytes: bytes) -> str:
@@ -199,3 +199,130 @@ class TestLageblattRapportRows:
         text = self._pdf_text(test_event, test_incident)
         assert "Übergeben an" not in text
         assert "Abholung offen" not in text
+
+
+class TestLageblattRekoProvenance:
+    """Which channel the Reko came through, on the sheet that replaces the board.
+
+    Plan 26 §7: "(Feld)" for a crew filing, "(Funkmeldung)" for one an operator
+    took over the radio, and both lines when the crew filed and the KP amended.
+    The Lageblatt is the output that matters most here — it is read on the night
+    the phones failed, which is the night the KP typed everything itself.
+    """
+
+    def _pdf_text(
+        self,
+        event: Event,
+        incident: Incident,
+        report: RekoReport,
+        *,
+        personnel: Personnel | None = None,
+        users: tuple[User, ...] = (),
+    ) -> str:
+        from app.services.audit_export_service import EventReportData
+        from app.services.lageblatt_service import build_lageblatt_pdf
+
+        data = EventReportData(
+            event=event,
+            incidents=[incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[report],
+            incident_map={incident.id: incident},
+            personnel_map={personnel.id: personnel} if personnel else {},
+            user_map={u.id: u for u in users},
+        )
+        return _extract_text(build_lageblatt_pdf(data, home_city="Oberwil"))
+
+    def _report(self, incident: Incident, **kwargs) -> RekoReport:
+        defaults = {
+            "id": uuid4(),
+            "incident_id": incident.id,
+            "token": "test-token",
+            "summary_text": "Keller unter Wasser",
+            "is_draft": False,
+            "submitted_at": datetime(2026, 6, 1, 19, 22, tzinfo=UTC),
+            "updated_at": datetime(2026, 6, 1, 19, 22, tzinfo=UTC),
+        }
+        return RekoReport(**{**defaults, **kwargs})
+
+    @pytest.mark.asyncio
+    async def test_field_filed_report_says_feld(
+        self, test_event: Event, test_incident: Incident, test_personnel: Personnel
+    ):
+        report = self._report(test_incident, submitted_by_personnel_id=test_personnel.id)
+        text = self._pdf_text(test_event, test_incident, report, personnel=test_personnel)
+        assert "Erfasst von" in text
+        assert test_personnel.name in text
+        assert "(Feld)" in text
+        assert "Funkmeldung" not in text
+
+    @pytest.mark.asyncio
+    async def test_kp_filed_report_says_funkmeldung(
+        self, test_event: Event, test_incident: Incident, test_editor: User
+    ):
+        """Dictated over the radio: no personnel FK to guess from (decision 6)."""
+        report = self._report(
+            test_incident,
+            created_by_user_id=test_editor.id,
+            # The KP files and submits in one act — both columns, one line.
+            updated_by_user_id=test_editor.id,
+        )
+        text = self._pdf_text(test_event, test_incident, report, users=(test_editor,))
+        assert "Erfasst im KP durch" in text
+        assert "(Funkmeldung)" in text
+        assert "(Feld)" not in text
+        assert "Ergänzt im KP" not in text
+
+    @pytest.mark.asyncio
+    async def test_mixed_report_prints_both_lines(
+        self,
+        test_event: Event,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_editor: User,
+    ):
+        """§5.3's example: crew filed at 19:22, KP added what came in at 19:41."""
+        report = self._report(
+            test_incident,
+            submitted_by_personnel_id=test_personnel.id,
+            updated_by_user_id=test_editor.id,
+            updated_at=datetime(2026, 6, 1, 19, 41, tzinfo=UTC),
+        )
+        text = self._pdf_text(test_event, test_incident, report, personnel=test_personnel, users=(test_editor,))
+        assert "Erfasst von" in text
+        assert "(Feld)" in text
+        assert "Ergänzt im KP durch" in text
+        assert "(Funkmeldung)" in text
+
+    @pytest.mark.asyncio
+    async def test_arrival_carries_its_own_channel(self, test_event: Event, test_incident: Incident, test_editor: User):
+        """A KP-logged "vor Ort" on a crew's report is a radio message, not a tap."""
+        report = self._report(
+            test_incident,
+            arrived_at=datetime(2026, 6, 1, 19, 10, tzinfo=UTC),
+            arrived_reported_by_user_id=test_editor.id,
+        )
+        text = self._pdf_text(test_event, test_incident, report, users=(test_editor,))
+        assert "Reko vor Ort" in text
+        assert "Vor Ort" in text
+        assert "(Funkmeldung)" in text
+
+    @pytest.mark.asyncio
+    async def test_field_arrival_says_feld_and_a_draft_still_counts(self, test_event: Event, test_incident: Incident):
+        """The crew pinged and has not filed yet — exactly the state paper needs."""
+        report = self._report(
+            test_incident,
+            is_draft=True,
+            summary_text=None,
+            arrived_at=datetime(2026, 6, 1, 19, 10, tzinfo=UTC),
+        )
+        text = self._pdf_text(test_event, test_incident, report)
+        assert "Reko vor Ort" in text
+        assert "(Feld)" in text
+
+    @pytest.mark.asyncio
+    async def test_no_arrival_prints_no_row(self, test_event: Event, test_incident: Incident):
+        report = self._report(test_incident)
+        text = self._pdf_text(test_event, test_incident, report)
+        assert "Reko vor Ort" not in text

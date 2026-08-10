@@ -491,6 +491,12 @@ def format_board_snapshot(p: Network, payload: dict) -> None:
                 line = f"[{check}] {name}"
                 if role:
                     line += f" ({role})"
+                # Provenance, never faked (plan 26 §7): this person did not tap
+                # their own name on the check-in link — an operator ticked it at
+                # the board off a radio roll-call. Nothing is printed for the
+                # normal case, so the marker means something when it appears.
+                if person.get("channel") == "kp":
+                    line += " (Funkmeldung)"
                 for wrapped in _wrap_text(line, WIDTH_B):
                     _text(p, f"{wrapped}\n")
 
