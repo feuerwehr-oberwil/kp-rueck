@@ -161,8 +161,12 @@ kp-rueck/
 ### Frontend (Next.js)
 
 - **App Router**: Next.js 15 app directory structure (not pages)
-- **Server Components**: Default to server components where possible
-- **Client Components**: Use `"use client"` for interactivity (contexts, hooks, event handlers)
+- **Client Components in practice**: **all 22 pages under `app/` are `'use client'`** — this is
+  the reality, not an aspiration to fix. The root layout mounts 30 providers (auth, operations,
+  event, WebSocket, theme, i18n, …), and the board is a live, interactive surface: there is no
+  meaningful server-rendered page here. Do not "restore" server components on a page as a
+  cleanup; it will fail on the first context hook. Server components remain fine for genuinely
+  static leaf components that touch no context.
 - **API Integration**: Centralized API client in `lib/api-client.ts`
 - **State Management**: React Context for global state (`operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
@@ -293,7 +297,7 @@ open http://localhost:8080
 
 - **Never create new files when editing suffices** - always prefer editing existing files
 - **Backend follows FastAPI best practices**: async operations, proper DI, type hints
-- **Frontend uses Next.js 15 patterns**: App Router, Server Components by default
+- **Frontend uses Next.js 15 patterns**: App Router; every page is a client component (see above)
 - **State management**: Centralized in React Context with API sync
 - **Real-time updates via WebSockets** (Socket.IO server in `backend/app/websocket_manager.py`, client in `frontend/lib/websocket-client.ts`). Polling remains as a fallback path. Originally polling-only in MVP; WebSockets were added in commit `b67360d` for live driver/assignment updates.
 - **Training vs Live**: Same database, filtered by `training_flag` on incidents
