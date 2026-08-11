@@ -1,4 +1,4 @@
-import { LucideIcon, Binoculars, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
+import { LucideIcon, Binoculars, MessageCircle, User, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { getTileBaseUrl } from '@/lib/env'
 import { translateOutsideReact } from '@/lib/i18n-messages'
@@ -61,6 +61,21 @@ export function resolveWhatsAppMessage(
 }
 
 /**
+ * The vehicles nobody is driving yet, in the order they are listed. Shared by the
+ * checklist popover and the "Bereitschaft" badge so the two can never disagree
+ * about how much of the fleet is still missing a driver.
+ */
+export function findVehiclesWithoutDriver(
+  vehicles: { id: string; name: string }[],
+  specialFunctions: { function_type: string; vehicle_id: string | null }[]
+): { vehicleId: string; vehicleName: string }[] {
+  const driven = new Set(
+    specialFunctions.filter((f) => f.function_type === 'driver' && f.vehicle_id).map((f) => f.vehicle_id)
+  )
+  return vehicles.filter((v) => !driven.has(v.id)).map((v) => ({ vehicleId: v.id, vehicleName: v.name }))
+}
+
+/**
  * Generate checklist tasks with current state.
  *
  * Link-sharing rows (check-in, Reko, Alarm) adapt their action: when a thermal
@@ -89,6 +104,10 @@ export function generateChecklistTasks(params: {
   onOpenFallbackSettings: () => void
   /** Opens the Fahrzeuge sheet, where a driver is set per vehicle. */
   onOpenVehicles: () => void
+  /** Starts a run through every vehicle that still has no driver. */
+  onAssignDrivers: () => void
+  /** How many vehicles still have nobody driving them — 0 hides the run button. */
+  vehiclesWithoutDriver: number
   /** Opens the Appell — the board's own roll-call, where the count on this row is made. */
   onOpenAttendance: () => void
 }): ChecklistTaskState[] {
@@ -186,9 +205,10 @@ export function generateChecklistTasks(params: {
       ]
     },
 
-    // 6. Assign drivers — the Fahrzeuge sheet is the one place a driver is set,
-    //    per vehicle. A checklist that only counts what is missing makes the
-    //    operator go and find it; this opens it.
+    // 6. Assign drivers — the row's own promise is "alle Fahrzeuge benötigen einen
+    //    Fahrer", so the first button walks every driverless vehicle in one pass
+    //    rather than making the operator find each one. The Fahrzeuge sheet stays
+    //    alongside it for looking at the fleet rather than working through it.
     {
       id: 'assign-drivers',
       title: translateOutsideReact('checklist.tasks.assign-drivers.title'),
@@ -202,6 +222,16 @@ export function generateChecklistTasks(params: {
         details: translateOutsideReact('checklist.tasks.assign-drivers.details', { count: params.driverAssignments, total: params.totalVehicles })
       },
       actionButtons: [
+        ...(params.vehiclesWithoutDriver > 0
+          ? [
+              {
+                label: translateOutsideReact('checklist.actions.assignDrivers'),
+                icon: User,
+                variant: 'outline' as const,
+                onClick: params.onAssignDrivers
+              }
+            ]
+          : []),
         {
           label: translateOutsideReact('checklist.actions.openVehicles'),
           icon: Truck,
@@ -380,6 +410,8 @@ export async function summarizeEventChecklist(
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
+    onAssignDrivers: noop,
+    vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
     onOpenAttendance: noop,
   })
 

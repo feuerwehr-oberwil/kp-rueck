@@ -206,10 +206,18 @@ interface OperationsContextType {
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
-  /** Set when a vehicle is assigned to an incident but has no driver yet, so the UI
-   * can prompt for driver selection. The user may dismiss the prompt to leave the
+  /** The vehicle the driver prompt is currently asking about — the head of a queue,
+   * so a single assignment and a walk through every driverless vehicle are the same
+   * mechanism. Set when a vehicle is assigned to an incident but has no driver yet,
+   * or by promptDriversForVehicles. The user may dismiss the prompt to leave the
    * vehicle without a driver. Cleared via clearVehicleNeedingDriver. */
   vehicleNeedingDriver: { vehicleId: string; vehicleName: string } | null
+  /** Queue a run of vehicles for the driver prompt — used by the setup checklist to
+   * walk every driverless vehicle in one pass instead of one trip per vehicle. */
+  promptDriversForVehicles: (vehicles: { vehicleId: string; vehicleName: string }[]) => void
+  /** Drop the current vehicle and ask about the next one, if any. */
+  advanceVehicleNeedingDriver: () => void
+  /** Stop the run entirely — what dismissing the prompt means. */
   clearVehicleNeedingDriver: () => void
   /** Set when a vehicle is being assigned to an incident while it is still
    * assigned to one or more other incidents. The UI prompts the operator to
@@ -270,10 +278,18 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   const [incidentTotal, setIncidentTotal] = useState<number | null>(null)
-  // When a vehicle is assigned to an incident with no driver yet, hold it here so the
-  // UI can open driver assignment. Null when there's nothing to prompt for.
-  const [vehicleNeedingDriver, setVehicleNeedingDriver] = useState<{ vehicleId: string; vehicleName: string } | null>(null)
-  const clearVehicleNeedingDriver = useCallback(() => setVehicleNeedingDriver(null), [])
+  // Vehicles waiting for a driver, oldest first. A single vehicle assigned without a
+  // driver is a queue of one; the setup checklist queues every driverless vehicle so
+  // the operator makes one pass instead of one trip per vehicle. Empty when there is
+  // nothing to prompt for.
+  const [driverPromptQueue, setDriverPromptQueue] = useState<{ vehicleId: string; vehicleName: string }[]>([])
+  const vehicleNeedingDriver = driverPromptQueue[0] ?? null
+  const promptDriversForVehicles = useCallback(
+    (vehicles: { vehicleId: string; vehicleName: string }[]) => setDriverPromptQueue(vehicles),
+    []
+  )
+  const advanceVehicleNeedingDriver = useCallback(() => setDriverPromptQueue((queue) => queue.slice(1)), [])
+  const clearVehicleNeedingDriver = useCallback(() => setDriverPromptQueue([]), [])
   const [vehicleConflict, setVehicleConflict] = useState<OperationsContextType["vehicleConflict"]>(null)
 
   // Refs for debouncing and cooldowns. One debounce timer + pending-merge
@@ -1856,7 +1872,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               .find((op) => op.id === operationId)
               ?.vehicles.includes(vehicleName)
             if (!hasDriver && stillAssigned) {
-              setVehicleNeedingDriver({ vehicleId, vehicleName })
+              setDriverPromptQueue([{ vehicleId, vehicleName }])
             }
           } catch (err) {
             console.error("Failed to check vehicle driver state:", err)
@@ -2104,6 +2120,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         assignMaterialToOperation,
         assignVehicleToOperation,
         vehicleNeedingDriver,
+        promptDriversForVehicles,
+        advanceVehicleNeedingDriver,
         clearVehicleNeedingDriver,
         vehicleConflict,
         resolveVehicleConflict,
