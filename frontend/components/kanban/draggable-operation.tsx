@@ -23,6 +23,7 @@ import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/prag
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { useOperations } from "@/lib/contexts/operations-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -142,6 +143,7 @@ function DraggableOperationBase({
   const [isPrinting, setIsPrinting] = useState(false)
   const { materialGroups } = useMaterials()
   const { groups, getGroupResources } = useGroups()
+  const { materialOnSite } = useOperations()
 
   // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
   // the page via a window event (mirrors the driver-assignment-changed pattern),
@@ -628,16 +630,26 @@ function DraggableOperationBase({
                           {/* Ungrouped materials shown individually */}
                           {ungrouped.map((materialId, idx) => {
                             const material = materials.find(m => m.id === materialId)
+                            // Left standing at this address by the crew's rapport.
+                            // Marked on the card as well as in the sidebar: the
+                            // card is where an operator decides what still has to
+                            // happen here, and "die Pumpe läuft noch" is one of
+                            // the things that still has to happen.
+                            const onSite = materialOnSite.has(materialId)
                             return (
                               <RemovableChip
                                 key={idx}
                                 variant="secondary"
-                                className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                                className={cn(
+                                  "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
+                                  onSite && "bg-warning/15 text-warning-foreground",
+                                )}
                                 onRemove={() => onRemoveMaterial(materialId)}
                                 removeTitle={t('common.removeNamed', { name: material?.name || materialId })}
                                 removeButtonClassName="hover:text-destructive cursor-pointer"
                                 removeIconClassName="h-2.5 w-2.5"
                               >
+                                {onSite && <MapPin className="h-2.5 w-2.5" />}
                                 <span>{material?.name || materialId}</span>
                               </RemovableChip>
                             )

@@ -18,6 +18,11 @@ const mockGroups: { id: string; name: string; stopIds: string[]; color: string |
 vi.mock('@/lib/contexts/materials-context', () => ({
   useMaterials: () => ({ materialGroups: [] }),
 }))
+// The card asks the board which material is still standing at an address (§18.35).
+vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/contexts/operations-context')>()),
+  useOperations: () => ({ materialOnSite: new Map() }),
+}))
 vi.mock('@/lib/contexts/groups-context', () => ({
   useGroups: () => ({ groups: mockGroups, getGroupResources: () => null }),
 }))

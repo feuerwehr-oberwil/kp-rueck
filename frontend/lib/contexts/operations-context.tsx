@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
+import { apiClient, ApiError, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -242,6 +242,16 @@ interface OperationsContextType {
         customResolve?: (action: "move" | "keep") => Promise<void> | void
       }
     | null
+  /** Material a crew left standing at a Schadenplatz, keyed on material id.
+   *
+   * "zugewiesen" and "steht noch im Keller" are not the same fact, and only the
+   * second one sends somebody driving in the morning. The rapport has known this
+   * since §18.35 (`left_on_site`) but only the Restliste and the printed
+   * Abholliste ever read it, so the board itself — the surface an operator
+   * actually watches — showed a pump in a stranger's cellar exactly like a pump
+   * on a truck. Read from the same `/restliste` endpoint the Abholliste prints,
+   * so there is one computation of "what is still out there", not two. */
+  materialOnSite: Map<string, { incidentId: string; address: string | null; since: string | null }>
   resolveResourceConflict: (action: "move" | "keep") => void
   cancelResourceConflict: () => void
   requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
@@ -253,6 +263,27 @@ interface OperationsContextType {
  *  `incoming` / `reko` / `reko_done`: an incident can legitimately sit parked in
  *  those while it waits for capacity or for the Reko to report back. */
 const AM_WARTEN_CLEARING_STATUSES: OperationStatus[] = ["enroute", "active", "returning", "complete"]
+
+/** The Restliste's material half, indexed for the board.
+ *
+ * Untracked entries ("Weiteres Material" the crew named by hand) carry no
+ * material id and are skipped: they are on the Abholliste like everything else,
+ * but the sidebar has no row to mark for a thing the station never owned.
+ */
+function toMaterialOnSite(
+  restliste: ApiEventRestliste | null,
+): Map<string, { incidentId: string; address: string | null; since: string | null }> {
+  const map = new Map<string, { incidentId: string; address: string | null; since: string | null }>()
+  for (const unit of restliste?.material_on_site ?? []) {
+    if (!unit.material_id) continue
+    map.set(unit.material_id, {
+      incidentId: unit.incident_id,
+      address: unit.location_address ?? unit.incident_title ?? null,
+      since: unit.since,
+    })
+  }
+  return map
+}
 
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
 
@@ -301,6 +332,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const advanceVehicleNeedingDriver = useCallback(() => setDriverPromptQueue((queue) => queue.slice(1)), [])
   const clearVehicleNeedingDriver = useCallback(() => setDriverPromptQueue([]), [])
   const [resourceConflict, setResourceConflict] = useState<OperationsContextType["resourceConflict"]>(null)
+  const [materialOnSite, setMaterialOnSite] = useState<OperationsContextType["materialOnSite"]>(new Map())
 
   // Refs for debouncing and cooldowns. One debounce timer + pending-merge
   // buffer PER incident (a single shared timer made rapid edits to two
@@ -524,13 +556,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Fetch all data in parallel. skipStateUpdate keeps the raw personnel/material
       // list off the UI — we write reconciled, event-scoped state below in one go,
       // avoiding a flicker where every person briefly reads as "available".
-      const [incidentPage, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
+      const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
         apiClient.getIncidentsWithTotal(selectedEvent.id),
         refreshPersonnel({ skipStateUpdate: true }),
         refreshMaterials({ skipStateUpdate: true }),
         apiClient.getAllSettings().catch(() => ({ home_city: "" })),
         apiClient.getVehicles(),
+        // Never fatal: a board that cannot say which pump is still in a cellar is
+        // still a board.
+        apiClient.getEventRestliste(selectedEvent.id).catch(() => null),
       ])
+      setMaterialOnSite(toMaterialOnSite(restliste))
       const apiIncidents = incidentPage.incidents
       setIncidentTotal(incidentPage.total)
 
@@ -731,13 +767,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         // Fetch all data in parallel. See refreshOperations for why we suppress
         // intermediate personnel/material writes.
-        const [incidentPage, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
+        const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
           apiClient.getIncidentsWithTotal(eventId),
           refreshPersonnel({ skipStateUpdate: true }),
           refreshMaterials({ skipStateUpdate: true }),
           apiClient.getAllSettings().catch(() => ({ home_city: "" })),
           apiClient.getVehicles(),
+          apiClient.getEventRestliste(eventId).catch(() => null),
         ])
+        setMaterialOnSite(toMaterialOnSite(restliste))
         const apiIncidents = incidentPage.incidents
         setIncidentTotal(incidentPage.total)
 
@@ -2198,6 +2236,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         advanceVehicleNeedingDriver,
         clearVehicleNeedingDriver,
         resourceConflict,
+        materialOnSite,
         resolveResourceConflict,
         cancelResourceConflict,
         requestResourceConflict,
