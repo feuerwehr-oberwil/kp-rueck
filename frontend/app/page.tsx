@@ -2085,10 +2085,34 @@ export default function FireStationDashboard() {
               so a toolbar wider than the window made the whole column wider
               than the window, and `<main>`'s own `overflow-auto` then scrolled
               the board, both sidebars and the header together. The label
-              collapse on `ToolbarToggle` is what makes it fit at 1024; this is
-              what makes it *impossible* for it not to. */}
+              collapse below is what makes it fit at 1024; this is what makes it
+              *impossible* for it not to.
+
+              Labels come back in two stages, because measurement says one
+              breakpoint cannot serve both cases (widths from Chrome, de-DE):
+
+                fully labelled, training event ....... 1414px needed
+                fully labelled, live event ........... 1262px needed
+
+              A single `xl` (1280) therefore clipped every training board — the
+              middle strip overflowed by 78px at 1280 and 35px at 1366 — while a
+              single `2xl` (1536) would have made a 1366 and even a 1440 laptop
+              icon-only on live boards that fit their labels comfortably today.
+              So:
+
+                xl  (1280) — the nine tool pills + Ansicht (unchanged)
+                2xl (1536) — "Bereitschaft" and "Übungs-Steuerung"
+
+              which leaves 1280 needing 1217px and 1536 needing 1414px. Both fit,
+              with the 2xl stage sized off the real 1414 rather than off a guess. */}
           <div className="flex min-w-0 items-center justify-between gap-4">
-            {/* Left: Primary action */}
+            {/* Left: Primary action.
+                "Neuer Einsatz" keeps its label at every width on purpose. It is
+                the only control down here that *creates* something, it is what
+                gets reached for under time pressure, and a bare "+" next to a
+                board that has add affordances on every column is genuinely
+                ambiguous. It costs 134px — the two labels below give back more
+                than that, so the primary action never has to pay. */}
             <div className="flex shrink-0 items-center gap-3">
               <Button size="sm" className="gap-2 shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
                 <Plus className="size-3.5" />
@@ -2099,9 +2123,20 @@ export default function FireStationDashboard() {
               {selectedEvent && checklistProgress.total > 0 && checklistProgress.completed < checklistProgress.total && (
                 <Popover open={checklistPopoverOpen} onOpenChange={setChecklistPopoverOpen}>
                   <PopoverTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                      // Icon-only below 2xl, so the tooltip has to carry the name —
+                      // same contract as `ToolbarToggle`.
+                      title={`${tDash('readiness')} ${checklistProgress.completed}/${checklistProgress.total}`}
+                      aria-label={`${tDash('readiness')} ${checklistProgress.completed}/${checklistProgress.total}`}
+                    >
                       <ClipboardCheck className="size-3.5" />
-                      {tDash('readiness')}
+                      {/* The word collapses like every other footer label; the
+                          badge never does — `n/m` is the informative half, and
+                          the clipboard icon alone does not carry a count. */}
+                      <span className="hidden 2xl:inline">{tDash('readiness')}</span>
                       <Badge variant="secondary" className="h-5 px-1.5 text-xs font-medium tabular-nums">
                         {checklistProgress.completed}/{checklistProgress.total}
                       </Badge>
@@ -2130,8 +2165,16 @@ export default function FireStationDashboard() {
                 The scroll container is the last line of defence, not the plan:
                 at every width the icon row is meant to fit. It exists so that a
                 station with an extra toggle, a long locale or a 900px window
-                scrolls THIS strip instead of the application. */}
-            <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                scrolls THIS strip instead of the application.
+
+                `justify-center-safe`, not `justify-center`: a centred flex row
+                that overflows spills over BOTH edges, and the part that spills
+                past the start edge cannot be scrolled back to — that is how
+                "Check-In" ended up rendered as "-In". `safe` centring falls back
+                to flex-start the moment the content stops fitting, so the
+                backstop degrades into a scrollable strip instead of eating the
+                first pill. */}
+            <div className="flex min-w-0 flex-1 items-center justify-center-safe gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {/* QR/Access group */}
               <div className="flex shrink-0 items-center gap-0.5">
                 <ToolbarToggle
@@ -2228,7 +2271,11 @@ export default function FireStationDashboard() {
                       aria-label={tDash('trainingControl')}
                     >
                       <Sparkles className="size-3.5" />
-                      <span className="hidden font-medium xl:inline">{tDash('trainingControl')}</span>
+                      {/* Second collapse stage, at 2xl rather than xl. This is the
+                          longest label in the row (143px) and the only pill that
+                          is not part of the everyday live board — dropping its
+                          word first buys the most width for the least loss. */}
+                      <span className="hidden font-medium 2xl:inline">{tDash('trainingControl')}</span>
                     </Button>
                   </Link>
                 </>
