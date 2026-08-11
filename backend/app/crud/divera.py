@@ -66,7 +66,10 @@ async def create_alarm_emergency(
         address=alarm.address,
         latitude=alarm.lat,
         longitude=alarm.lng,
-        raw_payload_json=alarm.model_dump(),
+        # mode="json", not the default: the payload now carries `started_at`, and a raw
+        # datetime is not JSON-serialisable — psycopg's JSONB encoder raises and the whole
+        # alarm 500s. Everything in here has to survive a round trip through the column.
+        raw_payload_json=alarm.model_dump(mode="json"),
     )
 
     db.add(emergency)

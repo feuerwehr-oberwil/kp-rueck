@@ -80,27 +80,37 @@ Worauf sich ein sendendes System verlassen kann:
 
 ## Beide anbinden: KP Rück und KP Front
 
-KP Front hat einen Endpunkt mit demselben Namen und derselben Idee – aber die beiden sind
-**unabhängige Implementierungen, keine gemeinsame Spezifikation**. Sie sind für verschiedene
-Aufgaben gebaut, und ihre Payloads sind auseinandergelaufen. Wer *einen* Sender für beide
-schreibt, bleibt in dieser gemeinsamen Teilmenge:
+KP Front hat einen Endpunkt mit demselben Namen und derselben Idee. Es bleiben **unabhängige
+Implementierungen ohne gemeinsames Paket** – aber seit dem **2026-08-11 nehmen beide dieselbe
+Nutzlast an**. Vorher taten sie es nicht, und das war die unangenehmste Sorte Fehler: gleicher
+Pfad, gleicher Zweck, und die reservierten Slugs sorgfältig synchron gehalten – es *sah*
+vereinheitlicht aus. Ein Relais gegen KP Rück bekam von KP Front eine 422, weil `source_id`
+dort Pflicht war, und drei Felder fielen jeweils still unter den Tisch.
+
+Angeglichen wurde in beide Richtungen, jeweils rückwärtskompatibel (kein bestehender Sender
+bricht):
 
 | Feld | Portabel | Hinweis |
 | --- | --- | --- |
 | `title` | ✅ bei beiden Pflicht | – |
 | `source` | ✅ | Höchstens 16 Zeichen und nach `^[a-z0-9][a-z0-9_-]*$` – KP Front ist strenger |
-| `source_id` | ✅ **immer mitsenden** | Bei KP Front **Pflicht**, hier optional |
+| `source_id` | ✅ | **Bei beiden optional** (KP Front seit 2026-08-11). Ohne ihn gibt es **keine Deduplizierung**: eine Wiederholung erzeugt bei beiden einen zweiten Eintrag. Wer wiederholen kann, sendet ihn |
 | `text`, `address` | ✅ | – |
 | `lat` + `lng` | ✅ | WGS84, nur beide zusammen |
-| `number` | nur KP Rück | Wird von KP Front ignoriert |
-| `type`, `priority`, `started_at` | nur KP Front | Werden hier ignoriert |
+| `number` | ✅ angenommen | KP Rück zeigt ihn im Pool («E-123»); KP Front hat kein Feld dafür und **ignoriert ihn bewusst** |
+| `type`, `priority` | ✅ angenommen | KP Rück nimmt sie seit 2026-08-11 und **lässt sie die Stichwort-Erkennung schlagen**. Unbekannte Werte fallen auf die Erkennung zurück, statt den Alarm abzulehnen – ein Tippfehler in einem optionalen Feld darf keinen Alarm kosten. Werte: `type` = die zehn Einsatzarten, `priority` = `low`/`medium`/`high`; KP Front nimmt `HIGH`/`LOW` |
+| `started_at` | ✅ angenommen | Wann der Alarm beim Sender losging. KP Front setzt damit `started_at`, KP Rück legt ihn zur Nutzlast |
 
 Reservierte `source`-Slugs beider Seiten meiden: `divera`, `manual`, `migrated`, `operator`,
 `intake`, `training`.
 
-**Keinen gemeinsamen Parser für die Antwort schreiben.** KP Rück antwortet mit
-`{"status": …, "created": …, "emergency_id": …, "auto_attached_incident_id": …}`, KP Front mit
-`{"incident_id": …, "created": …}`. Nur `created` bedeutet auf beiden Seiten dasselbe.
+**Keinen gemeinsamen Parser für die Antwort schreiben.** Die *Antworten* sind bewusst NICHT
+angeglichen – sie benennen verschiedene Dinge. KP Rück antwortet mit
+`{"status": …, "created": …, "emergency_id": …, "auto_attached_incident_id": …}` (der Alarm
+landet in einem Pool und wird vielleicht angehängt), KP Front mit
+`{"incident_id": …, "created": …}` (der Alarm *ist* der Einsatz). Nur `created` bedeutet auf
+beiden Seiten dasselbe. Auch die Statuscodes: KP Front antwortet 201 bei neu und 200 bei
+bekannt, KP Rück immer 200.
 
 ## Beispiel
 
