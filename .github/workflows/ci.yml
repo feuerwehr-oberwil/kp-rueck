@@ -604,8 +604,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `pnpm lint` is `eslint . --max-warnings 26`, and the repo sits at exactly 26. That is a
+      # RATCHET, not slack: it is set to today's count on purpose so the number can only go
+      # down. All 26 are react-hooks/exhaustive-deps, each behaviour-relevant and each its own
+      # small decision (plan 18 §3) — which is why they are capped rather than silenced.
+      #
+      # So if this step fails with "27 problems", the answer is almost never to raise the cap.
+      # Either fix the dependency array you just added, or — if you deliberately removed one —
+      # lower the number in frontend/package.json to the new count in the same commit.
       - name: Run ESLint
-        run: pnpm lint
+        run: |
+          pnpm lint || {
+            echo "::error::ESLint exceeded the warning ratchet (currently 26, all exhaustive-deps)."
+            echo "::error::Fix the new warning, or lower the cap in frontend/package.json if you removed one."
+            exit 1
+          }
 
   frontend-typecheck:
     name: Frontend Type Check

@@ -76,7 +76,10 @@ repos:
     hooks:
       - id: eslint
         name: "Lint: ESLint (frontend) [warning]"
-        entry: bash -c 'cd frontend && pnpm lint || echo "⚠️  ESLint issues found (non-blocking)"'
+        # The cap in `pnpm lint` is a ratchet set to today's exact count (26, all
+        # exhaustive-deps), so ONE new warning trips it. Non-blocking here on purpose, but say
+        # what actually happened — "issues found" reads like a style nit and this is a ceiling.
+        entry: bash -c 'cd frontend && pnpm lint || echo "⚠️  ESLint over the warning ratchet (cap 26). Fix the new warning, or lower the cap in frontend/package.json if you removed one. Non-blocking here, BLOCKING in CI."'
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
