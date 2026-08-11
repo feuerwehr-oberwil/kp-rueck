@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -218,6 +218,7 @@ async def delete_event(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
+    request: Request,
 ) -> None:
     """
     Permanently delete an event (editor only).
@@ -225,7 +226,7 @@ async def delete_event(
     Event must be archived first before it can be deleted.
     """
     try:
-        success = await crud.delete_event(db, event_id)
+        success = await crud.delete_event(db, event_id, current_user, request)
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     except ValueError as e:

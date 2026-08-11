@@ -3,11 +3,13 @@
 import uuid
 from datetime import datetime
 
+from fastapi import Request
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Event, Incident
+from ..models import Event, Incident, User
+from ..services.audit import log_action
 
 
 async def get_events(
@@ -140,13 +142,31 @@ async def unarchive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None
     return event
 
 
-async def delete_event(db: AsyncSession, event_id: uuid.UUID) -> bool:
+async def delete_event(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    current_user: User | None = None,
+    request: Request | None = None,
+) -> bool:
     """
     Permanently delete an event (only if archived).
+
+    The cascade is intentional and the dialog says so ("dauerhaft", "kann nicht rückgängig
+    gemacht werden", plus the incident count). What was missing is the record OF it: this is
+    the most destructive operation in the application — every incident under the event, with
+    its assignments, Reko- and Schadenplatz-Rapporte, status transitions and notifications —
+    and it used to leave nothing behind saying it happened. Unlike an incident deletion it
+    has no Undo to fall back on, so the audit entry is the only thing that can answer "the
+    Ereignis from the storm week is gone, who deleted it and what went with it".
+
+    The entry is written BEFORE the delete, while the counts can still be read, and survives
+    it: ``audit_log.resource_id`` carries no foreign key, so nothing cascades into it.
 
     Args:
         db: Database session
         event_id: Event ID to delete
+        current_user: Who asked for it — recorded in the audit entry
+        request: FastAPI request, for IP/user-agent capture
 
     Returns:
         True if deleted, False if not found
@@ -161,6 +181,27 @@ async def delete_event(db: AsyncSession, event_id: uuid.UUID) -> bool:
     # Require event to be archived before deletion
     if event.archived_at is None:
         raise ValueError("Event must be archived before deletion")
+
+    doomed_incidents = (
+        await db.execute(select(Incident.id, Incident.title).where(Incident.event_id == event_id))
+    ).all()
+
+    await log_action(
+        db=db,
+        action_type="delete",
+        resource_type="event",
+        resource_id=event_id,
+        user=current_user,
+        changes={
+            "name": event.name,
+            "archived_at": event.archived_at.isoformat() if event.archived_at else None,
+            "incident_count": len(doomed_incidents),
+            # Titles as well as ids: after the cascade the ids resolve to nothing, and
+            # "Wasser im Keller, Hauptstrasse 4" is what somebody will be asking about.
+            "incidents": [{"id": str(row.id), "title": row.title} for row in doomed_incidents],
+        },
+        request=request,
+    )
 
     # Cascade delete will handle all related incidents, assignments, etc.
     await db.delete(event)
