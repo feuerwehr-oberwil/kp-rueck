@@ -6779,7 +6779,7 @@
           "personnel"
         ],
         "summary": "List Personnel",
-        "description": "List all personnel.\n\nUse checked_in_only=true with event_id to show only personnel checked in for a specific event.",
+        "description": "List all personnel.\n\nPass `event_id` to have `checked_in`/`checked_in_at`/`checked_out_at` describe that\nEreignis; without it they are empty, because attendance has no meaning outside one.\nAdd `checked_in_only=true` to get only the people who are currently present.",
         "operationId": "list_personnel_api_personnel__get",
         "parameters": [
           {
@@ -6950,7 +6950,7 @@
           "personnel"
         ],
         "summary": "Get Personnel",
-        "description": "Get single personnel by ID.",
+        "description": "Get single personnel by ID (roster data; no Ereignis, so no attendance).",
         "operationId": "get_personnel_api_personnel__personnel_id__get",
         "parameters": [
           {
@@ -22370,7 +22370,7 @@
           "updated_at"
         ],
         "title": "Personnel",
-        "description": "Full personnel schema with database fields."
+        "description": "Full personnel schema with database fields.\n\nNOTE on the three attendance fields: attendance is a fact about a person *at an\nEreignis*, and it lives in `event_attendance`. There is no attendance column on the\npersonnel row to fall back on any more, so these must be filled in explicitly by\n``crud.personnel.to_personnel_schema`` from the attendance row of the event that was\nasked about. Without an event there is no answer, and the honest one is \"not present\"."
       },
       "PersonnelActivity": {
         "properties": {

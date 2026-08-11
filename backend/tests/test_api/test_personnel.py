@@ -7,6 +7,7 @@ Tests cover:
 - Permission enforcement (editor vs viewer)
 """
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -14,7 +15,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Personnel
+from app.models import Event, EventAttendance, Personnel
 
 # ============================================
 # Fixtures
@@ -377,3 +378,215 @@ async def test_list_multiple_personnel(editor_client: AsyncClient, db_session: A
     assert response.status_code == 200
     personnel_list = response.json()
     assert len(personnel_list) == 5
+
+
+# ============================================
+# Event-scoped attendance in the personnel response
+# ============================================
+#
+# Regression cover for the bug where `GET /api/personnel/?checked_in_only=true&event_id=…`
+# returned exactly the checked-in people and reported `checked_in: false` for every one of
+# them: the filter had moved to `event_attendance`, the response field was still being read
+# off the (never-written) `personnel.checked_in` column.
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_list_personnel_reports_event_attendance(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_personnel: Personnel,
+    test_event: Event,
+):
+    """A person checked in for the event is reported as checked in, with their timestamp."""
+    checked_in_at = datetime(2026, 8, 11, 6, 30, tzinfo=UTC)
+    db_session.add(
+        EventAttendance(
+            id=uuid4(),
+            event_id=test_event.id,
+            personnel_id=test_personnel.id,
+            checked_in=True,
+            checked_in_at=checked_in_at,
+        )
+    )
+    await db_session.commit()
+
+    response = await editor_client.get(
+        f"/api/personnel/?checked_in_only=true&event_id={test_event.id}",
+    )
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 1
+    assert rows[0]["id"] == str(test_personnel.id)
+    assert rows[0]["checked_in"] is True
+    assert rows[0]["checked_in_at"] is not None
+    assert rows[0]["checked_out_at"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_list_personnel_reports_attendance_of_the_event_asked_about(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_personnel: Personnel,
+    test_event: Event,
+):
+    """Attendance at one Ereignis says nothing about another."""
+    other_event = Event(id=uuid4(), name="Anderes Ereignis", training_flag=False)
+    db_session.add(other_event)
+    db_session.add(
+        EventAttendance(
+            id=uuid4(),
+            event_id=test_event.id,
+            personnel_id=test_personnel.id,
+            checked_in=True,
+            checked_in_at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
+
+    response = await editor_client.get(f"/api/personnel/?event_id={other_event.id}")
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 1
+    assert rows[0]["checked_in"] is False
+    assert rows[0]["checked_in_at"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_list_personnel_full_roster_keeps_absent_people(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_personnel: Personnel,
+    test_event: Event,
+):
+    """Without `checked_in_only` everybody is listed, present or not."""
+    absent = Personnel(id=uuid4(), name="Zurückgeblieben Zora", status="available")
+    db_session.add(absent)
+    db_session.add(
+        EventAttendance(
+            id=uuid4(),
+            event_id=test_event.id,
+            personnel_id=test_personnel.id,
+            checked_in=True,
+            checked_in_at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
+
+    response = await editor_client.get(f"/api/personnel/?event_id={test_event.id}")
+    assert response.status_code == 200
+    by_id = {row["id"]: row for row in response.json()}
+    assert by_id[str(test_personnel.id)]["checked_in"] is True
+    assert by_id[str(absent.id)]["checked_in"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_list_personnel_reports_departure(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_personnel: Personnel,
+    test_event: Event,
+):
+    """Somebody who came and went is not checked in, but keeps both stamps."""
+    db_session.add(
+        EventAttendance(
+            id=uuid4(),
+            event_id=test_event.id,
+            personnel_id=test_personnel.id,
+            checked_in=False,
+            checked_in_at=datetime(2026, 8, 11, 6, 0, tzinfo=UTC),
+            checked_out_at=datetime(2026, 8, 11, 8, 0, tzinfo=UTC),
+        )
+    )
+    await db_session.commit()
+
+    response = await editor_client.get(f"/api/personnel/?event_id={test_event.id}")
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["checked_in"] is False
+    assert row["checked_in_at"] is not None
+    assert row["checked_out_at"] is not None
+
+    filtered = await editor_client.get(f"/api/personnel/?checked_in_only=true&event_id={test_event.id}")
+    assert filtered.json() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_list_personnel_without_event_reports_no_attendance(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_personnel: Personnel,
+    test_event: Event,
+):
+    """No Ereignis, no attendance — and `checked_in_only` alone can only mean nobody."""
+    db_session.add(
+        EventAttendance(
+            id=uuid4(),
+            event_id=test_event.id,
+            personnel_id=test_personnel.id,
+            checked_in=True,
+            checked_in_at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
+
+    response = await editor_client.get("/api/personnel/")
+    assert response.status_code == 200
+    assert response.json()[0]["checked_in"] is False
+
+    assert (await editor_client.get("/api/personnel/?checked_in_only=true")).json() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_walk_in_becomes_visible_in_the_roster(
+    editor_client: AsyncClient,
+    test_event: Event,
+):
+    """The reported symptom, end to end: create a walk-in, check them in, see them.
+
+    The Fahrer dialog does exactly this. Before the fix the person came back from the
+    roster call stamped `checked_in: false`, one second after the check-in call had
+    answered `true` about the same person.
+    """
+    created = await editor_client.post(
+        "/api/personnel/",
+        json={"name": "Zugelaufen Zeno", "status": "available", "tags": ["F"]},
+    )
+    assert created.status_code == 201
+    person_id = created.json()["id"]
+    # The create response is what a client trusts to build the person locally.
+    assert created.json()["tags"] == ["F"]
+    assert created.json()["checked_in"] is False
+
+    checked_in = await editor_client.post(f"/api/personnel/check-in/{person_id}/in?event_id={test_event.id}")
+    assert checked_in.status_code == 200
+    assert checked_in.json()["checked_in"] is True
+    assert checked_in.json()["tags"] == ["F"]
+
+    roster = await editor_client.get(f"/api/personnel/?checked_in_only=true&event_id={test_event.id}")
+    assert roster.status_code == 200
+    rows = {row["id"]: row for row in roster.json()}
+    assert person_id in rows, "the freshly checked-in walk-in is missing from the roster"
+    assert rows[person_id]["checked_in"] is True
+    assert rows[person_id]["tags"] == ["F"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_row_carries_no_attendance_column():
+    """The dead column stays dead.
+
+    `personnel.checked_in` was never written after `event_attendance` landed, but
+    `schemas.Personnel` read it through `from_attributes` — so the roster confidently
+    answered "nobody is here". Re-adding an attendance column to this table would make
+    that answer available again to the next reader.
+    """
+    for column in ("checked_in", "checked_in_at", "checked_out_at"):
+        assert not hasattr(Personnel, column), (
+            f"Personnel.{column} is back — attendance belongs to EventAttendance, per Ereignis"
+        )

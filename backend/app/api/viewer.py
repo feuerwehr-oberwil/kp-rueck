@@ -113,7 +113,7 @@ async def get_viewer_data(
     # plus materials/vehicles and live GPS. Assignments + special functions let
     # the client derive event-scoped availability (assigned vs. available) —
     # the raw Personnel.status field never reflects incident assignments.
-    personnel = await personnel_crud.get_all_personnel(db, checked_in_only=True, event_id=event_id)
+    personnel = await personnel_crud.list_personnel_with_attendance(db, checked_in_only=True, event_id=event_id)
     materials = await materials_crud.get_all_materials(db)
     vehicles = await vehicles_crud.get_all_vehicles(db)
     vehicle_positions = await _viewer_vehicle_positions()
@@ -126,7 +126,7 @@ async def get_viewer_data(
         "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
         "incidents": [i.model_dump(mode="json") for i in await incident_display.incidents_with_display(db, incidents)],
         "groups": [group.model_dump(mode="json") for group in groups],
-        "personnel": [schemas.Personnel.model_validate(p).model_dump(mode="json") for p in personnel],
+        "personnel": [p.model_dump(mode="json") for p in personnel],
         "materials": [schemas.Material.model_validate(m).model_dump(mode="json") for m in materials],
         "vehicles": [schemas.Vehicle.model_validate(v).model_dump(mode="json") for v in vehicles],
         "vehicle_positions": vehicle_positions,

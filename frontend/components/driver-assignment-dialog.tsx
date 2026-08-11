@@ -7,7 +7,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { User, CheckCircle, Circle, Loader2, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -259,8 +258,7 @@ export function DriverAssignmentDialog({
     }
   }
 
-  // Create a not-yet-registered person, check them in (reusing the event's
-  // check-in token — there is no authenticated check-in endpoint), tag them as
+  // Create a not-yet-registered person, check them in for this Ereignis, tag them as
   // Fahrer, and assign them as this vehicle's driver in one go.
   const addWalkInDriver = async () => {
     const name = newPersonName.trim()
@@ -273,12 +271,24 @@ export function DriverAssignmentDialog({
     try {
       const created = await apiClient.createPersonnel({ name, status: 'available', tags: ['F'] })
       try {
-        const { token } = await apiClient.generateCheckInLink(eventId)
-        await apiClient.checkInPersonnel(created.id, token)
+        // The board's own door to the check-in endpoint. This used to mint a public
+        // share token and consume it one line later, which handed a login-less link
+        // to the whole Ereignis just to register one person the editor is looking at.
+        await apiClient.checkInPersonnelForEvent(created.id, eventId)
       } catch (checkInError) {
-        // Non-fatal: they still exist and can be assigned; they just may not
-        // show in the checked-in roster until refreshed.
+        // NOT non-fatal, whatever the old comment here claimed. The Personal list IS
+        // the checked-in roster, so a walk-in who failed to check in is a person
+        // nobody on the board can see — the exact "Keine Personen verfügbar" the
+        // operator reported. Say so and stop, rather than making an invisible person
+        // the driver of a vehicle.
         console.error('Failed to check in walk-in driver:', checkInError)
+        await refreshOperations()
+        setNewPersonName("")
+        setShowAddForm(false)
+        toast.error(t('checkInFailedTitle'), {
+          description: t('checkInFailedDescription', { name: created.name }),
+        })
+        return
       }
       await refreshOperations()
       setNewPersonName("")
@@ -383,8 +393,12 @@ export function DriverAssignmentDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        {/* Bounded height, list scrolls inside — the repo's modal-h-tall + flex-col
+            convention (auftrag-picker-dialog, incident-picker-dialog). With only a width
+            constraint, opening "Person hinzufügen" grew the panel past the bottom of a
+            laptop screen and over the footer, taking "Hinzufügen & als Fahrer" with it. */}
+        <DialogContent className="flex modal-h-tall sm:max-w-md flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
               {t('title', { vehicle: vehicleName })}
@@ -397,10 +411,10 @@ export function DriverAssignmentDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
             {/* Current driver with remove option */}
             {localDriverId && localDriverName && (
-              <div className="flex items-center justify-between p-3 rounded-lg border border-primary/50 bg-primary/5">
+              <div className="flex shrink-0 items-center justify-between p-3 rounded-lg border border-primary/50 bg-primary/5">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
                   <div>
@@ -426,6 +440,7 @@ export function DriverAssignmentDialog({
 
             {/* Search */}
             <SearchInput
+              containerClassName="shrink-0"
               placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onValueChange={setSearchQuery}
@@ -437,13 +452,13 @@ export function DriverAssignmentDialog({
               <button
                 type="button"
                 onClick={() => setShowAddForm(true)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                className="flex w-full shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
               >
                 <UserPlus className="h-4 w-4" />
                 <span>{t('addPersonButton')}</span>
               </button>
             ) : (
-              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="shrink-0 space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                 <p className="text-xs text-muted-foreground">{t('addPersonHint')}</p>
                 <Input
                   type="text"
@@ -482,7 +497,11 @@ export function DriverAssignmentDialog({
             )}
 
             {/* Personnel List */}
-            <ScrollArea className="h-[300px] pr-2">
+            {/* Plain overflow container, like the other modal-h-tall dialogs
+                (auftrag-picker, incident-picker). A Radix ScrollArea needs a definite
+                height — its viewport is `h-full` — which a max-height panel does not
+                give it, so the list spilled out over the footer instead of scrolling. */}
+            <div data-testid="driver-list" className="min-h-0 flex-1 overflow-y-auto pr-2">
               <div className="space-y-2">
                 {/* Fahrer (F-tagged) section */}
                 {driversGroup.length > 0 && (
@@ -639,10 +658,10 @@ export function DriverAssignmentDialog({
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Footer */}
-            <div className="flex justify-end pt-2">
+            <div className="flex shrink-0 justify-end pt-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 {t('close')}
               </Button>

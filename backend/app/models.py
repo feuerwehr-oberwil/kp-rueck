@@ -128,10 +128,12 @@ class Personnel(Base):
     # removed. Do not add new readers.
     divera_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
-    # Check-in tracking
-    checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
-    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Check-in tracking lives in `event_attendance`, NOT here. This table used to carry
+    # checked_in / checked_in_at / checked_out_at; they were superseded one day after they
+    # landed and never written again, but `schemas.Personnel` kept reading them through
+    # `from_attributes`, so the roster answered "nobody is checked in" for an event full of
+    # people. Dropped in migration c7e4a1b9f082 rather than commented — a column that only
+    # ever returns false is worse than no column, because it answers.
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -143,12 +145,6 @@ class Personnel(Base):
             "status IN ('available', 'unavailable')",
             name="valid_personnel_status",
         ),
-        # Check-in only allowed if not unavailable
-        CheckConstraint(
-            "(checked_in = false) OR (checked_in = true AND status != 'unavailable')",
-            name="valid_checkin_status",
-        ),
-        Index("idx_personnel_checked_in", "checked_in"),
         Index("idx_personnel_status", "status"),
         Index("idx_personnel_role_sort_order", "role_sort_order"),
     )
@@ -877,11 +873,19 @@ class SchadenplatzReport(Base):
     # was worth less than a tick that is actually hit correctly. Legacy nulls were
     # rewritten to true by migration `f2a7c4d1e903`.
     materials_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
-    # Material that was never on the board — improvised or borrowed. Free text on
-    # purpose (names, never ids): the catalogue is offered as a multi-select so the
-    # crew does not spell "Tauchpumpe TP-4" from memory, but picking a name is not
-    # picking a unit and `/feld` never writes an assignment.
-    extra_material_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Material that was never on the board — improvised or borrowed. One entry per
+    # item, **names never ids** (decision 18): the catalogue is offered as a
+    # multi-select so the crew does not spell "Tauchpumpe TP-4" from memory, but
+    # picking a name is not picking a unit and `/feld` never writes an assignment.
+    #   [{"name": "Tauchpumpe vom Werkhof", "left_on_site": true}, ...]
+    # There is no `used` flag here and there must not be one (§18.35): naming
+    # something on this list already means it was used. The one question nothing
+    # else answers is whether it is still standing at the address, and that answer
+    # has to be per entry — which is why this stopped being the comma-separated
+    # `extra_material_note` and became a list. Migration `b4f1c07a92de` carried the
+    # old strings over, every entry `left_on_site=false`, the state they implicitly
+    # had. Free text stays: an entry whose name is in no catalogue is still valid.
+    extra_materials_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
 
     # --- Kurzbericht (one box; the paper's Lage/Tätigkeit/Geräte are its hint) ---
     kurzbericht: Mapped[str | None] = mapped_column(Text, nullable=True)

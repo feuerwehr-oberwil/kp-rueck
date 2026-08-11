@@ -66,7 +66,14 @@ class PersonnelUpdate(BaseModel):
 
 
 class Personnel(PersonnelBase):
-    """Full personnel schema with database fields."""
+    """Full personnel schema with database fields.
+
+    NOTE on the three attendance fields: attendance is a fact about a person *at an
+    Ereignis*, and it lives in `event_attendance`. There is no attendance column on the
+    personnel row to fall back on any more, so these must be filled in explicitly by
+    ``crud.personnel.to_personnel_schema`` from the attendance row of the event that was
+    asked about. Without an event there is no answer, and the honest one is "not present".
+    """
 
     model_config = ConfigDict(from_attributes=True)
 

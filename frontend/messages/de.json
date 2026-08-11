@@ -929,6 +929,8 @@
       "addAndAssign": "Hinzufügen & als Fahrer",
       "adding": "Wird hinzugefügt…",
       "addError": "Person konnte nicht hinzugefügt werden",
+      "checkInFailedTitle": "Anmeldung fehlgeschlagen",
+      "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend angemeldet und darum nicht auf dem Board sichtbar. Person im Appell anmelden und danach als Fahrer zuweisen.",
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
       "markAsDriver": "Als Fahrer markieren",
       "markedAsDriver": "{name} als Fahrer markiert",

@@ -23,13 +23,15 @@ async def list_personnel(
     db: AsyncSession = Depends(get_db),
     checked_in_only: bool = False,
     event_id: uuid.UUID | None = None,
-) -> list[Personnel]:
+) -> list[schemas.Personnel]:
     """
     List all personnel.
 
-    Use checked_in_only=true with event_id to show only personnel checked in for a specific event.
+    Pass `event_id` to have `checked_in`/`checked_in_at`/`checked_out_at` describe that
+    Ereignis; without it they are empty, because attendance has no meaning outside one.
+    Add `checked_in_only=true` to get only the people who are currently present.
     """
-    return await crud.get_all_personnel(db, checked_in_only=checked_in_only, event_id=event_id)
+    return await crud.list_personnel_with_attendance(db, checked_in_only=checked_in_only, event_id=event_id)
 
 
 @router.get("/{personnel_id}", response_model=schemas.Personnel)
@@ -37,12 +39,12 @@ async def get_personnel(
     personnel_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-) -> Personnel:
-    """Get single personnel by ID."""
+) -> schemas.Personnel:
+    """Get single personnel by ID (roster data; no Ereignis, so no attendance)."""
     personnel = await crud.get_personnel(db, personnel_id)
     if not personnel:
         raise HTTPException(status_code=404, detail="Personnel not found")
-    return personnel
+    return crud.to_personnel_schema(personnel, None)
 
 
 @router.post("/", response_model=schemas.Personnel, status_code=status.HTTP_201_CREATED)
@@ -56,8 +58,9 @@ async def create_personnel(
     """Create new personnel (editor only)."""
     new_personnel = await crud.create_personnel(db, personnel, current_user, request)
 
-    # Convert to Pydantic and broadcast WebSocket update
-    personnel_response = schemas.Personnel.model_validate(new_personnel)
+    # Convert to Pydantic and broadcast WebSocket update. A brand-new person belongs to
+    # no Ereignis yet, so there is no attendance to report — the caller checks them in.
+    personnel_response = crud.to_personnel_schema(new_personnel, None)
     background_tasks.add_task(broadcast_personnel_update, personnel_response.model_dump(mode="json"), "create")
 
     return personnel_response
@@ -77,8 +80,9 @@ async def update_personnel(
     if not updated:
         raise HTTPException(status_code=404, detail="Personnel not found")
 
-    # Convert to Pydantic and broadcast WebSocket update
-    personnel_response = schemas.Personnel.model_validate(updated)
+    # Convert to Pydantic and broadcast WebSocket update. Editing name/role/tags says
+    # nothing about attendance, and this route names no Ereignis to report it for.
+    personnel_response = crud.to_personnel_schema(updated, None)
     background_tasks.add_task(broadcast_personnel_update, personnel_response.model_dump(mode="json"), "update")
 
     return personnel_response

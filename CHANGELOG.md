@@ -144,6 +144,35 @@ will keep holding.
   credential that reaches it, and posters and Einsatzzettel belong in the "collect at the end of
   the Ereignis" habit.
 
+### Fixed
+
+- **Die Anwesenheit stimmt jetzt auch in der Antwort, nicht nur im Filter.**
+  `GET /api/personnel/?checked_in_only=true&event_id=…` lieferte genau die anwesenden Personen
+  und schrieb bei jeder einzelnen `checked_in: false` — der Filter war längst auf
+  `event_attendance` umgezogen, das Antwortfeld noch nicht. Die drei Felder
+  `checked_in` / `checked_in_at` / `checked_out_at` werden neu aus der Anwesenheit **des
+  gefragten Ereignisses** aufgelöst, an jeder Stelle, die Personal in einem Ereignis-Kontext
+  ausgibt (Board-Roster und Viewer-Board). Ohne `event_id` sind sie leer, weil Anwesenheit
+  ausserhalb eines Ereignisses keine Aussage ist.
+  ⚠️ Migration `c7e4a1b9f082` **entfernt** dazu die Spalten `personnel.checked_in`,
+  `checked_in_at` und `checked_out_at` samt Check-Constraint und Index. Sie wurden seit dem Tag,
+  an dem `event_attendance` kam, nie mehr geschrieben — es geht nichts verloren, und eine Spalte,
+  die immer «niemand ist da» antwortet, ist schlimmer als keine. Läuft automatisch beim Start.
+
+- **Eine Aushilfe, die man im Fahrer-Dialog erfasst, ist danach auch auf dem Board zu sehen.**
+  Der Check-in lief über einen frisch erzeugten öffentlichen Check-in-Link; scheiterte er, wurde
+  der Fehler in die Konsole geschrieben und die Person trotzdem als Fahrerin gesetzt — die
+  Personalliste blieb «Keine Personen verfügbar». Der Check-in geht neu über die eigene Tür des
+  Editors, und ein Fehlschlag wird gemeldet statt verschwiegen.
+
+- **Der Fahrer-Dialog passt auf einen Laptop-Bildschirm.** Mit offenem «Person hinzufügen» wuchs
+  er über den unteren Rand und legte sich über die Fussleiste; auf 1440×760 war der Titel oben
+  abgeschnitten und «Schliessen» unten nicht mehr erreichbar. Er ist neu auf die Fensterhöhe
+  begrenzt, die Personenliste scrollt darin.
+
+- **Die Check-in-Antworten führen die Tags mit.** `tags` war im Schema deklariert und wurde nie
+  gefüllt, also kam jede Person aus dem Check-in ohne ihr «F» zurück.
+
 ## [0.5.0] – 2026-08-08
 
 > ⚠️ **Operator action for anyone running the Divera webhook without a secret.** It now answers
