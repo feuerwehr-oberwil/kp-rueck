@@ -364,16 +364,6 @@
         "operationId": "execute_excel_import_api_admin_import_execute_post",
         "parameters": [
           {
-            "name": "mode",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "replace",
-              "title": "Mode"
-            }
-          },
-          {
             "name": "authorization",
             "in": "header",
             "required": false,
@@ -17009,6 +16999,11 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": "replace"
           }
         },
         "type": "object",

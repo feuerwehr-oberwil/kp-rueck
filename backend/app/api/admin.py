@@ -3,9 +3,9 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, cast
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -88,7 +88,11 @@ async def preview_excel_import(
 async def execute_excel_import(
     current_user: CurrentEditor,
     file: UploadFile = File(...),
-    mode: str = "replace",  # replace, merge, or append
+    # `Form(...)`, not a bare default: the client sends `mode` in the multipart body next to
+    # the file. Without it FastAPI binds from the QUERY STRING, nothing ever supplies it there,
+    # and every import silently ran as "replace" — deleting the whole roster, fleet and material
+    # inventory on an import the operator asked to APPEND.
+    mode: str = Form("replace"),  # replace, merge, or append
     db: AsyncSession = Depends(get_db),
     # FastAPI injects this itself and the `= None` default is unreachable; annotating it
     # `| None` turns it into a Pydantic body field and the app fails at import.
@@ -108,8 +112,9 @@ async def execute_excel_import(
             detail="Datenimport ist im Demo-Modus nicht verfügbar",
         )
 
-    if mode not in ["replace", "merge", "append"]:
+    if mode not in ("replace", "merge", "append"):
         raise HTTPException(status_code=400, detail="Invalid mode. Must be replace, merge, or append")
+    import_mode = cast(Literal["replace", "merge", "append"], mode)
 
     if not (file.filename or "").endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
@@ -129,9 +134,7 @@ async def execute_excel_import(
     except ExcelImportError:
         raise HTTPException(status_code=400, detail="Excel-Datei konnte nicht verarbeitet werden") from None
 
-    # Execute import (`mode` is a plain str query param, validated against the
-    # three literals above — mypy can't narrow str to the Literal import_data wants)
-    counts = await import_data(db, parsed_data, mode, str(current_user.id))  # type: ignore[arg-type]
+    counts = await import_data(db, parsed_data, import_mode, str(current_user.id))
 
     # Audit log
     await log_action(

@@ -14,6 +14,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Material, Personnel, Vehicle
@@ -181,7 +182,7 @@ async def test_import_execute_invalid_mode(editor_client: AsyncClient):
         files = {
             "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         }
-        response = await editor_client.post("/api/admin/import/execute", files=files, params={"mode": "invalid"})
+        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "invalid"})
         assert response.status_code == 400
         assert "Invalid mode" in response.json()["detail"]
 
@@ -204,7 +205,7 @@ async def test_import_execute_replace_mode(editor_client: AsyncClient):
         files = {
             "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         }
-        response = await editor_client.post("/api/admin/import/execute", files=files, params={"mode": "replace"})
+        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -230,11 +231,79 @@ async def test_import_execute_append_mode(editor_client: AsyncClient):
         files = {
             "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         }
-        response = await editor_client.post("/api/admin/import/execute", files=files, params={"mode": "append"})
+        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "append"})
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         assert data["mode"] == "append"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_import_execute_append_keeps_existing_rows(editor_client: AsyncClient, db_session: AsyncSession):
+    """`append` must actually append — the regression that deleted a station's roster.
+
+    `mode` had no `Form(...)`, so FastAPI bound it from the QUERY STRING while the client
+    sends it in the multipart body next to the file. Nothing ever supplied it, the default
+    won every time, and each import ran as `replace`: `delete(Personnel)`, `delete(Vehicle)`,
+    `delete(Material)` — cascading into check-in history and Divera identities.
+
+    The old tests missed it twice over: they passed `mode` as a query param (so they proved
+    the binding the frontend does NOT use), and they mocked `import_data` away (so no row was
+    ever really deleted). This one sends `mode` the way `api-client.ts:1202` sends it and lets
+    the real `import_data` run against the database.
+    """
+    survivor = Personnel(id=uuid4(), name="Bestand Bea", role="Gruppenführer", status="available")
+    db_session.add(survivor)
+    await db_session.commit()
+
+    parsed = {
+        "personnel": [{"name": "Neu Nina", "role": "Atemschutz", "status": "available"}],
+        "vehicles": [],
+        "materials": [],
+    }
+    files = {
+        "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    }
+    with patch("app.api.admin.validate_and_parse_excel", return_value=parsed):
+        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "append"})
+
+    assert response.status_code == 200
+    assert response.json()["mode"] == "append"
+
+    names = {p.name for p in (await db_session.execute(select(Personnel))).scalars().all()}
+    assert names == {"Bestand Bea", "Neu Nina"}, "append deleted existing personnel — this is the full-wipe bug"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_import_execute_replace_still_replaces(editor_client: AsyncClient, db_session: AsyncSession):
+    """The other side of the same fix: `replace` must keep deleting, and it is still the default.
+
+    Fixing the binding must not quietly turn the destructive mode off for the operators who
+    want it — "load a fresh station" is what this endpoint is for.
+    """
+    doomed = Personnel(id=uuid4(), name="Alt Anna", role="Maschinist", status="available")
+    db_session.add(doomed)
+    await db_session.commit()
+
+    parsed = {
+        "personnel": [{"name": "Neu Nina", "role": "Atemschutz", "status": "available"}],
+        "vehicles": [],
+        "materials": [],
+    }
+    files = {
+        "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    }
+    with patch("app.api.admin.validate_and_parse_excel", return_value=parsed):
+        # No `mode` at all — the default has to stay "replace" for existing callers.
+        response = await editor_client.post("/api/admin/import/execute", files=files)
+
+    assert response.status_code == 200
+    assert response.json()["mode"] == "replace"
+
+    names = {p.name for p in (await db_session.execute(select(Personnel))).scalars().all()}
+    assert names == {"Neu Nina"}
 
 
 # ============================================
