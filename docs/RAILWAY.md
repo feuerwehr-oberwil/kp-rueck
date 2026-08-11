@@ -402,16 +402,24 @@ version does not have. That includes "just to see if it builds".
   }
   ```
 
-- **A service's source is one setting shared by every environment.** In the CLI,
-  `railway service source connect --branch X --environment Y` accepts `--environment` and
-  ignores it: a service has one id across all environments, and the branch hangs on the
-  service. Pointing a staging environment at another branch this way **also repoints
-  production**, which then deploys and migrates. Set the branch per environment in the
-  dashboard, or give the second environment its own services.
+- **The deploy branch is per environment — but only the dashboard can set it.** Two
+  environments of the same project can genuinely watch different branches (verified: staging on
+  `develop`, production on `main`, at the same time). The CLI cannot get you there, and it fails
+  in two different ways:
+
+  | Command | What it does |
+  | --- | --- |
+  | `railway service source connect --branch X --environment Y` | Accepts `--environment` and **ignores** it. A service has one id across every environment, and this writes the branch on the *service* — so pointing staging at another branch **also repoints production**, which then deploys and migrates. |
+  | `railway environment edit --service-config <svc> source.branch X` | Environment-scoped by name, but observed to apply **nothing at all** and report no error. |
+
+  So: set it in the dashboard, and read the result back before trusting it
+  (`railway environment config --environment <name> --json`, look for `source.branch`). To
+  deploy a specific state without touching any branch setting, `railway up --service <s>
+  --environment <e>` uploads the working tree and cannot affect another environment.
 
   General rule for a shared service: before changing anything, establish whether the setting is
-  per environment or per service. `railway environment edit --service-config …` is
-  environment-scoped by construction; `railway service …` is not.
+  per environment or per service, and **verify afterwards** — a CLI flag being accepted is not
+  evidence that it did anything.
 
 ---
 
