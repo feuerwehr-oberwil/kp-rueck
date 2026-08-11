@@ -24,9 +24,13 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
-  // Reko personnel can be dragged even when assigned (they can be on multiple incidents)
-  // Drivers can be dragged to assign their vehicle to an incident
-  const canDrag = !disabled && (person.status === "available" || person.isReko || person.isDriver)
+  // Everybody on the roster can be dragged, busy or not. An assigned person used
+  // to be undraggable, which made the sidebar answer "no" to a question the
+  // operator is entitled to ask — the board is the surface that can move somebody
+  // — and the only way to reassign them was to release them somewhere else first.
+  // Dropping a busy person now opens the Doppelbelegung prompt (move / doppelt
+  // belegen / abbrechen) instead of being refused by a cursor.
+  const canDrag = !disabled
 
   useEffect(() => {
     const element = ref.current

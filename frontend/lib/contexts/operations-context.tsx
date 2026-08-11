@@ -186,7 +186,7 @@ interface OperationsContextType {
    * when it failed and was rolled back — callers that chain a follow-up
    * action (e.g. "remove from incident, then make driver") must check it. */
   removeCrew: (operationId: string, crewName: string) => Promise<boolean>
-  removeMaterial: (operationId: string, materialId: string) => void
+  removeMaterial: (operationId: string, materialId: string) => Promise<boolean>
   /** Same result contract as removeCrew. */
   removeVehicle: (operationId: string, vehicleName: string) => Promise<boolean>
   removeReko: (operationId: string) => void
@@ -202,9 +202,9 @@ interface OperationsContextType {
   changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   getNextOperationId: () => string
-  assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
+  assignPersonToOperation: (personId: string, personName: string, operationId: string, force?: boolean) => void
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
-  assignMaterialToOperation: (materialId: string, operationId: string) => void
+  assignMaterialToOperation: (materialId: string, operationId: string, force?: boolean) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
   /** The vehicle the driver prompt is currently asking about — the head of a queue,
    * so a single assignment and a walk through every driverless vehicle are the same
@@ -219,22 +219,32 @@ interface OperationsContextType {
   advanceVehicleNeedingDriver: () => void
   /** Stop the run entirely — what dismissing the prompt means. */
   clearVehicleNeedingDriver: () => void
-  /** Set when a vehicle is being assigned to an incident while it is still
+  /** Set when a resource is being assigned to an incident while it is still
    * assigned to one or more other incidents. The UI prompts the operator to
-   * either move the vehicle (remove from the others) or keep the double
-   * booking. Resolved via resolveVehicleConflict / cancelVehicleConflict. */
-  vehicleConflict:
+   * either move it (remove from the others) or keep the double booking;
+   * dismissing leaves everything where it is. Resolved via
+   * resolveResourceConflict / cancelResourceConflict.
+   *
+   * It covers all three resource kinds, not just vehicles. It used to be
+   * vehicle-only, and the other two silently no-oped instead: assigning a person
+   * or a unit of material that was already on another incident simply returned,
+   * which meant even the assignment dialog's own «Doppelbelegung? Trotzdem
+   * zuweisen» did nothing at all. A person and a Tauchpumpe are as single and as
+   * physical as a TLF — the operator has to be asked, not ignored. */
+  resourceConflict:
     | {
-        vehicleId: string
-        vehicleName: string
+        resourceType: "personnel" | "vehicle" | "material"
+        resourceId: string
+        /** Display name; also the key crew/vehicle lists are held under. */
+        resourceName: string
         targetOperationId: string
         conflicts: { operationId: string; operationLabel: string }[]
         customResolve?: (action: "move" | "keep") => Promise<void> | void
       }
     | null
-  resolveVehicleConflict: (action: "move" | "keep") => void
-  cancelVehicleConflict: () => void
-  requestVehicleConflict: (conflict: NonNullable<OperationsContextType["vehicleConflict"]>) => void
+  resolveResourceConflict: (action: "move" | "keep") => void
+  cancelResourceConflict: () => void
+  requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
   deleteOperation: (operationId: string) => Promise<void>
 }
 
@@ -290,7 +300,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   )
   const advanceVehicleNeedingDriver = useCallback(() => setDriverPromptQueue((queue) => queue.slice(1)), [])
   const clearVehicleNeedingDriver = useCallback(() => setDriverPromptQueue([]), [])
-  const [vehicleConflict, setVehicleConflict] = useState<OperationsContextType["vehicleConflict"]>(null)
+  const [resourceConflict, setResourceConflict] = useState<OperationsContextType["resourceConflict"]>(null)
 
   // Refs for debouncing and cooldowns. One debounce timer + pending-merge
   // buffer PER incident (a single shared timer made rapid edits to two
@@ -1191,14 +1201,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const removeMaterial = (operationId: string, materialId: string) => {
+  /** Returns whether the release actually landed — the "move" branch of a
+   *  double-booking waits on it, like it already did for crew and vehicles. */
+  const removeMaterial = (operationId: string, materialId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
-    if (!operation) return
+    if (!operation) return Promise.resolve(false)
 
     const assignmentId = operation.materialAssignments.get(materialId)
     if (!assignmentId) {
       console.warn(`No assignment ID found for material ${materialId}`)
-      return
+      return Promise.resolve(false)
     }
 
     armAssignmentCooldown()
@@ -1226,7 +1238,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId)
+      return apiClient.unassignResource(operationId, assignmentId)
+        .then(() => true)
         .catch(err => {
           console.error("Failed to unassign material:", err)
           toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removeMaterialFailedDescription') })
@@ -1238,13 +1251,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               mats.map((m) => (m.id === material.id ? { ...m, status: materialStatusSnapshot } : m))
             )
           }
+          return false
         })
         .finally(() => {
           releaseAssignmentCooldown()
         })
-    } else {
-      releaseAssignmentCooldown(3000)
     }
+    releaseAssignmentCooldown(3000)
+    return Promise.resolve(true)
   }
 
   const updateOperation = (operationId: string, updates: Partial<Operation>) => {
@@ -1599,17 +1613,41 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const assignPersonToOperation = async (personId: string, personName: string, operationId: string) => {
+  /** The other incidents a resource is currently on, as prompt-ready rows. */
+  const collectConflicts = (holds: (op: Operation) => boolean, targetOperationId: string) =>
+    operations
+      .filter(op => op.id !== targetOperationId && holds(op))
+      .map(op => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) }))
+
+  const assignPersonToOperation = async (personId: string, personName: string, operationId: string, force = false) => {
     const operation = operations.find(op => op.id === operationId)
     const person = personnel.find(p => p.id === personId)
 
-    // Block silently double-booking someone who's "assigned" — EXCEPT people
-    // busy in a special function (reko/driver/magazin). Those are surfaced in the
-    // crew dialog (badge) and assigned only through an explicit confirm, so let
-    // them through here instead of silently no-oping the confirmed assignment.
-    const hasSpecialFunction = person?.isReko || person?.isDriver || person?.isMagazin
-    if (!operation || !person || (person.status === "assigned" && !hasSpecialFunction) || operation.crew.includes(personName)) {
+    if (!operation || !person || operation.crew.includes(personName)) {
       return
+    }
+
+    // Somebody already on another incident is a question for the operator, not a
+    // silent no-op. It *was* a silent no-op — `person.status === "assigned"`
+    // returned right here — which is why even the assignment dialog's own
+    // «Doppelbelegung? Trotzdem zuweisen» did nothing: the confirm called
+    // straight back into this function, which refused it again without a word.
+    //
+    // Special functions (Reko/Fahrer/Magazin) are deliberately not a conflict:
+    // they are event-scoped, hold no incident, and are already surfaced with a
+    // badge where they are picked.
+    if (!force) {
+      const conflicts = collectConflicts(op => op.crew.includes(personName), operationId)
+      if (conflicts.length > 0) {
+        setResourceConflict({
+          resourceType: "personnel",
+          resourceId: personId,
+          resourceName: personName,
+          targetOperationId: operationId,
+          conflicts,
+        })
+        return
+      }
     }
 
     // B6: warn (don't block) when re-assigning someone we just took off another incident.
@@ -1738,13 +1776,31 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const assignMaterialToOperation = async (materialId: string, operationId: string) => {
+  const assignMaterialToOperation = async (materialId: string, operationId: string, force = false) => {
     const operation = operations.find(op => op.id === operationId)
     const material = materials.find(m => m.id === materialId)
 
     const isConsumable = material?.consumable
-    if (!operation || !material || (!isConsumable && material.status === "assigned") || operation.materials.includes(materialId)) {
+    if (!operation || !material || operation.materials.includes(materialId)) {
       return
+    }
+
+    // A consumable is not a single physical thing — several incidents can draw
+    // from the same Bindemittel, so it never conflicts. Everything else does,
+    // and used to be dropped in silence by a `status === "assigned"` guard right
+    // here (see the same story in assignPersonToOperation).
+    if (!isConsumable && !force) {
+      const conflicts = collectConflicts(op => op.materials.includes(materialId), operationId)
+      if (conflicts.length > 0) {
+        setResourceConflict({
+          resourceType: "material",
+          resourceId: materialId,
+          resourceName: material.name,
+          targetOperationId: operationId,
+          conflicts,
+        })
+        return
+      }
     }
 
     armAssignmentCooldown()
@@ -1812,11 +1868,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // A vehicle is a single physical asset — if it's still assigned elsewhere,
     // ask the operator whether to move it here or keep the double booking,
     // rather than silently double-booking it.
-    const conflicts = operations
-      .filter(op => op.id !== operationId && op.vehicles.includes(vehicleName))
-      .map(op => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) }))
+    const conflicts = collectConflicts(op => op.vehicles.includes(vehicleName), operationId)
     if (conflicts.length > 0) {
-      setVehicleConflict({ vehicleId, vehicleName, targetOperationId: operationId, conflicts })
+      setResourceConflict({
+        resourceType: "vehicle",
+        resourceId: vehicleId,
+        resourceName: vehicleName,
+        targetOperationId: operationId,
+        conflicts,
+      })
       return
     }
 
@@ -1943,43 +2003,57 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return Promise.resolve(true)
   }
 
-  const resolveVehicleConflict = async (action: "move" | "keep") => {
-    const conflict = vehicleConflict
+  const resolveResourceConflict = async (action: "move" | "keep") => {
+    const conflict = resourceConflict
     if (!conflict) return
-    setVehicleConflict(null)
+    setResourceConflict(null)
 
     if (conflict.customResolve) {
       await conflict.customResolve(action)
       return
     }
 
+    const { resourceType, resourceId, resourceName, targetOperationId } = conflict
+
     if (action === "move") {
-      // Remove the vehicle from every other incident before assigning it
-      // here — and WAIT for the removals: toasting "verschoben" before they
-      // were confirmed left the vehicle double-booked on failure despite the
-      // user explicitly choosing "move".
+      // Remove it from every other incident before assigning it here — and WAIT
+      // for the removals: toasting "verschoben" before they were confirmed left
+      // the resource double-booked on failure despite the operator explicitly
+      // choosing "move".
       const results = await Promise.all(
-        conflict.conflicts.map((c) => removeVehicle(c.operationId, conflict.vehicleName))
+        conflict.conflicts.map((c) =>
+          resourceType === "vehicle"
+            ? removeVehicle(c.operationId, resourceName)
+            : resourceType === "personnel"
+              ? removeCrew(c.operationId, resourceName)
+              : removeMaterial(c.operationId, resourceId)
+        )
       )
       if (results.some((ok) => !ok)) {
-        // removeVehicle already rolled back and toasted the failed ones.
-        toast.error(translateOutsideReact('notifications.operations.vehicleNotMovedTitle', { name: conflict.vehicleName }), {
-          description: translateOutsideReact('notifications.operations.vehicleNotMovedDescription'),
+        // The remove already rolled back and toasted the failed ones.
+        toast.error(translateOutsideReact('notifications.operations.resourceNotMovedTitle', { name: resourceName }), {
+          description: translateOutsideReact('notifications.operations.resourceNotMovedDescription'),
         })
         return
       }
       const labels = conflict.conflicts.map(c => `"${c.operationLabel}"`).join(", ")
-      toast.info(translateOutsideReact('notifications.operations.vehicleMovedTitle', { name: conflict.vehicleName }), {
-        description: translateOutsideReact('notifications.operations.vehicleMovedDescription', { labels }),
+      toast.info(translateOutsideReact('notifications.operations.resourceMovedTitle', { name: resourceName }), {
+        description: translateOutsideReact('notifications.operations.resourceMovedDescription', { labels }),
       })
     }
 
-    await performVehicleAssign(conflict.vehicleId, conflict.vehicleName, conflict.targetOperationId)
+    if (resourceType === "vehicle") {
+      await performVehicleAssign(resourceId, resourceName, targetOperationId)
+    } else if (resourceType === "personnel") {
+      await assignPersonToOperation(resourceId, resourceName, targetOperationId, true)
+    } else {
+      await assignMaterialToOperation(resourceId, targetOperationId, true)
+    }
   }
 
-  const cancelVehicleConflict = useCallback(() => setVehicleConflict(null), [])
-  const requestVehicleConflict = useCallback((conflict: NonNullable<OperationsContextType["vehicleConflict"]>) => {
-    setVehicleConflict(conflict)
+  const cancelResourceConflict = useCallback(() => setResourceConflict(null), [])
+  const requestResourceConflict = useCallback((conflict: NonNullable<OperationsContextType["resourceConflict"]>) => {
+    setResourceConflict(conflict)
   }, [])
 
   // Undo a delete: restore the soft-deleted incident and reconcile the board.
@@ -2123,10 +2197,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         promptDriversForVehicles,
         advanceVehicleNeedingDriver,
         clearVehicleNeedingDriver,
-        vehicleConflict,
-        resolveVehicleConflict,
-        cancelVehicleConflict,
-        requestVehicleConflict,
+        resourceConflict,
+        resolveResourceConflict,
+        cancelResourceConflict,
+        requestResourceConflict,
         deleteOperation,
       }}
     >

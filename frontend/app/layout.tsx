@@ -16,7 +16,7 @@ import { NotificationToasts } from '@/components/notifications/notification-toas
 import { DismissAllToasts } from '@/components/ui/sonner'
 import { AppShell } from '@/components/app-shell'
 import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
-import { VehicleConflictPrompt } from '@/components/vehicle-conflict-prompt'
+import { ResourceConflictPrompt } from '@/components/resource-conflict-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { PickupDonePrompt } from '@/components/pickup-done-prompt'
@@ -93,7 +93,7 @@ export default async function RootLayout({
                           <NotificationToasts />
                           <DismissAllToasts />
                           <VehicleDriverPrompt />
-                          <VehicleConflictPrompt />
+                          <ResourceConflictPrompt />
                           <GpsReleasePrompt />
                           <GpsArrivalPrompt />
                           <PickupDonePrompt />

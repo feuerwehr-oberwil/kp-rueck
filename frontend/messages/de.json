@@ -936,15 +936,15 @@
       "markedAsDriver": "{name} als Fahrer markiert",
       "markError": "Markierung fehlgeschlagen"
     },
-    "vehicleConflict": {
-      "title": "Fahrzeug bereits im Einsatz",
-      "alreadyAssigned": "<strong>{vehicle}</strong> ist bereits zugewiesen",
+    "resourceConflict": {
+      "title": "Doppelbelegung?",
+      "alreadyAssigned": "<strong>{name}</strong> ist bereits zugewiesen",
       "assignedToSingle": "auf »{label}«.",
       "assignedToMultiple": "auf:",
       "bullet": "• {label}",
-      "question": "Soll das Fahrzeug hierher verschoben werden, oder auf beiden Einsätzen bleiben?",
-      "keepBoth": "Mehrfach zuweisen",
-      "moveHere": "Hierher verschieben"
+      "question": "Hierher verschieben, oder auf beiden Einsätzen belassen?",
+      "moveHere": "Hierher verschieben",
+      "keepBoth": "Mehrfach zuweisen"
     },
     "vehicleStatus": {
       "durationMinutes": "{minutes} Min",
@@ -2232,10 +2232,6 @@
       "assignRekoFailedDescription": "{name} konnte nicht als Reko zugewiesen werden.",
       "errorTitle": "Fehler",
       "vehicleInvalidIdDescription": "Fahrzeug \"{name}\" hat keine gültige ID. Bitte lade die Seite neu.",
-      "vehicleNotMovedTitle": "{name} nicht verschoben",
-      "vehicleNotMovedDescription": "Nicht alle Einsätze konnten bereinigt werden – bitte prüfen.",
-      "vehicleMovedTitle": "{name} verschoben",
-      "vehicleMovedDescription": "Von {labels} entfernt.",
       "restoreFailedTitle": "Wiederherstellen fehlgeschlagen",
       "restoreFailedDescription": "Der Einsatz konnte nicht wiederhergestellt werden.",
       "restoredTitle": "Einsatz wiederhergestellt",
@@ -2250,7 +2246,11 @@
         "collapse": "Einsturz",
         "chemical": "Gefahrstoffe",
         "electrical": "Elektrisch"
-      }
+      },
+      "resourceNotMovedTitle": "{name} nicht verschoben",
+      "resourceNotMovedDescription": "Nicht alle Einsätze konnten bereinigt werden – bitte prüfen.",
+      "resourceMovedTitle": "{name} verschoben",
+      "resourceMovedDescription": "Von {labels} entfernt."
     },
     "railway": {
       "backOnlineTitle": "Railway ist wieder online!",

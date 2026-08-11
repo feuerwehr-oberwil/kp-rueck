@@ -86,7 +86,7 @@ export default function MapPage() {
     assignVehicleToOperation,
     assignRekoPersonToOperation,
     removeReko,
-    requestVehicleConflict,
+    requestResourceConflict,
     deleteOperation
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
@@ -414,9 +414,10 @@ export default function MapPage() {
       return
     }
 
-    requestVehicleConflict({
-      vehicleId,
-      vehicleName: vehicle.name,
+    requestResourceConflict({
+      resourceType: "vehicle",
+      resourceId: vehicleId,
+      resourceName: vehicle.name,
       targetOperationId: groupId,
       conflicts: [
         ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
@@ -451,9 +452,10 @@ export default function MapPage() {
       return
     }
 
-    requestVehicleConflict({
-      vehicleId,
-      vehicleName,
+    requestResourceConflict({
+      resourceType: "vehicle",
+      resourceId: vehicleId,
+      resourceName: vehicleName,
       targetOperationId: operationId,
       conflicts: groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
       customResolve: async (action) => {
@@ -1291,13 +1293,18 @@ export default function MapPage() {
           rekoPersonnelNames={routeAssign ? [] : rekoPersonnelNames}
           onAssignPerson={routeAssign
             ? (personId) => void assignGroupResource(routeAssign.groupId, 'personnel', personId)
-            : assignPersonToOperation}
+            : ((personId: string, personName: string, operationId: string) =>
+              // force: the dialog has its own «Doppelbelegung? Trotzdem zuweisen»
+              // confirm with the label of where the person already is. Asking
+              // again through the shared prompt would be the same question twice.
+              assignPersonToOperation(personId, personName, operationId, true))}
           onAssignVehicle={routeAssign
             ? (vehicleId) => assignVehicleToGroupWithConflict(routeAssign.groupId, vehicleId)
             : assignVehicleToIncidentWithConflict}
           onAssignMaterial={routeAssign
             ? (materialId) => void assignGroupResource(routeAssign.groupId, 'material', materialId)
-            : assignMaterialToOperation}
+            : ((materialId: string, operationId: string) =>
+              assignMaterialToOperation(materialId, operationId, true))}
           onRemovePerson={routeAssign
             ? (_operationId, personName) => {
                 const assignment = routeGroupResources?.personnel.find((person) => person.name === personName)

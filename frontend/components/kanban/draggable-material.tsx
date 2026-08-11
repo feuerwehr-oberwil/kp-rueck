@@ -21,7 +21,9 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
   const [isDragging, setIsDragging] = useState(false)
 
   const isConsumable = material.consumable
-  const canDrag = !disabled && (isConsumable || material.status === "available")
+  // Busy material drags too — the drop asks (move / doppelt belegen / abbrechen)
+  // rather than the sidebar silently refusing. Same reasoning as the crew list.
+  const canDrag = !disabled
 
   useEffect(() => {
     const element = ref.current
