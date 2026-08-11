@@ -1158,9 +1158,15 @@ class TestFieldBriefing:
         await _assign(db_session, incident, "personnel", me.id)
         await _assign(db_session, incident, "personnel", mate.id)
         await _assign(db_session, incident, "vehicle", vehicle.id)
+        # Two units of one pump are two Material ROWS with the same name — that is how the
+        # inventory models physical items (`excel_import_export.py`: "duplicate rows = multiple
+        # items"). This used to assign one row twice, a state the board cannot produce:
+        # `assign_resource` rejects it, and since `uq_assignments_active_resource` the database
+        # does too. The grouping under test is by name, so two rows exercise it truthfully.
         pump = await _material(db_session, "Tauchpumpe")
+        second_pump = await _material(db_session, "Tauchpumpe")
         await _assign(db_session, incident, "material", pump.id)
-        await _assign(db_session, incident, "material", pump.id)
+        await _assign(db_session, incident, "material", second_pump.id)
 
         rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id)
         assert len(rows) == 1

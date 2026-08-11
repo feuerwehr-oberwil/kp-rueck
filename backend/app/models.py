@@ -677,7 +677,23 @@ class IncidentAssignment(Base):
 
     __table_args__ = (
         CheckConstraint("resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"),
-        UniqueConstraint("incident_id", "resource_type", "resource_id", "unassigned_at", name="unique_assignment"),
+        # One ACTIVE assignment per resource per incident. This used to be a plain
+        # UniqueConstraint over (incident_id, resource_type, resource_id, unassigned_at),
+        # which enforced nothing where it mattered: active rows carry unassigned_at = NULL,
+        # and in SQL NULL != NULL, so any number of active duplicates satisfied it. A double
+        # click — or two editors on the same resource — inserted the person twice and the
+        # board showed them twice on one incident. `assign_resource` takes SELECT ... FOR
+        # UPDATE first, but that locks the rows it finds, and on the first assignment there
+        # are none to lock, so both transactions saw an empty result and both inserted.
+        # Partial unique index over the active rows only, exactly as the group twin below.
+        Index(
+            "uq_assignments_active_resource",
+            "incident_id",
+            "resource_type",
+            "resource_id",
+            unique=True,
+            postgresql_where=sa_text("unassigned_at IS NULL"),
+        ),
         Index("idx_assignments_incident", "incident_id"),
         Index("idx_assignments_resource", "resource_type", "resource_id"),
         Index("idx_assignments_resource_id", "resource_id"),

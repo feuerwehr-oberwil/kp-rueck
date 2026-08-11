@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import Request
 from sqlalchemy import and_, select
 from sqlalchemy import update as update_stmt
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -94,7 +95,16 @@ async def assign_resource(
         assigned_by=current_user.id,
     )
     db.add(assignment)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        # The SELECT ... FOR UPDATE above cannot serialise the FIRST assignment: there are no
+        # rows yet, so it locks nothing and two concurrent transactions both read an empty
+        # result and both insert. `uq_assignments_active_resource` is what actually decides,
+        # and the loser lands here. Same outcome the check above produces, so say the same
+        # thing — the resource IS on the incident, the caller just did not win the insert.
+        await db.rollback()
+        raise ValueError("Resource already assigned to this incident") from exc
 
     # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
 
