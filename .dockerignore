@@ -1,0 +1,64 @@
+# Root build context — used by the tileserver image (`context: .`, both in
+# docker-compose.yml and in the release workflow), because its Dockerfile copies
+# scripts/init-tileserver.sh and therefore cannot be scoped to a subdirectory.
+#
+# Without this file the ENTIRE repository is uploaded to the builder on every
+# tileserver build: the working .env next to it, .git, both node_modules trees,
+# the .venv, and whatever is lying around in .local. Nothing secret reaches the
+# published image — the Dockerfile copies exactly one shell script — but the
+# secrets are handed to the build, and the upload is the slow part of a build
+# that otherwise does almost nothing.
+#
+# Keep `scripts/` OUT of this file. It is the only thing the build actually needs.
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+.local/
+.claude/
+
+# Version control and CI
+.git
+.gitignore
+.github
+
+# Dependencies and build output
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+**/__pycache__/
+*.py[cod]
+frontend/.next/
+frontend/out/
+**/dist/
+
+# Test and tool caches
+.pytest_cache/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+coverage/
+htmlcov/
+.coverage
+frontend/playwright-report/
+frontend/test-results/
+
+# Everything the tileserver build has no use for
+backend/
+frontend/
+tools/
+docs/
+deploy/
+tileserver/data/
+*.md
+!README.md
+
+# Editor and OS noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log
