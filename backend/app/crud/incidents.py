@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -579,7 +579,7 @@ async def update_incident(
         )
         incident.group_position = (max_pos + 1) if max_pos is not None else 0
 
-    incident.updated_at = datetime.utcnow()
+    incident.updated_at = datetime.now(UTC)
 
     # If status changed, create a status transition record
     if incident.status != old_status:
@@ -594,7 +594,7 @@ async def update_incident(
 
         # Entering complete always runs release side effects, even after reopening.
         if incident.status == "complete":
-            incident.completed_at = datetime.utcnow()
+            incident.completed_at = datetime.now(UTC)
             await _apply_completion_release(db, incident, transition, current_user, request)
         elif old_status == "complete":
             incident.completed_at = None
@@ -688,7 +688,7 @@ async def update_incident_status(
 
     # Update status
     incident.status = new_status
-    incident.updated_at = datetime.utcnow()
+    incident.updated_at = datetime.now(UTC)
 
     # Create status transition record. It is written BEFORE the release below so
     # the release has a transition to hang its record on — undoing a completion
@@ -704,7 +704,7 @@ async def update_incident_status(
 
     # Entering complete always runs release side effects, even after reopening.
     if new_status == "complete" and old_status != "complete":
-        incident.completed_at = datetime.utcnow()
+        incident.completed_at = datetime.now(UTC)
         await _apply_completion_release(db, incident, transition, current_user, request)
     elif old_status == "complete":
         incident.completed_at = None
@@ -772,7 +772,7 @@ async def delete_incident(
     # Soft delete (mark deleted). Use ONE `now` for both columns so a later
     # restore can tell whether `completed_at` was stamped as a side effect of
     # the delete (completed_at == deleted_at) versus a pre-existing completion.
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     incident.deleted_at = now
     if not incident.completed_at:
         incident.completed_at = now

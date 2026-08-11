@@ -163,7 +163,7 @@ async def queue_assignment_print(
     or was completed within the last 30 seconds.
     """
     # Dedup: check for existing recent job for this incident
-    cutoff = datetime.utcnow() - timedelta(seconds=DEDUP_WINDOW_SECONDS)
+    cutoff = datetime.now(UTC) - timedelta(seconds=DEDUP_WINDOW_SECONDS)
     result = await db.execute(
         select(PrintJob).where(
             and_(

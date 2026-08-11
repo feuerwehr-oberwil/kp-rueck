@@ -1,7 +1,7 @@
 """Audit logging service for comprehensive action tracking."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -135,7 +135,7 @@ async def log_action(
         changes_json=sanitized_changes,
         ip_address=ip_address,
         user_agent=user_agent,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(UTC),
     )
 
     db.add(audit_entry)

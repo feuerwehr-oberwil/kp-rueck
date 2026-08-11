@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
@@ -156,7 +156,7 @@ async def execute_excel_import(
         "success": True,
         "mode": mode,
         "counts": counts,
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(UTC),
     }
 
 
@@ -171,7 +171,7 @@ async def export_all_data(
     """Export all personnel, vehicles, and materials to Excel."""
     excel_bytes = await export_data_to_excel(db)
 
-    filename = f"kprueck_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"kprueck_export_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.xlsx"
 
     # Audit log
     await log_action(

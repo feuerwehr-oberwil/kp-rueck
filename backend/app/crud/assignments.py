@@ -1,7 +1,7 @@
 """Resource assignment CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -247,7 +247,7 @@ async def unassign_resource(
     # Left alone, an incident finishes with every single person on it flagged as
     # having led it, which is exactly the record "Bisher im Einsatz" is there to
     # get right.
-    assignment.unassigned_at = datetime.utcnow()
+    assignment.unassigned_at = datetime.now(UTC)
     assignment.is_leader = False
 
     # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
@@ -279,19 +279,19 @@ async def update_resource_status(db: AsyncSession, resource_type: str, resource_
         person = (await db.execute(select(Personnel).where(Personnel.id == resource_id))).scalar_one_or_none()
         if person:
             person.status = new_status
-            person.updated_at = datetime.utcnow()
+            person.updated_at = datetime.now(UTC)
 
     elif resource_type == "vehicle":
         vehicle = (await db.execute(select(Vehicle).where(Vehicle.id == resource_id))).scalar_one_or_none()
         if vehicle:
             vehicle.status = new_status
-            vehicle.updated_at = datetime.utcnow()
+            vehicle.updated_at = datetime.now(UTC)
 
     elif resource_type == "material":
         material = (await db.execute(select(Material).where(Material.id == resource_id))).scalar_one_or_none()
         if material:
             material.status = new_status
-            material.updated_at = datetime.utcnow()
+            material.updated_at = datetime.now(UTC)
 
 
 async def get_incident_assignments(db: AsyncSession, incident_id: uuid.UUID) -> list[IncidentAssignment]:
@@ -689,7 +689,7 @@ async def transfer_assignments(
 
         # Mark old assignment as unassigned (same reasoning as unassign_resource:
         # the role does not travel on a released row).
-        assignment.unassigned_at = datetime.utcnow()
+        assignment.unassigned_at = datetime.now(UTC)
         assignment.is_leader = False
 
     # Log transfer action

@@ -8,7 +8,7 @@ row on the same Auftrag is rejected.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -144,7 +144,7 @@ async def unassign_group_resource(
 
     # The Einsatzleiter flag does not travel on a released row — see
     # `crud.assignments.unassign_resource` for why.
-    assignment.unassigned_at = datetime.utcnow()
+    assignment.unassigned_at = datetime.now(UTC)
     assignment.is_leader = False
 
     await log_action(
@@ -220,7 +220,7 @@ async def auto_release_group_resources_if_last_stop(
         )
     )
     entries: list[dict[str, Any]] = []
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     for assignment in result.scalars().all():
         assignment.unassigned_at = now
         entries.append({"kind": "group", "id": str(assignment.id), "was_leader": assignment.is_leader})

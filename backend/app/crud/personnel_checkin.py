@@ -1,7 +1,7 @@
 """Personnel check-in CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import and_, select
@@ -184,7 +184,7 @@ async def check_in_personnel(
     )
     attendance = attendance_result.scalar_one_or_none()
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     if attendance:
         # Already checked in for this event
@@ -292,7 +292,7 @@ async def check_out_personnel(
     )
     attendance = attendance_result.scalar_one_or_none()
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     if attendance:
         # Already checked out for this event
@@ -378,7 +378,7 @@ async def check_out_all_personnel(
     Returns:
         The people who were checked out, in name order — empty when nobody was present.
     """
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     result = await db.execute(
         select(EventAttendance, Personnel)

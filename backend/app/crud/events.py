@@ -1,7 +1,7 @@
 """Event CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import func, select, update
@@ -64,7 +64,7 @@ async def create_event(db: AsyncSession, event_data: schemas.EventCreate) -> Eve
         name=event_data.name,
         training_flag=event_data.training_flag,
         auto_attach_divera=event_data.auto_attach_divera if event_data.auto_attach_divera is not None else False,
-        last_activity_at=datetime.utcnow(),
+        last_activity_at=datetime.now(UTC),
     )
     db.add(event)
     await db.commit()
@@ -92,7 +92,7 @@ async def update_event(db: AsyncSession, event_id: uuid.UUID, event_data: schema
     for field, value in update_data.items():
         setattr(event, field, value)
 
-    event.updated_at = datetime.utcnow()
+    event.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(event)
     return event
@@ -113,8 +113,8 @@ async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
     if not event:
         return None
 
-    event.archived_at = datetime.utcnow()
-    event.updated_at = datetime.utcnow()
+    event.archived_at = datetime.now(UTC)
+    event.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(event)
     return event
@@ -136,7 +136,7 @@ async def unarchive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None
         return None
 
     event.archived_at = None
-    event.updated_at = datetime.utcnow()
+    event.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(event)
     return event
@@ -267,5 +267,5 @@ async def update_event_activity(db: AsyncSession, event_id: uuid.UUID) -> None:
         db: Database session
         event_id: Event ID to update
     """
-    await db.execute(update(Event).where(Event.id == event_id).values(last_activity_at=datetime.utcnow()))
+    await db.execute(update(Event).where(Event.id == event_id).values(last_activity_at=datetime.now(UTC)))
     await db.flush()

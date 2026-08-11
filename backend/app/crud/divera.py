@@ -1,6 +1,6 @@
 """Divera emergency CRUD operations."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -214,7 +214,7 @@ async def attach_emergency_to_event(
         .where(models.DiveraEmergency.id == emergency_id)
         .values(
             attached_to_event_id=event_id,
-            attached_at=datetime.utcnow(),
+            attached_at=datetime.now(UTC),
             created_incident_id=incident_id,
         )
     )
@@ -266,7 +266,7 @@ async def archive_divera_emergency(
         .where(models.DiveraEmergency.id == emergency_id)
         .values(
             is_archived=True,
-            archived_at=datetime.utcnow(),
+            archived_at=datetime.now(UTC),
         )
     )
     await db.commit()

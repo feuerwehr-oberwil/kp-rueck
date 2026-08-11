@@ -1,7 +1,7 @@
 """Personnel CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import and_, select
@@ -165,7 +165,7 @@ async def update_personnel(
     for field, value in update_data.items():
         setattr(personnel, field, value)
 
-    personnel.updated_at = datetime.utcnow()
+    personnel.updated_at = datetime.now(UTC)
 
     # Capture after state
     after_state = {
