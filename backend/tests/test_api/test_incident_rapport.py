@@ -576,7 +576,6 @@ class TestRapportParity:
     FIELDS: list[tuple[str, object, str]] = [
         ("kurzbericht", "Baum auf Fahrbahn, zersägt und geräumt.", "kurzbericht"),
         ("handed_over_to", "Werkhof Oberwil", "handed_over_to"),
-        ("extra_material_note", "Seil vom TLF geborgt", "extra_material_note"),
         ("owner_name", "A. Bürgin", "owner_name"),
         ("owner_phone", "079 111 22 33", "owner_phone"),
     ]
@@ -606,6 +605,50 @@ class TestRapportParity:
         report = await _report(db_session, incident)
         assert report is not None
         assert getattr(report, column) == value
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_extra_material_is_a_list_of_names_with_one_tick_each(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """ "Weiteres gebrauchtes Material" through the KP door (§18.35).
+
+        It is the one report field that is no longer a string: *vor Ort
+        verblieben* is a question per item, and the KP twin has to write the same
+        column the phone does — including the flag, which is what a Restliste
+        row and an Abholliste line are made of.
+        """
+        incident = await _make_incident(db_session, test_event, test_user)
+
+        response = await editor_client.put(
+            f"/api/incidents/{incident.id}/rapport",
+            json={
+                "is_draft": True,
+                "extra_materials": [
+                    {"name": "Seil vom TLF geborgt", "left_on_site": False},
+                    {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                ],
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["extra_materials"] == [
+            {"name": "Seil vom TLF geborgt", "left_on_site": False},
+            {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+        ]
+        # No `used` here and there must not be one: naming a thing on this list
+        # already says it was used.
+        assert all(set(row) == {"name", "left_on_site"} for row in response.json()["extra_materials"])
+
+        report = await _report(db_session, incident)
+        assert report is not None
+        assert report.extra_materials_json == [
+            {"name": "Seil vom TLF geborgt", "left_on_site": False},
+            {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+        ]
 
     @pytest.mark.asyncio
     @pytest.mark.api
@@ -990,6 +1033,40 @@ class TestRapportParity:
         assert [unit["name"] for unit in submitted.json()["returned"]] == ["Motorsäge"]
         assert [unit["name"] for unit in submitted.json()["left_on_site"]] == ["Tauchpumpe"]
         assert submitted.json()["rapport_is_draft"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_named_leftovers_are_shown_but_not_releasable(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """The asymmetry of §18.35, spelled out on the wire.
+
+        A "Weiteres Material" entry the crew left behind is a device at an
+        address, so the Abholliste fetches it — but the release list has nothing
+        to free, because there is no assignment under a name. It travels in its
+        own field so the UI can *say* that, instead of leaving an operator to
+        wonder why the Restliste knows about a pump the dialog does not.
+        """
+        incident = await _make_incident(db_session, test_event, test_user)
+        await editor_client.put(
+            f"/api/incidents/{incident.id}/rapport",
+            json={
+                "is_draft": False,
+                "extra_materials": [
+                    {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                    {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+                ],
+            },
+        )
+
+        body = (await editor_client.get(f"/api/incidents/{incident.id}/rapport/material-return")).json()
+        assert body["returned"] == []
+        assert body["left_on_site"] == []
+        assert body["left_on_site_named"] == ["Pumpe vom Nachbarn"]
 
 
 class TestPhotoParity:

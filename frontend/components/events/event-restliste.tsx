@@ -112,13 +112,19 @@ export function EventRestliste({ eventId, onOpenIncident }: EventRestlisteProps)
   )
 
   const unitRow = (row: ApiRestlisteUnit) => (
+    // An untracked entry has no assignment id to key on (§18.35): it is a name
+    // from "Weiteres gebrauchtes Material", not a unit the board dispatched.
+    // It counts and it is fetched all the same — something is standing at that
+    // address either way — but it is marked, because nobody can release it and
+    // "seit" is when the rapport was filed rather than when it went out.
     <button
-      key={row.assignment_id}
+      key={row.assignment_id ?? `${row.incident_id}-${row.name}`}
       type="button"
       onClick={() => onOpenIncident(row.incident_id)}
       className="flex w-full items-baseline gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted/60"
     >
       <span className="truncate font-medium text-foreground">{row.name}</span>
+      {!row.tracked && <span className="shrink-0 text-muted-foreground">{t('untracked')}</span>}
       <span className="truncate text-muted-foreground">{row.location_address || row.incident_title}</span>
       {row.since && <span className="ml-auto shrink-0 text-muted-foreground">{formatSince(row.since)}</span>}
     </button>

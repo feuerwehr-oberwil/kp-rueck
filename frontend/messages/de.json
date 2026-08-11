@@ -1802,6 +1802,7 @@
       "missingRapport": "{count} von {total} Schadenplätzen ohne Rapport",
       "stateDraft": "Entwurf",
       "materialOnSite": "{count} Geräte noch vor Ort",
+      "untracked": "nicht erfasst",
       "openPickups": "{count} Trupps warten auf Abholung",
       "printAbholliste": "Abholliste drucken",
       "abhollisteQueued": "Abholliste gesendet",
@@ -3012,7 +3013,8 @@
         "extraFreeText": "Alles, was nicht in der Liste steht – z. B. eine geliehene Pumpe.",
         "extraSearchPlaceholder": "Material suchen",
         "extraNoneFound": "Nichts gefunden – einfach unten eintippen.",
-        "extraRemove": "{name} entfernen"
+        "extraRemove": "{name} entfernen",
+        "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, keine erfassten Einheiten."
       },
       "vehicles": {
         "label": "Fahrzeuge – alle ankreuzen, die dabei waren",
@@ -3058,7 +3060,9 @@
       "released": "{count, plural, one {# Gerät freigegeben} other {# Geräte freigegeben}}",
       "releaseFailed": "Freigeben fehlgeschlagen",
       "stillOnSiteTitle": "Vor Ort verblieben",
-      "stillOnSiteHint": "Bleibt zugeteilt, bis es abgeholt ist – erscheint in der Restliste."
+      "stillOnSiteHint": "Bleibt zugeteilt, bis es abgeholt ist – erscheint in der Restliste.",
+      "namedTitle": "Weiteres Material vor Ort",
+      "namedHint": "Vom Trupp benannt, nicht vom Board zugeteilt – es gibt nichts freizugeben. Steht auf der Restliste und auf der Abholliste."
     }
   }
 }

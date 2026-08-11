@@ -1073,7 +1073,12 @@ class RapportSimProfile:
     # Units that match the scenario (pumps on a Wasserschaden, saws on a
     # Sturmschaden) were almost certainly used.
     material_used_matching: float = 0.95
-    extra_material_note: float = 0.15
+    # "Weiteres gebrauchtes Material" at all…
+    extra_material: float = 0.15
+    # …and, per entry, whether the improvised thing stayed at the address
+    # (§18.35). Higher than the checklist's own buckets: what a crew borrows on
+    # the spot is typically what it cannot carry back at 03:00.
+    extra_material_left_on_site: float = 0.25
     # Many storm jobs are public ground with nobody present.
     owner_block: float = 0.60
     # …and of the ones where somebody was, not everybody leaves a number.
@@ -1388,8 +1393,17 @@ def generate_rapport_data(
     if ticks:
         data["materials"] = ticks
 
-    if rng.random() < profile.extra_material_note:
-        data["extra_material_note"] = rng.choice(_RAPPORT_EXTRA_MATERIAL)
+    # Weiteres Material: one or two named things, each with its own "vor Ort
+    # verblieben" (§18.35). One entry per item rather than one string, so a
+    # training run actually produces the Restliste/Abholliste rows the feature
+    # exists for — an exercise that never leaves a borrowed pump behind never
+    # exercises the morning after.
+    if rng.random() < profile.extra_material:
+        count = 1 if rng.random() < 0.75 else 2
+        data["extra_materials"] = [
+            {"name": name, "left_on_site": rng.random() < profile.extra_material_left_on_site}
+            for name in rng.sample(_RAPPORT_EXTRA_MATERIAL, count)
+        ]
 
     if rng.random() < profile.handed_over_to:
         data["handed_over_to"] = rng.choice(_RAPPORT_HANDOVER)

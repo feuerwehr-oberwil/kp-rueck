@@ -7,15 +7,17 @@ import type {
 } from '@/lib/api/types'
 import {
   EMPTY_RAPPORT_FORM,
-  formatExtraMaterial,
   groupMaterialsByLocation,
   hasContent,
   isCorrected,
   mergeDraft,
   mergeMaterialTicks,
   mergeVehicleTicks,
-  parseExtraMaterial,
+  setExtraMaterialFreeText,
+  setExtraMaterialLeftOnSite,
+  splitExtraMaterial,
   toFormData,
+  toggleExtraMaterial,
   toUpdate,
   type RapportFormData,
 } from './rapport-draft'
@@ -53,7 +55,7 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
     materials: [],
     vehicles: [],
     photos: [],
-    extra_material_note: null,
+    extra_materials: [],
     kurzbericht: null,
     handed_over_to: null,
     owner_name: null,
@@ -294,41 +296,76 @@ describe('groupMaterialsByLocation', () => {
   })
 })
 
-describe('parseExtraMaterial / formatExtraMaterial', () => {
+describe('Weiteres Material — entries, not one string (§18.35)', () => {
   const catalogue = ['Nassauger', 'Tauchpumpe TP-4']
+  const entry = (name: string, leftOnSite = false) => ({ name, left_on_site: leftOnSite })
 
-  it('splits the stored line into catalogue picks and free text', () => {
-    // §18.34: one stored string, two controls. The split has to round-trip, or
-    // a draft written on one phone comes back apart wrongly on the next.
-    const { picked, freeText } = parseExtraMaterial('Nassauger, Pumpe vom Nachbarzug', catalogue)
-    expect(picked).toEqual(['Nassauger'])
+  it('splits the stored list into catalogue picks and free text', () => {
+    // The split has to round-trip, or a draft written on one phone comes back
+    // apart wrongly on the next.
+    const { picked, freeText } = splitExtraMaterial(
+      [entry('Nassauger', true), entry('Pumpe vom Nachbarzug')],
+      catalogue,
+    )
+    expect(picked).toEqual([entry('Nassauger', true)])
     expect(freeText).toBe('Pumpe vom Nachbarzug')
   })
 
   it('matches case-insensitively and keeps the catalogue’s own spelling', () => {
-    expect(parseExtraMaterial('tauchpumpe tp-4', catalogue).picked).toEqual(['Tauchpumpe TP-4'])
-  })
-
-  it('never lets one name be picked twice', () => {
-    expect(parseExtraMaterial('Nassauger, Nassauger', catalogue).picked).toEqual(['Nassauger'])
+    expect(splitExtraMaterial([entry('tauchpumpe tp-4')], catalogue).picked).toEqual([entry('Tauchpumpe TP-4')])
   })
 
   it('leaves free text alone when there is no catalogue at all', () => {
-    const { picked, freeText } = parseExtraMaterial('Pumpe vom Nachbarzug', [])
+    const { picked, freeText } = splitExtraMaterial([entry('Pumpe vom Nachbarzug')], [])
     expect(picked).toEqual([])
     expect(freeText).toBe('Pumpe vom Nachbarzug')
   })
 
-  it('writes the picks first and the free text after, comma-separated', () => {
-    expect(formatExtraMaterial(['Nassauger'], 'Pumpe vom Nachbarzug')).toBe('Nassauger, Pumpe vom Nachbarzug')
-    expect(formatExtraMaterial([], '')).toBe('')
-    expect(formatExtraMaterial(['Nassauger'], '  ,  ')).toBe('Nassauger')
+  it('toggles a catalogue name on and off without touching the rest', () => {
+    const entries = [entry('Pumpe vom Nachbarzug', true)]
+    const added = toggleExtraMaterial(entries, 'Nassauger')
+    expect(added).toEqual([entry('Pumpe vom Nachbarzug', true), entry('Nassauger')])
+    expect(toggleExtraMaterial(added, 'Nassauger')).toEqual([entry('Pumpe vom Nachbarzug', true)])
   })
 
-  it('round-trips whatever the two controls produced', () => {
-    const line = formatExtraMaterial(['Nassauger', 'Tauchpumpe TP-4'], 'Pumpe vom Nachbarzug')
-    const parsed = parseExtraMaterial(line, catalogue)
-    expect(parsed.picked).toEqual(['Nassauger', 'Tauchpumpe TP-4'])
-    expect(parsed.freeText).toBe('Pumpe vom Nachbarzug')
+  it('adds an entry unticked: nobody has been asked the question yet', () => {
+    expect(toggleExtraMaterial([], 'Nassauger')).toEqual([entry('Nassauger', false)])
+  })
+
+  it('keeps a free entry’s "vor Ort verblieben" while the line is edited', () => {
+    // Losing the answer that sends somebody driving to one keystroke would be
+    // the worst kind of quiet bug.
+    const entries = [entry('Nassauger'), entry('Pumpe vom Nachbarzug', true)]
+    const next = setExtraMaterialFreeText(entries, 'Pumpe vom Nachbarzug, Schaufel', catalogue)
+    expect(next).toEqual([entry('Nassauger'), entry('Pumpe vom Nachbarzug', true), entry('Schaufel')])
+  })
+
+  it('never lets one name into the list twice', () => {
+    const next = setExtraMaterialFreeText([entry('Nassauger')], 'Nassauger, Schaufel, schaufel', catalogue)
+    expect(next).toEqual([entry('Nassauger'), entry('Schaufel')])
+  })
+
+  it('drops a free entry when its name is typed away', () => {
+    const entries = [entry('Nassauger'), entry('Pumpe vom Nachbarzug', true)]
+    expect(setExtraMaterialFreeText(entries, '', catalogue)).toEqual([entry('Nassauger')])
+  })
+
+  it('flips one entry’s on-site answer, by name', () => {
+    const entries = [entry('Nassauger'), entry('Pumpe vom Nachbarzug')]
+    expect(setExtraMaterialLeftOnSite(entries, 'Pumpe vom Nachbarzug', true)).toEqual([
+      entry('Nassauger'),
+      entry('Pumpe vom Nachbarzug', true),
+    ])
+  })
+
+  it('round-trips whatever the three controls produced', () => {
+    const entries = setExtraMaterialFreeText(
+      toggleExtraMaterial(toggleExtraMaterial([], 'Nassauger'), 'Tauchpumpe TP-4'),
+      'Pumpe vom Nachbarzug',
+      catalogue,
+    )
+    const { picked, freeText } = splitExtraMaterial(entries, catalogue)
+    expect(picked.map(row => row.name)).toEqual(['Nassauger', 'Tauchpumpe TP-4'])
+    expect(freeText).toBe('Pumpe vom Nachbarzug')
   })
 })

@@ -201,6 +201,24 @@ export interface ApiRapportVehicleUpdate {
   present: boolean
 }
 
+/**
+ * One entry of "Weiteres gebrauchtes Material" (§18.35).
+ *
+ * A name and one tick. No `used`: listing something here already means it was
+ * used, so a second tick would only ever be ticked. No id either, and there
+ * must not be one — picking a catalogue name is not picking a unit, and `/feld`
+ * never writes an assignment (decision 18).
+ */
+export interface ApiRapportExtraMaterial {
+  name: string
+  /**
+   * Still standing at the address. Reaches the Restliste and the Abholliste —
+   * and deliberately NOT "Material zurück – freigeben", which releases
+   * assignments and a name has none.
+   */
+  left_on_site: boolean
+}
+
 /** "Frey Marc bearbeitet diesen Rapport gerade" — visibility, never a lock. */
 export interface ApiRapportConcurrentEditor {
   name: string
@@ -242,7 +260,7 @@ export interface ApiSchadenplatzRapport {
    * uses. Rendered in BOTH mounts (§6.1).
    */
   photos: string[]
-  extra_material_note: string | null
+  extra_materials: ApiRapportExtraMaterial[]
   kurzbericht: string | null
   handed_over_to: string | null
   /** Name + Telefon since §18.31 — the pair the incident carries for the Melder. */
@@ -272,7 +290,8 @@ export interface ApiRapportUpdate {
   is_draft: boolean
   materials?: ApiRapportMaterialUpdate[]
   vehicles?: ApiRapportVehicleUpdate[]
-  extra_material_note?: string | null
+  /** The whole list when present: no id means nothing to patch against. */
+  extra_materials?: ApiRapportExtraMaterial[]
   kurzbericht?: string | null
   handed_over_to?: string | null
   owner_name?: string | null
@@ -303,11 +322,19 @@ export interface ApiRestlisteUnit {
   incident_id: string
   incident_title: string
   location_address: string | null
-  assignment_id: string
-  material_id: string
+  /** Null on an untracked entry — a name has no assignment (decision 18). */
+  assignment_id: string | null
+  material_id: string | null
   name: string
   location: string | null
   since: string | null
+  /**
+   * False for a "Weiteres Material" entry the crew left behind (§18.35). It is
+   * on the driving list like every other line — something is standing at that
+   * address either way — but nothing can be released against it, and `since` is
+   * when the rapport saying so was filed rather than when it was dispatched.
+   */
+  tracked: boolean
 }
 
 export interface ApiEventRestliste {
@@ -358,6 +385,14 @@ export interface ApiMaterialReturnResponse {
   returned: ApiMaterialReturnUnit[]
   /** Listed separately and deliberately NOT in the release set (decision 15). */
   left_on_site: ApiMaterialReturnUnit[]
+  /**
+   * Names from "Weiteres gebrauchtes Material" the crew marked *vor Ort
+   * verblieben* (§18.35). Shown, never releasable: there is no assignment under
+   * a name. They travel so the list can say that out loud — an operator who has
+   * just freed the last pump must not read the rest of the dialog as "the
+   * address is clear", when the Abholliste is about to send somebody there.
+   */
+  left_on_site_named: string[]
   /** Who filed the rapport these answers come from; null when there is none. */
   rapport_by: string | null
   rapport_submitted_at: string | null

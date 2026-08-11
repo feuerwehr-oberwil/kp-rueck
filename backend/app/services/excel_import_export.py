@@ -18,6 +18,8 @@ from .pdf_report_service import (
     LOCAL_TZ,
     WorkWindow,
     board_personnel_count,
+    extra_material_rows,
+    format_extra_material,
     material_checklist_rows,
     material_left_on_site_names,
     material_used_label,
@@ -492,7 +494,12 @@ def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
                     for row in material_checklist_rows(report)
                 ),
                 ", ".join(material_left_on_site_names(report)),
-                report.extra_material_note or "",
+                # Every "Weiteres Material" entry with its own on-site answer
+                # (§18.35). It stays in its own column rather than joining the
+                # one left of it: these are names the crew wrote, not units the
+                # board dispatched, and a billing reader must be able to tell
+                # the two apart at a glance.
+                ", ".join(format_extra_material(row) for row in extra_material_rows(report)),
                 report.kurzbericht or "",
                 " · ".join(rapport_filing_lines(data, report)),
             ]

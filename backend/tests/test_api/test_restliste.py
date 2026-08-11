@@ -125,6 +125,13 @@ async def _mixed_event(
                 {"assignment_id": str(already_released.id), "used": True, "left_on_site": True},
                 {"assignment_id": str(consumable.id), "used": True, "left_on_site": True},
             ],
+            # Two things that were never on the board (§18.35). The borrowed
+            # pump stayed and therefore has to be driven out for; the shovels
+            # went home with the crew.
+            "extra_materials": [
+                {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+            ],
         },
     )
     assert response.status_code == 200
@@ -185,14 +192,25 @@ class TestRestliste:
         assert missing[str(incidents["draft"].id)]["rapport_state"] == "draft"
         assert missing[str(incidents["untouched"].id)]["rapport_state"] == "none"
 
-        # One unit, not four: the saw came back, the second pump was released by
-        # the board, and a used consumable is gone (decision 26).
-        assert [unit["name"] for unit in body["material_on_site"]] == ["Tauchpumpe TP-4"]
-        unit = body["material_on_site"][0]
+        # Two lines, not six: the saw came back, the second pump was released by
+        # the board, a used consumable is gone (decision 26) and the shovels went
+        # home. The borrowed pump counts even though the board never had it —
+        # something is standing at that address either way (§18.35).
+        assert [unit["name"] for unit in body["material_on_site"]] == ["Pumpe vom Nachbarn", "Tauchpumpe TP-4"]
+        named, unit = body["material_on_site"]
         assert unit["incident_id"] == str(incidents["submitted"].id)
         assert unit["location_address"] == "Abgeschlossenstrasse 1, Oberwil"
         assert unit["location"] == "Magazin A"
         assert unit["since"].startswith("2026-08-08T23:14")
+        assert unit["tracked"] is True
+
+        # A named entry carries no ids at all (decision 18) — it can be fetched,
+        # never released — and "seit wann" is when the rapport that says it
+        # stayed was filed, because there is no assignment to ask.
+        assert named["tracked"] is False
+        assert named["assignment_id"] is None and named["material_id"] is None
+        assert named["location"] is None
+        assert named["since"] is not None
 
         # The pickup is about the Trupp and stays its own list.
         assert [row["incident_id"] for row in body["open_pickups"]] == [str(incidents["pickup"].id)]
@@ -324,13 +342,23 @@ class TestAbholliste:
         # never disagree, or somebody drives out for a pump that came back.
         assert job.payload["units"] == [
             {
+                # Named, not tracked: no depot to return it to, and the sheet
+                # says so rather than sending somebody to look it up.
+                "name": "Pumpe vom Nachbarn",
+                "location": None,
+                "address": "Abgeschlossenstrasse 1, Oberwil",
+                "since": job.payload["units"][0]["since"],
+                "tracked": False,
+            },
+            {
                 "name": "Tauchpumpe TP-4",
                 "location": "Magazin A",
                 "address": "Abgeschlossenstrasse 1, Oberwil",
                 "since": "2026-08-08T23:14:00+00:00",
-            }
+                "tracked": True,
+            },
         ]
-        assert incidents["submitted"].location_address == job.payload["units"][0]["address"]
+        assert incidents["submitted"].location_address == job.payload["units"][1]["address"]
 
 
 class TestEinsatzzettelFeldQR:

@@ -279,6 +279,36 @@ class RapportMaterialUpdate(BaseModel):
     left_on_site: bool = False
 
 
+class RapportExtraMaterialRow(BaseModel):
+    """One entry of "Weiteres gebrauchtes Material" (§18.35).
+
+    A **name and one tick**, and the asymmetry with the checklist above is the
+    point:
+
+    * there is no ``used`` here, because listing something on this line already
+      means it was used — a second tick would only ever be ticked;
+    * there is no id here, and there must not be one (decision 18). The
+      catalogue is offered as a multi-select so nobody spells "Tauchpumpe TP-4"
+      from memory, but picking a name is not picking a unit and `/feld` never
+      writes an assignment. Anything typed by hand is equally valid.
+
+    ``left_on_site`` is the one thing nothing else in the system knows: an
+    improvised pump left in a cellar is a device standing at an address. It
+    therefore reaches the Restliste and the Abholliste — but never "Material
+    zurück – freigeben", which releases *assignments*, and a name has none.
+    """
+
+    name: str
+    left_on_site: bool = False
+
+
+class RapportExtraMaterialUpdate(BaseModel):
+    """One entry, as the form sends it back. Same shape, names only."""
+
+    name: str = Field(min_length=1, max_length=200)
+    left_on_site: bool = False
+
+
 class RapportVehicleRow(BaseModel):
     """One vehicle on the checklist — the crew confirms *which*, not how many.
 
@@ -383,7 +413,10 @@ class SchadenplatzRapport(BaseModel):
     # them: the crew photographs the cellar, the KP attaches what arrived by
     # WhatsApp (§6.1).
     photos: list[str] = []
-    extra_material_note: str | None = None
+    # Material that was never on the board, one entry per item (§18.35). A list
+    # rather than the old comma-separated note, because *vor Ort verblieben* is a
+    # question per item and a string can only answer it once.
+    extra_materials: list[RapportExtraMaterialRow] = []
 
     kurzbericht: str | None = None
     handed_over_to: str | None = None
@@ -426,7 +459,10 @@ class RapportUpdate(BaseModel):
 
     materials: list[RapportMaterialUpdate] | None = None
     vehicles: list[RapportVehicleUpdate] | None = None
-    extra_material_note: str | None = Field(default=None, max_length=1000)
+    # The whole list every time it is present at all — there is no id to patch
+    # against, so a partial write has nothing to key on. Capped so a stuck client
+    # cannot grow the row without bound.
+    extra_materials: list[RapportExtraMaterialUpdate] | None = Field(default=None, max_length=50)
 
     kurzbericht: str | None = Field(default=None, max_length=5000)
     handed_over_to: str | None = Field(default=None, max_length=200)
@@ -458,17 +494,31 @@ class RestlisteUnit(BaseModel):
     Address · unit · since when, which is exactly the sheet somebody takes along
     the next morning (decision 25). Material left on site is a **different day's**
     job and stays separate from the Trupp-Abholung flag.
+
+    Two kinds of line, one list (§18.35). Most rows are a **tracked unit**: an
+    open material assignment, with the ids the board can act on. The rest are
+    entries from "Weiteres gebrauchtes Material" — improvised or borrowed things
+    the board never had, carrying a name and nothing else. Both are a device
+    standing at an address, so both belong on the sheet somebody drives out with;
+    only the first can be released, which is what ``tracked`` says.
     """
 
     incident_id: UUID
     incident_title: str
     location_address: str | None = None
-    assignment_id: UUID
-    material_id: UUID
+    # None on an untracked entry: there is no assignment and no catalogue unit
+    # behind a name (decision 18).
+    assignment_id: UUID | None = None
+    material_id: UUID | None = None
     name: str
-    # The depot the unit belongs to, so it goes back where it came from.
+    # The depot the unit belongs to, so it goes back where it came from. Unknown
+    # for an untracked entry — it may not belong to this station at all.
     location: str | None = None
     since: datetime | None = None
+    # False for a "Weiteres Material" entry. It is on the Abholliste like every
+    # other line and it is deliberately NOT in "Material zurück – freigeben":
+    # there is no assignment to free.
+    tracked: bool = True
 
 
 class EventRestliste(BaseModel):
@@ -536,6 +586,13 @@ class MaterialReturnResponse(BaseModel):
     returned: list[MaterialReturnUnit] = []
     # Listed separately and deliberately NOT in the release set (decision 15).
     left_on_site: list[MaterialReturnUnit] = []
+    # Names from "Weiteres gebrauchtes Material" the crew marked *vor Ort
+    # verblieben* (§18.35). They travel so the release list can SHOW them and say
+    # why they have no button: these are names, not units the board dispatched,
+    # so there is no assignment to free — while the Abholliste still sends
+    # somebody to fetch them. An operator who is told nothing here would either
+    # believe the address is clear or wonder where the pump went.
+    left_on_site_named: list[str] = []
     # None when there is no rapport to answer from; then there is nothing to
     # prefill and the gate asks from scratch, exactly as it always did.
     rapport_by: str | None = None

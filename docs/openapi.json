@@ -4700,7 +4700,7 @@
           "incidents"
         ],
         "summary": "Get Rapport Material Return",
-        "description": "\"Material zurück – freigeben\" (decision 17): what the board may release.\n\nA read only. The releasing itself goes through the existing per-assignment\nrelease — a field form must not silently write assignments, and the decision\nstays with the operator.\n\n``left_on_site`` is returned separately and is **not** in the release set;\nconsumables are in neither (decision 26).\n\nAlso the source of truth for the completion gate's prefill (§18): the same\nanswers, plus who filed them, so \"Material vor Ort oder ins Magazin?\" arrives\nalready answered instead of asking the crew's question a second time.\n\n**The two callers differ in exactly one flag (§18.23).** The release list in\nthe incident detail is submitted-only (the default): its click releases\nassignments, and doing that off a half-typed checklist is how a pump gets\nfreed while it is still running in a cellar. The completion gate passes\n``include_draft=true``: it only prefills a dialog the operator confirms, and\na crew that filled the checklist without pressing *Rapport abschliessen* on\na phone in the rain is the normal case — throwing its answers away is the\nthing this parameter exists to stop. ``rapport_is_draft`` tells the caller\nwhich it got, so a draft is never quoted as a filed rapport.",
+        "description": "\"Material zurück – freigeben\" (decision 17): what the board may release.\n\nA read only. The releasing itself goes through the existing per-assignment\nrelease — a field form must not silently write assignments, and the decision\nstays with the operator.\n\n``left_on_site`` is returned separately and is **not** in the release set;\nconsumables are in neither (decision 26). ``left_on_site_named`` carries the\n\"Weiteres Material\" the crew left behind (§18.35) — names with no assignment\nunder them, so there is nothing to release and the list says so rather than\nletting an operator read silence as \"nothing is left there\".\n\nAlso the source of truth for the completion gate's prefill (§18): the same\nanswers, plus who filed them, so \"Material vor Ort oder ins Magazin?\" arrives\nalready answered instead of asking the crew's question a second time.\n\n**The two callers differ in exactly one flag (§18.23).** The release list in\nthe incident detail is submitted-only (the default): its click releases\nassignments, and doing that off a half-typed checklist is how a pump gets\nfreed while it is still running in a cellar. The completion gate passes\n``include_draft=true``: it only prefills a dialog the operator confirms, and\na crew that filled the checklist without pressing *Rapport abschliessen* on\na phone in the rain is the normal case — throwing its answers away is the\nthing this parameter exists to stop. ``rapport_is_draft`` tells the caller\nwhich it got, so a draft is never quoted as a filed rapport.",
         "operationId": "get_rapport_material_return_api_incidents__incident_id__rapport_material_return_get",
         "parameters": [
           {
@@ -21528,6 +21528,14 @@
             "title": "Left On Site",
             "default": []
           },
+          "left_on_site_named": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Left On Site Named",
+            "default": []
+          },
           "rapport_by": {
             "anyOf": [
               {
@@ -23279,6 +23287,46 @@
         "title": "PublicIncidentCreate",
         "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and\noperator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later\nby an editor on the board. Validators mirror ``IncidentBase``."
       },
+      "RapportExtraMaterialRow": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RapportExtraMaterialRow",
+        "description": "One entry of \"Weiteres gebrauchtes Material\" (§18.35).\n\nA **name and one tick**, and the asymmetry with the checklist above is the\npoint:\n\n* there is no ``used`` here, because listing something on this line already\n  means it was used — a second tick would only ever be ticked;\n* there is no id here, and there must not be one (decision 18). The\n  catalogue is offered as a multi-select so nobody spells \"Tauchpumpe TP-4\"\n  from memory, but picking a name is not picking a unit and `/feld` never\n  writes an assignment. Anything typed by hand is equally valid.\n\n``left_on_site`` is the one thing nothing else in the system knows: an\nimprovised pump left in a cellar is a device standing at an address. It\ntherefore reaches the Restliste and the Abholliste — but never \"Material\nzurück – freigeben\", which releases *assignments*, and a name has none."
+      },
+      "RapportExtraMaterialUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RapportExtraMaterialUpdate",
+        "description": "One entry, as the form sends it back. Same shape, names only."
+      },
       "RapportMaterialRow": {
         "properties": {
           "assignment_id": {
@@ -23513,17 +23561,20 @@
             ],
             "title": "Vehicles"
           },
-          "extra_material_note": {
+          "extra_materials": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 1000
+                "items": {
+                  "$ref": "#/components/schemas/RapportExtraMaterialUpdate"
+                },
+                "type": "array",
+                "maxItems": 50
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Extra Material Note"
+            "title": "Extra Materials"
           },
           "kurzbericht": {
             "anyOf": [
@@ -24529,13 +24580,27 @@
             "title": "Location Address"
           },
           "assignment_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Assignment Id"
           },
           "material_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Material Id"
           },
           "name": {
@@ -24564,18 +24629,21 @@
               }
             ],
             "title": "Since"
+          },
+          "tracked": {
+            "type": "boolean",
+            "title": "Tracked",
+            "default": true
           }
         },
         "type": "object",
         "required": [
           "incident_id",
           "incident_title",
-          "assignment_id",
-          "material_id",
           "name"
         ],
         "title": "RestlisteUnit",
-        "description": "One material unit still standing at an address — an Abholliste line.\n\nAddress · unit · since when, which is exactly the sheet somebody takes along\nthe next morning (decision 25). Material left on site is a **different day's**\njob and stays separate from the Trupp-Abholung flag."
+        "description": "One material unit still standing at an address — an Abholliste line.\n\nAddress · unit · since when, which is exactly the sheet somebody takes along\nthe next morning (decision 25). Material left on site is a **different day's**\njob and stays separate from the Trupp-Abholung flag.\n\nTwo kinds of line, one list (§18.35). Most rows are a **tracked unit**: an\nopen material assignment, with the ids the board can act on. The rest are\nentries from \"Weiteres gebrauchtes Material\" — improvised or borrowed things\nthe board never had, carrying a name and nothing else. Both are a device\nstanding at an address, so both belong on the sheet somebody drives out with;\nonly the first can be released, which is what ``tracked`` says."
       },
       "SchadenplatzRapport": {
         "properties": {
@@ -24630,16 +24698,13 @@
             "title": "Photos",
             "default": []
           },
-          "extra_material_note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Extra Material Note"
+          "extra_materials": {
+            "items": {
+              "$ref": "#/components/schemas/RapportExtraMaterialRow"
+            },
+            "type": "array",
+            "title": "Extra Materials",
+            "default": []
           },
           "kurzbericht": {
             "anyOf": [

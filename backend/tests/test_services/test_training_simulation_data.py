@@ -584,6 +584,33 @@ class TestRapportGeneration:
         # that it stays a signal.
         assert 20 < unticked < 110
 
+    def test_extra_material_is_a_list_and_sometimes_stays_on_site(self):
+        """§18.35 — an exercise that never leaves a borrowed pump behind never
+        exercises the morning after.
+
+        So the generator has to produce both the entries and, often enough, the
+        *vor Ort verblieben* tick that puts one on the Restliste and the
+        Abholliste. Names only, one tick each, and never a `used` flag: listing
+        a thing here already says it was used.
+        """
+        with_entries = 0
+        left_behind = 0
+        for seed in range(300):
+            entries = self._generate(seed).get("extra_materials")
+            if not entries:
+                continue
+            with_entries += 1
+            assert 1 <= len(entries) <= 2
+            assert len({entry["name"] for entry in entries}) == len(entries)
+            for entry in entries:
+                assert set(entry) == {"name", "left_on_site"}
+                assert isinstance(entry["name"], str) and entry["name"]
+                assert isinstance(entry["left_on_site"], bool)
+            left_behind += sum(1 for entry in entries if entry["left_on_site"])
+        # 15 % of rapports name something, a quarter of those entries stay.
+        assert 20 < with_entries < 80
+        assert left_behind > 0
+
     def test_the_head_count_is_sent_only_when_the_crew_changed_it(self):
         """10 % — the `korrigiert` marker has to stay a signal (§16.1)."""
         corrected = sum(1 for seed in range(300) if "personnel_count" in self._generate(seed))

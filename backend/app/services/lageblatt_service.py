@@ -42,6 +42,7 @@ from .pdf_report_service import (
     STATUS_LABELS,
     TYPE_LABELS,
     WorkWindow,
+    extra_material_left_on_site_names,
     format_location_for_display,
     material_left_on_site_names,
     rapport_by_incident,
@@ -324,7 +325,12 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         rapport_vehicles = vehicle_present_names(rapport)
         if rapport_vehicles:
             rows.append(("Fahrzeuge", ", ".join(rapport_vehicles)))
-        left = material_left_on_site_names(rapport)
+        # One row for everything still standing at the address, tracked units and
+        # named "Weiteres Material" alike (§18.35). The sheet is printed so the
+        # KP can work when the screens are dead, and the question it answers is
+        # "was liegt noch dort" — a borrowed pump counts, and it is marked
+        # `nicht erfasst` because nobody can release it off a board.
+        left = material_left_on_site_names(rapport) + extra_material_left_on_site_names(rapport)
         if left:
             rows.append(("Material vor Ort", ", ".join(left)))
 

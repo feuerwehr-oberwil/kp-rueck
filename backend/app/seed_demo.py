@@ -923,7 +923,13 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
                     "left_on_site": True,
                 },
             ],
-            extra_material_note="2 Schaufeln vom Werkhof ausgeliehen",
+            # Two named things, one of which stayed (§18.35) — the demo has to
+            # show the "nicht erfasst" line on the Restliste and the Abholliste,
+            # because that is the case an operator has never seen before.
+            extra_materials_json=[
+                {"name": "2 Schaufeln vom Werkhof ausgeliehen", "left_on_site": False},
+                {"name": "Nassauger vom Betrieb vor Ort", "left_on_site": True},
+            ],
             kurzbericht=(
                 "Keller ca. 25 cm unter Wasser. Mit Tauchpumpe ausgepumpt und mit Wassersauger nachgetrocknet. "
                 "Pumpe läuft über Nacht weiter."

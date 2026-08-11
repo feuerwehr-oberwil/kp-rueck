@@ -17,7 +17,7 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
     materials: [],
     vehicles: [],
     photos: [],
-    extra_material_note: null,
+    extra_materials: [],
     kurzbericht: null,
     handed_over_to: null,
     owner_name: null,

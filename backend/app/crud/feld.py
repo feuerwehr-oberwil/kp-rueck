@@ -1094,6 +1094,43 @@ def _jsonable_materials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def normalize_extra_materials(stored: Any) -> list[dict[str, Any]]:
+    """ "Weiteres gebrauchtes Material" as a list of ``{name, left_on_site}`` (§18.35).
+
+    Defensive on the way in, because the column is JSONB written by two doors and
+    read by five outputs: anything without a usable name is dropped, the name is
+    trimmed, the flag is coerced to a bool, and the crew's order is kept. A
+    duplicate name collapses into one entry — the same thing named twice is one
+    thing standing at the address — and it keeps the *left* flag if either copy
+    carried it, because the answer that sends somebody driving must not be lost
+    to a merge.
+
+    There is no ``used`` here on purpose: naming something on this list already
+    means it was used.
+    """
+    entries: list[dict[str, Any]] = []
+    seen: dict[str, dict[str, Any]] = {}
+    for raw in stored or []:
+        if isinstance(raw, str):
+            # Tolerated for a payload replayed from a phone that still speaks the
+            # old comma-separated shape; the migration handled the database.
+            raw = {"name": raw}
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("name") or "").strip()
+        if not name:
+            continue
+        left = bool(raw.get("left_on_site"))
+        existing = seen.get(name.lower())
+        if existing is not None:
+            existing["left_on_site"] = existing["left_on_site"] or left
+            continue
+        entry = {"name": name, "left_on_site": left}
+        seen[name.lower()] = entry
+        entries.append(entry)
+    return entries
+
+
 async def _fleet_vehicles(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -1388,7 +1425,7 @@ async def get_rapport(
         # `GET /api/photos/{incident_id}/{filename}`, which is what the Reko
         # form already uses — the photo bytes are not per-door.
         "photos": list(report.photos_json or []),
-        "extra_material_note": report.extra_material_note,
+        "extra_materials": normalize_extra_materials(report.extra_materials_json),
         "kurzbericht": report.kurzbericht,
         "handed_over_to": report.handed_over_to,
         "owner_name": report.owner_name,
@@ -1475,7 +1512,6 @@ async def save_rapport(
     was_draft = report.is_draft
 
     for field in (
-        "extra_material_note",
         "kurzbericht",
         "handed_over_to",
         "owner_name",
@@ -1550,6 +1586,16 @@ async def save_rapport(
                 }
             )
         report.vehicles_json = _jsonable_vehicles(merged_vehicles)
+
+    # "Weiteres gebrauchtes Material" (§18.35). Replaced wholesale when present:
+    # the entries carry no id, so there is nothing a partial write could key on —
+    # and unlike the two checklists above there is no board state to reconcile
+    # against, because nothing here was ever dispatched.
+    if "extra_materials" in provided:
+        entries = normalize_extra_materials(
+            [row.model_dump() for row in payload.extra_materials] if payload.extra_materials else []
+        )
+        report.extra_materials_json = entries or None
 
     # The head count the crew confirms. A corrected value is stored AS corrected —
     # the divergence is itself information, it says the board was behind reality —
@@ -1810,7 +1856,37 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
                 }
             )
 
-        if report is None or report.is_draft or not report.materials_json:
+        if report is None or report.is_draft:
+            continue
+        for raw in report.extra_materials_json or []:
+            # "Weiteres gebrauchtes Material" that stayed (§18.35). No assignment
+            # exists to cross-check against the board — that is the whole nature
+            # of this list — so the crew's word is the only source there is, and
+            # it stands until somebody amends the rapport.
+            if not isinstance(raw, dict) or not raw.get("left_on_site"):
+                continue
+            name = str(raw.get("name") or "").strip()
+            if not name:
+                continue
+            material_on_site.append(
+                {
+                    "incident_id": incident.id,
+                    "incident_title": incident.title,
+                    "location_address": incident.location_address,
+                    "assignment_id": None,
+                    "material_id": None,
+                    "name": name,
+                    "location": None,
+                    # There is no assignment to read "seit wann" from, so the
+                    # honest answer is when the crew filed the rapport that says
+                    # the thing stayed — the moment the board learned of it. The
+                    # Restliste only ever reads submitted rapports, so this is
+                    # never null in practice.
+                    "since": report.submitted_at,
+                    "tracked": False,
+                }
+            )
+        if not report.materials_json:
             continue
         for raw in report.materials_json:
             if not isinstance(raw, dict) or not raw.get("left_on_site"):
@@ -1938,6 +2014,30 @@ async def material_return_units(
         }
         (left if row["left_on_site"] else returned).append(unit)
     return returned, left
+
+
+async def material_left_on_site_named(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    include_draft: bool = False,
+) -> list[str]:
+    """The "Weiteres Material" the crew left at the address, by name (§18.35).
+
+    Deliberately NOT part of ``material_return_units``: nothing here can be
+    released, because nothing here is an assignment. The release list still
+    *shows* these names — an operator who has just freed four pumps must not
+    read the empty rest of the dialog as "the address is clear" — and the
+    Abholliste is what actually sends somebody to fetch them.
+
+    ``include_draft`` mirrors the two functions next to it so a call site cannot
+    accidentally mix a filed rapport's units with a draft's names.
+    """
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    report = result.scalar_one_or_none()
+    if report is None or (report.is_draft and not include_draft):
+        return []
+    return [row["name"] for row in normalize_extra_materials(report.extra_materials_json) if row["left_on_site"]]
 
 
 async def material_return_attribution(

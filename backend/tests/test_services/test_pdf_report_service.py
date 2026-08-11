@@ -32,7 +32,9 @@ from app.services.audit_export_service import EventReportData, collect_event_rep
 from app.services.pdf_report_service import (
     build_event_report_pdf,
     build_journal_entries,
+    extra_material_left_on_site_names,
     format_corrected_count,
+    format_extra_material,
     format_material_unit,
     material_left_on_site_names,
     material_used_label,
@@ -785,6 +787,35 @@ class TestRapportHelpers:
         )
         assert material_left_on_site_names(report) == ["Tauchpumpe"]
 
+    def test_extra_material_carries_its_own_on_site_answer(self):
+        """§18.35 — one line per named thing, and no *gebraucht* state at all.
+
+        Listing something under "Weiteres Material" already says it was used,
+        so the only state worth printing is whether it is still standing there.
+        """
+        assert format_extra_material({"name": "Pumpe vom Nachbarn", "left_on_site": True}) == (
+            "Pumpe vom Nachbarn (vor Ort verblieben)"
+        )
+        assert format_extra_material({"name": "2 Schaufeln", "left_on_site": False}) == "2 Schaufeln"
+        assert "gebraucht" not in format_extra_material({"name": "2 Schaufeln", "left_on_site": False})
+
+    def test_named_leftovers_are_marked_as_untracked(self):
+        """They share a line with real units on the Lageblatt, so they say so.
+
+        Somebody has to fetch them either way; nobody can release them off a
+        board, because there is no assignment under a name (decision 18).
+        """
+        report = _rapport(
+            uuid4(),
+            extra_materials_json=[
+                {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                {"name": "2 Schaufeln", "left_on_site": False},
+                {"name": "   ", "left_on_site": True},
+            ],
+        )
+        assert extra_material_left_on_site_names(report) == ["Pumpe vom Nachbarn (nicht erfasst)"]
+        assert extra_material_left_on_site_names(_rapport(uuid4())) == []
+
     def test_only_the_ticked_vehicles_are_named(self):
         """The list replaced the count: an unticked vehicle simply was not there."""
         report = _rapport(
@@ -825,6 +856,20 @@ class TestRapportInThePdf:
         # The phone is its own line (§18.31) — a number nobody can find is a
         # number nobody dials.
         assert "079 000 00 01" in text
+
+    def test_extra_material_prints_one_bullet_per_entry(self, simple_event: Event, simple_incident: Incident):
+        """The whole point of §18.35: which of the borrowed things stayed."""
+        report = _rapport(
+            simple_incident.id,
+            extra_materials_json=[
+                {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+            ],
+        )
+        text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
+        assert "Weiteres Material" in text
+        assert "Pumpe vom Nachbarn (vor Ort verblieben)" in text
+        assert "2 Schaufeln vom Werkhof" in text
 
     def test_taetigkeit_is_derived_for_a_rapport_that_stored_no_times(
         self, simple_event: Event, simple_incident: Incident

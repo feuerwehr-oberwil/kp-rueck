@@ -465,11 +465,11 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {/* ---------------------------------------------------- Material */}
       <FeldMaterialChecklist
         rows={formData.materials}
-        extraNote={formData.extra_material_note}
+        extraMaterials={formData.extra_materials}
         suggestions={rapport.prefill.material_name_suggestions ?? []}
         disabled={readOnly}
         onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
-        onExtraNoteChange={value => update('extra_material_note', value)}
+        onExtraMaterialsChange={entries => update('extra_materials', entries)}
       />
 
       {/* ------------------------------------------------- Kurzbericht */}

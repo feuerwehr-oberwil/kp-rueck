@@ -266,7 +266,10 @@ class TestMaterial:
                 _material("Nassauger", used=None),
                 _material("Schlauch", used=False),
             ],
-            extra_material_note="Pumpe vom Nachbarn",
+            extra_materials_json=[
+                {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+            ],
         )
         row = _row(_sheet(_data(event, [incident], [report])), 2)
         used_cell = str(row["Material gebraucht"])
@@ -275,7 +278,10 @@ class TestMaterial:
         assert "Schlauch: nicht gebraucht" in used_cell  # decision 16, recorded not acted on
         assert "keine Angabe" not in used_cell
         assert row["Material vor Ort verblieben"] == "Tauchpumpe"
-        assert row["Weiteres Material"] == "Pumpe vom Nachbarn"
+        # Its own on-site answer per entry (§18.35), in its own column: these
+        # are names the crew wrote, not units the board dispatched, and the
+        # billing reader has to be able to tell the two apart.
+        assert row["Weiteres Material"] == "Pumpe vom Nachbarn (vor Ort verblieben), 2 Schaufeln vom Werkhof"
 
     def test_consumable_never_gets_a_left_on_site_state(self):
         """Decision 26 — and it must never reach the collect-tomorrow column."""

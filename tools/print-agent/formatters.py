@@ -546,6 +546,13 @@ def format_abholliste(p: Network, payload: dict) -> None:
             name = unit.get("name") or "Unbekannt"
             location = unit.get("location")
             detail = f" {name}" + (f" -> {location}" if location else "")
+            # "Weiteres Material" the crew named itself: it is on the drive like
+            # everything else, but nobody can tick it back into a depot and the
+            # time below is when the rapport was filed, not when it was sent.
+            # `tracked` is absent in jobs queued by an older backend, and absent
+            # means the ordinary case.
+            if unit.get("tracked") is False:
+                detail += " (nicht erfasst)"
             for line in _wrap_text(detail, WIDTH_B):
                 _text(p, f"{line}\n")
 

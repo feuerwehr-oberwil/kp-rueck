@@ -24,23 +24,24 @@
 
 import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { CheckCircle, Circle, PackageOpen } from 'lucide-react'
+import { CheckCircle, Circle, PackageOpen, X } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { RemovableChip } from '@/components/ui/removable-chip'
 import { SearchInput } from '@/components/ui/search-input'
 import { cn } from '@/lib/utils'
-import type { ApiRapportMaterialRow } from '@/lib/api/types'
+import type { ApiRapportExtraMaterial, ApiRapportMaterialRow } from '@/lib/api/types'
 import {
-  formatExtraMaterial,
   groupMaterialsByLocation,
-  parseExtraMaterial,
+  setExtraMaterialFreeText,
+  setExtraMaterialLeftOnSite,
+  splitExtraMaterial,
+  toggleExtraMaterial,
 } from '@/lib/rapport-draft'
 
 interface FeldMaterialChecklistProps {
   rows: ApiRapportMaterialRow[]
-  extraNote: string
+  extraMaterials: ApiRapportExtraMaterial[]
   /**
    * Known material names from the catalogue. Offered as a multi-select under
    * "Weiteres Material" so the crew does not have to spell "Tauchpumpe TP-4"
@@ -49,49 +50,58 @@ interface FeldMaterialChecklistProps {
   suggestions?: string[]
   disabled?: boolean
   onChange: (rows: ApiRapportMaterialRow[]) => void
-  onExtraNoteChange: (value: string) => void
+  onExtraMaterialsChange: (entries: ApiRapportExtraMaterial[]) => void
 }
 
 /** How many catalogue entries it takes before a search field earns its place. */
 const SEARCH_THRESHOLD = 8
 
 /**
- * "Weiteres gebrauchtes Material" — a multi-select over the catalogue, plus a
- * free-text line (§18.34).
+ * "Weiteres gebrauchtes Material" — a multi-select, a free-text line, and one
+ * on-site tick per entry (§18.35).
  *
  * The shape is the one the app already uses for picking people
- * (`resource-assignment-dialog`): a search field, a grid of tick rows with the
- * CheckCircle / Circle pair, and the picked things as chips above. Not a third
- * pattern — the previous combobox was one, and it was invisible on desktop
- * before that as a native `datalist`.
+ * (`resource-assignment-dialog`): a search field and a grid of tick rows with
+ * the CheckCircle / Circle pair. What is picked appears above as a **row per
+ * entry** rather than as a chip, because each entry now carries its own answer
+ * to the only question worth asking about it.
+ *
+ * **There is no `gebraucht` tick here and there must not be one.** Naming a
+ * thing on this list already says it was used; a second tick would only ever be
+ * ticked. What nothing else in the system knows is whether the borrowed pump is
+ * still standing in the cellar — so that is the tick, per entry, because one
+ * borrowed thing stays while the other goes home with the crew.
  *
  * **Decision 18's boundary is untouched, and it is the whole point.** This
- * writes a comma-separated string of NAMES: no id travels with a pick, nothing
- * here is resolved to a unit, and `/feld` still never creates an assignment —
- * a different authorization and conflict problem than anything else in this
- * plan. Picking from a list is still just naming a thing.
+ * writes NAMES: no id travels with a pick, nothing here is resolved to a unit,
+ * and `/feld` still never creates an assignment — a different authorization and
+ * conflict problem than anything else in this plan. The consequence is visible
+ * rather than hidden: an entry marked *vor Ort verblieben* reaches the Restliste
+ * and the Abholliste, and it deliberately does NOT reach "Material zurück –
+ * freigeben", which frees assignments. The hint under the list says so.
  *
  * The free-text line stays for exactly the case the catalogue cannot answer: a
  * crew that borrowed the neighbouring brigade's pump has to be able to write it.
  */
 function ExtraMaterialPicker({
-  value,
+  entries,
   suggestions,
   disabled,
   onChange,
 }: {
-  value: string
+  entries: ApiRapportExtraMaterial[]
   suggestions: string[]
   disabled?: boolean
-  onChange: (next: string) => void
+  onChange: (next: ApiRapportExtraMaterial[]) => void
 }) {
   const t = useTranslations('feld.rapport.material')
   const [search, setSearch] = useState('')
 
-  // The stored string is the single source of truth: the two controls are
+  // The stored list is the single source of truth: all three controls are
   // derived from it on every render, so a draft written on another phone comes
-  // back apart into the same two controls.
-  const { picked, freeText } = useMemo(() => parseExtraMaterial(value, suggestions), [value, suggestions])
+  // back apart into the same three controls.
+  const { picked, freeText } = useMemo(() => splitExtraMaterial(entries, suggestions), [entries, suggestions])
+  const pickedNames = useMemo(() => new Set(picked.map(entry => entry.name)), [picked])
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -99,24 +109,52 @@ function ExtraMaterialPicker({
     return suggestions.filter(name => name.toLowerCase().includes(needle))
   }, [suggestions, search])
 
-  const toggle = (name: string) => {
-    const next = picked.includes(name) ? picked.filter(entry => entry !== name) : [...picked, name]
-    onChange(formatExtraMaterial(next, freeText))
-  }
-
   return (
     <div className="space-y-2">
-      {picked.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {picked.map(name => (
-            <RemovableChip
-              key={name}
-              onRemove={disabled ? undefined : () => toggle(name)}
-              removeTitle={t('extraRemove', { name })}
+      {entries.length > 0 && (
+        <div className="space-y-1.5">
+          {entries.map(entry => (
+            <div
+              key={entry.name}
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg bg-secondary/40 px-3 py-2"
             >
-              {name}
-            </RemovableChip>
+              <div className="flex min-w-0 items-center gap-2">
+                <PackageOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate text-sm">{entry.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* The same control and the same wording as the checklist
+                    above — one question, asked the same way twice. */}
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer accent-primary"
+                    checked={entry.left_on_site}
+                    disabled={disabled}
+                    aria-label={t('leftOnSiteAria', { name: entry.name })}
+                    onChange={e => onChange(setExtraMaterialLeftOnSite(entries, entry.name, e.target.checked))}
+                  />
+                  {t('leftOnSite')}
+                </label>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onChange(toggleExtraMaterial(entries, entry.name))}
+                  title={t('extraRemove', { name: entry.name })}
+                  aria-label={t('extraRemove', { name: entry.name })}
+                  className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
           ))}
+          {/* The asymmetry, said out loud instead of left to be discovered:
+              these are names, not units the board dispatched, so the Abholliste
+              fetches them and "Material zurück – freigeben" has nothing to free. */}
+          {entries.some(entry => entry.left_on_site) && (
+            <p className="text-xs text-muted-foreground">{t('extraLeftOnSiteHint')}</p>
+          )}
         </div>
       )}
 
@@ -132,14 +170,14 @@ function ExtraMaterialPicker({
           )}
           <div className="grid max-h-56 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
             {filtered.map(name => {
-              const isPicked = picked.includes(name)
+              const isPicked = pickedNames.has(name)
               return (
                 <button
                   key={name}
                   type="button"
                   disabled={disabled}
                   aria-pressed={isPicked}
-                  onClick={() => toggle(name)}
+                  onClick={() => onChange(toggleExtraMaterial(entries, name))}
                   className={cn(
                     'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors',
                     'hover:border-primary/50 hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50',
@@ -171,7 +209,7 @@ function ExtraMaterialPicker({
           value={freeText}
           disabled={disabled}
           placeholder={t('extraPlaceholder')}
-          onChange={e => onChange(formatExtraMaterial(picked, e.target.value))}
+          onChange={e => onChange(setExtraMaterialFreeText(entries, e.target.value, suggestions))}
         />
         <p className="text-xs text-muted-foreground">{t('extraFreeText')}</p>
       </div>
@@ -181,11 +219,11 @@ function ExtraMaterialPicker({
 
 export function FeldMaterialChecklist({
   rows,
-  extraNote,
+  extraMaterials,
   suggestions = [],
   disabled,
   onChange,
-  onExtraNoteChange,
+  onExtraMaterialsChange,
 }: FeldMaterialChecklistProps) {
   const t = useTranslations('feld.rapport.material')
   const groups = groupMaterialsByLocation(rows)
@@ -277,10 +315,10 @@ export function FeldMaterialChecklist({
             problem than anything else in this plan. The list below names things
             — anything typed stays valid, and nothing here carries an id. */}
         <ExtraMaterialPicker
-          value={extraNote}
+          entries={extraMaterials}
           suggestions={suggestions}
           disabled={disabled}
-          onChange={onExtraNoteChange}
+          onChange={onExtraMaterialsChange}
         />
       </div>
     </section>

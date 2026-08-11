@@ -17,6 +17,13 @@
  *   `unassigned_at` staying NULL is what feeds the Restliste (decision 15);
  * * **consumables** are in neither list. A consumable that was used is gone
  *   (decision 26).
+ *
+ * A third block, and the reason it exists (§18.35): "Weiteres gebrauchtes
+ * Material" the crew left behind. Those are NAMES — improvised or borrowed
+ * things the board never dispatched — so there is no assignment to free and no
+ * button next to them. They are shown anyway, because the Abholliste is about
+ * to send somebody to that address, and an operator who has just released four
+ * pumps must not read the rest of this panel as "the address is clear".
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -41,6 +48,7 @@ export function MaterialReturnList({ incidentId, canEdit = true, refreshKey = 0 
   const { refreshOperations } = useOperations()
   const [returned, setReturned] = useState<ApiMaterialReturnUnit[]>([])
   const [leftOnSite, setLeftOnSite] = useState<ApiMaterialReturnUnit[]>([])
+  const [leftOnSiteNamed, setLeftOnSiteNamed] = useState<string[]>([])
   const [releasing, setReleasing] = useState(false)
 
   const load = useCallback(async () => {
@@ -54,10 +62,12 @@ export function MaterialReturnList({ incidentId, canEdit = true, refreshKey = 0 
       const data = await apiClient.getRapportMaterialReturn(incidentId)
       setReturned(data.returned)
       setLeftOnSite(data.left_on_site)
+      setLeftOnSiteNamed(data.left_on_site_named ?? [])
     } catch (error) {
       console.error('Failed to load material return list:', error)
       setReturned([])
       setLeftOnSite([])
+      setLeftOnSiteNamed([])
     }
   }, [incidentId])
 
@@ -87,7 +97,7 @@ export function MaterialReturnList({ incidentId, canEdit = true, refreshKey = 0 
     }
   }
 
-  if (returned.length === 0 && leftOnSite.length === 0) return null
+  if (returned.length === 0 && leftOnSite.length === 0 && leftOnSiteNamed.length === 0) return null
 
   return (
     <div className="rounded-lg border border-border p-4 space-y-3">
@@ -128,6 +138,23 @@ export function MaterialReturnList({ incidentId, canEdit = true, refreshKey = 0 
           {/* Says out loud why these are not in the button's set: the Ereignis
               stays open until somebody fetches them, and that is a feature. */}
           <p className="text-xs text-muted-foreground">{t('stillOnSiteHint')}</p>
+        </div>
+      )}
+
+      {leftOnSiteNamed.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">{t('namedTitle')}</p>
+          <ul className="space-y-1">
+            {leftOnSiteNamed.map(name => (
+              <li key={name} className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{name}</span>
+              </li>
+            ))}
+          </ul>
+          {/* The asymmetry, spelled out: it is on the Abholliste and it will
+              never be on the button, because a name has no assignment. */}
+          <p className="text-xs text-muted-foreground">{t('namedHint')}</p>
         </div>
       )}
     </div>

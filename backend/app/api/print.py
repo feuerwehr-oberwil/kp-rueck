@@ -516,6 +516,11 @@ async def queue_abholliste_print(
                 "location": unit["location"],
                 "address": unit["location_address"] or unit["incident_title"],
                 "since": unit["since"].isoformat() if unit["since"] else None,
+                # False for a "Weiteres Material" entry (§18.35): it has to be
+                # fetched like every other line, but no assignment and no
+                # catalogue unit stands behind the name, so `since` is when the
+                # rapport saying so was filed rather than when it was dispatched.
+                "tracked": unit.get("tracked", True),
             }
             for unit in restliste["material_on_site"]
         ],

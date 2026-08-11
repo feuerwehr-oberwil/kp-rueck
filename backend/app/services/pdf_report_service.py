@@ -149,6 +149,9 @@ LABELS: dict[str, str] = {
     "material_left_on_site": "vor Ort verblieben",
     "material_returned": "zurück",
     "material_consumable": "Verbrauchsmaterial",
+    # A "Weiteres Material" entry standing next to real units: it has to be
+    # fetched like them, but there is no assignment behind it (§18.35).
+    "material_untracked": "nicht erfasst",
     "yes": "Ja",
     "no": "Nein",
     "released": "freigegeben",
@@ -331,6 +334,47 @@ def material_left_on_site_names(report: SchadenplatzReport | None) -> list[str]:
         str(row.get("name") or LABELS["none"])
         for row in material_checklist_rows(report)
         if row.get("left_on_site") and not row.get("consumable")
+    ]
+
+
+def extra_material_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
+    """ "Weiteres gebrauchtes Material" as ``{name, left_on_site}`` rows (§18.35).
+
+    Read defensively like every other JSONB list here, and named rather than
+    keyed: nothing in this list is a unit the board dispatched (decision 18).
+    """
+    if report is None or not report.extra_materials_json:
+        return []
+    rows: list[dict[str, Any]] = []
+    for raw in report.extra_materials_json:
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("name") or "").strip()
+        if name:
+            rows.append({"name": name, "left_on_site": bool(raw.get("left_on_site"))})
+    return rows
+
+
+def format_extra_material(row: Mapping[str, Any]) -> str:
+    """One "Weiteres Material" line: ``Pumpe vom Werkhof (vor Ort verblieben)``.
+
+    No *gebraucht* state, on purpose (§18.35): naming a thing on this list
+    already says it was used, so the only state worth printing is whether it is
+    still standing at the address.
+    """
+    name = str(row.get("name") or LABELS["none"])
+    return f"{name} ({LABELS['material_left_on_site']})" if row.get("left_on_site") else name
+
+
+def extra_material_left_on_site_names(report: SchadenplatzReport | None) -> list[str]:
+    """The named things the crew left behind — Abholliste material without an id.
+
+    Marked ``nicht erfasst`` wherever they share a line with real units, because
+    the difference is operational: somebody has to fetch them just the same, but
+    the board cannot release them and no inventory row will ever tick back.
+    """
+    return [
+        f"{row['name']} ({LABELS['material_untracked']})" for row in extra_material_rows(report) if row["left_on_site"]
     ]
 
 
@@ -1293,8 +1337,19 @@ def _rapport_block(
             styles,
         )
     )
-    if report.extra_material_note:
-        flow.append(_field(LABELS["rapport_extra_material"], report.extra_material_note, styles))
+    # Weiteres Material: one bullet per entry, each carrying its own "vor Ort
+    # verblieben" (§18.35) — the whole reason this stopped being one line of
+    # comma-separated text. Somebody reading the report has to be able to tell
+    # which of the three borrowed things is still standing in the cellar.
+    extra = extra_material_rows(report)
+    if extra:
+        flow.extend(
+            _bullet_field(
+                LABELS["rapport_extra_material"],
+                [format_extra_material(row) for row in extra],
+                styles,
+            )
+        )
 
     if report.kurzbericht:
         flow.append(_field(LABELS["rapport_kurzbericht"], report.kurzbericht, styles))

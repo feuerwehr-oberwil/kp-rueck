@@ -110,6 +110,10 @@ class TestLageblattRapportRows:
                 {"assignment_id": str(uuid4()), "name": "Tauchpumpe", "used": True, "left_on_site": True},
                 {"assignment_id": str(uuid4()), "name": "Nassauger", "used": None, "left_on_site": False},
             ],
+            extra_materials_json=[
+                {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+            ],
             is_draft=False,
             created_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
             updated_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
@@ -123,6 +127,11 @@ class TestLageblattRapportRows:
         assert "MTW" not in text
         assert "Material vor Ort" in text
         assert "Tauchpumpe" in text
+        # "Weiteres Material" that stayed belongs on the same row (§18.35): the
+        # sheet answers "was liegt noch dort", and a borrowed pump counts. It is
+        # marked, because nobody can release it off a board.
+        assert "Pumpe vom Nachbarn (nicht erfasst)" in text
+        assert "Schaufeln" not in text
 
     @pytest.mark.asyncio
     async def test_taetigkeit_is_derived_when_the_rapport_stored_nothing(

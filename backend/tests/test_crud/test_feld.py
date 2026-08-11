@@ -764,6 +764,140 @@ class TestMaterialReturnUnits:
         assert [unit["answered"] for unit in left] == [True]
 
 
+class TestExtraMaterial:
+    """ "Weiteres gebrauchtes Material" — names with one tick each (§18.35).
+
+    The list exists because *vor Ort verblieben* is a question per item and the
+    old comma-separated note could only answer it once for the whole rapport.
+    What is tested here is the consequence rather than the storage: an entry
+    marked *vor Ort verblieben* is a device lying at an address, so it has to
+    reach the Restliste and the release list's read-only half — and it must
+    never reach the release *set*, because there is no assignment to free.
+    """
+
+    async def _actor(self, db: AsyncSession) -> crud.FieldActor:
+        """A filer that really exists — `save_rapport` stores the provenance id."""
+        person = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
+        db.add(person)
+        await db.commit()
+        return crud.FieldActor(personnel_id=person.id, personnel_name=person.name)
+
+    def test_normalize_trims_dedupes_and_keeps_the_left_answer(self):
+        entries = crud.normalize_extra_materials(
+            [
+                {"name": "  Nassauger vom Betrieb  ", "left_on_site": False},
+                {"name": "", "left_on_site": True},
+                "Schaufel vom Werkhof",
+                {"left_on_site": True},
+                # The same thing named twice is one thing standing at the
+                # address, and the answer that sends somebody driving wins.
+                {"name": "nassauger vom betrieb", "left_on_site": True},
+                42,
+            ]
+        )
+        assert entries == [
+            {"name": "Nassauger vom Betrieb", "left_on_site": True},
+            {"name": "Schaufel vom Werkhof", "left_on_site": False},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_the_list_round_trips_through_a_save(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user)
+        actor = await self._actor(db_session)
+        await crud.save_rapport(
+            db_session,
+            incident,
+            actor=actor,
+            payload=RapportUpdate(
+                extra_materials=[
+                    {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                    {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+                ]
+            ),
+        )
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert view["extra_materials"] == [
+            {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+            {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+        ]
+
+        # Sending the list again replaces it wholesale: there is no id to patch
+        # against, so a shorter list is a deletion and not a partial write.
+        await crud.save_rapport(
+            db_session,
+            incident,
+            actor=actor,
+            payload=RapportUpdate(extra_materials=[]),
+        )
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert view["extra_materials"] == []
+
+    @pytest.mark.asyncio
+    async def test_an_absent_list_leaves_the_stored_one_alone(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        """An autosave carrying half the form must not blank the other half."""
+        incident = await _incident(db_session, test_event, test_user)
+        actor = await self._actor(db_session)
+        await crud.save_rapport(
+            db_session,
+            incident,
+            actor=actor,
+            payload=RapportUpdate(extra_materials=[{"name": "Pumpe vom Nachbarn", "left_on_site": True}]),
+        )
+        await crud.save_rapport(db_session, incident, actor=actor, payload=RapportUpdate(kurzbericht="Keller leer"))
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert view["extra_materials"] == [{"name": "Pumpe vom Nachbarn", "left_on_site": True}]
+
+    @pytest.mark.asyncio
+    async def test_named_entries_are_shown_but_never_offered_for_release(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        """The asymmetry of decision 18, made visible instead of silent.
+
+        A name has no assignment, so nothing can be released against it. The
+        release list still gets it, or an operator who has just freed the last
+        pump reads an empty dialog as "the address is clear".
+        """
+        incident = await _incident(db_session, test_event, test_user)
+        report = await _report(
+            db_session,
+            incident,
+            extra_materials_json=[
+                {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+            ],
+        )
+        report.is_draft = False
+        report.submitted_at = datetime.now(UTC)
+        await db_session.commit()
+
+        returned, left = await crud.material_return_units(db_session, incident)
+        assert returned == [] and left == []
+        assert await crud.material_left_on_site_named(db_session, incident) == ["Pumpe vom Nachbarn"]
+
+    @pytest.mark.asyncio
+    async def test_a_draft_names_nothing_to_the_release_list(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        """Same rule as the units next to it: a strong action needs a filed rapport."""
+        incident = await _incident(db_session, test_event, test_user)
+        await _report(
+            db_session,
+            incident,
+            extra_materials_json=[{"name": "Pumpe vom Nachbarn", "left_on_site": True}],
+        )
+
+        assert await crud.material_left_on_site_named(db_session, incident) == []
+        assert await crud.material_left_on_site_named(db_session, incident, include_draft=True) == [
+            "Pumpe vom Nachbarn"
+        ]
+
+
 class TestMaterialReturnAttribution:
     """ "Aus dem Rapport von Muster Hans" — whose word the operator confirms."""
 

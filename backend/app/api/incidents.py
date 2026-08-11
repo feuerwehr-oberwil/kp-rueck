@@ -658,7 +658,10 @@ async def get_rapport_material_return(
     stays with the operator.
 
     ``left_on_site`` is returned separately and is **not** in the release set;
-    consumables are in neither (decision 26).
+    consumables are in neither (decision 26). ``left_on_site_named`` carries the
+    "Weiteres Material" the crew left behind (§18.35) — names with no assignment
+    under them, so there is nothing to release and the list says so rather than
+    letting an operator read silence as "nothing is left there".
 
     Also the source of truth for the completion gate's prefill (§18): the same
     answers, plus who filed them, so "Material vor Ort oder ins Magazin?" arrives
@@ -684,6 +687,7 @@ async def get_rapport_material_return(
     return schemas.MaterialReturnResponse(
         returned=[schemas.MaterialReturnUnit(**unit) for unit in returned],
         left_on_site=[schemas.MaterialReturnUnit(**unit) for unit in left],
+        left_on_site_named=await feld_crud.material_left_on_site_named(db, incident, include_draft=include_draft),
         rapport_by=rapport_by,
         rapport_submitted_at=submitted_at,
         rapport_is_draft=is_draft,
