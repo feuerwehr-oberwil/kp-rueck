@@ -1855,7 +1855,7 @@
       "uploadFailed": "{count, plural, one {1 Foto konnte nicht hochgeladen werden} other {# Fotos konnten nicht hochgeladen werden}}",
       "deleteFailed": "Foto konnte nicht gelöscht werden",
       "camera": "Kamera",
-      "gallery": "Galerie",
+      "gallery": "Mediathek",
       "uploading": "Wird hochgeladen...",
       "noPhotos": "Noch keine Fotos hochgeladen",
       "loadFailed": "Bild konnte nicht geladen werden",
@@ -3058,7 +3058,8 @@
       "submitted": "Rapport erfasst.",
       "submittedBadge": "Abgeschlossen {at}",
       "submitError": "Rapport konnte nicht abgeschlossen werden. Nochmals versuchen.",
-      "amend": "Rapport ergänzen",
+      "unsentChanges": "Änderungen noch nicht übermittelt",
+      "sendChanges": "Änderungen senden",
       "empty": "Noch kein Rapport",
       "loadError": "Rapport konnte nicht geladen werden.",
       "loadRetry": "Erneut versuchen"

@@ -261,3 +261,35 @@ describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
     expect(update.owner_phone).toBe('079 111 22 33')
   })
 })
+
+describe('a filed rapport on /feld (the amend flow)', () => {
+  it('shows no send button until something actually changes, then sends the correction', async () => {
+    // The old shape had a «Rapport ergänzen» button that unlocked fields which
+    // were never locked — a dead tap — and until it was found, edits to a filed
+    // rapport went nowhere at all.
+    const filed = rapport({ exists: true, is_draft: false, submitted_at: '2026-08-11T18:41:00Z' })
+    const save = vi.fn().mockImplementation((update: ApiRapportUpdate) =>
+      Promise.resolve({ ...filed, ...update, is_draft: false }),
+    )
+    renderWithIntl(
+      <FeldRapportForm incidentId="inc-1" transport={{ load: vi.fn().mockResolvedValue(filed), save }} />,
+    )
+
+    expect(await screen.findByText(/Abgeschlossen/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Änderungen senden/ })).not.toBeInTheDocument()
+
+    const kurzbericht = screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')
+    fireEvent.change(kurzbericht, { target: { value: 'Keller ausgepumpt, Pumpe bleibt vor Ort.' } })
+
+    const send = await screen.findByRole('button', { name: /Änderungen senden/ })
+    expect(screen.getByText(/noch nicht übermittelt/)).toBeInTheDocument()
+
+    await userEvent.click(send)
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ kurzbericht: 'Keller ausgepumpt, Pumpe bleibt vor Ort.', is_draft: false }),
+    )
+    // …and the button goes away again once the KP has it.
+    expect(await screen.findByText(/Abgeschlossen/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Änderungen senden/ })).not.toBeInTheDocument()
+  })
+})

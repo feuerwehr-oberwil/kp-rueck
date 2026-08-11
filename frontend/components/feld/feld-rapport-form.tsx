@@ -153,10 +153,19 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   formRef.current = formData
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [loadError, setLoadError] = useState(false)
-  // A filed rapport is amendable (decision 3: one report per Schadenplatz,
-  // amendable) — but it does not sit there looking like a draft, or nobody can
-  // tell a finished slip from an unfinished one.
-  const [amending, setAmending] = useState(false)
+  // Whether the form has moved on since the server last confirmed it. A filed
+  // rapport is amendable (decision 3: one report per Schadenplatz, amendable),
+  // and on `/feld` that used to mean a "Rapport ergänzen" button — which unlocked
+  // nothing, because the fields were never locked in the first place. It read as
+  // a dead tap, and worse: a crew that simply typed into a filed rapport had no
+  // way of knowing the change was going nowhere. The edit itself is now the
+  // signal, and the only button left is the one that sends it.
+  const [dirty, setDirty] = useState(false)
+  // Concurrency guard for the submit button. Separate from `isSubmittingRef`,
+  // which stays true for the rest of the mount once a report is filed (so no
+  // late draft-save can un-submit it) and therefore cannot say "a request is in
+  // flight right now".
+  const inFlightRef = useRef(false)
 
   const key = localStorageKey(incidentId)
 
@@ -242,6 +251,14 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     saveToLocalStorage(formData)
   }, [formData, localStorageLoaded, isLoading, saveToLocalStorage])
 
+  // "Is there anything the KP has not got yet?" — compared against the same
+  // snapshot the auto-save compares against, so the button and the writer can
+  // never disagree about whether something changed. `lastSaved` and `rapport`
+  // are in the deps because a successful save moves that snapshot.
+  useEffect(() => {
+    setDirty(savedRef.current !== null && JSON.stringify(formData) !== savedRef.current)
+  }, [formData, lastSaved, rapport])
+
   /**
    * The one write path for everything that is not the `/feld` submit.
    *
@@ -309,38 +326,38 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  /** Files the rapport — and files it again for every later correction. */
   const handleSubmit = async () => {
-    if (isSubmittingRef.current || disabled) return
+    if (inFlightRef.current || disabled) return
 
     // No required field and no blocking gate (decision 10): a gate during a
     // storm is a gate people defeat with empty forms. The Restliste is what
     // surfaces a thin rapport, not a dialog in the rain.
+    inFlightRef.current = true
     isSubmittingRef.current = true
     setIsSubmitting(true)
     try {
       const saved = await transport.save(toUpdate(formData, false))
+      const next = toFormData(saved)
       setRapport(saved)
-      setFormData(toFormData(saved))
+      setFormData(next)
+      // Without this the form would still read as changed the moment it came
+      // back, and the "Änderungen senden" button would never go away.
+      savedRef.current = JSON.stringify(next)
+      setDirty(false)
       clearLocalStorage()
-      setAmending(false)
       toast.success(t('submitted'))
       onSaved?.(saved)
       // Intentionally keep isSubmittingRef true on success so no late auto-save
-      // can un-submit what was just filed.
-      setIsSubmitting(false)
+      // can un-submit what was just filed (`/feld` saves drafts, `is_draft: true`).
     } catch (error) {
       console.error('Rapport submit failed:', error)
       toast.error(t('submitError'))
       isSubmittingRef.current = false
+    } finally {
+      inFlightRef.current = false
       setIsSubmitting(false)
     }
-  }
-
-  const handleReopen = () => {
-    // Amending a filed rapport is normal (decision 3: one report, amendable).
-    // The ref has to come back down or every later autosave would bail out.
-    isSubmittingRef.current = false
-    setAmending(true)
   }
 
   /**
@@ -410,7 +427,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     )
   }
 
-  const submitted = !rapport.is_draft && !amending
+  const submitted = !rapport.is_draft
   const readOnly = Boolean(disabled)
 
   return (
@@ -646,14 +663,24 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             {!readOnly && <p className="text-xs text-muted-foreground">{t('autosaveHint')}</p>}
           </div>
         ) : submitted ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
-              <Check className="h-3.5 w-3.5" />
-              {t('submittedBadge', { at: formatDateTime(rapport.submitted_at) })}
-            </span>
-            {!readOnly && (
-              <Button type="button" variant="outline" size="sm" onClick={handleReopen}>
-                {t('amend')}
+          /* Filed — and still editable. The badge says what the KP has; the
+             button appears only once the crew has actually changed something,
+             so a correction is one tap and a filed rapport nobody touched shows
+             no button to tap at all. */
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
+                <Check className="h-3.5 w-3.5" />
+                {t('submittedBadge', { at: formatDateTime(rapport.submitted_at) })}
+              </span>
+              {dirty && !readOnly && (
+                <span className="text-xs font-medium text-warning-foreground">{t('unsentChanges')}</span>
+              )}
+            </div>
+            {dirty && !readOnly && (
+              <Button type="button" className="w-full" disabled={isSubmitting} onClick={handleSubmit}>
+                {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                {t('sendChanges')}
               </Button>
             )}
           </div>

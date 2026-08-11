@@ -993,6 +993,17 @@ class ApiClient {
     )
   }
 
+  /**
+   * Back to «nicht anwesend» — removes the attendance row entirely. Board only;
+   * this is a correction of the record, not something a crew reports about itself.
+   */
+  async clearPersonnelAttendance(personnelId: string, eventId: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(
+      `/api/personnel/check-in/${personnelId}?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'DELETE' }
+    )
+  }
+
   /** "Alle abmelden" — everyone still present goes to `gegangen`. Board only. */
   async checkOutAllPersonnel(eventId: string): Promise<ApiPersonnel[]> {
     return this.request<ApiPersonnel[]>(

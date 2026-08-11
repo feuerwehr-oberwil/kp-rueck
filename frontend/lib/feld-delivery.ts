@@ -20,7 +20,7 @@ export type DeliveryState =
   | { status: 'failed'; action: FeldActionKind; label: string; attempt: number }
 
 export type DeliveryEvent =
-  | { type: 'send'; action: FeldActionKind; label: string }
+  | { type: 'send'; action: FeldActionKind; label: string; attempt: number }
   | { type: 'settled'; ok: boolean; attempt: number }
   | { type: 'clear' }
 
@@ -31,13 +31,21 @@ export const IDLE: DeliveryState = { status: 'idle' }
  * finally times out *after* the crew already hit "Nochmals senden" must not turn
  * the second attempt's spinner into a red error. Answers that do not belong to
  * the attempt on screen are dropped.
+ *
+ * It is supplied by the caller and never derived here. This reducer used to
+ * compute it — ``state.status === 'idle' ? 1 : state.attempt + 1`` — which made
+ * a *second* counter alongside the caller's, and the two came apart the moment
+ * anything cleared the state. The green receipt clears itself after six
+ * seconds, so on the second report of a shift the reducer numbered the attempt 1
+ * while the caller settled it as 2; the answer was then discarded as stale and
+ * "wird gesendet…" stayed on screen for good, with all four buttons locked,
+ * over a request that had already succeeded. One counter, owned by whoever
+ * actually fires the requests.
  */
 export function deliveryReducer(state: DeliveryState, event: DeliveryEvent): DeliveryState {
   switch (event.type) {
-    case 'send': {
-      const attempt = state.status === 'idle' ? 1 : state.attempt + 1
-      return { status: 'pending', action: event.action, label: event.label, attempt }
-    }
+    case 'send':
+      return { status: 'pending', action: event.action, label: event.label, attempt: event.attempt }
     case 'settled': {
       if (state.status !== 'pending' || state.attempt !== event.attempt) return state
       return {

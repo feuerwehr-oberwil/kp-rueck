@@ -123,7 +123,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
       retryRef.current = () => {
         void run(which, label, action)
       }
-      dispatch({ type: 'send', action: which, label })
+      dispatch({ type: 'send', action: which, label, attempt })
       try {
         const state = await action()
         if (state) onReported(state)

@@ -274,6 +274,49 @@ async def check_out(
     return person
 
 
+@router.delete("/{personnel_id}", response_model=schemas.PersonnelCheckInResponse)
+async def clear_attendance(
+    personnel_id: uuid.UUID,
+    current_user: CurrentEditor,  # Board only — the phone has no "was never here" to report
+    event_id: uuid.UUID = Query(..., description="Event whose attendance row is removed"),
+    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
+    request: Request = None,  # type: ignore[assignment]
+    db: AsyncSession = Depends(get_db),
+) -> schemas.PersonnelCheckInResponse:
+    """Back to "nicht anwesend" — the third step of the board's roll-call cycle.
+
+    Deliberately editor-only and board-only. A crew member's phone can say they
+    arrived and that they left; "I was never here" is a correction of the record,
+    which belongs to whoever keeps it. Idempotent: clearing a person who has no
+    attendance row simply reports them absent.
+    """
+    person = await crud.clear_personnel_attendance(
+        db=db,
+        event_id=event_id,
+        personnel_id=personnel_id,
+        current_user=current_user,
+        request=request,
+    )
+    if not person:
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
+
+    if background_tasks:
+        background_tasks.add_task(
+            broadcast_personnel_update,
+            {
+                "id": str(person.id),
+                "name": person.name,
+                "role": person.role,
+                "status": person.status,
+                "checked_in": person.checked_in,
+                "event_id": str(event_id),
+            },
+            "update",
+        )
+
+    return person
+
+
 @router.post("/event/{event_id}/out-all", response_model=list[schemas.PersonnelCheckInResponse])
 async def check_out_all(
     event_id: uuid.UUID,

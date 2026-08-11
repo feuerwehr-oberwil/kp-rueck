@@ -10,12 +10,12 @@
  *
  * Shape decisions worth not re-deriving:
  *
- * - **One target per row, three states.** `nicht anwesend → anwesend → gegangen`, cycled by
- *   clicking the row. "Gegangen" is a statement, not an absence — somebody who went home at
- *   20:40 is not somebody who never came, and the Ereignis report reads the difference.
- *   The third click currently checks the person back in rather than clearing the row: the
- *   DELETE that would close the loop is deliberately not built yet, so a mis-click is
- *   correctable to "anwesend" and not all the way back to "nie da".
+ * - **One target per row, three states.** `nicht anwesend → anwesend → gegangen → nicht
+ *   anwesend`, cycled by clicking the row. "Gegangen" is a statement, not an absence —
+ *   somebody who went home at 20:40 is not somebody who never came, and the Ereignis report
+ *   reads the difference. The third click closes the loop by deleting the attendance row,
+ *   which is the only way back out of one: check-out *creates* a row for somebody who never
+ *   came, so without it a mis-tick was correctable to "gegangen" but never to "nie da".
  * - **Alphabetical and stable.** A roll-call is read off a list. Checked-in-first would
  *   reorder the list under the operator's finger as they tick, which is unusable at 03:00.
  * - **Assignment is a warning, not a wall.** A person still assigned to an incident gets a
@@ -174,12 +174,33 @@ export function AttendanceModal({
     }
   }
 
+  const clearAttendance = async (person: ApiPersonnelListItem) => {
+    try {
+      await apiClient.clearPersonnelAttendance(person.id, eventId)
+      applyLocally(person.id, { checked_in: false, checked_in_at: null, checked_out_at: null })
+    } catch (error) {
+      console.error('Clearing attendance failed:', error)
+      toast.error(t('writeFailed'))
+      load()
+    }
+  }
+
+  /**
+   * The row cycles `nicht anwesend → anwesend → gegangen → nicht anwesend`.
+   *
+   * The third step used to wrap straight back to *anwesend*, which meant a
+   * mis-tick could be corrected to "went home" but never to "was never here" —
+   * and the Ereignis report reads those as different facts. Check-out even
+   * writes a row for somebody who never came, so the cycle had no way back out
+   * of one it had just created.
+   */
   const cycle = async (person: ApiPersonnelListItem) => {
     if (person.status === 'unavailable') return
     if (busyRef.current.has(person.id)) return
     busyRef.current.add(person.id)
     try {
-      if (person.checked_in) {
+      const state = attendanceState(person)
+      if (state === 'present') {
         const where = assignmentLabelFor?.(person)
         if (where) {
           // Warn, then proceed — and never release the assignment behind their back.
@@ -187,6 +208,8 @@ export function AttendanceModal({
           return
         }
         await checkOut(person)
+      } else if (state === 'left') {
+        await clearAttendance(person)
       } else {
         await checkIn(person)
       }

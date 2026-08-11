@@ -353,6 +353,69 @@ async def check_out_personnel(
     )
 
 
+async def clear_personnel_attendance(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+    current_user: User | None = None,
+    request: Request | None = None,
+) -> schemas.PersonnelCheckInResponse | None:
+    """Take a person back to "nicht anwesend" — as if the row had never been written.
+
+    The third step of the board's roll-call cycle (anwesend → gegangen → nicht
+    anwesend). Until now the cycle wrapped from *gegangen* straight back to
+    *anwesend*, so a mis-tick could be corrected to "went home" but never to "was
+    never here" — and those are not the same fact. The Ereignis report reads the
+    difference, and check-out even *creates* a row for somebody who never came, so
+    without this there was no way back out of one.
+
+    Deletes the attendance row rather than blanking its timestamps: "nicht
+    anwesend" is the absence of a record, and a row with both stamps NULL is a
+    third state nothing else in the codebase knows how to read.
+
+    Unlike check-out this does not consult the assignment: an assignment is a
+    reason to warn before sending somebody home, not a reason to refuse undoing a
+    typo. The caller (the board) already warns on the way *out*.
+    """
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
+    person = result.scalar_one_or_none()
+    if not person:
+        return None
+
+    attendance_result = await db.execute(
+        select(EventAttendance).where(
+            EventAttendance.event_id == event_id, EventAttendance.personnel_id == personnel_id
+        )
+    )
+    attendance = attendance_result.scalar_one_or_none()
+
+    if attendance is not None:
+        await db.delete(attendance)
+        if current_user and request:
+            await log_action(
+                db=db,
+                action_type="check_in_cleared",
+                resource_type="personnel",
+                resource_id=person.id,
+                user=current_user,
+                changes={"name": person.name, "event_id": str(event_id)},
+                request=request,
+            )
+        await db.commit()
+
+    return schemas.PersonnelCheckInResponse(
+        id=person.id,
+        name=person.name,
+        role=person.role,
+        status=person.status,
+        tags=person.tags,
+        checked_in=False,
+        checked_in_at=None,
+        checked_out_at=None,
+        is_assigned=await _is_personnel_assigned(db, event_id, personnel_id),
+    )
+
+
 async def check_out_all_personnel(
     db: AsyncSession,
     event_id: uuid.UUID,

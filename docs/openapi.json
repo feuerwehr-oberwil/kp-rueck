@@ -7668,6 +7668,94 @@
         }
       }
     },
+    "/api/personnel/check-in/{personnel_id}": {
+      "delete": {
+        "tags": [
+          "personnel-checkin"
+        ],
+        "summary": "Clear Attendance",
+        "description": "Back to \"nicht anwesend\" — the third step of the board's roll-call cycle.\n\nDeliberately editor-only and board-only. A crew member's phone can say they\narrived and that they left; \"I was never here\" is a correction of the record,\nwhich belongs to whoever keeps it. Idempotent: clearing a person who has no\nattendance row simply reports them absent.",
+        "operationId": "clear_attendance_api_personnel_check_in__personnel_id__delete",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event whose attendance row is removed",
+              "title": "Event Id"
+            },
+            "description": "Event whose attendance row is removed"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/personnel/check-in/event/{event_id}/out-all": {
       "post": {
         "tags": [
