@@ -1785,11 +1785,17 @@ export default function FireStationDashboard() {
               </div>
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
-                {!isLoaded ? null : personnel.filter((p) => p.status === "available").length === 0 ? (
-                  /* Show QR code when no available personnel */
+                {!isLoaded ? null : personnel.length === 0 ? (
+                  /* Nobody is checked in for this Ereignis — the QR is the way in.
+                     The test used to be "nobody is *available*", which meant a board
+                     where every checked-in person was already assigned (or driving,
+                     or on Reko) replaced the whole crew list with «Keine Personen
+                     verfügbar» and a check-in QR — hiding the very people the
+                     operator had just checked in, and telling them to check in
+                     again. Assigned people belong in the list, drawn as assigned. */
                   <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
                     <p className="text-sm text-muted-foreground text-center">
-                      {tDash('noPersonnelAvailable')}
+                      {tDash('noPersonnelCheckedIn')}
                     </p>
                     {checkInUrl ? (
                       <div className="flex flex-col items-center gap-2">

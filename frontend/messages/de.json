@@ -383,7 +383,7 @@
         "type": "Nach Typ",
         "applied": "Spalte sortiert"
       },
-      "noPersonnelAvailable": "Keine Personen verfügbar",
+      "noPersonnelCheckedIn": "Niemand angemeldet",
       "scanCheckInQr": "Check-In QR-Code scannen",
       "boardPrintSent": "Board-Druckauftrag gesendet",
       "qrPrintSent": "QR-Druckauftrag gesendet",
