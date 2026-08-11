@@ -25,7 +25,10 @@ from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
+    CondPageBreak,
+    Image,
     KeepTogether,
     LongTable,
     Paragraph,
@@ -197,9 +200,35 @@ LOCAL_TZ = ZoneInfo("Europe/Zurich")
 
 # Layout constants
 _PAGE_MARGIN = 18 * mm
+_CONTENT_W = A4[0] - 2 * _PAGE_MARGIN  # 174 mm of usable width
 _BRAND = colors.HexColor("#b91c1c")  # warm red (fire service identity)
 _HEADER_BG = colors.HexColor("#f4f4f5")
 _BORDER = colors.HexColor("#d4d4d8")
+
+#: Width of the label column every label/value line aligns on.
+#:
+#: The values used to start wherever the label happened to end, so a detail block was a
+#: ragged left edge of content that a reader has to scan *for* rather than *down*. One
+#: column fixes that, and 40 mm is where the trade-off sits: it holds every label this
+#: report has at 9 pt except the three longest ("Eingesetztes Personal (Anzahl)",
+#: "Einsatzstelle übergeben an", "Eigentümer / Halter – Telefon"), which wrap to two
+#: lines. Widening it far enough for those would cost every other line 10 mm of value
+#: width for the benefit of three.
+_LABEL_W = 40 * mm
+
+#: The cover block's own, narrower column — its four labels are short, and a 40 mm
+#: gutter under a title would read as a missing column rather than an aligned one.
+_META_LABEL_W = 28 * mm
+
+#: Letterhead bounds for the station logo. Tall enough to be recognised, short enough
+#: that "Einsatzbericht" stays the first thing read on page 1.
+_LOGO_MAX_W = 45 * mm
+_LOGO_MAX_H = 18 * mm
+
+#: Space a section heading needs below it before it may stay on this page. Less than
+#: this and the heading moves to the next page with its content instead of sitting alone
+#: at the bottom announcing something the reader has to turn the page to find.
+_SECTION_MIN_SPACE = 32 * mm
 
 
 def _fmt_dt(dt: datetime | None) -> str:
@@ -706,6 +735,24 @@ def _styles() -> dict[str, ParagraphStyle]:
             leading=11,
             textColor=colors.HexColor("#3f3f46"),
         ),
+        # The label column of every aligned label/value line. Same size and leading as
+        # `body` so the label and its value sit on one baseline across the column.
+        "label_col": ParagraphStyle(
+            "LabelColumn",
+            parent=base["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor("#3f3f46"),
+        ),
+        "meta_label": ParagraphStyle(
+            "MetaLabel",
+            parent=base["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor("#52525b"),
+        ),
         "body": ParagraphStyle(
             "ReportBody",
             parent=base["Normal"],
@@ -721,8 +768,10 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontSize=9,
             leading=12,
             alignment=TA_LEFT,
-            leftIndent=14,
-            bulletIndent=4,
+            # Small indents: the bullets now live inside the value column, which already
+            # supplies the offset from the label. The old 14 pt pushed them a second time.
+            leftIndent=8,
+            bulletIndent=0,
             spaceAfter=1,
         ),
         "cell": ParagraphStyle(
@@ -758,10 +807,60 @@ def _p(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(escape(str(text)), style)
 
 
-def _cover(data: EventReportData, generated_by: str, funkrufname: str, styles: dict[str, ParagraphStyle]) -> list[Any]:
+def _logo_flowable(logo: bytes | None) -> Image | None:
+    """The station logo scaled into the letterhead box, or ``None``.
+
+    Never raises: an unreadable image costs the report its logo, never its existence —
+    an Einsatzbericht that fails to render because somebody uploaded a broken PNG would
+    be a far worse bug than a missing crest.
+    """
+    if not logo:
+        return None
+    try:
+        iw, ih = ImageReader(BytesIO(logo)).getSize()
+        if iw <= 0 or ih <= 0:
+            return None
+        scale = min(_LOGO_MAX_W / iw, _LOGO_MAX_H / ih, 1.0)
+        img = Image(BytesIO(logo), width=iw * scale, height=ih * scale)
+    except Exception:  # a logo never fails a report
+        return None
+    img.hAlign = "LEFT"
+    return img
+
+
+def _cover(
+    data: EventReportData,
+    generated_by: str,
+    funkrufname: str,
+    styles: dict[str, ParagraphStyle],
+    logo: bytes | None = None,
+) -> list[Any]:
     """Build the cover/header flowables."""
     event = data.event
-    flow: list[Any] = [_p(LABELS["report_title"], styles["title"])]
+    title = _p(LABELS["report_title"], styles["title"])
+
+    # Letterhead: the mark left, the title right of it on one line. Stacked, the logo
+    # would push the title down the page and read as a picture *above* a report rather
+    # than the letterhead of one.
+    logo_img = _logo_flowable(logo)
+    flow: list[Any]
+    if logo_img is None:
+        flow = [title]
+    else:
+        lw = logo_img.drawWidth + 6 * mm
+        head = Table([[logo_img, title]], colWidths=[lw, _CONTENT_W - lw], hAlign="LEFT")
+        head.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        flow = [head]
 
     if event.training_flag:
         badge = Table(
@@ -789,14 +888,14 @@ def _cover(data: EventReportData, generated_by: str, funkrufname: str, styles: d
     period_start = _fmt_dt(event.created_at)
     period_end = _fmt_dt(event.archived_at) if event.archived_at else LABELS["ongoing"]
     meta_lines = [
-        f"<b>{escape(LABELS['period'])}:</b> {escape(period_start)} – {escape(period_end)}",
-        f"<b>{escape(LABELS['funkrufname'])}:</b> {escape(_or_none(funkrufname))}",
-        f"<b>{escape(LABELS['generated_at'])}:</b> {escape(_fmt_dt(datetime.now(UTC)))}",
-        f"<b>{escape(LABELS['generated_by'])}:</b> {escape(_or_none(generated_by))}",
+        (LABELS["period"], f"{period_start} – {period_end}"),
+        (LABELS["funkrufname"], _or_none(funkrufname)),
+        (LABELS["generated_at"], _fmt_dt(datetime.now(UTC))),
+        (LABELS["generated_by"], _or_none(generated_by)),
     ]
     flow.append(Spacer(1, 4))
-    for line in meta_lines:
-        flow.append(Paragraph(line, styles["meta"]))
+    for label, value in meta_lines:
+        flow.append(_label_value_row(label, _p(value, styles["meta"]), styles, _META_LABEL_W, label_style="meta_label"))
 
     return flow
 
@@ -1153,49 +1252,89 @@ def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphS
     return table
 
 
-def _field(label: str, value: str, styles: dict[str, ParagraphStyle]) -> Paragraph:
-    """A single label/value line used inside incident detail blocks.
+def _label_value_row(
+    label: str,
+    value: Any,
+    styles: dict[str, ParagraphStyle],
+    label_width: float = _LABEL_W,
+    label_style: str = "label_col",
+) -> Table:
+    """One label/value line, the value starting at a fixed column.
 
-    Returns a Paragraph (not a Table) so very long values wrap and split across
-    pages — a Table row cannot break, which overflows for long descriptions.
+    A borderless one-row Table rather than a single Paragraph: the whole point is that
+    the values line up, which a "``<b>Label:</b> value``" paragraph cannot do — its
+    value starts wherever the label happens to end.
+
+    ``splitInRow`` is what makes the table safe here. A table row normally cannot break,
+    so a 4000-character Beschreibung in a plain Table would overflow the page instead of
+    flowing onto the next one — which is exactly why this used to be a Paragraph. With
+    the flag set, ReportLab splits *inside* the row and long values (and long bullet
+    lists, passed as a list of flowables) continue on the following page.
     """
-    return Paragraph(f"<b>{escape(label)}:</b> {escape(str(value))}", styles["body"])
+    row = Table(
+        [[Paragraph(f"<b>{escape(label)}:</b>", styles[label_style]), value]],
+        colWidths=[label_width, _CONTENT_W - label_width],
+        hAlign="LEFT",
+        splitInRow=1,
+    )
+    row.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (0, -1), 4),
+                ("RIGHTPADDING", (1, 0), (1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ]
+        )
+    )
+    return row
+
+
+def _field(label: str, value: str, styles: dict[str, ParagraphStyle]) -> Table:
+    """A single label/value line used inside incident detail blocks."""
+    return _label_value_row(label, _p(value, styles["body"]), styles)
 
 
 def _bullet_field(label: str, items: list[str], styles: dict[str, ParagraphStyle]) -> list[Any]:
-    """A label line followed by one bullet per item.
+    """A label with one bullet per item, the bullets aligned in the value column.
 
-    Falls back to an inline ``Label: —`` line when there are no items, so empty
-    lists stay compact. Each bullet is its own Paragraph so long entries wrap.
+    Falls back to an inline ``Label: –`` line when there are no items, so empty lists
+    stay compact. Each bullet is its own Paragraph so long entries wrap.
     """
     if not items:
         return [_field(label, LABELS["none"], styles)]
-    flow: list[Any] = [Paragraph(f"<b>{escape(label)}:</b>", styles["body"])]
-    for item in items:
-        flow.append(Paragraph(escape(str(item)), styles["bullet"], bulletText="•"))
-    return flow
+    bullets = [Paragraph(escape(str(item)), styles["bullet"], bulletText="•") for item in items]
+    return [_label_value_row(label, bullets, styles)]
 
 
 def _incident_detail(
     data: EventReportData, inc: Incident, index: int, styles: dict[str, ParagraphStyle], home_city: str = ""
 ) -> list[Any]:
     """Build the detail block flowables for a single incident."""
-    block: list[Any] = []
     # Heading = address (the incident's "name"); fall back to title, then em dash.
     # Locations equal to the home city are hidden (redundant) → fall back to title.
     heading_name = format_location_for_display(inc.location_address, home_city) or inc.title or LABELS["none"]
-    block.append(_p(f"{index}. {heading_name}", styles["incident_heading"]))
 
-    # Title line = category (incident type)
-    block.append(_p(TYPE_LABELS.get(inc.type, inc.type), styles["meta"]))
-    block.append(Spacer(1, 2))
-
-    # Priority and status, each on its own row, below the category line
-    block.append(_field(LABELS["col_priority"], PRIORITY_LABELS.get(inc.priority, inc.priority), styles))
-    block.append(_field(LABELS["col_status"], STATUS_LABELS.get(inc.status, inc.status), styles))
-
-    # Alarm / received time
-    block.append(_field(LABELS["col_created"], _fmt_dt(inc.created_at), styles))
+    # The heading travels with the first few lines it introduces. A block long enough to
+    # split across pages splits *below* this group, so no page ever ends on an incident
+    # number whose incident starts overleaf.
+    block: list[Any] = [
+        KeepTogether(
+            [
+                _p(f"{index}. {heading_name}", styles["incident_heading"]),
+                # Title line = category (incident type)
+                _p(TYPE_LABELS.get(inc.type, inc.type), styles["meta"]),
+                Spacer(1, 2),
+                # Priority and status, each on its own row, below the category line
+                _field(LABELS["col_priority"], PRIORITY_LABELS.get(inc.priority, inc.priority), styles),
+                _field(LABELS["col_status"], STATUS_LABELS.get(inc.status, inc.status), styles),
+                # Alarm / received time
+                _field(LABELS["col_created"], _fmt_dt(inc.created_at), styles),
+            ]
+        )
+    ]
 
     block.append(_field(LABELS["description"], _or_none(inc.description), styles))
     block.append(_field(LABELS["contact"], _or_none(inc.contact), styles))
@@ -1299,15 +1438,15 @@ def _rapport_block(
     styles: dict[str, ParagraphStyle],
 ) -> list[Any]:
     """The "Schadenplatz-Rapport" lines of one incident's detail block."""
-    flow: list[Any] = [Paragraph(f"<b>{escape(LABELS['rapport'])}</b>", styles["body"])]
+    head: list[Any] = [Paragraph(f"<b>{escape(LABELS['rapport'])}</b>", styles["body"])]
     if report.is_draft:
-        flow.append(_p(LABELS["rapport_draft"], styles["meta"]))
+        head.append(_p(LABELS["rapport_draft"], styles["meta"]))
 
     # Beginn/Ende Tätigkeit is derived (see `rapport_work_windows`), not stored:
     # the crew never typed it, the board recorded it.
     window = rapport_work_windows(data).get(inc.id, WorkWindow(None, None))
     if window.started_at or window.ended_at:
-        flow.append(
+        head.append(
             _field(
                 LABELS["rapport_work"],
                 f"{_fmt_dt(window.started_at)} – {_fmt_dt(window.ended_at)}",
@@ -1315,7 +1454,7 @@ def _rapport_block(
             )
         )
 
-    flow.append(
+    head.append(
         _field(
             LABELS["rapport_personnel_count"],
             format_corrected_count(
@@ -1324,6 +1463,8 @@ def _rapport_block(
             styles,
         )
     )
+    # Same rule as the incident heading: the sub-heading never ends a page alone.
+    flow: list[Any] = [KeepTogether(head)]
     # The vehicles are a list the crew ticked, not a number it corrected.
     vehicles = vehicle_present_names(report)
     flow.append(_field(LABELS["rapport_vehicles"], ", ".join(vehicles) if vehicles else LABELS["none"], styles))
@@ -1373,19 +1514,27 @@ def _rapport_block(
     return flow
 
 
+def _section(title: str, styles: dict[str, ParagraphStyle]) -> list[Any]:
+    """A section heading that will not be left stranded at the foot of a page."""
+    return [CondPageBreak(_SECTION_MIN_SPACE), _p(title, styles["section"])]
+
+
 def build_event_report_pdf(
     data: EventReportData,
     generated_by: str,
     funkrufname: str = "",
     home_city: str = "",
+    logo: bytes | None = None,
 ) -> bytes:
     """Render the after-action report PDF.
 
     Args:
         data: Fully-loaded event data from ``collect_event_report_data``.
-        generated_by: Username of the person generating the report (footer/meta).
+        generated_by: Username of the person generating the report (meta block).
         funkrufname: Radio callsign from settings (``get_setting_value``).
         home_city: Configured home city; locations equal to it are hidden.
+        logo: Station logo as PNG/JPEG bytes (``services.branding.get_report_logo``).
+            ``None`` — or anything unreadable — simply renders no letterhead.
 
     Returns:
         The finished PDF document as ``bytes`` (starts with ``%PDF``).
@@ -1394,7 +1543,11 @@ def build_event_report_pdf(
     buffer = BytesIO()
 
     event = data.event
-    footer_date = _fmt_dt(datetime.now(UTC))
+    # The running footer dates the EVENT, not the print job. "Erstellt am" on the cover
+    # already says when this PDF was made; repeating it on all forty pages next to the
+    # event name meant the one date a reader picking up a loose page needs — which
+    # operation is this? — was the one date the footer did not carry.
+    footer_date = _fmt_dt(event.created_at)
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -1407,11 +1560,11 @@ def build_event_report_pdf(
     )
 
     story: list[Any] = []
-    story.extend(_cover(data, generated_by, funkrufname, styles))
+    story.extend(_cover(data, generated_by, funkrufname, styles, logo))
     story.append(Spacer(1, 10))
 
     # Summary
-    story.append(_p(LABELS["summary_title"], styles["section"]))
+    story.extend(_section(LABELS["summary_title"], styles))
     story.append(_summary_table(data, styles))
     story.append(Spacer(1, 10))
 
@@ -1419,18 +1572,18 @@ def build_event_report_pdf(
         story.append(_p(LABELS["no_incidents"], styles["body"]))
     else:
         # Overview table
-        story.append(_p(LABELS["incident_list_title"], styles["section"]))
+        story.extend(_section(LABELS["incident_list_title"], styles))
         story.append(_incident_overview_table(data, styles, home_city))
         story.append(Spacer(1, 12))
 
         # Reaction times (debrief metrics)
-        story.append(_p(LABELS["reaction_title"], styles["section"]))
+        story.extend(_section(LABELS["reaction_title"], styles))
         story.append(_reaction_times_table(data, styles))
         story.append(_p(LABELS["reaction_hint"], styles["meta"]))
         story.append(Spacer(1, 12))
 
         # Einsatztagebuch (merged, chronological journal)
-        story.append(_p(LABELS["journal_title"], styles["section"]))
+        story.extend(_section(LABELS["journal_title"], styles))
         story.append(_p(LABELS["journal_hint"], styles["meta"]))
         story.append(Spacer(1, 4))
         journal_entries = build_journal_entries(data)
@@ -1440,12 +1593,23 @@ def build_event_report_pdf(
             story.append(_p(LABELS["journal_empty"], styles["body"]))
         story.append(Spacer(1, 12))
 
-        # Per-incident detail sections
-        story.append(_p(LABELS["details_title"], styles["section"]))
+        # Per-incident detail sections. The heading is glued to the first incident so it
+        # cannot introduce a section that starts on the next page.
+        #
+        # The blocks FLOW; they are not each wrapped in a KeepTogether. That wrapper used
+        # to push any incident that did not fit whole onto a fresh page, which on a real
+        # storm event (21 Schadenplätze) meant page after page ending three-quarters
+        # empty — 14 pages of paper for 12 pages of report. What actually has to hold
+        # together is the heading and the lines directly under it, and `_incident_detail`
+        # keeps those together itself. An incident that genuinely runs long now continues
+        # overleaf instead of buying a whole page.
+        details_heading = _p(LABELS["details_title"], styles["section"])
+        story.append(CondPageBreak(_SECTION_MIN_SPACE))
         for idx, inc in enumerate(data.incidents, 1):
             block = _incident_detail(data, inc, idx, styles, home_city)
-            # KeepTogether for small blocks; large blocks flow across pages.
-            story.append(KeepTogether(block))
+            if idx == 1:
+                block = [details_heading, *block]
+            story.extend(block)
 
     doc.build(
         story,

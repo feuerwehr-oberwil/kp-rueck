@@ -30,6 +30,7 @@ from app.models import (
 )
 from app.services.audit_export_service import EventReportData, collect_event_report_data
 from app.services.pdf_report_service import (
+    LOCAL_TZ,
     build_event_report_pdf,
     build_journal_entries,
     extra_material_left_on_site_names,
@@ -988,3 +989,156 @@ class TestRapportInThePdf:
         )
         text = _extract_text(build_event_report_pdf(data, "tester"))
         assert "Schadenplatz-Rapport" not in text
+
+
+# ============================================
+# 8. Letterhead, footer date and page breaks
+# ============================================
+
+
+def _page_image_count(pdf_bytes: bytes) -> int:
+    """How many image XObjects the first page references."""
+    resources = PdfReader(io.BytesIO(pdf_bytes)).pages[0].get("/Resources", {})
+    xobjects = resources.get("/XObject", {}) if resources else {}
+    return sum(1 for obj in xobjects.values() if obj.get_object().get("/Subtype") == "/Image")
+
+
+def _png_bytes(width: int = 400, height: int = 160) -> bytes:
+    """A tiny real PNG — enough for ReportLab to measure and embed."""
+    from PIL import Image as PILImage
+
+    buffer = io.BytesIO()
+    PILImage.new("RGBA", (width, height), (185, 28, 28, 255)).save(buffer, "PNG")
+    return buffer.getvalue()
+
+
+class TestLetterhead:
+    """The station logo is decoration that must never be able to fail an export."""
+
+    def test_logo_is_embedded_in_the_pdf(self, simple_event: Event, simple_incident: Incident):
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident},
+        )
+        without = build_event_report_pdf(data, "tester")
+        with_logo = build_event_report_pdf(data, "tester", logo=_png_bytes())
+
+        assert with_logo.startswith(b"%PDF")
+        # An embedded raster arrives as an image XObject; the report has no other picture,
+        # so counting them on page 1 is the whole assertion.
+        assert _page_image_count(with_logo) == 1
+        assert _page_image_count(without) == 0
+        # The title still renders next to it.
+        assert "Einsatzbericht" in _extract_text(with_logo)
+
+    @pytest.mark.parametrize("broken", [b"", b"not-an-image", b"\x89PNG\r\n\x1a\n truncated"])
+    def test_unreadable_logo_renders_the_report_anyway(
+        self, simple_event: Event, simple_incident: Incident, broken: bytes
+    ):
+        """A broken upload costs the report its crest, never its existence."""
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident},
+        )
+        pdf_bytes = build_event_report_pdf(data, "tester", logo=broken)
+        assert pdf_bytes.startswith(b"%PDF")
+        assert "Einsatzbericht" in _extract_text(pdf_bytes)
+
+
+class TestFooterDate:
+    def test_footer_dates_the_event_not_the_print_job(self, simple_event: Event, simple_incident: Incident):
+        """The running footer carries the event's start, not ``now``.
+
+        A loose page pulled off the pile has to answer "which operation is this?" —
+        the generation timestamp is on the cover under «Erstellt am» and answers a
+        question nobody asks twice.
+        """
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident},
+        )
+        pdf_bytes = build_event_report_pdf(data, "tester")
+        # simple_event.created_at = 2026-06-01 08:00 UTC → 10:00 Swiss local
+        assert "Hochwasser Übung 2026  ·  01.06.2026 10:00" in _extract_text(pdf_bytes)
+
+        # …and the print time appears exactly once, on the cover under «Erstellt am» —
+        # not once per page in the footer, which is what it used to do.
+        today = datetime.now(UTC).astimezone(LOCAL_TZ).strftime("%d.%m.%Y")
+        pages = [page.extract_text() for page in PdfReader(io.BytesIO(pdf_bytes)).pages]
+        assert sum(page.count(today) for page in pages) == 1
+
+
+class TestPagination:
+    def test_many_short_incidents_do_not_each_claim_a_page(self, simple_event: Event):
+        """Detail blocks flow. They used to be wrapped in a KeepTogether each, which
+        pushed every incident that did not fit whole onto a fresh page — a 21-incident
+        storm printed as pages that were three-quarters white."""
+        incidents = [
+            Incident(
+                id=uuid4(),
+                event_id=simple_event.id,
+                title=f"Keller {idx}",
+                type="elementarereignis",
+                priority="low",
+                status="complete",
+                location_address=f"Musterweg {idx}, Basel",
+                description="Wasser im Keller, ausgepumpt.",
+                created_at=datetime(2026, 6, 1, 9, 0, tzinfo=UTC) + timedelta(minutes=idx),
+            )
+            for idx in range(1, 22)
+        ]
+        data = EventReportData(
+            event=simple_event,
+            incidents=incidents,
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={inc.id: inc for inc in incidents},
+        )
+        pdf_bytes = build_event_report_pdf(data, "tester")
+        # Each block is ~12 lines; four to a page is the honest density. Anything near
+        # one page per incident means the blocks stopped flowing again.
+        assert _page_count(pdf_bytes) <= 8
+
+    def test_a_section_heading_is_never_the_last_thing_on_a_page(self, simple_event: Event):
+        """«Einsatzdetails» and friends carry content onto the page they land on."""
+        incidents = [
+            Incident(
+                id=uuid4(),
+                event_id=simple_event.id,
+                title=f"Einsatz {idx}",
+                type="elementarereignis",
+                priority="low",
+                status="complete",
+                location_address=f"Musterweg {idx}, Basel",
+                created_at=datetime(2026, 6, 1, 9, 0, tzinfo=UTC) + timedelta(minutes=idx),
+            )
+            for idx in range(1, 40)
+        ]
+        data = EventReportData(
+            event=simple_event,
+            incidents=incidents,
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={inc.id: inc for inc in incidents},
+        )
+        reader = PdfReader(io.BytesIO(build_event_report_pdf(data, "tester")))
+        headings = {"Zusammenfassung", "Einsatzübersicht", "Reaktionszeiten", "Einsatztagebuch", "Einsatzdetails"}
+        for page in reader.pages:
+            lines = [line.strip() for line in page.extract_text().splitlines() if line.strip()]
+            # Last line before the footer (event name · date, then "Seite x von y").
+            body = [line for line in lines if not line.startswith("Seite ") and simple_event.name not in line]
+            assert not (body and body[-1] in headings), f"stranded heading: {body[-1]}"

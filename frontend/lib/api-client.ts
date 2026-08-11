@@ -355,6 +355,39 @@ class ApiClient {
     })
   }
 
+  /**
+   * URL of the station logo used on printed exports — an <img src>, not a fetch:
+   * the backend answers with image bytes, and 404 (no logo set) is a normal answer
+   * the <img> reports through onError rather than an exception nobody asked for.
+   *
+   * The cache-buster is what makes a replaced logo visible immediately; the browser
+   * would otherwise keep showing the old one from the in-memory image cache.
+   */
+  getReportLogoUrl(cacheBuster?: string | number): string {
+    const suffix = cacheBuster === undefined ? '' : `?v=${cacheBuster}`
+    return `${this.getBaseUrl()}/api/settings/branding/logo${suffix}`
+  }
+
+  async uploadReportLogo(file: File): Promise<{ size: number }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await fetch(this.getReportLogoUrl(), {
+      method: 'PUT',
+      credentials: 'include',
+      body: formData,
+      signal: AbortSignal.timeout(60000),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new Error(detail?.detail || `Upload fehlgeschlagen (${response.status})`)
+    }
+    return response.json()
+  }
+
+  async deleteReportLogo(): Promise<void> {
+    await this.request<void>('/api/settings/branding/logo', { method: 'DELETE' })
+  }
+
   // Event endpoints
   async getEvents(includeArchived: boolean = false): Promise<ApiEventListResponse> {
     const params = new URLSearchParams()

@@ -1351,6 +1351,17 @@
               "total": "Zeit seit Alarmierung"
             }
           }
+        },
+        "logo": {
+          "label": "Stationslogo",
+          "description": "Erscheint als Briefkopf auf dem Einsatzbericht (PNG, JPEG oder WebP, max. 5 MB)",
+          "upload": "Hochladen",
+          "replace": "Ersetzen",
+          "remove": "Entfernen",
+          "uploaded": "Logo gespeichert",
+          "removed": "Logo entfernt",
+          "uploadFailed": "Logo konnte nicht gespeichert werden",
+          "tooLarge": "Datei zu gross – maximal 5 MB"
         }
       },
       "alerting": {

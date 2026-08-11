@@ -1,13 +1,15 @@
 """Settings API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Setting
+from ..services import branding
 from ..services import settings as settings_service
 from ..services.audit import log_action
 from ..services.settings import DEFAULT_SETTINGS
@@ -19,6 +21,78 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 async def get_all_settings(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     """Get all settings (any authenticated user)."""
     return await settings_service.get_all_settings(db)
+
+
+# ---------------------------------------------------------------------------
+# Station logo for printed exports.
+#
+# Its own three endpoints rather than the generic key/value pair above: the value is
+# image bytes, so it is served with an image content type (an <img src> can point at
+# it directly), written through a validating, re-encoding upload, and kept out of the
+# settings dict the page fetches on every visit. Declared before `GET /{key}` for
+# readability only — that route matches a single path segment and could never have
+# swallowed these two-segment paths.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/branding/logo")
+async def get_report_logo(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> Response:
+    """The station logo as a PNG, or 404 when none is set."""
+    png = await branding.get_report_logo(db)
+    if png is None:
+        raise HTTPException(status_code=404, detail="Kein Logo hinterlegt")
+    # no-cache: the settings page has to show a replaced logo immediately, and the
+    # payload is ~100 KB fetched on two screens — there is nothing here worth caching.
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.put("/branding/logo", response_model=dict[str, int])
+@limiter.limit(RateLimits.PHOTO_UPLOAD)
+async def upload_report_logo(
+    request: Request,
+    current_user: CurrentEditor,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, int]:
+    """Upload/replace the station logo (editor only). Returns the stored size in bytes."""
+    # One byte past the cap, so an oversized upload is refused rather than read whole.
+    raw = await file.read(branding.MAX_UPLOAD_BYTES + 1)
+    user_id = current_user.id if current_user.username != "master-token" else None
+    size = await branding.store_report_logo(db, raw, user_id, file.content_type)
+
+    await log_action(
+        db=db,
+        action_type="update",
+        resource_type="setting",
+        resource_id=None,
+        user=current_user,
+        changes={"key": branding.LOGO_SETTING_KEY, "before": None, "after": f"{size} bytes"},
+        request=request,
+    )
+    await db.commit()
+    return {"size": size}
+
+
+@router.delete("/branding/logo", status_code=204)
+async def delete_report_logo(
+    request: Request,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Remove the station logo (editor only). Idempotent."""
+    user_id = current_user.id if current_user.username != "master-token" else None
+    await branding.clear_report_logo(db, user_id)
+    await log_action(
+        db=db,
+        action_type="update",
+        resource_type="setting",
+        resource_id=None,
+        user=current_user,
+        changes={"key": branding.LOGO_SETTING_KEY, "before": "gesetzt", "after": None},
+        request=request,
+    )
+    await db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/{key}", response_model=schemas.Setting)
@@ -65,10 +139,7 @@ async def update_setting(
     # vehicles, materials and settings. It has a dedicated endpoint that validates and
     # redacts it — PUT /api/sync/config — and that is now the only way in.
     if key in settings_service.GENERIC_WRITE_DENYLIST:
-        raise HTTPException(
-            status_code=403,
-            detail="Dieser Wert wird über /api/sync/config gesetzt, nicht hier.",
-        )
+        raise HTTPException(status_code=403, detail=settings_service.GENERIC_WRITE_DENY_REASONS[key])
 
     # Get old value for audit logging
     old_value = await settings_service.get_setting(db, key)

@@ -63,6 +63,10 @@ DEFAULT_SETTINGS = {
     "firestation_name": "",
     "firestation_latitude": "",
     "firestation_longitude": "",
+    # Station logo for printed exports (base64 PNG). Written and read through
+    # /api/settings/branding/logo only — see BLOB_SETTING_KEYS below for why it is
+    # a known key that the generic settings endpoints refuse to touch.
+    "branding.report_logo": "",
     # Incident message templates. Section-based: {token} placeholders are filled
     # from the incident, a line whose tokens are all empty is dropped, blank runs
     # collapse. Rendered CLIENT-SIDE (see frontend/lib/message-template.ts) — the
@@ -199,12 +203,26 @@ SECRET_SETTING_KEYS = frozenset({"alarm_webhook_secret", "railway_database_url"}
 
 SECRET_PLACEHOLDER = "***"  # noqa: S105 — the mask itself, not a credential
 
+# Settings whose value is a BINARY BLOB rather than a piece of configuration text — today
+# just the base64 station logo. They are omitted from `GET /api/settings/` entirely, not
+# masked: nothing on the settings page can render a ~100 KB base64 string, and shipping it
+# with every settings fetch would put it on the wire on every visit to Einstellungen. Their
+# own endpoint serves the bytes with an image content type instead.
+BLOB_SETTING_KEYS = frozenset({"branding.report_logo"})
+
 # Keys the generic PATCH /api/settings/{key} must refuse, because a dedicated endpoint
 # owns them and does something the generic one cannot (validate the DSN, redact it on the
-# way back out, restart the sync scheduler). `railway_database_url` decides where this
-# backend opens an outbound database connection, so "any editor can PATCH it" was a way to
-# make the station push its whole board somewhere else.
-GENERIC_WRITE_DENYLIST = frozenset({"railway_database_url"})
+# way back out, restart the sync scheduler; decode, bound and re-encode an image).
+# `railway_database_url` decides where this backend opens an outbound database connection,
+# so "any editor can PATCH it" was a way to make the station push its whole board
+# somewhere else. The logo is on the list for a duller reason: a PATCH could store any
+# string at all under it, and every export would then try to draw it.
+GENERIC_WRITE_DENY_REASONS: dict[str, str] = {
+    "railway_database_url": "Dieser Wert wird über /api/sync/config gesetzt, nicht hier.",
+    "branding.report_logo": "Das Logo wird über /api/settings/branding/logo gesetzt, nicht hier.",
+}
+
+GENERIC_WRITE_DENYLIST = frozenset(GENERIC_WRITE_DENY_REASONS)
 
 
 async def get_all_settings(db: AsyncSession, *, include_secrets: bool = False) -> dict[str, str]:
@@ -212,9 +230,12 @@ async def get_all_settings(db: AsyncSession, *, include_secrets: bool = False) -
 
     Defaulting to masked is the fail-safe direction: a new caller has to ask for the
     secrets on purpose, rather than leak them by not knowing they were in there.
+
+    Blob-valued keys (:data:`BLOB_SETTING_KEYS`) are left out of the result either way —
+    they are files, not configuration, and have their own endpoint.
     """
     result = await db.execute(select(Setting))
-    settings = result.scalars().all()
+    settings = [s for s in result.scalars().all() if s.key not in BLOB_SETTING_KEYS]
     if include_secrets:
         return {s.key: s.value for s in settings}
     return {s.key: (SECRET_PLACEHOLDER if s.key in SECRET_SETTING_KEYS and s.value else s.value) for s in settings}

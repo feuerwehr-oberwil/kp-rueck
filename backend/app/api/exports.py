@@ -22,6 +22,7 @@ from ..services.audit_export_service import (
     export_event_audit_excel,
     get_safe_filename,
 )
+from ..services.branding import get_report_logo
 from ..services.excel_import_export import export_einsaetze_excel
 from ..services.lageblatt_service import build_lageblatt_pdf
 from ..services.pdf_report_service import build_event_report_pdf
@@ -177,12 +178,14 @@ async def export_event_report(
         data = await collect_event_report_data(db, event_id)
         funkrufname = await get_setting_value(db, "funkrufname", "")
         home_city = await get_setting_value(db, "home_city", "")
+        logo = await get_report_logo(db)
         pdf_bytes = await asyncio.to_thread(
             build_event_report_pdf,
             data,
             current_user.username,
             funkrufname,
             home_city,
+            logo,
         )
 
         # Audit-log the export (same pattern as the Excel export).

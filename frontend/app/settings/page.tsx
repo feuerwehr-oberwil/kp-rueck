@@ -102,6 +102,7 @@ import { PrinterSettings } from '@/components/settings/printer-settings';
 import { FallbackSettings } from '@/components/settings/fallback-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
+import { BrandingSettings } from '@/components/settings/branding-settings';
 import { TelemetrySettings } from '@/components/settings/telemetry-settings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
@@ -641,6 +642,7 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     ))}
+                    <BrandingSettings readOnly={!isEditor} />
                   </div>
                 </DemoLock>
               )}
