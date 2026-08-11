@@ -27,6 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import (
+    EventAttendance,
     Incident,
     IncidentAssignment,
     Material,
@@ -1252,6 +1253,159 @@ def _jsonable_vehicles(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+async def _event_personnel(
+    db: AsyncSession,
+    incident: Incident,
+) -> tuple[list[dict[str, Any]], set[uuid.UUID]]:
+    """Everyone checked in at this Ereignis, plus who the board has on THIS incident.
+
+    The roll-call rather than the whole roster: the Appell is the list of people
+    who actually turned out tonight, and offering the other forty names would make
+    the crew scroll past people who are at home. Anybody the board has assigned
+    here is included even when no attendance row exists — the board's own answer
+    must never be missing from the list that corrects it.
+
+    The assigned set includes **released** assignments, like the vehicles: a crew
+    member who left an hour ago was still at the Schadenplatz.
+
+    Ordered the way the roster is ordered everywhere else, so the crew reads the
+    names in the order it knows them.
+    """
+    assigned_result = await db.execute(
+        select(IncidentAssignment.resource_id).where(
+            IncidentAssignment.incident_id == incident.id,
+            IncidentAssignment.resource_type == "personnel",
+        )
+    )
+    assigned_ids = {row[0] for row in assigned_result.all()}
+
+    checked_in_result = await db.execute(
+        select(EventAttendance.personnel_id).where(
+            EventAttendance.event_id == incident.event_id,
+            EventAttendance.checked_in.is_(True),
+        )
+    )
+    offered_ids = {row[0] for row in checked_in_result.all()} | assigned_ids
+    if not offered_ids:
+        return [], assigned_ids
+
+    roster_result = await db.execute(
+        select(Personnel)
+        .where(Personnel.id.in_(offered_ids))
+        .order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
+    )
+    roster = [{"personnel_id": person.id, "name": person.name} for person in roster_result.scalars().all()]
+    return roster, assigned_ids
+
+
+def reconcile_personnel(
+    stored: list[Any] | None,
+    roster: list[dict[str, Any]],
+    assigned_ids: set[uuid.UUID],
+) -> list[dict[str, Any]]:
+    """Re-reconcile the crew checklist against the roll-call — never replace it.
+
+    The vehicle rules, applied to people (see :func:`reconcile_vehicles`): every
+    offered name gets a row prefilled from the board, an answer the crew already
+    gave survives whatever the board does next, and somebody who has since left
+    the roll-call keeps their row only when they were **ticked** — that is a
+    correction; an unticked row for a name nobody offered says nothing.
+    """
+    stored_rows: dict[uuid.UUID, dict[str, Any]] = {}
+    for raw in stored or []:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            personnel_id = uuid.UUID(str(raw.get("personnel_id")))
+        except (TypeError, ValueError):
+            continue
+        row = dict(raw)
+        row["personnel_id"] = personnel_id
+        stored_rows[personnel_id] = row
+
+    merged: list[dict[str, Any]] = []
+    for person in roster:
+        previous = stored_rows.pop(person["personnel_id"], {})
+        merged.append(
+            {
+                "personnel_id": person["personnel_id"],
+                "name": person["name"],
+                "present": bool(previous.get("present", person["personnel_id"] in assigned_ids)),
+                "on_board": person["personnel_id"] in assigned_ids,
+            }
+        )
+
+    for row in stored_rows.values():
+        if not row.get("present"):
+            continue
+        merged.append(
+            {
+                "personnel_id": row["personnel_id"],
+                "name": row.get("name") or "Unbekannt",
+                "present": True,
+                "on_board": False,
+            }
+        )
+    return merged
+
+
+def _jsonable_personnel(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The crew checklist as it goes into JSONB — same rules as the vehicles.
+
+    ``on_board`` is recomputed from the live assignments on every read, so it is
+    not stored, and only rows that carry an answer are written: an untouched row
+    for somebody nobody dispatched would freeze "nein" as a decision nobody made.
+    """
+    return [
+        {
+            "personnel_id": str(row["personnel_id"]),
+            "name": row["name"],
+            "present": bool(row["present"]),
+        }
+        for row in rows
+        if row["present"] or row["on_board"]
+    ]
+
+
+def normalize_extra_personnel(stored: Any) -> list[dict[str, Any]]:
+    """People on no roster of this station, as ``{name, note}``.
+
+    Defensive like :func:`normalize_extra_materials`, and for the same reason —
+    JSONB written by two doors and read by several outputs. A duplicate name
+    collapses into one entry and keeps whichever note is non-empty: the same
+    person named twice is one person standing at the address.
+    """
+    entries: list[dict[str, Any]] = []
+    seen: dict[str, dict[str, Any]] = {}
+    for raw in stored or []:
+        if isinstance(raw, str):
+            raw = {"name": raw}
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("name") or "").strip()
+        if not name:
+            continue
+        note = str(raw.get("note") or "").strip()
+        existing = seen.get(name.lower())
+        if existing is not None:
+            existing["note"] = existing["note"] or note
+            continue
+        entry = {"name": name, "note": note}
+        seen[name.lower()] = entry
+        entries.append(entry)
+    return entries
+
+
+def derive_personnel_count(personnel_rows: list[dict[str, Any]], extra_rows: list[dict[str, Any]]) -> int:
+    """The head count, from the list rather than from a keyboard.
+
+    Ticked names plus everybody the crew added by hand. It cannot disagree with
+    what the rapport shows, which is the whole reason the number stopped being
+    typed.
+    """
+    return sum(1 for row in personnel_rows if row.get("present")) + len(extra_rows)
+
+
 async def _board_personnel_count(db: AsyncSession, incident_id: uuid.UUID) -> int:
     """The board's own head count — the number the crew confirms or corrects.
 
@@ -1377,6 +1531,10 @@ async def get_rapport(
     fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident.id)
     vehicles = reconcile_vehicles(report.vehicles_json if report else None, fleet, assigned_vehicle_ids)
 
+    roster, assigned_personnel_ids = await _event_personnel(db, incident)
+    crew = reconcile_personnel(report.personnel_json if report else None, roster, assigned_personnel_ids)
+    extra_personnel = normalize_extra_personnel(report.extra_personnel_json if report else None)
+
     board_personnel = await _board_personnel_count(db, incident.id)
     leaders = await get_incident_leaders(db, [incident.id])
     leader = leaders.get(incident.id)
@@ -1408,6 +1566,8 @@ async def get_rapport(
             "is_draft": True,
             "materials": materials,
             "vehicles": vehicles,
+            "personnel": crew,
+            "extra_personnel": extra_personnel,
             "photos": [],
             "personnel_count": board_personnel,
             "prefill": prefill,
@@ -1421,6 +1581,8 @@ async def get_rapport(
         "submitted_at": report.submitted_at,
         "materials": materials,
         "vehicles": vehicles,
+        "personnel": crew,
+        "extra_personnel": extra_personnel,
         # Filenames only. They are read back through the shared
         # `GET /api/photos/{incident_id}/{filename}`, which is what the Reko
         # form already uses — the photo bytes are not per-door.
@@ -1430,6 +1592,12 @@ async def get_rapport(
         "handed_over_to": report.handed_over_to,
         "owner_name": report.owner_name,
         "owner_phone": report.owner_phone,
+        # The stored number, which the WRITE derives from the checklist — not a
+        # fresh count off the reconciled list above. The reconciled list has to
+        # show people the board assigned since (so the crew can still correct it),
+        # and re-counting it here would let a KP assigning two more names an hour
+        # later silently raise a filed rapport's head count. Decision 6: a later
+        # board edit cannot change a filed rapport.
         "personnel_count": report.personnel_count if report.personnel_count is not None else board_personnel,
         "personnel_count_corrected": report.personnel_count_corrected,
         "cost_snapshot_json": report.cost_snapshot_json,
@@ -1597,11 +1765,59 @@ async def save_rapport(
         )
         report.extra_materials_json = entries or None
 
-    # The head count the crew confirms. A corrected value is stored AS corrected —
-    # the divergence is itself information, it says the board was behind reality —
-    # and a value that matches the board clears the flag again.
+    # The crew checklist, reconciled first and then ticked — same shape and same
+    # reasoning as the vehicles above. A person who has since left the roll-call
+    # but is TICKED in this payload keeps that answer; an unticked one carries
+    # nothing and is not resurrected.
+    if "personnel" in provided and payload.personnel is not None:
+        roster, assigned_personnel_ids = await _event_personnel(db, incident)
+        crew_ticks = {tick.personnel_id: tick for tick in payload.personnel}
+        merged_crew = reconcile_personnel(report.personnel_json, roster, assigned_personnel_ids)
+        for crew_row in merged_crew:
+            crew_tick = crew_ticks.get(crew_row["personnel_id"])
+            if crew_tick is None:
+                continue
+            crew_row["present"] = bool(crew_tick.present)
+        known_person_ids = {crew_row["personnel_id"] for crew_row in merged_crew}
+        for personnel_id, crew_tick in crew_ticks.items():
+            if personnel_id in known_person_ids or not crew_tick.present:
+                continue
+            merged_crew.append(
+                {
+                    "personnel_id": personnel_id,
+                    "name": crew_tick.name or "Unbekannt",
+                    "present": True,
+                    "on_board": False,
+                }
+            )
+        report.personnel_json = _jsonable_personnel(merged_crew)
+
+    # People on no roster of this station. Replaced wholesale when present, like
+    # the extra material: the entries carry no id, so a partial write has nothing
+    # to key on, and there is no board state to reconcile against.
+    if "extra_personnel" in provided:
+        report.extra_personnel_json = (
+            normalize_extra_personnel(
+                [row.model_dump() for row in payload.extra_personnel] if payload.extra_personnel else []
+            )
+            or None
+        )
+
+    # The head count follows from the two lists above rather than from a keyboard.
+    # A value that differs from the board is stored AS corrected — the divergence
+    # is itself information, it says the board was behind reality — and one that
+    # matches clears the flag again.
     board_personnel = await _board_personnel_count(db, incident.id)
-    if "personnel_count" in provided:
+    if report.personnel_json is not None or report.extra_personnel_json:
+        counted = derive_personnel_count(
+            [dict(row) for row in (report.personnel_json or [])],
+            normalize_extra_personnel(report.extra_personnel_json),
+        )
+        report.personnel_count = counted
+        report.personnel_count_corrected = counted != board_personnel
+    elif "personnel_count" in provided:
+        # A client that still speaks the old shape (a phone replaying a queued
+        # payload, the training seeder) keeps working: the number is taken as-is.
         report.personnel_count = payload.personnel_count
         report.personnel_count_corrected = (
             payload.personnel_count is not None and payload.personnel_count != board_personnel
@@ -1624,6 +1840,15 @@ async def save_rapport(
         if report.vehicles_json is None:
             fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident.id)
             report.vehicles_json = _jsonable_vehicles(reconcile_vehicles(None, fleet, assigned_vehicle_ids))
+        # …and the same for the crew, for the same reason: the ticked prefill IS
+        # the answer of a crew that read the list and found nothing to correct.
+        if report.personnel_json is None:
+            roster, assigned_personnel_ids = await _event_personnel(db, incident)
+            report.personnel_json = _jsonable_personnel(reconcile_personnel(None, roster, assigned_personnel_ids))
+            report.personnel_count = derive_personnel_count(
+                [dict(row) for row in report.personnel_json],
+                normalize_extra_personnel(report.extra_personnel_json),
+            )
 
     _stamp_updated_by(report, actor)
 

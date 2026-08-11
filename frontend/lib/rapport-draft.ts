@@ -10,7 +10,9 @@
 
 import type {
   ApiRapportExtraMaterial,
+  ApiRapportExtraPersonnel,
   ApiRapportMaterialRow,
+  ApiRapportPersonnelRow,
   ApiRapportUpdate,
   ApiRapportVehicleRow,
   ApiSchadenplatzRapport,
@@ -20,6 +22,8 @@ import type {
 export interface RapportFormData {
   materials: ApiRapportMaterialRow[]
   vehicles: ApiRapportVehicleRow[]
+  personnel: ApiRapportPersonnelRow[]
+  extra_personnel: ApiRapportExtraPersonnel[]
   extra_materials: ApiRapportExtraMaterial[]
   kurzbericht: string
   handed_over_to: string
@@ -31,6 +35,8 @@ export interface RapportFormData {
 export const EMPTY_RAPPORT_FORM: RapportFormData = {
   materials: [],
   vehicles: [],
+  personnel: [],
+  extra_personnel: [],
   extra_materials: [],
   kurzbericht: '',
   handed_over_to: '',
@@ -44,6 +50,8 @@ export function toFormData(rapport: ApiSchadenplatzRapport): RapportFormData {
   return {
     materials: rapport.materials,
     vehicles: rapport.vehicles,
+    personnel: rapport.personnel ?? [],
+    extra_personnel: rapport.extra_personnel ?? [],
     extra_materials: rapport.extra_materials ?? [],
     kurzbericht: rapport.kurzbericht ?? '',
     handed_over_to: rapport.handed_over_to ?? '',
@@ -65,12 +73,14 @@ export function hasContent(form: RapportFormData): boolean {
     text(form.kurzbericht) ||
       text(form.handed_over_to) ||
       (form.extra_materials ?? []).length > 0 ||
+      (form.extra_personnel ?? []).length > 0 ||
       text(form.owner_name) ||
       text(form.owner_phone) ||
       // Both lists arrive prefilled from the board, so only a tick that
       // CONTRADICTS the prefill is evidence that somebody answered.
       (form.materials ?? []).some(row => row.used === false || row.left_on_site) ||
-      (form.vehicles ?? []).some(row => row.present !== row.on_board),
+      (form.vehicles ?? []).some(row => row.present !== row.on_board) ||
+      (form.personnel ?? []).some(row => row.present !== row.on_board),
   )
 }
 
@@ -111,6 +121,7 @@ export function mergeDraft(
       ...local.data,
       materials: mergeMaterialTicks(server.materials, local.data.materials),
       vehicles: mergeVehicleTicks(server.vehicles, local.data.vehicles ?? []),
+      personnel: mergePersonnelTicks(server.personnel ?? [], local.data.personnel ?? []),
     },
     usedLocal: true,
   }
@@ -124,6 +135,22 @@ export function mergeVehicleTicks(
   const local = new Map(localRows.map(row => [row.vehicle_id, row]))
   return serverRows.map(row => {
     const draft = local.get(row.vehicle_id)
+    return draft ? { ...row, present: draft.present } : row
+  })
+}
+
+/** Fold a local draft's ticks onto the server's (re-reconciled) crew list.
+ *
+ *  Same rule as the vehicles: the LIST comes from the server — people check in
+ *  and get assigned while a phone is offline — and only the answers come from
+ *  the draft. */
+export function mergePersonnelTicks(
+  serverRows: ApiRapportPersonnelRow[],
+  localRows: ApiRapportPersonnelRow[],
+): ApiRapportPersonnelRow[] {
+  const local = new Map(localRows.map(row => [row.personnel_id, row]))
+  return serverRows.map(row => {
+    const draft = local.get(row.personnel_id)
     return draft ? { ...row, present: draft.present } : row
   })
 }
@@ -173,6 +200,15 @@ export function toUpdate(form: RapportFormData, isDraft: boolean): ApiRapportUpd
       vehicle_id: row.vehicle_id,
       present: row.present,
     })),
+    personnel: (form.personnel ?? []).map(row => ({
+      personnel_id: row.personnel_id,
+      present: row.present,
+      name: row.name,
+    })),
+    extra_personnel: (form.extra_personnel ?? []).map(entry => ({
+      name: entry.name,
+      note: entry.note,
+    })),
     // Names and one tick each, never ids (decision 18). Sent whole: there is
     // nothing to patch against, so an empty list is a deletion.
     extra_materials: (form.extra_materials ?? []).map(entry => ({
@@ -183,8 +219,15 @@ export function toUpdate(form: RapportFormData, isDraft: boolean): ApiRapportUpd
     handed_over_to: text(form.handed_over_to),
     owner_name: text(form.owner_name),
     owner_phone: text(form.owner_phone),
+    // Derived server-side from the two lists above; still sent so a rapport
+    // saved from an older cached bundle keeps its number.
     personnel_count: form.personnel_count,
   }
+}
+
+/** The head count the form shows: ticked names plus hand-added ones. */
+export function derivePersonnelCount(form: RapportFormData): number {
+  return (form.personnel ?? []).filter(row => row.present).length + (form.extra_personnel ?? []).length
 }
 
 export interface MaterialGroupBlock {

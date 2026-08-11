@@ -54,6 +54,8 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
     submitted_at: null,
     materials: [],
     vehicles: [],
+    personnel: [],
+    extra_personnel: [],
     photos: [],
     extra_materials: [],
     kurzbericht: null,

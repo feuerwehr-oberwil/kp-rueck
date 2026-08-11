@@ -342,6 +342,57 @@ class RapportVehicleUpdate(BaseModel):
     present: bool = True
 
 
+class RapportPersonnelRow(BaseModel):
+    """One name on the crew checklist — the crew confirms *who*, not how many.
+
+    The people checked in at the Ereignis, with the ones the board has on this
+    incident arriving ticked. A number could answer neither of the two questions
+    the KP has the morning after: was somebody there that nobody aufgeboten, and
+    did somebody leave that nobody tracked. Both directions are corrections the
+    crew is the only party able to make — the same argument the vehicle list
+    settled in §18.33.
+
+    Keyed on the **person**, not on an assignment: somebody who came along was
+    never assigned, so there is no assignment to key the row on.
+    """
+
+    personnel_id: UUID
+    name: str
+    present: bool = True
+    # True when the board has (or had) this person assigned to the incident.
+    on_board: bool = True
+
+
+class RapportPersonnelUpdate(BaseModel):
+    """The one tick, as the form sends it back.
+
+    ``name`` travels so a person who has meanwhile left the roll-call can still be
+    recorded as present — the row would otherwise have nothing to be called.
+    """
+
+    personnel_id: UUID
+    present: bool = True
+    name: str | None = Field(default=None, max_length=100)
+
+
+class RapportExtraPersonnelRow(BaseModel):
+    """Somebody on no roster of this station: a neighbouring brigade, the Werkhof.
+
+    **Names, never ids** — the same rule the extra material follows (decision 18).
+    `/feld` writes no attendance and no personnel row; it records who was standing
+    there. The note is free text rather than an "Einheit" column because it also
+    has to carry "kam um 21:00" or "nur Verkehrsdienst".
+    """
+
+    name: str
+    note: str = ""
+
+
+class RapportExtraPersonnelUpdate(BaseModel):
+    name: str = Field(max_length=100)
+    note: str = Field(default="", max_length=200)
+
+
 class ConcurrentEditor(BaseModel):
     """ "Frey Marc bearbeitet diesen Rapport gerade" (§3).
 
@@ -407,6 +458,8 @@ class SchadenplatzRapport(BaseModel):
     # The whole fleet (§18.33), with the board's assigned vehicles ticked. The
     # crew unticks what did not roll and ticks what came along unannounced.
     vehicles: list[RapportVehicleRow] = []
+    personnel: list[RapportPersonnelRow] = []
+    extra_personnel: list[RapportExtraPersonnelRow] = []
     # Filenames, not URLs. Read back through the shared
     # `GET /api/photos/{incident_id}/{filename}` — the same endpoint the Reko
     # form uses, because the bytes on disk are not per-door. Both mounts render
@@ -459,10 +512,12 @@ class RapportUpdate(BaseModel):
 
     materials: list[RapportMaterialUpdate] | None = None
     vehicles: list[RapportVehicleUpdate] | None = None
+    personnel: list[RapportPersonnelUpdate] | None = None
     # The whole list every time it is present at all — there is no id to patch
     # against, so a partial write has nothing to key on. Capped so a stuck client
     # cannot grow the row without bound.
     extra_materials: list[RapportExtraMaterialUpdate] | None = Field(default=None, max_length=50)
+    extra_personnel: list[RapportExtraPersonnelUpdate] | None = Field(default=None, max_length=50)
 
     kurzbericht: str | None = Field(default=None, max_length=5000)
     handed_over_to: str | None = Field(default=None, max_length=200)
@@ -470,6 +525,9 @@ class RapportUpdate(BaseModel):
     owner_name: str | None = Field(default=None, max_length=200)
     owner_phone: str | None = Field(default=None, max_length=50)
 
+    # Derived from `personnel` + `extra_personnel` whenever either is present.
+    # Still accepted on its own for a client that speaks the pre-checklist shape
+    # (a phone replaying a queued payload, the training seeder).
     personnel_count: int | None = Field(default=None, ge=0, le=999)
 
 

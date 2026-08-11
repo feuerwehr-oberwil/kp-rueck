@@ -42,10 +42,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { FeldMaterialChecklist } from '@/components/feld/feld-material-checklist'
+import { FeldPersonnelChecklist } from '@/components/feld/feld-personnel-checklist'
 import { FeldVehicleChecklist } from '@/components/feld/feld-vehicle-checklist'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
 import type {
+  ApiRapportExtraPersonnel,
   ApiRapportMaterialRow,
+  ApiRapportPersonnelRow,
   ApiRapportVehicleRow,
   ApiSchadenplatzRapport,
   ApiRapportUpdate,
@@ -54,6 +57,7 @@ import { getActiveLocale } from '@/lib/i18n-messages'
 import { telHref } from '@/lib/phone'
 import { sanitizePhoneInput } from '@/lib/utils'
 import {
+  derivePersonnelCount,
   EMPTY_RAPPORT_FORM,
   hasContent,
   isCorrected,
@@ -594,22 +598,17 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         <h3 className="text-sm font-semibold">{t('sections.confirm')}</h3>
 
         <div className="space-y-1.5">
-          <Label htmlFor="rapport-personnel" className="text-xs text-muted-foreground">
-            {t('personnelCount')}
-          </Label>
-          <Input
-            id="rapport-personnel"
-            type="number"
-            min={0}
-            inputMode="numeric"
-            className="max-w-32"
+          <FeldPersonnelChecklist
+            rows={formData.personnel}
+            extra={formData.extra_personnel}
             disabled={readOnly}
-            value={formData.personnel_count ?? ''}
-            onChange={e => update('personnel_count', e.target.value === '' ? null : Number(e.target.value))}
+            onChange={(rows: ApiRapportPersonnelRow[]) => update('personnel', rows)}
+            onExtraChange={(entries: ApiRapportExtraPersonnel[]) => update('extra_personnel', entries)}
           />
           {/* The divergence is itself information: it says the board was
-              behind reality, and the export prints it as such. */}
-          {isCorrected(formData.personnel_count, boardPersonnel) && (
+              behind reality, and the export prints it as such. Read off the
+              list now rather than off a typed number — same rule, one source. */}
+          {isCorrected(derivePersonnelCount(formData), boardPersonnel) && (
             <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardPersonnel })}</p>
           )}
         </div>

@@ -115,9 +115,7 @@ async def get_report_logo(db: AsyncSession) -> bytes | None:
         return None
 
 
-async def store_report_logo(
-    db: AsyncSession, raw: bytes, user_id: UUID | None, content_type: str | None = None
-) -> int:
+async def store_report_logo(db: AsyncSession, raw: bytes, user_id: UUID | None, content_type: str | None = None) -> int:
     """Normalise and store an uploaded logo. Returns the stored byte size."""
     png = normalize_logo(raw, content_type)
     await update_setting(db, LOGO_SETTING_KEY, base64.b64encode(png).decode("ascii"), user_id)

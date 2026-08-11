@@ -23659,6 +23659,45 @@
         "title": "RapportExtraMaterialUpdate",
         "description": "One entry, as the form sends it back. Same shape, names only."
       },
+      "RapportExtraPersonnelRow": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RapportExtraPersonnelRow",
+        "description": "Somebody on no roster of this station: a neighbouring brigade, the Werkhof.\n\n**Names, never ids** — the same rule the extra material follows (decision 18).\n`/feld` writes no attendance and no personnel row; it records who was standing\nthere. The note is free text rather than an \"Einheit\" column because it also\nhas to carry \"kam um 21:00\" or \"nur Verkehrsdienst\"."
+      },
+      "RapportExtraPersonnelUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RapportExtraPersonnelUpdate"
+      },
       "RapportMaterialRow": {
         "properties": {
           "assignment_id": {
@@ -23740,6 +23779,68 @@
         ],
         "title": "RapportMaterialUpdate",
         "description": "The two ticks, as the form sends them back."
+      },
+      "RapportPersonnelRow": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "default": true
+          },
+          "on_board": {
+            "type": "boolean",
+            "title": "On Board",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "name"
+        ],
+        "title": "RapportPersonnelRow",
+        "description": "One name on the crew checklist — the crew confirms *who*, not how many.\n\nThe people checked in at the Ereignis, with the ones the board has on this\nincident arriving ticked. A number could answer neither of the two questions\nthe KP has the morning after: was somebody there that nobody aufgeboten, and\ndid somebody leave that nobody tracked. Both directions are corrections the\ncrew is the only party able to make — the same argument the vehicle list\nsettled in §18.33.\n\nKeyed on the **person**, not on an assignment: somebody who came along was\nnever assigned, so there is no assignment to key the row on."
+      },
+      "RapportPersonnelUpdate": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "default": true
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id"
+        ],
+        "title": "RapportPersonnelUpdate",
+        "description": "The one tick, as the form sends it back.\n\n``name`` travels so a person who has meanwhile left the roll-call can still be\nrecorded as present — the row would otherwise have nothing to be called."
       },
       "RapportPhotosResponse": {
         "properties": {
@@ -23893,6 +23994,20 @@
             ],
             "title": "Vehicles"
           },
+          "personnel": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportPersonnelUpdate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel"
+          },
           "extra_materials": {
             "anyOf": [
               {
@@ -23907,6 +24022,21 @@
               }
             ],
             "title": "Extra Materials"
+          },
+          "extra_personnel": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportExtraPersonnelUpdate"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Personnel"
           },
           "kurzbericht": {
             "anyOf": [
@@ -25020,6 +25150,22 @@
             },
             "type": "array",
             "title": "Vehicles",
+            "default": []
+          },
+          "personnel": {
+            "items": {
+              "$ref": "#/components/schemas/RapportPersonnelRow"
+            },
+            "type": "array",
+            "title": "Personnel",
+            "default": []
+          },
+          "extra_personnel": {
+            "items": {
+              "$ref": "#/components/schemas/RapportExtraPersonnelRow"
+            },
+            "type": "array",
+            "title": "Extra Personnel",
             "default": []
           },
           "photos": {

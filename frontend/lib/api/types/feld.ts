@@ -202,6 +202,39 @@ export interface ApiRapportVehicleUpdate {
 }
 
 /**
+ * One name on the crew confirmation list (§18.36) — the people checked in at the
+ * Ereignis, with the ones the board put on this incident ticked. A number could
+ * answer neither "war jemand dabei, den niemand aufgeboten hat?" nor "ist jemand
+ * gegangen?"; both are corrections only the crew can make.
+ */
+export interface ApiRapportPersonnelRow {
+  personnel_id: string
+  name: string
+  /** "war dabei". Prefilled from the board: ticked when they were assigned. */
+  present: boolean
+  /** True when the board has (or had) this person on the incident. */
+  on_board: boolean
+}
+
+export interface ApiRapportPersonnelUpdate {
+  personnel_id: string
+  present: boolean
+  /** Travels so somebody who has left the roll-call can still be recorded. */
+  name?: string | null
+}
+
+/**
+ * Somebody on no roster of this station — a neighbouring brigade, the Werkhof.
+ * Names never ids, like the extra material: `/feld` writes no attendance row.
+ * The note is free text on purpose, so it can carry "FW Allschwil" *or* "kam um
+ * 21:00" *or* both.
+ */
+export interface ApiRapportExtraPersonnel {
+  name: string
+  note: string
+}
+
+/**
  * One entry of "Weiteres gebrauchtes Material" (§18.35).
  *
  * A name and one tick. No `used`: listing something here already means it was
@@ -254,6 +287,8 @@ export interface ApiSchadenplatzRapport {
   submitted_at: string | null
   materials: ApiRapportMaterialRow[]
   vehicles: ApiRapportVehicleRow[]
+  personnel: ApiRapportPersonnelRow[]
+  extra_personnel: ApiRapportExtraPersonnel[]
   /**
    * Filenames, not URLs — read back through the shared
    * `GET /api/photos/{incidentId}/{filename}`, the same endpoint the Reko form
@@ -266,6 +301,7 @@ export interface ApiSchadenplatzRapport {
   /** Name + Telefon since §18.31 — the pair the incident carries for the Melder. */
   owner_name: string | null
   owner_phone: string | null
+  /** Derived server-side from `personnel` + `extra_personnel`, never typed. */
   personnel_count: number | null
   personnel_count_corrected: boolean
   /** Frozen at submit; null while the rapport is a draft. */
@@ -290,6 +326,8 @@ export interface ApiRapportUpdate {
   is_draft: boolean
   materials?: ApiRapportMaterialUpdate[]
   vehicles?: ApiRapportVehicleUpdate[]
+  personnel?: ApiRapportPersonnelUpdate[]
+  extra_personnel?: ApiRapportExtraPersonnel[]
   /** The whole list when present: no id means nothing to patch against. */
   extra_materials?: ApiRapportExtraMaterial[]
   kurzbericht?: string | null

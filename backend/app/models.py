@@ -921,12 +921,32 @@ class SchadenplatzReport(Base):
     owner_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # --- Mannschaft und Fahrzeuge, as the crew confirms them ---
-    # The head count is a number the crew corrects; the vehicles are a checklist it
-    # ticks, the same shape as the material one. `personnel_count_corrected` exists
-    # so the outputs can say "the crew disagreed with the board" instead of silently
-    # showing one number.
+    # Both are checklists the crew ticks, the same shape as the material one.
+    #
+    # `personnel_count` is DERIVED from `personnel_json` + `extra_personnel_json`
+    # since the crew stopped typing it: a number answered neither "war jemand
+    # dabei, den niemand aufgeboten hat?" nor "ist jemand früher gegangen?", and
+    # every output that prints it wanted the names anyway. The column stays
+    # because five outputs and a billing workflow read it, and it can now never
+    # disagree with the list it comes from. `personnel_count_corrected` still says
+    # the crew's answer differs from the board's.
     personnel_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     personnel_count_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Crew checklist over the people checked in at this Ereignis, keyed on the
+    # person (same reasoning as the vehicles — somebody who came along was never
+    # assigned, so an assignment id cannot be the identity of the row):
+    #   {"personnel_id": ..., "name": "Meier Andrea", "present": true}
+    # The people the board has on this incident arrive ticked, the rest unticked.
+    personnel_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    # People who are on no roster of this station — a neighbouring brigade's crew,
+    # somebody from the Werkhof. **Names never ids** (same rule as the extra
+    # material): the check-in list is not a place to invent personnel rows, and
+    # `/feld` writes no attendance.
+    #   [{"name": "Bräm Urs", "note": "FW Allschwil, ab 21:00"}, ...]
+    # The note is deliberately free text rather than an "Einheit" field: it also
+    # has to carry "kam später", "nur Verkehrsdienst" and whatever else the crew
+    # needs to say about somebody the board never knew.
+    extra_personnel_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
     # Vehicle checklist over the WHOLE fleet (§18.33), keyed on the vehicle rather
     # than on an assignment, because a vehicle that came along without ever being
     # on the board has no assignment to key on:

@@ -663,7 +663,9 @@
     },
     "material": {
       "consumable": "Verbrauchsmaterial",
-      "consumableUnlimited": "Verbrauchsmaterial (unbegrenzt)"
+      "consumableUnlimited": "Verbrauchsmaterial (unbegrenzt)",
+      "onSite": "vor Ort",
+      "onSiteTitle": "Steht noch bei {address} · seit {since}"
     },
     "shortcuts": {
       "refreshing": "Aktualisiere...",
@@ -3047,7 +3049,6 @@
       "ownerPhonePlaceholder": "z. B. 079 123 45 67",
       "ownerCall": "Anrufen",
       "takeOverMelder": "Melder übernehmen: {name}",
-      "personnelCount": "Eingesetztes Personal",
       "fromBoard": "vom Board: {count}",
       "concurrentEditor": "{name} bearbeitet diesen Rapport gerade ({at})",
       "createdInField": "Erfasst von {name} (Feld), {at}",
@@ -3065,7 +3066,22 @@
       "sendChanges": "Änderungen senden",
       "empty": "Noch kein Rapport",
       "loadError": "Rapport konnte nicht geladen werden.",
-      "loadRetry": "Erneut versuchen"
+      "loadRetry": "Erneut versuchen",
+      "personnel": {
+        "label": "Eingesetztes Personal – alle ankreuzen, die dabei waren ({count})",
+        "present": "war dabei",
+        "presentAria": "War dabei: {name}",
+        "empty": "Niemand angemeldet – Personen unten von Hand erfassen.",
+        "dispatched": "aufgeboten",
+        "searchPlaceholder": "Person suchen",
+        "showRest": "Weitere Angemeldete ({count})",
+        "hideRest": "Weitere Angemeldete ausblenden",
+        "noMatch": "Keine Person gefunden",
+        "extraNamePlaceholder": "Weitere Person (Name)",
+        "extraNotePlaceholder": "Notiz, z. B. FW Allschwil",
+        "addExtra": "Hinzufügen",
+        "removeAria": "{name} entfernen"
+      }
     },
     "materialReturn": {
       "title": "Material zurück – freigeben",

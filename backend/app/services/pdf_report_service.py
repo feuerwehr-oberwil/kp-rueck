@@ -134,7 +134,8 @@ LABELS: dict[str, str] = {
     "rapport_work": "Tätigkeit",
     "rapport_kurzbericht": "Kurzbericht",
     "rapport_handed_over": "Einsatzstelle übergeben an",
-    "rapport_personnel_count": "Eingesetztes Personal (Anzahl)",
+    "rapport_personnel_count": "Eingesetztes Personal",
+    "rapport_personnel_names": "Mannschaft",
     "rapport_vehicles": "Eingesetzte Fahrzeuge",
     "rapport_board_value": "vom Board: {value}",
     "rapport_material": "Material",
@@ -412,6 +413,39 @@ def vehicle_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str, 
     if report is None or not report.vehicles_json:
         return []
     return [row for row in report.vehicles_json if isinstance(row, dict)]
+
+
+def personnel_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
+    """``personnel_json`` as a list of dicts, defensively (it is JSONB)."""
+    if report is None or not report.personnel_json:
+        return []
+    return [row for row in report.personnel_json if isinstance(row, dict)]
+
+
+def personnel_present_names(report: SchadenplatzReport | None) -> list[str]:
+    """The people the crew confirmed were at the Schadenplatz.
+
+    A list rather than the number it replaced (§18.36): "9" answers neither "war
+    jemand dabei, den niemand aufgeboten hat?" nor "ist jemand gegangen?", and the
+    debrief is read for exactly those two questions.
+    """
+    return [str(row.get("name") or LABELS["none"]) for row in personnel_checklist_rows(report) if row.get("present")]
+
+
+def extra_personnel_lines(report: SchadenplatzReport | None) -> list[str]:
+    """ "Bräm Urs (FW Allschwil, ab 21:00)" — somebody on no roster of this station."""
+    if report is None or not report.extra_personnel_json:
+        return []
+    lines: list[str] = []
+    for raw in report.extra_personnel_json:
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("name") or "").strip()
+        if not name:
+            continue
+        note = str(raw.get("note") or "").strip()
+        lines.append(f"{name} ({note})" if note else name)
+    return lines
 
 
 def vehicle_present_names(report: SchadenplatzReport | None) -> list[str]:
@@ -1454,6 +1488,10 @@ def _rapport_block(
             )
         )
 
+    # Names where the crew gave names, the bare count where the rapport predates
+    # the checklist. The board's own number stays alongside whenever the two
+    # disagree — that divergence says the board was behind reality (decision 5).
+    crew_names = personnel_present_names(report) + extra_personnel_lines(report)
     head.append(
         _field(
             LABELS["rapport_personnel_count"],
@@ -1463,6 +1501,8 @@ def _rapport_block(
             styles,
         )
     )
+    if crew_names:
+        head.extend(_bullet_field(LABELS["rapport_personnel_names"], crew_names, styles))
     # Same rule as the incident heading: the sub-heading never ends a page alone.
     flow: list[Any] = [KeepTogether(head)]
     # The vehicles are a list the crew ticked, not a number it corrected.

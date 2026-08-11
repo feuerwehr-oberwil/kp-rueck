@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import (
     AuditLog,
     Event,
+    EventAttendance,
     Incident,
     IncidentAssignment,
     Material,
@@ -1259,6 +1260,95 @@ class TestRapport:
         assert rows["Tauchpumpe TP-4"]["left_on_site"] is True
         assert rows["Ölbindemittel"]["consumable"] is True
         assert rows["Ölbindemittel"]["left_on_site"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_crew_checklist_offers_the_roll_call_and_round_trips(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # §18.36, the vehicle argument applied to people: the crew confirms WHO,
+        # not how many. The roll-call is the list — everybody checked in tonight,
+        # the ones the board put here ticked — so both corrections are possible:
+        # somebody who came along unplanned, and somebody who went home.
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+        # Checked in at the Ereignis but not on this Schadenplatz.
+        walked_in = await _make_person(db_session, "Koch René")
+        db_session.add(
+            EventAttendance(event_id=test_event.id, personnel_id=walked_in.id, checked_in=True)
+        )
+        # At home: on the roster, on no roll-call, so on no list.
+        await _make_person(db_session, "Zimmermann Fabian")
+        await db_session.commit()
+
+        opened = await client.get(f"/api/feld/incidents/{incident.id}/rapport", params=params)
+        assert opened.status_code == 200
+        assert {row["name"]: row["present"] for row in opened.json()["personnel"]} == {
+            "Muster Hans": True,
+            "Koch René": False,
+        }
+
+        saved = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={
+                "is_draft": True,
+                "personnel": [
+                    # Was aufgeboten and did not come.
+                    {"personnel_id": str(person.id), "present": False},
+                    # Came along without anybody assigning them.
+                    {"personnel_id": str(walked_in.id), "present": True},
+                ],
+                "extra_personnel": [{"name": "Bräm Urs", "note": "FW Allschwil"}],
+            },
+        )
+        assert saved.status_code == 200
+        body = saved.json()
+        assert {row["name"]: row["present"] for row in body["personnel"]} == {
+            "Muster Hans": False,
+            "Koch René": True,
+        }
+        assert body["extra_personnel"] == [{"name": "Bräm Urs", "note": "FW Allschwil"}]
+        # Derived, never typed: one tick plus one hand-added name.
+        assert body["personnel_count"] == 2
+        # …and it disagrees with the board's one assignment, which is the point.
+        assert body["personnel_count_corrected"] is True
+        assert body["prefill"]["board_personnel_count"] == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_filed_crew_list_does_not_grow_when_the_board_does(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """Decision 6, now that the head count comes from a list the board feeds."""
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+        params = {"token": token, "personnel_id": str(person.id)}
+
+        filed = await client.put(
+            f"/api/feld/incidents/{incident.id}/rapport",
+            params=params,
+            json={"is_draft": False, "kurzbericht": "Keller ausgepumpt"},
+        )
+        assert filed.json()["personnel_count"] == 1
+
+        # The KP puts two more people on the incident afterwards.
+        for name in ("Frey Marc", "Meier Anna"):
+            extra = await _make_person(db_session, name)
+            await _assign(db_session, incident, extra)
+
+        after = await client.get(f"/api/feld/incidents/{incident.id}/rapport", params=params)
+        # The filed number stands…
+        assert after.json()["personnel_count"] == 1
+        # …while the list still offers the new names, so the crew can amend.
+        assert {row["name"] for row in after.json()["personnel"]} == {"Muster Hans", "Frey Marc", "Meier Anna"}
 
     @pytest.mark.asyncio
     @pytest.mark.api
