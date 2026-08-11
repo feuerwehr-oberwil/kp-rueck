@@ -3033,7 +3033,10 @@
         "presentAria": "War dabei: {name}",
         "empty": "Keine Fahrzeuge erfasst.",
         "dispatched": "disponiert",
-        "searchPlaceholder": "Fahrzeug suchen"
+        "searchPlaceholder": "Fahrzeug suchen",
+        "showRest": "Weitere Fahrzeuge ({count})",
+        "hideRest": "Weitere Fahrzeuge ausblenden",
+        "noMatch": "Kein Fahrzeug gefunden"
       },
       "kurzberichtPlaceholder": "Lage, Tätigkeit, Geräte",
       "handedOverTo": "Einsatzstelle übergeben an",

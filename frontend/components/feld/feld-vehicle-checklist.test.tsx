@@ -86,4 +86,38 @@ describe('FeldVehicleChecklist', () => {
     renderWithIntl(<FeldVehicleChecklist rows={[vehicle()]} disabled onChange={vi.fn()} />)
     expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeDisabled()
   })
+
+  it('folds a 30-vehicle fleet down to what was dispatched, with the rest one tap away', async () => {
+    // A station with thirty vehicles: the crew came to confirm the three that
+    // rolled, not to scroll a fleet inventory on a phone in the rain.
+    const rows = [
+      vehicle({ vehicle_id: 'f1', name: 'TLF Oberwil', present: true, on_board: true }),
+      vehicle({ vehicle_id: 'f2', name: 'MTW Oberwil', present: true, on_board: true }),
+      ...Array.from({ length: 28 }, (_, i) =>
+        vehicle({ vehicle_id: `x${i}`, name: `Anhänger ${i}`, present: false, on_board: false }),
+      ),
+    ]
+    renderWithIntl(<FeldVehicleChecklist rows={rows} onChange={vi.fn()} />)
+
+    expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: /Anhänger 7/ })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Weitere Fahrzeuge \(28\)/ }))
+    expect(screen.getByRole('checkbox', { name: /Anhänger 7/ })).toBeInTheDocument()
+  })
+
+  it('searches the whole fleet without expanding it first', async () => {
+    const rows = [
+      vehicle({ vehicle_id: 'f1', name: 'TLF Oberwil', present: true, on_board: true }),
+      ...Array.from({ length: 29 }, (_, i) =>
+        vehicle({ vehicle_id: `x${i}`, name: `Anhänger ${i}`, present: false, on_board: false }),
+      ),
+    ]
+    renderWithIntl(<FeldVehicleChecklist rows={rows} onChange={vi.fn()} />)
+
+    await userEvent.type(screen.getByPlaceholderText('Fahrzeug suchen'), 'Anhänger 12')
+    expect(screen.getByRole('checkbox', { name: /Anhänger 12$/ })).toBeInTheDocument()
+    // …and the ticked answer the crew already gave stays on screen while they search.
+    expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeChecked()
+  })
 })
