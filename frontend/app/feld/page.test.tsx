@@ -210,3 +210,79 @@ describe('/feld before the Schadenplatz was disponiert', () => {
     expect(screen.getByTestId('feld-rapport-form')).toBeInTheDocument()
   })
 })
+
+/**
+ * The phone remembers the Schadenplatz, not just the person.
+ *
+ * A crew opens their address and then the phone locks, Safari drops the
+ * background tab, or somebody pulls to refresh with a wet glove. Before this,
+ * every one of those put them back on "meine Einsatzstellen" — with the person
+ * remembered but the place forgotten, which is the half that costs a tap in the
+ * rain. Leaving via «Zurück» is the one thing that forgets it.
+ */
+describe('/feld remembers the open Schadenplatz across a reload', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // The cookies are path-scoped to /feld, and jsdom applies that rule: at the
+    // default document URL ("/") they would be written and never read back.
+    window.history.pushState({}, '', '/feld')
+    document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    getFeldPersonnel.mockResolvedValue({
+      personnel: [PERSON],
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+    })
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [assignment(), assignment({ incident_id: 'inc-2', incident_title: 'Baum Strasse' })],
+      message_chips: [],
+    })
+    setParams({ token: 'feld-token' })
+  })
+
+  it('comes back to the Schadenplatz that was open, without a slip in the URL', async () => {
+    const user = userEvent.setup()
+    const first = renderWithIntl(<FeldPage />)
+    await user.click(await screen.findByText('Muster Hans'))
+    await user.click(await screen.findByText('Baum Strasse'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument())
+    first.unmount()
+
+    // Same device, fresh page: person AND place come back.
+    renderWithIntl(<FeldPage />)
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument())
+  })
+
+  it('forgets it when the crew leaves via «Zurück»', async () => {
+    const user = userEvent.setup()
+    const first = renderWithIntl(<FeldPage />)
+    await user.click(await screen.findByText('Muster Hans'))
+    await user.click(await screen.findByText('Baum Strasse'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Zurück' }))
+    first.unmount()
+
+    renderWithIntl(<FeldPage />)
+    // Their own list, both rows, no detail — "Baum Strasse" is a row heading
+    // here, so the detail-only «Zurück» is what tells the two views apart.
+    await waitFor(() => expect(screen.getByText('Keller Wasser')).toBeInTheDocument())
+    expect(screen.getByText('Baum Strasse')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Zurück' })).not.toBeInTheDocument()
+  })
+
+  it('drops a remembered Schadenplatz that is no longer assigned to this person', async () => {
+    document.cookie = 'feld-selected-incident=inc-weg;path=/feld'
+    document.cookie = 'feld-selected-person=p-1;path=/feld'
+
+    renderWithIntl(<FeldPage />)
+
+    await waitFor(() => expect(screen.getByText('Keller Wasser')).toBeInTheDocument())
+    expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
+    expect(document.cookie).not.toContain('inc-weg')
+  })
+})

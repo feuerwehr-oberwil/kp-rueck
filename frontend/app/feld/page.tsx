@@ -38,7 +38,12 @@ import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 
 type ViewMode = 'list' | 'assignments' | 'detail'
 
-const COOKIE_NAME = 'feld-selected-person'
+/** Who this phone belongs to, and which Schadenplatz it was last looking at.
+ *  Both are per DEVICE, not per session: the page is login-less, a phone locks
+ *  itself in a pocket, and Safari drops a background tab whenever it wants —
+ *  none of which should cost the crew their place. Path-scoped to `/feld`. */
+const PERSON_COOKIE = 'feld-selected-person'
+const INCIDENT_COOKIE = 'feld-selected-incident'
 const COOKIE_EXPIRY_DAYS = 7
 
 /**
@@ -51,20 +56,20 @@ const COOKIE_EXPIRY_DAYS = 7
  */
 const FELD_POLL_MS = 10000
 
-function getSelectedPersonFromCookie(): string | null {
+function readCookie(name: string): string | null {
   if (typeof document === 'undefined') return null
-  const match = document.cookie.match(new RegExp(`(^| )${COOKIE_NAME}=([^;]+)`))
+  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`))
   return match ? match[2] : null
 }
 
-function saveSelectedPersonToCookie(personnelId: string) {
+function writeCookie(name: string, value: string) {
   const expires = new Date()
   expires.setDate(expires.getDate() + COOKIE_EXPIRY_DAYS)
-  document.cookie = `${COOKIE_NAME}=${personnelId};expires=${expires.toUTCString()};path=/feld`
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/feld`
 }
 
-function clearSelectedPersonCookie() {
-  document.cookie = `${COOKIE_NAME}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld`
+function clearCookie(name: string) {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld`
 }
 
 function formatTime(value: string | null): string {
@@ -173,6 +178,7 @@ function FeldSurface() {
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const restoredFromCookie = useRef(false)
+  const restoredIncident = useRef(false)
   const preselectApplied = useRef(false)
 
   // Load activity goes through the global top bar, not inline spinners — the
@@ -244,15 +250,31 @@ function FeldSurface() {
     setViewMode('assignments')
     setAssignments([])
     setSelectedIncidentId(null)
-    saveSelectedPersonToCookie(person.personnel_id)
+    writeCookie(PERSON_COOKIE, person.personnel_id)
     await loadAssignments(person.personnel_id)
   }, [loadAssignments])
+
+  /** Open a Schadenplatz and remember it, so a reload comes back HERE. */
+  const openAssignment = useCallback((incidentId: string) => {
+    setSelectedIncidentId(incidentId)
+    setViewMode('detail')
+    writeCookie(INCIDENT_COOKIE, incidentId)
+  }, [])
+
+  /** Leaving via «Zurück» is the crew saying they are done with this one, so it
+   *  is also what forgets it — otherwise the back button would be undone by the
+   *  next reload. */
+  const leaveAssignment = useCallback(() => {
+    setViewMode('assignments')
+    setSelectedIncidentId(null)
+    clearCookie(INCIDENT_COOKIE)
+  }, [])
 
   // Restore the person from the cookie once the picker has loaded: the crew
   // scans the poster once and lands on their own list from then on.
   useEffect(() => {
     if (restoredFromCookie.current || loading || personnel.length === 0) return
-    const savedId = getSelectedPersonFromCookie()
+    const savedId = readCookie(PERSON_COOKIE)
     if (!savedId) return
     const person = personnel.find(p => p.personnel_id === savedId)
     if (person) {
@@ -260,6 +282,26 @@ function FeldSurface() {
       handleSelectPerson(person)
     }
   }, [personnel, loading, handleSelectPerson])
+
+  // ...and then back into the Schadenplatz it was open on. Same one-shot rule as
+  // the slip preselect below, and for the same reason: the 10 s poll replaces
+  // `assignments` continuously, and a restore that fired on every replacement
+  // would drag the crew back into the detail view each time they left it.
+  // A slip in the URL outranks the memory — somebody just scanned it.
+  useEffect(() => {
+    if (restoredIncident.current || preselectIncidentId || assignments.length === 0) return
+    restoredIncident.current = true
+    const savedId = readCookie(INCIDENT_COOKIE)
+    if (!savedId) return
+    // Gone from the list (reassigned, event over, wrong person on this phone):
+    // forget it rather than leave a pointer to a page we cannot show.
+    if (!assignments.some(a => a.incident_id === savedId)) {
+      clearCookie(INCIDENT_COOKIE)
+      return
+    }
+    setSelectedIncidentId(savedId)
+    setViewMode('detail')
+  }, [assignments, preselectIncidentId])
 
   // Jump straight to the Schadenplatz the scanned slip names — once. The visibility
   // refetch below replaces `assignments` on every focus, and a preselect that fired
@@ -271,9 +313,8 @@ function FeldSurface() {
     preselectApplied.current = true
     const match = assignments.find(a => a.incident_id === preselectIncidentId)
     if (!match) return
-    setSelectedIncidentId(match.incident_id)
-    setViewMode('detail')
-  }, [assignments, preselectIncidentId])
+    openAssignment(match.incident_id)
+  }, [assignments, preselectIncidentId, openAssignment])
 
   // Coming back from another tab/app should show the current state, not what
   // the board looked like when the phone went into the pocket.
@@ -331,8 +372,10 @@ function FeldSurface() {
     setAssignments([])
     setSelectedIncidentId(null)
     setSearchTerm('')
-    clearSelectedPersonCookie()
+    clearCookie(PERSON_COOKIE)
+    clearCookie(INCIDENT_COOKIE)
     restoredFromCookie.current = false
+    restoredIncident.current = false
     // The phone is being handed to whoever actually drove. If they scanned a
     // slip, that slip still names the Schadenplatz — so the preselect gets
     // another turn for the next person.
@@ -468,7 +511,7 @@ function FeldSurface() {
     return (
       <div className="min-h-screen bg-background p-4 pb-20">
         <div className="max-w-md mx-auto">
-          <Button variant="ghost" size="sm" onClick={() => setViewMode('assignments')} className="mb-4 -ml-2">
+          <Button variant="ghost" size="sm" onClick={leaveAssignment} className="mb-4 -ml-2">
             <ArrowLeft className="size-3.5" />
             {tCommon('back')}
           </Button>
@@ -651,10 +694,7 @@ function FeldSurface() {
             return (
               <button
                 key={assignment.incident_id}
-                onClick={() => {
-                  setSelectedIncidentId(assignment.incident_id)
-                  setViewMode('detail')
-                }}
+                onClick={() => openAssignment(assignment.incident_id)}
                 className={`w-full cursor-pointer text-left rounded-xl p-4 transition-colors ${
                   assignment.is_active_assignment
                     ? 'bg-secondary/50 hover:bg-secondary'
