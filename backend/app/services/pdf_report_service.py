@@ -26,6 +26,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
     CondPageBreak,
     HRFlowable,
@@ -1725,29 +1726,40 @@ def _signature_block(styles: dict[str, ParagraphStyle]) -> list[Any]:
     Same two roles, same order as the KP-Front Einsatzrapport, so a station files both
     documents for one night the same way. Dotted leaders rather than solid rules: the
     convention already says "write here" on every other form in the building.
+
+    The four columns are measured, not chosen. Fixed 26 mm label columns left a 9 mm hole
+    between "Ort, Datum:" and the line it belongs to, and made the gutter between the two
+    pairs *negative* (-2.2 mm) – the row was 172 mm wide in a 169.8 mm frame, which is why
+    the right-hand line ran into the margin. Each label column is now as wide as its own
+    text, and the two write-in lines split what is left.
     """
-    label_w, line_w = 26 * mm, 60 * mm
-    gap = _CONTENT_W - 2 * (label_w + line_w)
+    date_label = f"{LABELS['signature_place_date']}:"
+    roles = (LABELS["signature_incident_leader"], LABELS["signature_commander"])
+    font, size = styles["label_col"].fontName, styles["label_col"].fontSize
+    pad = 3 * mm  # breathing room between a label and the line it introduces
+    gutter = 10 * mm  # between the Ort/Datum pair and the signature pair
+
+    date_w = stringWidth(date_label, font, size) + pad
+    # Both roles share a width so the two signature lines start at the same x.
+    role_w = max(stringWidth(f"{r}:", font, size) for r in roles) + pad
+    line_w = (_CONTENT_W - date_w - role_w - gutter) / 2
 
     def row(role: str) -> Table:
-        cells = [
-            _p(f"{LABELS['signature_place_date']}:", styles["label_col"]),
-            "",
-            "",
-            _p(f"{role}:", styles["label_col"]),
-            "",
-        ]
-        table = Table([cells], colWidths=[label_w, line_w, gap, label_w, line_w], hAlign="LEFT")
+        cells = [_p(date_label, styles["label_col"]), "", _p(f"{role}:", styles["label_col"]), ""]
+        table = Table([cells], colWidths=[date_w, line_w, role_w + gutter, line_w], hAlign="LEFT")
         table.setStyle(
             TableStyle(
                 [
                     ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    # The gutter lives inside the second label's cell, so the row still
+                    # sums to exactly the content width.
+                    ("LEFTPADDING", (2, 0), (2, 0), gutter),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                     ("TOPPADDING", (0, 0), (-1, -1), 10),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
                     ("LINEBELOW", (1, 0), (1, 0), 0.5, _DIM, None, (1, 2)),
-                    ("LINEBELOW", (4, 0), (4, 0), 0.5, _DIM, None, (1, 2)),
+                    ("LINEBELOW", (3, 0), (3, 0), 0.5, _DIM, None, (1, 2)),
                 ]
             )
         )
