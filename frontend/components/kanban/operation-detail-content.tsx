@@ -566,19 +566,20 @@ export function OperationDetailContent({
           {/* ------------------------------------------------------ Übersicht */}
           <TabsContent value="overview" className={tabPanelClass}>
           <div className={tabGridClass}>
-          {/* Left Column - Entry Fields. The dense mount spaces itself through
-              the rows' own separators; the stacked form keeps its 20px rhythm. */}
-          <div className={dense ? "space-y-1" : "space-y-5"}>
+          {/* Left Column — the fields, as rows in both mounts. They space
+              themselves through their own separators. */}
+          <div className="space-y-1">
           {/* Location - Smart Input with Geocoding. It carries its own label
-              and its own map/coordinate buttons, so it takes `dense` and lays
-              itself out as a row rather than being wrapped in one. */}
+              and its own map/coordinate buttons, so it lays itself out as a row
+              rather than being wrapped in one. */}
           <LocationInput
             address={operation.location}
             latitude={operation.coordinates?.[0] ?? null}
             longitude={operation.coordinates?.[1] ?? null}
             disabled={!canEdit}
             geocodeInitialAddress={false}
-            dense={dense}
+            dense
+
             onAddressChange={(address) => {
               if (canEdit) onUpdate({ location: address ?? '' })
             }}
@@ -593,28 +594,28 @@ export function OperationDetailContent({
           />
 
           {/* Meldung - Moved up from bottom */}
-          <DetailField label={t('common.meldung')} htmlFor="notes" dense={dense} alignStart>
+          <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
             <Textarea
               id="notes"
               placeholder={t('detail.meldungPlaceholder')}
               value={operation.notes}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ notes: e.target.value })}
-              className={cn(dense ? `${DENSE_CONTROL} min-h-[3.5rem] py-1` : "mt-1.5 min-h-[100px]")}
+              // The modal has the width for a taller Meldung; the panel does not.
+              className={cn(DENSE_CONTROL, "py-1", dense ? "min-h-[3.5rem]" : "min-h-[5rem]")}
             />
           </DetailField>
 
-          {/* Einsatzart and Priorität: side by side where there is room, one per
-              line in the panel — half-width controls under half-width labels is
+          {/* One per line, both mounts: two half-width controls sharing a row is
               how «Mittel» gets read as the Einsatzart. */}
-          <div className={cn(!dense && "grid grid-cols-2 gap-4")}>
-            <DetailField label={t('common.einsatzart')} htmlFor="edit-incidentType" dense={dense}>
+          <>
+            <DetailField label={t('common.einsatzart')} htmlFor="edit-incidentType">
               <Select
                 value={operation.incidentType}
                 disabled={!canEdit}
                 onValueChange={(value) => onUpdate({ incidentType: value })}
               >
-                <SelectTrigger className={cn(dense ? DENSE_CONTROL : "mt-1.5")} tabIndex={0}>
+                <SelectTrigger className={DENSE_CONTROL} tabIndex={0}>
                   <SelectValue placeholder={t('common.einsatzartPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -627,13 +628,13 @@ export function OperationDetailContent({
               </Select>
             </DetailField>
 
-            <DetailField label={t('common.priority')} htmlFor="edit-priority" dense={dense}>
+            <DetailField label={t('common.priority')} htmlFor="edit-priority">
               <Select
                 value={operation.priority}
                 disabled={!canEdit}
                 onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
               >
-                <SelectTrigger className={cn(dense ? DENSE_CONTROL : "mt-1.5")} tabIndex={0}>
+                <SelectTrigger className={DENSE_CONTROL} tabIndex={0}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -643,17 +644,17 @@ export function OperationDetailContent({
                 </SelectContent>
               </Select>
             </DetailField>
-          </div>
+          </>
 
           {/* Contact */}
-          <DetailField label={t('common.contact')} htmlFor="contact" dense={dense}>
+          <DetailField label={t('common.contact')} htmlFor="contact">
             <Input
               id="contact"
               placeholder={t('common.contactPlaceholder')}
               value={operation.contact}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ contact: e.target.value })}
-              className={cn(dense ? DENSE_CONTROL : "mt-1.5")}
+              className={DENSE_CONTROL}
             />
           </DetailField>
 
@@ -661,14 +662,13 @@ export function OperationDetailContent({
           <DetailField
             label={t('common.contactPhone')}
             htmlFor="contact-phone"
-            dense={dense}
             action={operation.contactPhone.trim() ? (
               <a
                 href={telHref(operation.contactPhone) ?? undefined}
                 className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
               >
                 <Phone className="h-3 w-3" />
-                {dense ? '' : t('common.callContact')}
+                {t('common.callContact')}
               </a>
             ) : undefined}
           >
@@ -680,7 +680,7 @@ export function OperationDetailContent({
               value={operation.contactPhone}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ contactPhone: sanitizePhoneInput(e.target.value) })}
-              className={cn(dense ? DENSE_CONTROL : "mt-1.5")}
+              className={DENSE_CONTROL}
             />
           </DetailField>
 
@@ -688,14 +688,14 @@ export function OperationDetailContent({
               together with the fields above they are one reading — what this
               incident IS. The other column answers who is on it. */}
           {/* Internal Notes */}
-          <DetailField label={t('common.notes')} htmlFor="internalNotes" dense={dense} alignStart>
+          <DetailField label={t('common.notes')} htmlFor="internalNotes" alignStart>
             <Textarea
               id="internalNotes"
               placeholder={t('common.internalNotesPlaceholder')}
               value={operation.internalNotes}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ internalNotes: e.target.value })}
-              className={cn(dense ? `${DENSE_CONTROL} min-h-[3.5rem] py-1` : "mt-1.5 min-h-[80px]")}
+              className={cn(DENSE_CONTROL, "py-1", dense ? "min-h-[3.5rem]" : "min-h-[4rem]")}
             />
           </DetailField>
 
@@ -713,8 +713,8 @@ export function OperationDetailContent({
             <DetailToggle
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
-              dense={dense}
-              icon={<Phone className={dense ? "h-3.5 w-3.5" : "h-5 w-5 text-muted-foreground"} />}
+
+              icon={<Phone className="h-3.5 w-3.5" />}
               checked={operation.source === 'intake'}
               disabled={!canEdit}
               onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
@@ -725,8 +725,8 @@ export function OperationDetailContent({
           <DetailToggle
             label={t('common.nachbarhilfe')}
             description={t('detail.nachbarhilfeDescription')}
-            dense={dense}
-            icon={<Building2 className={dense ? "h-3.5 w-3.5" : "h-5 w-5 text-muted-foreground"} />}
+
+            icon={<Building2 className="h-3.5 w-3.5" />}
             checked={operation.nachbarhilfe || false}
             disabled={!canEdit}
             onToggle={(checked) => canEdit && onUpdate({ nachbarhilfe: checked })}
@@ -737,7 +737,7 @@ export function OperationDetailContent({
                 disabled={!canEdit}
                 onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className={cn("cursor-text select-text text-sm", dense && "h-7")}
+                className="h-7 cursor-text text-sm select-text"
               />
             }
           />
@@ -746,8 +746,8 @@ export function OperationDetailContent({
           <DetailToggle
             label={t('common.amWarten')}
             description={t('common.amWartenDescription')}
-            dense={dense}
-            icon={<Timer className={dense ? "h-3.5 w-3.5" : "h-5 w-5 text-muted-foreground"} />}
+
+            icon={<Timer className="h-3.5 w-3.5" />}
             checked={operation.amWarten || false}
             disabled={!canEdit}
             onToggle={(checked) => canEdit && onUpdate({ amWarten: checked })}
@@ -758,7 +758,7 @@ export function OperationDetailContent({
                 disabled={!canEdit}
                 onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className={cn("cursor-text select-text text-sm", dense && "h-7")}
+                className="h-7 cursor-text text-sm select-text"
               />
             }
           />
