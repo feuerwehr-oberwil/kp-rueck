@@ -400,7 +400,12 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
               ))}
             </div>
           )}
-          <div className="flex gap-2">
+          {/* Input and Send have to be the same box. `Input` is a fixed h-9 (36px)
+              and does not stretch, while the default Button is min-h-44 — so the
+              send button stood 8px taller than the field it belongs to. Both are
+              pinned to 44px here: this is a phone surface, so 44 is the floor,
+              and `icon` keeps the button square instead of a wide slab. */}
+          <div className="flex items-stretch gap-2">
             <Input
               placeholder={t('messagePlaceholder')}
               value={message}
@@ -409,9 +414,10 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
               onKeyDown={e => {
                 if (e.key === 'Enter') handleMessage(message)
               }}
-              className="text-sm"
+              className="h-11 text-sm"
             />
             <Button
+              size="icon"
               aria-label={t('send')}
               disabled={busy || !message.trim()}
               onClick={() => handleMessage(message)}
