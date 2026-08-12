@@ -283,7 +283,10 @@ function DraggableOperationBase({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="relative w-full">
+        {/* The shell carries the Spotlight dimming, not the card: the card's own
+            `transition-all` belongs to its hover/selection states, and putting the
+            opacity fade here keeps the two from fighting (see globals.css). */}
+        <div className="operation-card-shell relative w-full">
           {closestEdge === 'top' && <DropIndicator edge="top" gap="4px" />}
           <Card
             ref={ref}
@@ -295,8 +298,14 @@ function DraggableOperationBase({
               // Priority styling (when not selected/highlighted)
               !isSelected && !isHighlighted && !isKeyboardFocused && priorityConfig?.card,
               isOver && 'bg-muted/20',
-              // Selection/highlight states - preserve priority border colors
-              isHighlighted && (priority === 'high' ? 'border-l-destructive bg-muted/30' : priority === 'medium' ? 'border-l-warning bg-muted/30' : 'border-l-foreground bg-muted/30'),
+              // "Hier steht sie" — the answer to a click in the sidebar. The old
+              // treatment was bg-muted/30 plus a border tint, which was quieter
+              // than the selection ring right next to it and got lost on a board
+              // full of cards. Now the card keeps its brightness while the rest of
+              // the board steps back for a moment (Spotlight, see globals.css) and
+              // carries an accent ring while it does. Priority still reads from the
+              // chevron, so borrowing the left border for ~4s costs no information.
+              isHighlighted && 'is-highlighted border-l-accent bg-muted/30 ring-[1.5px] ring-accent shadow-lg shadow-accent/25',
               isSelected && !isHighlighted && (priority === 'high' ? 'ring-2 ring-destructive/50 border-l-destructive/80 bg-muted/30' : priority === 'medium' ? 'ring-2 ring-warning/50 border-l-warning/80 bg-muted/30' : 'ring-2 ring-primary/50 border-l-foreground/70 bg-muted/30'),
               isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-destructive/50' : priority === 'medium' ? 'border-l-warning/50' : 'border-l-muted-foreground/50')
             )}

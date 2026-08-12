@@ -837,3 +837,35 @@
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
 }
+
+/* --- Spotlight ------------------------------------------------------------
+   Answers "wo steht die Karte?" after a click on a person or a piece of material
+   in the sidebar. Instead of making one card louder — which on a full board is a
+   contest it loses — the rest of the board steps back for ~1.2s. The dim lifts by
+   itself; the accent ring on the card (see draggable-operation.tsx) stays for the
+   remainder of the highlight.
+
+   It sits on the card SHELL, not the card: the card's own `transition-all` drives
+   hover and selection, and a second opacity transition on the same element made
+   the two stutter against each other. */
+.operation-card-shell {
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+
+#kanban-main[data-spotlight='on'] .operation-card-shell:not(:has(.is-highlighted)) {
+  opacity: 0.3;
+  filter: saturate(0.6);
+}
+
+/* The column headers go with them — otherwise the one bright card floats in a
+   dimmed board with no column to belong to. The column holding it keeps its. */
+#kanban-main[data-spotlight='on'] [data-column]:not(:has(.is-highlighted)) > :first-child {
+  opacity: 0.4;
+}
+
+/* Reduced motion keeps the information (the dim) and drops the fade. */
+@media (prefers-reduced-motion: reduce) {
+  .operation-card-shell {
+    transition: none;
+  }
+}

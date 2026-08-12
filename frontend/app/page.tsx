@@ -255,6 +255,11 @@ export default function FireStationDashboard() {
 
   // Ref for highlight timeout cleanup
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const spotlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Spotlight: for the first moment of a highlight the REST of the board steps
+  // back instead of the card shouting. It is a separate, shorter window than the
+  // highlight itself — the dim lifts, the accent ring stays for the remainder.
+  const [spotlightActive, setSpotlightActive] = useState(false)
 
   // Scroll to and highlight a card by operation ID
   const scrollToCard = useCallback((operationId: string) => {
@@ -262,9 +267,17 @@ export default function FireStationDashboard() {
     if (highlightTimeoutRef.current) {
       clearTimeout(highlightTimeoutRef.current)
     }
+    if (spotlightTimeoutRef.current) {
+      clearTimeout(spotlightTimeoutRef.current)
+    }
 
     // Set highlight immediately
     setHighlightedOperationId(operationId)
+    setSpotlightActive(true)
+
+    spotlightTimeoutRef.current = setTimeout(() => {
+      setSpotlightActive(false)
+    }, 1200)
 
     // Clear highlight after 3 seconds
     highlightTimeoutRef.current = setTimeout(() => {
@@ -1132,6 +1145,9 @@ export default function FireStationDashboard() {
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current)
       }
+      if (spotlightTimeoutRef.current) {
+        clearTimeout(spotlightTimeoutRef.current)
+      }
     }
   }, [])
 
@@ -1885,7 +1901,11 @@ export default function FireStationDashboard() {
           )}
 
           {/* Main Kanban Board */}
-          <main id="kanban-main" className="flex-1 overflow-x-auto overscroll-contain p-4 bg-muted/30 dark:bg-background">
+          <main
+            id="kanban-main"
+            data-spotlight={spotlightActive ? 'on' : undefined}
+            className="flex-1 overflow-x-auto overscroll-contain p-4 bg-muted/30 dark:bg-background"
+          >
             {!isLoaded ? null : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
