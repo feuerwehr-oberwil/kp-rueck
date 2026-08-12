@@ -1,14 +1,16 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
-import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize } from "lucide-react"
+import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { SearchInput } from "@/components/ui/search-input"
+import { DisplaySearchProvider, useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { useDisplayErrorRecovery } from "@/components/display-error"
 
 const displayPages = [
@@ -17,7 +19,8 @@ const displayPages = [
   { href: "/display/status", labelKey: "pageStatus", icon: BarChart3 },
 ] as const
 
-const HIDE_DELAY = 8000 // ms before header auto-hides
+/** Which display pages filter on the top bar's search field. */
+const SEARCHABLE_PAGES = ["/display/board", "/display/status"]
 
 function ConnectionIndicator({ token }: { token: string | null }) {
   const t = useTranslations('display')
@@ -53,7 +56,15 @@ function ConnectionIndicator({ token }: { token: string | null }) {
   )
 }
 
-export default function DisplayLayout({
+export default function DisplayLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <DisplaySearchProvider>
+      <DisplayChrome>{children}</DisplayChrome>
+    </DisplaySearchProvider>
+  )
+}
+
+function DisplayChrome({
   children,
 }: {
   children: React.ReactNode
@@ -88,9 +99,9 @@ export default function DisplayLayout({
 
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [tokenEvent, setTokenEvent] = useState<{ name: string; training_flag: boolean } | null>(null)
-  const [barVisible, setBarVisible] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const hideTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const { query, setQuery } = useDisplaySearch()
+  const isSearchable = SEARCHABLE_PAGES.includes(pathname)
 
   // Clock
   useEffect(() => {
@@ -111,27 +122,11 @@ export default function DisplayLayout({
     loadTokenEvent()
   }, [token])
 
-  // Auto-hide the control bar on sub-pages
-  const resetHideTimer = useCallback(() => {
-    if (!isSubPage) return
-    setBarVisible(true)
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    hideTimerRef.current = setTimeout(() => setBarVisible(false), HIDE_DELAY)
-  }, [isSubPage])
-
-  useEffect(() => {
-    if (!isSubPage) return
-    resetHideTimer()
-
-    const onActivity = () => resetHideTimer()
-    window.addEventListener("mousemove", onActivity)
-    window.addEventListener("touchstart", onActivity)
-    return () => {
-      window.removeEventListener("mousemove", onActivity)
-      window.removeEventListener("touchstart", onActivity)
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    }
-  }, [isSubPage, resetHideTimer])
+  // The bar used to slide away after 8s of no mouse movement. It no longer
+  // does: it is the ONLY bar now (the board pages had a second, near-identical
+  // header of their own), and it carries the two things people read a wall
+  // display for from across the room — which Ereignis, and what time it is.
+  // A screen nobody touches would have hidden both within eight seconds.
 
   // Fullscreen tracking
   useEffect(() => {
@@ -157,15 +152,11 @@ export default function DisplayLayout({
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
       {/* Control bar — top navbar on desktop, bottom bar on mobile (order-last
-          keeps it thumb-reachable there). Auto-hides on sub-pages (desktop only;
-          on mobile it stays pinned — it's the only nav there).
+          keeps it thumb-reachable there). Pinned: it is the only bar the display
+          pages have, and on a share link it also carries the «Nur-Lesen» badge
+          that used to sit in a second header of its own.
           Token/viewer mode omits the back link so there's no path to the editor. */}
-      <header
-        className={cn(
-          "order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-card/50 backdrop-blur-sm px-3 py-2 sm:py-1.5 min-h-10 shrink-0 transition-all duration-300",
-          isSubPage && !barVisible && "sm:-translate-y-full sm:opacity-0 sm:pointer-events-none sm:absolute sm:inset-x-0 sm:top-0 sm:z-50"
-        )}
-      >
+      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-card/50 backdrop-blur-sm px-3 py-2 sm:py-1.5 min-h-10 shrink-0">
         <div className="flex flex-1 items-center gap-2 min-w-0">
           {!token && (
             <>
@@ -186,6 +177,28 @@ export default function DisplayLayout({
             <span className="text-[11px] sm:text-xs font-medium text-warning-foreground bg-warning/10 border border-warning/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
               {t('layout.training')}
             </span>
+          )}
+          {/* Was a panel of its own on the share-link board, under a header that
+              repeated the Ereignis name this one already carries. */}
+          {token && (
+            <span className="hidden items-center gap-1.5 rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 sm:inline-flex dark:text-blue-400 shrink-0">
+              <Eye className="h-3.5 w-3.5" />
+              {t('layout.readOnly')}
+            </span>
+          )}
+
+          {/* The board's own search, in the bar rather than in a row of its own:
+              a wall display has no vertical space to spare, and this is the same
+              predicate the main board filters with. */}
+          {isSearchable && (
+            <SearchInput
+              size="sm"
+              value={query}
+              onValueChange={setQuery}
+              placeholder={t('layout.searchPlaceholder')}
+              containerClassName="ml-2 hidden w-40 shrink md:block lg:w-64"
+              className="h-7 text-sm"
+            />
           )}
         </div>
 

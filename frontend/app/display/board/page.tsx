@@ -7,6 +7,9 @@ import { TokenBoard } from "./token-board"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useMaterials } from "@/lib/contexts/materials-context"
+import { useDisplaySearch } from "@/lib/contexts/display-search-context"
+import { filterIncidents } from "@/lib/incident-search"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
@@ -44,7 +47,15 @@ export default function DisplayBoardPage() {
 function BoardDisplay() {
   const t = useTranslations('display')
   const tk = useTranslations('kanban')
-  const { operations } = useOperations()
+  const { operations: allOperations } = useOperations()
+  const { materials } = useMaterials()
+  // The top bar's search, same predicate the command-post board filters with —
+  // an address, a name, a Fahrzeug or a Material, across every column at once.
+  const { query } = useDisplaySearch()
+  const operations = useMemo(
+    () => filterIncidents(allOperations, query, materials),
+    [allOperations, query, materials],
+  )
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   // EVERY column folds now — a larger Feuerwehr otherwise just scrolls. All of
@@ -93,6 +104,19 @@ function BoardDisplay() {
     }
   }, [operations, selectedOperation?.id])
 
+  // Expanding a folded column — «Abgeschlossen» lives at the far right — used to
+  // widen something off-screen: the click looked like it did nothing. Bring it
+  // into view. Only on the click, never on mount.
+  const columnRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
+  const [scrollToColumn, setScrollToColumn] = useState<string | null>(null)
+  useEffect(() => {
+    if (!scrollToColumn) return
+    columnRefs.current
+      .get(scrollToColumn)
+      ?.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" })
+    setScrollToColumn(null)
+  }, [scrollToColumn])
+
   useCrossWindowSync({
     onMessage: (msg) => {
       if (msg.type === "incident:selected") setHighlightedId(msg.incidentId)
@@ -136,7 +160,10 @@ function BoardDisplay() {
             <button
               key={column.id}
               type="button"
-              onClick={() => collapsedColumns.toggle(column.id)}
+              onClick={() => {
+                collapsedColumns.toggle(column.id)
+                setScrollToColumn(column.id)
+              }}
               className={cn(
                 "flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5",
                 column.color
@@ -162,7 +189,11 @@ function BoardDisplay() {
         }
 
         return (
-          <div key={column.id} className="flex flex-1 flex-col min-w-[280px] overflow-hidden">
+          <div
+            key={column.id}
+            ref={(element) => { columnRefs.current.set(column.id, element) }}
+            className="flex flex-1 flex-col min-w-[280px] overflow-hidden"
+          >
             <button
               type="button"
               onClick={() => collapsedColumns.toggle(column.id)}

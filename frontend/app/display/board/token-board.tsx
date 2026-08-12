@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { apiClient, type ApiIncident, type ApiEvent, type ApiIncidentGroup, type ApiViewerData } from '@/lib/api-client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Clock, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, Phone } from 'lucide-react'
+import { Loader2, Eye, Siren, Truck, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus, Binoculars, Phone } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
 import { columns, ageLevel } from '@/lib/kanban-utils'
 import { IncidentTimeRow } from '@/components/ui/incident-time'
@@ -14,6 +14,8 @@ import { getIncidentTypeLabel } from '@/lib/incident-types'
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 import { buildSituationData, viewerGroupsToIncidentGroups } from '@/lib/viewer-data'
 import { IncidentDetailModal } from '@/components/display/incident-detail-modal'
+import { useDisplaySearch } from '@/lib/contexts/display-search-context'
+import { filterIncidents } from '@/lib/incident-search'
 
 // Read-only board rendered from a share token (no login). Mirrors the command
 // post board but sourced from the public viewer-data endpoint, which returns
@@ -235,13 +237,7 @@ export function TokenBoard({ token }: { token: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
-  const [currentTime, setCurrentTime] = useState(new Date())
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
+  const { query } = useDisplaySearch()
   const hasDataRef = useRef(false)
 
   const loadData = useCallback(async () => {
@@ -273,19 +269,30 @@ export function TokenBoard({ token }: { token: string }) {
     return () => clearInterval(interval)
   }, [error, loadData])
 
+  // Detail dialog: rebuild the operation view-model (crew, materials, vehicles
+  // from the payload's assignments) so tapping a card shows the full picture.
+  // The search reads it too — the same predicate as the command-post board, so
+  // a crew member's name finds the card here as well, not just an address.
+  const situation = useMemo(() => (payload ? buildSituationData(payload) : null), [payload])
+
+  const matchingIds = useMemo(() => {
+    if (!query.trim() || !situation) return null
+    return new Set(
+      filterIncidents(situation.operations, query, situation.materials).map((op) => op.id),
+    )
+  }, [query, situation])
+
   const incidentsByColumn = useMemo(() => {
     const grouped: Record<string, ApiIncident[]> = {}
     columns.forEach((col) => { grouped[col.id] = [] })
-    incidents.forEach((incident) => {
-      const column = columns.find((col) => col.status.includes(incident.status))
-      if (column) grouped[column.id].push(incident)
-    })
+    incidents
+      .filter((incident) => !matchingIds || matchingIds.has(incident.id))
+      .forEach((incident) => {
+        const column = columns.find((col) => col.status.includes(incident.status))
+        if (column) grouped[column.id].push(incident)
+      })
     return grouped
-  }, [incidents])
-
-  // Detail dialog: rebuild the operation view-model (crew, materials, vehicles
-  // from the payload's assignments) so tapping a card shows the full picture.
-  const situation = useMemo(() => (payload ? buildSituationData(payload) : null), [payload])
+  }, [incidents, matchingIds])
   const detailGroups = useMemo(() => (payload ? viewerGroupsToIncidentGroups(payload) : []), [payload])
   const selectedOperation = useMemo(
     () => situation?.operations.find((op) => op.id === selectedIncidentId) ?? null,
@@ -315,22 +322,9 @@ export function TokenBoard({ token }: { token: string }) {
     <div className="flex h-full flex-col bg-background text-foreground">
       <DisplayStaleBanner lastRefresh={lastRefresh} />
 
-      <header className="flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight truncate">{event?.name || t('eventFallback')}</h1>
-          {event?.training_flag && <Badge variant="secondary" className="flex-shrink-0">{t('training')}</Badge>}
-        </div>
-        <div className="flex items-center gap-2 md:gap-4">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-            <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{t('readOnly')}</span>
-          </div>
-          <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="font-mono text-base font-semibold tabular-nums">{currentTime.toLocaleTimeString('de-CH')}</span>
-          </div>
-        </div>
-      </header>
+      {/* No header of its own: the display layout's bar already carries this
+          Ereignis, the clock and the «Nur-Lesen» badge, and two bars stacked
+          said the same thing twice on the screen with the least room for it. */}
 
       {/* min-h-0 lets the columns scroll internally instead of the last card
           getting clipped at the container edge. */}

@@ -22,6 +22,8 @@ import { type IncidentGroup } from "@/lib/types/groups"
 import { apiClient, type ApiViewerData } from "@/lib/api-client"
 import { buildSituationData, viewerGroupsToIncidentGroups, type SituationData } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
+import { useDisplaySearch } from "@/lib/contexts/display-search-context"
+import { filterIncidents } from "@/lib/incident-search"
 import { cn } from "@/lib/utils"
 
 const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
@@ -131,12 +133,49 @@ function TokenStatusView({ token }: { token: string }) {
   )
 }
 
-function SituationBoard({ stats, vehicleStatus, operations, personnel, materials, detailGroups }: SituationData & {
+function SituationBoard({
+  stats,
+  vehicleStatus: allVehicles,
+  operations: allOperations,
+  personnel: allPersonnel,
+  materials: allMaterials,
+  detailGroups,
+}: SituationData & {
   /** Token mode only: payload-derived Aufträge for the detail dialog. */
   detailGroups?: IncidentGroup[]
 }) {
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
+
+  // The top bar's search narrows all four panels at once: incidents through the
+  // board's own predicate, and people, vehicles and material by the names one
+  // would actually type. Everything downstream reads the narrowed lists, so the
+  // section counts say how many rows are really there — a filtered panel with
+  // an unfiltered count is a panel that argues with itself.
+  const { query } = useDisplaySearch()
+  const needle = query.trim().toLowerCase()
+  const operations = useMemo(
+    () => filterIncidents(allOperations, query, allMaterials),
+    [allOperations, query, allMaterials],
+  )
+  const personnel = useMemo(
+    () => (!needle ? allPersonnel : allPersonnel.filter((p) =>
+      p.name.toLowerCase().includes(needle) || (p.role ?? "").toLowerCase().includes(needle))),
+    [allPersonnel, needle],
+  )
+  const materials = useMemo(
+    () => (!needle ? allMaterials : allMaterials.filter((m) =>
+      m.name.toLowerCase().includes(needle) || (m.category ?? "").toLowerCase().includes(needle))),
+    [allMaterials, needle],
+  )
+  const vehicleStatus = useMemo(
+    () => (!needle ? allVehicles : allVehicles.filter((v) =>
+      v.name.toLowerCase().includes(needle)
+      || (v.type ?? "").toLowerCase().includes(needle)
+      // A vehicle is often looked up by who is driving it.
+      || (v.driverName ?? "").toLowerCase().includes(needle))),
+    [allVehicles, needle],
+  )
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   // Every section folds; all of them start open. A big station scrolls forever
   // otherwise — but nothing folds itself away without someone deciding so.

@@ -2802,7 +2802,9 @@
       "displayOverview": "Display-Übersicht",
       "training": "Übung",
       "exitFullscreen": "Vollbild beenden",
-      "fullscreen": "Vollbild"
+      "fullscreen": "Vollbild",
+      "searchPlaceholder": "Suchen …",
+      "readOnly": "Nur-Lesen"
     },
     "map": {
       "authRequired": "Bitte melde dich an oder verwende einen Zugangscode (?token=xxx)"
