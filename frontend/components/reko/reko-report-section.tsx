@@ -50,11 +50,24 @@ interface RekoReportSectionProps {
   onRequestComplete?: () => void
   /** Whether this mount may write. False on the phone, which is viewing-first. */
   canEdit?: boolean
+  /**
+   * `split` puts the filed reports in one column and the entry surface in the
+   * other — the modal has the width, and in a two-column reading «was gemeldet
+   * wurde» and «was ich erfasse» stop pushing each other down the page. The
+   * panel stays stacked; 420px has no second column to give.
+   */
+  layout?: 'stacked' | 'split'
 }
 
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
 
-export default function RekoReportSection({ incidentId, onRequestComplete, canEdit = false }: RekoReportSectionProps) {
+export default function RekoReportSection({
+  incidentId,
+  onRequestComplete,
+  canEdit = false,
+  layout = 'stacked',
+}: RekoReportSectionProps) {
+  const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -169,7 +182,8 @@ export default function RekoReportSection({ incidentId, onRequestComplete, canEd
   }
 
   return (
-    <div className="space-y-2">
+    <div className={cn(split ? "grid grid-cols-2 gap-6" : "space-y-2")}>
+      <div className="space-y-2">
       {latestReport ? (
         <>
           {/* Latest Report - Full display */}
@@ -208,8 +222,13 @@ export default function RekoReportSection({ incidentId, onRequestComplete, canEd
         )
       )}
 
+      </div>
+
       {/* The editing surface. In place, not a dialog — a modal over the incident
-          detail would hide the Feldmeldungen the operator is dictating from. */}
+          detail would hide the Feldmeldungen the operator is dictating from.
+          Its own column when there is one, so a long report and a long form do
+          not queue up behind each other. */}
+      <div className={cn(split && "border-l border-border pl-6", !split && "space-y-2")}>
       {canEdit && (
         isEditing ? (
           <div className="rounded-lg border border-border p-4 space-y-3">
@@ -250,6 +269,7 @@ export default function RekoReportSection({ incidentId, onRequestComplete, canEd
           </Button>
         )
       )}
+      </div>
     </div>
   )
 }

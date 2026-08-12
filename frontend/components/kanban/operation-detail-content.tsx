@@ -1299,6 +1299,9 @@ export function OperationDetailContent({
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
+                // Two columns where there is width: what was reported on the
+                // left, what the operator writes on the right.
+                layout={dense ? 'stacked' : 'split'}
                 onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
               />
             </div>
@@ -1318,21 +1321,15 @@ export function OperationDetailContent({
             hidden={tab !== 'rapport'}
             className={tabPanelClass}
           >
-          {/* One flow, not three scattered things: what the crew reported (the
-              toggles), what they said (the thread), and what they filed (the
-              rapport). All three came from the same people on the same
-              Schadenplatz, and they belong on one page — in one column, because
-              a second column here only ever held the Reko block that now has a
-              tab of its own. */}
-          <div className="space-y-5 py-4">
-            {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps on
-                /feld, an operator enters here from a radio message. */}
-            <FieldReportsRow operation={operation} canEdit={canEdit} />
-
+          {/* One flow, split the same way the Reko tab is: what CAME IN on the
+              left — the crew's sentences — and what the KP itself sets or fills
+              in on the right. In the panel that becomes one column, top to
+              bottom, because 420px has no second one to give. */}
+          <div className={cn("py-4", dense ? "space-y-5" : "grid grid-cols-2 gap-6")}>
             {/* Everything the crew said, plus the two reports that used to be
-                toggles above (§18.19). Before this thread existed a Meldung
-                became a notification and an audit entry and showed up on the
-                incident nowhere at all — dismiss the bell and it was gone. */}
+                toggles (§18.19). Before this thread existed a Meldung became a
+                notification and an audit entry and showed up on the incident
+                nowhere at all — dismiss the bell and it was gone. */}
             <FieldMessageThread
               operation={operation}
               events={timeline.events}
@@ -1340,6 +1337,11 @@ export function OperationDetailContent({
               failed={timeline.failed}
               onRetry={timeline.reload}
             />
+
+            <div className={cn("space-y-5", !dense && "border-l border-border pl-6")}>
+            {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps on
+                /feld, an operator enters here from a radio message. */}
+            <FieldReportsRow operation={operation} canEdit={canEdit} />
 
             {/* The Schadenplatz-Rapport itself, as a FULL editing surface: the KP
                 must be able to file one for an incident that never had any field
@@ -1358,6 +1360,7 @@ export function OperationDetailContent({
                 hasReport: operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft,
               })}
             />
+            </div>
           </div>
           </TabsContent>
 

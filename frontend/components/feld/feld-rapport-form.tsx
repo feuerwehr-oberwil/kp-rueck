@@ -546,7 +546,10 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           extraMaterials={formData.extra_materials}
           suggestions={rapport.prefill.material_name_suggestions ?? []}
           disabled={readOnly}
-          hideHeading={collapsible}
+          // ALWAYS: the section around it carries the title in both shapes —
+          // folded on /feld, as a plain heading in the KP mount — and the
+          // checklist's own one made the modal read «Material / Material».
+          hideHeading
           onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
           onExtraMaterialsChange={entries => update('extra_materials', entries)}
         />
