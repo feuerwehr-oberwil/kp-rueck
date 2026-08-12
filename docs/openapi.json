@@ -10647,7 +10647,7 @@
           "reko"
         ],
         "summary": "Upload Photo",
-        "description": "Upload photo to Reko report.\n\nRequires X-Reko-Token header for authentication.\nPhotos are compressed, resized, and stored as JPEG files.\n\nArgs:\n    incident_id: Incident UUID\n    file: Uploaded image file\n    x_reko_token: Form access token (from header)\n    db: Database session\n\nReturns:\n    { \"filename\": \"uuid.jpg\" }",
+        "description": "Upload photo to Reko report.\n\n**One route, two doors**, the same shape `POST /api/reko/` has: a field crew\nsends the incident's form token, the board sends none and is identified by\nits session. The board door is the WhatsApp case — the crew has no signal at\nthe Schadenplatz and sends the picture over whatever channel works, so the\noperator has to be able to attach it to the report they are transcribing.\n\nPhotos are compressed, resized, and stored as JPEG files.\n\nArgs:\n    incident_id: Incident UUID\n    file: Uploaded image file\n    x_reko_token: Form access token (from header), for the field door\n    report_id: The report to attach to, for the board door when amending\n    db: Database session\n\nReturns:\n    { \"filename\": \"uuid.jpg\" }",
         "operationId": "upload_photo_api_reko__incident_id__photos_post",
         "parameters": [
           {
@@ -10661,12 +10661,70 @@
             }
           },
           {
+            "name": "report_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Session door only: attach to this existing report instead of the operator's draft.",
+              "title": "Report Id"
+            },
+            "description": "Session door only: attach to this existing report instead of the operator's draft."
+          },
+          {
             "name": "x-reko-token",
             "in": "header",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Reko-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
             }
           }
         ],
@@ -10708,7 +10766,7 @@
           "reko"
         ],
         "summary": "Delete Photo",
-        "description": "Delete photo from Reko report.\n\nRequires X-Reko-Token header for authentication.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename to delete\n    x_reko_token: Form access token (from header)\n    db: Database session\n\nReturns:\n    { \"success\": true }",
+        "description": "Delete photo from Reko report.\n\nSame two doors as the upload: the incident's form token, or a session.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename to delete\n    x_reko_token: Form access token (from header), for the field door\n    report_id: The report the photo hangs on, for the board door when amending\n    db: Database session\n\nReturns:\n    { \"success\": true }",
         "operationId": "delete_photo_api_reko__incident_id__photos__filename__delete",
         "parameters": [
           {
@@ -10731,12 +10789,70 @@
             }
           },
           {
+            "name": "report_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Session door only: the report the photo hangs on, when amending an existing one.",
+              "title": "Report Id"
+            },
+            "description": "Session door only: the report the photo hangs on, when amending an existing one."
+          },
+          {
             "name": "x-reko-token",
             "in": "header",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Reko-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
             }
           }
         ],

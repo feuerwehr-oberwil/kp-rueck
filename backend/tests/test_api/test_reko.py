@@ -590,15 +590,110 @@ async def test_upload_photo_invalid_token(client: AsyncClient, test_incident: In
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_upload_photo_missing_token(client: AsyncClient, test_incident: Incident):
-    """Test that photo upload requires token header."""
+async def test_upload_photo_without_token_or_session(client: AsyncClient, test_incident: Incident):
+    """Neither a token nor a session is still refused.
+
+    The header stopped being *required* when the board got its own door (§6.1),
+    so the refusal moved from a 422 to the 401 every other Reko route gives.
+    """
     file_content = b"fake image content"
 
     response = await client.post(
         f"/api/reko/{test_incident.id}/photos",
         files={"file": ("test.jpg", file_content, "image/jpeg")},
     )
-    assert response.status_code == 422  # Missing required header
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_editor_uploads_photo_without_token(editor_client: AsyncClient, test_incident: Incident):
+    """The WhatsApp case: the operator attaches a picture the crew sent them.
+
+    No token — the session is the credential — and the photo lands on the
+    operator's own draft, which is the row the subsequent save submits.
+    """
+    with patch("app.api.reko.photo_storage") as mock_storage:
+        mock_storage.save_photo = AsyncMock(return_value="kp-photo.jpg")
+
+        response = await editor_client.post(
+            f"/api/reko/{test_incident.id}/photos",
+            files={"file": ("whatsapp.jpg", b"fake image content", "image/jpeg")},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["filename"] == "kp-photo.jpg"
+
+    listed = await editor_client.get(f"/api/reko/incident/{test_incident.id}/reports")
+    assert listed.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_editor_uploads_photo_onto_an_existing_report(
+    editor_client: AsyncClient, db_session: AsyncSession, test_incident: Incident, valid_token: str
+):
+    """Amending a crew report: the photo hangs on that report, not on a side draft."""
+    report = RekoReport(
+        id=uuid4(),
+        incident_id=test_incident.id,
+        token=valid_token,
+        photos_json=["crew.jpg"],
+        is_draft=False,
+    )
+    db_session.add(report)
+    await db_session.commit()
+
+    with patch("app.api.reko.photo_storage") as mock_storage:
+        mock_storage.save_photo = AsyncMock(return_value="kp-photo.jpg")
+
+        response = await editor_client.post(
+            f"/api/reko/{test_incident.id}/photos?report_id={report.id}",
+            files={"file": ("whatsapp.jpg", b"fake image content", "image/jpeg")},
+        )
+
+    assert response.status_code == 200
+    await db_session.refresh(report)
+    assert report.photos_json == ["crew.jpg", "kp-photo.jpg"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_editor_cannot_upload_onto_another_incidents_report(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_incident: Incident,
+    test_editor: User,
+    valid_token: str,
+):
+    """A report id from elsewhere must not become a way to write into it."""
+    other_incident = Incident(
+        id=uuid4(),
+        event_id=test_event.id,
+        title="Other Incident",
+        type="brandbekaempfung",
+        priority="medium",
+        status="reko",
+        created_by=test_editor.id,
+    )
+    db_session.add(other_incident)
+    await db_session.commit()
+
+    other = RekoReport(
+        id=uuid4(),
+        incident_id=other_incident.id,
+        token=valid_token,
+        is_draft=False,
+    )
+    db_session.add(other)
+    await db_session.commit()
+
+    response = await editor_client.post(
+        f"/api/reko/{test_incident.id}/photos?report_id={other.id}",
+        files={"file": ("whatsapp.jpg", b"fake image content", "image/jpeg")},
+    )
+    assert response.status_code == 404
 
 
 # ============================================

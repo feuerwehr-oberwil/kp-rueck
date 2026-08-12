@@ -16,10 +16,10 @@
  * able to enter — including the "Einsatz relevant?" requirement, which is a
  * property of the report and not of the phone it was typed on.
  *
- * `photos` is optional and the block is simply absent without it. The board has
- * no photo door yet (the Reko photo endpoints are still token-only) and an
- * upload control that answers 400 is worse than one that is not offered; the
- * crew's photos stay readable in the report card above.
+ * `photos` is optional and the block is simply absent without it. Both mounts
+ * now pass one: the Reko photo endpoints take a session as well as a form token
+ * (§6.1), because the picture often reaches the KP over WhatsApp rather than
+ * over the form — no signal in the cellar, or a crew that will not open an app.
  */
 
 import type { Dispatch, SetStateAction } from 'react'
@@ -310,6 +310,9 @@ export function RekoReportForm({
 
           <div className="space-y-3">
             <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('photos')}</Label>
+            {/* Says what this box is FOR on the board: not the operator taking
+                pictures, but the ones that arrived over WhatsApp. */}
+            {isKp && <p className="text-xs text-muted-foreground">{t('photosKpHint')}</p>}
             <PhotoUpload
               photos={value.photos_json}
               incidentId={incidentId}

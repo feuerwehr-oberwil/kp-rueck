@@ -1122,6 +1122,19 @@ class ApiClient {
     })
   }
 
+  /** The board's door onto the same upload — the WhatsApp-photo case. No token:
+   *  the session identifies the operator. `reportId` when amending an existing
+   *  report, omitted while creating one (the photo then lands in the draft the
+   *  save submits). */
+  async uploadRekoPhotoAsEditor(
+    incidentId: string,
+    file: File,
+    reportId?: string,
+  ): Promise<{ filename: string }> {
+    const query = reportId ? `?report_id=${encodeURIComponent(reportId)}` : ''
+    return this.uploadPhotoFile<{ filename: string }>(`/api/reko/${incidentId}/photos${query}`, file)
+  }
+
   /**
    * The multipart photo POST, shared by every photo door.
    *
@@ -1179,6 +1192,12 @@ class ApiClient {
       method: 'DELETE',
       headers: { 'X-Reko-Token': token },
     })
+  }
+
+  /** Board door, see `uploadRekoPhotoAsEditor`. */
+  async deleteRekoPhotoAsEditor(incidentId: string, filename: string, reportId?: string): Promise<void> {
+    const query = reportId ? `?report_id=${encodeURIComponent(reportId)}` : ''
+    await this.request(`/api/reko/${incidentId}/photos/${filename}${query}`, { method: 'DELETE' })
   }
 
   async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {

@@ -1904,6 +1904,7 @@
         "emergency_needed": "Notstrom nötig"
       },
       "photos": "Fotos",
+      "photosKpHint": "Bilder, die per WhatsApp oder ähnlich hereinkommen, hier anhängen.",
       "summary": "Zusammenfassung",
       "summaryShort": "Kurzzusammenfassung",
       "summaryPlaceholder": "Wichtigste Erkenntnisse...",

@@ -28,7 +28,7 @@
  * longer says whether Reko is on site.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -104,6 +104,23 @@ export default function RekoReportSection({ incidentId, onRequestComplete, canEd
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)
 
+  /**
+   * The board's photo door (§6.1, same case the Schadenplatz-Rapport already
+   * covers): the crew has no signal at the Schadenplatz and sends the picture
+   * over WhatsApp, so the operator attaches it to the report they are
+   * transcribing. No token — the session is the credential, and the default
+   * read path (`GET /api/photos/…`) is the session-authenticated one.
+   */
+  const photoTransport = useMemo(
+    () => ({
+      upload: async (file: File) =>
+        (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, latestReport?.id)).filename,
+      remove: (filename: string) =>
+        apiClient.deleteRekoPhotoAsEditor(incidentId, filename, latestReport?.id),
+    }),
+    [incidentId, latestReport?.id],
+  )
+
   /** Open the form: amending starts from what is already there. */
   function startEditing() {
     setFormData(toRekoFormData(latestReport))
@@ -113,13 +130,15 @@ export default function RekoReportSection({ incidentId, onRequestComplete, canEd
   async function handleSave() {
     setIsSaving(true)
     try {
-      // Only the report's own fields travel: no token (the session is the
-      // identity) and no photos, which this mount has no door for.
+      // The report's own fields; no token, the session is the identity. Photos
+      // travel too: the upload already attached them server-side, and sending
+      // the list keeps a photo removed in the open form removed on save.
       const payload = {
         is_relevant: formData.is_relevant,
         dangers_json: formData.dangers_json,
         effort_json: formData.effort_json,
         power_supply: formData.power_supply,
+        photos_json: formData.photos_json,
         summary_text: formData.summary_text,
         additional_notes: formData.additional_notes,
       }
@@ -218,6 +237,7 @@ export default function RekoReportSection({ incidentId, onRequestComplete, canEd
               incidentId={incidentId}
               value={formData}
               onChange={setFormData}
+              photos={photoTransport}
               mount="kp"
               isSubmitting={isSaving}
               onSubmit={handleSave}
