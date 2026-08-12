@@ -3,7 +3,7 @@
 Pure, synchronous rendering: takes an :class:`EventReportData` (gathered by
 ``collect_event_report_data``) plus the generating user's name and returns the
 finished PDF as ``bytes``. No database access, no I/O beyond an in-memory
-buffer — so it is trivially unit-testable and safe to run in a worker thread
+buffer – so it is trivially unit-testable and safe to run in a worker thread
 via ``asyncio.to_thread``.
 
 All user-facing strings live in the module-level :data:`LABELS` dict (German,
@@ -56,7 +56,7 @@ LABELS: dict[str, str] = {
     "funkrufname": "Funkrufname",
     "generated_at": "Erstellt am",
     "generated_by": "Erstellt von",
-    # Placeholder for the defensive paths only — a checklist row that carries no name
+    # Placeholder for the defensive paths only – a checklist row that carries no name
     # at all. Fields the event simply has no answer for are not printed (see
     # `_maybe_field`): a line reading "Kontakt: –" tells a reader nothing that the
     # absent line would not, and twenty of them per page bury the lines that do.
@@ -107,7 +107,7 @@ LABELS: dict[str, str] = {
     "col_priority": "Priorität",
     "col_status": "Status",
     "col_address": "Adresse",
-    # Short enough to fit its column head at 8 pt — "Eingegangen" and "Abgeschlossen"
+    # Short enough to fit its column head at 8 pt – "Eingegangen" and "Abgeschlossen"
     # broke mid-word ("Eingegang / en") and no width the table can spare fixes that.
     "col_created": "Eingang",
     "col_completed": "Ende",
@@ -131,8 +131,8 @@ LABELS: dict[str, str] = {
     "reko_notes": "Zusätzliche Notizen",
     "reko_draft": "Entwurf",
     # Reko provenance (plan 26 §5.3, §7). Same vocabulary as the Rapport's lines
-    # below — "(Feld)" for a crew filing, "(Funkmeldung)" for one the KP took over
-    # the radio — because a reader who learns it on one block must not have to
+    # below – "(Feld)" for a crew filing, "(Funkmeldung)" for one the KP took over
+    # the radio – because a reader who learns it on one block must not have to
     # learn it again on the next. "Ergänzt" rather than "Zuletzt bearbeitet": the
     # mixed report is one the crew filed and the KP added to.
     "reko_filed_field": "Erfasst von {name} (Feld), {at}",
@@ -266,7 +266,7 @@ _INK = colors.HexColor("#1b2330")  # headings and body text
 _DIM = colors.HexColor("#5b6573")  # secondary text, column heads, filing lines
 _PANEL = colors.HexColor("#eef2f7")  # table heads and label columns
 _GRID = colors.HexColor("#d7dde5")  # hairlines
-_ZEBRA = colors.HexColor("#f7f9fb")  # alternating rows — our tables run for pages
+_ZEBRA = colors.HexColor("#f7f9fb")  # alternating rows – our tables run for pages
 _EXERCISE = colors.HexColor("#b4690a")  # ÜBUNG marker
 
 #: Width of the label column every label/value line aligns on.
@@ -279,7 +279,7 @@ _EXERCISE = colors.HexColor("#b4690a")  # ÜBUNG marker
 #: value line in the document for the benefit of three labels.
 _LABEL_W = 40 * mm
 
-#: The cover block's own, narrower column — its four labels are short, and a 40 mm
+#: The cover block's own, narrower column – its four labels are short, and a 40 mm
 #: gutter under a title would read as a missing column rather than an aligned one.
 _META_LABEL_W = 28 * mm
 
@@ -315,7 +315,7 @@ def _text(value: str | None) -> str:
 def _tidy(line: str) -> str:
     """Drop the dangling separator a missing timestamp leaves in a filing line.
 
-    "Erfasst von Muster Hans (Feld), " — the templates put the clock last, and a
+    "Erfasst von Muster Hans (Feld), " – the templates put the clock last, and a
     report that was never submitted has none.
     """
     return line.strip().rstrip(",").strip()
@@ -384,8 +384,8 @@ def format_location_for_display(full_address: str | None, home_city: str) -> str
 # ---------------------------------------------------------------------------
 # Schadenplatz-Rapport rendering (plan 25, §7)
 #
-# Shared by the three outputs — this PDF, the Lageblatt and the Einsätze
-# workbook — so the three-state material answer and the provenance wording can
+# Shared by the three outputs – this PDF, the Lageblatt and the Einsätze
+# workbook – so the three-state material answer and the provenance wording can
 # never drift between them. Pure functions over the model rows; no reportlab.
 # ---------------------------------------------------------------------------
 
@@ -403,7 +403,7 @@ def material_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str,
 
 
 def material_used_label(used: object) -> str:
-    """gebraucht / nicht gebraucht — two answers since §18.32.
+    """gebraucht / nicht gebraucht – two answers since §18.32.
 
     "keine Angabe" is gone with the three-state control that produced it: the
     checklist is prefilled *ja* (the unit was dispatched here) and the crew
@@ -431,7 +431,7 @@ def format_material_unit(row: Mapping[str, Any]) -> str:
 
 
 def material_left_on_site_names(report: SchadenplatzReport | None) -> list[str]:
-    """The units the crew left at the address — the Abholliste's raw material."""
+    """The units the crew left at the address – the Abholliste's raw material."""
     return [
         str(row.get("name") or LABELS["none"])
         for row in material_checklist_rows(report)
@@ -469,7 +469,7 @@ def format_extra_material(row: Mapping[str, Any]) -> str:
 
 
 def extra_material_left_on_site_names(report: SchadenplatzReport | None) -> list[str]:
-    """The named things the crew left behind — Abholliste material without an id.
+    """The named things the crew left behind – Abholliste material without an id.
 
     Marked ``nicht erfasst`` wherever they share a line with real units, because
     the difference is operational: somebody has to fetch them just the same, but
@@ -505,7 +505,7 @@ def personnel_present_names(report: SchadenplatzReport | None) -> list[str]:
 
 
 def extra_personnel_lines(report: SchadenplatzReport | None) -> list[str]:
-    """ "Bräm Urs (FW Allschwil, ab 21:00)" — somebody on no roster of this station."""
+    """ "Bräm Urs (FW Allschwil, ab 21:00)" – somebody on no roster of this station."""
     if report is None or not report.extra_personnel_json:
         return []
     lines: list[str] = []
@@ -525,7 +525,7 @@ def vehicle_present_names(report: SchadenplatzReport | None) -> list[str]:
 
     The list replaced a count on purpose: "3" answers neither "war der TLF
     dabei?" nor the paperwork behind it. An unticked vehicle simply is not on
-    the line — the crew said it was not there.
+    the line – the crew said it was not there.
     """
     return [str(row.get("name") or LABELS["none"]) for row in vehicle_checklist_rows(report) if row.get("present")]
 
@@ -533,7 +533,7 @@ def vehicle_present_names(report: SchadenplatzReport | None) -> list[str]:
 def board_personnel_count(data: EventReportData, incident_id: uuid.UUID) -> int:
     """How many distinct people the **board** has on this incident.
 
-    Released rows count and a re-assignment counts once — the same rule the
+    Released rows count and a re-assignment counts once – the same rule the
     rapport prefill uses, so "korrigiert" compares like with like.
     """
     personnel = {
@@ -543,7 +543,7 @@ def board_personnel_count(data: EventReportData, incident_id: uuid.UUID) -> int:
 
 
 class WorkWindow(NamedTuple):
-    """Beginn/Ende Tätigkeit, derived — never stored, never typed."""
+    """Beginn/Ende Tätigkeit, derived – never stored, never typed."""
 
     started_at: datetime | None
     ended_at: datetime | None
@@ -556,9 +556,9 @@ def rapport_work_windows(data: EventReportData) -> dict[uuid.UUID, WorkWindow]:
     board anything the board did not already have, so the columns went and the
     chain that used to prefill them is now the only source:
 
-    * **Beginn** — the rapport's ``arrived_at`` ("Angekommen" on `/feld`), else
+    * **Beginn** – the rapport's ``arrived_at`` ("Angekommen" on `/feld`), else
       the first transition into ``active``, else the earliest assignment.
-    * **Ende** — the incident's ``field_complete_reported_at`` ("beendet"
+    * **Ende** – the incident's ``field_complete_reported_at`` ("beendet"
       gemeldet), else the first transition into ``returning``/``complete``.
 
     Either side may stay ``None``: a Schadenplatz nobody has left yet has no Ende,
@@ -568,7 +568,7 @@ def rapport_work_windows(data: EventReportData) -> dict[uuid.UUID, WorkWindow]:
     every transition of the event, so an export of forty Schadenplätze walks
     those two lists **once** instead of issuing three queries per row. This is
     the single implementation for all three outputs (Einsätze-xlsx, Lageblatt,
-    Einsatzbericht) — they must not be able to disagree about when a crew worked.
+    Einsatzbericht) – they must not be able to disagree about when a crew worked.
     """
     first_active: dict[uuid.UUID, datetime] = {}
     first_end: dict[uuid.UUID, datetime] = {}
@@ -623,7 +623,7 @@ def _personnel_display(data: EventReportData, personnel_id: uuid.UUID | None) ->
 
 
 def rapport_filing_lines(data: EventReportData, report: SchadenplatzReport) -> list[str]:
-    """The filing identity — one line, or two for a mixed report.
+    """The filing identity – one line, or two for a mixed report.
 
     "Erfasst von Muster Hans (Feld), 08.08.2026 14:32" versus "Erfasst im KP
     durch B. Eichenberger (Funkmeldung), …". Provenance is never faked
@@ -669,7 +669,7 @@ def rapport_filing_lines(data: EventReportData, report: SchadenplatzReport) -> l
 
 
 def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
-    """Who filed this Reko report, through which channel — one line, or two.
+    """Who filed this Reko report, through which channel – one line, or two.
 
     The Reko report is the second artefact that can now arrive through either
     door (plan 26 §5.1), so it prints the same sentence the Schadenplatz-Rapport
@@ -678,7 +678,7 @@ def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
     ``*_by_user_id`` columns are the KP's, and a User is never guessed to be a
     Personnel (decision 6).
 
-    The mixed case — crew filed, KP amended over the radio — is the one this
+    The mixed case – crew filed, KP amended over the radio – is the one this
     exists for and prints both::
 
         Erfasst von Muster Hans (Feld), 08.08.2026 19:22
@@ -714,7 +714,7 @@ def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
 
 
 def reko_arrival_line(report: RekoReport) -> str:
-    """ "Vor Ort 19:22 (Feld)" or "(Funkmeldung)" — or nothing at all.
+    """ "Vor Ort 19:22 (Feld)" or "(Funkmeldung)" – or nothing at all.
 
     The arrival carries its own author column rather than being read off the
     report's creator: since plan 26 the KP can file a report before anybody is
@@ -847,7 +847,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             spaceBefore=6,
             spaceAfter=2,
         ),
-        # A block inside an incident that is somebody else's record — the crew's
+        # A block inside an incident that is somebody else's record – the crew's
         # Schadenplatz-Rapport. It used to be set in the same weight and at the same
         # indent as the incident's own fields, so nothing said where the board's data
         # ended and the field slip began.
@@ -939,7 +939,7 @@ def _styles() -> dict[str, ParagraphStyle]:
 
 
 def _rule(color: colors.Color = _INK, thickness: float = 0.8, space_after: float = 4) -> HRFlowable:
-    """The hairline under a section heading — the thing that made the page scannable.
+    """The hairline under a section heading – the thing that made the page scannable.
 
     Headings alone were four sizes of bold text floating in white space; the rule is
     what turns them into a visible level.
@@ -965,7 +965,7 @@ def _widths(*fixed: float) -> list[float]:
 def _logo_flowable(logo: bytes | None) -> Image | None:
     """The station logo scaled into the letterhead box, or ``None``.
 
-    Never raises: an unreadable image costs the report its logo, never its existence —
+    Never raises: an unreadable image costs the report its logo, never its existence –
     an Einsatzbericht that fails to render because somebody uploaded a broken PNG would
     be a far worse bug than a missing crest.
     """
@@ -993,7 +993,7 @@ def _cover(
     """Build the cover/header flowables.
 
     The event is the title; "Einsatzbericht" is the eyebrow above it. It used to be the
-    other way round — the document *type* set 22 pt in red over the event name at 15 pt —
+    other way round – the document *type* set 22 pt in red over the event name at 15 pt –
     which gave the loudest line on page 1 to the one word every copy of this file shares.
     """
     event = data.event
@@ -1073,7 +1073,7 @@ def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> 
     distinct_vehicles = {a.resource_id for a in data.assignments if a.resource_type == "vehicle"}
     distinct_materials = {a.resource_id for a in data.assignments if a.resource_type == "material"}
 
-    # Incidents total, broken down by status inline — in the order the board works
+    # Incidents total, broken down by status inline – in the order the board works
     # through, not alphabetically by the raw key.
     ordered = [s for s in STATUS_ORDER if s in status_counts]
     ordered += sorted(s for s in status_counts if s not in STATUS_ORDER)
@@ -1105,7 +1105,7 @@ def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> 
 
 
 def _fmt_duration(seconds: float | None) -> str:
-    """Duration as a clock reading — ``0:08``, ``2:05``, ``102:00``.
+    """Duration as a clock reading – ``0:08``, ``2:05``, ``102:00``.
 
     One shape for the whole column, so the numbers can be compared straight down it.
     The old mixed "8 min" / "1 h 05" made the reader re-read the unit on every cell.
@@ -1118,7 +1118,7 @@ def _fmt_duration(seconds: float | None) -> str:
 
 def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> Table:
     """Per-incident reaction metrics: time from Eingang to first reaching each
-    key status. Feeds the debrief — "incident 3 sat unnoticed for 9 minutes"
+    key status. Feeds the debrief – "incident 3 sat unnoticed for 9 minutes"
     becomes a number instead of a feeling."""
     # First time each incident reached each status (transitions are per-incident).
     first_reached: dict[tuple[uuid.UUID, str], datetime] = {}
@@ -1175,7 +1175,7 @@ def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyl
 
 
 # ---------------------------------------------------------------------------
-# Einsatztagebuch — merged, chronological journal of the whole event.
+# Einsatztagebuch – merged, chronological journal of the whole event.
 # ---------------------------------------------------------------------------
 
 
@@ -1214,7 +1214,7 @@ def _user_display(data: EventReportData, user_id: uuid.UUID | None) -> str:
 
 
 def _incident_ref(data: EventReportData, incident_id: uuid.UUID | None) -> str:
-    """The incident's short title for the journal's second column, or "" — an
+    """The incident's short title for the journal's second column, or "" – an
     event-level entry belongs to no incident and an empty cell says so."""
     if incident_id is None:
         return ""
@@ -1236,8 +1236,8 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
 
     Sources: incident creation, status transitions, resource (un)assignments,
     submitted reko reports, and the whitelisted audit rows (Divera alarms,
-    incident delete/restore). Anything else — field-level updates, logins,
-    exports, settings changes — is deliberately excluded.
+    incident delete/restore). Anything else – field-level updates, logins,
+    exports, settings changes – is deliberately excluded.
     """
     entries: list[JournalEntry] = []
 
@@ -1270,7 +1270,7 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
         if a.unassigned_at is not None:
             entries.append(JournalEntry(a.unassigned_at, ref, LABELS["journal_unassigned"].format(name=name)))
 
-    # Reko reports (submitted only — drafts are not yet "incoming")
+    # Reko reports (submitted only – drafts are not yet "incoming")
     for reko in data.reko_reports:
         if reko.is_draft or reko.submitted_at is None:
             continue
@@ -1305,7 +1305,7 @@ def _journal_table(entries: list[JournalEntry], styles: dict[str, ParagraphStyle
     """Dense, paginating journal table (LongTable so hundreds of rows split
     cleanly across pages; header repeats)."""
     # HH:MM is enough within one day; add the date when the event spans days.
-    # Local dates/times — the journal is read against Swiss wall clocks.
+    # Local dates/times – the journal is read against Swiss wall clocks.
     spans_days = len({_as_utc(e.timestamp).astimezone(LOCAL_TZ).date() for e in entries}) > 1
     time_fmt = "%d.%m. %H:%M" if spans_days else "%H:%M"
 
@@ -1347,7 +1347,7 @@ def _journal_table(entries: list[JournalEntry], styles: dict[str, ParagraphStyle
 def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphStyle], home_city: str = "") -> Table:
     """One row per incident: nr, title, type, address, received, completed.
 
-    Priority and status are deliberately not here — they belong to the incident's own
+    Priority and status are deliberately not here – they belong to the incident's own
     block, and six columns is what fits at 8 pt without a head breaking mid-word.
     """
     header = [
@@ -1404,12 +1404,12 @@ def _label_value_row(
     """One label/value line, the value starting at a fixed column.
 
     A borderless one-row Table rather than a single Paragraph: the whole point is that
-    the values line up, which a "``<b>Label:</b> value``" paragraph cannot do — its
+    the values line up, which a "``<b>Label:</b> value``" paragraph cannot do – its
     value starts wherever the label happens to end.
 
     ``splitInRow`` is what makes the table safe here. A table row normally cannot break,
     so a 4000-character Beschreibung in a plain Table would overflow the page instead of
-    flowing onto the next one — which is exactly why this used to be a Paragraph. With
+    flowing onto the next one – which is exactly why this used to be a Paragraph. With
     the flag set, ReportLab splits *inside* the row and long values (and long bullet
     lists, passed as a list of flowables) continue on the following page.
     """
@@ -1453,7 +1453,7 @@ def _maybe_field(label: str, value: str | None, styles: dict[str, ParagraphStyle
 def _bullet_field(label: str, items: list[str], styles: dict[str, ParagraphStyle]) -> list[Any]:
     """A label with one bullet per item, the bullets aligned in the value column.
 
-    An empty list prints nothing — same reasoning as :func:`_maybe_field`. Each bullet
+    An empty list prints nothing – same reasoning as :func:`_maybe_field`. Each bullet
     is its own Paragraph so long entries wrap.
     """
     if not items:
@@ -1526,7 +1526,7 @@ def _incident_detail(
         #
         # Resolved, not read raw: this report is written about incidents that are
         # over, and completing one releases every assignment and clears the flag
-        # from all of them — so the raw flag names nobody exactly where the
+        # from all of them – so the raw flag names nobody exactly where the
         # record matters most (plan 25, decision 29).
         items.sort(key=lambda a: a.resource_id not in leader_ids)
         lines = []
@@ -1554,7 +1554,7 @@ def _incident_detail(
         parts = []
         # Channel first: the rest of the block is what was reported, and this is
         # who reported it and how it reached the board (plan 26 §7). Nothing is
-        # printed for a field arrival's *absence* — "no Reko on site" is already
+        # printed for a field arrival's *absence* – "no Reko on site" is already
         # what an empty line says.
         arrival = reko_arrival_line(reko)
         if arrival:
@@ -1572,7 +1572,7 @@ def _incident_detail(
             parts.append(f"({LABELS['reko_draft']})")
         block.extend(_bullet_field(LABELS["reko"], parts, styles))
 
-    # Schadenplatz-Rapport (plan 25, §7) — the field slip this app replaced.
+    # Schadenplatz-Rapport (plan 25, §7) – the field slip this app replaced.
     report = rapport_by_incident(data).get(inc.id)
     if report is not None:
         block.extend(_rapport_block(data, inc, report, styles))
@@ -1622,7 +1622,7 @@ def _rapport_block(
 
     # Names where the crew gave names, the bare count where the rapport predates
     # the checklist. The board's own number stays alongside whenever the two
-    # disagree — that divergence says the board was behind reality (decision 5).
+    # disagree – that divergence says the board was behind reality (decision 5).
     crew_names = personnel_present_names(report) + extra_personnel_lines(report)
     head.extend(
         _maybe_field(
@@ -1651,7 +1651,7 @@ def _rapport_block(
         )
     )
     # Weiteres Material: one bullet per entry, each carrying its own "vor Ort
-    # verblieben" (§18.35) — the whole reason this stopped being one line of
+    # verblieben" (§18.35) – the whole reason this stopped being one line of
     # comma-separated text. Somebody reading the report has to be able to tell
     # which of the three borrowed things is still standing in the cellar.
     extra = extra_material_rows(report)
@@ -1670,7 +1670,7 @@ def _rapport_block(
         flow.append(_field(LABELS["rapport_handed_over"], report.handed_over_to, styles))
 
     # Name and phone, on their own lines (§18.31). The phone is a field rather
-    # than a fragment of prose precisely so a reader can dial it — printing it
+    # than a fragment of prose precisely so a reader can dial it – printing it
     # inside the name line would put it back where it could not be found.
     if report.owner_name:
         flow.append(_field(LABELS["rapport_owner"], report.owner_name, styles))
@@ -1689,7 +1689,7 @@ def _rapport_block(
 def _section(title: str, styles: dict[str, ParagraphStyle], description: str = "") -> list[Any]:
     """A section heading: title, rule, and one line saying what is under it.
 
-    Every top-level section is built by this function, so they cannot drift apart —
+    Every top-level section is built by this function, so they cannot drift apart –
     the reaction times used to explain themselves *below* their table while the journal
     explained itself above its own. The heading will not be left stranded at the foot
     of a page.
@@ -1760,7 +1760,7 @@ def build_event_report_pdf(
         funkrufname: Radio callsign from settings (``get_setting_value``).
         home_city: Configured home city; locations equal to it are hidden.
         logo: Station logo as PNG/JPEG bytes (``services.branding.get_report_logo``).
-            ``None`` — or anything unreadable — simply renders no letterhead.
+            ``None`` – or anything unreadable – simply renders no letterhead.
 
     Returns:
         The finished PDF document as ``bytes`` (starts with ``%PDF``).
@@ -1771,8 +1771,8 @@ def build_event_report_pdf(
     event = data.event
     # The running footer dates the EVENT, not the print job. "Erstellt am" on the cover
     # already says when this PDF was made; repeating it on all forty pages next to the
-    # event name meant the one date a reader picking up a loose page needs — which
-    # operation is this? — was the one date the footer did not carry.
+    # event name meant the one date a reader picking up a loose page needs – which
+    # operation is this? – was the one date the footer did not carry.
     footer_date = _fmt_dt(event.created_at)
     doc = SimpleDocTemplate(
         buffer,
@@ -1822,7 +1822,7 @@ def build_event_report_pdf(
         # The blocks FLOW; they are not each wrapped in a KeepTogether. That wrapper used
         # to push any incident that did not fit whole onto a fresh page, which on a real
         # storm event (21 Schadenplätze) meant page after page ending three-quarters
-        # empty — 14 pages of paper for 12 pages of report. What actually has to hold
+        # empty – 14 pages of paper for 12 pages of report. What actually has to hold
         # together is the heading and the lines directly under it, and `_incident_detail`
         # keeps those together itself. An incident that genuinely runs long now continues
         # overleaf instead of buying a whole page.
