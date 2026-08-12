@@ -2081,10 +2081,16 @@ export default function FireStationDashboard() {
 
           {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles).
               Mirrors the left one — see the note there. */}
+          {/* In the flow, not `absolute right-1`. It used to be pinned to the
+              container's right edge, which is where the side panel lives — so
+              with the Material-Leiste collapsed it drew ON TOP of the panel
+              (and, since the panel got its rail, on top of that). Ordered after
+              the panel it is simply the rightmost thing, which is also what it
+              claims to be. */}
           {!showRightSidebar && (
             <button
               onClick={() => setShowRightSidebar(true)}
-              className="absolute right-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="z-20 my-auto mx-1 flex h-12 w-5 flex-none cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleRightSidebar')} (])`}
               aria-label={tDash('toggleRightSidebar')}
             >
