@@ -40,6 +40,152 @@ interface UseKanbanDragDropProps {
   occupiedGroupResourceIds?: Record<GroupResourceType, Set<string>>
 }
 
+/** Everything a resource drop needs — the hook hands its own props straight in. */
+type ResourceDropDeps = Pick<
+  UseKanbanDragDropProps,
+  | 'operations'
+  | 'assignPersonToOperation'
+  | 'assignRekoPersonToOperation'
+  | 'assignMaterialToOperation'
+  | 'assignVehicleToOperation'
+  | 'addStopsToGroup'
+  | 'assignGroupResource'
+  | 'occupiedGroupResourceIds'
+>
+
+/**
+ * Routes a crew/vehicle/material drop to the right assignment call and returns
+ * whether it consumed the drop (`false` = it was an operation card being moved,
+ * which the monitor handles itself).
+ *
+ * A resource that is busy on another incident is NOT filtered out here: the
+ * assign* functions in operations-context raise the Doppelbelegung prompt
+ * (hierher verschieben / mehrfach zuweisen / abbrechen). This used to check
+ * `status === "available"` first, which swallowed the drop before the question
+ * could be asked — the sidebar let go of the card and nothing happened.
+ *
+ * Resources an *Auftrag* holds are still refused, because that conflict is
+ * invisible to the incident-level prompt (route resources are route-owned and
+ * never appear in `op.materials` / `op.crew`).
+ */
+export function applyResourceDrop(
+  sourceData: DragData,
+  destData: DragData,
+  {
+    operations,
+    assignPersonToOperation,
+    assignRekoPersonToOperation,
+    assignMaterialToOperation,
+    assignVehicleToOperation,
+    addStopsToGroup,
+    assignGroupResource,
+    occupiedGroupResourceIds,
+  }: ResourceDropDeps,
+): boolean {
+  // --- Aufträge (route) drop targets -----------------------------------
+  // A stop row (`group-stop`) or the Auftrag header (`group-row`) accept the
+  // same board payloads. Resources are ROUTE-owned now — a drop assigns to the
+  // Auftrag itself, not any single stop. Reordering stops (source
+  // `group-stop-drag`) is handled by the sheet-local monitor, not here.
+  if (destData.type === "group-stop" || destData.type === "group-row") {
+    const groupId = destData.groupId as string
+
+    // Existing board card dropped on a route header → attach as a stop.
+    if (sourceData.type === "operation" && destData.type === "group-row") {
+      const opId = (sourceData.operation as Operation).id
+      addStopsToGroup?.(groupId, [opId])
+      return true
+    }
+
+    if (sourceData.type === "person") {
+      const person = sourceData.person as Person
+      // Reko is a per-stop scouting slot, not a route resource — ignore here.
+      if (!person.isReko && person.status === "available" && !occupiedGroupResourceIds?.personnel.has(person.id)) {
+        assignGroupResource?.(groupId, "personnel", person.id)
+      }
+    } else if (sourceData.type === "driver-vehicle") {
+      const vehicleId = sourceData.vehicleId as string
+      assignGroupResource?.(groupId, "vehicle", vehicleId)
+    } else if (sourceData.type === "material") {
+      const material = sourceData.material as Material
+      if ((material.status === "available" || material.consumable) && !occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
+    } else if (sourceData.type === "material-group") {
+      for (const material of sourceData.materials as Material[]) {
+        if (!occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
+      }
+    }
+    return true
+  }
+
+  if (destData.type !== "operation-drop") return false
+
+  const operationId = destData.operationId as string
+
+  // --- Resource dropped on a GROUPED incident card ----------------------
+  // The route owns resources, so route the assignment to the Auftrag instead of
+  // the stop. Reko persons still attach to the specific stop. Ungrouped
+  // incidents fall through to the per-incident mutators below.
+  if (sourceData.type !== "operation") {
+    const targetOp = operations.find((o) => o.id === operationId)
+    if (targetOp?.groupId) {
+      const groupId = targetOp.groupId
+      if (sourceData.type === "person") {
+        const person = sourceData.person as Person
+        if (person.isReko) assignRekoPersonToOperation(person.id, person.name, targetOp.id)
+        else if (person.status === "available" && !occupiedGroupResourceIds?.personnel.has(person.id)) assignGroupResource?.(groupId, "personnel", person.id)
+      } else if (sourceData.type === "driver-vehicle") {
+        const vehicleId = sourceData.vehicleId as string
+        assignGroupResource?.(groupId, "vehicle", vehicleId)
+      } else if (sourceData.type === "material") {
+        const material = sourceData.material as Material
+        if ((material.status === "available" || material.consumable) && !occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
+      } else if (sourceData.type === "material-group") {
+        for (const material of sourceData.materials as Material[]) {
+          if (!occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
+        }
+      }
+      return true
+    }
+  }
+
+  // Person dropped on an ungrouped operation
+  if (sourceData.type === "person") {
+    const person = sourceData.person as Person
+    // Reko personnel are assigned differently (to the reko slot, not crew)
+    if (person.isReko) {
+      assignRekoPersonToOperation(person.id, person.name, operationId)
+    } else if (!occupiedGroupResourceIds?.personnel.has(person.id)) {
+      assignPersonToOperation(person.id, person.name, operationId)
+    }
+    return true
+  }
+
+  // Driver (as vehicle) dropped on operation
+  if (sourceData.type === "driver-vehicle") {
+    assignVehicleToOperation?.(sourceData.vehicleId as string, sourceData.vehicleName as string, operationId)
+    return true
+  }
+
+  // Material dropped on operation
+  if (sourceData.type === "material") {
+    const material = sourceData.material as Material
+    if (!occupiedGroupResourceIds?.material.has(material.id)) {
+      assignMaterialToOperation(material.id, operationId)
+    }
+    return true
+  }
+
+  // Material group dropped on operation — assign every material the block carries
+  if (sourceData.type === "material-group") {
+    for (const material of sourceData.materials as Material[]) {
+      if (!occupiedGroupResourceIds?.material.has(material.id)) assignMaterialToOperation(material.id, operationId)
+    }
+    return true
+  }
+
+  return false
+}
+
 /**
  * Shared hook for Kanban drag-and-drop functionality
  * Handles person, material, and operation dragging/dropping
@@ -100,107 +246,20 @@ export function useKanbanDragDrop({
         const sourceData = source.data
         const destData = destination.data
 
-        // --- Aufträge (route) drop targets ---------------------------------
-        // A stop row (`group-stop`) or the Auftrag header (`group-row`) accept
-        // the same board payloads. Resources are ROUTE-owned now — a drop assigns
-        // to the Auftrag itself, not any single stop. Reordering stops (source
-        // `group-stop-drag`) is handled by the sheet-local monitor, not here.
-        if (destData.type === "group-stop" || destData.type === "group-row") {
-          const groupId = destData.groupId as string
-
-          // Existing board card dropped on a route header → attach as a stop.
-          if (sourceData.type === "operation" && destData.type === "group-row") {
-            const opId = (sourceData.operation as Operation).id
-            addStopsToGroup?.(groupId, [opId])
-            return
-          }
-
-          if (sourceData.type === "person") {
-            const person = sourceData.person as Person
-            // Reko is a per-stop scouting slot, not a route resource — ignore here.
-            if (!person.isReko && person.status === "available" && !occupiedGroupResourceIds?.personnel.has(person.id)) {
-              assignGroupResource?.(groupId, "personnel", person.id)
-            }
-          } else if (sourceData.type === "driver-vehicle") {
-            const vehicleId = sourceData.vehicleId as string
-            assignGroupResource?.(groupId, "vehicle", vehicleId)
-          } else if (sourceData.type === "material") {
-            const material = sourceData.material as Material
-            if ((material.status === "available" || material.consumable) && !occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
-          } else if (sourceData.type === "material-group") {
-            for (const material of sourceData.materials as Material[]) {
-              if (!occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
-            }
-          }
+        // Crew / vehicle / material drops live in applyResourceDrop below — it is
+        // pure, so the "does a busy resource reach the Doppelbelegung prompt?"
+        // question is testable without a real drag.
+        if (applyResourceDrop(sourceData, destData, {
+          operations,
+          assignPersonToOperation,
+          assignRekoPersonToOperation,
+          assignMaterialToOperation,
+          assignVehicleToOperation,
+          addStopsToGroup,
+          assignGroupResource,
+          occupiedGroupResourceIds,
+        })) {
           return
-        }
-
-        // --- Resource dropped on a GROUPED incident card -------------------
-        // The route owns resources, so route the assignment to the Auftrag
-        // instead of the stop. Reko persons still attach to the specific stop.
-        // Ungrouped incidents fall through to the per-incident mutators below.
-        if (destData.type === "operation-drop" && sourceData.type !== "operation") {
-          const targetOp = operations.find((o) => o.id === (destData.operationId as string))
-          if (targetOp?.groupId) {
-            const groupId = targetOp.groupId
-            if (sourceData.type === "person") {
-              const person = sourceData.person as Person
-              if (person.isReko) assignRekoPersonToOperation(person.id, person.name, targetOp.id)
-              else if (person.status === "available" && !occupiedGroupResourceIds?.personnel.has(person.id)) assignGroupResource?.(groupId, "personnel", person.id)
-            } else if (sourceData.type === "driver-vehicle") {
-              const vehicleId = sourceData.vehicleId as string
-              assignGroupResource?.(groupId, "vehicle", vehicleId)
-            } else if (sourceData.type === "material") {
-              const material = sourceData.material as Material
-              if ((material.status === "available" || material.consumable) && !occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
-            } else if (sourceData.type === "material-group") {
-              for (const material of sourceData.materials as Material[]) {
-                if (!occupiedGroupResourceIds?.material.has(material.id)) assignGroupResource?.(groupId, "material", material.id)
-              }
-            }
-            return
-          }
-        }
-
-        // Person dropped on operation
-        if (sourceData.type === "person" && destData.type === "operation-drop") {
-          const person = sourceData.person as Person
-          const operationId = destData.operationId as string
-
-          // Reko personnel are assigned differently (to the reko slot, not crew)
-          if (person.isReko) {
-            assignRekoPersonToOperation(person.id, person.name, operationId)
-          } else if (person.status === "available" && !occupiedGroupResourceIds?.personnel.has(person.id)) {
-            assignPersonToOperation(person.id, person.name, operationId)
-          }
-        }
-
-        // Driver (as vehicle) dropped on operation
-        if (sourceData.type === "driver-vehicle" && destData.type === "operation-drop") {
-          const vehicleId = sourceData.vehicleId as string
-          const vehicleName = sourceData.vehicleName as string
-          const operationId = destData.operationId as string
-          assignVehicleToOperation?.(vehicleId, vehicleName, operationId)
-        }
-
-        // Material dropped on operation
-        if (sourceData.type === "material" && destData.type === "operation-drop") {
-          const material = sourceData.material as Material
-          const operationId = destData.operationId as string
-
-          if ((material.status === "available" || material.consumable) && !occupiedGroupResourceIds?.material.has(material.id)) {
-            assignMaterialToOperation(material.id, operationId)
-          }
-        }
-
-        // Material group dropped on operation — assign all available materials in the group
-        if (sourceData.type === "material-group" && destData.type === "operation-drop") {
-          const groupMaterials = sourceData.materials as Material[]
-          const operationId = destData.operationId as string
-
-          for (const material of groupMaterials) {
-            if (!occupiedGroupResourceIds?.material.has(material.id)) assignMaterialToOperation(material.id, operationId)
-          }
         }
 
         // Operation reordering/moving
