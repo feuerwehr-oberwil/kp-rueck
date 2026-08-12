@@ -21,11 +21,14 @@ import { FileText } from 'lucide-react'
 import { FeldRapportForm, type RapportTransport } from '@/components/feld/feld-rapport-form'
 import { MaterialReturnList } from '@/components/kanban/material-return-list'
 import { apiClient } from '@/lib/api-client'
+import { cn } from '@/lib/utils'
 import type { ApiRapportUpdate, ApiSchadenplatzRapport } from '@/lib/api/types'
 
 interface SchadenplatzRapportSectionProps {
   incidentId: string
   canEdit?: boolean
+  /** The detail's own column is the frame — see `boxed` below. */
+  boxed?: boolean
   /** The board already knows whether a rapport was filed — no extra request. */
   hasRapport?: boolean
   /** False while the Schadenplatz has never been disponiert (§18.27): the
@@ -40,6 +43,7 @@ export function SchadenplatzRapportSection({
   canEdit = true,
   hasRapport = false,
   applies = true,
+  boxed = true,
 }: SchadenplatzRapportSectionProps) {
   const t = useTranslations('feld.rapport')
   const [returnKey, setReturnKey] = useState(0)
@@ -98,7 +102,9 @@ export function SchadenplatzRapportSection({
           {t('notDispatched')}
         </p>
       ) : (
-        <div className="rounded-lg border border-border p-4">
+        // No box in the detail: the tab column already frames this, and the
+        // form's own blocks are boxes too — three borders around one form.
+        <div className={cn(boxed && "rounded-lg border border-border p-4")}>
           <FeldRapportForm
             incidentId={incidentId}
             transport={transport}

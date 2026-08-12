@@ -455,7 +455,10 @@ export function OperationDetailContent({
   const tabColumnBreakClass = cn("space-y-5", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
   // tabs must never resize it or scroll the header away.
-  const tabPanelClass = "min-h-0 flex-1 overflow-y-auto"
+  // `scroll`, not `auto`: every one of these panels grows the moment a folded
+  // block is opened, and a scrollbar that appears at that moment narrows the
+  // column under the pointer — the row you were about to click moves.
+  const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll"
 
   return (
     <div
@@ -1356,6 +1359,7 @@ export function OperationDetailContent({
             <SchadenplatzRapportSection
               incidentId={operation.id}
               canEdit={canEdit}
+              boxed={false}
               hasRapport={operation.hasSchadenplatzRapport}
               // No rapport before the Schadenplatz was disponiert (§18.27).
               // Same gate on both shapes of the detail, because it is the same
