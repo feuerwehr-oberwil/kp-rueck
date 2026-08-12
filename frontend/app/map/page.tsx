@@ -13,11 +13,12 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
 import { Card } from "@/components/ui/card"
-import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench, ArrowLeft } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -380,16 +381,22 @@ export default function MapPage() {
   // The bell's «angekommen» / «beendet» button works here too — the map is a
   // full operating surface, and the move has to run through this page's own
   // workflow gates rather than a second copy of them.
+  //
+  // Depends on `requestCompletion`, NOT on the workflow object: that object is
+  // rebuilt on every render, so depending on it re-registered the handler every
+  // render — and registering is a setState in the notification context, which
+  // renders again. That loop froze the whole Karte page, back button included.
   const { registerFieldActionHandler } = useNotifications()
+  const { requestCompletion } = statusWorkflow
   useEffect(() => {
     if (!isEditor) return
     registerFieldActionHandler((incidentId, kind) => {
       storeFieldNudgeConfirmation(incidentId, kind)
-      if (kind === "complete") statusWorkflow.requestCompletion(incidentId)
+      if (kind === "complete") requestCompletion(incidentId)
       else changeStatusToTop(incidentId, "active")
     })
     return () => registerFieldActionHandler(null)
-  }, [isEditor, registerFieldActionHandler, statusWorkflow, changeStatusToTop])
+  }, [isEditor, registerFieldActionHandler, requestCompletion, changeStatusToTop])
 
   const handleAssignRouteResource = (
     resourceType: 'crew' | 'vehicles' | 'materials',
@@ -862,6 +869,19 @@ export default function MapPage() {
         {/* Top header is desktop-only — mobile uses the bottom navbar. */}
         <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
+            {/* Arrived from the board with an incident in hand — say how to go
+                back, in words. The nav icons top right can do it too, but a
+                labelled way back belongs where the eye already is, and the
+                incident travels along so the board lands on the same card. */}
+            {highlightParam && (
+              <Link
+                href={`/?highlight=${highlightParam}`}
+                className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+              >
+                <ArrowLeft className="size-3.5" />
+                {t('page.backToBoard')}
+              </Link>
+            )}
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
             <Badge variant="secondary" className="hidden sm:inline-flex">
               {t('page.activeBadge', { count: activeIncidents.length })}

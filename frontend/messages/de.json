@@ -1067,6 +1067,7 @@
     "page": {
       "loading": "Karte wird geladen…",
       "title": "Lagekarte",
+      "backToBoard": "Zurück zum Board",
       "activeBadge": "{count} Aktiv",
       "incidentsHeading": "Einsätze ({count})",
       "labels": "Labels",
