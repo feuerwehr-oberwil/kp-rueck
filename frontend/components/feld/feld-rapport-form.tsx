@@ -43,6 +43,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { FeldMaterialChecklist } from '@/components/feld/feld-material-checklist'
 import { FeldPersonnelChecklist } from '@/components/feld/feld-personnel-checklist'
+import { FeldSection, type FeldSectionState } from '@/components/feld/feld-section'
 import { FeldVehicleChecklist } from '@/components/feld/feld-vehicle-checklist'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
 import type {
@@ -107,6 +108,41 @@ const KP_DEBOUNCE_MS = 2000
 
 function localStorageKey(incidentId: string): string {
   return `feld-rapport-${incidentId}`
+}
+
+/**
+ * One block of the rapport — folded on the phone, plainly open in the KP.
+ *
+ * Module level on purpose: declared inside the form it would be a new component
+ * type on every render, and React would remount the whole block — which on a
+ * form means the input being typed into loses focus mid-word.
+ */
+function RapportSection({
+  collapsible,
+  title,
+  summary,
+  state,
+  children,
+}: {
+  collapsible: boolean
+  title: string
+  summary: string
+  state: FeldSectionState
+  children: React.ReactNode
+}) {
+  if (!collapsible) {
+    return (
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {children}
+      </section>
+    )
+  }
+  return (
+    <FeldSection title={title} summary={summary} state={state}>
+      {children}
+    </FeldSection>
+  )
 }
 
 function formatDateTime(value: string | null): string {
@@ -434,8 +470,21 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const submitted = !rapport.is_draft
   const readOnly = Boolean(disabled)
 
+  // Folded blocks on the phone (§ the /feld length problem: 4.1 screens with
+  // everything open). The KP keeps every field in sight — see FeldSection.
+  const collapsible = !isKp
+
+  // What each closed block says about itself. A fold that hides the answer to
+  // "habe ich das schon ausgefüllt?" would just move the scrolling into taps.
+  const materialCount =
+    formData.materials.filter(row => row.used || row.left_on_site).length + formData.extra_materials.length
+  const peopleCount = derivePersonnelCount(formData)
+  const vehicleCount = formData.vehicles.filter(row => row.present).length
+  const ownerSummary = formData.owner_name.trim() || formData.owner_phone.trim()
+  const kurzberichtSummary = formData.kurzbericht.trim()
+
   return (
-    <div className="space-y-6">
+    <div className={collapsible ? 'space-y-3' : 'space-y-6'}>
       {/* The normal state, said plainly — same register as the Reko section's
           "Noch keine Reko-Meldung" next to it. It used to be a red error line,
           which read as "something is broken" for the majority of Schadenplätze
@@ -484,18 +533,33 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           answers nothing. */}
 
       {/* ---------------------------------------------------- Material */}
-      <FeldMaterialChecklist
-        rows={formData.materials}
-        extraMaterials={formData.extra_materials}
-        suggestions={rapport.prefill.material_name_suggestions ?? []}
-        disabled={readOnly}
-        onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
-        onExtraMaterialsChange={entries => update('extra_materials', entries)}
-      />
+      <RapportSection
+        collapsible={collapsible}
+        title={t('material.title')}
+        summary={materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty')}
+        // An empty material list is not a gap — the board simply never got the
+        // material (see the checklist's own empty state), so it never nags.
+        state={materialCount > 0 ? 'filled' : 'optional'}
+      >
+        <FeldMaterialChecklist
+          rows={formData.materials}
+          extraMaterials={formData.extra_materials}
+          suggestions={rapport.prefill.material_name_suggestions ?? []}
+          disabled={readOnly}
+          hideHeading={collapsible}
+          onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
+          onExtraMaterialsChange={entries => update('extra_materials', entries)}
+        />
+      </RapportSection>
 
       {/* ------------------------------------------------- Kurzbericht */}
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{t('sections.kurzbericht')}</h3>
+      <RapportSection
+        collapsible={collapsible}
+        title={t('sections.kurzbericht')}
+        summary={kurzberichtSummary || t('summary.kurzberichtEmpty')}
+        // The one block a rapport really wants filled.
+        state={kurzberichtSummary ? 'filled' : 'todo'}
+      >
         {/* No dictation tip under the box. Every phone keyboard has had a
             microphone key for a decade; the people who use it already do, and
             the ones who do not are not reading a caption in the rain. */}
@@ -518,11 +582,16 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             onChange={e => update('handed_over_to', e.target.value)}
           />
         </div>
-      </section>
+      </RapportSection>
 
       {/* --------------------------------- Eigentümer-/Halterdaten */}
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{t('sections.owner')}</h3>
+      <RapportSection
+        collapsible={collapsible}
+        title={t('sections.owner')}
+        summary={ownerSummary || t('summary.ownerEmpty')}
+        // Only some Schadenplätze have an owner to note at all.
+        state={ownerSummary ? 'filled' : 'optional'}
+      >
         {/* The first citizen PII in kp-rueck (§9): names, home addresses and
             plates of people who are not members. It lives with the incident and
             is deleted with the event; there is no second retention rule.
@@ -587,16 +656,21 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             onChange={e => update('owner_phone', sanitizePhoneInput(e.target.value))}
           />
         </div>
-      </section>
+      </RapportSection>
 
       {/* --------------------------------------- Mannschaft und Fahrzeuge */}
       {/* A plain confirmation of two facts, nothing else. The block used to be
           headed "Kostenpflicht" and asked for two numbers; the crew in the
           field does not decide who gets billed, and a vehicle COUNT tells
           whoever retypes it nothing that three names do not tell better. */}
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{t('sections.confirm')}</h3>
-
+      <RapportSection
+        collapsible={collapsible}
+        title={t('sections.confirm')}
+        summary={t('summary.confirm', { people: peopleCount, vehicles: vehicleCount })}
+        // Prefilled from the board, so it is normally already right — the
+        // summary is what lets a crew confirm that without opening it.
+        state={peopleCount > 0 ? 'filled' : 'todo'}
+      >
         <div className="space-y-1.5">
           <FeldPersonnelChecklist
             rows={formData.personnel}
@@ -618,12 +692,16 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           disabled={readOnly}
           onChange={(rows: ApiRapportVehicleRow[]) => update('vehicles', rows)}
         />
-      </section>
+      </RapportSection>
 
       {/* ---------------------------------------------------------- Fotos */}
       {transport.photos && (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold">{t('sections.photos')}</h3>
+        <RapportSection
+          collapsible={collapsible}
+          title={t('sections.photos')}
+          summary={photos.length > 0 ? t('summary.photos', { count: photos.length }) : t('summary.photosEmpty')}
+          state={photos.length > 0 ? 'filled' : 'optional'}
+        >
           <PhotoUpload
             photos={photos}
             incidentId={incidentId}
@@ -631,7 +709,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             disabled={readOnly}
             onPhotosChange={update => setPhotos(current => update(current))}
           />
-        </section>
+        </RapportSection>
       )}
 
       {/* ---------------------------------------------------- Abschluss */}

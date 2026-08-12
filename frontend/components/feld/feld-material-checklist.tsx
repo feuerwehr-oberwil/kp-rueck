@@ -49,6 +49,8 @@ interface FeldMaterialChecklistProps {
    */
   suggestions?: string[]
   disabled?: boolean
+  /** The folded /feld section already carries the title in its own header. */
+  hideHeading?: boolean
   onChange: (rows: ApiRapportMaterialRow[]) => void
   onExtraMaterialsChange: (entries: ApiRapportExtraMaterial[]) => void
 }
@@ -103,11 +105,25 @@ function ExtraMaterialPicker({
   const { picked, freeText } = useMemo(() => splitExtraMaterial(entries, suggestions), [entries, suggestions])
   const pickedNames = useMemo(() => new Set(picked.map(entry => entry.name)), [picked])
 
+  const searching = search.trim().length > 0
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
     if (!needle) return suggestions
     return suggestions.filter(name => name.toLowerCase().includes(needle))
   }, [suggestions, search])
+
+  /**
+   * A catalogue long enough to need a search field is also long enough that
+   * rendering it unasked cost the page a scroll area INSIDE a scrolling page —
+   * on a phone the worst of both: you cannot tell how long the list is and the
+   * thumb catches the wrong scroller. So above the threshold the list appears
+   * once there is something to narrow it down to. What is already ticked stays
+   * visible regardless — that is the answer to "habe ich das erfasst?".
+   */
+  const listed = useMemo(() => {
+    if (suggestions.length <= SEARCH_THRESHOLD || searching) return filtered
+    return suggestions.filter(name => pickedNames.has(name))
+  }, [suggestions, searching, filtered, pickedNames])
 
   return (
     <div className="space-y-2">
@@ -168,8 +184,8 @@ function ExtraMaterialPicker({
               disabled={disabled}
             />
           )}
-          <div className="grid max-h-56 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
-            {filtered.map(name => {
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {listed.map(name => {
               const isPicked = pickedNames.has(name)
               return (
                 <button
@@ -193,8 +209,12 @@ function ExtraMaterialPicker({
                 </button>
               )
             })}
-            {filtered.length === 0 && (
-              <p className="col-span-full py-2 text-xs text-muted-foreground">{t('extraNoneFound')}</p>
+            {listed.length === 0 && (
+              <p className="col-span-full py-2 text-xs text-muted-foreground">
+                {searching || suggestions.length <= SEARCH_THRESHOLD
+                  ? t('extraNoneFound')
+                  : t('extraSearchHint', { count: suggestions.length })}
+              </p>
             )}
           </div>
         </>
@@ -222,6 +242,7 @@ export function FeldMaterialChecklist({
   extraMaterials,
   suggestions = [],
   disabled,
+  hideHeading,
   onChange,
   onExtraMaterialsChange,
 }: FeldMaterialChecklistProps) {
@@ -234,7 +255,7 @@ export function FeldMaterialChecklist({
 
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold">{t('title')}</h3>
+      {!hideHeading && <h3 className="text-sm font-semibold">{t('title')}</h3>}
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">

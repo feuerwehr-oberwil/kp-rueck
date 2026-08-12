@@ -29,6 +29,7 @@
 import { useTranslations } from 'next-intl'
 import { Binoculars, Package, Phone, TriangleAlert, Truck, Users } from 'lucide-react'
 
+import { FeldSection } from '@/components/feld/feld-section'
 import type { ApiFeldAssignment, ApiFeldMaterialLine } from '@/lib/api-client'
 import { getActiveLocale } from '@/lib/i18n-messages'
 
@@ -109,7 +110,13 @@ function BriefingRow({
   )
 }
 
-export function FeldBriefing({ assignment }: { assignment: ApiFeldAssignment }) {
+/**
+ * `folded` is what `/feld` passes: the briefing becomes one of the page's
+ * foldable blocks, open on arrival because it is the first thing read, but
+ * closable once the crew knows the address by heart. The board-side rendering
+ * (and the tests) keep the plain section.
+ */
+export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssignment; folded?: boolean }) {
   const t = useTranslations('feld.briefing')
   const { description, contact, contact_phone: phone, crew, vehicles, materials, reko } = assignment
 
@@ -117,9 +124,15 @@ export function FeldBriefing({ assignment }: { assignment: ApiFeldAssignment }) 
   const hasReko = Boolean(reko && (reko.summary || reko.notes || reko.dangers.length > 0))
   if (!description && !contact && !phone && !hasResources && !hasReko) return null
 
-  return (
-    <section className="rounded-xl bg-secondary/30 p-4 space-y-3">
-      <h2 className="text-sm font-medium text-muted-foreground">{t('title')}</h2>
+  // Closed, this is all the crew sees of the briefing — so it is the Meldung
+  // (the sentence that says what happened), falling back to what was sent.
+  const summary =
+    description?.replace(/\s+/g, ' ').trim() ||
+    [vehicles.join(', '), crew.length ? `${crew.length}` : ''].filter(Boolean).join(' · ') ||
+    t('summaryFallback')
+
+  const body = (
+    <>
 
       {description && (
         <div>
@@ -171,6 +184,21 @@ export function FeldBriefing({ assignment }: { assignment: ApiFeldAssignment }) 
           </div>
         </BriefingRow>
       )}
+    </>
+  )
+
+  if (folded) {
+    return (
+      <FeldSection title={t('title')} summary={summary} state="filled" defaultOpen>
+        {body}
+      </FeldSection>
+    )
+  }
+
+  return (
+    <section className="rounded-xl bg-secondary/30 p-4 space-y-3">
+      <h2 className="text-sm font-medium text-muted-foreground">{t('title')}</h2>
+      {body}
     </section>
   )
 }

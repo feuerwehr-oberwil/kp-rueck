@@ -578,7 +578,7 @@ function FeldSurface() {
             {/* Section: the briefing (§18.22) — what the board knows about
                 this Schadenplatz. Read-only, and it sits above the Rapport
                 because it is what the crew fills the Rapport against. */}
-            <FeldBriefing assignment={selectedAssignment} />
+            <FeldBriefing assignment={selectedAssignment} folded />
 
             {/* Section: the Schadenplatz-Rapport itself — the paper
                 replacement. The SAME component the board's detail mounts
@@ -594,8 +594,8 @@ function FeldSurface() {
               </section>
             )}
             {token && selectedPerson && assignmentRapportApplies(selectedAssignment) && (
-              <section className="rounded-xl bg-secondary/30 p-4">
-                <h2 className="text-sm font-medium mb-3">{t('detail.rapportTitle')}</h2>
+              <section className="space-y-3">
+                <h2 className="px-1 text-sm font-medium text-muted-foreground">{t('detail.rapportTitle')}</h2>
                 <FeldRapportForm
                   key={selectedAssignment.incident_id}
                   incidentId={selectedAssignment.incident_id}

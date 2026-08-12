@@ -2902,7 +2902,8 @@
       "material": "Material",
       "reko": "Reko",
       "rekoBy": "Reko von {name}, {time}",
-      "rekoByName": "Reko von {name}"
+      "rekoByName": "Reko von {name}",
+      "summaryFallback": "Meldung, Mannschaft und Mittel"
     },
     "rapportState": {
       "none": "kein Rapport",
@@ -3027,7 +3028,8 @@
         "extraSearchPlaceholder": "Material suchen",
         "extraNoneFound": "Nichts gefunden – einfach unten eintippen.",
         "extraRemove": "{name} entfernen",
-        "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, keine erfassten Einheiten."
+        "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, keine erfassten Einheiten.",
+        "extraSearchHint": "Tippen, um im Katalog zu suchen ({count} Positionen)"
       },
       "vehicles": {
         "label": "Fahrzeuge – alle ankreuzen, die dabei waren",
@@ -3081,6 +3083,15 @@
         "extraNotePlaceholder": "Notiz, z. B. FW Allschwil",
         "addExtra": "Hinzufügen",
         "removeAria": "{name} entfernen"
+      },
+      "summary": {
+        "material": "{count, plural, one {# Position} other {# Positionen}}",
+        "materialEmpty": "kein Material erfasst",
+        "kurzberichtEmpty": "noch nichts erfasst",
+        "ownerEmpty": "leer – nur wenn nötig",
+        "confirm": "{people, plural, one {# Person} other {# Personen}} · {vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
+        "photos": "{count, plural, one {# Foto} other {# Fotos}}",
+        "photosEmpty": "keine hochgeladen"
       }
     },
     "materialReturn": {

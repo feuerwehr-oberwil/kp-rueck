@@ -205,6 +205,12 @@ describe('the /feld mount keeps its "I am done" moment', () => {
   })
 })
 
+/** On /feld the blocks are folded (one screen instead of four), so anything
+ *  below the fold is opened first — the same tap the crew makes. */
+async function openSection(name: RegExp) {
+  await userEvent.click(await screen.findByRole('button', { name }))
+}
+
 describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
   it('offers a tel: link as soon as the number is dialable', async () => {
     // The entire reason the phone is its own field: somebody rings from the
@@ -213,6 +219,7 @@ describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
     const load = vi.fn().mockResolvedValue(rapport({ exists: true, owner_phone: '079 111 22 33' }))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
+    await openSection(/Eigentümer- \/ Halterdaten/)
     const link = await screen.findByRole('link', { name: /Anrufen/ })
     expect(link).toHaveAttribute('href', 'tel:0791112233')
   })
@@ -239,6 +246,7 @@ describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
     )
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
+    await openSection(/Eigentümer- \/ Halterdaten/)
     await userEvent.click(await screen.findByRole('button', { name: /Melder übernehmen/ }))
 
     // The crew's own words about who owns the place beat a name the dispatcher
@@ -293,5 +301,54 @@ describe('a filed rapport on /feld (the amend flow)', () => {
     // …and the button goes away again once the KP has it.
     expect(await screen.findByText(/Abgeschlossen/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Änderungen senden/ })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * The phone folds, the KP does not.
+ *
+ * `/feld` had grown to 4.1 phone screens with every block of the rapport open at
+ * once — a crew scrolled past four of them to reach the one they needed. Folded,
+ * each block has to keep saying what is inside it, or the scrolling has merely
+ * turned into tapping.
+ */
+describe('the rapport is folded into blocks on /feld', () => {
+  it('starts closed, and every block summarises itself', async () => {
+    const load = vi.fn().mockResolvedValue(
+      rapport({
+        exists: true,
+        kurzbericht: 'Keller ausgepumpt',
+        personnel: [
+          { personnel_id: 'p-1', name: 'Meier Andrea', present: true, on_board: true },
+          { personnel_id: 'p-2', name: 'Suter Raoul', present: false, on_board: true },
+        ],
+        vehicles: [{ vehicle_id: 'v-1', name: 'Pio', present: true, on_board: true }],
+      }),
+    )
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    // Closed: the fields are still mounted (half-typed text survives a fold)
+    // but nothing of them is on screen…
+    await screen.findByRole('button', { name: /Kurzbericht/ })
+    expect(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')).not.toBeVisible()
+    // …but what it contains is still readable without opening anything.
+    expect(screen.getByRole('button', { name: /Kurzbericht/ })).toHaveTextContent('Keller ausgepumpt')
+    expect(screen.getByRole('button', { name: /Mannschaft und Fahrzeuge/ })).toHaveTextContent(
+      '1 Person · 1 Fahrzeug',
+    )
+    expect(screen.getByRole('button', { name: /Material/ })).toHaveTextContent('kein Material erfasst')
+
+    await userEvent.click(screen.getByRole('button', { name: /Kurzbericht/ }))
+    const box = screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')
+    expect(box).toBeVisible()
+    expect(box).toHaveValue('Keller ausgepumpt')
+  })
+
+  it('leaves the KP mount open — an operator scans, they do not scroll', async () => {
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" mount="kp" transport={{ load, save: vi.fn() }} />)
+
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Kurzbericht/ })).toBeNull()
   })
 })
