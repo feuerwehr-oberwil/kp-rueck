@@ -317,22 +317,27 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           line, one tap, no modal. Neither report can be taken back from a
           phone — the KP is the only surface that can clear them — and a thumb
           in the rain hits the wrong half of a 2×2 grid often enough that the
-          first field test found it. */}
+          first field test found it.
+
+          The **Ja goes on top**, directly under the question: it is the answer
+          the panel was opened to give, and it was sitting below Abbrechen —
+          the one arrangement where the thumb's resting position is the way
+          out rather than the way through. */}
       {(panel === 'confirm-arrived' || panel === 'confirm-complete') && (
         <div className="rounded-lg border border-border p-3 space-y-3">
           <p className="text-sm font-medium">
             {panel === 'confirm-arrived' ? t('confirmArrivedQuestion') : t('confirmCompleteQuestion')}
           </p>
           <div className="grid grid-cols-1 gap-2">
-            <Button size="lg" variant="outline" disabled={busy} onClick={() => setPanel('none')}>
-              {t('cancel')}
-            </Button>
             <Button
               size="lg"
               disabled={busy}
               onClick={panel === 'confirm-arrived' ? handleArrived : handleComplete}
             >
               {panel === 'confirm-arrived' ? t('confirmArrivedYes') : t('confirmCompleteYes')}
+            </Button>
+            <Button size="lg" variant="outline" disabled={busy} onClick={() => setPanel('none')}>
+              {t('cancel')}
             </Button>
           </div>
         </div>

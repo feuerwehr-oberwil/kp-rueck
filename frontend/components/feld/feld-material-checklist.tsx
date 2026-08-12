@@ -24,7 +24,7 @@
 
 import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { CheckCircle, Circle, PackageOpen, X } from 'lucide-react'
+import { CheckCircle, ChevronDown, ChevronUp, Circle, PackageOpen, X } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -113,17 +113,22 @@ function ExtraMaterialPicker({
   }, [suggestions, search])
 
   /**
-   * A catalogue long enough to need a search field is also long enough that
-   * rendering it unasked cost the page a scroll area INSIDE a scrolling page —
-   * on a phone the worst of both: you cannot tell how long the list is and the
-   * thumb catches the wrong scroller. So above the threshold the list appears
-   * once there is something to narrow it down to. What is already ticked stays
-   * visible regardless — that is the answer to "habe ich das erfasst?".
+   * A long catalogue is not rendered unasked — a scroll area INSIDE a scrolling
+   * page is the worst of both on a phone. But it used to be *only* reachable by
+   * typing, which asks the crew to guess the station's own names before the list
+   * will admit they exist. So it collapses behind one tap instead, exactly like
+   * «Weitere Angemeldete» in the personnel checklist: the list is there, it is
+   * just folded. Search still narrows it, and what is already ticked stays
+   * visible either way — that is the answer to "habe ich das erfasst?".
    */
+  const [showAll, setShowAll] = useState(false)
+  const collapsible = suggestions.length > SEARCH_THRESHOLD
+  const listOpen = !collapsible || showAll || searching
+
   const listed = useMemo(() => {
-    if (suggestions.length <= SEARCH_THRESHOLD || searching) return filtered
+    if (listOpen) return filtered
     return suggestions.filter(name => pickedNames.has(name))
-  }, [suggestions, searching, filtered, pickedNames])
+  }, [listOpen, suggestions, filtered, pickedNames])
 
   return (
     <div className="space-y-2">
@@ -176,13 +181,33 @@ function ExtraMaterialPicker({
 
       {suggestions.length > 0 && (
         <>
-          {suggestions.length > SEARCH_THRESHOLD && (
+          {collapsible && (
             <SearchInput
               value={search}
               onValueChange={setSearch}
               placeholder={t('extraSearchPlaceholder')}
               disabled={disabled}
             />
+          )}
+          {collapsible && !listOpen && (
+            <button
+              type="button"
+              className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm text-muted-foreground"
+              onClick={() => setShowAll(true)}
+            >
+              <ChevronDown className="h-4 w-4 shrink-0" />
+              {t('extraShowAll', { count: suggestions.length })}
+            </button>
+          )}
+          {collapsible && showAll && !searching && (
+            <button
+              type="button"
+              className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-xs text-muted-foreground"
+              onClick={() => setShowAll(false)}
+            >
+              <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+              {t('extraHideAll')}
+            </button>
           )}
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {listed.map(name => {
@@ -209,11 +234,9 @@ function ExtraMaterialPicker({
                 </button>
               )
             })}
-            {listed.length === 0 && (
+            {listed.length === 0 && listOpen && (
               <p className="col-span-full py-2 text-xs text-muted-foreground">
-                {searching || suggestions.length <= SEARCH_THRESHOLD
-                  ? t('extraNoneFound')
-                  : t('extraSearchHint', { count: suggestions.length })}
+                {t('extraNoneFound')}
               </p>
             )}
           </div>

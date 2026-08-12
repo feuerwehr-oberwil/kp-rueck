@@ -3037,7 +3037,8 @@
         "extraNoneFound": "Nichts gefunden – einfach unten eintippen.",
         "extraRemove": "{name} entfernen",
         "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, keine erfassten Einheiten.",
-        "extraSearchHint": "Tippen, um im Katalog zu suchen ({count} Positionen)"
+        "extraShowAll": "Katalog anzeigen ({count})",
+        "extraHideAll": "Katalog ausblenden"
       },
       "vehicles": {
         "label": "Fahrzeuge – alle ankreuzen, die dabei waren",
