@@ -144,7 +144,47 @@ will keep holding.
   credential that reaches it, and posters and Einsatzzettel belong in the "collect at the end of
   the Ereignis" habit.
 
+### Changed
+
+- **Der Einsatzbericht sieht aus wie der Einsatzrapport aus KP Front.** Eine Nacht kann
+  zwei Dokumente hervorbringen, und die sahen aus wie aus zwei verschiedenen Produkten.
+  Der Bericht übernimmt die Palette des Rapports (Tinte, gedämpftes Grau, hellgraue
+  Tabellenköpfe); das satte Rot, das jede Tabellenkopfzeile füllte, ist weg – auf einem
+  Dokument, das grösstenteils aus Tabellen besteht, waren das drei alarmfarbene Bänder
+  pro Blatt. Der einzige warme Akzent ist der ÜBUNG-Marker. Dazu eine durchgehende
+  Gliederung: jede Ebene wird von genau einer Funktion gebaut, jeder Abschnitt hat Titel,
+  Linie und eine Zeile, die sagt, was darunter steht, und der Schadenplatz-Rapport ist
+  neu als eigene Ebene erkennbar statt in derselben Schrift wie die Felder des Einsatzes
+  darüber. Das Ereignis ist die Überschrift, «Einsatzbericht» die Zeile darüber.
+  Neu am Schluss: **Unterschriften** – Ort/Datum plus Einsatzleiter und Kommandant, die
+  gleichen zwei Rollen in derselben Reihenfolge wie im Einsatzrapport.
+
+- **Der Bericht druckt nur noch, was passiert ist.** Bisher stand bei jedem Einsatz
+  Kontakt, Merkmale, Personal, Fahrzeuge und Material – auch wenn es zu allen fünf nichts
+  zu sagen gab. Auf einer Sturmlage waren das 188 Gedankenstriche, zwei Seiten bestanden
+  aus nichts anderem. Leere Felder entfallen ersatzlos; übrig bleiben 14 «–», und die sind
+  echte Zeitbereiche. Ebenfalls weg: die Spalte «Benutzer» im Einsatztagebuch und das
+  «(demo-editor)» hinter jedem Statuswechsel – wer was geklickt hat, beantwortet das
+  Audit-Log, das ohnehin daneben exportiert wird. Die Herkunftszeilen von Reko und
+  Rapport («Erfasst von … (Feld)») bleiben, das ist keine Bedienspur.
+  Dazu Wortarbeit: «Eingesetztes Personal» heisst «Personal», «{Name} freigegeben» heisst
+  «{Name} vom Einsatz abgezogen», und die Reaktionszeiten stehen durchgehend als `h:mm`.
+  Unter dem Strich: 12 Seiten werden zu 10.
+
 ### Fixed
+
+- **Fünf Fehler im Einsatzbericht, gefunden beim Ausdrucken statt beim Lesen des Codes.**
+  Ein roher Enum stand auf dem Papier («Stromversorgung: available») – das UI übersetzt die
+  Reko-Antworten, der PDF nicht, ein archivierter Bericht hätte irgendwann
+  «emergency_needed» gesagt. Die Status-Aufschlüsselung war nach dem rohen Schlüssel
+  sortiert und damit in einer Reihenfolge, die für den Leser keine ist; sie folgt neu dem
+  Ablauf des Boards. Zwei Spaltenköpfe brachen mitten im Wort («Eingegang / en»); sie
+  heissen «Eingang» und «Ende», und die Spaltenbreiten sind neu gemessen statt geschätzt.
+  `SimpleDocTemplate` polstert seinen Frame mit 6 pt pro Seite, was in der Inhaltsbreite
+  fehlte: jede volle Tabelle war 12 pt breiter als ihr Frame, ragte rechts über die
+  Abschnittslinien hinaus, und eine Zeile, deren Inhalt eine Neuberechnung erzwang, sprang
+  6 pt aus der Labelspalte. Und die Übersichtstabelle behauptete im Docstring zwei Spalten,
+  die sie nie hatte.
 
 - **Die Anwesenheit stimmt jetzt auch in der Antwort, nicht nur im Filter.**
   `GET /api/personnel/?checked_in_only=true&event_id=…` lieferte genau die anwesenden Personen
