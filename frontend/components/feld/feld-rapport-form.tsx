@@ -119,12 +119,15 @@ function localStorageKey(incidentId: string): string {
  */
 function RapportSection({
   collapsible,
+  dense = false,
   title,
   summary,
   state,
   children,
 }: {
   collapsible: boolean
+  /** Desktop scale — see FeldSection. */
+  dense?: boolean
   title: string
   summary: string
   state: FeldSectionState
@@ -139,7 +142,7 @@ function RapportSection({
     )
   }
   return (
-    <FeldSection title={title} summary={summary} state={state}>
+    <FeldSection title={title} summary={summary} state={state} dense={dense}>
       {children}
     </FeldSection>
   )
@@ -564,6 +567,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {/* ---------------------------------------------------- Material */}
       <RapportSection
         collapsible={foldLists}
+        dense={isKp}
         title={t('material.title')}
         summary={materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty')}
         // An empty material list is not a gap — the board simply never got the
@@ -598,7 +602,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         <Textarea
           value={formData.kurzbericht}
           disabled={readOnly}
-          rows={5}
+          rows={isKp ? 3 : 5}
           placeholder={t('kurzberichtPlaceholder')}
           onChange={e => update('kurzbericht', e.target.value)}
         />
@@ -622,6 +626,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {showOwnerBlock && (
       <RapportSection
         collapsible={foldLists}
+        dense={isKp}
         title={t('sections.owner')}
         summary={ownerSummary || t('summary.ownerEmpty')}
         // Only some Schadenplätze have an owner to note at all.
@@ -701,6 +706,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           whoever retypes it nothing that three names do not tell better. */}
       <RapportSection
         collapsible={foldLists}
+        dense={isKp}
         title={t('sections.confirm')}
         summary={t('summary.confirm', { people: peopleCount, vehicles: vehicleCount })}
         // Prefilled from the board, so it is normally already right — the
@@ -734,6 +740,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {transport.photos && (
         <RapportSection
           collapsible={foldLists}
+          dense={isKp}
           title={t('sections.photos')}
           summary={photos.length > 0 ? t('summary.photos', { count: photos.length }) : t('summary.photosEmpty')}
           state={photos.length > 0 ? 'filled' : 'optional'}

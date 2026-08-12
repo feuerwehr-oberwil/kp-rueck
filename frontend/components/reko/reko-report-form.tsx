@@ -284,7 +284,7 @@ export function RekoReportForm({
                 })
               }
               placeholder={t('personnelPlaceholder')}
-              className={cn(dense ? "h-7 w-20" : "h-11")}
+              className={cn(dense ? "h-7 w-24" : "h-11")}
             />
           </div>
 
@@ -315,7 +315,7 @@ export function RekoReportForm({
                 })
               }}
               placeholder={t('durationPlaceholder')}
-              className={cn(dense ? "h-7 w-20" : "h-11")}
+              className={cn(dense ? "h-7 w-24" : "h-11")}
             />
           </div>
         </div>
@@ -367,31 +367,6 @@ export function RekoReportForm({
         )}
       </div>
 
-      {photos && (
-        <>
-          {!dense && <Separator />}
-
-          <div className={cn(dense ? "space-y-1 pt-1" : "space-y-3")}>
-            <Label className={cn(
-              "text-muted-foreground",
-              dense ? "text-xs font-normal" : "text-sm font-medium tracking-wide",
-            )}>
-              {t('photos')}
-            </Label>
-            {/* Says what this box is FOR on the board: not the operator taking
-                pictures, but the ones that arrived over WhatsApp. */}
-            {isKp && <p className="text-xs text-muted-foreground">{t('photosKpHint')}</p>}
-            <PhotoUpload
-              photos={value.photos_json}
-              incidentId={incidentId}
-              transport={photos}
-              disabled={disabled}
-              onPhotosChange={updater => onChange(prev => ({ ...prev, photos_json: updater(prev.photos_json) }))}
-            />
-          </div>
-        </>
-      )}
-
       {!dense && <Separator />}
 
       {/* Summary */}
@@ -436,6 +411,31 @@ export function RekoReportForm({
           />
         </div>
       </div>
+
+      {photos && (
+        <>
+          {!dense && <Separator />}
+
+          <div className={cn(dense ? "space-y-1 pt-1" : "space-y-3")}>
+            <Label className={cn(
+              "text-muted-foreground",
+              dense ? "text-xs font-normal" : "text-sm font-medium tracking-wide",
+            )}>
+              {t('photos')}
+            </Label>
+            {/* Says what this box is FOR on the board: not the operator taking
+                pictures, but the ones that arrived over WhatsApp. */}
+            {isKp && <p className="text-xs text-muted-foreground">{t('photosKpHint')}</p>}
+            <PhotoUpload
+              photos={value.photos_json}
+              incidentId={incidentId}
+              transport={photos}
+              disabled={disabled}
+              onPhotosChange={updater => onChange(prev => ({ ...prev, photos_json: updater(prev.photos_json) }))}
+            />
+          </div>
+        </>
+      )}
 
       {/* Action */}
       <div className={cn("space-y-3", dense ? "pt-2" : "pt-4")}>
