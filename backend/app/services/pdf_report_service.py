@@ -147,15 +147,19 @@ LABELS: dict[str, str] = {
     "rapport_work_from": "ab {at}",
     "rapport_work_to": "bis {at}",
     "rapport_kurzbericht": "Kurzbericht",
-    "rapport_handed_over": "Einsatzstelle übergeben an",
+    # Short enough for the label column. "Einsatzstelle übergeben an" wrapped to two
+    # lines and pushed its own value up; that it is the Einsatzstelle being handed over
+    # is said by the block it stands in.
+    "rapport_handed_over": "Übergeben an",
     "rapport_personnel_count": "Personal",
     "rapport_personnel_names": "Mannschaft",
     "rapport_vehicles": "Fahrzeuge",
     "rapport_board_value": "vom Board: {value}",
     "rapport_material": "Material",
     "rapport_extra_material": "Weiteres Material",
-    "rapport_owner": "Eigentümer / Halter",
-    "rapport_owner_phone": "Eigentümer / Halter – Telefon",
+    "rapport_owner": "Eigentümer",
+    # The two lines stand together, so the second does not have to repeat the first.
+    "rapport_owner_phone": "Telefon",
     "rapport_pickup": "Abholung nötig",
     "rapport_filed_field": "Erfasst von {name} (Feld), {at}",
     "rapport_filed_kp": "Erfasst im KP durch {name} (Funkmeldung), {at}",
@@ -269,11 +273,10 @@ _EXERCISE = colors.HexColor("#b4690a")  # ÜBUNG marker
 #:
 #: The values used to start wherever the label happened to end, so a detail block was a
 #: ragged left edge of content that a reader has to scan *for* rather than *down*. One
-#: column fixes that, and 40 mm is where the trade-off sits: it holds every label this
-#: report has at 9 pt except the three longest ("Eingesetztes Personal (Anzahl)",
-#: "Einsatzstelle übergeben an", "Eigentümer / Halter – Telefon"), which wrap to two
-#: lines. Widening it far enough for those would cost every other line 10 mm of value
-#: width for the benefit of three.
+#: column fixes that, and 40 mm is where the trade-off sits. Every label the report has
+#: now fits it on one line at 9 pt: the three that used to wrap were shortened instead
+#: of the column being widened, because 6 more millimetres here is 6 fewer on every
+#: value line in the document for the benefit of three labels.
 _LABEL_W = 40 * mm
 
 #: The cover block's own, narrower column — its four labels are short, and a 40 mm
