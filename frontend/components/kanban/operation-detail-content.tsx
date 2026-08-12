@@ -1298,14 +1298,14 @@ export function OperationDetailContent({
               is a different moment from everything below, which is why it is no
               longer stacked on top of it. */}
           <TabsContent value="reko" className={tabPanelClass}>
-            <div className="space-y-5 py-4">
-              {/* «Reko vor Ort» is a Funkmeldung ABOUT the reconnaissance, so it
-                  belongs to this tab and not to the one holding what came back
-                  from the Schadenplatz. */}
-              <FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />
+            <div className="py-4">
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
+                // «Reko vor Ort» is a Funkmeldung ABOUT the reconnaissance, so
+                // it sits with the reports in the data column — not across both,
+                // where it read as a heading for the entry surface too.
+                dataSlot={<FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />}
                 // Two columns where there is width: what was reported on the
                 // left, what the operator writes on the right.
                 layout={dense ? 'stacked' : 'split'}

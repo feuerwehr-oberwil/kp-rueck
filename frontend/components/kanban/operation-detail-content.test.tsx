@@ -78,7 +78,16 @@ vi.mock("@/components/location/location-input", () => ({
     </div>
   ),
 }))
-vi.mock("@/components/reko/reko-report-section", () => ({ default: () => <div>Reko-Meldungen</div> }))
+// Renders its `dataSlot`: the Reko tab hands «Reko vor Ort» to the section so
+// it lands in the data column, and a mock that dropped it would hide that.
+vi.mock("@/components/reko/reko-report-section", () => ({
+  default: ({ dataSlot }: { dataSlot?: ReactNode }) => (
+    <div>
+      Reko-Meldungen
+      {dataSlot}
+    </div>
+  ),
+}))
 vi.mock("@/components/kanban/schadenplatz-rapport-section", () => ({
   // `applies` is the §18.27 gate. Surfaced on the node so the detail's own
   // tests can assert what it hands down without re-testing the section itself.

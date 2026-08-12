@@ -28,7 +28,7 @@
  * longer says whether Reko is on site.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -57,6 +57,12 @@ interface RekoReportSectionProps {
    * panel stays stacked; 420px has no second column to give.
    */
   layout?: 'stacked' | 'split'
+  /**
+   * Rendered at the top of the DATA column — the Funkmeldung «Reko vor Ort».
+   * It belongs beside the reports it is about, not across both columns above
+   * them, where it read as a heading for the entry surface as well.
+   */
+  dataSlot?: ReactNode
 }
 
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
@@ -66,6 +72,7 @@ export default function RekoReportSection({
   onRequestComplete,
   canEdit = false,
   layout = 'stacked',
+  dataSlot,
 }: RekoReportSectionProps) {
   const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
@@ -184,6 +191,7 @@ export default function RekoReportSection({
   return (
     <div className={cn(split ? "grid grid-cols-2 gap-6" : "space-y-2")}>
       <div className="space-y-2">
+      {dataSlot}
       {latestReport ? (
         <>
           {/* Latest Report - Full display */}
