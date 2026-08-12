@@ -380,15 +380,20 @@ export function LocationInput({
                   onKeyDown={handleAddressKeyDown}
                   className={cn(
                     "pl-9",
+                    // Transparent border + constant padding: focusing must not
+                    // move the text the operator just clicked on.
                     dense &&
-                      "h-7 rounded-md border-0 bg-transparent px-1 pl-7 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
+                      "h-7 rounded-md border border-transparent bg-transparent px-2 pl-7 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
                     error && "border-destructive focus-visible:ring-destructive"
                   )}
                 />
               </div>
             </PopoverAnchor>
             <PopoverContent
-              className="w-(--radix-popover-trigger-width) p-0"
+              // Trigger width as the FLOOR, not the size: in the side panel the
+              // field is ~250px wide, and an address list that narrow truncates
+              // exactly the part that distinguishes two streets of the same name.
+              className="w-(--radix-popover-trigger-width) min-w-[340px] p-0"
               align="start"
               // The field keeps the keyboard the whole time — this is one input
               // with a list under it, not a panel you tab into.
@@ -445,13 +450,13 @@ export function LocationInput({
                           onMouseEnter={() => setActiveIndex(index)}
                           aria-selected={index === activeIndex}
                           className={cn(
-                            "w-full flex items-start gap-2 px-3 py-2 text-left transition-colors cursor-pointer hover:bg-muted",
+                            "w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors cursor-pointer hover:bg-muted",
                             index === activeIndex && "bg-muted",
                           )}
                         >
                           <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{result.formattedAddress}</div>
+                            <div className="truncate text-sm font-medium">{result.formattedAddress}</div>
                             <div className="text-xs text-muted-foreground truncate">
                               {result.lat.toFixed(6)}, {result.lon.toFixed(6)}
                             </div>

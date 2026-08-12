@@ -645,24 +645,6 @@ export function OperationDetailContent({
             </DetailField>
           </div>
 
-          {/* "Telefonisch gemeldet", correctable after the fact (plan 26
-              decision 8): the realistic order is "type it in, then realise it
-              was a phone call". Same place as in the new-emergency modal, and
-              the same sentence — somebody phoned, this is who, this is the
-              number. A card that arrived from a delivering system keeps its own
-              provenance and is not an operator's to relabel. */}
-          {isEditorClaimedSource(operation.source) ? (
-            <DetailToggle
-              label={t('common.phoneReported')}
-              description={t('common.phoneReportedDescription')}
-              dense={dense}
-              icon={<Phone className={dense ? "h-3.5 w-3.5" : "h-5 w-5 text-muted-foreground"} />}
-              checked={operation.source === 'intake'}
-              disabled={!canEdit}
-              onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
-            />
-          ) : null}
-
           {/* Contact */}
           <DetailField label={t('common.contact')} htmlFor="contact" dense={dense}>
             <Input
@@ -716,6 +698,28 @@ export function OperationDetailContent({
               className={cn(dense ? `${DENSE_CONTROL} min-h-[3.5rem] py-1` : "mt-1.5 min-h-[80px]")}
             />
           </DetailField>
+
+          {/* The three switches stand together: they are the same kind of
+              statement about the incident (how it came in, who it is for, why
+              it waits), and scattering them between the text fields made the
+              form read as five unrelated things. */}
+          {/* "Telefonisch gemeldet", correctable after the fact (plan 26
+              decision 8): the realistic order is "type it in, then realise it
+              was a phone call". Same place as in the new-emergency modal, and
+              the same sentence — somebody phoned, this is who, this is the
+              number. A card that arrived from a delivering system keeps its own
+              provenance and is not an operator's to relabel. */}
+          {isEditorClaimedSource(operation.source) ? (
+            <DetailToggle
+              label={t('common.phoneReported')}
+              description={t('common.phoneReportedDescription')}
+              dense={dense}
+              icon={<Phone className={dense ? "h-3.5 w-3.5" : "h-5 w-5 text-muted-foreground"} />}
+              checked={operation.source === 'intake'}
+              disabled={!canEdit}
+              onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
+            />
+          ) : null}
 
           {/* Nachbarhilfe Toggle */}
           <DetailToggle

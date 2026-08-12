@@ -24,10 +24,18 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 
-/** The dense mount's control skin: no box until it has focus. */
+/**
+ * The dense mount's control skin: no box until it has focus.
+ *
+ * The border is *transparent*, not absent, and the padding does not change on
+ * focus. Both matter: a control that grows a border or a wider gutter when
+ * clicked moves its own text out from under the cursor, and every row below it
+ * with it. Only the colours change here — the box the text sits in is the same
+ * box at rest, on hover and in focus.
+ */
 export const DENSE_CONTROL =
-  "h-7 min-h-7 rounded-md border-0 bg-transparent px-1 shadow-none hover:bg-input/50 " +
-  "focus-visible:bg-input focus-visible:px-2 dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input"
+  "h-7 min-h-7 rounded-md border border-transparent bg-transparent px-2 shadow-none " +
+  "hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input"
 
 interface DetailFieldProps {
   label: string
@@ -133,9 +141,12 @@ export function DetailToggle({
           className="flex cursor-pointer items-center gap-2 select-none"
           onClick={() => !disabled && onToggle(!checked)}
         >
+          {/* No fixed label column: a toggle row has no value beside it, so
+              the label may run past where the fields line up rather than wrap
+              «Telefonisch gemeldet» onto two lines. */}
           <span
             title={description}
-            className="flex w-[104px] shrink-0 items-center gap-1.5 text-xs text-muted-foreground"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground"
           >
             {icon}
             {label}
