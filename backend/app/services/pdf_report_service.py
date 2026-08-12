@@ -28,6 +28,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     CondPageBreak,
+    HRFlowable,
     Image,
     KeepTogether,
     LongTable,
@@ -55,36 +56,43 @@ LABELS: dict[str, str] = {
     "funkrufname": "Funkrufname",
     "generated_at": "Erstellt am",
     "generated_by": "Erstellt von",
+    # Placeholder for the defensive paths only — a checklist row that carries no name
+    # at all. Fields the event simply has no answer for are not printed (see
+    # `_maybe_field`): a line reading "Kontakt: –" tells a reader nothing that the
+    # absent line would not, and twenty of them per page bury the lines that do.
     "none": "–",
     # Summary
     "summary_title": "Zusammenfassung",
-    "incidents_total": "Einsätze gesamt",
-    "personnel_involved": "Eingesetztes Personal",
-    "vehicles_used": "Eingesetzte Fahrzeuge",
-    "materials_used": "Eingesetztes Material",
+    "summary_hint": "Kennzahlen über alle Einsätze dieses Ereignisses.",
+    "incidents_total": "Einsätze",
+    "personnel_involved": "Personal",
+    "vehicles_used": "Fahrzeuge",
+    "materials_used": "Material",
     "reko_reports_count": "Reko-Berichte",
     "no_incidents": "Keine Einsätze erfasst",
     # Reaction times (debrief metrics)
     "reaction_title": "Reaktionszeiten",
-    "reaction_hint": "Zeit ab Eingang bis zum ersten Erreichen des Status.",
+    "reaction_hint": "Zeit ab Eingang bis zum ersten Erreichen des Status, in h:mm.",
     "col_to_reko": "→ Reko",
     "col_to_disponiert": "→ Disponiert",
     "col_to_einsatz": "→ Vor Ort",
     "col_to_abschluss": "→ Abschluss",
     # Einsatztagebuch (chronological journal)
     "journal_title": "Einsatztagebuch",
-    "journal_hint": "Automatisch aus den Protokolldaten erstellt.",
+    "journal_hint": "Automatisch aus den Protokolldaten erstellt, chronologisch.",
     "journal_empty": "Keine Einträge vorhanden.",
     "col_time": "Zeit",
     "col_incident": "Einsatz",
     "col_entry": "Eintrag",
-    "col_user": "Benutzer",
     "journal_incident_created": "Einsatz erstellt: «{title}»",
     "journal_source_intake": "Telefon",
     "journal_source_divera": "Divera",
     "journal_status_change": "Status: {from_status} → {to_status}",
     "journal_assigned": "{name} zugeteilt",
-    "journal_unassigned": "{name} freigegeben",
+    # The counterpart to "zugeteilt": it says what happened to this incident, without
+    # claiming anything about where the resource went. "Freigegeben" named the board
+    # operation, not the event on the ground.
+    "journal_unassigned": "{name} vom Einsatz abgezogen",
     "journal_reko_received": "Reko-Bericht eingegangen",
     "journal_divera_alarm": "Divera-Alarm ausgelöst ({count} Empfänger)",
     "journal_divera_alarm_plain": "Divera-Alarm ausgelöst",
@@ -92,6 +100,7 @@ LABELS: dict[str, str] = {
     "journal_incident_restored": "Einsatz wiederhergestellt",
     # Incident overview table
     "incident_list_title": "Einsatzübersicht",
+    "incident_list_hint": "Alle Einsätze des Ereignisses, in der Reihenfolge des Eingangs.",
     "col_nr": "Nr",
     "col_title": "Titel",
     "col_type": "Typ",
@@ -104,6 +113,7 @@ LABELS: dict[str, str] = {
     "col_completed": "Ende",
     # Per-incident detail
     "details_title": "Einsatzdetails",
+    "details_hint": "Ein Block pro Einsatz, in derselben Reihenfolge wie die Übersicht.",
     "description": "Beschreibung",
     "contact": "Kontakt",
     "flags": "Merkmale",
@@ -134,11 +144,13 @@ LABELS: dict[str, str] = {
     "rapport": "Schadenplatz-Rapport",
     "rapport_draft": "Entwurf – noch nicht abgeschlossen",
     "rapport_work": "Tätigkeit",
+    "rapport_work_from": "ab {at}",
+    "rapport_work_to": "bis {at}",
     "rapport_kurzbericht": "Kurzbericht",
     "rapport_handed_over": "Einsatzstelle übergeben an",
-    "rapport_personnel_count": "Eingesetztes Personal",
+    "rapport_personnel_count": "Personal",
     "rapport_personnel_names": "Mannschaft",
-    "rapport_vehicles": "Eingesetzte Fahrzeuge",
+    "rapport_vehicles": "Fahrzeuge",
     "rapport_board_value": "vom Board: {value}",
     "rapport_material": "Material",
     "rapport_extra_material": "Weiteres Material",
@@ -160,9 +172,14 @@ LABELS: dict[str, str] = {
     "material_untracked": "nicht erfasst",
     "yes": "Ja",
     "no": "Nein",
-    "released": "freigegeben",
     "footer_page": "Seite {current} von {total}",
     "assigned_since": "seit",
+    # Sign-off. Same two roles and the same order as the KP-Front Einsatzrapport, so a
+    # station files both documents the same way.
+    "signatures_title": "Unterschriften",
+    "signature_place_date": "Ort, Datum",
+    "signature_incident_leader": "Einsatzleiter",
+    "signature_commander": "Kommandant",
 }
 
 # Human-readable labels mirroring the frontend (frontend/lib/types/incidents.ts).
@@ -234,9 +251,19 @@ _PAGE_MARGIN = 18 * mm
 #: aligned on. Widths are measured against what the frame actually offers.
 _FRAME_PADDING = 6
 _CONTENT_W = A4[0] - 2 * _PAGE_MARGIN - 2 * _FRAME_PADDING
-_BRAND = colors.HexColor("#b91c1c")  # warm red (fire service identity)
-_HEADER_BG = colors.HexColor("#f4f4f5")
-_BORDER = colors.HexColor("#d4d4d8")
+
+# Palette, shared with the KP-Front Einsatzrapport (`backend/app/report_pdf.py`) so the
+# two documents a station files for one night look like they come from one house. The
+# saturated red that used to fill every table head is gone: on a page that is mostly
+# tables it was three alarm-coloured bands per sheet, which is decoration where the
+# document needs hierarchy. The one warm accent left is the ÜBUNG marker, which is the
+# only thing on the paper that genuinely has to shout.
+_INK = colors.HexColor("#1b2330")  # headings and body text
+_DIM = colors.HexColor("#5b6573")  # secondary text, column heads, filing lines
+_PANEL = colors.HexColor("#eef2f7")  # table heads and label columns
+_GRID = colors.HexColor("#d7dde5")  # hairlines
+_ZEBRA = colors.HexColor("#f7f9fb")  # alternating rows — our tables run for pages
+_EXERCISE = colors.HexColor("#b4690a")  # ÜBUNG marker
 
 #: Width of the label column every label/value line aligns on.
 #:
@@ -265,20 +292,30 @@ _SECTION_MIN_SPACE = 32 * mm
 
 
 def _fmt_dt(dt: datetime | None) -> str:
-    """Format a datetime for display (Swiss ``DD.MM.YYYY HH:MM``, local time) or em dash."""
+    """Swiss ``DD.MM.YYYY HH:MM`` in local time, or ``""`` for a missing timestamp.
+
+    Empty rather than a dash: callers either drop the whole line (``_maybe_field``) or
+    leave the table cell blank, and a grid of dashes reads as content that is not there.
+    """
     if dt is None:
-        return LABELS["none"]
+        return ""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(LOCAL_TZ).strftime("%d.%m.%Y %H:%M")
 
 
-def _or_none(value: str | None) -> str:
-    """Return a stripped string or the em-dash placeholder for empty/None."""
-    if value is None:
-        return LABELS["none"]
-    text = str(value).strip()
-    return text if text else LABELS["none"]
+def _text(value: str | None) -> str:
+    """A stripped string, or ``""`` for None/blank."""
+    return str(value).strip() if value is not None else ""
+
+
+def _tidy(line: str) -> str:
+    """Drop the dangling separator a missing timestamp leaves in a filing line.
+
+    "Erfasst von Muster Hans (Feld), " — the templates put the clock last, and a
+    report that was never submitted has none.
+    """
+    return line.strip().rstrip(",").strip()
 
 
 def format_location_for_display(full_address: str | None, home_city: str) -> str:
@@ -569,7 +606,7 @@ def format_corrected_count(value: int | None, corrected: bool, board_value: int)
     reality, so the board's own number stays on the page next to it.
     """
     if value is None:
-        return LABELS["none"]
+        return ""
     if not corrected:
         return str(value)
     return f"{value} ({LABELS['rapport_board_value'].format(value=board_value)})"
@@ -625,7 +662,7 @@ def rapport_filing_lines(data: EventReportData, report: SchadenplatzReport) -> l
                     at=amended_at,
                 )
             )
-    return lines
+    return [_tidy(line) for line in lines]
 
 
 def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
@@ -670,7 +707,7 @@ def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
                 at=_fmt_dt(report.updated_at),
             )
         )
-    return lines
+    return [_tidy(line) for line in lines]
 
 
 def reko_arrival_line(report: RekoReport) -> str:
@@ -747,23 +784,27 @@ def _make_canvas_factory(footer_left: str, footer_date: str) -> Callable[..., "N
 def _styles() -> dict[str, ParagraphStyle]:
     base = getSampleStyleSheet()
     styles = {
+        # Four levels, and only four: eyebrow → title → section → incident → sub-block.
+        # Every heading in the document is one of them, and each level is one step
+        # smaller than the one above it so the depth is legible without reading a word.
+        "eyebrow": ParagraphStyle(
+            "ReportEyebrow",
+            parent=base["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=8.5,
+            leading=11,
+            textColor=_DIM,
+            spaceAfter=1,
+        ),
         "title": ParagraphStyle(
             "ReportTitle",
             parent=base["Title"],
             fontName="Helvetica-Bold",
-            fontSize=22,
-            leading=26,
-            textColor=_BRAND,
+            fontSize=20,
+            leading=24,
+            textColor=_INK,
             spaceAfter=2,
             alignment=TA_LEFT,
-        ),
-        "event": ParagraphStyle(
-            "ReportEvent",
-            parent=base["Heading1"],
-            fontName="Helvetica-Bold",
-            fontSize=15,
-            leading=19,
-            spaceAfter=2,
         ),
         "meta": ParagraphStyle(
             "ReportMeta",
@@ -771,7 +812,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica",
             fontSize=9,
             leading=12,
-            textColor=colors.HexColor("#52525b"),
+            textColor=_DIM,
         ),
         "section": ParagraphStyle(
             "ReportSection",
@@ -779,9 +820,19 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica-Bold",
             fontSize=13,
             leading=16,
-            textColor=colors.HexColor("#18181b"),
+            textColor=_INK,
             spaceBefore=10,
-            spaceAfter=6,
+            spaceAfter=2,
+        ),
+        # The one-line answer to "what am I looking at" under every section rule.
+        "section_hint": ParagraphStyle(
+            "ReportSectionHint",
+            parent=base["Normal"],
+            fontName="Helvetica",
+            fontSize=8.5,
+            leading=11,
+            textColor=_DIM,
+            spaceAfter=5,
         ),
         "incident_heading": ParagraphStyle(
             "IncidentHeading",
@@ -789,8 +840,22 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica-Bold",
             fontSize=11,
             leading=14,
-            textColor=colors.HexColor("#18181b"),
+            textColor=_INK,
             spaceBefore=6,
+            spaceAfter=2,
+        ),
+        # A block inside an incident that is somebody else's record — the crew's
+        # Schadenplatz-Rapport. It used to be set in the same weight and at the same
+        # indent as the incident's own fields, so nothing said where the board's data
+        # ended and the field slip began.
+        "subsection": ParagraphStyle(
+            "ReportSubsection",
+            parent=base["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=9.5,
+            leading=12,
+            textColor=_INK,
+            spaceBefore=2,
             spaceAfter=2,
         ),
         "field_label": ParagraphStyle(
@@ -799,7 +864,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica-Bold",
             fontSize=8.5,
             leading=11,
-            textColor=colors.HexColor("#3f3f46"),
+            textColor=_DIM,
         ),
         # The label column of every aligned label/value line. Same size and leading as
         # `body` so the label and its value sit on one baseline across the column.
@@ -809,7 +874,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica-Bold",
             fontSize=9,
             leading=12,
-            textColor=colors.HexColor("#3f3f46"),
+            textColor=_DIM,
         ),
         "meta_label": ParagraphStyle(
             "MetaLabel",
@@ -817,7 +882,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica-Bold",
             fontSize=9,
             leading=12,
-            textColor=colors.HexColor("#52525b"),
+            textColor=_DIM,
         ),
         "body": ParagraphStyle(
             "ReportBody",
@@ -825,6 +890,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica",
             fontSize=9,
             leading=12,
+            textColor=_INK,
             alignment=TA_LEFT,
         ),
         "bullet": ParagraphStyle(
@@ -846,6 +912,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica",
             fontSize=8,
             leading=10,
+            textColor=_INK,
         ),
         "cell_header": ParagraphStyle(
             "ReportCellHeader",
@@ -853,19 +920,28 @@ def _styles() -> dict[str, ParagraphStyle]:
             fontName="Helvetica-Bold",
             fontSize=8,
             leading=10,
-            textColor=colors.white,
+            textColor=_DIM,
         ),
         "badge": ParagraphStyle(
             "TrainingBadge",
             parent=base["Normal"],
             fontName="Helvetica-Bold",
-            fontSize=11,
-            leading=14,
-            textColor=colors.white,
+            fontSize=9,
+            leading=12,
+            textColor=_EXERCISE,
             alignment=TA_LEFT,
         ),
     }
     return styles
+
+
+def _rule(color: colors.Color = _INK, thickness: float = 0.8, space_after: float = 4) -> HRFlowable:
+    """The hairline under a section heading — the thing that made the page scannable.
+
+    Headings alone were four sizes of bold text floating in white space; the rule is
+    what turns them into a visible level.
+    """
+    return HRFlowable(width="100%", thickness=thickness, color=color, spaceBefore=1, spaceAfter=space_after)
 
 
 def _p(text: str, style: ParagraphStyle) -> Paragraph:
@@ -911,20 +987,30 @@ def _cover(
     styles: dict[str, ParagraphStyle],
     logo: bytes | None = None,
 ) -> list[Any]:
-    """Build the cover/header flowables."""
-    event = data.event
-    title = _p(LABELS["report_title"], styles["title"])
+    """Build the cover/header flowables.
 
-    # Letterhead: the mark left, the title right of it on one line. Stacked, the logo
-    # would push the title down the page and read as a picture *above* a report rather
-    # than the letterhead of one.
+    The event is the title; "Einsatzbericht" is the eyebrow above it. It used to be the
+    other way round — the document *type* set 22 pt in red over the event name at 15 pt —
+    which gave the loudest line on page 1 to the one word every copy of this file shares.
+    """
+    event = data.event
+    heading: list[Any] = [_p(LABELS["report_title"], styles["eyebrow"])]
+    if event.training_flag:
+        # Above the title, before anything else is read, and no filled badge: an Übung
+        # has to be legible AS one, but it is a qualifier on the title, not a stop sign.
+        heading.append(_p(LABELS["training_badge"], styles["badge"]))
+    heading.append(_p(event.name, styles["title"]))
+
+    # Letterhead: the mark left, the title block right of it. Stacked, the logo would
+    # push the title down the page and read as a picture *above* a report rather than
+    # the letterhead of one.
     logo_img = _logo_flowable(logo)
     flow: list[Any]
     if logo_img is None:
-        flow = [title]
+        flow = list(heading)
     else:
         lw = logo_img.drawWidth + 6 * mm
-        head = Table([[logo_img, title]], colWidths=[lw, _CONTENT_W - lw], hAlign="LEFT")
+        head = Table([[logo_img, heading]], colWidths=[lw, _CONTENT_W - lw], hAlign="LEFT")
         head.setStyle(
             TableStyle(
                 [
@@ -938,39 +1024,19 @@ def _cover(
         )
         flow = [head]
 
-    if event.training_flag:
-        badge = Table(
-            [[_p(LABELS["training_badge"], styles["badge"])]],
-            colWidths=[30 * mm],
-        )
-        badge.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ea580c")),
-                    ("TOPPADDING", (0, 0), (-1, -1), 3),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                ]
-            )
-        )
-        badge.hAlign = "LEFT"
-        flow.append(Spacer(1, 4))
-        flow.append(badge)
-
-    flow.append(Spacer(1, 6))
-    flow.append(_p(event.name, styles["event"]))
+    flow.append(_rule(color=_INK, thickness=1.0, space_after=5))
 
     period_start = _fmt_dt(event.created_at)
     period_end = _fmt_dt(event.archived_at) if event.archived_at else LABELS["ongoing"]
     meta_lines = [
         (LABELS["period"], f"{period_start} – {period_end}"),
-        (LABELS["funkrufname"], _or_none(funkrufname)),
+        (LABELS["funkrufname"], _text(funkrufname)),
         (LABELS["generated_at"], _fmt_dt(datetime.now(UTC))),
-        (LABELS["generated_by"], _or_none(generated_by)),
+        (LABELS["generated_by"], _text(generated_by)),
     ]
-    flow.append(Spacer(1, 4))
     for label, value in meta_lines:
+        if not value:
+            continue
         flow.append(_label_value_row(label, _p(value, styles["meta"]), styles, _META_LABEL_W, label_style="meta_label"))
 
     return flow
@@ -1022,8 +1088,8 @@ def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> 
     table.setStyle(
         TableStyle(
             [
-                ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
-                ("BACKGROUND", (0, 0), (0, -1), _HEADER_BG),
+                ("GRID", (0, 0), (-1, -1), 0.5, _GRID),
+                ("BACKGROUND", (0, 0), (0, -1), _PANEL),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("TOPPADDING", (0, 0), (-1, -1), 4),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
@@ -1036,13 +1102,15 @@ def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> 
 
 
 def _fmt_duration(seconds: float | None) -> str:
-    """Compact duration for the reaction-times table: "8 min", "1 h 05"."""
+    """Duration as a clock reading — ``0:08``, ``2:05``, ``102:00``.
+
+    One shape for the whole column, so the numbers can be compared straight down it.
+    The old mixed "8 min" / "1 h 05" made the reader re-read the unit on every cell.
+    """
     if seconds is None or seconds < 0:
-        return LABELS["none"]
+        return ""
     minutes = int(seconds // 60)
-    if minutes < 60:
-        return f"{minutes} min"
-    return f"{minutes // 60} h {minutes % 60:02d}"
+    return f"{minutes // 60}:{minutes % 60:02d}"
 
 
 def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> Table:
@@ -1059,7 +1127,7 @@ def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyl
     def delta(inc: Incident, status: str) -> str:
         reached = first_reached.get((inc.id, status))
         if reached is None or inc.created_at is None:
-            return LABELS["none"]
+            return ""
         return _fmt_duration((reached - inc.created_at).total_seconds())
 
     header = [
@@ -1075,7 +1143,7 @@ def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyl
         rows.append(
             [
                 _p(str(idx), styles["cell"]),
-                _p(_or_none(inc.title), styles["cell"]),
+                _p(_text(inc.title), styles["cell"]),
                 _p(delta(inc, "reko"), styles["cell"]),
                 _p(delta(inc, "enroute"), styles["cell"]),
                 _p(delta(inc, "active"), styles["cell"]),
@@ -1088,10 +1156,11 @@ def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyl
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), _BRAND),
-                ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("BACKGROUND", (0, 0), (-1, 0), _PANEL),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.8, _GRID),
+                ("GRID", (0, 0), (-1, -1), 0.5, _GRID),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _ZEBRA]),
                 ("TOPPADDING", (0, 0), (-1, -1), 3),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
                 ("LEFTPADDING", (0, 0), (-1, -1), 4),
@@ -1109,12 +1178,16 @@ def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyl
 
 @dataclass(frozen=True)
 class JournalEntry:
-    """One line in the Einsatztagebuch: when, which incident, what, who."""
+    """One line in the Einsatztagebuch: when, which incident, what.
+
+    Deliberately no actor. Who clicked which button is what the audit log is for, and
+    it is exported next to this report; carrying it here bought a fourth column that
+    said "Demo Bearbeiter" three hundred times and cost the Eintrag column its width.
+    """
 
     timestamp: datetime
-    incident_ref: str  # short incident title, or "—" for event-level entries
+    incident_ref: str  # short incident title, or "" for event-level entries
     text: str  # German one-line description
-    actor: str  # user/personnel display name, "" when unknown
 
 
 def _as_utc(dt: datetime) -> datetime:
@@ -1138,11 +1211,13 @@ def _user_display(data: EventReportData, user_id: uuid.UUID | None) -> str:
 
 
 def _incident_ref(data: EventReportData, incident_id: uuid.UUID | None) -> str:
+    """The incident's short title for the journal's second column, or "" — an
+    event-level entry belongs to no incident and an empty cell says so."""
     if incident_id is None:
-        return LABELS["none"]
+        return ""
     inc = data.incident_map.get(incident_id)
     if inc is None or not inc.title:
-        return LABELS["none"]
+        return ""
     return _truncate(inc.title, 45)
 
 
@@ -1171,9 +1246,7 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
         source_label = _SOURCE_LABELS.get(getattr(inc, "source", None) or "")
         if source_label:
             text += f" ({source_label})"
-        entries.append(
-            JournalEntry(inc.created_at, _incident_ref(data, inc.id), text, _user_display(data, inc.created_by))
-        )
+        entries.append(JournalEntry(inc.created_at, _incident_ref(data, inc.id), text))
 
     # Status transitions
     for t in data.transitions:
@@ -1183,26 +1256,16 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
             from_status=STATUS_LABELS.get(t.from_status, t.from_status),
             to_status=STATUS_LABELS.get(t.to_status, t.to_status),
         )
-        entries.append(
-            JournalEntry(t.timestamp, _incident_ref(data, t.incident_id), text, _user_display(data, t.user_id))
-        )
+        entries.append(JournalEntry(t.timestamp, _incident_ref(data, t.incident_id), text))
 
     # Resource assignments / releases (assignment rows carry the timestamps)
     for a in data.assignments:
         name = _resource_name(data, a)
         ref = _incident_ref(data, a.incident_id)
         if a.assigned_at is not None:
-            entries.append(
-                JournalEntry(
-                    a.assigned_at,
-                    ref,
-                    LABELS["journal_assigned"].format(name=name),
-                    _user_display(data, a.assigned_by),
-                )
-            )
+            entries.append(JournalEntry(a.assigned_at, ref, LABELS["journal_assigned"].format(name=name)))
         if a.unassigned_at is not None:
-            # No user is recorded for the release — leave the actor empty.
-            entries.append(JournalEntry(a.unassigned_at, ref, LABELS["journal_unassigned"].format(name=name), ""))
+            entries.append(JournalEntry(a.unassigned_at, ref, LABELS["journal_unassigned"].format(name=name)))
 
     # Reko reports (submitted only — drafts are not yet "incoming")
     for reko in data.reko_reports:
@@ -1211,12 +1274,7 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
         text = LABELS["journal_reko_received"]
         if reko.summary_text:
             text += f": {_truncate(reko.summary_text, 80)}"
-        personnel = data.personnel_map.get(reko.submitted_by_personnel_id) if reko.submitted_by_personnel_id else None
-        entries.append(
-            JournalEntry(
-                reko.submitted_at, _incident_ref(data, reko.incident_id), text, personnel.name if personnel else ""
-            )
-        )
+        entries.append(JournalEntry(reko.submitted_at, _incident_ref(data, reko.incident_id), text))
 
     # Whitelisted audit rows (Divera alarms, incident delete/restore)
     for entry in data.audit_entries:
@@ -1234,11 +1292,7 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
             text = LABELS["journal_incident_restored"]
         else:
             continue  # defensive: never render non-whitelisted actions
-        entries.append(
-            JournalEntry(
-                entry.timestamp, _incident_ref(data, entry.resource_id), text, _user_display(data, entry.user_id)
-            )
-        )
+        entries.append(JournalEntry(entry.timestamp, _incident_ref(data, entry.resource_id), text))
 
     entries.sort(key=lambda e: _as_utc(e.timestamp))
     return entries
@@ -1256,7 +1310,6 @@ def _journal_table(entries: list[JournalEntry], styles: dict[str, ParagraphStyle
         _p(LABELS["col_time"], styles["cell_header"]),
         _p(LABELS["col_incident"], styles["cell_header"]),
         _p(LABELS["col_entry"], styles["cell_header"]),
-        _p(LABELS["col_user"], styles["cell_header"]),
     ]
     rows = [header]
     for e in entries:
@@ -1265,19 +1318,19 @@ def _journal_table(entries: list[JournalEntry], styles: dict[str, ParagraphStyle
                 _p(_as_utc(e.timestamp).astimezone(LOCAL_TZ).strftime(time_fmt), styles["cell"]),
                 _p(e.incident_ref, styles["cell"]),
                 _p(e.text, styles["cell"]),
-                _p(e.actor or LABELS["none"], styles["cell"]),
             ]
         )
 
-    col_widths = _widths(20 * mm, 40 * mm, 84 * mm)
+    col_widths = _widths(20 * mm, 44 * mm)
     table = LongTable(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), _BRAND),
-                ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("BACKGROUND", (0, 0), (-1, 0), _PANEL),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.8, _GRID),
+                ("GRID", (0, 0), (-1, -1), 0.5, _GRID),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _ZEBRA]),
                 ("TOPPADDING", (0, 0), (-1, -1), 2),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
                 ("LEFTPADDING", (0, 0), (-1, -1), 4),
@@ -1307,9 +1360,9 @@ def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphS
         rows.append(
             [
                 _p(str(idx), styles["cell"]),
-                _p(_or_none(inc.title), styles["cell"]),
+                _p(_text(inc.title), styles["cell"]),
                 _p(TYPE_LABELS.get(inc.type, inc.type), styles["cell"]),
-                _p(_or_none(format_location_for_display(inc.location_address, home_city)), styles["cell"]),
+                _p(_text(format_location_for_display(inc.location_address, home_city)), styles["cell"]),
                 _p(_fmt_dt(inc.created_at), styles["cell"]),
                 _p(_fmt_dt(inc.completed_at), styles["cell"]),
             ]
@@ -1323,10 +1376,11 @@ def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphS
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), _BRAND),
-                ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("BACKGROUND", (0, 0), (-1, 0), _PANEL),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.8, _GRID),
+                ("GRID", (0, 0), (-1, -1), 0.5, _GRID),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _ZEBRA]),
                 ("TOPPADDING", (0, 0), (-1, -1), 3),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
                 ("LEFTPADDING", (0, 0), (-1, -1), 4),
@@ -1382,14 +1436,25 @@ def _field(label: str, value: str, styles: dict[str, ParagraphStyle]) -> Table:
     return _label_value_row(label, _p(value, styles["body"]), styles)
 
 
+def _maybe_field(label: str, value: str | None, styles: dict[str, ParagraphStyle]) -> list[Any]:
+    """The label/value line, or nothing at all when there is no value.
+
+    This report is a record, not a form to fill in: "Kontakt: –" tells a reader exactly
+    what the absent line tells them, and five of those per incident over twenty-one
+    incidents is most of the paper. Anything printed here is something that happened.
+    """
+    text = _text(value)
+    return [_field(label, text, styles)] if text else []
+
+
 def _bullet_field(label: str, items: list[str], styles: dict[str, ParagraphStyle]) -> list[Any]:
     """A label with one bullet per item, the bullets aligned in the value column.
 
-    Falls back to an inline ``Label: –`` line when there are no items, so empty lists
-    stay compact. Each bullet is its own Paragraph so long entries wrap.
+    An empty list prints nothing — same reasoning as :func:`_maybe_field`. Each bullet
+    is its own Paragraph so long entries wrap.
     """
     if not items:
-        return [_field(label, LABELS["none"], styles)]
+        return []
     bullets = [Paragraph(escape(str(item)), styles["bullet"], bulletText="•") for item in items]
     return [_label_value_row(label, bullets, styles)]
 
@@ -1421,8 +1486,8 @@ def _incident_detail(
         )
     ]
 
-    block.append(_field(LABELS["description"], _or_none(inc.description), styles))
-    block.append(_field(LABELS["contact"], _or_none(inc.contact), styles))
+    block.extend(_maybe_field(LABELS["description"], inc.description, styles))
+    block.extend(_maybe_field(LABELS["contact"], inc.contact, styles))
 
     # Flags
     flag_parts = []
@@ -1434,8 +1499,7 @@ def _incident_detail(
         flag_parts.append(f"{LABELS['am_warten']}{note}")
     if inc.zu_fuss:
         flag_parts.append(LABELS["zu_fuss"])
-    flags_text = ", ".join(flag_parts) if flag_parts else LABELS["none"]
-    block.append(_field(LABELS["flags"], flags_text, styles))
+    block.extend(_maybe_field(LABELS["flags"], ", ".join(flag_parts), styles))
 
     # Assignments by resource type
     inc_assignments = [a for a in data.assignments if a.incident_id == inc.id]
@@ -1471,17 +1535,15 @@ def _incident_detail(
             lines.append(f"{name} ({span})")
         block.extend(_bullet_field(label, lines, styles))
 
-    # Status transition timeline
+    # Status transition timeline. No operator name on the line: which account moved the
+    # card is an audit-log question, and the audit export answers it in full.
     inc_transitions = [t for t in data.transitions if t.incident_id == inc.id]
-    if inc_transitions:
-        lines = []
-        for t in inc_transitions:
-            user = data.user_map.get(t.user_id) if t.user_id else None
-            user_name = user.username if user else LABELS["none"]
-            from_label = STATUS_LABELS.get(t.from_status, t.from_status)
-            to_label = STATUS_LABELS.get(t.to_status, t.to_status)
-            lines.append(f"{_fmt_dt(t.timestamp)}: {from_label} → {to_label} ({user_name})")
-        block.extend(_bullet_field(LABELS["status_timeline"], lines, styles))
+    lines = [
+        f"{_fmt_dt(t.timestamp)}: "
+        f"{STATUS_LABELS.get(t.from_status, t.from_status)} → {STATUS_LABELS.get(t.to_status, t.to_status)}"
+        for t in inc_transitions
+    ]
+    block.extend(_bullet_field(LABELS["status_timeline"], lines, styles))
 
     # Reko report summaries (text fields only)
     inc_reko = [r for r in data.reko_reports if r.incident_id == inc.id]
@@ -1516,35 +1578,51 @@ def _incident_detail(
     return block
 
 
+def _format_work_window(window: WorkWindow) -> str:
+    """``17:45 – 20:18``, or a one-sided ``ab``/``bis`` when only one end is known.
+
+    The old format printed the missing end as a placeholder, which read as a range that
+    closed on nothing.
+    """
+    start, end = _fmt_dt(window.started_at), _fmt_dt(window.ended_at)
+    if start and end:
+        return f"{start} – {end}"
+    if start:
+        return LABELS["rapport_work_from"].format(at=start)
+    if end:
+        return LABELS["rapport_work_to"].format(at=end)
+    return ""
+
+
 def _rapport_block(
     data: EventReportData,
     inc: Incident,
     report: SchadenplatzReport,
     styles: dict[str, ParagraphStyle],
 ) -> list[Any]:
-    """The "Schadenplatz-Rapport" lines of one incident's detail block."""
-    head: list[Any] = [Paragraph(f"<b>{escape(LABELS['rapport'])}</b>", styles["body"])]
+    """The "Schadenplatz-Rapport" lines of one incident's detail block.
+
+    Set as its own level (rule + subsection heading) rather than as more fields in the
+    same weight: this is the crew's record inside the KP's, and the page has to say so.
+    """
+    head: list[Any] = [
+        _rule(color=_GRID, thickness=0.5, space_after=2),
+        _p(LABELS["rapport"], styles["subsection"]),
+    ]
     if report.is_draft:
         head.append(_p(LABELS["rapport_draft"], styles["meta"]))
 
     # Beginn/Ende Tätigkeit is derived (see `rapport_work_windows`), not stored:
     # the crew never typed it, the board recorded it.
     window = rapport_work_windows(data).get(inc.id, WorkWindow(None, None))
-    if window.started_at or window.ended_at:
-        head.append(
-            _field(
-                LABELS["rapport_work"],
-                f"{_fmt_dt(window.started_at)} – {_fmt_dt(window.ended_at)}",
-                styles,
-            )
-        )
+    head.extend(_maybe_field(LABELS["rapport_work"], _format_work_window(window), styles))
 
     # Names where the crew gave names, the bare count where the rapport predates
     # the checklist. The board's own number stays alongside whenever the two
     # disagree — that divergence says the board was behind reality (decision 5).
     crew_names = personnel_present_names(report) + extra_personnel_lines(report)
-    head.append(
-        _field(
+    head.extend(
+        _maybe_field(
             LABELS["rapport_personnel_count"],
             format_corrected_count(
                 report.personnel_count, report.personnel_count_corrected, board_personnel_count(data, inc.id)
@@ -1558,7 +1636,7 @@ def _rapport_block(
     flow: list[Any] = [KeepTogether(head)]
     # The vehicles are a list the crew ticked, not a number it corrected.
     vehicles = vehicle_present_names(report)
-    flow.append(_field(LABELS["rapport_vehicles"], ", ".join(vehicles) if vehicles else LABELS["none"], styles))
+    flow.extend(_maybe_field(LABELS["rapport_vehicles"], ", ".join(vehicles), styles))
 
     # Material: one bullet per unit, `gebraucht` as ja/nein (§18.32), and no
     # "vor Ort verblieben" state on a consumable (decision 26).
@@ -1605,9 +1683,63 @@ def _rapport_block(
     return flow
 
 
-def _section(title: str, styles: dict[str, ParagraphStyle]) -> list[Any]:
-    """A section heading that will not be left stranded at the foot of a page."""
-    return [CondPageBreak(_SECTION_MIN_SPACE), _p(title, styles["section"])]
+def _section(title: str, styles: dict[str, ParagraphStyle], description: str = "") -> list[Any]:
+    """A section heading: title, rule, and one line saying what is under it.
+
+    Every top-level section is built by this function, so they cannot drift apart —
+    the reaction times used to explain themselves *below* their table while the journal
+    explained itself above its own. The heading will not be left stranded at the foot
+    of a page.
+    """
+    flow: list[Any] = [CondPageBreak(_SECTION_MIN_SPACE), _p(title, styles["section"]), _rule()]
+    if description:
+        flow.append(_p(description, styles["section_hint"]))
+    return flow
+
+
+def _signature_block(styles: dict[str, ParagraphStyle]) -> list[Any]:
+    """Ort/Datum plus a signature line for Einsatzleiter and Kommandant.
+
+    Same two roles, same order as the KP-Front Einsatzrapport, so a station files both
+    documents for one night the same way. Dotted leaders rather than solid rules: the
+    convention already says "write here" on every other form in the building.
+    """
+    label_w, line_w = 26 * mm, 60 * mm
+    gap = _CONTENT_W - 2 * (label_w + line_w)
+
+    def row(role: str) -> Table:
+        cells = [
+            _p(f"{LABELS['signature_place_date']}:", styles["label_col"]),
+            "",
+            "",
+            _p(f"{role}:", styles["label_col"]),
+            "",
+        ]
+        table = Table([cells], colWidths=[label_w, line_w, gap, label_w, line_w], hAlign="LEFT")
+        table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 10),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                    ("LINEBELOW", (1, 0), (1, 0), 0.5, _DIM, None, (1, 2)),
+                    ("LINEBELOW", (4, 0), (4, 0), 0.5, _DIM, None, (1, 2)),
+                ]
+            )
+        )
+        return table
+
+    return [
+        KeepTogether(
+            [
+                *_section(LABELS["signatures_title"], styles),
+                row(LABELS["signature_incident_leader"]),
+                row(LABELS["signature_commander"]),
+            ]
+        )
+    ]
 
 
 def build_event_report_pdf(
@@ -1655,7 +1787,7 @@ def build_event_report_pdf(
     story.append(Spacer(1, 10))
 
     # Summary
-    story.extend(_section(LABELS["summary_title"], styles))
+    story.extend(_section(LABELS["summary_title"], styles, LABELS["summary_hint"]))
     story.append(_summary_table(data, styles))
     story.append(Spacer(1, 10))
 
@@ -1663,20 +1795,17 @@ def build_event_report_pdf(
         story.append(_p(LABELS["no_incidents"], styles["body"]))
     else:
         # Overview table
-        story.extend(_section(LABELS["incident_list_title"], styles))
+        story.extend(_section(LABELS["incident_list_title"], styles, LABELS["incident_list_hint"]))
         story.append(_incident_overview_table(data, styles, home_city))
         story.append(Spacer(1, 12))
 
         # Reaction times (debrief metrics)
-        story.extend(_section(LABELS["reaction_title"], styles))
+        story.extend(_section(LABELS["reaction_title"], styles, LABELS["reaction_hint"]))
         story.append(_reaction_times_table(data, styles))
-        story.append(_p(LABELS["reaction_hint"], styles["meta"]))
         story.append(Spacer(1, 12))
 
         # Einsatztagebuch (merged, chronological journal)
-        story.extend(_section(LABELS["journal_title"], styles))
-        story.append(_p(LABELS["journal_hint"], styles["meta"]))
-        story.append(Spacer(1, 4))
+        story.extend(_section(LABELS["journal_title"], styles, LABELS["journal_hint"]))
         journal_entries = build_journal_entries(data)
         if journal_entries:
             story.append(_journal_table(journal_entries, styles))
@@ -1694,13 +1823,14 @@ def build_event_report_pdf(
         # together is the heading and the lines directly under it, and `_incident_detail`
         # keeps those together itself. An incident that genuinely runs long now continues
         # overleaf instead of buying a whole page.
-        details_heading = _p(LABELS["details_title"], styles["section"])
-        story.append(CondPageBreak(_SECTION_MIN_SPACE))
+        details_heading = _section(LABELS["details_title"], styles, LABELS["details_hint"])
         for idx, inc in enumerate(data.incidents, 1):
             block = _incident_detail(data, inc, idx, styles, home_city)
             if idx == 1:
-                block = [details_heading, *block]
+                block = [*details_heading, *block]
             story.extend(block)
+
+    story.extend(_signature_block(styles))
 
     doc.build(
         story,

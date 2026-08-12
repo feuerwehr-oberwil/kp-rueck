@@ -481,7 +481,7 @@ class TestReactionTimes:
         pdf_bytes = build_event_report_pdf(data, generated_by="tester")
         text = _extract_text(pdf_bytes)
         assert "Reaktionszeiten" in text
-        assert "10 min" in text  # eingegangen 9:15 → einsatz 9:25
+        assert "0:10" in text  # eingegangen 9:15 → einsatz 9:25, as h:mm
 
     def test_reaction_times_without_transitions_shows_dashes(self, simple_event: Event, simple_incident: Incident):
         data = EventReportData(
@@ -584,7 +584,7 @@ class TestEinsatztagebuch:
         assert timestamps == sorted(timestamps)
         # created (9:15) first, vehicle release (10:50) last
         assert "Einsatz erstellt" in entries[0].text
-        assert "freigegeben" in entries[-1].text
+        assert "vom Einsatz abgezogen" in entries[-1].text
 
     def test_whitelist_filters_noisy_audit_actions(self, simple_event: Event, simple_incident: Incident):
         data = _journal_fixture_data(simple_event, simple_incident)
@@ -605,7 +605,7 @@ class TestEinsatztagebuch:
         texts = [e.text for e in build_journal_entries(data)]
         assert "Status: Eingegangen → Disponiert" in texts
         assert "TLF 1 (Florian-1) zugeteilt" in texts
-        assert "TLF 1 (Florian-1) freigegeben" in texts
+        assert "TLF 1 (Florian-1) vom Einsatz abgezogen" in texts
         assert any(t.startswith("Reko-Bericht eingegangen: Lage unter Kontrolle") for t in texts)
 
     def test_intake_source_is_mentioned(self, simple_event: Event):
@@ -633,14 +633,6 @@ class TestEinsatztagebuch:
         entries = build_journal_entries(data)
         assert entries[0].text == "Einsatz erstellt: «Wassereinbruch Keller» (Telefon)"
 
-    def test_actor_names_resolved(self, simple_event: Event, simple_incident: Incident):
-        data = _journal_fixture_data(simple_event, simple_incident)
-        entries = build_journal_entries(data)
-        status_entry = next(e for e in entries if e.text.startswith("Status:"))
-        assert status_entry.actor == "Dispo Eins"  # display_name preferred over username
-        reko_entry = next(e for e in entries if e.text.startswith("Reko-Bericht"))
-        assert reko_entry.actor == "Max Mustermann"
-
     def test_pdf_renders_journal_chapter_with_full_mix(self, simple_event: Event, simple_incident: Incident):
         data = _journal_fixture_data(simple_event, simple_incident)
         pdf_bytes = build_event_report_pdf(data, generated_by="tester")
@@ -648,7 +640,7 @@ class TestEinsatztagebuch:
         assert _page_count(pdf_bytes) >= 1
         text = _extract_text(pdf_bytes)
         assert "Einsatztagebuch" in text
-        assert "Automatisch aus den Protokolldaten erstellt." in text
+        assert "Automatisch aus den Protokolldaten erstellt, chronologisch." in text
         assert "Divera-Alarm ausgelöst (3 Empfänger)" in text
         assert "zugeteilt" in text
 
@@ -918,7 +910,7 @@ class TestRapportInThePdf:
             vehicles_json=[_vehicle_row("TLF 1"), _vehicle_row("MTW", present=False)],
         )
         text = _extract_text(build_event_report_pdf(self._data(simple_event, simple_incident, report), "tester"))
-        assert "Eingesetzte Fahrzeuge" in text
+        assert "Fahrzeuge" in text
         assert "TLF 1" in text
         assert "MTW" not in text
 
