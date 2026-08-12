@@ -407,6 +407,7 @@ function AuthenticatedDisplayMap({
         operation={detailOperation}
         open={!!detailOperation}
         onOpenChange={(open) => { if (!open) onCloseDetail() }}
+        showReports
       />
     </div>
   )

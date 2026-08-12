@@ -425,6 +425,9 @@ function SituationBoard({
         personnelOverride={personnel}
         materialsOverride={materials}
         groupsOverride={detailGroups}
+        // Token mode passes `detailGroups`; only the logged-in display can read
+        // the report endpoints.
+        showReports={!detailGroups}
       />
     </div>
   )

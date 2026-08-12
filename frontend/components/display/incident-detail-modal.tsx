@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -21,10 +22,17 @@ import { PRIORITY_ICONS, PRIORITY_LABELS, PRIORITY_TEXT_CLASSES } from "@/lib/pr
 import {
   Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
   MessageSquare, Building2, Timer, Footprints, FileCheck, Waypoints, Binoculars,
+  ChevronDown, ChevronRight, ClipboardList, History,
   Infinity as InfinityIcon,
 } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { rapportApplies } from "@/lib/rapport-visibility"
+import { useIncidentTimeline } from "@/lib/hooks/use-incident-timeline"
+import RekoReportSection from "@/components/reko/reko-report-section"
+import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
+import { IncidentTimeline } from "@/components/kanban/incident-timeline"
+import { IncidentParticipants } from "@/components/kanban/incident-participants"
 
 // Icons/labels/colors all sourced from the shared priority module.
 export const priorityVisuals: Record<
@@ -41,6 +49,17 @@ export const priorityVisuals: Record<
  * map). In the logged-in displays the resource contexts provide the lookup
  * data; token displays pass the payload-derived lists via the *Override props
  * (the contexts are empty without a login).
+ *
+ * With `showReports` it also carries the three things the command post's own
+ * detail keeps behind tabs — the Reko-Bericht in full, the Schadenplatz-Rapport
+ * and the Verlauf — as folded sections, mounted only once opened so a wall
+ * display does not poll three endpoints per card it shows. Read-only
+ * throughout: the same components the editor mounts, with `canEdit={false}`,
+ * rather than a second rendering that drifts.
+ *
+ * It is off by default because those endpoints need a session: a share-token
+ * display has no cookie, and offering a section that can only answer 401 is
+ * worse than not offering it.
  */
 export function IncidentDetailModal({
   operation,
@@ -49,6 +68,7 @@ export function IncidentDetailModal({
   personnelOverride,
   materialsOverride,
   groupsOverride,
+  showReports = false,
 }: {
   operation: Operation | null
   open: boolean
@@ -56,6 +76,7 @@ export function IncidentDetailModal({
   personnelOverride?: Person[]
   materialsOverride?: Material[]
   groupsOverride?: IncidentGroup[]
+  showReports?: boolean
 }) {
   const t = useTranslations('display')
   const tk = useTranslations('kanban')
@@ -430,8 +451,83 @@ export function IncidentDetailModal({
               )}
             </div>
           )}
+
+          {/* The reports, folded. Everything the command post detail shows,
+              nothing it can change. */}
+          {showReports && (
+            <div className="space-y-2 border-t pt-3">
+              <DisclosureSection label={t('board.rekoReportSection')} icon={Binoculars}>
+                <RekoReportSection incidentId={operation.id} canEdit={false} />
+              </DisclosureSection>
+
+              <DisclosureSection label={t('board.rapportSection')} icon={ClipboardList}>
+                <SchadenplatzRapportSection
+                  incidentId={operation.id}
+                  canEdit={false}
+                  hasRapport={operation.hasSchadenplatzRapport}
+                  applies={rapportApplies({
+                    hasBeenDispatched: operation.hasBeenDispatched,
+                    status: operation.status,
+                    hasReport: operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft,
+                  })}
+                />
+              </DisclosureSection>
+
+              <DisclosureSection label={t('board.historySection')} icon={History}>
+                <IncidentHistory incidentId={operation.id} />
+              </DisclosureSection>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * One folded report block. The children are not mounted while closed — each of
+ * these fetches (and the Reko section polls), and a wall display that opened a
+ * card would otherwise start three request loops it never shows.
+ */
+function DisclosureSection({
+  label,
+  icon: Icon,
+  children,
+}: {
+  label: string
+  icon: LucideIcon
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-md border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-foreground/5"
+      >
+        {open ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+        <Icon className="h-4 w-4 shrink-0" />
+        {label}
+      </button>
+      {open && <div className="border-t border-border p-3">{children}</div>}
+    </div>
+  )
+}
+
+/** Verlauf: what happened, and who was here — the Verlauf tab's two lists. */
+function IncidentHistory({ incidentId }: { incidentId: string }) {
+  const timeline = useIncidentTimeline(incidentId, true)
+  return (
+    <div className="space-y-3">
+      <IncidentTimeline
+        events={timeline.events}
+        isLoading={timeline.isLoading}
+        failed={timeline.failed}
+        onRetry={timeline.reload}
+      />
+      <IncidentParticipants incidentId={incidentId} />
+    </div>
   )
 }

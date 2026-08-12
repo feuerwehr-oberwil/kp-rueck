@@ -2790,6 +2790,9 @@
       "rekoHeading": "Reko",
       "rekoOnSite": "vor Ort seit {time}",
       "rekoPhotoAlt": "Reko-Bild {index}",
+"rekoReportSection": "Reko-Bericht",
+"rapportSection": "Schadenplatz-Rapport",
+"historySection": "Verlauf",
       "rekoPhotoOpen": "Bild in voller Grösse öffnen"
     },
     "layout": {

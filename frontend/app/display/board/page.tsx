@@ -233,10 +233,13 @@ function BoardDisplay() {
         )
       })}
 
+      {/* Logged in, so the report endpoints answer: the card opens the full
+          picture — Reko-Bericht, Rapport and Verlauf included — read-only. */}
       <IncidentDetailModal
         operation={selectedOperation}
         open={!!selectedOperation}
         onOpenChange={(open) => { if (!open) setSelectedOperation(null) }}
+        showReports
       />
     </div>
   )
