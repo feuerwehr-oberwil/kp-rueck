@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react"
+import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -81,6 +81,9 @@ function isEditorClaimedSource(source: string | undefined): boolean {
 export interface OperationDetailContentProps {
   operation: Operation
   layout: 'modal' | 'panel'
+  /** Rendered at the right end of the title row. The side panel puts its
+   *  mode switch and its close button there rather than on a bar of its own. */
+  headerActions?: ReactNode
   active?: boolean
   /** "Open on THIS tab" — a notification click, which is the operator pointing
    *  at one specific thing (§18.27). It beats the remembered tab for that one
@@ -113,6 +116,7 @@ export interface OperationDetailContentProps {
 export function OperationDetailContent({
   operation,
   layout,
+  headerActions,
   active = true,
   openOnTab,
   canEdit = true,
@@ -489,22 +493,64 @@ export function OperationDetailContent({
             layout === 'modal' && "pr-8",
           )}
         >
-          <div className="min-w-0 space-y-1.5">
-            <h2 className="text-xl font-semibold leading-none tracking-tight flex items-center gap-2.5">
-              <MapPin className="h-5 w-5 text-muted-foreground" />
-              {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
+          {/* In the panel this row carries everything: address, time, and the
+              mode/close controls the panel used to spend a bar of its own on.
+              The incident id moves into the title's tooltip — 36 monospace
+              characters nobody reads aloud cost a whole line there. */}
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <h2
+              className={cn(
+                "flex items-center gap-2.5 font-semibold leading-none tracking-tight",
+                // The panel row also carries the badge, the clock and three
+                // controls: the address gives way rather than wrapping, and it
+                // is the only part that may.
+                dense ? "min-w-0 text-lg" : "text-xl",
+              )}
+              // Both, because the address is what truncated and the id is what
+              // lost its line: hovering the title has to answer either question.
+              title={dense
+                ? `${formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)} · ${operation.id}`
+                : undefined}
+            >
+              <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" />
+              {/* min-w-0 as well as truncate: a flex item refuses to shrink
+                  below its content without it, so the address pushed the clock
+                  and the panel controls off the row instead of giving way. */}
+              <span className={cn(dense && "min-w-0 truncate")}>
+                {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
+              </span>
               {/* Stays visible on a completed incident on purpose, and is the
                   KP's "Abholung erledigt" control here as everywhere else —
                   passing `incidentId` is what turns the chip into that button. */}
               {operation.pickupNeeded && (
-                <PickupBadge
-                  requestedAt={operation.pickupRequestedAt}
-                  note={operation.pickupNote}
-                  incidentId={operation.id}
-                  canEdit={canEdit}
-                />
+                <span className="shrink-0">
+                  {/* Compact in the panel: «Abholung seit 12:12» spelled out ate
+                      a third of a row the address needs. The chip keeps its
+                      tooltip and stays the «erledigt» control either way. */}
+                  <PickupBadge
+                    requestedAt={operation.pickupRequestedAt}
+                    note={operation.pickupNote}
+                    incidentId={operation.id}
+                    canEdit={canEdit}
+                    variant={dense ? 'compact' : 'default'}
+                  />
+                </span>
+              )}
+              {dense && showIncidentTime && (
+                // The wrapper, not the component's own className: the chip is a
+                // button with its own classes and was being squeezed to «171h 3»
+                // instead of letting the address give way.
+                <span className="shrink-0">
+                  <IncidentTime
+                    operation={operation}
+                    suppressDurations={operation.status === "complete"}
+                    className="font-normal"
+                  />
+                </span>
               )}
             </h2>
+            {!dense && (
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
               {/* The board-wide time chip (start / in status / since alarm). Its
@@ -518,11 +564,18 @@ export function OperationDetailContent({
                 </>
               )}
             </p>
+            )}
+          </div>
+          {headerActions && <div className="ml-auto flex flex-shrink-0 items-center gap-1">{headerActions}</div>}
           </div>
 
           <div className={cn("flex min-w-0 items-center gap-2", layout === 'panel' && "w-full")}>
             <TabsList className={cn("flex-shrink-0", layout === 'panel' && "w-full")}>
               <TabsTrigger value="overview">{t('detail.tabs.overview')}</TabsTrigger>
+              {/* Reko stands alone: it is written and read at a different moment
+                  than everything the crew sends from the Schadenplatz, and one
+                  tab holding both was one tab nobody could see the end of. */}
+              <TabsTrigger value="reko">{t('detail.tabs.reko')}</TabsTrigger>
               <TabsTrigger value="rapport">
                 {t('detail.tabs.rapport')}
                 {/* Whitespace-only text nodes generate no box in a flex
@@ -1236,12 +1289,27 @@ export function OperationDetailContent({
           </div>
           </TabsContent>
 
-          {/* -------------------------------------------------------- Rapport */}
+          {/* ----------------------------------------------------------- Reko */}
+          {/* What somebody went to LOOK at, before the work — written once,
+              amended over the radio, and read while deciding what to send. That
+              is a different moment from everything below, which is why it is no
+              longer stacked on top of it. */}
+          <TabsContent value="reko" className={tabPanelClass}>
+            <div className="py-4">
+              <RekoReportSection
+                incidentId={operation.id}
+                canEdit={canEdit}
+                onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
+              />
+            </div>
+          </TabsContent>
+
+          {/* ------------------------------------------- Feld & Rapport */}
           {/* `forceMount` on this one panel only: it is the sole tab holding an
               editing surface with its own state (the rapport form's autosave
               and the material return list). Unmounting it on every tab switch
-              would refetch and re-restore the local draft mid-entry. The other
-              two are read-and-act surfaces where a remount costs nothing.
+              would refetch and re-restore the local draft mid-entry. The others
+              are read-and-act surfaces where a remount costs nothing.
               `hidden` is set explicitly because Radix leaves visibility to the
               caller once forceMount is on. */}
           <TabsContent
@@ -1250,28 +1318,13 @@ export function OperationDetailContent({
             hidden={tab !== 'rapport'}
             className={tabPanelClass}
           >
-          <div className={tabGridClass}>
-          {/* Left — Reko: what somebody went to look at, before the work. */}
-          <div className="space-y-5">
-            <div>
-              <Label className="text-sm font-semibold text-muted-foreground">
-                {t('common.rekoReports')}
-              </Label>
-              <div className="mt-1.5">
-                <RekoReportSection
-                  incidentId={operation.id}
-                  canEdit={canEdit}
-                  onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Right — one flow, not three scattered things: what the crew
-              reported (the three toggles), what they said (the thread), and
-              what they filed (the rapport). All three came from the same people
-              on the same Schadenplatz, and they belong on one page. */}
-          <div className={tabColumnBreakClass}>
+          {/* One flow, not three scattered things: what the crew reported (the
+              toggles), what they said (the thread), and what they filed (the
+              rapport). All three came from the same people on the same
+              Schadenplatz, and they belong on one page — in one column, because
+              a second column here only ever held the Reko block that now has a
+              tab of its own. */}
+          <div className="space-y-5 py-4">
             {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps on
                 /feld, an operator enters here from a radio message. */}
             <FieldReportsRow operation={operation} canEdit={canEdit} />
@@ -1305,7 +1358,6 @@ export function OperationDetailContent({
                 hasReport: operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft,
               })}
             />
-          </div>
           </div>
           </TabsContent>
 

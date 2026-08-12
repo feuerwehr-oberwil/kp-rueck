@@ -520,6 +520,20 @@ export default function FireStationDashboard() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [detailModalOpen, selectedOperationId, sidePanelMode])
+  // Toggling a sidebar or the side panel re-lays the board out around the card
+  // that is open — and on a full board that card was routinely pushed out of
+  // sight by the very panel showing it. Bring it back. Quietly: no highlight,
+  // no spotlight. This is not «look here», it is «stay where you were».
+  useEffect(() => {
+    if (!selectedOperationId) return
+    const timer = setTimeout(() => {
+      document
+        .querySelector(`[data-incident-id="${selectedOperationId}"]`)
+        ?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" })
+    }, 220)
+    return () => clearTimeout(timer)
+  }, [sidePanelMode, showLeftSidebar, showRightSidebar, selectedOperationId])
+
   // Register notification click → scroll to card + open detail
   // Small screens: open modal overlay. Large screens (≥1536px): select in side panel.
   useEffect(() => {

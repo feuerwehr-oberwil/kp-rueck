@@ -55,38 +55,62 @@ export function SidePanel({
     return <CollapsedRail onOpen={() => onModeChange('detail')} label={t('sidePanel.railLabel')} />
   }
 
-  return (
-    <aside className="flex w-[420px] flex-col border-l border-border bg-card/30 backdrop-blur-sm 2xl:w-[480px]">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-1">
+  const modeControls = (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
           <Button
             variant={mode === 'detail' ? 'secondary' : 'ghost'}
-            size="sm"
+            size="icon-xs"
             onClick={() => onModeChange('detail')}
-            className="px-3"
+            aria-label={t('sidePanel.details')}
           >
             <FileText className="h-4 w-4" />
-            {t('sidePanel.details')}
           </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t('sidePanel.details')}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
           <Button
             variant={mode === 'map' ? 'secondary' : 'ghost'}
-            size="sm"
+            size="icon-xs"
             onClick={() => onModeChange('map')}
-            className="px-3"
+            aria-label={t('sidePanel.map')}
           >
             <MapIcon className="h-4 w-4" />
-            {t('sidePanel.map')}
           </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t('sidePanel.map')}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => onModeChange('collapsed')}
+            aria-label={t('sidePanel.togglePanel')}
+          >
+            <PanelRightClose className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t('common.close')}</TooltipContent>
+      </Tooltip>
+    </>
+  )
+
+  return (
+    <aside className="flex w-[420px] flex-col border-l border-border bg-card/30 backdrop-blur-sm 2xl:w-[480px]">
+      {/* No bar of its own. Details/Karte and the close button ride in the
+          detail's title row — three stacked control rows (bar, title, tabs) in a
+          420px column spent ~200px before a single field appeared. The map,
+          which is not the detail, keeps a minimal one. */}
+      {mode === 'map' && (
+        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <span className="text-sm font-semibold">{t('sidePanel.map')}</span>
+          <div className="flex items-center gap-1">{modeControls}</div>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => onModeChange('collapsed')} aria-label={t('sidePanel.togglePanel')}>
-              <PanelRightClose className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t('common.close')}</TooltipContent>
-        </Tooltip>
-      </div>
+      )}
 
       <div className="flex-1 overflow-hidden">
         {mode === 'detail' && (
@@ -97,11 +121,15 @@ export function SidePanel({
                 {...detailProps}
                 operation={selectedOperation}
                 layout="panel"
+                headerActions={modeControls}
               />
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center p-4 text-muted-foreground">
-              <p className="text-center text-sm">{t('sidePanel.clickToView')}</p>
+            <div className="flex h-full flex-col p-4">
+              <div className="flex items-center justify-end gap-1">{modeControls}</div>
+              <p className="flex flex-1 items-center justify-center text-center text-sm text-muted-foreground">
+                {t('sidePanel.clickToView')}
+              </p>
             </div>
           )
         )}

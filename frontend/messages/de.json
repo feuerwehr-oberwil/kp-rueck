@@ -554,6 +554,7 @@
     "detail": {
       "tabs": {
         "overview": "Übersicht",
+        "reko": "Reko",
         "rapport": "Rapport",
         "rapportFiled": "erfasst",
         "rapportDraft": "Entwurf",

@@ -12,9 +12,9 @@ describe("detailTabForNotification", () => {
     }
   })
 
-  it("sends Reko where Reko now lives — the Rapport tab's left column", () => {
-    expect(detailTabForNotification("reko_submitted")).toBe("rapport")
-    expect(detailTabForNotification("reko_arrived")).toBe("rapport")
+  it("sends Reko to the Reko tab, which it has again", () => {
+    expect(detailTabForNotification("reko_submitted")).toBe("reko")
+    expect(detailTabForNotification("reko_arrived")).toBe("reko")
   })
 
   it("sends resource, timing and data-quality alerts to Übersicht", () => {

@@ -107,11 +107,11 @@ export function useOperationDetailShortcuts({
  *  Ressourcen used to be a fourth. It was folded into Übersicht: what an
  *  incident IS and who is on it is one question an operator asks in one look,
  *  and splitting it cost a tab switch every time. */
-export type OperationDetailTab = "overview" | "rapport" | "history"
+export type OperationDetailTab = "overview" | "reko" | "rapport" | "history"
 
 /** Left-to-right, the order the tab bar shows them in — and therefore the order
  *  ← / → walk through. */
-export const OPERATION_DETAIL_TABS: readonly OperationDetailTab[] = ["overview", "rapport", "history"]
+export const OPERATION_DETAIL_TABS: readonly OperationDetailTab[] = ["overview", "reko", "rapport", "history"]
 
 function isDetailTab(value: unknown): value is OperationDetailTab {
   return typeof value === "string" && (OPERATION_DETAIL_TABS as readonly string[]).includes(value)

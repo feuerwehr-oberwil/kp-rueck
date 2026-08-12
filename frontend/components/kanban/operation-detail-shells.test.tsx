@@ -112,8 +112,11 @@ describe("incident detail shells", () => {
     expect(noop).not.toHaveBeenCalled()
     const panelProps = renderedDetailProps.at(-1)!
 
+    // `headerActions` is the panel's own chrome — its mode switch and close
+    // button ride in the detail's title row instead of on a bar of their own —
+    // so it is not part of the shared semantic surface either.
     const semanticProps = (props: Record<string, unknown>) => {
-      const { layout: _layout, active: _active, ...shared } = props
+      const { layout: _layout, active: _active, headerActions: _headerActions, ...shared } = props
       return shared
     }
 

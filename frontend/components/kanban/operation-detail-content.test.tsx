@@ -180,7 +180,12 @@ describe("OperationDetailContent", () => {
     )
 
     expect(screen.getByText("Hauptstrasse 1")).toBeInTheDocument()
-    expect(screen.getByText("incident-1")).toBeInTheDocument()
+    // The panel carries the incident id as the title's tooltip: 36 monospace
+    // characters nobody reads aloud are not worth a line in 420px.
+    expect(screen.getByText("Hauptstrasse 1").closest("h2")).toHaveAttribute(
+      "title",
+      "Hauptstrasse 1 · incident-1",
+    )
 
     await user.click(screen.getByRole("button", { name: "Koordinaten löschen" }))
     expect(onUpdate).toHaveBeenCalledWith({ coordinates: null })
@@ -260,7 +265,7 @@ describe("OperationDetailContent", () => {
     expect(screen.queryByRole("button", { name: "Alle offenen Rekos übertragen" })).not.toBeInTheDocument()
   })
 
-  it("offers exactly three tabs, with the incident and its resources on one of them", async () => {
+  it("offers four tabs, with the incident and its resources on one of them", async () => {
     const user = userEvent.setup()
 
     renderWithIntl(
@@ -273,9 +278,12 @@ describe("OperationDetailContent", () => {
       />,
     )
 
-    // Ressourcen is gone as a tab — it is part of Übersicht.
-    expect(screen.getAllByRole("tab")).toHaveLength(3)
+    // Ressourcen is gone as a tab — it is part of Übersicht. Reko has one of
+    // its own: it is read while deciding what to send, not while reading what
+    // the crew reported afterwards.
+    expect(screen.getAllByRole("tab")).toHaveLength(4)
     expect(screen.queryByRole("tab", { name: /Ressourcen/ })).not.toBeInTheDocument()
+    expect(tab("Reko")).toBeInTheDocument()
 
     // The header keeps the address and now carries the tab bar on the same row.
     expect(screen.getByText("Hauptstrasse 1")).toBeInTheDocument()
@@ -284,11 +292,15 @@ describe("OperationDetailContent", () => {
     // ...and what used to cost a tab switch is on the same panel.
     expect(screen.getByText("Zugewiesene Ressourcen")).toBeInTheDocument()
     // The Rapport panel is force-mounted for its form state, so it must be
-    // hidden rather than absent.
-    expect(screen.getByText("Reko-Meldungen")).not.toBeVisible()
+    // hidden rather than absent. Reko is a plain panel and simply absent.
+    expect(screen.queryByText("Reko-Meldungen")).not.toBeInTheDocument()
+    expect(screen.getByText("Schadenplatz-Rapport-Formular")).not.toBeVisible()
+
+    // Reko has a tab of its own — read while deciding what to send.
+    await user.click(tab("Reko"))
+    expect(screen.getByText("Reko-Meldungen")).toBeVisible()
 
     await user.click(tab(/^Rapport/))
-    expect(screen.getByText("Reko-Meldungen")).toBeVisible()
     expect(screen.getByText("Schadenplatz-Rapport-Formular")).toBeVisible()
     // Two settable rows since plan 26 §5.2: Abholung (§18.19) and "Reko vor
     // Ort", which is written here and displayed nowhere else. Angekommen and
@@ -304,7 +316,7 @@ describe("OperationDetailContent", () => {
     expect(await screen.findByText("Bisher im Einsatz")).toBeInTheDocument()
     expect(screen.getByText("Statusänderungen, Zuweisungen und Meldungen")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /Bisher im Einsatz/ })).not.toBeInTheDocument()
-    expect(screen.getByText("Reko-Meldungen")).not.toBeVisible()
+    expect(screen.queryByText("Reko-Meldungen")).not.toBeInTheDocument()
   })
 
   it("carries the filed-rapport state in the tab label", () => {
@@ -405,6 +417,9 @@ describe("OperationDetailContent", () => {
     const whatsapp = screen.getByRole("button", { name: "WhatsApp kopieren" })
     whatsapp.focus()
     fireEvent.keyDown(whatsapp, { key: "ArrowRight" })
+    await waitFor(() => expect(tab("Reko")).toHaveAttribute("aria-selected", "true"))
+
+    fireEvent.keyDown(whatsapp, { key: "ArrowRight" })
     await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
 
     fireEvent.keyDown(whatsapp, { key: "ArrowRight" })
@@ -417,6 +432,8 @@ describe("OperationDetailContent", () => {
     fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
     await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
     fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
+    await waitFor(() => expect(tab("Reko")).toHaveAttribute("aria-selected", "true"))
+    fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
     await waitFor(() => expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true"))
 
     // A caret with nothing to its right has no move to make, so → is free...
@@ -424,7 +441,7 @@ describe("OperationDetailContent", () => {
     meldung.focus()
     meldung.setSelectionRange(meldung.value.length, meldung.value.length)
     fireEvent.keyDown(meldung, { key: "ArrowRight" })
-    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+    await waitFor(() => expect(tab("Reko")).toHaveAttribute("aria-selected", "true"))
 
     // ...while ← from that same caret is real cursor movement and stays with
     // the field. This is the rule that keeps a form-heavy tab usable without
@@ -450,6 +467,8 @@ describe("OperationDetailContent", () => {
     await waitFor(() => expect(document.activeElement).toBe(root))
 
     fireEvent.keyDown(root, { key: "ArrowRight" })
+    await waitFor(() => expect(tab("Reko")).toHaveAttribute("aria-selected", "true"))
+    fireEvent.keyDown(root, { key: "ArrowRight" })
     await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
     fireEvent.keyDown(root, { key: "ArrowRight" })
     await waitFor(() => expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true"))
@@ -462,6 +481,8 @@ describe("OperationDetailContent", () => {
     // …and from a control inside the panel, not just from the root.
     const whatsapp = screen.getByRole("button", { name: "WhatsApp kopieren" })
     whatsapp.focus()
+    fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
+    await waitFor(() => expect(tab("Reko")).toHaveAttribute("aria-selected", "true"))
     fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
     await waitFor(() => expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true"))
 

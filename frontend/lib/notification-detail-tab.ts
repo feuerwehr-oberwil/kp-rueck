@@ -20,10 +20,11 @@ const TAB_BY_TYPE: Record<string, OperationDetailTab> = {
   field_arrived: "rapport",
   field_complete: "rapport",
   field_pickup: "rapport",
-  // Reko moved onto that same tab's left column when Ressourcen was folded into
-  // Übersicht (§18.7a). Two different reporting paths, one place to read them.
-  reko_submitted: "rapport",
-  reko_arrived: "rapport",
+  // Reko has a tab of its own again: the Reko-Berichte are written and read at a
+  // different moment than everything the crew sends from the Schadenplatz, and
+  // one tab holding both was one tab nobody could see the end of.
+  reko_submitted: "reko",
+  reko_arrived: "reko",
   // Resources, timings and data quality are all Übersicht — but they are listed
   // rather than left to the fallback, so the next reader can see that the
   // classification was made and not merely omitted.
