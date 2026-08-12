@@ -1,5 +1,5 @@
 {
-  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
+  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers, et la démo tourne en allemand. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
   "meta": {
     "title": "KP Rück – le tableau d’intervention du poste de commandement",
     "description": "KP Rück reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé.",
@@ -19,7 +19,7 @@
     "h1": "Le tableau d’intervention du poste de commandement.",
     "lede": "KP Rück reproduit sous forme numérique le tableau magnétique du PC arrière :\n      <strong>interventions, personnel, véhicules et matériel</strong> sur un seul tableau –\n      en direct sur chaque appareil.",
     "cta": "Ouvrir la démo",
-    "ctaNote": "Sans compte – choisir un rôle et commencer",
+    "ctaNote": "Sans compte – choisir un rôle et commencer (interface en allemand)",
     "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
     "frameAlt": "Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite"
   },
@@ -28,7 +28,8 @@
     "who": [
       "Sapeurs-pompiers de milice",
       "Corps locaux",
-      "Centres de renfort"
+      "Centres de renfort",
+      "Sapeurs-pompiers professionnels"
     ],
     "whatLabel": "Pour quoi",
     "what": [
@@ -107,7 +108,7 @@
     "eyebrow": "Tiré de la démo",
     "h2": "Voilà à quoi cela ressemble.",
     "lede": "Toutes les images proviennent de la démo publique. Cliquez sur\n        «&nbsp;Ouvrir la démo&nbsp;» et vous serez devant le même tableau.",
-    "note": "Les captures d’écran sont en allemand – comme l’application elle-même pour l’instant.\n        La mécanique multilingue est en place, les traductions manquent encore ; cette page est\n        le premier morceau, l’application suivra.",
+    "note": "Les captures d’écran sont en allemand : la démo publique l’est, et elles en viennent – des images reconstituées seraient une affirmation plutôt qu’une preuve.",
     "items": [
       {
         "alt": "Vue projecteur : toutes les phases d’intervention côte à côte sur un écran",
@@ -261,10 +262,6 @@
       {
         "q": "Peut-on l’adapter à nos procédures ?",
         "a": "Oui. Chaque corps a son propre espace d’administration : types d’intervention,\n          priorités, effectif, parc de véhicules et listes de matériel y sont librement réglables,\n          l’import et l’export passent par Excel. Et comme tout le code est sur\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tout le reste peut être construit – par vous-mêmes ou sur mandat."
-      },
-      {
-        "q": "Dans quelles langues l’application fonctionne-t-elle ?",
-        "a": "L’interface est aujourd’hui en <strong>allemand</strong>. La mécanique pour d’autres\n          langues est en place, les traductions manquent encore – cette page existe donc en\n          français, l’application pas encore. Qui veut aider à traduire est le bienvenu."
       },
       {
         "q": "Comment commencer ?",

@@ -53,10 +53,11 @@ Bewusst entschieden und nicht aus Versehen so:
   Browsereinstellung nach `/fr/` schickt, ist schlimmer als ein Umschalter, den er sieht.
 - **Die Screenshots bleiben deutsch, auf jeder Sprachfassung.** Sie kommen aus einer echten
   Instanz; nachgestellte Bilder wären eine Behauptung.
-- ⚠️ **Die App selbst kann noch kein Französisch** (`frontend/messages/fr.json` ist `{}`, siehe
-  [Plan 06](../docs/plans/06-i18n.md)). Die FR-Seite sagt das an zwei Stellen offen, statt eine
-  französische Oberfläche zu versprechen, die es nicht gibt. Wenn Plan 06 gelaufen ist, gehören
-  beide Stellen angepasst: `shots.note` und die Sprachen-Frage in `faq.items`.
+- **Über die Sprache der App steht auf der Seite nichts.** Deutsch wird nur dort erwähnt, wo
+  es der Besucher sofort merkt: die **Demo** läuft auf Deutsch, und die Screenshots kommen
+  aus ihr. Das ist eine Tatsache über die Demo, keine Aussage über das Produkt – und sie
+  stimmt auch dann noch, wenn `frontend/messages/fr.json` gefüllt ist. Genau deshalb steht
+  sie so da: sie muss nach Plan 06 nicht nachgezogen werden.
 - **Eine Übersetzung, die keine französischsprachige Feuerwehr-Person gelesen hat, sagt das
   oben auf der Seite** (`notice` in `fr.json`). Diese Zeile verschwindet, wenn jemand
   gegengelesen hat – sie ist kein Dekor. Es ist dieselbe Freigabe-Person, die Plan 06 braucht.

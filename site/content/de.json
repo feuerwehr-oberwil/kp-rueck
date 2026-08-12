@@ -30,7 +30,8 @@
     "who": [
       "Milizfeuerwehren",
       "Ortsfeuerwehren",
-      "Stützpunktfeuerwehren"
+      "Stützpunktfeuerwehren",
+      "Berufsfeuerwehren"
     ],
     "whatLabel": "Für was",
     "what": [
@@ -286,10 +287,6 @@
       {
         "q": "Können wir es an unsere Abläufe anpassen?",
         "a": "Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Einsatzarten, Prioritäten,\n          Mannschaft, Fuhrpark und Materiallisten sind dort frei einstellbar, Import und Export\n          laufen über Excel. Und weil der ganze Code auf\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>\n          steht, lässt sich alles Übrige bauen – selbst oder in Auftrag."
-      },
-      {
-        "q": "In welchen Sprachen läuft die App?",
-        "a": "Die Oberfläche ist heute <strong>deutsch</strong>. Die Mechanik für weitere Sprachen\n          steht, die Übersetzungen fehlen noch – diese Seite gibt es deshalb auf Französisch,\n          die App noch nicht. Wer mit übersetzen mag, ist willkommen."
       },
       {
         "q": "Wie fangen wir an?",
