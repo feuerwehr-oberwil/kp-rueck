@@ -1437,7 +1437,11 @@ export function OperationDetailContent({
         onOpenChange={setRekoDialogOpen}
         incidentId={operation.id}
         incidentTitle={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
-        onAssigned={() => void refreshOperations()}
+        onAssigned={() => {
+          // The dialog no longer closes itself on success — see `onAssigned`.
+          setRekoDialogOpen(false)
+          void refreshOperations()
+        }}
       />
 
       {assignedRekoPerson && (

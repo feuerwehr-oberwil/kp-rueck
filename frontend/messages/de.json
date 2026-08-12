@@ -869,6 +869,7 @@
       "markError": "Die Person konnte nicht als Reko markiert werden. Versuche es erneut.",
       "back": "Zurück",
       "assigned": "Zugewiesen",
+      "keepAssigned": "Zuweisung übernehmen",
       "recommended": "Empfohlen",
       "openCount": "{count} offen",
       "noOpenWork": "frei",
