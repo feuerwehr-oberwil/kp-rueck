@@ -52,7 +52,10 @@ LABELS: dict[str, str] = {
     "training_badge": "ÜBUNG",
     "event": "Ereignis",
     "period": "Zeitraum",
-    "ongoing": "laufend",
+    # A range says "bis"; an event that is still running says "seit" and names one
+    # clock, because there is no second one to name yet.
+    "period_range": "{start} bis {end}",
+    "period_ongoing": "seit {start}",
     "funkrufname": "Funkrufname",
     "generated_at": "Erstellt am",
     "generated_by": "Erstellt von",
@@ -111,6 +114,10 @@ LABELS: dict[str, str] = {
     # broke mid-word ("Eingegang / en") and no width the table can spare fixes that.
     "col_created": "Eingang",
     "col_completed": "Ende",
+    #: The incident's sub-title: category and the clock it came in on. Both are one-line
+    #: facts about the incident as a whole, so they belong to its heading rather than to
+    #: two more rows of the label column below it.
+    "incident_subtitle": "{type} · {at}",
     # Per-incident detail
     "details_title": "Einsatzdetails",
     "details_hint": "Ein Block pro Einsatz, in derselben Reihenfolge wie die Übersicht.",
@@ -142,7 +149,7 @@ LABELS: dict[str, str] = {
     "reko_arrived_kp": "Vor Ort {at} (Funkmeldung)",
     # Schadenplatz-Rapport (plan 25, §7)
     "rapport": "Schadenplatz-Rapport",
-    "rapport_draft": "Entwurf – noch nicht abgeschlossen",
+    "rapport_draft": "Entwurf, noch nicht abgeschlossen",
     "rapport_work": "Tätigkeit",
     "rapport_work_from": "ab {at}",
     "rapport_work_to": "bis {at}",
@@ -952,14 +959,18 @@ def _p(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(escape(str(text)), style)
 
 
-def _widths(*fixed: float) -> list[float]:
-    """Column widths where the LAST column takes whatever is left of the content width.
+def _widths(*fixed: float, flex: int = -1) -> list[float]:
+    """Column widths where ONE column takes whatever is left of the content width.
 
     Hand-totalled width lists drift the moment a column is retuned, and a table that is
     a millimetre wider than the frame no longer lines up with the section rule above it.
-    Give the fixed columns; the remainder is arithmetic.
+    Give the fixed columns; the remainder is arithmetic. ``flex`` is where the remainder
+    goes — the last column by default, or an index when the elastic column sits in the
+    middle (the overview's Adresse, whose neighbours all have a measured minimum).
     """
-    return [*fixed, _CONTENT_W - sum(fixed)]
+    cols = list(fixed)
+    cols.insert(len(cols) + 1 + flex if flex < 0 else flex, _CONTENT_W - sum(cols))
+    return cols
 
 
 def _logo_flowable(logo: bytes | None) -> Image | None:
@@ -1030,9 +1041,13 @@ def _cover(
     flow.append(_rule(color=_INK, thickness=1.0, space_after=5))
 
     period_start = _fmt_dt(event.created_at)
-    period_end = _fmt_dt(event.archived_at) if event.archived_at else LABELS["ongoing"]
+    period = (
+        LABELS["period_range"].format(start=period_start, end=_fmt_dt(event.archived_at))
+        if event.archived_at
+        else LABELS["period_ongoing"].format(start=period_start)
+    )
     meta_lines = [
-        (LABELS["period"], f"{period_start} – {period_end}"),
+        (LABELS["period"], period),
         (LABELS["funkrufname"], _text(funkrufname)),
         (LABELS["generated_at"], _fmt_dt(datetime.now(UTC))),
         (LABELS["generated_by"], _text(generated_by)),
@@ -1372,9 +1387,11 @@ def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphS
         )
 
     # Measured, not guessed (Helvetica 8 pt + 8 pt cell padding): "Elementarereignis" is
-    # 25.6mm and appears in almost every row, the clock columns need 22mm for a date, and
-    # at 18mm their own headings broke inside the word.
-    col_widths = _widths(8 * mm, 44 * mm, 26 * mm, 48 * mm, 22 * mm)
+    # 25.6mm and appears in almost every row, and "05.08.2026 15:21" is 24.8mm — at 22mm
+    # both clock columns broke every date away from its own time, which is two lines per
+    # row for a value that reads as one. Adresse absorbs the rest (39.8mm against a
+    # longest address of 37.5mm).
+    col_widths = _widths(8 * mm, 46 * mm, 26 * mm, 25 * mm, 25 * mm, flex=3)
     table = Table(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
@@ -1466,9 +1483,16 @@ def _incident_detail(
     data: EventReportData, inc: Incident, index: int, styles: dict[str, ParagraphStyle], home_city: str = ""
 ) -> list[Any]:
     """Build the detail block flowables for a single incident."""
-    # Heading = address (the incident's "name"); fall back to title, then em dash.
+    # Heading = address (the incident's "name"); fall back to title, then the dash.
     # Locations equal to the home city are hidden (redundant) → fall back to title.
     heading_name = format_location_for_display(inc.location_address, home_city) or inc.title or LABELS["none"]
+
+    # Sub-title = category and time of alarm. The time used to be a row of the label
+    # column; it identifies the incident rather than describing it, so it belongs up here
+    # with the category, and the block below starts on what the incident *was*.
+    incident_type = TYPE_LABELS.get(inc.type, inc.type)
+    received = _fmt_dt(inc.created_at)
+    subtitle = LABELS["incident_subtitle"].format(type=incident_type, at=received) if received else incident_type
 
     # The heading travels with the first few lines it introduces. A block long enough to
     # split across pages splits *below* this group, so no page ever ends on an incident
@@ -1477,14 +1501,10 @@ def _incident_detail(
         KeepTogether(
             [
                 _p(f"{index}. {heading_name}", styles["incident_heading"]),
-                # Title line = category (incident type)
-                _p(TYPE_LABELS.get(inc.type, inc.type), styles["meta"]),
+                _p(subtitle, styles["meta"]),
                 Spacer(1, 2),
-                # Priority and status, each on its own row, below the category line
                 _field(LABELS["col_priority"], PRIORITY_LABELS.get(inc.priority, inc.priority), styles),
                 _field(LABELS["col_status"], STATUS_LABELS.get(inc.status, inc.status), styles),
-                # Alarm / received time
-                _field(LABELS["col_created"], _fmt_dt(inc.created_at), styles),
             ]
         )
     ]
@@ -1534,7 +1554,7 @@ def _incident_detail(
             name = _resource_name(data, a)
             span = f"{LABELS['assigned_since']} {_fmt_dt(a.assigned_at)}"
             if a.unassigned_at:
-                span = f"{_fmt_dt(a.assigned_at)} – {_fmt_dt(a.unassigned_at)}"
+                span = LABELS["period_range"].format(start=_fmt_dt(a.assigned_at), end=_fmt_dt(a.unassigned_at))
             lines.append(f"{name} ({span})")
         block.extend(_bullet_field(label, lines, styles))
 
@@ -1582,14 +1602,14 @@ def _incident_detail(
 
 
 def _format_work_window(window: WorkWindow) -> str:
-    """``17:45 – 20:18``, or a one-sided ``ab``/``bis`` when only one end is known.
+    """``17:45 bis 20:18``, or a one-sided ``ab``/``bis`` when only one end is known.
 
     The old format printed the missing end as a placeholder, which read as a range that
     closed on nothing.
     """
     start, end = _fmt_dt(window.started_at), _fmt_dt(window.ended_at)
     if start and end:
-        return f"{start} – {end}"
+        return LABELS["period_range"].format(start=start, end=end)
     if start:
         return LABELS["rapport_work_from"].format(at=start)
     if end:
@@ -1605,13 +1625,12 @@ def _rapport_block(
 ) -> list[Any]:
     """The "Schadenplatz-Rapport" lines of one incident's detail block.
 
-    Set as its own level (rule + subsection heading) rather than as more fields in the
-    same weight: this is the crew's record inside the KP's, and the page has to say so.
+    Set as its own level (a bold sub-heading) rather than as more fields in the same
+    weight: this is the crew's record inside the KP's, and the page has to say so. No
+    rule above it, though – nothing separates one incident from the next, so a line here
+    would make the rapport read as the bigger break of the two, which it is not.
     """
-    head: list[Any] = [
-        _rule(color=_GRID, thickness=0.5, space_after=2),
-        _p(LABELS["rapport"], styles["subsection"]),
-    ]
+    head: list[Any] = [Spacer(1, 3), _p(LABELS["rapport"], styles["subsection"])]
     if report.is_draft:
         head.append(_p(LABELS["rapport_draft"], styles["meta"]))
 
@@ -1781,7 +1800,7 @@ def build_event_report_pdf(
         rightMargin=_PAGE_MARGIN,
         topMargin=_PAGE_MARGIN,
         bottomMargin=_PAGE_MARGIN,
-        title=f"{LABELS['report_title']} – {event.name}",
+        title=f"{LABELS['report_title']}: {event.name}",
         author=generated_by or "",
     )
 

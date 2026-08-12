@@ -248,10 +248,13 @@ class TestNullTolerance:
         pdf_bytes = build_event_report_pdf(data, generated_by="u")
         assert pdf_bytes.startswith(b"%PDF")
         text = _extract_text(pdf_bytes)
-        # En-dash placeholder for missing fields (§18.25: German typography uses
-        # the en dash, and the report is German output).
-        assert "–" in text
-        assert "—" not in text
+        # The incident is on the page — with nothing but a heading, its two known
+        # facts and the sub-title, because a field with no answer is not printed at
+        # all. The label of every field this incident has no value for must be absent.
+        assert "Minimal" in text
+        assert "Diverse Einsätze" in text
+        for absent in ("Kontakt:", "Beschreibung:", "Merkmale:", "Personal:", "Statusverlauf:"):
+            assert absent not in text, f"{absent} printed for an incident that has no value for it"
 
 
 # ============================================
