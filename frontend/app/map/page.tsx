@@ -877,7 +877,11 @@ export default function MapPage() {
                   {isMounted && currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
                 </span>
               </div>
-              <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
+              <PageNavigation
+                currentPage="map"
+                hasSelectedEvent={!!selectedEvent}
+                selectedIncidentId={selectedIncidentId}
+              />
             </div>
           )}
 

@@ -16,6 +16,9 @@ import Link from 'next/link';
 interface PageNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'training' | 'stats' | 'help' | 'divera';
   hasSelectedEvent?: boolean;
+  /** The incident the current surface has open. Board and Karte pass it so the
+   *  other one opens on the same one — see `withSelection`. */
+  selectedIncidentId?: string | null;
   // Quick action callbacks (for Kanban page)
   onNewIncident?: () => void;
   onCheckIn?: () => void;
@@ -26,6 +29,7 @@ interface PageNavigationProps {
 
 export function PageNavigation({
   currentPage,
+  selectedIncidentId,
   hasSelectedEvent = true,
   onNewIncident,
   onCheckIn,
@@ -34,11 +38,16 @@ export function PageNavigation({
   onPrint,
 }: PageNavigationProps) {
   const t = useTranslations('nav.pageNav');
+  // Board and Karte hand the open incident to each other: both read
+  // `?highlight=`, so switching surface keeps you on the same Einsatz instead of
+  // making you find it again. Without a selection the links stay plain.
+  const withSelection = (href: string) =>
+    selectedIncidentId ? `${href}${href.includes('?') ? '&' : '?'}highlight=${selectedIncidentId}` : href;
   return (
     // Desktop only — on mobile navigation lives in the bottom navbar.
     <nav aria-label={t('main')} className="hidden md:flex items-center gap-1 md:gap-2">
         {/* Kanban Icon */}
-        <Link href="/" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
+        <Link href={withSelection('/')} prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
             variant="ghost"
             size="icon"
@@ -52,7 +61,7 @@ export function PageNavigation({
         </Link>
 
         {/* Map Icon */}
-        <Link href="/map" prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
+        <Link href={withSelection('/map')} prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
           <Button
             variant="ghost"
             size="icon"

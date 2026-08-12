@@ -78,7 +78,7 @@
       "notifications": "Benachrichtigungen",
       "toggleSidePanel": "Seitenpanel umschalten",
       "sidePanelDetail": "Seitenpanel: Detail",
-      "sidePanelMap": "Seitenpanel: Karte",
+      "sidePanelMap": "Einsatz auf der Karte öffnen",
       "groupMap": "Karte",
       "toggleLabels": "Labels umschalten",
       "toggleAssignmentLines": "Zuweisungslinien umschalten",
@@ -587,18 +587,12 @@
     },
     "sidePanel": {
       "togglePanel": "Panel ein-/ausblenden",
-      "railLabel": "Detail / Karte",
-      "details": "Details",
-      "map": "Karte",
+      "railLabel": "Einsatz-Detail",
+      "openOnMap": "Auf der Karte öffnen",
       "clickToView": "Klicke auf einen Einsatz, um Details anzuzeigen",
       "selectPlaceholder": "Auswählen",
       "transfer": "Übertragen",
-      "whatsapp": "WhatsApp",
-      "mapLoading": "Karte wird geladen..."
-    },
-    "sidePanelMap": {
-      "noCoordinates": "Keine Einsätze mit gültigen Koordinaten",
-      "vehicle": "Fahrzeug"
+      "whatsapp": "WhatsApp"
     },
     "personMenu": {
       "vehicleTaken": "Fahrzeug bereits zugewiesen",
@@ -2039,7 +2033,6 @@
       "printing": "Wird gedruckt..."
     },
     "view": {
-      "mapLoading": "Karte wird geladen...",
       "title": "KP RÜCK STATUSÜBERSICHT",
       "eventLabel": "Event",
       "printedLabel": "Gedruckt",

@@ -1,12 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import dynamic from "next/dynamic"
 import { useTranslations } from "next-intl"
-import { FileText, Map as MapIcon, PanelRight, PanelRightClose } from "lucide-react"
+import { Map as MapIcon, PanelRight, PanelRightClose } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { translateOutsideReact } from "@/lib/i18n-messages"
 import { useEvent } from "@/lib/contexts/event-context"
 import type { Operation } from "@/lib/contexts/operations-context"
 import {
@@ -16,22 +14,21 @@ import {
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 import { cn } from "@/lib/utils"
 
-interface SidePanelProps extends Omit<OperationDetailContentProps, 'operation' | 'layout' | 'active'> {
-  mode: 'detail' | 'map' | 'collapsed'
-  onModeChange: (mode: 'detail' | 'map' | 'collapsed') => void
+interface SidePanelProps extends Omit<OperationDetailContentProps, 'operation' | 'layout' | 'active' | 'headerActions'> {
+  mode: 'detail' | 'collapsed'
+  onModeChange: (mode: 'detail' | 'collapsed') => void
   selectedOperation: Operation | null
-  operations: Operation[]
-  onSelectOperation: (operation: Operation) => void
-  panToNonce?: number
+  /** Show this incident on the Karte page. Navigation belongs to the page that
+   *  owns the route, not to a panel — and a panel that reached for `useRouter`
+   *  could not be rendered outside one. */
+  onOpenOnMap?: () => void
 }
 
 export function SidePanel({
   mode,
   onModeChange,
   selectedOperation,
-  operations,
-  onSelectOperation,
-  panToNonce,
+  onOpenOnMap,
   ...detailProps
 }: SidePanelProps) {
   const t = useTranslations('kanban')
@@ -57,32 +54,25 @@ export function SidePanel({
 
   const modeControls = (
     <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={mode === 'detail' ? 'secondary' : 'ghost'}
-            size="icon-xs"
-            onClick={() => onModeChange('detail')}
-            aria-label={t('sidePanel.details')}
-          >
-            <FileText className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t('sidePanel.details')}</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={mode === 'map' ? 'secondary' : 'ghost'}
-            size="icon-xs"
-            onClick={() => onModeChange('map')}
-            aria-label={t('sidePanel.map')}
-          >
-            <MapIcon className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t('sidePanel.map')}</TooltipContent>
-      </Tooltip>
+      {/* Not an inset map any more: the Karte page is bigger, has the tools,
+          and can show this incident among all the others. It carries the
+          selection over as ?highlight= — the same parameter the board reads
+          coming back, so the two surfaces hand the incident to each other. */}
+      {onOpenOnMap && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={onOpenOnMap}
+              aria-label={t('sidePanel.openOnMap')}
+            >
+              <MapIcon className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t('sidePanel.openOnMap')}</TooltipContent>
+        </Tooltip>
+      )}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -105,86 +95,27 @@ export function SidePanel({
           detail's title row — three stacked control rows (bar, title, tabs) in a
           420px column spent ~200px before a single field appeared. The map,
           which is not the detail, keeps a minimal one. */}
-      {mode === 'map' && (
-        <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <span className="text-sm font-semibold">{t('sidePanel.map')}</span>
-          <div className="flex items-center gap-1">{modeControls}</div>
-        </div>
-      )}
-
       <div className="flex-1 overflow-hidden">
-        {mode === 'detail' && (
-          selectedOperation ? (
-            <div className="h-full p-4">
-              <OperationDetailContent
-                key={`${selectedEvent?.id ?? 'no-event'}:${selectedOperation.id}`}
-                {...detailProps}
-                operation={selectedOperation}
-                layout="panel"
-                headerActions={modeControls}
-              />
-            </div>
-          ) : (
-            <div className="flex h-full flex-col p-4">
-              <div className="flex items-center justify-end gap-1">{modeControls}</div>
-              <p className="flex flex-1 items-center justify-center text-center text-sm text-muted-foreground">
-                {t('sidePanel.clickToView')}
-              </p>
-            </div>
-          )
-        )}
-        {mode === 'map' && (
-          <SidePanelMap
-            operations={operations}
-            selectedOperation={selectedOperation}
-            panToNonce={panToNonce}
-            onSelectOperation={onSelectOperation}
-            onSwitchToDetail={(operation) => {
-              onSelectOperation(operation)
-              onModeChange('detail')
-            }}
-          />
+        {selectedOperation ? (
+          <div className="h-full p-4">
+            <OperationDetailContent
+              key={`${selectedEvent?.id ?? 'no-event'}:${selectedOperation.id}`}
+              {...detailProps}
+              operation={selectedOperation}
+              layout="panel"
+              headerActions={modeControls}
+            />
+          </div>
+        ) : (
+          <div className="flex h-full flex-col p-4">
+            <div className="flex items-center justify-end gap-1">{modeControls}</div>
+            <p className="flex flex-1 items-center justify-center text-center text-sm text-muted-foreground">
+              {t('sidePanel.clickToView')}
+            </p>
+          </div>
         )}
       </div>
     </aside>
-  )
-}
-
-const SidePanelMapContent = dynamic(
-  () => import("./side-panel-map"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        <p className="text-sm">{translateOutsideReact('kanban.sidePanel.mapLoading')}</p>
-      </div>
-    ),
-  },
-)
-
-function SidePanelMap({
-  operations,
-  selectedOperation,
-  panToNonce,
-  onSelectOperation,
-  onSwitchToDetail,
-}: {
-  operations: Operation[]
-  selectedOperation: Operation | null
-  panToNonce?: number
-  onSelectOperation: (operation: Operation) => void
-  onSwitchToDetail: (operation: Operation) => void
-}) {
-  return (
-    <div className="h-full">
-      <SidePanelMapContent
-        operations={operations}
-        selectedOperation={selectedOperation}
-        panToNonce={panToNonce}
-        onSelectOperation={onSelectOperation}
-        onSwitchToDetail={onSwitchToDetail}
-      />
-    </div>
   )
 }
 

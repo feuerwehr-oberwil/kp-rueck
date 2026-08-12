@@ -365,8 +365,7 @@ export default function FireStationDashboard() {
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
   // Modal and panel intentionally share one incident identity; only presentation
   // changes at the external-monitor breakpoint.
-  const [panToNonce, setPanToNonce] = useState(0)
-  const [sidePanelMode, setSidePanelMode] = useState<'detail' | 'map' | 'collapsed'>('collapsed')
+  const [sidePanelMode, setSidePanelMode] = useState<'detail' | 'collapsed'>('collapsed')
   // "Open the detail on THIS tab" — set by a notification click and by nothing
   // else, so every ordinary card click clears it and lands on the tab the
   // operator was last working in. The nonce makes a repeat click on the same
@@ -380,7 +379,6 @@ export default function FireStationDashboard() {
     setHoveredOperationId(operationId)
     if (typeof window !== 'undefined' && window.innerWidth >= SIDE_PANEL_BREAKPOINT) {
       setDetailModalOpen(false)
-      setPanToNonce((value) => value + 1)
       setSidePanelMode('detail')
     } else {
       setDetailModalOpen(true)
@@ -520,10 +518,12 @@ export default function FireStationDashboard() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [detailModalOpen, selectedOperationId, sidePanelMode])
-  // Toggling a sidebar or the side panel re-lays the board out around the card
-  // that is open — and on a full board that card was routinely pushed out of
-  // sight by the very panel showing it. Bring it back. Quietly: no highlight,
-  // no spotlight. This is not «look here», it is «stay where you were».
+  // Anything that moves the open card, or moves the board around it, must not
+  // lose it: toggling a sidebar or the panel re-lays the board out, and
+  // «Status ändern» drops the card into a different column — often one that is
+  // scrolled off the right-hand edge. Bring it back. Quietly: no highlight, no
+  // spotlight. This is not «look here», it is «stay where you were».
+  const selectedStatus = selectedOperation?.status
   useEffect(() => {
     if (!selectedOperationId) return
     const timer = setTimeout(() => {
@@ -532,7 +532,7 @@ export default function FireStationDashboard() {
         ?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" })
     }, 220)
     return () => clearTimeout(timer)
-  }, [sidePanelMode, showLeftSidebar, showRightSidebar, selectedOperationId])
+  }, [sidePanelMode, showLeftSidebar, showRightSidebar, selectedOperationId, selectedStatus])
 
   // Register notification click → scroll to card + open detail
   // Small screens: open modal overlay. Large screens (≥1536px): select in side panel.
@@ -930,7 +930,7 @@ export default function FireStationDashboard() {
       onToggleSidePanel: () =>
         setSidePanelMode(prev => (prev === 'collapsed' ? 'detail' : 'collapsed')),
       onSidePanelDetail: () => setSidePanelMode('detail'),
-      onSidePanelMap: () => setSidePanelMode('map'),
+      onSidePanelMap: () => router.push(selectedOperationId ? `/map?highlight=${selectedOperationId}` : '/map'),
       onToggleZuFuss: () => {
         if (hoveredOperationId) {
           const op = operations.find(o => o.id === hoveredOperationId)
@@ -1169,7 +1169,7 @@ export default function FireStationDashboard() {
       onToggleSidePanel: () =>
         setSidePanelMode((prev) => (prev === 'collapsed' ? 'detail' : 'collapsed')),
       onSidePanelDetail: () => setSidePanelMode('detail'),
-      onSidePanelMap: () => setSidePanelMode('map'),
+      onSidePanelMap: () => router.push(selectedOperationId ? `/map?highlight=${selectedOperationId}` : '/map'),
       onToggleNotifications: toggleNotificationSidebar,
     },
   )
@@ -1753,6 +1753,7 @@ export default function FireStationDashboard() {
               <PageNavigation
                 currentPage="kanban"
                 hasSelectedEvent={!!selectedEvent}
+                selectedIncidentId={selectedOperationId}
               />
             </div>
           )}
@@ -1957,16 +1958,11 @@ export default function FireStationDashboard() {
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
             selectedOperation={selectedOperation}
+            onOpenOnMap={() =>
+              router.push(selectedOperation ? `/map?highlight=${selectedOperation.id}` : '/map')
+            }
             openOnTab={openDetailOnTab ?? undefined}
-            panToNonce={panToNonce}
-            operations={filteredOperations}
             materials={materials}
-            onSelectOperation={(op) => {
-              setSelectedOperationId(op.id)
-              setDetailModalOpen(false)
-              setPanToNonce((n) => n + 1) // Recenter on every marker/list click too
-              setHoveredOperationId(op.id)
-            }}
             onUpdate={(updates) => {
               if (selectedOperation) {
                 updateOperation(selectedOperation.id, updates)

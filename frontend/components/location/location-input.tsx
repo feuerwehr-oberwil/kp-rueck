@@ -475,6 +475,7 @@ export function LocationInput({
             type="button"
             variant={dense ? "ghost" : "outline"}
             size={dense ? "icon-xs" : "icon"}
+            className={cn(dense && "size-7")}
             onClick={() => setMapPickerOpen(true)}
             disabled={disabled}
             title={t('locationInput.pickOnMap')}
@@ -488,6 +489,7 @@ export function LocationInput({
             type="button"
             variant={showCoordinates ? "default" : dense ? "ghost" : "outline"}
             size={dense ? "icon-xs" : "icon"}
+            className={cn(dense && "size-7")}
             onClick={() => setShowCoordinates(!showCoordinates)}
             disabled={disabled}
             title={t('locationInput.enterCoordinates')}
@@ -510,7 +512,10 @@ export function LocationInput({
         <div className="overflow-hidden">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-muted-foreground">
+              <Label className={cn(
+                "text-muted-foreground",
+                dense ? "text-xs font-normal" : "text-sm font-semibold",
+              )}>
                 {t('locationInput.coordinatesLabel')}
               </Label>
               {hasValidCoordinates && !coordinateError && (
@@ -530,6 +535,7 @@ export function LocationInput({
                 disabled={disabled || !showCoordinates}
                 aria-invalid={!!coordinateError}
                 className={cn(
+                  dense && "h-7",
                   coordinateWarning && !coordinateError && "border-warning"
                 )}
               />
@@ -539,7 +545,8 @@ export function LocationInput({
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
+                  size={dense ? "icon-xs" : "icon"}
+                  className={cn(dense && "size-7")}
                   onClick={handleSwapCoordinates}
                   disabled={disabled || !showCoordinates}
                   title={t('locationInput.swapLatLng')}
@@ -554,7 +561,8 @@ export function LocationInput({
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
+                  size={dense ? "icon-xs" : "icon"}
+                  className={cn(dense && "size-7")}
                   onClick={handleClearLocation}
                   disabled={disabled || !showCoordinates}
                   title={t('locationInput.clearLocation')}
