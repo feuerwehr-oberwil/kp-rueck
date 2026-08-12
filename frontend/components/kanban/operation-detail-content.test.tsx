@@ -296,18 +296,21 @@ describe("OperationDetailContent", () => {
     expect(screen.queryByText("Reko-Meldungen")).not.toBeInTheDocument()
     expect(screen.getByText("Schadenplatz-Rapport-Formular")).not.toBeVisible()
 
-    // Reko has a tab of its own — read while deciding what to send.
+    // Reko has a tab of its own — read while deciding what to send, and it
+    // carries the Funkmeldung that is about the reconnaissance.
     await user.click(tab("Reko"))
     expect(screen.getByText("Reko-Meldungen")).toBeVisible()
+    expect(screen.getByText("Reko vor Ort")).toBeVisible()
 
     await user.click(tab(/^Rapport/))
     expect(screen.getByText("Schadenplatz-Rapport-Formular")).toBeVisible()
-    // Two settable rows since plan 26 §5.2: Abholung (§18.19) and "Reko vor
-    // Ort", which is written here and displayed nowhere else. Angekommen and
-    // Einsatz beendet stay information in the thread, not switches.
+    // Two settable rows since plan 26 §5.2 — but they answer different
+    // questions and now sit on different tabs: «Abholung nötig» is what this
+    // Schadenplatz still needs, «Reko vor Ort» is part of the reconnaissance.
+    // Angekommen and Einsatz beendet stay information in the thread, not switches.
     expect(screen.getByText("Funkmeldungen")).toBeVisible()
     expect(screen.getByText("Abholung nötig")).toBeVisible()
-    expect(screen.getByText("Reko vor Ort")).toBeVisible()
+    expect(screen.queryByText("Reko vor Ort")).not.toBeInTheDocument()
     expect(screen.getByText("Meldungen vom Feld")).toBeVisible()
     expect(screen.queryByText("Zugewiesene Ressourcen")).not.toBeInTheDocument()
 

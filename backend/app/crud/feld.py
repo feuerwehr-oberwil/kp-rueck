@@ -30,6 +30,7 @@ from ..models import (
     EventAttendance,
     Incident,
     IncidentAssignment,
+    IncidentGroupAssignment,
     Material,
     Notification,
     Personnel,
@@ -1132,9 +1133,32 @@ def normalize_extra_materials(stored: Any) -> list[dict[str, Any]]:
     return entries
 
 
+async def _route_assigned_ids(
+    db: AsyncSession,
+    incident: Incident,
+    resource_type: str,
+) -> set[uuid.UUID]:
+    """What the incident's Auftrag holds, if it is a stop in one.
+
+    Resources on a route belong to the route, not to its stops — so a crew that
+    drove a four-stop Auftrag has NO assignment on any single Schadenplatz, and
+    the rapport's checklist offered it nothing to confirm. Everybody had to be
+    ticked by hand, at every stop, for people who were demonstrably there.
+    """
+    if not incident.group_id:
+        return set()
+    result = await db.execute(
+        select(IncidentGroupAssignment.resource_id).where(
+            IncidentGroupAssignment.incident_group_id == incident.group_id,
+            IncidentGroupAssignment.resource_type == resource_type,
+        )
+    )
+    return {row[0] for row in result.all()}
+
+
 async def _fleet_vehicles(
     db: AsyncSession,
-    incident_id: uuid.UUID,
+    incident: Incident,
 ) -> tuple[list[dict[str, Any]], set[uuid.UUID]]:
     """The station's **whole fleet**, plus which of it this incident has (§18.33).
 
@@ -1155,11 +1179,12 @@ async def _fleet_vehicles(
 
     assigned = await db.execute(
         select(IncidentAssignment.resource_id).where(
-            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.incident_id == incident.id,
             IncidentAssignment.resource_type == "vehicle",
         )
     )
-    return ordered, {row[0] for row in assigned.all()}
+    own = {row[0] for row in assigned.all()}
+    return ordered, own | await _route_assigned_ids(db, incident, "vehicle")
 
 
 def reconcile_vehicles(
@@ -1278,6 +1303,10 @@ async def _event_personnel(
         )
     )
     assigned_ids = {row[0] for row in assigned_result.all()}
+    # A stop in an Auftrag carries no assignments of its own — its crew is the
+    # route's. Without this everybody at a four-stop Auftrag had to be ticked by
+    # hand, four times, for people who were demonstrably there.
+    assigned_ids |= await _route_assigned_ids(db, incident, "personnel")
 
     checked_in_result = await db.execute(
         select(EventAttendance.personnel_id).where(
@@ -1528,7 +1557,7 @@ async def get_rapport(
     board_units, board_by_assignment = await _board_material_units(db, incident.id)
     materials = reconcile_materials(report.materials_json if report else None, board_units, board_by_assignment)
 
-    fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident.id)
+    fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident)
     vehicles = reconcile_vehicles(report.vehicles_json if report else None, fleet, assigned_vehicle_ids)
 
     roster, assigned_personnel_ids = await _event_personnel(db, incident)
@@ -1727,7 +1756,7 @@ async def save_rapport(
         report.materials_json = _jsonable_materials(merged)
 
     if "vehicles" in provided and payload.vehicles is not None:
-        fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident.id)
+        fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident)
         vehicle_ticks = {tick.vehicle_id: tick for tick in payload.vehicles}
         # Reconcile FIRST, then apply the ticks — same reason as the materials: a
         # vehicle the station bought while the crew was typing has to appear, and
@@ -1838,7 +1867,7 @@ async def save_rapport(
         # has to record which vehicles the board had — the all-ticked prefill IS
         # the answer, so it gets frozen into the row rather than staying implicit.
         if report.vehicles_json is None:
-            fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident.id)
+            fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident)
             report.vehicles_json = _jsonable_vehicles(reconcile_vehicles(None, fleet, assigned_vehicle_ids))
         # …and the same for the crew, for the same reason: the ticked prefill IS
         # the answer of a crew that read the list and found nothing to correct.

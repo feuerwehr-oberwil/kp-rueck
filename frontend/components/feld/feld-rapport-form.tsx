@@ -516,7 +516,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const showHandover = !isKp || Boolean(formData.handed_over_to.trim())
 
   return (
-    <div className={collapsible ? 'space-y-3' : 'space-y-6'}>
+    <div className="space-y-3">
       {/* No «Noch kein Rapport» line here any more (§18.16 revisited).
           The KP mount is never rendered bare: the section directly above it
           states the very same thing in its own header — «kein Rapport» /
@@ -555,30 +555,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           two centimetres above it is a form field that asks to be read and then
           answers nothing. */}
 
-      {/* ---------------------------------------------------- Material */}
-      <RapportSection
-        collapsible={foldLists}
-        dense={isKp}
-        title={t('material.title')}
-        summary={materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty')}
-        // An empty material list is not a gap — the board simply never got the
-        // material (see the checklist's own empty state), so it never nags.
-        state={materialCount > 0 ? 'filled' : 'optional'}
-      >
-        <FeldMaterialChecklist
-          rows={formData.materials}
-          extraMaterials={formData.extra_materials}
-          suggestions={rapport.prefill.material_name_suggestions ?? []}
-          disabled={readOnly}
-          // ALWAYS: the section around it carries the title in both shapes —
-          // folded on /feld, as a plain heading in the KP mount — and the
-          // checklist's own one made the modal read «Material / Material».
-          hideHeading
-          onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
-          onExtraMaterialsChange={entries => update('extra_materials', entries)}
-        />
-      </RapportSection>
-
       {/* ------------------------------------------------- Kurzbericht */}
       <RapportSection
         collapsible={collapsible}
@@ -612,6 +588,86 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           </div>
         )}
       </RapportSection>
+
+      {/* --------------------------------------- Mannschaft und Fahrzeuge */}
+      {/* A plain confirmation of two facts, nothing else. The block used to be
+          headed "Kostenpflicht" and asked for two numbers; the crew in the
+          field does not decide who gets billed, and a vehicle COUNT tells
+          whoever retypes it nothing that three names do not tell better. */}
+      <RapportSection
+        collapsible={foldLists}
+        dense={isKp}
+        title={t('sections.confirm')}
+        summary={t('summary.confirm', { people: peopleCount, vehicles: vehicleCount })}
+        // Prefilled from the board, so it is normally already right — the
+        // summary is what lets a crew confirm that without opening it.
+        state={peopleCount > 0 ? 'filled' : 'todo'}
+      >
+        <div className="space-y-1.5">
+          <FeldPersonnelChecklist
+            rows={formData.personnel}
+            extra={formData.extra_personnel}
+            disabled={readOnly}
+            onChange={(rows: ApiRapportPersonnelRow[]) => update('personnel', rows)}
+            onExtraChange={(entries: ApiRapportExtraPersonnel[]) => update('extra_personnel', entries)}
+          />
+          {/* The divergence is itself information: it says the board was
+              behind reality, and the export prints it as such. Read off the
+              list now rather than off a typed number — same rule, one source. */}
+          {isCorrected(derivePersonnelCount(formData), boardPersonnel) && (
+            <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardPersonnel })}</p>
+          )}
+        </div>
+
+        <FeldVehicleChecklist
+          rows={formData.vehicles}
+          disabled={readOnly}
+          onChange={(rows: ApiRapportVehicleRow[]) => update('vehicles', rows)}
+        />
+      </RapportSection>
+
+      {/* ---------------------------------------------------- Material */}
+      <RapportSection
+        collapsible={foldLists}
+        dense={isKp}
+        title={t('material.title')}
+        summary={materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty')}
+        // An empty material list is not a gap — the board simply never got the
+        // material (see the checklist's own empty state), so it never nags.
+        state={materialCount > 0 ? 'filled' : 'optional'}
+      >
+        <FeldMaterialChecklist
+          rows={formData.materials}
+          extraMaterials={formData.extra_materials}
+          suggestions={rapport.prefill.material_name_suggestions ?? []}
+          disabled={readOnly}
+          // ALWAYS: the section around it carries the title in both shapes —
+          // folded on /feld, as a plain heading in the KP mount — and the
+          // checklist's own one made the modal read «Material / Material».
+          hideHeading
+          onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
+          onExtraMaterialsChange={entries => update('extra_materials', entries)}
+        />
+      </RapportSection>
+
+      {/* ---------------------------------------------------------- Fotos */}
+      {transport.photos && (
+        <RapportSection
+          collapsible={foldLists}
+          dense={isKp}
+          title={t('sections.photos')}
+          summary={photos.length > 0 ? t('summary.photos', { count: photos.length }) : t('summary.photosEmpty')}
+          state={photos.length > 0 ? 'filled' : 'optional'}
+        >
+          <PhotoUpload
+            photos={photos}
+            incidentId={incidentId}
+            transport={transport.photos}
+            disabled={readOnly}
+            onPhotosChange={update => setPhotos(current => update(current))}
+          />
+        </RapportSection>
+      )}
 
       {/* --------------------------------- Eigentümer-/Halterdaten */}
       {showOwnerBlock && (
@@ -688,62 +744,6 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           />
         </div>
       </RapportSection>
-      )}
-
-      {/* --------------------------------------- Mannschaft und Fahrzeuge */}
-      {/* A plain confirmation of two facts, nothing else. The block used to be
-          headed "Kostenpflicht" and asked for two numbers; the crew in the
-          field does not decide who gets billed, and a vehicle COUNT tells
-          whoever retypes it nothing that three names do not tell better. */}
-      <RapportSection
-        collapsible={foldLists}
-        dense={isKp}
-        title={t('sections.confirm')}
-        summary={t('summary.confirm', { people: peopleCount, vehicles: vehicleCount })}
-        // Prefilled from the board, so it is normally already right — the
-        // summary is what lets a crew confirm that without opening it.
-        state={peopleCount > 0 ? 'filled' : 'todo'}
-      >
-        <div className="space-y-1.5">
-          <FeldPersonnelChecklist
-            rows={formData.personnel}
-            extra={formData.extra_personnel}
-            disabled={readOnly}
-            onChange={(rows: ApiRapportPersonnelRow[]) => update('personnel', rows)}
-            onExtraChange={(entries: ApiRapportExtraPersonnel[]) => update('extra_personnel', entries)}
-          />
-          {/* The divergence is itself information: it says the board was
-              behind reality, and the export prints it as such. Read off the
-              list now rather than off a typed number — same rule, one source. */}
-          {isCorrected(derivePersonnelCount(formData), boardPersonnel) && (
-            <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardPersonnel })}</p>
-          )}
-        </div>
-
-        <FeldVehicleChecklist
-          rows={formData.vehicles}
-          disabled={readOnly}
-          onChange={(rows: ApiRapportVehicleRow[]) => update('vehicles', rows)}
-        />
-      </RapportSection>
-
-      {/* ---------------------------------------------------------- Fotos */}
-      {transport.photos && (
-        <RapportSection
-          collapsible={foldLists}
-          dense={isKp}
-          title={t('sections.photos')}
-          summary={photos.length > 0 ? t('summary.photos', { count: photos.length }) : t('summary.photosEmpty')}
-          state={photos.length > 0 ? 'filled' : 'optional'}
-        >
-          <PhotoUpload
-            photos={photos}
-            incidentId={incidentId}
-            transport={transport.photos}
-            disabled={readOnly}
-            onPhotosChange={update => setPhotos(current => update(current))}
-          />
-        </RapportSection>
       )}
 
       {/* ---------------------------------------------------- Abschluss */}

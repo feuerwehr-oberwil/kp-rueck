@@ -48,11 +48,20 @@ import { formatPickupWaiting } from '@/lib/pickup'
 interface FieldReportsRowProps {
   operation: Operation
   canEdit?: boolean
+  /**
+   * Which of the two settable Funkmeldungen this mount shows.
+   *
+   * They belong to different questions, and since the detail split Reko off
+   * into a tab of its own they belong to different tabs: «Reko vor Ort» is part
+   * of the reconnaissance, «Abholung nötig» is what the Schadenplatz still
+   * needs. Default is both, for any mount that wants the pair.
+   */
+  only?: readonly Row[]
 }
 
 type Row = 'rekoArrived' | 'pickup'
 
-export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowProps) {
+export function FieldReportsRow({ operation, canEdit = true, only }: FieldReportsRowProps) {
   const t = useTranslations('feld.kp')
   const { refreshOperations } = useOperations()
   const { personnel } = usePersonnel()
@@ -107,7 +116,7 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
     return t('fromField', { name: nameById.get(personnelId) ?? t('unknownPerson'), time })
   }
 
-  const rows: Array<{
+  type ReportRow = {
     key: Row
     icon: React.ReactNode
     label: string
@@ -120,7 +129,9 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
     line?: string | null
     onToggle: (checked: boolean) => void
     onTimeChange: (time: string) => void
-  }> = [
+  }
+
+  const rows: ReportRow[] = ([
     {
       key: 'rekoArrived',
       icon: <Binoculars className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
@@ -155,7 +166,7 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
         if (next) save('pickup', { pickup_needed: true, pickup_note: note || null, pickup_requested_at: next.toISOString() })
       },
     },
-  ]
+  ] as ReportRow[]).filter(row => !only || only.includes(row.key))
 
   // Same shape as Nachbarhilfe and «Am Warten» on the Übersicht: a label, a
   // switch, and the field that qualifies it underneath while it is on. The

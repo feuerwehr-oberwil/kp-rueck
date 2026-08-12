@@ -1298,7 +1298,11 @@ export function OperationDetailContent({
               is a different moment from everything below, which is why it is no
               longer stacked on top of it. */}
           <TabsContent value="reko" className={tabPanelClass}>
-            <div className="py-4">
+            <div className="space-y-5 py-4">
+              {/* «Reko vor Ort» is a Funkmeldung ABOUT the reconnaissance, so it
+                  belongs to this tab and not to the one holding what came back
+                  from the Schadenplatz. */}
+              <FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
@@ -1335,8 +1339,10 @@ export function OperationDetailContent({
                 sets them in the same breath. */}
             <div className="space-y-5">
               {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps
-                  on /feld, an operator enters here from a radio message. */}
-              <FieldReportsRow operation={operation} canEdit={canEdit} />
+                  on /feld, an operator enters here from a radio message.
+                  «Reko vor Ort» lives on the Reko tab with the rest of the
+                  reconnaissance. */}
+              <FieldReportsRow operation={operation} canEdit={canEdit} only={['pickup']} />
 
               {/* Everything the crew said, plus the two reports that used to be
                   toggles (§18.19). Before this thread existed a Meldung became a
