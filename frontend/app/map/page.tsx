@@ -10,6 +10,8 @@
  */
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useNotifications } from "@/lib/contexts/notification-context"
+import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
@@ -374,6 +376,20 @@ export default function MapPage() {
     removeMaterial,
     unassignGroupResource,
   })
+
+  // The bell's «angekommen» / «beendet» button works here too — the map is a
+  // full operating surface, and the move has to run through this page's own
+  // workflow gates rather than a second copy of them.
+  const { registerFieldActionHandler } = useNotifications()
+  useEffect(() => {
+    if (!isEditor) return
+    registerFieldActionHandler((incidentId, kind) => {
+      storeFieldNudgeConfirmation(incidentId, kind)
+      if (kind === "complete") statusWorkflow.requestCompletion(incidentId)
+      else changeStatusToTop(incidentId, "active")
+    })
+    return () => registerFieldActionHandler(null)
+  }, [isEditor, registerFieldActionHandler, statusWorkflow, changeStatusToTop])
 
   const handleAssignRouteResource = (
     resourceType: 'crew' | 'vehicles' | 'materials',

@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, Re
 import type { Notification, NotificationSettings } from '@/lib/types/notification'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
+import type { FieldNudgeKind } from '@/components/kanban/field-status-nudge'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
@@ -32,6 +33,20 @@ interface NotificationContextValue {
   navigateToIncident: (incidentId: string, tab?: OperationDetailTab) => void
   registerNavigateHandler: (
     handler: ((incidentId: string, tab?: OperationDetailTab) => void) | null,
+  ) => void
+  /**
+   * Answer a field report — «angekommen», «Einsatz beendet» — straight from the
+   * bell, without hunting for the card.
+   *
+   * Registered by whichever page owns the status workflow (board, map), because
+   * the move has to run through the same gates a drag does — a completion that
+   * skipped the Material-Entscheid would be a completion nobody can explain.
+   * Null while no such page is mounted, and the notification then offers no
+   * button rather than a broken one.
+   */
+  fieldAction: ((incidentId: string, kind: FieldNudgeKind) => void) | null
+  registerFieldActionHandler: (
+    handler: ((incidentId: string, kind: FieldNudgeKind) => void) | null,
   ) => void
 }
 
@@ -90,6 +105,20 @@ export function NotificationProvider({
   const navigateToIncident = useCallback((incidentId: string, tab?: OperationDetailTab) => {
     navigateHandlerRef.current?.(incidentId, tab)
   }, [])
+
+  // State, not a ref like the navigate handler above: the notification card has
+  // to RENDER differently depending on whether anybody can perform the move, so
+  // registering one has to re-render the consumers.
+  const [fieldAction, setFieldAction] = useState<
+    ((incidentId: string, kind: FieldNudgeKind) => void) | null
+  >(null)
+  const registerFieldActionHandler = useCallback(
+    (handler: ((incidentId: string, kind: FieldNudgeKind) => void) | null) => {
+      // The setter form would CALL a function argument; wrap it.
+      setFieldAction(() => handler)
+    },
+    [],
+  )
 
   // Load previously seen notification IDs from localStorage on mount.
   // Lazily initialised: a `useRef(expr)` argument is evaluated on EVERY render,
@@ -366,6 +395,8 @@ export function NotificationProvider({
     closeSidebar,
     navigateToIncident,
     registerNavigateHandler,
+    fieldAction,
+    registerFieldActionHandler,
   }
 
   return (

@@ -2360,7 +2360,9 @@
       "timeDays": "vor {days}d",
       "timeHours": "vor {hours}h",
       "timeMinutes": "vor {minutes}m",
-      "justNow": "gerade eben"
+      "justNow": "gerade eben",
+      "moveToActive": "Nach Einsatz verschieben",
+      "moveToComplete": "Einsatz abschliessen"
     }
   },
   "help": {

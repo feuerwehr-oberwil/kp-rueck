@@ -143,6 +143,16 @@ function storeDismissal(incidentId: string, kind: FieldNudgeKind): void {
   emit()
 }
 
+/**
+ * Answered by moving the card — also called from the notification list, where
+ * the same question can be answered without ever finding the card. Both paths
+ * have to write the same answer or the card would go on asking about a move it
+ * has already made.
+ */
+export function storeFieldNudgeConfirmation(incidentId: string, kind: FieldNudgeKind): void {
+  storeConfirmation(incidentId, kind)
+}
+
 function storeConfirmation(incidentId: string, kind: FieldNudgeKind): void {
   const key = dismissalKey(incidentId, kind)
   if (confirmed.has(key)) return

@@ -79,6 +79,7 @@ import { SidePanel } from "@/components/kanban/side-panel"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { filterIncidents } from "@/lib/incident-search"
+import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
@@ -241,7 +242,7 @@ export default function FireStationDashboard() {
   const { materialGroups } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor, isAuthenticated } = useAuth()
-  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
+  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
   const { registerHandlers, clearHandlers } = useCommandPalette()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -540,6 +541,20 @@ export default function FireStationDashboard() {
     })
     return () => registerNavigateHandler(null)
   }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations, openIncidentDetail])
+
+  // «Angekommen» / «Einsatz beendet» answered straight from the bell, without
+  // finding the card first. The move is the SAME one the card's own nudge makes
+  // — including the completion gate — and it records the same answer, so the
+  // question does not come back on the card a second later.
+  useEffect(() => {
+    if (!isEditor) return
+    registerFieldActionHandler((incidentId, kind) => {
+      storeFieldNudgeConfirmation(incidentId, kind)
+      if (kind === "complete") requestCompletion(incidentId)
+      else changeStatusToTop(incidentId, "active")
+    })
+    return () => registerFieldActionHandler(null)
+  }, [isEditor, registerFieldActionHandler, requestCompletion, changeStatusToTop])
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
