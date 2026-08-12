@@ -70,6 +70,9 @@ interface DroppableColumnProps {
   /** Which card blocks this device shows — plumbing only, see lib/card-view.ts. */
   cardView?: CardViewSettings
   printerEnabled?: boolean
+  /** Vehicle name → driver, loaded ONCE on the board and threaded down. Per-card
+   *  it would be one roster fetch per card. */
+  vehicleDrivers?: ReadonlyMap<string, string>
   doubleBookedCrewNames?: Set<string>
   /** False for viewers: cards render without a drag source (read-only board). */
   canDrag?: boolean
@@ -91,6 +94,7 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     // settings value, and the card runs the field-by-field comparison anyway.
     prev.cardView !== next.cardView ||
     prev.printerEnabled !== next.printerEnabled ||
+    prev.vehicleDrivers !== next.vehicleDrivers ||
     prev.materials !== next.materials ||
     prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
     prev.canDrag !== next.canDrag ||
@@ -168,6 +172,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onDistributeToAuftrag,
   cardView,
   printerEnabled,
+  vehicleDrivers,
   doubleBookedCrewNames,
   canDrag,
   onDragActiveChange,
@@ -177,6 +182,8 @@ export const DroppableColumn = memo(function DroppableColumn({
   const tDash = useTranslations('kanban.dashboard')
   const columnTitle = t(`columns.${column.id}`)
   const ref = useRef<HTMLDivElement>(null)
+  /** The column's outer box — what gets scrolled into view when it expands. */
+  const rootRef = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
   const isLargeScreen = useIsLargeScreen()
@@ -189,11 +196,25 @@ export const DroppableColumn = memo(function DroppableColumn({
     return localStorage.getItem(`column-collapsed-${column.id}`) === 'open'
   })
 
+  // Only a *click* scrolls; a column that was already open at load must not
+  // yank the board sideways on every mount.
+  const scrollOnOpenRef = useRef(false)
+
   const toggleCollapsible = () => {
     const next = !isCollapsibleOpen
+    scrollOnOpenRef.current = next
     setIsCollapsibleOpen(next)
     localStorage.setItem(`column-collapsed-${column.id}`, next ? 'open' : 'collapsed')
   }
+
+  // «Abgeschlossen» sits at the far right of the board, so opening it used to
+  // expand a column the operator could not see — the click looked like it did
+  // nothing. Bring it into the scrollport instead.
+  useEffect(() => {
+    if (!scrollOnOpenRef.current || !isCollapsibleOpen) return
+    scrollOnOpenRef.current = false
+    rootRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'end', block: 'nearest' })
+  }, [isCollapsibleOpen])
 
   const isEmpty = operations.length === 0
   const isCollapsed = isCollapsibleColumn
@@ -247,7 +268,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   }
 
   return (
-    <div data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
+    <div ref={rootRef} data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
       <div className={cn(
         "mb-2 rounded-lg border border-border px-3 py-3 transition-all",
         column.color
@@ -366,6 +387,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onDistributeToAuftrag={onDistributeToAuftrag ? () => onDistributeToAuftrag(operation.id) : undefined}
                 cardView={cardView}
                 printerEnabled={printerEnabled}
+                vehicleDrivers={vehicleDrivers}
                 doubleBookedCrewNames={doubleBookedCrewNames}
                 canDrag={canDrag}
                 onDragActiveChange={onDragActiveChange}

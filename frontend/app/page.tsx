@@ -77,6 +77,8 @@ import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 import { SidePanel } from "@/components/kanban/side-panel"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { filterIncidents } from "@/lib/incident-search"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
 import { PrintOptionsModal } from "@/components/print/print-options-modal"
@@ -548,6 +550,10 @@ export default function FireStationDashboard() {
   // Reko assignment dialog state (context menu)
   const [rekoAssignDialogOpen, setRekoAssignDialogOpen] = useState(false)
   const [rekoAssignOperationId, setRekoAssignOperationId] = useState<string | null>(null)
+
+  // Who drives what, for the whole board. One roster call here rather than one
+  // per card; the cards render the driver next to the Funkrufname.
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
 
   // Thermal printer state
   const [printerEnabled, setPrinterEnabled] = useState(false)
@@ -1244,47 +1250,13 @@ export default function FireStationDashboard() {
     { personnel: personnelAvailableOnly, materials: materialsAvailableOnly },
   )
 
-  // Memoize filtered operations to avoid unnecessary recalculations on every render
-  const filteredOperations = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return operations
-    }
-
-    const query = searchQuery.toLowerCase()
-
-    return operations.filter((op) => {
-      // Search through all relevant fields
-      return (
-        // Location
-        op.location.toLowerCase().includes(query) ||
-        // Incident type
-        op.incidentType.toLowerCase().includes(query) ||
-        getIncidentTypeLabel(op.incidentType).toLowerCase().includes(query) ||
-        // Priority
-        op.priority.toLowerCase().includes(query) ||
-        // Vehicles (legacy field and array)
-        (op.vehicle && op.vehicle.toLowerCase().includes(query)) ||
-        op.vehicles.some(v => v.toLowerCase().includes(query)) ||
-        // Crew members
-        op.crew.some(crew => crew.toLowerCase().includes(query)) ||
-        // Materials
-        op.materials.some(materialId => {
-          const material = materials.find(m => m.id === materialId)
-          return material && material.name.toLowerCase().includes(query)
-        }) ||
-        // Notes
-        op.notes.toLowerCase().includes(query) ||
-        // Contact
-        op.contact.toLowerCase().includes(query) ||
-        // Status
-        op.status.toLowerCase().includes(query) ||
-        // Reko personnel
-        (op.assignedReko && op.assignedReko.name.toLowerCase().includes(query)) ||
-        // Reko status
-        (op.hasCompletedReko && 'reko'.includes(query))
-      )
-    })
-  }, [operations, searchQuery, materials])
+  // Memoize filtered operations to avoid unnecessary recalculations on every render.
+  // The predicate itself lives in lib/incident-search so the /display board and
+  // status page search exactly the same fields (§ display parity).
+  const filteredOperations = useMemo(
+    () => filterIncidents(operations, searchQuery, materials),
+    [operations, searchQuery, materials],
+  )
 
   const handlePersonClick = async (person: Person) => {
     if (person.status === "assigned") {
@@ -1939,6 +1911,7 @@ export default function FireStationDashboard() {
                       onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
                       cardView={cardView}
                       printerEnabled={printerEnabled}
+                      vehicleDrivers={vehicleDrivers}
                       doubleBookedCrewNames={doubleBookedPersons.names}
                       canDrag={isEditor}
                       onDragActiveChange={setBoardDragging}

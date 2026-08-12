@@ -73,6 +73,9 @@ interface DraggableOperationProps {
    *  but a fresh identity every render still costs nine comparisons per card. */
   cardView?: CardViewSettings
   printerEnabled?: boolean
+  /** Vehicle name → driver, as the detail panel shows it. Threaded in from the
+   *  board rather than fetched here: one roster call, not one per card. */
+  vehicleDrivers?: ReadonlyMap<string, string>
   /** Names of crew members currently assigned to >1 incident — surface conflict styling. */
   doubleBookedCrewNames?: Set<string>
   /** False for viewers: don't register the drag source at all — a drag whose
@@ -127,6 +130,7 @@ function DraggableOperationBase({
   onDistributeToAuftrag,
   cardView = DEFAULT_CARD_VIEW,
   printerEnabled,
+  vehicleDrivers,
   doubleBookedCrewNames,
   canDrag = true,
   onDragActiveChange,
@@ -581,6 +585,11 @@ function DraggableOperationBase({
                     {operation.vehicles.map((vehicleName) => {
                       const callsign = operation.vehicleCallsigns.get(vehicleName)
                       const driverStay = operation.vehicleDriverStay?.get(vehicleName)
+                      // Who is driving it, on the card itself — the same
+                      // «Name · Funkrufname (Fahrer)» line the detail shows. Who
+                      // sits behind the wheel is a radio question, and answering
+                      // it should not need the card opened.
+                      const driverName = vehicleDrivers?.get(vehicleName)
                       return (
                       <RemovableChip
                         key={vehicleName}
@@ -600,7 +609,12 @@ function DraggableOperationBase({
                           className="flex items-center gap-1 cursor-pointer"
                           title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                         >
-                          <span>{vehicleName}{callsign ? ` · ${callsign}` : ''}</span>
+                          <span>
+                            {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                            {driverName && (
+                              <span className="text-muted-foreground"> ({driverName})</span>
+                            )}
+                          </span>
                           {driverStay ? (
                             <MapPin className="h-3 w-3 text-muted-foreground/70" />
                           ) : (
