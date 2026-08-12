@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, Copy, FileText, Loader2, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
+import { AlertTriangle, Check, Copy, Loader2, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -517,25 +517,16 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
 
   return (
     <div className={collapsible ? 'space-y-3' : 'space-y-6'}>
-      {/* The normal state, said plainly — same register as the Reko section's
-          "Noch keine Reko-Meldung" next to it. It used to be a red error line,
-          which read as "something is broken" for the majority of Schadenplätze
-          at any moment of a storm.
+      {/* No «Noch kein Rapport» line here any more (§18.16 revisited).
+          The KP mount is never rendered bare: the section directly above it
+          states the very same thing in its own header — «kein Rapport» /
+          «erfasst» / «nicht disponiert» — and two lines saying it, one of them a
+          dashed box, made an empty rapport look like a failure to load rather
+          than the normal state of most Schadenplätze during a storm.
 
-          **KP mount only.** In the board's detail it earns its place: it is what
-          tells "nothing has been filed here" apart from "the section has not
-          loaded", on a surface where an operator scans many incidents. On a
-          phone the form is the whole screen — an empty rapport is self-evident
-          from the empty fields under this line, and the line is one more thing
-          to scroll past in the rain. A genuine load failure keeps its error and
-          its retry on BOTH mounts; that distinction is the point of §18.16 and
-          is untouched here. */}
-      {isKp && !rapport.exists && (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-muted-foreground">
-          <FileText className="h-4 w-4" />
-          <p className="text-sm">{t('empty')}</p>
-        </div>
-      )}
+          What §18.16 was actually protecting is untouched: a genuine load
+          failure still shows its error and its retry, on BOTH mounts, which is
+          what tells «nothing filed» apart from «not loaded». */}
 
       {/* Visibility, not a lock (§3): two crews on one Schadenplatz overwriting
           each other's Kurzbericht is an accepted cost, and a real lock in the

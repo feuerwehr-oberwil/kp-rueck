@@ -66,24 +66,16 @@ afterEach(() => {
 })
 
 describe('an absent rapport (§18.16)', () => {
-  it('is a plain line, not an error — it is the normal state of a Schadenplatz', async () => {
+  it('says nothing at all — on EITHER mount. An empty form is its own explanation', async () => {
+    // The line the KP mount used to render is gone: the section around it
+    // already states «kein Rapport» in its header, and two lines saying it —
+    // one of them a dashed box — made the normal state of most Schadenplätze
+    // look like a failure. What §18.16 protects is the DIFFERENCE between
+    // «nothing filed» and «not loaded», and that lives in the error below.
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(
       <FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" />,
     )
-
-    expect(await screen.findByText('Noch kein Rapport')).toBeInTheDocument()
-    expect(screen.queryByText('Rapport konnte nicht geladen werden.')).not.toBeInTheDocument()
-    // …and the form is there, because the KP must be able to dictate one.
-    expect(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
-  })
-
-  it('says nothing at all on /feld — an empty form is its own explanation', async () => {
-    // The KP scans many incidents and needs "nothing filed" told apart from
-    // "not loaded"; on a phone the form IS the screen, so the line is one more
-    // thing to scroll past in the rain.
-    const load = vi.fn().mockResolvedValue(rapport())
-    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
     expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
     expect(screen.queryByText('Noch kein Rapport')).not.toBeInTheDocument()
@@ -133,7 +125,7 @@ describe('the KP mount saves itself (§18.17)', () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" />)
 
-    await screen.findByText('Noch kein Rapport')
+    await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')
     expect(screen.queryByRole('button', { name: /Rapport abschliessen/ })).not.toBeInTheDocument()
     expect(screen.getByText('Wird laufend gespeichert – kein Abschliessen nötig.')).toBeInTheDocument()
   })

@@ -3080,7 +3080,6 @@
       "submitError": "Rapport konnte nicht abgeschlossen werden. Nochmals versuchen.",
       "unsentChanges": "Änderungen noch nicht übermittelt",
       "sendChanges": "Änderungen senden",
-      "empty": "Noch kein Rapport",
       "loadError": "Rapport konnte nicht geladen werden.",
       "loadRetry": "Erneut versuchen",
       "personnel": {

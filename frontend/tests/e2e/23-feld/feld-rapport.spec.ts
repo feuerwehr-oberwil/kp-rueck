@@ -328,11 +328,11 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     // absorbed Ressourcen into Übersicht — and it is permanently open there,
     // like the Reko-Meldungen beside it. No accordion header to click.
     await detail.getByRole('tab', { name: /^Rapport/ }).click();
-    // Two lines say it now, and they say different things: the section's state
-    // chip, and the plain "Noch kein Rapport" that replaced the red error an
-    // absent rapport used to render as (§18.16).
+    // ONE line says it: the section's own state chip. The dashed «Noch kein
+    // Rapport» box under it said the same thing twice and made the normal state
+    // of most Schadenplätze read as a fault (§18.16 revisited).
     await expect(detail.getByText('kein Rapport', { exact: true })).toBeVisible();
-    await expect(detail.getByText('Noch kein Rapport')).toBeVisible();
+    await expect(detail.getByText('Noch kein Rapport')).toHaveCount(0);
 
     // No submit button on this mount any more (§18.17): the board autosaves
     // everything else, and a KP rapport is filed from its first saved
