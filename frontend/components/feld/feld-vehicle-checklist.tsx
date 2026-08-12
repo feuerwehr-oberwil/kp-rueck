@@ -25,7 +25,7 @@
 
 import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronDown, ChevronRight, Truck } from 'lucide-react'
+import { ChevronDown, ChevronUp, Truck } from 'lucide-react'
 
 import { SearchInput } from '@/components/ui/search-input'
 import type { ApiRapportVehicleRow } from '@/lib/api/types'
@@ -107,7 +107,7 @@ export function FeldVehicleChecklist({ rows, disabled, onChange }: FeldVehicleCh
                   className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm text-muted-foreground"
                   onClick={() => setShowAll(true)}
                 >
-                  <ChevronRight className="h-4 w-4 shrink-0" />
+                  <ChevronDown className="h-4 w-4 shrink-0" />
                   {t('showRest', { count: rest.length })}
                 </button>
               ) : (
@@ -121,7 +121,7 @@ export function FeldVehicleChecklist({ rows, disabled, onChange }: FeldVehicleCh
                       className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-xs text-muted-foreground"
                       onClick={() => setShowAll(false)}
                     >
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                      <ChevronUp className="h-3.5 w-3.5 shrink-0" />
                       {t('hideRest')}
                     </button>
                   )}

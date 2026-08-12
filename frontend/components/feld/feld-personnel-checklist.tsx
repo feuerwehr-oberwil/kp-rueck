@@ -24,7 +24,7 @@
 
 import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronDown, ChevronRight, Plus, UserRound, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, UserRound, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -125,7 +125,7 @@ export function FeldPersonnelChecklist({
                   className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm text-muted-foreground"
                   onClick={() => setShowAll(true)}
                 >
-                  <ChevronRight className="h-4 w-4 shrink-0" />
+                  <ChevronDown className="h-4 w-4 shrink-0" />
                   {t('showRest', { count: rest.length })}
                 </button>
               ) : (
@@ -136,7 +136,7 @@ export function FeldPersonnelChecklist({
                       className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-xs text-muted-foreground"
                       onClick={() => setShowAll(false)}
                     >
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                      <ChevronUp className="h-3.5 w-3.5 shrink-0" />
                       {t('hideRest')}
                     </button>
                   )}
@@ -183,10 +183,15 @@ export function FeldPersonnelChecklist({
           /* One row, therefore one height: the Inputs are a fixed h-9 and do not
              stretch while the Button is min-h-44, so the row read as three boxes
              on two baselines. Both sit at 44px now.
+
+             A CONTAINER query, not `sm:`. This block lives in a max-w-md column
+             on /feld and in a wide modal in the KP — a viewport breakpoint made
+             a desktop browser squeeze three controls into a 400px column, which
+             is where the clipped placeholders came from. The container decides.
              The columns are explicit (`minmax(0,…)`) because two equal flex
              children clipped both placeholders mid-word; the note gets the wider
              share, and below `sm` the three stack instead of squeezing. */
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] sm:items-center">
+          <div className="@container grid gap-2 @md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] @md:items-center">
             <Input
               value={newName}
               onChange={e => setNewName(e.target.value)}
@@ -216,7 +221,7 @@ export function FeldPersonnelChecklist({
             <Button
               type="button"
               variant="outline"
-              className="h-11 w-full sm:w-auto"
+              className="h-11 w-full @md:w-auto"
               disabled={!newName.trim()}
               onClick={addExtra}
             >
