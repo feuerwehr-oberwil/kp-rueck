@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import { useTranslations } from "next-intl"
 import { FileText, Map as MapIcon, PanelRight, PanelRightClose } from "lucide-react"
@@ -14,7 +14,6 @@ import {
   type OperationDetailContentProps,
 } from "@/components/kanban/operation-detail-content"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
-import { readItem, writeItem } from "@/lib/utils/safe-storage"
 import { cn } from "@/lib/utils"
 
 interface SidePanelProps extends Omit<OperationDetailContentProps, 'operation' | 'layout' | 'active'> {
@@ -53,7 +52,7 @@ export function SidePanel({
   if (isWideEnough !== true) return null
 
   if (mode === 'collapsed') {
-    return <CollapsedToggle onOpen={() => onModeChange('detail')} label={t('sidePanel.togglePanel')} />
+    return <CollapsedRail onOpen={() => onModeChange('detail')} label={t('sidePanel.railLabel')} />
   }
 
   return (
@@ -161,125 +160,35 @@ function SidePanelMap({
   )
 }
 
-/** Default distance from the top, matching the old fixed `top-24`. */
-const TOGGLE_DEFAULT_TOP = 96
-const TOGGLE_STORAGE_KEY = 'kp-board-sidePanelToggleTop'
-/** Movement past this many pixels is a drag, not a click. Below it, a shaky
- *  hand on a mouse button still opens the panel. */
-const DRAG_THRESHOLD = 4
-
 /**
- * The floating "open the side panel" button.
+ * The closed side panel: a rail, not a floating button.
  *
- * It is `position: fixed`, so it sits ON TOP of whatever the board has at that
- * spot — column headers and their count badges, most often — and swallows those
- * clicks. Rather than pick a corner that happens to be empty on one screen and
- * occupied on the next, the button can be dragged up and down the right edge
- * and remembers where it was put.
+ * It used to be a `position: fixed` circle over the board, which meant it sat ON
+ * TOP of whatever was at that spot — column headers and their counts, most often
+ * — and swallowed those clicks. The answer at the time was to make it draggable
+ * and remember where it was put; that is ninety lines of pointer handling to work
+ * around a control that should not have been floating.
  *
- * The drag is deliberately vertical-only: the button belongs to the right-hand
- * panel it opens, and letting it wander into the middle of the board would make
- * it harder to find again, not easier.
+ * A rail occupies its own 44px instead: it covers nothing, it is always in the
+ * same place, and it is the shape the board already uses for a folded column, so
+ * "narrow strip with a vertical label" means the same thing everywhere.
  */
-function CollapsedToggle({ onOpen, label }: { onOpen: () => void; label: string }) {
-  const [top, setTop] = useState(TOGGLE_DEFAULT_TOP)
-  const [dragging, setDragging] = useState(false)
-  const dragState = useRef<{ startY: number; startTop: number; moved: boolean } | null>(null)
-  const suppressClickRef = useRef(false)
-
-  useEffect(() => {
-    const saved = Number(readItem(TOGGLE_STORAGE_KEY))
-    if (Number.isFinite(saved) && saved > 0) setTop(clampTop(saved))
-  }, [])
-
-  // A window that got shorter must not strand the button off-screen.
-  useEffect(() => {
-    const onResize = () => setTop((current) => clampTop(current))
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-
-  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0) return
-    dragState.current = { startY: event.clientY, startTop: top, moved: false }
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const state = dragState.current
-    if (!state) return
-    const delta = event.clientY - state.startY
-    if (!state.moved && Math.abs(delta) < DRAG_THRESHOLD) return
-    state.moved = true
-    setDragging(true)
-    setTop(clampTop(state.startTop + delta))
-  }
-
-  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const state = dragState.current
-    dragState.current = null
-    setDragging(false)
-    if (!state) return
-    event.currentTarget.releasePointerCapture(event.pointerId)
-    if (state.moved) {
-      suppressClickRef.current = true
-      writeItem(TOGGLE_STORAGE_KEY, String(top))
-      return
-    }
-    // A real click follows this pointerup and `onClick` handles the open, so
-    // doing it here as well would toggle twice.
-  }
-
-  const button = (
-    <Button
-      variant="secondary"
-      size="icon"
-      style={{ top }}
-      // Keyboard activation of a <button> dispatches `click`, never pointer
-      // events — without this, Enter/Space stopped opening the panel when the
-      // drag handling went in. `pointerup` already handled the mouse path, so
-      // this fires only when no drag was in progress.
-      onClick={() => {
-        // A drag ends with a `click` too, and by then `dragState` is already
-        // cleared — so the "did I just drag this?" answer has to outlive it,
-        // or repositioning the button would also open the panel.
-        if (suppressClickRef.current) {
-          suppressClickRef.current = false
-          return
-        }
-        onOpen()
-      }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={() => {
-        dragState.current = null
-        setDragging(false)
-      }}
-      className={cn(
-        'fixed right-4 z-40 h-10 w-10 touch-none rounded-full border border-border shadow-lg',
-        // Faded until pointed at, so whatever it covers stays readable.
-        dragging ? 'cursor-grabbing opacity-100' : 'cursor-grab opacity-70 hover:opacity-100',
-      )}
-      aria-label={label}
-    >
-      <PanelRight className="h-5 w-5" />
-    </Button>
-  )
-
-  // No tooltip mid-drag — it would follow the pointer around the screen.
-  if (dragging) return button
-
+function CollapsedRail({ onOpen, label }: { onOpen: () => void; label: string }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
+    <button
+      type="button"
+      onClick={onOpen}
+      title={label}
+      aria-label={label}
+      className={cn(
+        'flex w-11 flex-none cursor-pointer flex-col items-center gap-3 border-l border-border',
+        'bg-card/30 py-3 backdrop-blur-sm transition-colors hover:bg-secondary/40',
+      )}
+    >
+      <PanelRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl]">
+        {label}
+      </span>
+    </button>
   )
-}
-
-/** Keep the button fully on screen, clear of the header. */
-function clampTop(value: number): number {
-  const max = (typeof window === 'undefined' ? 800 : window.innerHeight) - 56
-  return Math.min(Math.max(value, 64), Math.max(64, max))
 }

@@ -585,6 +585,7 @@
     },
     "sidePanel": {
       "togglePanel": "Panel ein-/ausblenden",
+      "railLabel": "Detail / Karte",
       "details": "Details",
       "map": "Karte",
       "clickToView": "Klicke auf einen Einsatz, um Details anzuzeigen",
