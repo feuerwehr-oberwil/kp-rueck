@@ -132,7 +132,7 @@ Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" akt
 
 ### Telefon / Walk-in-Abzeichen
 
-Alarme, die über den [Alarm-Link](#alarm-link-telefon--walk-in) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
+Alarme, die über den [Alarm-Link](#alarm-link-telefon-walk-in) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
 
 ### Meldung anzeigen
 

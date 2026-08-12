@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
 import { cn } from '@/lib/utils';
 import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation';
+import { getActiveLocale, DEFAULT_LOCALE } from '@/lib/i18n-messages';
 
 interface TocItem {
   id: string;
@@ -96,27 +97,45 @@ export default function HelpPage() {
   const [activeSection, setActiveSection] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load markdown content
+  // Load markdown content. The help text is translated by FILE convention, not
+  // through the message catalogue: `index.md` is German (the source), and a
+  // locale adds `index.<locale>.md` beside it. A locale without its own file
+  // reads the German one, which mirrors how the catalogue falls back — a
+  // half-translated app never shows an empty help page.
   useEffect(() => {
+    const locale = getActiveLocale();
+    const candidates =
+      locale === DEFAULT_LOCALE
+        ? ['/content/help/index.md']
+        : [`/content/help/index.${locale}.md`, '/content/help/index.md'];
+
+    let cancelled = false;
     const loadContent = async () => {
       setIsLoading(true);
-      try {
-        const response = await fetch('/content/help/index.md');
-        if (response.ok) {
+      for (const url of candidates) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) continue;
           const text = await response.text();
-          setContent(text);
-        } else {
-          setContent(t('loadError'));
+          if (!cancelled) {
+            setContent(text);
+            setIsLoading(false);
+          }
+          return;
+        } catch (error) {
+          console.error(`Failed to load help content from ${url}:`, error);
         }
-      } catch (error) {
-        console.error('Failed to load help content:', error);
+      }
+      if (!cancelled) {
         setContent(t('loadError'));
-      } finally {
         setIsLoading(false);
       }
     };
 
     loadContent();
+    return () => {
+      cancelled = true;
+    };
   }, [t]);
 
   // Extract table of contents from markdown (h2 only), capturing each
@@ -144,7 +163,10 @@ export default function HelpPage() {
       const id = m.text
         .toLowerCase()
         .replace(/[`]/g, '')
-        .replace(/[^a-z0-9äöüß\s-]/g, '')
+        // Accented letters are KEPT, not stripped: the help text is translated
+        // per file, and a French heading whose id is «rglages» matches no anchor
+        // anyone would write by hand.
+        .replace(/[^a-z0-9äöüßàâçéèêëîïôùûÿœ\s-]/g, '')
         .replace(/\s+/g, '-')
         .trim();
 
@@ -272,7 +294,10 @@ export default function HelpPage() {
       const id = text
         .toLowerCase()
         .replace(/[`]/g, '')
-        .replace(/[^a-z0-9äöüß\s-]/g, '')
+        // Accented letters are KEPT, not stripped: the help text is translated
+        // per file, and a French heading whose id is «rglages» matches no anchor
+        // anyone would write by hand.
+        .replace(/[^a-z0-9äöüßàâçéèêëîïôùûÿœ\s-]/g, '')
         .replace(/\s+/g, '-')
         .trim();
       return (
@@ -286,7 +311,10 @@ export default function HelpPage() {
       const id = text
         .toLowerCase()
         .replace(/[`]/g, '')
-        .replace(/[^a-z0-9äöüß\s-]/g, '')
+        // Accented letters are KEPT, not stripped: the help text is translated
+        // per file, and a French heading whose id is «rglages» matches no anchor
+        // anyone would write by hand.
+        .replace(/[^a-z0-9äöüßàâçéèêëîïôùûÿœ\s-]/g, '')
         .replace(/\s+/g, '-')
         .trim();
       return (
