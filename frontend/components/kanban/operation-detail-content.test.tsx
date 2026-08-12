@@ -210,8 +210,11 @@ describe("OperationDetailContent", () => {
       />,
     )
 
-    // The action footer sits outside the tabs and stays reachable from any of them.
-    await user.click(screen.getByRole("button", { name: "Ressourcen übertragen" }))
+    // The action footer sits outside the tabs and stays reachable from any of
+    // them. Everything but «WhatsApp kopieren» lives behind ⋯ now — those
+    // actions are rare here and already on the card's context menu.
+    await user.click(screen.getByRole("button", { name: "Weitere Aktionen" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Ressourcen übertragen" }))
     const confirm = await screen.findByRole("button", { name: "Transfer bestätigen" })
     await user.click(confirm)
 
@@ -242,8 +245,12 @@ describe("OperationDetailContent", () => {
     expect(screen.getByRole("textbox", { name: "Meldung" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "WhatsApp kopieren" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Disponiert / Anfahrt" })).not.toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Ressourcen übertragen" })).not.toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Löschen" })).not.toBeInTheDocument()
+    // A viewer's ⋯ menu holds none of the editing actions — so it is not
+    // rendered as an empty menu either.
+    await user.click(screen.getByRole("button", { name: "Weitere Aktionen" }))
+    expect(screen.queryByRole("menuitem", { name: "Ressourcen übertragen" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("menuitem", { name: "Löschen" })).not.toBeInTheDocument()
+    await user.keyboard("{Escape}")
     expect(screen.getByText("Adresse ändern").parentElement).toHaveAttribute("data-initial-geocode", "false")
     await user.click(screen.getByRole("button", { name: "Adresse ändern" }))
     await user.click(screen.getByRole("button", { name: "Koordinaten löschen" }))

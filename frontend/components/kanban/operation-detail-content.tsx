@@ -14,7 +14,14 @@ import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints, MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -1356,7 +1363,14 @@ export function OperationDetailContent({
         </Tabs>
 
         {/* Actions - Fixed Footer */}
-        <div className={cn("flex-shrink-0 flex items-center gap-2 pt-3 mt-auto border-t", layout === 'panel' && "flex-wrap")}>
+        {/* One visible action, the rest behind ⋯.
+            «WhatsApp kopieren» is the one an operator reaches for while the
+            detail is open. Übertragen, In Auftrag einfügen and Löschen are
+            already on the card's context menu — where they are actually
+            triggered — and Divera is a once-per-incident thing. Five buttons
+            side by side spent the whole footer on that, and in the 420px panel
+            they wrapped onto a second row for it. */}
+        <div className="flex-shrink-0 flex items-center gap-2 pt-3 mt-auto border-t">
           <Button
             variant="outline"
             size="sm"
@@ -1366,48 +1380,46 @@ export function OperationDetailContent({
             <MessageCircle className="size-3.5" />
             {isCopyingWhatsApp ? t('common.copying') : t('detail.copyWhatsapp')}
           </Button>
-          {canEdit && diveraEnabled && onSendDivera && operation && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onSendDivera(operation)}
-              className="border border-border"
-            >
-              <Siren className="size-3.5" />
-              {t('detail.diveraAlarm')}
-            </Button>
-          )}
-          {canEdit && <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenTransfer}
-            className="border border-border"
-          >
-            <ArrowRightLeft className="size-3.5" />
-            {t('common.transferResources')}
-          </Button>}
-          {canEdit && onDistributeToAuftrag && operation && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onDistributeToAuftrag(operation.id)}
-              className="border border-border"
-            >
-              <Waypoints className="size-3.5" />
-              {t('common.distributeToAuftrag')}
-            </Button>
-          )}
-          {canEdit && onDelete && <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="size-3.5" />
-              {t('common.delete')}
-            </Button>
-          </div>}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="ml-auto border border-border" aria-label={t('detail.moreActions')}>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canEdit && diveraEnabled && onSendDivera && operation && (
+                <DropdownMenuItem onSelect={() => onSendDivera(operation)}>
+                  <Siren className="size-3.5" />
+                  {t('detail.diveraAlarm')}
+                </DropdownMenuItem>
+              )}
+              {canEdit && (
+                <DropdownMenuItem onSelect={handleOpenTransfer}>
+                  <ArrowRightLeft className="size-3.5" />
+                  {t('common.transferResources')}
+                </DropdownMenuItem>
+              )}
+              {canEdit && onDistributeToAuftrag && operation && (
+                <DropdownMenuItem onSelect={() => onDistributeToAuftrag(operation.id)}>
+                  <Waypoints className="size-3.5" />
+                  {t('common.distributeToAuftrag')}
+                </DropdownMenuItem>
+              )}
+              {canEdit && onDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => setShowDeleteConfirm(true)}
+                  >
+                    <Trash2 className="size-3.5" />
+                    {t('common.delete')}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
       {canEdit && onDelete && <DeleteConfirmDialog
