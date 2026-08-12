@@ -2,8 +2,9 @@
 // catalogue is a DEEP-PARTIAL overlay that is merged over German, so a missing
 // key anywhere falls back to the German string – a half-translated locale is
 // always complete. To translate a language: fill messages/<locale>.json with
-// the (partial) structure of de.json. As long as an overlay is empty, its
-// locale is not offered in the language picker (see AVAILABLE_LOCALES).
+// the (partial) structure of de.json. A locale reaches the language picker only
+// once its overlay covers every German key (see AVAILABLE_LOCALES) – the merge
+// keeps a partial overlay working, it does not make it shippable.
 import { createTranslator } from 'next-intl'
 import de from '@/messages/de.json'
 import fr from '@/messages/fr.json'
@@ -19,11 +20,39 @@ type Messages = typeof de
 // Overlays are deep partials of the German catalogue, hence `object`.
 const catalogs: Record<SupportedLocale, object> = { de, fr, it }
 
-// Locales the language picker offers: German plus every overlay that actually
-// contains translations. An empty stub stays invisible – a «Français» option
-// that renders German would be a broken promise.
+// Every leaf of a catalogue as a dotted path (`kanban.columns.incoming`, and
+// `reko.form.summaries.low[0]` for the three arrays). Coverage is compared
+// key-for-key, so a leaf that German spells as an object and an overlay spells
+// as a string counts as missing rather than silently half-covering.
+function leafPaths(node: unknown, prefix = '', out: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    node.forEach((item, i) => leafPaths(item, `${prefix}[${i}]`, out))
+  } else if (node !== null && typeof node === 'object') {
+    for (const [key, value] of Object.entries(node)) {
+      leafPaths(value, prefix ? `${prefix}.${key}` : key, out)
+    }
+  } else {
+    out.push(prefix)
+  }
+  return out
+}
+
+const GERMAN_LEAVES = leafPaths(de)
+
+// Locales the language picker offers: German plus every overlay that covers
+// EVERY German leaf. The overlay merge below still fills gaps from German, but
+// that is a safety net, not a release criterion – it is what keeps the app
+// whole between the commit that adds a German key and the commit that
+// translates it. As a picker rule it would put a 3 %-translated «Français» in
+// front of an operator and render the other 97 % in German, which is a broken
+// promise dressed as a feature. So: complete, or not offered.
+function coversGerman(overlay: object): boolean {
+  const translated = new Set(leafPaths(overlay))
+  return GERMAN_LEAVES.every((path) => translated.has(path))
+}
+
 export const AVAILABLE_LOCALES: SupportedLocale[] = SUPPORTED_LOCALES.filter(
-  (locale) => locale === DEFAULT_LOCALE || Object.keys(catalogs[locale]).length > 0
+  (locale) => locale === DEFAULT_LOCALE || coversGerman(catalogs[locale])
 )
 
 // Native names, deliberately untranslated – each language names itself.
