@@ -1146,6 +1146,7 @@
     },
     "locationInput": {
       "addressLabel": "Einsatzort (Adresse)",
+      "addressLabelShort": "Einsatzort",
       "requiredField": "Pflichtfeld",
       "addressPlaceholder": "Adresse eingeben oder suchen...",
       "searchPlaceholder": "Adresse suchen...",

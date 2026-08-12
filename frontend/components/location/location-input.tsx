@@ -43,6 +43,10 @@ interface LocationInputProps {
   geocodeInitialAddress?: boolean
   /** Show error styling for validation feedback */
   error?: boolean
+  /** Row layout for the 420px side panel: the label sits left of the field
+   *  instead of above it, and the map/coordinate buttons shrink to match. Same
+   *  control either way — see components/kanban/detail-field.tsx. */
+  dense?: boolean
 }
 
 export function LocationInput({
@@ -55,6 +59,7 @@ export function LocationInput({
   autoFocus = false,
   geocodeInitialAddress = true,
   error = false,
+  dense = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
@@ -309,16 +314,23 @@ export function LocationInput({
     longitude <= 180
 
   return (
-    <div className="space-y-4">
+    <div className={cn(dense ? "space-y-1" : "space-y-4")}>
       {/* Address Input with Autocomplete */}
-      <div className="min-h-[40px]">
-        <div className="flex items-center gap-1">
-          <Label htmlFor="location_address" className="text-sm font-semibold text-muted-foreground">
-            {t('locationInput.addressLabel')}
+      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "min-h-[40px]")}>
+        <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
+          <Label
+            htmlFor="location_address"
+            className={cn(
+              dense
+                ? "text-xs font-normal text-muted-foreground"
+                : "text-sm font-semibold text-muted-foreground",
+            )}
+          >
+            {dense ? t('locationInput.addressLabelShort') : t('locationInput.addressLabel')}
           </Label>
           <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
         </div>
-        <div className="flex items-start gap-2 mt-2">
+        <div className={cn("flex items-start gap-2", dense ? "min-w-0 flex-1" : "mt-2")}>
           {/* One field, not two. The input IS the search box: what you type is
               what the geocoder gets, and what is committed is what the field
               shows afterwards. The old shape put a read-only combobox button in
@@ -328,7 +340,10 @@ export function LocationInput({
           <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
             <PopoverAnchor asChild>
               <div ref={anchorRef} className="relative flex-1">
-                <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <MapPin className={cn(
+                  "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
+                  dense ? "left-1.5 size-3.5" : "left-3",
+                )} />
                 <Input
                   id="location_address"
                   ref={searchInputRef}
@@ -365,6 +380,8 @@ export function LocationInput({
                   onKeyDown={handleAddressKeyDown}
                   className={cn(
                     "pl-9",
+                    dense &&
+                      "h-7 rounded-md border-0 bg-transparent px-1 pl-7 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
                     error && "border-destructive focus-visible:ring-destructive"
                   )}
                 />
@@ -451,27 +468,27 @@ export function LocationInput({
           {/* Map Picker Button - excluded from tab order for cleaner form navigation */}
           <Button
             type="button"
-            variant="outline"
-            size="icon"
+            variant={dense ? "ghost" : "outline"}
+            size={dense ? "icon-xs" : "icon"}
             onClick={() => setMapPickerOpen(true)}
             disabled={disabled}
             title={t('locationInput.pickOnMap')}
             tabIndex={-1}
           >
-            <Map className="size-4" />
+            <Map className={dense ? "size-3.5" : "size-4"} />
           </Button>
 
           {/* Show Coordinates Button - excluded from tab order for cleaner form navigation */}
           <Button
             type="button"
-            variant={showCoordinates ? "default" : "outline"}
-            size="icon"
+            variant={showCoordinates ? "default" : dense ? "ghost" : "outline"}
+            size={dense ? "icon-xs" : "icon"}
             onClick={() => setShowCoordinates(!showCoordinates)}
             disabled={disabled}
             title={t('locationInput.enterCoordinates')}
             tabIndex={-1}
           >
-            <Navigation className="size-4" />
+            <Navigation className={dense ? "size-3.5" : "size-4"} />
           </Button>
         </div>
       </div>

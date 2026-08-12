@@ -49,6 +49,7 @@ import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
+import { DetailField, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
@@ -444,6 +445,8 @@ export function OperationDetailContent({
 
   // The modal is 90vw wide — a tab that only fills one narrow column wastes it.
   // The panel mount stays single-column; it is barely wider than one.
+  // The panel reads `Label │ Wert` rows; the modal keeps the stacked form.
+  const dense = layout === 'panel'
   const tabGridClass = cn("grid grid-cols-1 gap-8 py-4", layout === 'modal' && "lg:grid-cols-2")
   const tabColumnBreakClass = cn("space-y-5", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
@@ -563,15 +566,19 @@ export function OperationDetailContent({
           {/* ------------------------------------------------------ Übersicht */}
           <TabsContent value="overview" className={tabPanelClass}>
           <div className={tabGridClass}>
-          {/* Left Column - Entry Fields */}
-          <div className="space-y-5">
-          {/* Location - Smart Input with Geocoding */}
+          {/* Left Column - Entry Fields. The dense mount spaces itself through
+              the rows' own separators; the stacked form keeps its 20px rhythm. */}
+          <div className={dense ? "space-y-1" : "space-y-5"}>
+          {/* Location - Smart Input with Geocoding. It carries its own label
+              and its own map/coordinate buttons, so it takes `dense` and lays
+              itself out as a row rather than being wrapped in one. */}
           <LocationInput
             address={operation.location}
             latitude={operation.coordinates?.[0] ?? null}
             longitude={operation.coordinates?.[1] ?? null}
             disabled={!canEdit}
             geocodeInitialAddress={false}
+            dense={dense}
             onAddressChange={(address) => {
               if (canEdit) onUpdate({ location: address ?? '' })
             }}
@@ -586,30 +593,28 @@ export function OperationDetailContent({
           />
 
           {/* Meldung - Moved up from bottom */}
-          <div>
-            <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground">{t('common.meldung')}</Label>
-              <Textarea
-                id="notes"
+          <DetailField label={t('common.meldung')} htmlFor="notes" dense={dense} alignStart>
+            <Textarea
+              id="notes"
               placeholder={t('detail.meldungPlaceholder')}
               value={operation.notes}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ notes: e.target.value })}
-              className="mt-1.5 min-h-[100px]"
+              className={cn(dense ? `${DENSE_CONTROL} min-h-[3.5rem] py-1` : "mt-1.5 min-h-[100px]")}
             />
-          </div>
+          </DetailField>
 
-          {/* Other fields - Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="edit-incidentType" className="text-sm font-semibold text-muted-foreground">
-                {t('common.einsatzart')}
-              </Label>
+          {/* Einsatzart and Priorität: side by side where there is room, one per
+              line in the panel — half-width controls under half-width labels is
+              how «Mittel» gets read as the Einsatzart. */}
+          <div className={cn(!dense && "grid grid-cols-2 gap-4")}>
+            <DetailField label={t('common.einsatzart')} htmlFor="edit-incidentType" dense={dense}>
               <Select
                 value={operation.incidentType}
                 disabled={!canEdit}
                 onValueChange={(value) => onUpdate({ incidentType: value })}
               >
-                <SelectTrigger className="mt-1.5" tabIndex={0}>
+                <SelectTrigger className={cn(dense ? DENSE_CONTROL : "mt-1.5")} tabIndex={0}>
                   <SelectValue placeholder={t('common.einsatzartPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -620,20 +625,15 @@ export function OperationDetailContent({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </DetailField>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="edit-priority" className="text-sm font-semibold text-muted-foreground">
-                  {t('common.priority')}
-                </Label>
-              </div>
+            <DetailField label={t('common.priority')} htmlFor="edit-priority" dense={dense}>
               <Select
                 value={operation.priority}
                 disabled={!canEdit}
                 onValueChange={(value) => onUpdate({ priority: value as "high" | "medium" | "low" })}
               >
-                <SelectTrigger className="mt-1.5" tabIndex={0}>
+                <SelectTrigger className={cn(dense ? DENSE_CONTROL : "mt-1.5")} tabIndex={0}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -642,7 +642,7 @@ export function OperationDetailContent({
                   <SelectItem value="high">{t('common.priorityHigh')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </DetailField>
           </div>
 
           {/* "Telefonisch gemeldet", correctable after the fact (plan 26
@@ -652,56 +652,44 @@ export function OperationDetailContent({
               number. A card that arrived from a delivering system keeps its own
               provenance and is not an operator's to relabel. */}
           {isEditorClaimedSource(operation.source) ? (
-            <div
-              className="rounded-lg border border-border p-4 cursor-pointer select-none"
-              onClick={() => canEdit && onUpdate({ source: operation.source === 'intake' ? 'operator' : 'intake' })}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-sm font-semibold pointer-events-none">{t('common.phoneReported')}</Label>
-                    <p className="text-xs text-muted-foreground">{t('common.phoneReportedDescription')}</p>
-                  </div>
-                </div>
-                <Switch
-                  aria-label={t('common.phoneReported')}
-                  checked={operation.source === 'intake'}
-                  disabled={!canEdit}
-                  onCheckedChange={(checked) => onUpdate({ source: checked ? 'intake' : 'operator' })}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-            </div>
+            <DetailToggle
+              label={t('common.phoneReported')}
+              description={t('common.phoneReportedDescription')}
+              dense={dense}
+              icon={<Phone className={dense ? "h-3.5 w-3.5" : "h-5 w-5 text-muted-foreground"} />}
+              checked={operation.source === 'intake'}
+              disabled={!canEdit}
+              onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
+            />
           ) : null}
 
           {/* Contact */}
-          <div>
-            <Label htmlFor="contact" className="text-sm font-semibold text-muted-foreground">{t('common.contact')}</Label>
+          <DetailField label={t('common.contact')} htmlFor="contact" dense={dense}>
             <Input
               id="contact"
               placeholder={t('common.contactPlaceholder')}
               value={operation.contact}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ contact: e.target.value })}
-              className="mt-1.5"
+              className={cn(dense ? DENSE_CONTROL : "mt-1.5")}
             />
-          </div>
+          </DetailField>
 
           {/* Contact phone */}
-          <div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="contact-phone" className="text-sm font-semibold text-muted-foreground">{t('common.contactPhone')}</Label>
-              {operation.contactPhone.trim() && (
-                <a
-                  href={telHref(operation.contactPhone) ?? undefined}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                >
-                  <Phone className="h-3 w-3" />
-                  {t('common.callContact')}
-                </a>
-              )}
-            </div>
+          <DetailField
+            label={t('common.contactPhone')}
+            htmlFor="contact-phone"
+            dense={dense}
+            action={operation.contactPhone.trim() ? (
+              <a
+                href={telHref(operation.contactPhone) ?? undefined}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <Phone className="h-3 w-3" />
+                {dense ? '' : t('common.callContact')}
+              </a>
+            ) : undefined}
+          >
             <Input
               id="contact-phone"
               type="tel"
@@ -710,91 +698,66 @@ export function OperationDetailContent({
               value={operation.contactPhone}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ contactPhone: sanitizePhoneInput(e.target.value) })}
-              className="mt-1.5"
+              className={cn(dense ? DENSE_CONTROL : "mt-1.5")}
             />
-          </div>
+          </DetailField>
 
           {/* Notes and the flags that qualify the incident stay in this column:
               together with the fields above they are one reading — what this
               incident IS. The other column answers who is on it. */}
           {/* Internal Notes */}
-          <div>
-            <Label htmlFor="internalNotes" className="text-sm font-semibold text-muted-foreground">{t('common.notes')}</Label>
+          <DetailField label={t('common.notes')} htmlFor="internalNotes" dense={dense} alignStart>
             <Textarea
               id="internalNotes"
               placeholder={t('common.internalNotesPlaceholder')}
               value={operation.internalNotes}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ internalNotes: e.target.value })}
-              className="mt-1.5 min-h-[80px]"
+              className={cn(dense ? `${DENSE_CONTROL} min-h-[3.5rem] py-1` : "mt-1.5 min-h-[80px]")}
             />
-          </div>
+          </DetailField>
 
           {/* Nachbarhilfe Toggle */}
-          <div
-            className="rounded-lg border border-border p-4 space-y-3 cursor-pointer select-none"
-            onClick={() => canEdit && onUpdate({ nachbarhilfe: !operation.nachbarhilfe })}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Building2 className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <Label className="text-sm font-semibold pointer-events-none">{t('common.nachbarhilfe')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('detail.nachbarhilfeDescription')}</p>
-                </div>
-              </div>
-              <Switch
-                aria-label={t('common.nachbarhilfe')}
-                checked={operation.nachbarhilfe || false}
-                disabled={!canEdit}
-                onCheckedChange={(checked) => onUpdate({ nachbarhilfe: checked })}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-            {operation.nachbarhilfe && (
+          <DetailToggle
+            label={t('common.nachbarhilfe')}
+            description={t('detail.nachbarhilfeDescription')}
+            dense={dense}
+            icon={<Building2 className={dense ? "h-3.5 w-3.5" : "h-5 w-5 text-muted-foreground"} />}
+            checked={operation.nachbarhilfe || false}
+            disabled={!canEdit}
+            onToggle={(checked) => canEdit && onUpdate({ nachbarhilfe: checked })}
+            note={
               <Input
                 placeholder={t('common.nachbarhilfePlaceholder')}
                 value={operation.nachbarhilfeNote || ''}
                 disabled={!canEdit}
                 onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className="text-sm cursor-text select-text"
+                className={cn("cursor-text select-text text-sm", dense && "h-7")}
               />
-            )}
-          </div>
+            }
+          />
 
           {/* Am Warten Toggle */}
-          <div
-            className="rounded-lg border border-border p-4 space-y-3 cursor-pointer select-none"
-            onClick={() => canEdit && onUpdate({ amWarten: !operation.amWarten })}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Timer className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <Label className="text-sm font-semibold pointer-events-none">{t('common.amWarten')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('common.amWartenDescription')}</p>
-                </div>
-              </div>
-              <Switch
-                aria-label={t('common.amWarten')}
-                checked={operation.amWarten || false}
-                disabled={!canEdit}
-                onCheckedChange={(checked) => onUpdate({ amWarten: checked })}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-            {operation.amWarten && (
+          <DetailToggle
+            label={t('common.amWarten')}
+            description={t('common.amWartenDescription')}
+            dense={dense}
+            icon={<Timer className={dense ? "h-3.5 w-3.5" : "h-5 w-5 text-muted-foreground"} />}
+            checked={operation.amWarten || false}
+            disabled={!canEdit}
+            onToggle={(checked) => canEdit && onUpdate({ amWarten: checked })}
+            note={
               <Input
                 placeholder={t('common.amWartenPlaceholder')}
                 value={operation.amWartenNote || ''}
                 disabled={!canEdit}
                 onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className="text-sm cursor-text select-text"
+                className={cn("cursor-text select-text text-sm", dense && "h-7")}
               />
-            )}
-          </div>
+            }
+          />
 
           </div>
 
