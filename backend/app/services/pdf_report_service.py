@@ -98,8 +98,10 @@ LABELS: dict[str, str] = {
     "col_priority": "Priorität",
     "col_status": "Status",
     "col_address": "Adresse",
-    "col_created": "Eingegangen",
-    "col_completed": "Abgeschlossen",
+    # Short enough to fit its column head at 8 pt — "Eingegangen" and "Abgeschlossen"
+    # broke mid-word ("Eingegang / en") and no width the table can spare fixes that.
+    "col_created": "Eingang",
+    "col_completed": "Ende",
     # Per-incident detail
     "details_title": "Einsatzdetails",
     "description": "Beschreibung",
@@ -196,12 +198,42 @@ PRIORITY_LABELS: dict[str, str] = {
     "high": "Hoch",
 }
 
+# Reko power-supply answers. Mirrors the frontend's reko.power* strings
+# (frontend/messages/de.json); an unmapped value prints as-is rather than
+# vanishing, but "emergency_needed" must never reach an archived report.
+POWER_LABELS: dict[str, str] = {
+    "unknown": "Unbekannt",
+    "available": "Vorhanden",
+    "unavailable": "Nicht vorhanden",
+    "emergency_needed": "Notstrom benötigt",
+}
+
+# Workflow order for anything that counts or lists statuses. Sorting the dict itself
+# orders by the raw key ("active" before "incoming"), which prints a breakdown in an
+# order that means nothing to a reader.
+STATUS_ORDER: tuple[str, ...] = (
+    "incoming",
+    "reko",
+    "reko_done",
+    "enroute",
+    "active",
+    "returning",
+    "complete",
+)
+
 # All DB timestamps are UTC; reports are read by people with Swiss wall clocks.
 LOCAL_TZ = ZoneInfo("Europe/Zurich")
 
 # Layout constants
 _PAGE_MARGIN = 18 * mm
-_CONTENT_W = A4[0] - 2 * _PAGE_MARGIN  # 174 mm of usable width
+
+#: SimpleDocTemplate's frame pads 6 pt on every side on top of the margins. Left out of
+#: the content width, every full-width table was 12 pt wider than the frame it sits in:
+#: the tables overflowed to the right of the section rules (which honour the frame), and
+#: a row whose content forced a re-fit jumped 6 pt left of the column everything else
+#: aligned on. Widths are measured against what the frame actually offers.
+_FRAME_PADDING = 6
+_CONTENT_W = A4[0] - 2 * _PAGE_MARGIN - 2 * _FRAME_PADDING
 _BRAND = colors.HexColor("#b91c1c")  # warm red (fire service identity)
 _HEADER_BG = colors.HexColor("#f4f4f5")
 _BORDER = colors.HexColor("#d4d4d8")
@@ -841,6 +873,16 @@ def _p(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(escape(str(text)), style)
 
 
+def _widths(*fixed: float) -> list[float]:
+    """Column widths where the LAST column takes whatever is left of the content width.
+
+    Hand-totalled width lists drift the moment a column is retuned, and a table that is
+    a millimetre wider than the frame no longer lines up with the section rule above it.
+    Give the fixed columns; the remainder is arithmetic.
+    """
+    return [*fixed, _CONTENT_W - sum(fixed)]
+
+
 def _logo_flowable(logo: bytes | None) -> Image | None:
     """The station logo scaled into the letterhead box, or ``None``.
 
@@ -962,8 +1004,11 @@ def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> 
     distinct_vehicles = {a.resource_id for a in data.assignments if a.resource_type == "vehicle"}
     distinct_materials = {a.resource_id for a in data.assignments if a.resource_type == "material"}
 
-    # incidents total, broken down by status inline
-    status_breakdown = ", ".join(f"{STATUS_LABELS.get(s, s)}: {c}" for s, c in sorted(status_counts.items()))
+    # Incidents total, broken down by status inline — in the order the board works
+    # through, not alphabetically by the raw key.
+    ordered = [s for s in STATUS_ORDER if s in status_counts]
+    ordered += sorted(s for s in status_counts if s not in STATUS_ORDER)
+    status_breakdown = ", ".join(f"{STATUS_LABELS.get(s, s)}: {status_counts[s]}" for s in ordered)
     rows = [
         (LABELS["incidents_total"], f"{len(incidents)}" + (f"  ({status_breakdown})" if status_breakdown else "")),
         (LABELS["personnel_involved"], str(len(distinct_personnel))),
@@ -973,7 +1018,7 @@ def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> 
     ]
 
     table_data = [[_p(label, styles["field_label"]), _p(value, styles["cell"])] for label, value in rows]
-    table = Table(table_data, colWidths=[55 * mm, 117 * mm], hAlign="LEFT")
+    table = Table(table_data, colWidths=_widths(40 * mm), hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
@@ -1038,7 +1083,7 @@ def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyl
             ]
         )
 
-    col_widths = [8 * mm, 68 * mm, 24 * mm, 24 * mm, 24 * mm, 24 * mm]
+    col_widths = _widths(8 * mm, 66 * mm, 24 * mm, 24 * mm, 24 * mm)
     table = Table(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
@@ -1224,7 +1269,7 @@ def _journal_table(entries: list[JournalEntry], styles: dict[str, ParagraphStyle
             ]
         )
 
-    col_widths = [20 * mm, 40 * mm, 84 * mm, 28 * mm]
+    col_widths = _widths(20 * mm, 40 * mm, 84 * mm)
     table = LongTable(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
@@ -1244,7 +1289,11 @@ def _journal_table(entries: list[JournalEntry], styles: dict[str, ParagraphStyle
 
 
 def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphStyle], home_city: str = "") -> Table:
-    """One row per incident: nr, title, type, priority, status, address, times."""
+    """One row per incident: nr, title, type, address, received, completed.
+
+    Priority and status are deliberately not here — they belong to the incident's own
+    block, and six columns is what fits at 8 pt without a head breaking mid-word.
+    """
     header = [
         _p(LABELS["col_nr"], styles["cell_header"]),
         _p(LABELS["col_title"], styles["cell_header"]),
@@ -1266,8 +1315,10 @@ def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphS
             ]
         )
 
-    # Column widths tuned for A4 portrait content area (172mm, ~2mm safety).
-    col_widths = [8 * mm, 50 * mm, 26 * mm, 52 * mm, 18 * mm, 18 * mm]
+    # Measured, not guessed (Helvetica 8 pt + 8 pt cell padding): "Elementarereignis" is
+    # 25.6mm and appears in almost every row, the clock columns need 22mm for a date, and
+    # at 18mm their own headings broke inside the word.
+    col_widths = _widths(8 * mm, 44 * mm, 26 * mm, 48 * mm, 22 * mm)
     table = Table(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
@@ -1447,7 +1498,7 @@ def _incident_detail(
         if reko.is_relevant is not None:
             parts.append(f"{LABELS['reko_relevant']}: {LABELS['yes'] if reko.is_relevant else LABELS['no']}")
         if reko.power_supply:
-            parts.append(f"{LABELS['reko_power']}: {reko.power_supply}")
+            parts.append(f"{LABELS['reko_power']}: {POWER_LABELS.get(reko.power_supply, reko.power_supply)}")
         if reko.summary_text:
             parts.append(f"{LABELS['reko_summary']}: {reko.summary_text}")
         if reko.additional_notes:
