@@ -37,6 +37,11 @@ interface EventRestlisteProps {
   eventId: string
   /** Selecting the event and navigating is the page's job, not this card's. */
   onOpenIncident: (incidentId: string) => void
+  /** No printer configured, no print button. The endpoint refuses the job with
+   *  «Printer is not enabled», so offering it is offering a guaranteed error —
+   *  the same rule the board's other print buttons already follow. Fetched once
+   *  on the page rather than per event card. */
+  printerEnabled?: boolean
 }
 
 function formatSince(value: string | null): string {
@@ -51,7 +56,7 @@ function formatSince(value: string | null): string {
   })
 }
 
-export function EventRestliste({ eventId, onOpenIncident }: EventRestlisteProps) {
+export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false }: EventRestlisteProps) {
   const t = useTranslations('events.restliste')
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
@@ -86,7 +91,12 @@ export function EventRestliste({ eventId, onOpenIncident }: EventRestlisteProps)
       })
     } catch (error) {
       console.error('Failed to queue Abholliste:', error)
-      toast.error(t('abhollisteFailed'))
+      // Say WHY. «Konnte nicht gedruckt werden» alone sends the operator looking
+      // at the printer when the answer is usually a setting or an agent that is
+      // not running.
+      toast.error(t('abhollisteFailed'), {
+        description: error instanceof Error ? error.message : undefined,
+      })
     } finally {
       setPrinting(false)
     }
@@ -168,16 +178,18 @@ export function EventRestliste({ eventId, onOpenIncident }: EventRestlisteProps)
               <span>{t('materialOnSite', { count: material.length })}</span>
             </button>
             {/* The sheet that goes along the next morning (decision 25). */}
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={handlePrintAbholliste}
-              disabled={printing}
-              title={t('printAbholliste')}
-              aria-label={t('printAbholliste')}
-            >
-              {printing ? <Loader2 className="size-3.5 animate-spin" /> : <Printer className="size-3.5" />}
-            </Button>
+            {printerEnabled && (
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={handlePrintAbholliste}
+                disabled={printing}
+                title={t('printAbholliste')}
+                aria-label={t('printAbholliste')}
+              >
+                {printing ? <Loader2 className="size-3.5 animate-spin" /> : <Printer className="size-3.5" />}
+              </Button>
+            )}
           </div>
           {open === 'material' && (
             <div className="ml-4 space-y-0.5 border-l border-border/60 pl-2">{material.map(unitRow)}</div>

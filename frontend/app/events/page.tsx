@@ -82,6 +82,17 @@ export default function EventsPage() {
   const [einsaetzeLoadingId, setEinsaetzeLoadingId] = useState<string | null>(null)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // One fetch for the whole page: every event card's Restliste asks the same
+  // question (may I offer the Abholliste?), and the answer is a station setting.
+  const [printerEnabled, setPrinterEnabled] = useState(false)
+
+  useEffect(() => {
+    apiClient.getPrinterStatus()
+      .then((status) => setPrinterEnabled(status.enabled))
+      // No printer API (Railway, agent-less deployment) is not an error here —
+      // it is simply a board that does not print.
+      .catch(() => setPrinterEnabled(false))
+  }, [])
 
   // Separate active and archived events
   const { activeEvents, archivedEvents } = useMemo(() => {
@@ -451,6 +462,7 @@ export default function EventsPage() {
                             <EventRestliste
                               eventId={event.id}
                               onOpenIncident={(incidentId) => handleOpenIncident(event, incidentId)}
+                              printerEnabled={printerEnabled}
                             />
 
                             <div className="mt-4 flex gap-2">
