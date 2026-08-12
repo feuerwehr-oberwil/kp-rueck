@@ -308,7 +308,9 @@ describe("OperationDetailContent", () => {
     // questions and now sit on different tabs: «Abholung nötig» is what this
     // Schadenplatz still needs, «Reko vor Ort» is part of the reconnaissance.
     // Angekommen and Einsatz beendet stay information in the thread, not switches.
-    expect(screen.getByText("Funkmeldungen")).toBeVisible()
+    // With one row per tab the «Funkmeldungen» heading is gone: over a single
+    // row it only repeats the row's own label.
+    expect(screen.queryByText("Funkmeldungen")).not.toBeInTheDocument()
     expect(screen.getByText("Abholung nötig")).toBeVisible()
     expect(screen.queryByText("Reko vor Ort")).not.toBeInTheDocument()
     expect(screen.getByText("Meldungen vom Feld")).toBeVisible()

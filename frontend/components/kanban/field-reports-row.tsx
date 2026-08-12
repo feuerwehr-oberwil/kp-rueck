@@ -174,12 +174,17 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
   // like a form of their own — the sentence lives on as the heading's `title`.
   return (
     <div className="space-y-1">
-      <p
-        title={t('reportsDescription')}
-        className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-      >
-        {t('reportsTitle')}
-      </p>
+      {/* The heading earns its place only over a GROUP. Above a single row it
+          repeats what the row's own label says — «Funkmeldungen / Reko vor Ort»
+          is one line of chrome for one line of content. */}
+      {rows.length > 1 && (
+        <p
+          title={t('reportsDescription')}
+          className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+        >
+          {t('reportsTitle')}
+        </p>
+      )}
 
       <div>
         {rows.map(row => {
