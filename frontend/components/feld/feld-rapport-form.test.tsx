@@ -344,11 +344,19 @@ describe('the rapport is folded into blocks on /feld', () => {
     expect(box).toHaveValue('Keller ausgepumpt')
   })
 
-  it('leaves the KP mount open — an operator scans, they do not scroll', async () => {
+  it('folds the KP mount\'s LISTS but never its Kurzbericht', async () => {
     const load = vi.fn().mockResolvedValue(rapport({ exists: true }))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" mount="kp" transport={{ load, save: vi.fn() }} />)
 
-    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
+    // The block somebody dictating over the radio types into first stays open…
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeVisible()
     expect(screen.queryByRole('button', { name: /Kurzbericht/ })).toBeNull()
+
+    // …while the lists state what is in them and stay out of the way. In the
+    // detail this form is one of four things in a tab, not a page of its own.
+    const material = screen.getByRole('button', { name: /Material/ })
+    expect(material).toBeInTheDocument()
+    await userEvent.click(material)
+    expect(await screen.findByText('Kein Material erfasst.')).toBeVisible()
   })
 })

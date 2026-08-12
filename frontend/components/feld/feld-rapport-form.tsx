@@ -471,8 +471,22 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const readOnly = Boolean(disabled)
 
   // Folded blocks on the phone (§ the /feld length problem: 4.1 screens with
-  // everything open). The KP keeps every field in sight — see FeldSection.
+  // everything open).
   const collapsible = !isKp
+
+  // The KP mount folds too now — but only the LISTS. Inside the incident detail
+  // this form is one of four things in a tab, in a column of ~500px, and «kein
+  // Rapport» still produced a Materialliste, a Mannschaftsliste, a
+  // Fahrzeugliste, a photo block and an Eigentümer block to scroll past. Folded,
+  // each states what is in it, which answers «habe ich das schon ausgefüllt?»
+  // without opening anything.
+  //
+  // Kurzbericht stays open on both mounts: it is the one block a rapport really
+  // wants filled, and on the KP side it is what somebody dictating over the
+  // radio types into first.
+  const foldLists = true
+
+
 
   // What each closed block says about itself. A fold that hides the answer to
   // "habe ich das schon ausgefüllt?" would just move the scrolling into taps.
@@ -482,6 +496,21 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const vehicleCount = formData.vehicles.filter(row => row.present).length
   const ownerSummary = formData.owner_name.trim() || formData.owner_phone.trim()
   const kurzberichtSummary = formData.kurzbericht.trim()
+
+  // What the KP mount is FOR, and what it is not.
+  //
+  // The board already holds the Meldung, the Kontakt/Melder and their number on
+  // Übersicht — one tab away. Asking for Eigentümer-/Halterdaten and «übergeben
+  // an» a second time inside the rapport is asking an operator to retype what
+  // the same modal shows above, and it is the block that made this form a page.
+  // What the KP genuinely does here is confirm what went out and came back —
+  // Mannschaft, Fahrzeuge, Material — add photos that arrived over WhatsApp,
+  // and write the Kurzbericht.
+  //
+  // A block the crew ALREADY filled stays visible either way: hiding somebody
+  // else's answer is worse than showing a field nobody needs.
+  const showOwnerBlock = !isKp || ownerSummary.length > 0
+  const showHandover = !isKp || Boolean(formData.handed_over_to.trim())
 
   return (
     <div className={collapsible ? 'space-y-3' : 'space-y-6'}>
@@ -534,7 +563,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
 
       {/* ---------------------------------------------------- Material */}
       <RapportSection
-        collapsible={collapsible}
+        collapsible={foldLists}
         title={t('material.title')}
         summary={materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty')}
         // An empty material list is not a gap — the board simply never got the
@@ -573,23 +602,26 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           placeholder={t('kurzberichtPlaceholder')}
           onChange={e => update('kurzbericht', e.target.value)}
         />
-        <div className="space-y-1.5">
-          <Label htmlFor="rapport-handover" className="text-xs text-muted-foreground">
-            {t('handedOverTo')}
-          </Label>
-          <Input
-            id="rapport-handover"
-            value={formData.handed_over_to}
-            disabled={readOnly}
-            placeholder={t('handedOverToPlaceholder')}
-            onChange={e => update('handed_over_to', e.target.value)}
-          />
-        </div>
+        {showHandover && (
+          <div className="space-y-1.5">
+            <Label htmlFor="rapport-handover" className="text-xs text-muted-foreground">
+              {t('handedOverTo')}
+            </Label>
+            <Input
+              id="rapport-handover"
+              value={formData.handed_over_to}
+              disabled={readOnly}
+              placeholder={t('handedOverToPlaceholder')}
+              onChange={e => update('handed_over_to', e.target.value)}
+            />
+          </div>
+        )}
       </RapportSection>
 
       {/* --------------------------------- Eigentümer-/Halterdaten */}
+      {showOwnerBlock && (
       <RapportSection
-        collapsible={collapsible}
+        collapsible={foldLists}
         title={t('sections.owner')}
         summary={ownerSummary || t('summary.ownerEmpty')}
         // Only some Schadenplätze have an owner to note at all.
@@ -660,6 +692,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           />
         </div>
       </RapportSection>
+      )}
 
       {/* --------------------------------------- Mannschaft und Fahrzeuge */}
       {/* A plain confirmation of two facts, nothing else. The block used to be
@@ -667,7 +700,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           field does not decide who gets billed, and a vehicle COUNT tells
           whoever retypes it nothing that three names do not tell better. */}
       <RapportSection
-        collapsible={collapsible}
+        collapsible={foldLists}
         title={t('sections.confirm')}
         summary={t('summary.confirm', { people: peopleCount, vehicles: vehicleCount })}
         // Prefilled from the board, so it is normally already right — the
@@ -700,7 +733,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {/* ---------------------------------------------------------- Fotos */}
       {transport.photos && (
         <RapportSection
-          collapsible={collapsible}
+          collapsible={foldLists}
           title={t('sections.photos')}
           summary={photos.length > 0 ? t('summary.photos', { count: photos.length }) : t('summary.photosEmpty')}
           state={photos.length > 0 ? 'filled' : 'optional'}

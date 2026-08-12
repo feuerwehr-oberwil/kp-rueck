@@ -33,6 +33,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
 import type { ApiDangersAssessment, ApiEffortEstimation, ApiRekoReportResponse } from '@/lib/api/types'
 
@@ -117,6 +119,11 @@ export function RekoReportForm({
 }: RekoReportFormProps) {
   const t = useTranslations('reko.form')
   const isKp = mount === 'kp'
+  // The phone gets thumb-sized controls in the rain; the KP gets a column in a
+  // tab and a mouse. Same fields, same order, same component — only the scale
+  // differs, so the board's mount stops spending a screen and a half on eight
+  // answers. See components/kanban/detail-field.tsx for the same reasoning.
+  const dense = isKp
   const [relevantMissing, setRelevantMissing] = useState(false)
 
   // Local text mirror for the duration field: a controlled number input coerces
@@ -150,21 +157,26 @@ export function RekoReportForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className={cn(dense ? "space-y-3" : "space-y-5")}>
       {/* Section 1: Basic Confirmation */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-1">
-          <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('relevantQuestion')}</Label>
+      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "space-y-3")}>
+        <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
+          <Label className={cn(
+            "text-muted-foreground",
+            dense ? "text-xs font-normal" : "text-sm font-medium tracking-wide",
+          )}>
+            {t('relevantQuestion')}
+          </Label>
           <span className="text-destructive" aria-hidden="true">*</span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className={cn(dense ? "flex gap-1.5" : "grid grid-cols-2 gap-3")}>
           <Button
             type="button"
             variant={value.is_relevant === true ? 'default' : 'outline'}
             onClick={() => update('is_relevant', true)}
             disabled={disabled}
-            size="lg"
-            className="text-base"
+            size={dense ? "sm" : "lg"}
+            className={cn(!dense && "text-base")}
           >
             {t('yes')}
           </Button>
@@ -173,8 +185,8 @@ export function RekoReportForm({
             variant={value.is_relevant === false ? 'default' : 'outline'}
             onClick={() => update('is_relevant', false)}
             disabled={disabled}
-            size="lg"
-            className="text-base"
+            size={dense ? "sm" : "lg"}
+            className={cn(!dense && "text-base")}
           >
             {t('no')}
           </Button>
@@ -182,18 +194,29 @@ export function RekoReportForm({
         {relevantMissing && <p className="text-xs text-destructive">{t('relevantRequired')}</p>}
       </div>
 
-      <Separator />
+      {!dense && <Separator />}
 
       {/* Section 2: Dangers Assessment */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('dangers')}</Label>
+      <div className={cn(dense ? "flex items-start gap-2 border-b border-border/50 py-1" : "space-y-3")}>
+        <Label className={cn(
+          "text-muted-foreground",
+          dense ? "w-[104px] shrink-0 pt-1 text-xs font-normal" : "text-sm font-medium tracking-wide",
+        )}>
+          {t('dangers')}
+        </Label>
+        <div className={cn(dense && "min-w-0 flex-1 space-y-1")}>
 
-        <div className="space-y-2">
+        <div className={cn(dense ? "grid grid-cols-2 gap-x-2 gap-y-0.5" : "space-y-2")}>
           {(['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).map(key => (
             <label
               key={key}
               htmlFor={`danger-${key}`}
-              className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary transition-colors"
+              className={cn(
+                "flex cursor-pointer items-center transition-colors",
+                dense
+                  ? "gap-2 rounded-md px-1.5 py-1 hover:bg-secondary/60"
+                  : "gap-3 rounded-lg bg-secondary/50 p-3 hover:bg-secondary",
+              )}
             >
               <Checkbox
                 id={`danger-${key}`}
@@ -202,37 +225,49 @@ export function RekoReportForm({
                 onCheckedChange={checked =>
                   update('dangers_json', { ...value.dangers_json, [key]: checked === true })
                 }
-                className="h-5 w-5"
+                className={cn(dense ? "h-4 w-4" : "h-5 w-5")}
               />
               <span className="text-sm">{t(`dangerLabels.${key}`)}</span>
             </label>
           ))}
         </div>
 
-        <div className="pt-2">
-          <Label htmlFor="danger-other" className="text-sm font-semibold text-muted-foreground mb-1.5 block">
-            {t('otherDangers')}
-          </Label>
+        <div className={cn(!dense && "pt-2")}>
+          {!dense && (
+            <Label htmlFor="danger-other" className="text-sm font-semibold text-muted-foreground mb-1.5 block">
+              {t('otherDangers')}
+            </Label>
+          )}
           <Textarea
             id="danger-other"
             value={value.dangers_json.other_notes || ''}
             disabled={disabled}
             onChange={e => update('dangers_json', { ...value.dangers_json, other_notes: e.target.value })}
-            placeholder={t('otherDangersPlaceholder')}
+            placeholder={dense ? t('otherDangers') : t('otherDangersPlaceholder')}
             rows={2}
+            className={cn(dense && "min-h-[2.5rem] py-1 text-sm")}
           />
+        </div>
         </div>
       </div>
 
-      <Separator />
+      {!dense && <Separator />}
 
       {/* Section 3: Effort Assessment */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('effort')}</Label>
+      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "space-y-3")}>
+        <Label className={cn(
+          "text-muted-foreground",
+          dense ? "w-[104px] shrink-0 text-xs font-normal" : "text-sm font-medium tracking-wide",
+        )}>
+          {t('effort')}
+        </Label>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="personnel-count" className="text-sm font-semibold text-muted-foreground mb-1.5 block">
+        <div className={cn(dense ? "flex min-w-0 flex-1 items-center gap-2" : "grid grid-cols-2 gap-3")}>
+          <div className={cn(dense && "flex items-center gap-1.5")}>
+            <Label htmlFor="personnel-count" className={cn(
+              "text-muted-foreground",
+              dense ? "text-xs font-normal whitespace-nowrap" : "text-sm font-semibold mb-1.5 block",
+            )}>
               {t('personnelCount')}
             </Label>
             <Input
@@ -249,12 +284,15 @@ export function RekoReportForm({
                 })
               }
               placeholder={t('personnelPlaceholder')}
-              className="h-11"
+              className={cn(dense ? "h-7 w-20" : "h-11")}
             />
           </div>
 
-          <div>
-            <Label htmlFor="duration" className="text-sm font-semibold text-muted-foreground mb-1.5 block">
+          <div className={cn(dense && "flex items-center gap-1.5")}>
+            <Label htmlFor="duration" className={cn(
+              "text-muted-foreground",
+              dense ? "text-xs font-normal whitespace-nowrap" : "text-sm font-semibold mb-1.5 block",
+            )}>
               {t('duration')}
             </Label>
             <Input
@@ -277,17 +315,41 @@ export function RekoReportForm({
                 })
               }}
               placeholder={t('durationPlaceholder')}
-              className="h-11"
+              className={cn(dense ? "h-7 w-20" : "h-11")}
             />
           </div>
         </div>
       </div>
 
-      <Separator />
+      {!dense && <Separator />}
 
       {/* Section 4: Power Supply */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('powerSupply')}</Label>
+      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "space-y-3")}>
+        <Label className={cn(
+          "text-muted-foreground",
+          dense ? "w-[104px] shrink-0 text-xs font-normal" : "text-sm font-medium tracking-wide",
+        )}>
+          {t('powerSupply')}
+        </Label>
+        {/* Four thumb-sized buttons on the phone, one narrow select on the
+            board: a mouse does not need a 44px target for a four-way choice,
+            and the modal is not the place to spend two rows on it. */}
+        {dense ? (
+          <Select
+            value={value.power_supply}
+            disabled={disabled}
+            onValueChange={option => update('power_supply', option)}
+          >
+            <SelectTrigger className="h-7 w-auto min-w-[10rem] border-0 bg-transparent px-1 text-sm shadow-none hover:bg-input/50 focus-visible:bg-input">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(['unknown', 'available', 'unavailable', 'emergency_needed'] as const).map(option => (
+                <SelectItem key={option} value={option}>{t(`powerLabels.${option}`)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
         <div className="grid grid-cols-2 gap-2">
           {(['unknown', 'available', 'unavailable', 'emergency_needed'] as const).map(option => (
             <Button
@@ -302,14 +364,20 @@ export function RekoReportForm({
             </Button>
           ))}
         </div>
+        )}
       </div>
 
       {photos && (
         <>
-          <Separator />
+          {!dense && <Separator />}
 
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('photos')}</Label>
+          <div className={cn(dense ? "space-y-1 pt-1" : "space-y-3")}>
+            <Label className={cn(
+              "text-muted-foreground",
+              dense ? "text-xs font-normal" : "text-sm font-medium tracking-wide",
+            )}>
+              {t('photos')}
+            </Label>
             {/* Says what this box is FOR on the board: not the operator taking
                 pictures, but the ones that arrived over WhatsApp. */}
             {isKp && <p className="text-xs text-muted-foreground">{t('photosKpHint')}</p>}
@@ -324,15 +392,20 @@ export function RekoReportForm({
         </>
       )}
 
-      <Separator />
+      {!dense && <Separator />}
 
       {/* Summary */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('summary')}</Label>
+      <div className={cn(dense ? "space-y-1 pt-1" : "space-y-3")}>
+        {!dense && (
+          <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('summary')}</Label>
+        )}
 
         <div>
-          <Label htmlFor="summary" className="text-sm font-semibold text-muted-foreground mb-1.5 block">
-            {t('summaryShort')}
+          <Label htmlFor="summary" className={cn(
+            "text-muted-foreground block",
+            dense ? "text-xs font-normal mb-0.5" : "text-sm font-semibold mb-1.5",
+          )}>
+            {dense ? t('summary') : t('summaryShort')}
           </Label>
           <Textarea
             id="summary"
@@ -340,12 +413,16 @@ export function RekoReportForm({
             disabled={disabled}
             onChange={e => update('summary_text', e.target.value)}
             placeholder={t('summaryPlaceholder')}
-            rows={3}
+            rows={dense ? 2 : 3}
+            className={cn(dense && "text-sm")}
           />
         </div>
 
         <div>
-          <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground mb-1.5 block">
+          <Label htmlFor="notes" className={cn(
+            "text-muted-foreground block",
+            dense ? "text-xs font-normal mb-0.5" : "text-sm font-semibold mb-1.5",
+          )}>
             {t('notes')}
           </Label>
           <Textarea
@@ -355,12 +432,13 @@ export function RekoReportForm({
             onChange={e => update('additional_notes', e.target.value)}
             placeholder={t('notesPlaceholder')}
             rows={2}
+            className={cn(dense && "text-sm")}
           />
         </div>
       </div>
 
       {/* Action */}
-      <div className="pt-4 space-y-3">
+      <div className={cn("space-y-3", dense ? "pt-2" : "pt-4")}>
         <Button type="submit" disabled={disabled || isSubmitting || busy} className={isKp ? 'w-full' : 'w-full h-14'} size="lg">
           {isSubmitting ? (
             <>

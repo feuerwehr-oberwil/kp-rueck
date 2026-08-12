@@ -1326,23 +1326,30 @@ export function OperationDetailContent({
               in on the right. In the panel that becomes one column, top to
               bottom, because 420px has no second one to give. */}
           <div className={cn("py-4", dense ? "space-y-5" : "grid grid-cols-2 gap-6")}>
-            {/* Everything the crew said, plus the two reports that used to be
-                toggles (§18.19). Before this thread existed a Meldung became a
-                notification and an audit entry and showed up on the incident
-                nowhere at all — dismiss the bell and it was gone. */}
-            <FieldMessageThread
-              operation={operation}
-              events={timeline.events}
-              isLoading={timeline.isLoading}
-              failed={timeline.failed}
-              onRetry={timeline.reload}
-            />
+            {/* Left: what the Schadenplatz says. The two settable Funkmeldungen
+                belong with the crew's own sentences — both answer «was ist
+                gemeldet worden», and an operator taking a radio call reads and
+                sets them in the same breath. */}
+            <div className="space-y-5">
+              {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps
+                  on /feld, an operator enters here from a radio message. */}
+              <FieldReportsRow operation={operation} canEdit={canEdit} />
 
+              {/* Everything the crew said, plus the two reports that used to be
+                  toggles (§18.19). Before this thread existed a Meldung became a
+                  notification and an audit entry and showed up on the incident
+                  nowhere at all — dismiss the bell and it was gone. */}
+              <FieldMessageThread
+                operation={operation}
+                events={timeline.events}
+                isLoading={timeline.isLoading}
+                failed={timeline.failed}
+                onRetry={timeline.reload}
+              />
+            </div>
+
+            {/* Right: the one thing that is written rather than reported. */}
             <div className={cn("space-y-5", !dense && "border-l border-border pl-6")}>
-            {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps on
-                /feld, an operator enters here from a radio message. */}
-            <FieldReportsRow operation={operation} canEdit={canEdit} />
-
             {/* The Schadenplatz-Rapport itself, as a FULL editing surface: the KP
                 must be able to file one for an incident that never had any field
                 contact. Same form component /feld mounts, different transport. */}

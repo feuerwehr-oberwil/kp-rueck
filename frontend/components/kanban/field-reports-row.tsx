@@ -157,26 +157,30 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
     },
   ]
 
+  // Same shape as Nachbarhilfe and «Am Warten» on the Übersicht: a label, a
+  // switch, and the field that qualifies it underneath while it is on. The
+  // bordered card with its own explanatory sentence made two settable rows look
+  // like a form of their own — the sentence lives on as the heading's `title`.
   return (
-    <div className="rounded-lg border border-border p-4 space-y-3">
-      <div>
-        <Label className="text-sm font-semibold">{t('reportsTitle')}</Label>
-        {/* Says out loud that this is the radio-message path, so nobody looks
-            for a field device that does not exist. */}
-        <p className="text-xs text-muted-foreground">{t('reportsDescription')}</p>
-      </div>
+    <div className="space-y-1">
+      <p
+        title={t('reportsDescription')}
+        className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+      >
+        {t('reportsTitle')}
+      </p>
 
-      <div className="space-y-2.5">
+      <div>
         {rows.map(row => {
           const line = row.line !== undefined ? row.line : provenance(row.at, row.by)
           return (
-            <div key={row.key} className="space-y-1.5">
+            <div key={row.key} className="border-b border-border/50 py-1">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
                   {row.icon}
                   <div className="min-w-0">
                     <span className="text-sm">{row.label}</span>
-                    {line && <p className="text-xs text-muted-foreground truncate">{line}</p>}
+                    {line && <span className="ml-2 text-xs text-muted-foreground">{line}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -204,7 +208,7 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
               </div>
 
               {row.key === 'pickup' && row.on && (
-                <div className="space-y-1.5 pl-6">
+                <div className="mt-1 space-y-1 pl-6">
                   <Input
                     placeholder={t('pickupNotePlaceholder')}
                     value={note}
@@ -215,7 +219,7 @@ export function FieldReportsRow({ operation, canEdit = true }: FieldReportsRowPr
                         save('pickup', { pickup_needed: true, pickup_note: note || null })
                       }
                     }}
-                    className="text-sm"
+                    className="h-7 text-sm"
                   />
                   {operation.pickupRequestedAt && (
                     <p className="text-xs text-amber-700 dark:text-amber-400">

@@ -16,14 +16,23 @@ import { EMPTY_REKO_FORM, RekoReportForm, toRekoFormData } from '@/components/re
  * form asks exactly the same questions the crew is asked".
  */
 
-const FIELDS = ['Einsatz relevant? *', 'Gefahren', 'Aufwand', 'Stromversorgung', 'Zusammenfassung']
+// The asterisk is the separate required marker beside the label, not part of
+// the label — it used to be in both and the form read «Einsatz relevant? * *».
+const FIELDS = ['Einsatz relevant?', 'Gefahren', 'Aufwand', 'Stromversorgung', 'Zusammenfassung']
 
-function fieldSetOf(container: HTMLElement): string[] {
-  return Array.from(container.querySelectorAll('label, textarea, input, button')).map(el =>
-    el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
-      ? `${el.tagName}:${el.id || el.getAttribute('placeholder') || ''}`
-      : `${el.tagName}:${el.textContent?.trim() ?? ''}`,
-  )
+/**
+ * The WRITABLE fields, by the id the form gives them — not the DOM around them.
+ *
+ * The two mounts render the same questions with different controls: a phone in
+ * the rain gets four thumb-sized Stromversorgung buttons, a desktop gets one
+ * narrow select, and a label that only repeats what the placeholder already says
+ * is dropped where space is short. None of that may change WHAT is asked, which
+ * is what this compares.
+ */
+function writableFieldsOf(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll('textarea, input'))
+    .map(el => `${el.tagName}:${(el as HTMLInputElement).id || el.getAttribute('placeholder') || ''}`)
+    .sort()
 }
 
 describe('the Reko field set (plan 26 §5.1)', () => {
@@ -31,19 +40,21 @@ describe('the Reko field set (plan 26 §5.1)', () => {
     const feld = renderWithIntl(
       <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="feld" onSubmit={vi.fn()} />,
     )
-    const feldFields = fieldSetOf(feld.container)
+    const feldFields = writableFieldsOf(feld.container)
+    const feldText = feld.container.textContent ?? ''
     feld.unmount()
 
     const kp = renderWithIntl(
       <RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" onSubmit={vi.fn()} />,
     )
-    const kpFields = fieldSetOf(kp.container)
+    const kpFields = writableFieldsOf(kp.container)
 
-    // The submit button's label is the one deliberate difference — copy only,
-    // never behaviour. Everything before it must match exactly.
-    expect(kpFields.slice(0, -1)).toEqual(feldFields.slice(0, -1))
+    // Every field a crew can write, the KP can write.
+    expect(kpFields).toEqual(feldFields)
+    // …and every question is asked on both, whatever control carries it.
     for (const label of FIELDS) {
-      expect(kpFields.join('|')).toContain(label)
+      expect(feldText).toContain(label)
+      expect(kp.container.textContent ?? '').toContain(label)
     }
   })
 

@@ -55,7 +55,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
 
     // The same field set the crew sees, inline — a modal over the incident
     // detail would hide the Feldmeldungen the operator is dictating from.
-    expect(screen.getByText('Einsatz relevant? *')).toBeInTheDocument()
+    expect(screen.getByText('Einsatz relevant?')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 

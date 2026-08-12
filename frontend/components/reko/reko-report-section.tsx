@@ -214,7 +214,10 @@ export default function RekoReportSection({
           )}
         </>
       ) : (
-        !isEditing && (
+        // While stacked, the placeholder gives way to the form opening below
+        // it; side by side the columns are independent, and an empty column
+        // that says nothing reads as a rendering fault.
+        (split || !isEditing) && (
           <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
             <FileText className="h-4 w-4" />
             <p className="text-sm">{t('noReport')}</p>
@@ -231,7 +234,9 @@ export default function RekoReportSection({
       <div className={cn(split && "border-l border-border pl-6", !split && "space-y-2")}>
       {canEdit && (
         isEditing ? (
-          <div className="rounded-lg border border-border p-4 space-y-3">
+          // No card in the split layout: the column IS the frame, and a border
+          // inside a border inside the modal is two frames around one form.
+          <div className={cn("space-y-3", split ? "" : "rounded-lg border border-border p-4")}>
             <div className="flex items-center gap-2">
               <Binoculars className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-semibold text-muted-foreground">

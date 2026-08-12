@@ -247,6 +247,7 @@ export default function FireStationDashboard() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
+  const openDetailParam = searchParams.get("detail") === "1"
   const isMobile = useIsMobile()
 
   const tCommon = useTranslations('kanban.common')
@@ -1098,14 +1099,19 @@ export default function FireStationDashboard() {
   }, [])
 
 
-  // Scroll to and highlight operation when navigating with ?highlight= param
+  // Scroll to and highlight operation when navigating with ?highlight= param.
+  // With `&detail=1` the card is also OPENED — that is the Karte page's
+  // «Details anzeigen» arriving here: the incident detail lives on the board,
+  // in the panel next to the columns, and a second copy of it over the map was
+  // a second place to keep in step.
   useEffect(() => {
     if (highlightParam) {
       scrollToCard(highlightParam)
+      if (openDetailParam) openIncidentDetail(highlightParam)
       // Clear the URL param to prevent re-scroll on refresh
       router.replace('/', { scroll: false })
     }
-  }, [highlightParam, scrollToCard, router])
+  }, [highlightParam, openDetailParam, scrollToCard, openIncidentDetail, router])
 
   useKanbanShortcuts(
     {

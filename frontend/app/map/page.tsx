@@ -320,14 +320,17 @@ export default function MapPage() {
       ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
   }, [selectedIncidentId])
 
+  /**
+   * «Details anzeigen» hands the incident back to the board.
+   *
+   * The detail belongs where the work is: next to the columns, in the panel or
+   * the modal the board already owns. Opening a second copy of it on top of the
+   * map meant two surfaces mounting the same forms — and the operator ending up
+   * on the map with a rapport open and no board behind it.
+   */
   const handleDetailsClick = useCallback((incident: Incident) => {
-    // Find the corresponding operation
-    const operation = operations.find(op => op.id === incident.id)
-    if (operation) {
-      setSelectedOperationId(operation.id)
-      setDetailModalOpen(true)
-    }
-  }, [operations])
+    router.push(`/?highlight=${incident.id}&detail=1`)
+  }, [router])
 
   // Zoom in on a vehicle by its 1-5 shortcut number
   const focusVehicleByNumber = (vehicleNumber: number) => {
