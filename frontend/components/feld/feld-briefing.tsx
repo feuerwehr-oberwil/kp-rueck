@@ -111,9 +111,10 @@ function BriefingRow({
 }
 
 /**
- * `folded` is what `/feld` passes: the briefing becomes one of the page's
- * foldable blocks, open on arrival because it is the first thing read, but
- * closable once the crew knows the address by heart. The board-side rendering
+ * `folded` is what `/feld` passes: the briefing takes the same card shape as the
+ * rapport blocks around it, but it does NOT fold. What the board knows about the
+ * Schadenplatz is what the crew opened the page to read, and a block that can be
+ * closed can be closed by accident with a wet thumb. The board-side rendering
  * (and the tests) keep the plain section.
  */
 export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssignment; folded?: boolean }) {
@@ -189,7 +190,7 @@ export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssign
 
   if (folded) {
     return (
-      <FeldSection title={t('title')} summary={summary} state="filled" defaultOpen>
+      <FeldSection title={t('title')} summary={summary} state="filled" alwaysOpen>
         {body}
       </FeldSection>
     )

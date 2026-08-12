@@ -21,8 +21,8 @@
  * check them.
  */
 
-import { useId, useState, type ReactNode } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -45,18 +45,59 @@ interface FeldSectionProps {
   summary: string
   state: FeldSectionState
   defaultOpen?: boolean
+  /**
+   * Always open, no control. For the briefing: what the board knows about this
+   * Schadenplatz is what the crew came to read, and a block that can be folded
+   * away can be folded away by accident with a wet thumb.
+   */
+  alwaysOpen?: boolean
   children: ReactNode
 }
 
-export function FeldSection({ title, summary, state, defaultOpen = false, children }: FeldSectionProps) {
-  const [open, setOpen] = useState(defaultOpen)
+export function FeldSection({
+  title,
+  summary,
+  state,
+  defaultOpen = false,
+  alwaysOpen = false,
+  children,
+}: FeldSectionProps) {
+  const [open, setOpen] = useState(defaultOpen || alwaysOpen)
+  const ref = useRef<HTMLElement>(null)
+  const shouldReveal = useRef(false)
   const bodyId = useId()
 
+  // Opening a block near the bottom of the page put its content below the fold:
+  // the crew tapped "Kurzbericht" and looked at the same screen as before. Scroll
+  // the header to the top of the viewport instead — after the layout has grown,
+  // hence the effect rather than a scroll inside the click handler. `scroll-mt`
+  // keeps it clear of the sticky incident bar.
+  useEffect(() => {
+    if (!open || !shouldReveal.current) return
+    shouldReveal.current = false
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [open])
+
+  if (alwaysOpen) {
+    return (
+      <section className="overflow-hidden rounded-xl border border-border bg-card/50">
+        <div className="flex min-h-14 items-center gap-2.5 px-3 py-3">
+          <span className={cn('size-2 shrink-0 rounded-full', STATE_DOT[state])} aria-hidden="true" />
+          <h2 className="min-w-0 flex-1 text-sm font-semibold">{title}</h2>
+        </div>
+        <div className="space-y-3 border-t border-border/60 px-3 pb-4 pt-3">{children}</div>
+      </section>
+    )
+  }
+
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card/50">
+    <section ref={ref} className="scroll-mt-16 overflow-hidden rounded-xl border border-border bg-card/50">
       <button
         type="button"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => {
+          shouldReveal.current = !open
+          setOpen(v => !v)
+        }}
         aria-expanded={open}
         aria-controls={bodyId}
         className="flex min-h-14 w-full cursor-pointer items-center gap-2.5 px-3 py-3 text-left transition-colors hover:bg-muted/40"
@@ -66,10 +107,11 @@ export function FeldSection({ title, summary, state, defaultOpen = false, childr
           <span className="block text-sm font-semibold">{title}</span>
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>
         </span>
-        <ChevronRight
-          className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')}
-          aria-hidden="true"
-        />
+        {open ? (
+          <ChevronUp className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        ) : (
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        )}
       </button>
       <div id={bodyId} hidden={!open} className="space-y-3 border-t border-border/60 px-3 pb-4 pt-3">
         {children}

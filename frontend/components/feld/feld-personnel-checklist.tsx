@@ -180,13 +180,19 @@ export function FeldPersonnelChecklist({
         ))}
 
         {!disabled && (
-          <div className="flex flex-col gap-1.5 sm:flex-row">
+          /* One row, therefore one height: the Inputs are a fixed h-9 and do not
+             stretch while the Button is min-h-44, so the row read as three boxes
+             on two baselines. Both sit at 44px now.
+             The columns are explicit (`minmax(0,…)`) because two equal flex
+             children clipped both placeholders mid-word; the note gets the wider
+             share, and below `sm` the three stack instead of squeezing. */
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] sm:items-center">
             <Input
               value={newName}
               onChange={e => setNewName(e.target.value)}
               placeholder={t('extraNamePlaceholder')}
               maxLength={100}
-              className="text-sm"
+              className="h-11 text-sm"
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
@@ -199,7 +205,7 @@ export function FeldPersonnelChecklist({
               onChange={e => setNewNote(e.target.value)}
               placeholder={t('extraNotePlaceholder')}
               maxLength={200}
-              className="text-sm"
+              className="h-11 text-sm"
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
@@ -207,7 +213,13 @@ export function FeldPersonnelChecklist({
                 }
               }}
             />
-            <Button type="button" variant="outline" disabled={!newName.trim()} onClick={addExtra}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full sm:w-auto"
+              disabled={!newName.trim()}
+              onClick={addExtra}
+            >
               <Plus className="h-4 w-4" />
               {t('addExtra')}
             </Button>

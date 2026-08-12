@@ -509,12 +509,26 @@ function FeldSurface() {
   if (viewMode === 'detail' && selectedAssignment) {
     const address = formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
     return (
-      <div className="min-h-screen bg-background p-4 pb-20">
-        <div className="max-w-md mx-auto">
-          <Button variant="ghost" size="sm" onClick={leaveAssignment} className="mb-4 -ml-2">
-            <ArrowLeft className="size-3.5" />
-            {tCommon('back')}
-          </Button>
+      <div className="min-h-screen bg-background pb-20">
+        {/* The address, always on screen. Folded blocks mean a crew can be four
+            taps deep in a Rapport with nothing left in view that says WHICH
+            Schadenplatz they are filing — and on a storm night there are six.
+            So the way back and the address ride along at the top. */}
+        <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="mx-auto flex max-w-md items-center gap-1 px-2 py-2">
+            <Button variant="ghost" size="sm" onClick={leaveAssignment} className="shrink-0">
+              <ArrowLeft className="size-3.5" />
+              {tCommon('back')}
+            </Button>
+            {/* Still the page's h1 — it only moved into the bar, so the heading
+                a screen reader announces is the one that is always on screen. */}
+            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold" title={selectedAssignment.incident_title}>
+              {selectedAssignment.incident_title}
+            </h1>
+          </div>
+        </div>
+
+        <div className="max-w-md mx-auto p-4">
 
           {/* The detail is a STACK OF SECTIONS, not one form: plans 13 and 24
               mount here too, and the later phases of plan 25 add the actions,
@@ -524,19 +538,18 @@ function FeldSurface() {
             {/* Section: header — what and where, plus the EL briefing */}
             <section className="rounded-xl bg-secondary/50 p-4">
               <div className="flex items-start justify-between gap-3 mb-2">
-                <h1 className="text-lg font-semibold leading-tight">{selectedAssignment.incident_title}</h1>
+                {/* The address leads the card: the incident title is in the
+                    sticky bar above and does not need saying twice. */}
+                <p className="flex items-start gap-1.5 text-base font-semibold leading-tight">
+                  {address && <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />}
+                  <span>{address || selectedAssignment.incident_title}</span>
+                </p>
                 {/* No chip on a Schadenplatz nobody was ever sent to: "kein
                     Rapport" would read as a to-do the crew cannot do. */}
                 {assignmentRapportApplies(selectedAssignment) && (
                   <RapportStateChip state={selectedAssignment.rapport_state} />
                 )}
               </div>
-              {address && (
-                <p className="flex items-start gap-1.5 text-sm text-muted-foreground mb-2">
-                  <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  <span>{address}</span>
-                </p>
-              )}
               <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span>{tStatus(selectedAssignment.incident_status)}</span>

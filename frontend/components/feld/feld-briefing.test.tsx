@@ -139,3 +139,19 @@ describe('the condensed row', () => {
     expect(container.firstChild).toBeNull()
   })
 })
+
+/**
+ * On `/feld` the briefing takes the card shape of the rapport blocks around it —
+ * but it is the one block that does not fold. What the board knows is what the
+ * crew opened the page to read, and a block that can be closed can be closed by
+ * accident with a wet thumb.
+ */
+describe('the briefing does not fold', () => {
+  it('shows its content with no control to close it', () => {
+    renderWithIntl(<FeldBriefing assignment={assignment({ description: 'Wasser im Keller' })} folded />)
+
+    expect(screen.getByText('Wasser im Keller')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /Lage und Mittel/ })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Lage und Mittel' })).toBeInTheDocument()
+  })
+})

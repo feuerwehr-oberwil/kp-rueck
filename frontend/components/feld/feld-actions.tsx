@@ -228,6 +228,11 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           <span className="text-sm">{completed ? t('completeDone') : t('complete')}</span>
         </Button>
 
+        {/* Abholung and Meldung carry `font-semibold` where the two red ones
+            carry the Button's own `font-medium`. Not an inconsistency: all four
+            compute to 500, but white on the red fill reads visibly heavier than
+            white on the near-black outline, and the four are one group of quick
+            actions — so the darker pair is nudged up to MATCH, not to stand out. */}
         <Button
           variant="outline"
           size="lg"
@@ -236,7 +241,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           onClick={() => setPanel(panel === 'pickup' ? 'none' : 'pickup')}
         >
           <CarTaxiFront className="size-4" />
-          <span className="text-sm">{tPickup('request')}</span>
+          <span className="text-sm font-semibold">{tPickup('request')}</span>
         </Button>
 
         <Button
@@ -247,7 +252,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           onClick={() => setPanel(panel === 'message' ? 'none' : 'message')}
         >
           <MessageSquare className="size-4" />
-          <span className="text-sm">{t('message')}</span>
+          <span className="text-sm font-semibold">{t('message')}</span>
         </Button>
       </div>
 
