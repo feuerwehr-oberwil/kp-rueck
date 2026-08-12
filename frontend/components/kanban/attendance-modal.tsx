@@ -263,13 +263,18 @@ export function AttendanceModal({
             </Button>
           </div>
 
-          <div className="max-h-[52vh] overflow-y-auto pr-1">
+          <div className="max-h-[62vh] overflow-y-auto pr-1">
             {isLoading ? (
               <p className="py-6 text-center text-sm text-muted-foreground">{t('loading')}</p>
             ) : visible.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">{t('noneFound')}</p>
             ) : (
-              <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+              // ONE column, on every width. Two columns meant the roll-call ran
+              // down the left half and back up the right, so the name after
+              // «Aebi» was «Ammann» two rows down and «Aebischer» sat on the
+              // other side — read aloud from top to bottom, that is how somebody
+              // gets skipped. A roll-call is a single list.
+              <div className="grid grid-cols-1 gap-1.5">
                 {visible.map((person) => (
                   <AttendanceRow
                     key={person.id}
@@ -343,7 +348,7 @@ function AttendanceRow({
       disabled={unavailable}
       aria-pressed={state === 'present'}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-sm transition-colors',
+        'flex w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
         'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         state === 'present' && 'border-success/40 bg-success/5',
         state === 'left' && 'border-dashed text-muted-foreground',

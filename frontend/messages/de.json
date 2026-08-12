@@ -798,7 +798,7 @@
       "removeFromAuftrag": "Aus Auftrag entfernen"
     },
     "attendance": {
-      "title": "Anwesenheit — {event}",
+      "title": "Anwesenheit · {event}",
       "summary": "{present} anwesend · {left} gegangen · {total} Mannschaft",
       "rowLabel": "Anwesenheit",
       "rowCount": "{present} von {total} angemeldet",
