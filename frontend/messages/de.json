@@ -452,6 +452,12 @@
       "proceedAnyway": "Trotzdem fortfahren",
       "assignReko": "Reko-Person zuweisen"
     },
+    "driverPrompt": {
+      "driverlessTitle": "Fahrzeug ohne Fahrer?",
+      "driverlessDescription": "«{vehicle}» ist {incident} zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder entfernen?",
+      "driverlessRemove": "Fahrzeug entfernen",
+      "driverlessKeep": "Ohne Fahrer lassen"
+    },
     "materialDecision": {
       "title": "Material vor Ort oder ins Magazin?",
       "description": "<hl>{location}</hl> wurde abgeschlossen. Entscheide pro Mittel, ob es vor Ort blieb oder zurück ins Magazin kommt.",

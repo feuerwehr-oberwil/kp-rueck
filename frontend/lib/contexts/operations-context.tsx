@@ -211,7 +211,7 @@ interface OperationsContextType {
    * mechanism. Set when a vehicle is assigned to an incident but has no driver yet,
    * or by promptDriversForVehicles. The user may dismiss the prompt to leave the
    * vehicle without a driver. Cleared via clearVehicleNeedingDriver. */
-  vehicleNeedingDriver: { vehicleId: string; vehicleName: string } | null
+  vehicleNeedingDriver: { vehicleId: string; vehicleName: string; incidentId?: string } | null
   /** Queue a run of vehicles for the driver prompt — used by the setup checklist to
    * walk every driverless vehicle in one pass instead of one trip per vehicle. */
   promptDriversForVehicles: (vehicles: { vehicleId: string; vehicleName: string }[]) => void
@@ -323,7 +323,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // driver is a queue of one; the setup checklist queues every driverless vehicle so
   // the operator makes one pass instead of one trip per vehicle. Empty when there is
   // nothing to prompt for.
-  const [driverPromptQueue, setDriverPromptQueue] = useState<{ vehicleId: string; vehicleName: string }[]>([])
+  const [driverPromptQueue, setDriverPromptQueue] = useState<
+    { vehicleId: string; vehicleName: string; incidentId?: string }[]
+  >([])
   const vehicleNeedingDriver = driverPromptQueue[0] ?? null
   const promptDriversForVehicles = useCallback(
     (vehicles: { vehicleId: string; vehicleName: string }[]) => setDriverPromptQueue(vehicles),
@@ -1970,7 +1972,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               .find((op) => op.id === operationId)
               ?.vehicles.includes(vehicleName)
             if (!hasDriver && stillAssigned) {
-              setDriverPromptQueue([{ vehicleId, vehicleName }])
+              // Carrying the incident is what lets the prompt offer to take the
+              // vehicle back off it when nobody is found to drive it.
+              setDriverPromptQueue([{ vehicleId, vehicleName, incidentId: operationId }])
             }
           } catch (err) {
             console.error("Failed to check vehicle driver state:", err)
