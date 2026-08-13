@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   SheetHeader,
   SheetTitle,
@@ -14,12 +14,14 @@ import Link from "next/link"
 import { ClipboardList, FileSpreadsheet, FileText, LifeBuoy, Loader2, Printer, ReceiptText } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
-import { PrintView, type PrintOptions } from "./print-view"
+import { PrintView, type PrintAuftrag, type PrintOptions } from "./print-view"
 import { downloadEventExport, type EventExportKind } from "./event-export"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { apiClient, type ApiVehicle } from "@/lib/api-client"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { findAuftragForStop } from "@/lib/kanban-utils"
+import { apiClient, type ApiPersonnelListItem, type ApiVehicle } from "@/lib/api-client"
 
 /** What the thermal board snapshot contains. Sent to `POST /print/board`. */
 export interface ThermoPrintOptions {
@@ -110,7 +112,8 @@ export function PrintHubSheet({
   printerEnabled,
 }: PrintHubSheetProps) {
   const t = useTranslations("print")
-  const { operations, personnel, materials } = useOperations()
+  const { operations, personnel, materials, materialOnSite } = useOperations()
+  const { groups, getGroupResources } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
 
@@ -133,20 +136,27 @@ export function PrintHubSheet({
 
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  const [attendance, setAttendance] = useState<ApiPersonnelListItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [exporting, setExporting] = useState<EventExportKind | null>(null)
 
-  // Fetch vehicles and drivers when the sheet opens — the A4 view prints them.
+  // Fetch vehicles, drivers and the roll-call when the sheet opens — the A4
+  // view prints them. The roll-call is the only list that knows who has already
+  // gone home, which the board's personnel list cannot say.
   useEffect(() => {
     if (!open) return
     setIsLoading(true)
     const loadData = async () => {
       try {
-        const [vehiclesList, specialFunctions] = await Promise.all([
+        const [vehiclesList, specialFunctions, checkInList] = await Promise.all([
           apiClient.getVehicles(),
           selectedEvent ? apiClient.getEventSpecialFunctions(selectedEvent.id) : Promise.resolve([]),
+          selectedEvent
+            ? apiClient.getEventCheckInList(selectedEvent.id).catch(() => ({ personnel: [] }))
+            : Promise.resolve({ personnel: [] as ApiPersonnelListItem[] }),
         ])
         setVehicles(vehiclesList)
+        setAttendance(checkInList.personnel)
 
         const vehicleIdToName = new Map<string, string>()
         vehiclesList.forEach((v) => vehicleIdToName.set(v.id, v.name))
@@ -167,6 +177,25 @@ export function PrintHubSheet({
     }
     loadData()
   }, [open, selectedEvent])
+
+  // Auftrag context per stop. Resolved here rather than in the print view so
+  // that stays presentational — and via `findAuftragForStop`, which trusts the
+  // route's `stopIds` over the incident's own `groupId` (see its doc comment).
+  const auftraege = useMemo(() => {
+    const map = new Map<string, PrintAuftrag>()
+    for (const operation of operations) {
+      const group = findAuftragForStop(groups, operation)
+      if (!group) continue
+      const index = group.stopIds.indexOf(operation.id)
+      map.set(operation.id, {
+        name: group.name,
+        stopPos: index >= 0 ? index + 1 : operation.groupPosition + 1,
+        stopTotal: group.stopIds.length,
+        resources: getGroupResources(group.id),
+      })
+    }
+    return map
+  }, [operations, groups, getGroupResources])
 
   const updateThermoOption = (key: keyof ThermoPrintOptions, value: boolean) =>
     setThermoOptions((prev) => ({ ...prev, [key]: value }))
@@ -388,6 +417,9 @@ export function PrintHubSheet({
           materials={materials}
           options={printOptions}
           vehicleDrivers={vehicleDrivers}
+          attendance={attendance}
+          auftraege={auftraege}
+          materialOnSite={materialOnSite}
         />
       )}
     </>
