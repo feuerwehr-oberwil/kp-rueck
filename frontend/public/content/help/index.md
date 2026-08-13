@@ -7,6 +7,12 @@ Digitaler Ersatz für die Magnettafel im Kommandoposten. Verwalten Sie Einsätze
 ### Kanban-Board (`G K`)
 Hauptansicht beim Laden der App. Zeigt alle Einsätze in Status-Spalten (Eingegangen → Archiv). Links die Personal-Seitenleiste, rechts Material und Fahrzeuge.
 
+**Die Ansicht bleibt, wie man sie eingestellt hat.** Zugeklappte Seitenleisten, das Seitenpanel und eine weggeklickte Einrichtungs-Checkliste überstehen einen Reload – pro Gerät gemerkt, wie die übrigen Anzeige-Einstellungen.
+
+**«3 Geräte vor Ort» am Kopf der Material-Leiste.** Material, das ein Trupp irgendwo stehen liess, ist auf dem Board sonst unsichtbar – es ist weder frei noch erkennbar im Gebrauch. Die Aufklappliste nennt Gerät, Adresse und seit wann, das Älteste zuoberst; ein Klick öffnet den zugehörigen Einsatz. Sie erscheint nur, wenn wirklich etwas draussen steht.
+
+**«Rapporte» in der Fusszeile.** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
+
 ### Kartenansicht (`G M`)
 Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot).
 
@@ -41,10 +47,10 @@ Diese Dokumentationsseite.
 
 **Audit-Export:** Einstellungen → Import/Export → Event auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll wird im Hintergrund automatisch aufgeräumt (Standard-Aufbewahrung 90 Tage, im Demo-Modus 7 Tage), damit die Tabelle nicht unbegrenzt wächst.
 
-**Drucken (PDF):** Footer → "Drucken" öffnet Druckvorschau mit Optionen:
-- Einsätze nach Status filtern
-- Karten-Übersicht (zeigt alle Einsatzorte auf einer Karte)
-- Fahrzeugstatus einblenden
+**Drucken & Export:** Footer → "Drucken" oder Taste `D` öffnet **ein** Slide-up mit drei Spalten – alles, was auf Papier oder in eine Datei geht, an einer Stelle:
+- **Thermodruck** – Board-Snapshot auf den [Thermodrucker](#thermodrucker)
+- **Status drucken (A4)** – Druckvorschau mit Optionen: Einsätze nach Status filtern, Karten-Übersicht (zeigt alle Einsatzorte auf einer Karte), Fahrzeugstatus einblenden
+- **Export** – Bericht (PDF), Lageblatt (A4) und Audit (XLSX) als Datei auf dieses Gerät
 
 ---
 
@@ -59,6 +65,10 @@ Vollbild-Karte ohne Seitenleiste. Zeigt alle Einsatzorte, GPS-Fahrzeugpositionen
 
 ### Board (`/display/board`)
 Kanban-Board ohne Bearbeitungsmöglichkeiten. Alle 6 Status-Spalten werden gleichmässig auf die Fensterbreite skaliert.
+
+Es ist **dieselbe Einsatzkarte wie im Kommandoposten**, nur ohne Bedienelemente – gleiche Blöcke, gleiche Reihenfolge, inklusive Reko-Person, Rapport-Zeichen, Mannschaft und Material mit Namen, Melder und offener Abholung. Das Detail zeigt zusätzlich die Funkmeldungen des Trupps.
+
+Die Wand folgt dabei **nicht** der «Ansicht» des Bedieners: *Kompakt* gibt es, damit man an einem Board, an dem man arbeitet, mehr Karten unterbringt – eine Wand soll aus fünf Metern lesbar sein. Die Anzeige-Seite hat keinen Schalter dafür, deshalb zeigt sie immer die volle Karte.
 
 ### Status (`/display/status`)
 Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch.
@@ -81,7 +91,9 @@ Unter Einstellungen → Kartenstil kann zwischen verschiedenen Kartenstilen gewe
 
 ## Suche
 
-Die Suchleiste (`/`) durchsucht alle Einsätze nach Adresse, Typ und Meldungstext. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
+Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Meldungstext und **Auftragsname** – wer nach der Route sucht, findet ihre Stops. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
+
+Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist.
 
 ---
 
@@ -310,6 +322,8 @@ Einsätze durchlaufen 6 Phasen: **Eingegangen** → **Reko** → **Disponiert** 
 
 **Spalten überspringen:** Erlaubt. Nicht jeder Einsatz braucht Reko.
 
+**Meldung vom Feld «Einsatz beendet»:** Der Hinweis auf der Karte bzw. im Detail schiebt den Einsatz mit einem Klick nach **Beendet / Rückfahrt** – und hört dort auf. Er startet **nicht** den Abschluss (Materialabfrage, Rückfragen): der Trupp fährt gerade heim, das ist genau diese Spalte. Abgeschlossen wird nachher, wie sonst auch. Braucht der Trupp eine Mitfahrgelegenheit, meldet er eine **Abholung** – die erscheint als eigenes Band im Einsatz-Detail, gleich neben der Feld-Meldung.
+
 ---
 
 ## Aufträge (Mehrstopp-Routen)
@@ -426,6 +440,7 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 | `N` | Neuer Einsatz |
 | `A` | Aufträge (Routen) öffnen/schliessen |
 | `S` / `/` | Suche fokussieren |
+| `D` | Drucken & Export öffnen/schliessen |
 | `R` / `F5` | Aktualisieren |
 | `F` | Fahrzeugstatus |
 
@@ -448,7 +463,6 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 | `Q` / `[` | Personal-Seitenleiste ein/aus |
 | `W` / `]` | Material-Seitenleiste ein/aus |
 | `I` / `\` | Seitenpanel ein/aus |
-| `D` | Seitenpanel: Details anzeigen |
 | `K` | Seitenpanel: Karte anzeigen |
 | `B` | Benachrichtigungen |
 | `P` | Personal suchen |
@@ -501,7 +515,11 @@ Im öffentlichen Demo-Modus erhält jeder Editor-Login (`demo-editor`) eine **pe
 
 ### Viewer-Link (Nur-Lesen)
 
-Für Personen ohne Login: Footer → "Viewer" generiert einen Link mit 24h Gültigkeit. Zeigt Kanban-Board und Karte ohne Bearbeitungsmöglichkeit. Aktualisiert automatisch alle 5 Sekunden.
+Für Personen ohne Login: Footer → "Viewer" generiert einen Link mit 24h Gültigkeit. Zeigt Kanban-Board und Karte ohne Bearbeitungsmöglichkeit – dieselbe Einsatzkarte wie der Kommandoposten. Aktualisiert automatisch alle 5 Sekunden.
+
+**Der Link zeigt neu auch das Reko-Ergebnis**: relevant ja/nein, Gefahren, Aufwandschätzung, Kurzbericht **und die Fotos vom Schadenplatz**. Vorher stand dort nur, *dass* eine Reko stattgefunden hat – was den Link für die Gemeinde oder eine Nachbarwehr wenig wert machte.
+
+> **Wer den Link hat, sieht das.** Bewusst **nicht** enthalten: das Feld «Weitere Bemerkungen» (freier Text, in dem regelmässig Anwohner namentlich vorkommen), **wer** den Bericht erfasst hat, und die Fotos eines noch nicht eingereichten Entwurfs. Fotos aus dem Schadenplatz-Rapport bleiben ebenfalls hinter der Anmeldung. Der Link gilt für **ein** Ereignis: ein weitergegebener Link öffnet nichts aus einem anderen. Entsprechend überlegt weitergeben.
 
 ### Alarm-Link (Telefon / Walk-in)
 
@@ -592,7 +610,7 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 | Auftrag | Auslöser | Inhalt |
 |---------|----------|--------|
 | **Einsatzzettel** | Automatisch bei Status "Disponiert"/"Einsatz", oder Rechtsklick → "Einsatzzettel drucken" | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
-| **Board-Snapshot** | "Thermo"-Button im Footer → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
+| **Board-Snapshot** | Footer → "Drucken" (oder Taste `D`) → Spalte **Thermodruck** → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
 | **QR-Code-Zettel** | In den Slide-ups Check-In / Reko / Viewer / Alarm → Drucker-Symbol | Titel, Kurzbeschreibung und scannbarer QR-Code des Links – zum Verteilen auf Papier |
 
 ### QR-Code-Zettel
@@ -601,7 +619,7 @@ Jedes Link-Slide-up (Personal Check-In, Reko Dashboard, Viewer-Link, Alarm-Link)
 
 ### Board-Snapshot Optionen
 
-Beim Klick auf "Thermo" öffnet sich ein Auswahldialog:
+Die Spalte **Thermodruck** im Drucken-Slide-up hat dazu drei Schalter:
 
 - **Beendete Einsätze** – auch archivierte Einsätze einbeziehen (Standard: aus)
 - **Fahrzeug-Status** – Verfügbarkeit aller Fahrzeuge anzeigen (Standard: ein)

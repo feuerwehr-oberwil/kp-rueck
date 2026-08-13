@@ -191,10 +191,11 @@
         "items": [
           "<strong>Les colonnes sont les phases de l’intervention</strong> – les cartes se déplacent de gauche à droite",
           "Attribuer personnel, véhicules et matériel, avec avertissement en cas de double affectation",
+          "Le matériel resté sur place – quel moyen se trouve sur quelle intervention, et depuis quand",
           "Priorités, durées et délais visibles par intervention",
           "Missions : plusieurs interventions comme une tournée pour une équipe, ordre optimisé selon la distance d’une pression",
           "Enregistrement par code QR – qui arrive s’annonce lui-même",
-          "Vue projecteur pour le mur du PC",
+          "Vue projecteur pour le mur du PC – les mêmes cartes d’intervention que sur le tableau, sans les éléments de commande",
           "Palette de commandes et raccourcis clavier pour aller vite"
         ]
       },
@@ -224,6 +225,7 @@
         "items": [
           "<strong>Rapport d’intervention en PDF</strong> avec journal d’intervention et temps de réaction",
           "Un procès-verbal continu qui ne fait que s’allonger et n’est jamais écrasé",
+          "Les rapports encore ouverts en liste courante – quelle intervention terminée n’en a pas encore",
           "<strong>Espace d’administration propre</strong> à chaque corps : effectif, parc de véhicules, listes de matériel, types d’intervention et priorités",
           "Import et export en Excel",
           "Impression thermique à la caserne via un agent d’impression dédié <span class=\"opt\">facultatif</span>",

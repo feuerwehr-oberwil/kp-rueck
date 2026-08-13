@@ -28,6 +28,28 @@ will keep holding.
 
 ## [Unreleased]
 
+### Security
+
+- **⚠️ A Viewer-Link now shows what the Reko found, photos included.** Until now the share
+  board said only *that* a Reko had happened; it now carries the Reko summary – relevant
+  yes/no, the dangers, the effort estimate, the Kurzbericht – and the photos of the damage,
+  which are the useful half of a Reko. That is a real widening of what the token exposes, and
+  it is deliberate: a link handed to the Gemeinde or to a Nachbarwehr is worth little if the
+  one thing it will not show is what the officer actually saw.
+  **Decide with that in mind who gets the link.** It is still the same 24-hour, event-scoped
+  token, still read-only, and it has always shown addresses, crews and the Meldung.
+
+  Withheld from a link whose only gate is the token, and staying withheld: **`other_notes`**,
+  free text that regularly names residents; the **submitter's identity**; and the photos of a
+  **draft** Reko – an unsent report is not part of the shared situation. Photos of a
+  Schadenplatz-Rapport live in the same directory on disk and are **not** reachable with a
+  viewer token either: `GET /api/photos/{incident}/{file}` serves a file to a token only when
+  the incident belongs to that token's event **and** a submitted Reko report lists the
+  filename. Anything else answers `404`, never `403`, so a forwarded link cannot be used to
+  probe which photos exist in a neighbouring Ereignis. Every token-door access is written to
+  the audit log with `via: viewer_token` and no user – "nobody was signed in, somebody held
+  the link" is the provenance.
+
 ### Added
 
 - **The landing page speaks French, and it is generated rather than written twice.**
@@ -144,6 +166,21 @@ will keep holding.
   credential that reaches it, and posters and Einsatzzettel belong in the "collect at the end of
   the Ereignis" habit.
 
+- **Ein «Rapporte»-Rückstand in der Fusszeile.** A pill next to the other footer sheets counts
+  the completed Schadenplätze that still have no filed Schadenplatz-Rapport, and opens a list
+  split into **Offen** (oldest first, because the oldest is the one nobody will remember) and
+  **Erfasst** (newest first). A row jumps straight to its incident. The same gap is already on
+  the Ereignisseite; this is it where the work happens, on the board, without changing pages.
+
+- **«{n} Geräte vor Ort» am Kopf der Material-Leiste.** Material a crew left standing somewhere
+  is otherwise invisible on the board – it is neither free nor obviously in use. The roll-up
+  names each unit, the address it is standing at and since when, oldest first, and clicking one
+  opens that incident. Only shown when there is something to show.
+
+- **The board keeps the layout you gave it.** Folded sidebars, the side panel and a dismissed
+  setup checklist survive a reload, per device. Closing a sidebar you never use was, until now,
+  a thing you did again after every refresh.
+
 ### Changed
 
 - **Der Einsatzbericht sieht aus wie der Einsatzrapport aus KP Front.** Eine Nacht kann
@@ -170,6 +207,68 @@ will keep holding.
   Dazu Wortarbeit: «Eingesetztes Personal» heisst «Personal», «{Name} freigegeben» heisst
   «{Name} vom Einsatz abgezogen», und die Reaktionszeiten stehen durchgehend als `h:mm`.
   Unter dem Strich: 12 Seiten werden zu 10.
+
+- **One «Drucken» sheet instead of three buttons, on the key `D`.** Thermodruck, the A4
+  Statusdruck and the file exports (Bericht-PDF, Lageblatt, Audit-XLSX) were three separate
+  footer entries that each answered the same question – *how does this get onto paper?* They
+  are now one footer sheet with three columns, opened from the footer, from `Cmd/Ctrl+K` or
+  with **`D`**. The mobile bottom bar loses its separate "Thermo" entry for the same reason.
+  ⚠️ **`D` was already bound, to «Seitenpanel auf Detail schalten»** – and that binding was
+  dead: it was gated on the panel already being open, and the panel has had only `detail` and
+  `collapsed` since the map mode went, so it set `detail` on something that was already
+  `detail`. Nothing is lost except the muscle memory of anyone who kept pressing it. `I` / `\`
+  still toggles the side panel, `K` still switches it to the map.
+
+- **The Kanban search finds an Auftrag by its name.** `matchesIncidentQuery` only ever saw the
+  incident, and an incident carries a `groupId`, not the route's name – so typing the name of a
+  route matched nothing, on the board and on every other surface that filters incidents. Both
+  search helpers now take the group lookup, so the route name is part of what a card matches on.
+
+- **The display top bar answers `s` and `/`**, with the `S` hint on the field, the same two keys
+  as the board – somebody who walks from the KP over to the wall screen does not have to learn a
+  second habit. It stays silent while a field has the caret or a dialog is open: on a screen
+  running unattended, a stray keystroke must do nothing at all.
+
+- **`/display/board` is the board, not a second design of it.** The wall screen used to render
+  its own card, so it silently lagged behind the one on the board: no Reko person, no Rapport
+  marker, no crew or material names, no Melder, no Abholung, resources at the bottom and the
+  Auftrag above the Meldung. It now renders the same card as the command post with the controls
+  taken off, in the same order, and its detail shows the crew's Funkmeldungen – which reached
+  the board while the wall beside it stayed silent. The shared Viewer-Link board was a third
+  rendering again, showing only vehicles; it is the same card now too.
+  **The wall no longer follows the operator's «Ansicht».** Kompakt exists so an operator can fit
+  more cards on a board they *work* in; a wall exists to be read from across the room. The
+  preset is per device and the display page has no control to change it, so a wall PC left on
+  Kompakt showed nothing but addresses and nobody standing in front of it could put that right.
+
+- **«Feld meldet beendet» moves the card to BEENDET / RÜCKFAHRT and stops there.** It used to
+  open the whole completion flow – material decisions, gates, a dialog – which asked an operator
+  to finish an incident whose crew is still driving home. Rückfahrt *is* the state the field
+  just reported, so the move alone is the honest answer: the question is answered by the card
+  being in that column, which is also why the answer now survives a reload. A crew that needs a
+  lift back reports an **Abholung**, and that arrives as its own banner rather than as another
+  prompt about this incident.
+
+- **The incident detail has one action bar, and the ⋯ menu is gone.** The menu had been reduced
+  to a single «Löschen» – a button behind a button – and it opened downwards into the board
+  footer, where it was clipped. Every action now sits on one footer bar; in the 420 px side
+  panel the icons stand alone and the label arrives on hover. **Abholung** is a banner beside
+  the Feld-Meldung instead of a chip in the title row, both above «Status ändern» in the modal
+  and directly under the tabs in the panel. «Abholung erledigt» no longer raises a success toast
+  – the operator pressed the button and confirmed it; only a failure has something to say.
+
+- **The card reads as three sections, and shows one time instead of two.** Kopf/Meldung,
+  Ressourcen and Reko, separated by two rules and one 12 px rhythm, with the rule belonging to
+  whichever block opens a section – so a section that renders nothing cannot leave a line above
+  nothing. Einsatzart and the time share a row, and the time row now shows **only the mode that
+  is actually selected**: picking «In diesem Status» used to print the start time beside it,
+  answering a question nobody asked and crowding out the Einsatzart. The start time is one click
+  away in the dropdown, which lists every mode's value anyway.
+
+- **The board runs to the window edge.** The right edge no longer reserves an empty column for
+  the reopen tabs: both are positioned out of flow, the way the Personen-Leiste's tab on the
+  left always was. The detail opener sits in the top corner rather than beside the sidebar
+  chevron.
 
 ### Fixed
 
@@ -212,6 +311,34 @@ will keep holding.
 
 - **Die Check-in-Antworten führen die Tags mit.** `tags` war im Schema deklariert und wurde nie
   gefüllt, also kam jede Person aus dem Check-in ohne ihr «F» zurück.
+
+- **The selection outline stopped vanishing on exactly the cards that matter most.** Selection
+  was drawn as a ring, and the `priority-high-pulse` animation sets `box-shadow` in its
+  keyframes, which wipes out every `ring-*` and `shadow-*` utility – so on a high-priority card
+  you could not see which one you had selected. It is a full-strength neutral outline now.
+  Hovering a card no longer strips its priority colours either, and low priority closes its left
+  border instead of making it transparent, which had punched a light gap into the card outline.
+
+- **Folding a column scrolls it back into view in both directions.** Unfolding worked, folding
+  did not: the folded strip and the open column are two different elements, so the ref that
+  survived the toggle pointed at the unmounted one. The scroll is done by DOM query now.
+
+- **A toast is usable over a dialog.** Radix locks the page with `pointer-events: none` on
+  `<body>`, sonner portals into `<body>` and set no value of its own – so a toast raised while a
+  modal was open was drawn on top of it (z-index 999999999 against 50) and could be neither
+  dismissed nor clicked. Its action button was unreachable at the exact moment it was offered.
+
+- **Meldung und Notizen wachsen wieder mit ihrem Text.** `DENSE_CONTROL`'s `h-7` was beating the
+  textarea's own field-sizing, so a long Meldung was typed into a one-line box. In the same
+  pass: the Funkmeldung rows keep one height whether they are toggled or not (the block no
+  longer jumps as answers come in), the Einsatzort icons sit on the line, and the address
+  suggestions stopped rendering at body size.
+
+- **Ein zugeklapptes Seitenpanel bleibt zugeklappt.** `usePersistedState` tracked "has the
+  stored value been read" in a ref: the read effect flipped the flag synchronously, the write
+  effect ran in the same flush and persisted the fallback *over* the stored value, and
+  StrictMode's second read picked that up – so a sidebar you closed came back open. Covered by a
+  regression test that runs under an explicit `StrictMode`.
 
 ## [0.5.0] – 2026-08-08
 

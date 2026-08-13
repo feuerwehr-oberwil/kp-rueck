@@ -216,10 +216,11 @@
         "items": [
           "<strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-Drop von links nach rechts",
           "Personal, Fahrzeuge und Material zuteilen, mit Warnung bei Doppelbelegung",
+          "Material, das vor Ort geblieben ist – welches Mittel an welchem Einsatz steht, und seit wann",
           "Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar",
           "Aufträge: mehrere Einsätze als eine Route an einen Trupp, Reihenfolge auf Knopfdruck nach Distanz optimiert",
           "QR-Check-in – wer eintrifft, meldet sich selbst an",
-          "Beamer-Ansicht für die Wand im KP",
+          "Beamer-Ansicht für die Wand im KP – dieselben Einsatzkarten wie am Board, nur ohne Bedienelemente",
           "Befehlspalette und Tastaturkürzel für die schnelle Hand"
         ]
       },
@@ -249,6 +250,7 @@
         "items": [
           "<strong>Einsatzbericht als PDF</strong> mit Einsatztagebuch und Reaktionszeiten",
           "Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird",
+          "Offene Rapporte als laufende Liste – welcher abgeschlossene Einsatz noch keinen hat",
           "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten",
           "Import und Export als Excel",
           "Thermodruck im Magazin über einen eigenen Druck-Agenten <span class=\"opt\">optional</span>",
