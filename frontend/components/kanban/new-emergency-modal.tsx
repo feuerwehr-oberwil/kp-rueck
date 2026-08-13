@@ -11,7 +11,7 @@
 import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { sanitizePhoneInput } from "@/lib/utils"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -311,8 +311,11 @@ export function NewEmergencyModal({
             </p>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-2 border-t">
+          {/* Actions — Abbrechen left, primary right, like every other dialog. */}
+          <DialogFooter className="pt-2 border-t">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t('common.cancel')}
+            </Button>
             <Button
               onClick={handleSubmit}
               disabled={!formData.location}
@@ -321,10 +324,7 @@ export function NewEmergencyModal({
               <Plus className="h-4 w-4" />
               {t('newEmergency.create')}
             </Button>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {t('common.cancel')}
-            </Button>
-          </div>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

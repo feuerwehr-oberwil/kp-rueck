@@ -82,3 +82,21 @@ describe('NewEmergencyModal — Telefonisch gemeldet', () => {
     ])
   })
 })
+
+/**
+ * Der Aktionsblock stand hier als einziger Dialog der App andersherum:
+ * Primärbutton links, Abbrechen rechts. Auf dem meistgenutzten Modal des Boards
+ * kostet genau das am meisten — die Hand geht dorthin, wo sie überall sonst
+ * hingeht.
+ */
+describe('NewEmergencyModal — Aktionsreihenfolge', () => {
+  it('stellt Abbrechen vor den Primärbutton, wie jeder andere Dialog', () => {
+    renderModal()
+
+    const footer = document.querySelector('[data-slot="dialog-footer"]')
+    expect(footer).not.toBeNull()
+
+    const labels = Array.from(footer!.querySelectorAll('button')).map((b) => b.textContent?.trim())
+    expect(labels).toEqual(['Abbrechen', 'Einsatz erstellen'])
+  })
+})

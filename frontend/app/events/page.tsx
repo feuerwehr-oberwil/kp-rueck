@@ -76,6 +76,12 @@ export default function EventsPage() {
   const [newEventTraining, setNewEventTraining] = useState(false)
   const [newEventAutoAttachDivera, setNewEventAutoAttachDivera] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
+  // Archive and delete run against the same button the operator just clicked, and
+  // delete takes every incident under the event with it — so both get the same
+  // in-flight guard the create button already has (disabled + spinner), and the
+  // confirmation cannot be dismissed while the request is out.
+  const [isArchiving, setIsArchiving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [reportLoadingId, setReportLoadingId] = useState<string | null>(null)
   const [auditLoadingId, setAuditLoadingId] = useState<string | null>(null)
@@ -155,13 +161,16 @@ export default function EventsPage() {
   }
 
   const handleArchive = async () => {
-    if (!targetEvent) return
+    if (!targetEvent || isArchiving) return
+    setIsArchiving(true)
     try {
       await archiveEvent(targetEvent.id)
       setShowArchiveDialog(false)
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to archive event:', error)
+    } finally {
+      setIsArchiving(false)
     }
   }
 
@@ -174,13 +183,16 @@ export default function EventsPage() {
   }
 
   const handleDelete = async () => {
-    if (!targetEvent) return
+    if (!targetEvent || isDeleting) return
+    setIsDeleting(true)
     try {
       await deleteEvent(targetEvent.id)
       setShowDeleteDialog(false)
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to delete event:', error)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -625,7 +637,7 @@ export default function EventsPage() {
         </Dialog>
 
       {/* Archive Confirmation Dialog */}
-      <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+      <Dialog open={showArchiveDialog} onOpenChange={(open) => { if (!open && isArchiving) return; setShowArchiveDialog(open) }}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('archiveDialog.title')}</DialogTitle>
@@ -637,10 +649,11 @@ export default function EventsPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
+            <Button variant="outline" onClick={() => setShowArchiveDialog(false)} disabled={isArchiving}>
               {t('archiveDialog.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleArchive}>
+            <Button variant="destructive" onClick={handleArchive} disabled={isArchiving}>
+              {isArchiving && <Loader2 className="size-4 animate-spin" />}
               {t('archiveDialog.confirm')}
             </Button>
           </DialogFooter>
@@ -648,7 +661,7 @@ export default function EventsPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <Dialog open={showDeleteDialog} onOpenChange={(open) => { if (!open && isDeleting) return; setShowDeleteDialog(open) }}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
@@ -663,10 +676,11 @@ export default function EventsPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting}>
               {t('deleteDialog.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting && <Loader2 className="size-4 animate-spin" />}
               {t('deleteDialog.confirm')}
             </Button>
           </DialogFooter>
