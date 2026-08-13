@@ -188,7 +188,7 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 5. Reko-Formular ausfüllen, Fotos hochladen
 6. Basierend auf Bericht: Disponieren oder Abschliessen
 
-**Wo das Reko-Ergebnis landet:** Im Einsatz-Detail – auch in den Anzeige-Ansichten unter `/display` – steht unter **Reko-Ergebnis** die Beurteilung, die Gefahren, der Personal- und Zeitbedarf, der Lagetext **und die hochgeladenen Fotos**. Ein Klick auf ein Bild öffnet es in voller Grösse. Die Bilder liegen hinter der Anmeldung; über einen Freigabelink ohne Login sind sie nicht sichtbar.
+**Wo das Reko-Ergebnis landet:** Im Einsatz-Detail – auch in den Anzeige-Ansichten unter `/display` – steht unter **Reko-Ergebnis** die Beurteilung, die Gefahren, der Personal- und Zeitbedarf, der Lagetext **und die hochgeladenen Fotos**. Ein Klick auf ein Bild öffnet es in voller Grösse. Die Bilder sind auch über einen Freigabelink sichtbar – ohne Login, für alle, die den Link haben. Sichtbar werden dabei nur Fotos aus **abgeschickten** Reko-Berichten des verlinkten Ereignisses; Fotos eines Entwurfs und Fotos aus dem Schadenplatz-Rapport bleiben hinter der Anmeldung. Wer den Link weitergibt, gibt die Reko-Fotos mit.
 
 **Ohne Handy draussen:** Meldet der Offizier über Funk statt über den Link, wird
 derselbe Bericht im KP erfasst – siehe

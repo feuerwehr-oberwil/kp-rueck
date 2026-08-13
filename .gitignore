@@ -142,3 +142,9 @@ tools/print-agent/uv.lock
 # Internal working documents: feature/hardening plans stay local (docs/README.md
 # "Not in this repository"). They are point-in-time snapshots and go stale fast.
 docs/plans/
+
+# Runtime photo uploads. Reko and Schadenplatz photos land here at runtime and
+# are operational data, not source: a real incident scene reached this PUBLIC
+# repo on 2026-08-09 and had to be purged from history. Nothing under
+# backend/data/ belongs in git — the directory is created on boot.
+backend/data/
