@@ -30,7 +30,8 @@ import { sortCrewByLeader } from "@/lib/crew-order"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
+import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/lib/priority"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
@@ -60,6 +61,10 @@ interface DraggableOperationProps {
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
   index: number
+  /** No longer read by the card — the heading uses `getIncidentLocationLabel`,
+   *  which prefers the server's `location_display`. Still declared because the
+   *  board and `droppable-column.tsx` thread it in; drop it there and here in
+   *  one go. */
   formatLocation: (address: string) => string
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
   onAssignReko?: () => void
@@ -102,27 +107,11 @@ interface DraggableOperationProps {
 // cannot leave an orphan line above nothing.
 const SECTION_RULE = 'border-t pt-3'
 
-// Priority visual configuration - bold borders for quick scanning
-// All cards always have border-l-4 to prevent layout shifts on hover/select
-const priorityStyles = {
-  high: {
-    icon: 'text-destructive',
-    card: 'border-l-destructive priority-high-pulse bg-destructive/[0.08] dark:bg-destructive/[0.12] ring-1 ring-destructive/20 dark:ring-destructive/30',
-  },
-  medium: {
-    icon: 'text-warning-foreground',
-    card: 'border-l-warning',
-  },
-  low: {
-    icon: 'text-muted-foreground/50',
-    // `border-border`, not `transparent`: the 4px left edge is always there to
-    // keep the box from shifting, so making it invisible did not remove it —
-    // it punched a light gap into the card's own outline where the other three
-    // sides carry one. Low priority now simply closes the border instead of
-    // colouring it, which is the absence of a signal rather than a hole.
-    card: 'border-l-border',
-  },
-} as const
+// Priority visual configuration — bold borders for quick scanning. The table
+// itself lives in lib/priority.ts, which every surface that draws a priority
+// now imports; the copy that used to sit here drifted from it (grey vs emerald
+// low) and from the display card's copy of the copy.
+// All cards always have border-l-4 to prevent layout shifts on hover/select.
 
 function DraggableOperationBase({
   operation,
@@ -140,7 +129,6 @@ function DraggableOperationBase({
   isDraggingRef,
   materials,
   index,
-  formatLocation,
   onAssignResource,
   onAssignReko,
   onToggleNachbarhilfe,
@@ -291,8 +279,15 @@ function DraggableOperationBase({
   }, [])
 
   // Get priority styling configuration
-  const priority = operation.priority || 'low'
-  const priorityConfig = priorityStyles[priority as keyof typeof priorityStyles]
+  const priority = (operation.priority || 'low') as Priority
+  // The heading. `getIncidentLocationLabel` prefers the server's
+  // `location_display` and only falls back to formatting the raw address here —
+  // which is what the map, the wall board and every list already do. The card
+  // used to run its own client-side formatter through a prop, so it missed the
+  // address fixes the server had (c2f97d18) AND, because a prop the memo
+  // comparator ignores cannot trigger a repaint, it kept a stale label until
+  // something else repainted the card. `locationDisplay` is in the comparator.
+  const locationLabel = getIncidentLocationLabel(operation)
 
   useEffect(() => {
     const element = ref.current
@@ -379,7 +374,7 @@ function DraggableOperationBase({
               // either — a high-priority card that loses its red edge, wash and
               // pulse the moment the pointer crosses it is hiding the one thing
               // the operator is scanning for.
-              !isHighlighted && priorityConfig?.card,
+              !isHighlighted && PRIORITY_CARD_CLASSES[priority],
               isOver && 'bg-muted/20',
               // "Hier steht sie" — the answer to a click in the sidebar. The old
               // treatment was bg-muted/30 plus a border tint, which was quieter
@@ -440,17 +435,15 @@ function DraggableOperationBase({
               <div className="flex items-center flex-shrink-0 mt-0.5">
                 {/* Priority indicator - icon only, no colors */}
                 {priority === "high" ? (
-                  <ChevronUp className={cn('h-4 w-4', priorityConfig?.icon)} aria-label={t('card.priorityHighAria')} />
+                  <ChevronUp className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityHighAria')} />
                 ) : priority === "medium" ? (
-                  <Minus className={cn('h-4 w-4', priorityConfig?.icon)} aria-label={t('card.priorityMediumAria')} />
+                  <Minus className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityMediumAria')} />
                 ) : (
-                  <ChevronDown className={cn('h-4 w-4', priorityConfig?.icon)} aria-label={t('card.priorityLowAria')} />
+                  <ChevronDown className={cn('h-4 w-4', PRIORITY_ICON_CLASSES[priority])} aria-label={t('card.priorityLowAria')} />
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                {formatLocation(operation.location) && (
-                  <h3 className="font-bold text-base text-foreground leading-tight break-words">{formatLocation(operation.location)}</h3>
-                )}
+                <h3 className="font-bold text-base text-foreground leading-tight break-words">{locationLabel}</h3>
                 {/* Abholung. Deliberately NOT gated on status: completing the
                     card auto-releases the crew while they are still standing at
                     the address, so this is the moment it matters most. */}
@@ -1082,6 +1075,11 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.status === nextProps.operation.status &&
     prevProps.operation.priority === nextProps.operation.priority &&
     prevProps.operation.location === nextProps.operation.location &&
+    // The heading IS `locationDisplay` whenever the server has one, so a
+    // re-geocoded address that only changes the server label has to get through
+    // here — otherwise the card keeps the old street until something unrelated
+    // repaints it.
+    prevProps.operation.locationDisplay === nextProps.operation.locationDisplay &&
     prevProps.operation.notes === nextProps.operation.notes &&
     // The Melder block reads both — without them a corrected callback number
     // would sit stale on the card until something else forced a repaint.

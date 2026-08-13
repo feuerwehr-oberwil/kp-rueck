@@ -52,6 +52,7 @@ import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
+import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/lib/priority"
 import { formatClockTime } from "@/lib/incident-time"
 import { cn } from "@/lib/utils"
 
@@ -60,24 +61,12 @@ import { cn } from "@/lib/utils"
  *  renders nothing cannot leave a line above nothing. */
 const SECTION_RULE = "border-t pt-3"
 
-/** Mirrors `priorityStyles` in draggable-operation.tsx. Duplicated rather than
- *  imported because that module pulls in the whole drag-and-drop adapter and a
- *  wall display has nothing to drag; the three values are checked against it
- *  whenever either card changes. */
-const priorityStyles = {
-  high: {
-    icon: "text-destructive",
-    card: "border-l-destructive priority-high-pulse bg-destructive/[0.08] dark:bg-destructive/[0.12] ring-1 ring-destructive/20 dark:ring-destructive/30",
-  },
-  medium: {
-    icon: "text-warning-foreground",
-    card: "border-l-warning",
-  },
-  low: {
-    icon: "text-muted-foreground/50",
-    card: "border-l-border",
-  },
-} as const
+/** The priority treatment comes from lib/priority.ts, not from a copy of
+ *  `draggable-operation.tsx` — importing the CARD would pull the whole
+ *  drag-and-drop adapter onto a wall that has nothing to drag, importing the
+ *  TABLE costs nothing. The copy that used to live here was «checked whenever
+ *  either card changes», which is exactly the promise that had already been
+ *  broken by the time anybody looked. */
 
 export interface DisplayIncidentCardProps {
   operation: Operation
@@ -123,8 +112,7 @@ export function DisplayIncidentCard({
   const t = useTranslations("kanban")
   const tFeld = useTranslations("feld.board")
 
-  const priority = operation.priority || "low"
-  const priorityConfig = priorityStyles[priority]
+  const priority = (operation.priority || "low") as Priority
 
   const auftragTotal = auftrag ? auftrag.stopIds.length : 0
   const auftragStopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
@@ -164,7 +152,7 @@ export function DisplayIncidentCard({
       data-incident-id={operation.id}
       className={cn(
         "operation-card border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all",
-        priorityConfig.card,
+        PRIORITY_CARD_CLASSES[priority],
         onClick && "cursor-pointer hover:bg-muted/20",
         // The other window said "this one" — same accent frame the board uses.
         isHighlighted && "is-highlighted border-l-accent bg-muted/30 ring-[1.5px] ring-accent shadow-lg shadow-accent/25",
@@ -177,11 +165,11 @@ export function DisplayIncidentCard({
           <div className="flex items-start gap-2 min-w-0 flex-1">
             <div className="flex items-center flex-shrink-0 mt-0.5">
               {priority === "high" ? (
-                <ChevronUp className={cn("h-4 w-4", priorityConfig.icon)} aria-label={t("card.priorityHighAria")} />
+                <ChevronUp className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityHighAria")} />
               ) : priority === "medium" ? (
-                <Minus className={cn("h-4 w-4", priorityConfig.icon)} aria-label={t("card.priorityMediumAria")} />
+                <Minus className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityMediumAria")} />
               ) : (
-                <ChevronDown className={cn("h-4 w-4", priorityConfig.icon)} aria-label={t("card.priorityLowAria")} />
+                <ChevronDown className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityLowAria")} />
               )}
             </div>
             <div className="min-w-0 flex-1">

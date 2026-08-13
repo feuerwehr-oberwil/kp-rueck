@@ -50,7 +50,7 @@ import { useOperations, type Operation, type OperationStatus } from "@/lib/conte
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isLocated } from "@/lib/utils/route-geo"
-import { stopStatusBorderClass } from "@/lib/kanban-utils"
+import { stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
 import type { RouteStartMode } from "@/lib/hooks/use-route-planning"
 
 export type StopState = "erledigt" | "laeuft" | "offen"
@@ -139,12 +139,16 @@ export function toMirrorStatus(op: Operation | undefined): MirrorStatus {
   return "incoming"
 }
 
+/** The icon beside a stop row. `cls` comes from `stopStatusTextClass`, i.e. from
+ *  the one status colour table (STATUS_ACCENT) — it sits directly next to the
+ *  row's left edge, which uses `stopStatusBorderClass` from the same table, and
+ *  the two used to be typed out separately and could drift. */
 export const MIRROR_CONFIG: Record<MirrorStatus, { labelKey: string; Icon: typeof CircleDashed; cls: string }> = {
-  incoming: { labelKey: "offen", Icon: CircleDashed, cls: "text-muted-foreground/70" },
-  enroute: { labelKey: "disponiert", Icon: Navigation, cls: "text-blue-600 dark:text-blue-400" },
-  active: { labelKey: "einsatz", Icon: Flame, cls: "text-amber-600 dark:text-amber-400" },
-  returning: { labelKey: "beendet", Icon: Check, cls: "text-emerald-600 dark:text-emerald-400" },
-  complete: { labelKey: "abgeschlossen", Icon: Check, cls: "text-emerald-700 dark:text-emerald-300" },
+  incoming: { labelKey: "offen", Icon: CircleDashed, cls: stopStatusTextClass("incoming") },
+  enroute: { labelKey: "disponiert", Icon: Navigation, cls: stopStatusTextClass("enroute") },
+  active: { labelKey: "einsatz", Icon: Flame, cls: stopStatusTextClass("active") },
+  returning: { labelKey: "beendet", Icon: Check, cls: stopStatusTextClass("returning") },
+  complete: { labelKey: "abgeschlossen", Icon: Check, cls: stopStatusTextClass("complete") },
 }
 
 /**
