@@ -8,6 +8,7 @@ import { type Operation } from "@/lib/contexts/operations-context"
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useMaterials, type Material } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
+import { useAuth } from "@/lib/contexts/auth-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { type IncidentGroup, type GroupResources } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -52,10 +53,11 @@ export const priorityVisuals: Record<
  * data; token displays pass the payload-derived lists via the *Override props
  * (the contexts are empty without a login).
  *
- * With `showReports` it also carries the three things the command post's own
- * detail keeps behind tabs — the Reko-Bericht in full, the Schadenplatz-Rapport
- * and the Verlauf. Read-only throughout: the same components the editor mounts,
- * with `canEdit={false}`, rather than a second rendering that drifts.
+ * With `showReports` it also carries the things the command post's own detail
+ * keeps behind tabs — the Reko-Bericht in full, the Funkmeldungen, the
+ * Schadenplatz-Rapport and the Verlauf. Read-only throughout: the same
+ * components the editor mounts, with `canEdit={false}`, rather than a second
+ * rendering that drifts.
  *
  * Reko-Bericht and Rapport open by themselves **when there is one filed**:
  * nobody stands at a wall display to click a chevron, so a report behind a fold
@@ -67,6 +69,16 @@ export const priorityVisuals: Record<
  * It is off by default because those endpoints need a session: a share-token
  * display has no cookie, and offering a section that can only answer 401 is
  * worse than not offering it.
+ *
+ * A **session is not the same as the right to read all of it**. Reko-Bericht,
+ * Funkmeldungen and Verlauf are `CurrentUser` and answer a viewer; the
+ * Schadenplatz-Rapport is `CurrentEditor` by design, because its response
+ * carries the owner block — the first citizen PII in kp-rueck. So the rapport
+ * is gated on `isEditor` rather than on having logged in at all. Without that,
+ * a logged-in viewer's home screen — ProtectedRoute sends viewers straight to
+ * /display/board — sat on a red «Rapport konnte nicht geladen werden», an
+ * «Erneut laden» button that re-fired the 403 forever, and one sonner toast per
+ * attempt, on a screen with nobody in front of it.
  */
 export function IncidentDetailModal({
   operation,
@@ -98,6 +110,10 @@ export function IncidentDetailModal({
   const t = useTranslations('display')
   const tk = useTranslations('kanban')
   const tr = useTranslations('reko.reportSection')
+  const tf = useTranslations('feld.kp')
+  // Only an editor may read the Schadenplatz-Rapport (citizen PII) — see the
+  // component doc. False for a viewer and for a share-token display alike.
+  const { isEditor } = useAuth()
   const { materials: contextMaterials } = useMaterials()
   const { personnel: contextPersonnel } = usePersonnel()
   const { selectedEvent } = useEvent()
@@ -540,15 +556,18 @@ export function IncidentDetailModal({
               </DisclosureSection>
 
               <DisclosureSection
-                label={t('board.rapportSection')}
+                // A viewer gets the Funkmeldungen without the rapport below
+                // them, so the block is named after what it actually contains.
+                label={isEditor ? t('board.rapportSection') : tf('reportsTitle')}
                 icon={ClipboardList}
                 // A draft counts: half a rapport dictated over the radio is
                 // still what the Schadenplatz reported, and the wall is where
                 // it gets read. So does a bare Funkmeldung — the crew said
                 // something about this address and nobody has to click for it.
+                // For a viewer only the Funkmeldung can open it: the rapport
+                // flags describe something they are not being shown.
                 defaultOpen={
-                  operation.hasSchadenplatzRapport
-                  || operation.hasSchadenplatzRapportDraft
+                  (isEditor && (operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft))
                   || hasFieldReports
                 }
               >
@@ -557,7 +576,7 @@ export function IncidentDetailModal({
                     This was the one thing the display had no rendering of at
                     all: a crew's Funkmeldung reached the board and the wall
                     beside it stayed silent. */}
-                <div className="mb-3">
+                <div className={cn(isEditor && "mb-3")}>
                   <FieldMessageThread
                     operation={operation}
                     events={timeline.events}
@@ -566,6 +585,11 @@ export function IncidentDetailModal({
                     onRetry={timeline.reload}
                   />
                 </div>
+                {/* Editor only — `GET /incidents/{id}/rapport` is CurrentEditor
+                    because the response carries the owner block. Mounting it for
+                    a viewer produced a permanent 403 with a retry button that
+                    could only 403 again. */}
+                {isEditor && (
                 <SchadenplatzRapportSection
                   incidentId={operation.id}
                   canEdit={false}
@@ -584,6 +608,7 @@ export function IncidentDetailModal({
                     hasReport: operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft,
                   })}
                 />
+                )}
               </DisclosureSection>
 
               {/* Folded, alone among the three: the Verlauf is a log of what is

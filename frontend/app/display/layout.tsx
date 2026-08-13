@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
-import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye } from "lucide-react"
+import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye, CalendarRange } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
@@ -191,9 +191,24 @@ function DisplayChrome({
 
   const eventName = selectedEvent?.name || tokenEvent?.name || "KP Rück"
   const isTraining = selectedEvent?.training_flag || tokenEvent?.training_flag || false
+  // A logged-in display with no Ereignis picked draws empty columns and calls
+  // itself «KP Rück», which reads as "nothing is happening" rather than "nothing
+  // is selected" — and the only way out was an unlabelled ← that says «zurück».
+  // The title becomes the way out, but ONLY in that state: once an Ereignis is
+  // chosen the heading is a heading again, so nobody switches what a whole room
+  // is watching by clicking near it. The picker itself is on /display.
+  const needsEventPick = !token && isAuthenticated && !selectedEvent
 
   return (
-    <div className="flex h-dvh flex-col bg-background text-foreground">
+    // `h-full`, NOT `h-dvh`. This mounts inside `AppShell`'s <main>, which is a
+    // flex child of an `h-dvh` column that the banners above it have already
+    // taken a slice out of (DemoBanner, StaleDataBanner, IncidentTruncation…).
+    // Asking for the full viewport height there pushed the whole display chrome
+    // down by exactly the banner height — with a 37px banner the board's bottom
+    // landed at 1117 against a 1080 viewport. The banner that matters most is
+    // the stale-data one, which fires precisely when a wall display has lost its
+    // connection. `h-full` takes the height <main> actually has.
+    <div className="flex h-full flex-col bg-background text-foreground">
       {/* Control bar — top navbar on desktop, bottom bar on mobile (order-last
           keeps it thumb-reachable there). Pinned: it is the only bar the display
           pages have, and on a share link it also carries the «Nur-Lesen» badge
@@ -215,7 +230,17 @@ function DisplayChrome({
             </>
           )}
 
-          <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm font-semibold tracking-tight text-foreground truncate">{eventName}</h1>
+          {needsEventPick ? (
+            <Link
+              href="/display"
+              className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-sm font-semibold tracking-tight text-warning-foreground transition-colors hover:bg-warning/20"
+            >
+              <CalendarRange className="h-3.5 w-3.5 shrink-0" />
+              {t('layout.selectEvent')}
+            </Link>
+          ) : (
+            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm font-semibold tracking-tight text-foreground truncate">{eventName}</h1>
+          )}
           {isTraining && (
             <span className="text-[11px] sm:text-xs font-medium text-warning-foreground bg-warning/10 border border-warning/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
               {t('layout.training')}

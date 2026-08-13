@@ -172,6 +172,10 @@ function BoardDisplay() {
   }, [operations])
 
   return (
+    // `overflow-x-auto` is a safety valve for a window narrower than any wall
+    // (a laptop, a phone in landscape) — NOT the recovery path for a display.
+    // Between 1280 and 1920 nothing may end up behind it: see the column
+    // min-width below.
     <div className="flex h-full gap-2 p-3 overflow-x-auto">
       {/* The status-change flash, defined once for the board instead of once per
           card — the old copy shipped an identical <style> block inside every
@@ -243,7 +247,27 @@ function BoardDisplay() {
           <div
             key={column.id}
             data-column={column.id}
-            className="flex flex-1 flex-col min-w-[280px] overflow-hidden"
+            // 160px, not 280px. `flex-1` already hands every column an equal
+            // share of whatever there is, so this floor only ever binds when
+            // the share would be smaller — and at 280 it bound on every wall
+            // under 1800px wide: seven columns needed 6×280 + 48 (the folded
+            // strip) + gaps + padding, so at 1440 BEENDET/RÜCKFAHRT and
+            // ABGESCHLOSSEN sat entirely off-screen and EINSATZ was cut. A wall
+            // display has no pointer, so the scrollbar next to them was not a
+            // way back to them.
+            //
+            // 160 is the tightest case that must still fit: 1280px with EVERY
+            // column open (nobody has folded ABGESCHLOSSEN yet) leaves
+            // (1280 − 24 padding − 48 gaps) / 7 ≈ 176px each. Below 1280 the
+            // scroller takes over again, which is a laptop, where there is a
+            // mouse.
+            //
+            // The cost is real and deliberate: at 1280 a card is ~176px wide
+            // instead of 280 and its chips wrap onto more lines. A narrower
+            // card read from across the room beats a column that is not on the
+            // screen at all. At 1920 — the wall this surface is actually sized
+            // for — the floor never binds and columns stay 300px, unchanged.
+            className="flex flex-1 flex-col min-w-[160px] overflow-hidden"
           >
             <button
               type="button"
@@ -301,7 +325,11 @@ function BoardDisplay() {
       })}
 
       {/* Logged in, so the report endpoints answer: the card opens the full
-          picture — Reko-Bericht, Rapport and Verlauf included — read-only. */}
+          picture — Reko-Bericht, Funkmeldungen and Verlauf included —
+          read-only. Not every logged-in visitor gets all of it: the modal drops
+          the Schadenplatz-Rapport for a viewer, because that endpoint is
+          editor-gated over citizen PII. A session is permission to ask, not
+          permission to read everything. */}
       <IncidentDetailModal
         operation={selectedOperation}
         open={!!selectedOperation}

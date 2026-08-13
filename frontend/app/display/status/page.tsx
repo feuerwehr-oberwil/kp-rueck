@@ -439,7 +439,9 @@ function SituationBoard({
         groupsOverride={detailGroups}
         viewerToken={viewerToken}
         // Token mode passes `detailGroups`; only the logged-in display can read
-        // the report endpoints.
+        // the report endpoints at all. Which of them it then gets is the modal's
+        // call: the Schadenplatz-Rapport is editor-gated over citizen PII, so a
+        // viewer sees Reko-Bericht, Funkmeldungen and Verlauf and not that one.
         showReports={!detailGroups}
       />
     </div>
