@@ -7,13 +7,23 @@ list, and the Einsatzleiter briefing on every row. Nothing here writes.
 **Authorization is two-step on every single endpoint** and neither step is
 optional:
 
-1. ``validate_feld_token`` turns the link's token into an event id, else 401.
+1. ``validate_feld_token`` turns the link's token into its claims, else 401.
    A ``checkin`` / ``viewer`` / ``reko_dashboard`` / ``alarm`` token does not
    open this door.
 2. The caller's personnel row must have an ``incident_assignments`` row for an
    incident in that event — active **or already released** — else 403. This is
    decision 4 ("visibility is only mine") and it lives in ``crud/feld.py``, not
    in the UI.
+
+What step 2 is and is not: it decides *which Schadenplätze* a given person may
+see, and it is why a crew's list is their own. It is **not** proof of identity.
+On an unbound (event-scoped) token the caller names the person themselves, and
+`GET /feld/personnel` hands every holder of the link the whole picker — that is
+the design (one global QR, everyone finds themselves in a list), and it means
+such a link is a credential for the *event*: it can read, and write as, any crew
+in it. A token minted with a ``personnel_id`` closes exactly that gap — step 2
+then also refuses any other person — but nothing mints one today, because
+neither the poster QR nor the Einsatzzettel slip knows who will drive.
 
 Privacy (§9): neither a token nor any owner field may be interpolated into a log
 line here. The field surface is the first place kp-rueck touches citizen PII.
@@ -40,24 +50,29 @@ from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services.photo_storage import photo_storage
 from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
-from ..services.tokens import generate_feld_token, validate_feld_token
+from ..services.tokens import FeldTokenClaims, generate_feld_token, validate_feld_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/feld", tags=["feld"])
 
 
-async def require_feld_event(
+async def require_feld_claims(
     token: str = Query(..., description="Access token from the generated /feld link"),
-) -> uuid.UUID:
-    """Step 1: the token must be a valid, unexpired `feld` token."""
-    event_id = validate_feld_token(token)
-    if event_id is None:
+) -> FeldTokenClaims:
+    """Step 1: the token must be a valid, unexpired `feld` token.
+
+    Yields the claims, not just the event — a person-bound token has to reach
+    step 2, and a dependency that threw the binding away would silently make
+    every personal link event-wide again.
+    """
+    claims = validate_feld_token(token)
+    if claims is None:
         raise HTTPException(status_code=401, detail="Ungültiger oder abgelaufener Zugriffscode")
-    return event_id
+    return claims
 
 
-FeldEventId = Annotated[uuid.UUID, Depends(require_feld_event)]
+FeldClaims = Annotated[FeldTokenClaims, Depends(require_feld_claims)]
 
 
 async def _load_event(db: AsyncSession, event_id: uuid.UUID) -> Event:
@@ -70,15 +85,22 @@ async def _load_event(db: AsyncSession, event_id: uuid.UUID) -> Event:
 
 async def require_feld_person(
     db: AsyncSession,
-    event_id: uuid.UUID,
+    claims: FeldTokenClaims,
     personnel_id: uuid.UUID,
 ) -> Personnel:
     """Step 2, person-scoped: this person must have an assignment in this event.
 
-    An unknown personnel id gets the same 403 as a known-but-unassigned one —
-    a public token must not become a way to probe which UUIDs exist.
+    A person-bound token may only ever act as its own person — same 403, so a
+    personal link cannot be turned into an event-wide one by editing the id in
+    the URL. An unknown personnel id gets that same 403 as a known-but-unassigned
+    one: a public token must not become a way to probe which UUIDs exist.
     """
-    if not await crud.person_has_event_assignment(db, event_id, personnel_id):
+    if claims.personnel_id is not None and claims.personnel_id != personnel_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        )
+    if not await crud.person_has_event_assignment(db, claims.event_id, personnel_id):
         raise HTTPException(
             status_code=403,
             detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
@@ -123,7 +145,7 @@ async def generate_feld_link(
 @limiter.limit(RateLimits.FELD)
 async def list_feld_personnel(
     request: Request,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.FeldPersonnelListResponse:
     """
@@ -133,8 +155,8 @@ async def list_feld_personnel(
     assignment has nothing to file, and listing them would produce an empty page
     with no explanation instead of the "melde dich beim KP" sentence.
     """
-    event = await _load_event(db, event_id)
-    personnel = await crud.get_feld_personnel_for_event(db, event_id)
+    event = await _load_event(db, claims.event_id)
+    personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
 
     return schemas.FeldPersonnelListResponse(
         personnel=[schemas.FeldPersonnel(**p) for p in personnel],
@@ -148,7 +170,7 @@ async def list_feld_personnel(
 async def get_feld_assignments(
     request: Request,
     personnel_id: uuid.UUID,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.FeldAssignmentsResponse:
     """
@@ -158,10 +180,10 @@ async def get_feld_assignments(
     Einsatzleiter of that incident (decision 22): the EL is briefed before any
     form opens, never enforced.
     """
-    event = await _load_event(db, event_id)
-    person = await require_feld_person(db, event_id, personnel_id)
+    event = await _load_event(db, claims.event_id)
+    person = await require_feld_person(db, claims, personnel_id)
 
-    assignments = await crud.get_feld_assignments_for_personnel(db, event_id, personnel_id)
+    assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
     chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
 
     return schemas.FeldAssignmentsResponse(
@@ -190,7 +212,7 @@ async def get_feld_assignments(
 
 async def _authorized_incident(
     db: AsyncSession,
-    event_id: uuid.UUID,
+    claims: FeldTokenClaims,
     personnel_id: uuid.UUID,
     incident_id: uuid.UUID,
 ) -> tuple[Incident, Personnel]:
@@ -200,8 +222,8 @@ async def _authorized_incident(
     whether or not the incident exists — a public token must not become a way to
     probe the board.
     """
-    person = await require_feld_person(db, event_id, personnel_id)
-    incident = await crud.get_authorized_incident(db, event_id, personnel_id, incident_id)
+    person = await require_feld_person(db, claims, personnel_id)
+    incident = await crud.get_authorized_incident(db, claims.event_id, personnel_id, incident_id)
     if incident is None:
         raise HTTPException(
             status_code=403,
@@ -241,7 +263,7 @@ async def _enforce_demo_photo_limits(db: AsyncSession, file: UploadFile) -> None
 async def report_arrived(
     request: Request,
     incident_id: uuid.UUID,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.FieldReportState:
@@ -254,7 +276,7 @@ async def report_arrived(
     **Idempotent.** A second tap does nothing — a crew re-opening the page and
     hitting the big button again must not move a timestamp the KP has acted on.
     """
-    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     await crud.record_arrival(
         db,
         incident,
@@ -271,7 +293,7 @@ async def report_arrived(
 async def report_field_complete(
     request: Request,
     incident_id: uuid.UUID,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.FieldReportState:
@@ -287,7 +309,7 @@ async def report_field_complete(
     second call, so the *beendet* report reaches the KP even if the crew walks
     away from the question.
     """
-    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     await crud.record_field_complete(
         db,
         incident,
@@ -305,7 +327,7 @@ async def report_pickup(
     request: Request,
     incident_id: uuid.UUID,
     payload: schemas.FeldPickupRequest,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.FieldReportState:
@@ -320,7 +342,7 @@ async def report_pickup(
     standing in the rain, which is precisely why the flag outlives the card
     moving to `complete`.
     """
-    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     await crud.record_pickup(
         db,
         incident,
@@ -337,7 +359,7 @@ async def report_pickup(
 async def get_rapport(
     request: Request,
     incident_id: uuid.UUID,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is filing"),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.SchadenplatzRapport:
@@ -350,7 +372,7 @@ async def get_rapport(
     call — a unit assigned after the draft started appears unticked, one the
     board took away keeps its row only if the crew already answered for it.
     """
-    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     return schemas.SchadenplatzRapport(**await crud.get_rapport(db, incident, actor=_actor(person)))
 
 
@@ -360,7 +382,7 @@ async def save_rapport(
     request: Request,
     incident_id: uuid.UUID,
     payload: schemas.RapportUpdate,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is filing"),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.SchadenplatzRapport:
@@ -376,7 +398,7 @@ async def save_rapport(
     the board's units; releasing what came back is the board's own one-click
     action (decision 17).
     """
-    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     return schemas.SchadenplatzRapport(
         **await crud.save_rapport(db, incident, actor=_actor(person), payload=payload, request=request)
     )
@@ -387,7 +409,7 @@ async def save_rapport(
 async def upload_photo(
     request: Request,
     incident_id: uuid.UUID,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is uploading"),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
@@ -407,7 +429,7 @@ async def upload_photo(
     Keeps ``PHOTO_UPLOAD`` rather than the looser ``FELD`` limit — an upload is
     orders of magnitude more expensive than a poll.
     """
-    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     await _enforce_demo_photo_limits(db, file)
     photos = await crud.add_photo(db, incident, actor=_actor(person), file=file, request=request)
     return schemas.RapportPhotosResponse(
@@ -423,12 +445,12 @@ async def delete_photo(
     request: Request,
     incident_id: uuid.UUID,
     filename: str,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is deleting"),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.RapportPhotosResponse:
     """Remove a photo again — the mis-tapped shutter, from the phone that took it."""
-    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     photos = await crud.remove_photo(db, incident, actor=_actor(person), filename=filename, request=request)
     return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
 
@@ -439,7 +461,7 @@ async def serve_feld_photo(
     request: Request,
     incident_id: uuid.UUID,
     filename: str,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is looking"),
     db: AsyncSession = Depends(get_db),
 ) -> FileResponse:
@@ -458,7 +480,7 @@ async def serve_feld_photo(
     alone is enough — `get_photo_path` only proves a file exists on disk under
     that incident's directory.
     """
-    incident, _person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, _person = await _authorized_incident(db, claims, personnel_id, incident_id)
 
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
@@ -484,7 +506,7 @@ async def report_message(
     request: Request,
     incident_id: uuid.UUID,
     payload: schemas.FeldMessageRequest,
-    event_id: FeldEventId,
+    claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
     db: AsyncSession = Depends(get_db),
 ) -> None:
@@ -496,7 +518,7 @@ async def report_message(
     the bell). The chips themselves are station config, not translation — see
     `feld.message_chips` in `services/settings.py`.
     """
-    incident, person = await _authorized_incident(db, event_id, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     await crud.record_field_message(
         db,
         incident,

@@ -389,7 +389,12 @@ class TestEinsatzzettelFeldQR:
         # what makes the slip a shortcut rather than a second door — and it is
         # also why a slip left in a vehicle is a credential until it expires.
         token = link.split("token=", 1)[1].split("&", 1)[0]
-        assert validate_feld_token(token) == test_event.id
+        claims = validate_feld_token(token)
+        assert claims is not None
+        assert claims.event_id == test_event.id
+        # The slip is printed before it is known who drives, so it cannot be
+        # bound to a person — see `generate_feld_token`.
+        assert claims.personnel_id is None
 
     @pytest.mark.asyncio
     @pytest.mark.api

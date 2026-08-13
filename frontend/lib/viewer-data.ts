@@ -8,7 +8,7 @@
  * assignments rather than the (never event-scoped) availability column.
  */
 
-import { type ApiViewerData, type ApiIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
+import { type ApiViewerData, type ApiViewerIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
@@ -56,8 +56,16 @@ function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
   }
 }
 
-/** Map an API incident (from the share-token payload) onto an Operation. */
-export function viewerIncidentToOperation(a: ApiIncident, reko?: ApiViewerRekoSummary): Operation {
+/**
+ * Map an API incident (from the share-token payload) onto an Operation.
+ *
+ * The share payload is narrower than the board's own row on purpose: the Melder
+ * (`contact` / `contact_phone`) and the `internal_notes` are not in it, so the
+ * three Operation fields that carry them stay empty here and the display's
+ * Melder block and Notiz section simply do not render. See
+ * `backend/app/schemas/viewer.py` for the full allowlist.
+ */
+export function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSummary): Operation {
   return {
     id: a.id,
     location: a.location_address || a.title,
@@ -72,9 +80,11 @@ export function viewerIncidentToOperation(a: ApiIncident, reko?: ApiViewerRekoSu
     coordinates: apiCoordinatesToTuple(a.location_lat, a.location_lng),
     materials: [],
     notes: a.description ?? "",
-    contact: a.contact ?? "",
-    contactPhone: a.contact_phone ?? "",
-    internalNotes: a.internal_notes ?? "",
+    // Not in the share payload — a resident's name, phone number and the KP's
+    // internal notes are not part of a shared situation.
+    contact: "",
+    contactPhone: "",
+    internalNotes: "",
     nachbarhilfe: a.nachbarhilfe ?? false,
     nachbarhilfeNote: a.nachbarhilfe_note ?? "",
     amWarten: a.am_warten ?? false,
@@ -108,7 +118,8 @@ export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGr
     position: group.position,
     createdAt: new Date(group.created_at),
     updatedAt: new Date(group.updated_at),
-    createdBy: group.created_by ? String(group.created_by) : null,
+    // Not in the share payload: who created the route is not part of it.
+    createdBy: null,
     stopIds: group.stop_ids.map(String),
     assignments: [],
     progress: group.progress ?? { total: group.stop_ids.length, done: 0 },
@@ -193,7 +204,9 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     driverVehicleName: driverInfoByPerson.get(String(p.id))?.vehicleName || undefined,
     isMagazin: magazinPersonnelIds.has(String(p.id)),
     roleSortOrder: p.role_sort_order,
-    diveraUserId: p.divera_user_id ?? null,
+    // Not in the share payload — an account id in another system is nothing a
+    // display draws, and it identifies a person across events.
+    diveraUserId: null,
   }))
 
   const materials: Material[] = payload.materials.map((m) => ({

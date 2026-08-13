@@ -94,8 +94,12 @@ async def get_viewer_data(
     """
     Get read-only event data for viewer.
 
-    No authentication required - uses token validation.
-    Returns event info and all incidents for the event.
+    No authentication required — the token in the URL is the only gate, so the
+    payload is an ALLOWLIST, not the board's own response models. Every row is
+    re-serialised through the narrow `schemas.Viewer*` shapes (`schemas/viewer.py`
+    documents what each one drops and why): a shared link carries the situation —
+    address, Meldung, status, who and what is on it — and never the Melder's name
+    or phone number, the internal notes, or the operator/user ids behind them.
     """
     event_id = validate_viewer_token(token)
     if not event_id:
@@ -143,17 +147,26 @@ async def get_viewer_data(
 
     return {
         "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
-        "incidents": [i.model_dump(mode="json") for i in await incident_display.incidents_with_display(db, incidents)],
-        "groups": [group.model_dump(mode="json") for group in groups],
-        "personnel": [p.model_dump(mode="json") for p in personnel],
-        "materials": [schemas.Material.model_validate(m).model_dump(mode="json") for m in materials],
+        "incidents": [
+            schemas.ViewerIncident.model_validate(i).model_dump(mode="json")
+            for i in await incident_display.incidents_with_display(db, incidents)
+        ],
+        "groups": [schemas.ViewerGroup.model_validate(group).model_dump(mode="json") for group in groups],
+        "personnel": [schemas.ViewerPersonnel.model_validate(p).model_dump(mode="json") for p in personnel],
+        "materials": [schemas.ViewerMaterial.model_validate(m).model_dump(mode="json") for m in materials],
+        # Full rows on purpose: a vehicle carries no personal data, and its
+        # radio call sign is drawn next to it on a card (see schemas/viewer.py).
         "vehicles": [schemas.Vehicle.model_validate(v).model_dump(mode="json") for v in vehicles],
         "vehicle_positions": vehicle_positions,
         "assignments": {
-            str(incident_id): [a.model_dump(mode="json") for a in assignment_list]
+            str(incident_id): [
+                schemas.ViewerAssignment.model_validate(a).model_dump(mode="json") for a in assignment_list
+            ]
             for incident_id, assignment_list in assignments.items()
         },
-        "special_functions": [sf.model_dump(mode="json") for sf in special_functions],
+        "special_functions": [
+            schemas.ViewerSpecialFunction.model_validate(sf).model_dump(mode="json") for sf in special_functions
+        ],
         # incident_id → Reko result. Photo FILENAMES ride along; the same token
         # opens /api/photos for this event only (ViewerRekoSummary, serve_photo).
         "reko_summaries": viewer_reko_summaries,

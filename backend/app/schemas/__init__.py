@@ -23,3 +23,4 @@ from .sync import *  # noqa: F403
 from .training import *  # noqa: F403
 from .user import *  # noqa: F403
 from .vehicles import *  # noqa: F403
+from .viewer import *  # noqa: F403

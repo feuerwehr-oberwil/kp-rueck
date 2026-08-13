@@ -96,20 +96,108 @@ import {
   type ApiEventRestliste,
 } from './api/types'
 
-/** Read-only payload behind a share token (board/map/status displays). */
+/**
+ * The share-link view of an incident — the situation, never the Melder.
+ *
+ * Mirrors the backend's `schemas.ViewerIncident`: `contact`, `contact_phone`
+ * and `internal_notes` are not in the payload, and neither is the workflow
+ * bookkeeping (rapport flags, pickup, field/user ids). Built with `Pick` on
+ * purpose — a field is in the share payload only if it is named here, and
+ * adding one to `ApiIncident` cannot leak it onto a wall by itself.
+ */
+export type ApiViewerIncident = Pick<
+  ApiIncident,
+  | 'id'
+  | 'event_id'
+  | 'title'
+  | 'type'
+  | 'priority'
+  | 'status'
+  | 'location_address'
+  | 'location_display'
+  | 'location_lat'
+  | 'location_lng'
+  | 'description'
+  | 'source'
+  | 'nachbarhilfe'
+  | 'nachbarhilfe_note'
+  | 'am_warten'
+  | 'am_warten_note'
+  | 'zu_fuss'
+  | 'group_id'
+  | 'group_position'
+  | 'created_at'
+  | 'updated_at'
+  | 'completed_at'
+  | 'status_changed_at'
+  | 'assigned_vehicles'
+  | 'has_completed_reko'
+  | 'reko_arrived_at'
+> & {
+  /** Never sent — the operator behind a card is not part of a shared situation.
+   *  Declared (as absent) so the mappers that read it stay honest and compile. */
+  created_by?: null
+}
+
+/** Roster row on a shared display: enough to name and sort a person, no more.
+ *  Availability is derived from this event's assignments, so the raw status
+ *  column and the external account id (`divera_user_id`) stay behind. */
+export type ApiViewerPersonnel = Pick<ApiPersonnel, 'id' | 'name' | 'role' | 'role_sort_order' | 'tags'> & {
+  divera_user_id?: null
+}
+
+/** Material panel row on a shared display. */
+export type ApiViewerMaterial = Pick<
+  ApiMaterialResource,
+  'id' | 'name' | 'type' | 'location' | 'location_sort_order' | 'consumable' | 'group_id'
+>
+
+/** Which resource sits on which incident — never who put it there, or when. */
+export type ApiViewerAssignment = Pick<ApiAssignment, 'id' | 'resource_type' | 'resource_id' | 'driver_stay'>
+
+/** Reko / driver / Magazin roles for the event. */
+export type ApiViewerSpecialFunction = Pick<
+  ApiEventSpecialFunctionResponse,
+  'personnel_id' | 'function_type' | 'vehicle_id' | 'vehicle_name'
+>
+
+/** A resource an Auftrag owns, as the shared board names it. */
+export type ApiViewerGroupAssignment = Pick<
+  ApiGroupAssignment,
+  'id' | 'resource_type' | 'resource_id' | 'unassigned_at' | 'driver_stay' | 'is_leader'
+>
+
+/** An Auftrag as a display draws it: name, colour, stops, progress and the
+ *  resources it owns. No `created_by`, no `assigned_by` on the rows, and no
+ *  Funkdurchsage bookkeeping — a display never makes an announcement. */
+export type ApiViewerGroup = Pick<
+  ApiIncidentGroup,
+  'id' | 'event_id' | 'name' | 'color' | 'notes' | 'position' | 'created_at' | 'updated_at' | 'stop_ids' | 'progress'
+> & {
+  created_by?: null
+  assignments: ApiViewerGroupAssignment[]
+}
+
+/** Read-only payload behind a share token (board/map/status displays).
+ *
+ * Every row is the narrow `ApiViewer*` shape, not the board's own — the token in
+ * the URL is the only gate here, so what rides along is an allowlist on both
+ * sides of the wire (`backend/app/schemas/viewer.py`). */
 export interface ApiViewerData {
   event: ApiEvent
-  incidents: ApiIncident[]
-  personnel: ApiPersonnel[]
-  materials: ApiMaterialResource[]
+  incidents: ApiViewerIncident[]
+  personnel: ApiViewerPersonnel[]
+  materials: ApiViewerMaterial[]
+  /** Full rows: a vehicle carries no personal data, and the fleet panel is what
+   *  a status display is read for. */
   vehicles: ApiVehicle[]
   vehicle_positions: ApiVehiclePosition[]
   /** Present when the public viewer endpoint exposes Auftrag data. */
-  groups?: ApiIncidentGroup[]
+  groups?: ApiViewerGroup[]
   /** incident_id → assignments; lets the displays derive event-scoped
    *  availability (assigned vs. available) like the logged-in board. */
-  assignments?: Record<string, ApiAssignment[]>
-  special_functions?: ApiEventSpecialFunctionResponse[]
+  assignments?: Record<string, ApiViewerAssignment[]>
+  special_functions?: ApiViewerSpecialFunction[]
   /** incident_id → what the Reko reported, for incidents with a submitted
    *  report. Photos are not in there: the photo route needs the login. */
   reko_summaries?: Record<string, ApiViewerRekoSummary>

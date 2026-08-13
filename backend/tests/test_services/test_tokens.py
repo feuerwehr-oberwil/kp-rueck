@@ -47,7 +47,33 @@ class TestFeldToken:
 
     def test_roundtrip(self):
         event_id = uuid4()
-        assert validate_feld_token(generate_feld_token(event_id)) == event_id
+        claims = validate_feld_token(generate_feld_token(event_id))
+        assert claims is not None
+        assert claims.event_id == event_id
+        # Unbound by default: that is what the poster QR and the slip carry.
+        assert claims.personnel_id is None
+
+    def test_person_binding_survives_the_roundtrip(self):
+        event_id, personnel_id = uuid4(), uuid4()
+        claims = validate_feld_token(generate_feld_token(event_id, personnel_id=personnel_id))
+        assert claims is not None
+        assert claims.event_id == event_id
+        assert claims.personnel_id == personnel_id
+
+    def test_unreadable_person_binding_is_rejected_not_widened(self):
+        """A broken binding must fail shut — never fall back to event-wide."""
+        settings = get_settings()
+        broken = jwt.encode(
+            {
+                "event_id": str(uuid4()),
+                "personnel_id": "not-a-uuid",
+                "exp": datetime.now(UTC) + timedelta(hours=1),
+                "type": "feld",
+            },
+            settings.secret_key,
+            algorithm="HS256",
+        )
+        assert validate_feld_token(broken) is None
 
     def test_default_lifetime_is_720_hours(self):
         # A storm Ereignis runs for days and the QR lives on a printed poster.

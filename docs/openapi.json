@@ -16810,7 +16810,7 @@
           "viewer"
         ],
         "summary": "Get Viewer Data",
-        "description": "Get read-only event data for viewer.\n\nNo authentication required - uses token validation.\nReturns event info and all incidents for the event.",
+        "description": "Get read-only event data for viewer.\n\nNo authentication required — the token in the URL is the only gate, so the\npayload is an ALLOWLIST, not the board's own response models. Every row is\nre-serialised through the narrow `schemas.Viewer*` shapes (`schemas/viewer.py`\ndocuments what each one drops and why): a shared link carries the situation —\naddress, Meldung, status, who and what is on it — and never the Melder's name\nor phone number, the internal notes, or the operator/user ids behind them.",
         "operationId": "get_viewer_data_api_viewer_data_get",
         "parameters": [
           {

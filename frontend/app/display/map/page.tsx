@@ -7,7 +7,7 @@ import dynamic from "next/dynamic"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { apiClient, type ApiIncident, type ApiViewerData } from "@/lib/api-client"
+import { apiClient, type ApiViewerIncident, type ApiViewerData } from "@/lib/api-client"
 import type { Incident } from "@/lib/types/incidents"
 import type { AssignedVehicle, StatusGroup, IncidentStatus } from "@/lib/types/incidents"
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
@@ -403,6 +403,9 @@ function AuthenticatedDisplayMap({
         gpsAvailable={gpsAvailable}
       />
 
+      {/* The logged-in map, so the report endpoints answer. The modal still
+          drops the Schadenplatz-Rapport for a viewer — it is editor-gated over
+          citizen PII. */}
       <IncidentDetailModal
         operation={detailOperation}
         open={!!detailOperation}
@@ -413,8 +416,12 @@ function AuthenticatedDisplayMap({
   )
 }
 
-/** Map the token payload's API incident onto the domain Incident MapView wants. */
-function apiIncidentToIncident(a: ApiIncident): Incident {
+/** Map the token payload's API incident onto the domain Incident MapView wants.
+ *  Typed on `ApiViewerIncident`, not `ApiIncident`: the share payload is a
+ *  deliberate subset (no contact, no internal notes), so the narrower type is
+ *  what actually arrives — and reading a field that is not in it must not
+ *  compile. */
+function apiIncidentToIncident(a: ApiViewerIncident): Incident {
   return {
     id: a.id,
     event_id: a.event_id,

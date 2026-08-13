@@ -1,10 +1,12 @@
 """Tests for the public share-link payload (/api/viewer/data).
 
 The endpoint has no session behind it — the token in the URL is the only gate —
-so what it may carry of a Reko report is a deliberate subset, and these tests
-pin that subset rather than the endpoint as a whole.
+so every row it carries is a deliberate subset, and these tests pin those
+subsets rather than the endpoint as a whole. The first block is the incident
+itself (the Melder must not ride along on a link that gets forwarded), then the
+Reko report, then the resource lists.
 
-The second half of the file covers the one thing the payload does NOT carry:
+The last part of the file covers the one thing the payload does NOT carry:
 the Reko photos themselves, served by /api/photos, which takes the same token.
 """
 
@@ -16,7 +18,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, RekoReport, User
+from app.models import Event, EventAttendance, Incident, IncidentAssignment, Personnel, RekoReport, User
 from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_alarm_token, generate_form_token, generate_viewer_token
 
@@ -39,6 +41,150 @@ async def submitted_reko(db_session: AsyncSession, test_incident: Incident) -> R
     await db_session.commit()
     await db_session.refresh(report)
     return report
+
+
+@pytest_asyncio.fixture
+async def melder_incident(db_session: AsyncSession, test_incident: Incident) -> Incident:
+    """The test incident with a Melder, their phone number and internal notes."""
+    test_incident.contact = "Meier Ruth (Bewohnerin)"
+    test_incident.contact_phone = "061 222 22 22"
+    test_incident.internal_notes = "Schlüsseldepot Code 4711, Nachbarin hat Zweitschlüssel"
+    await db_session.commit()
+    await db_session.refresh(test_incident)
+    return test_incident
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_omits_the_melder_and_the_internal_notes(
+    client: AsyncClient,
+    test_event: Event,
+    melder_incident: Incident,
+):
+    """THE finding: a forwarded link must not carry a resident's name or number.
+
+    Checked on the raw response as well as the parsed row — the values must not
+    reappear anywhere else in the payload either.
+    """
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+    assert response.status_code == 200
+
+    incident = next(i for i in response.json()["incidents"] if i["id"] == str(melder_incident.id))
+    for field in ("contact", "contact_phone", "internal_notes"):
+        assert field not in incident
+
+    assert "Meier Ruth" not in response.text
+    assert "061 222 22 22" not in response.text
+    assert "Schlüsseldepot" not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_keeps_the_situation(
+    client: AsyncClient,
+    test_event: Event,
+    melder_incident: Incident,
+):
+    """Address, Meldung, type, priority, status — the reason the link exists."""
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+
+    incident = next(i for i in response.json()["incidents"] if i["id"] == str(melder_incident.id))
+    assert incident["location_address"] == "Hauptstrasse 123, Basel"
+    assert incident["description"] == "Brand in Mehrfamilienhaus"
+    assert incident["title"] == "Wohnungsbrand"
+    assert incident["type"] == "brandbekaempfung"
+    assert incident["priority"] == "high"
+    assert incident["status"] == "incoming"
+    assert incident["location_lat"] is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_omits_the_operator_and_the_workflow_bookkeeping(
+    client: AsyncClient,
+    test_event: Event,
+    test_incident: Incident,
+):
+    """What nobody chose to share: user/personnel ids and the rapport internals.
+
+    The incident row is an allowlist (`schemas/viewer.py`), so this is a
+    regression guard for the whole class rather than for three field names — a
+    column added to `Incident` must not reach a shared link by itself.
+    """
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+
+    incident = next(i for i in response.json()["incidents"] if i["id"] == str(test_incident.id))
+    for field in (
+        "created_by",
+        "source_ref",
+        "field_arrived_by",
+        "field_complete_reported_by",
+        "pickup_requested_by",
+        "has_schadenplatz_rapport",
+        "has_been_dispatched",
+        "reko_arrived_by_kp",
+    ):
+        assert field not in incident, field
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_roster_is_names_and_roles_only(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+):
+    """A checked-in person, without their account identity in another system."""
+    person = Personnel(id=uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available", divera_user_id=4711)
+    db_session.add(person)
+    await db_session.flush()
+    db_session.add(EventAttendance(event_id=test_event.id, personnel_id=person.id, checked_in=True))
+    await db_session.commit()
+
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+
+    row = next(p for p in response.json()["personnel"] if p["id"] == str(person.id))
+    assert row["name"] == "Muster Hans"
+    assert row["role"] == "Feuerwehrmann"
+    assert "divera_user_id" not in row
+    assert "4711" not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_assignments_do_not_name_the_operator(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_incident: Incident,
+    test_user: User,
+):
+    """Which resource is on which incident — never who put it there, or when."""
+    person = Personnel(id=uuid4(), name="Frey Marc", role="Gruppenführer", status="available")
+    db_session.add(person)
+    await db_session.flush()
+    db_session.add(
+        IncidentAssignment(
+            incident_id=test_incident.id,
+            resource_type="personnel",
+            resource_id=person.id,
+            assigned_by=test_user.id,
+        )
+    )
+    await db_session.commit()
+
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+
+    row = response.json()["assignments"][str(test_incident.id)][0]
+    assert row["resource_id"] == str(person.id)
+    assert row["resource_type"] == "personnel"
+    assert "assigned_by" not in row
+    assert str(test_user.id) not in response.text
 
 
 @pytest.mark.asyncio

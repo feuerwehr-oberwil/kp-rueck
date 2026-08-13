@@ -619,9 +619,19 @@ async def test_public_viewer_data_includes_groups(
     response = await client.get("/api/viewer/data", params={"token": token})
 
     assert response.status_code == 200
+    board_row = created.json()
+    # The share link gets the route a display draws — not the board's own row.
+    # `created_by` and the Funkdurchsage bookkeeping stay behind (schemas/viewer.py).
     assert response.json()["groups"] == [
         {
-            **created.json(),
+            "id": board_row["id"],
+            "event_id": board_row["event_id"],
+            "name": board_row["name"],
+            "color": board_row["color"],
+            "notes": board_row["notes"],
+            "position": board_row["position"],
+            "created_at": board_row["created_at"],
+            "updated_at": board_row["updated_at"],
             "stop_ids": [str(test_incident.id)],
             "progress": {"total": 1, "done": 0},
             "assignments": [],

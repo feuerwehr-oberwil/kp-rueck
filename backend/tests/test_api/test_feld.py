@@ -1,10 +1,16 @@
 """Tests for `/api/feld` — the login-less field surface (plan 25, phases 0-1).
 
-The load-bearing file of the phase. The token says *which Ereignis*; it never
-says *who*, so every endpoint has to run step 2 as well: the caller's personnel
-row must have an assignment on an incident in that event, active or released.
-A hole in one handler is the realistic failure, which is why the 403 cases are
-parametrized over the endpoint list rather than written once.
+The load-bearing file of the phase. The token everything in the wild carries
+says *which Ereignis*; it does not say *who*, so every endpoint has to run step
+2 as well: the caller's personnel row must have an assignment on an incident in
+that event, active or released. A hole in one handler is the realistic failure,
+which is why the 403 cases are parametrized over the endpoint list rather than
+written once.
+
+A token *can* additionally be bound to one person (`TestPersonBoundToken`).
+Nothing mints one yet — the poster QR and the Einsatzzettel slip are printed
+before it is known who drives — but the binding is enforced on every one of
+those same endpoints.
 """
 
 from datetime import UTC, datetime
@@ -420,6 +426,100 @@ class TestAuthorizationStepTwo:
         rows = response.json()["assignments"]
         assert [r["incident_id"] for r in rows] == [str(incident.id)]
         assert rows[0]["is_active_assignment"] is False
+
+
+class TestPersonBoundToken:
+    """A token minted for one person may only ever act as that person.
+
+    The shared poster QR and the Einsatzzettel slip are unbound — they are
+    printed before it is known who drives — and those keep working exactly as
+    before. A bound token is the stricter variant: same endpoints, but the
+    `personnel_id` in the URL is no longer the caller's to choose.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.parametrize("spec", PERSON_SCOPED_ENDPOINTS, ids=ENDPOINT_IDS)
+    async def test_bound_token_cannot_act_as_another_person(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+        spec: tuple[str, str, bool, dict[str, Any] | None],
+    ):
+        """Person A's link on person B's Schadenplatz: 403, on every endpoint.
+
+        Both are properly assigned in the event, so the assignment check alone
+        would let this through — this is the binding, and nothing else.
+        """
+        theirs = await _make_incident(db_session, test_event, test_user, "Fremde Stelle")
+        person_b = await _make_person(db_session, "Frey Marc")
+        await _assign(db_session, theirs, person_b)
+        mine = await _make_incident(db_session, test_event, test_user, "Meine Stelle")
+        person_a = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, mine, person_a)
+
+        response = await _call(
+            client,
+            spec,
+            token=generate_feld_token(test_event.id, personnel_id=person_a.id),
+            personnel_id=person_b.id,
+            incident_id=theirs.id,
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.parametrize("spec", PERSON_SCOPED_ENDPOINTS, ids=ENDPOINT_IDS)
+    async def test_bound_token_still_works_for_its_own_person(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+        spec: tuple[str, str, bool, dict[str, Any] | None],
+    ):
+        incident = await _make_incident(db_session, test_event, test_user, "Meine Stelle")
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person)
+
+        response = await _call(
+            client,
+            spec,
+            token=generate_feld_token(test_event.id, personnel_id=person.id),
+            personnel_id=person.id,
+            incident_id=incident.id,
+        )
+        assert response.status_code in _expected_ok(spec), (spec, response.text)
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_unbound_token_is_unchanged(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """The links in the wild: still the event's, still every crew in it.
+
+        Pinned deliberately rather than left implicit — a poster on a wall and
+        the slips already printed must not stop working, and if that is ever
+        traded away it should be a failing test, not a silent Sunday morning.
+        """
+        mine = await _make_incident(db_session, test_event, test_user, "Meine Stelle")
+        theirs = await _make_incident(db_session, test_event, test_user, "Fremde Stelle")
+        person_a = await _make_person(db_session, "Muster Hans")
+        person_b = await _make_person(db_session, "Frey Marc")
+        await _assign(db_session, mine, person_a)
+        await _assign(db_session, theirs, person_b)
+
+        token = generate_feld_token(test_event.id)
+        for person, incident in ((person_a, mine), (person_b, theirs)):
+            response = await client.get(f"/api/feld/assignments/{person.id}?token={token}")
+            assert response.status_code == 200
+            assert [r["incident_id"] for r in response.json()["assignments"]] == [str(incident.id)]
 
 
 class TestAssignments:
@@ -1278,9 +1378,7 @@ class TestRapport:
         params = {"token": token, "personnel_id": str(person.id)}
         # Checked in at the Ereignis but not on this Schadenplatz.
         walked_in = await _make_person(db_session, "Koch René")
-        db_session.add(
-            EventAttendance(event_id=test_event.id, personnel_id=walked_in.id, checked_in=True)
-        )
+        db_session.add(EventAttendance(event_id=test_event.id, personnel_id=walked_in.id, checked_in=True))
         # At home: on the roster, on no roll-call, so on no list.
         await _make_person(db_session, "Zimmermann Fabian")
         await db_session.commit()
