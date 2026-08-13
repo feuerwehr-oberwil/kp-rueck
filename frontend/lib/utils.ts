@@ -5,6 +5,35 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Default `collisionPadding` for Radix poppers — menus, popovers, selects.
+ *
+ * Radix avoids collisions against the VIEWPORT, and on the board the viewport
+ * reaches ~53px past the top of the fixed footer toolbar. A context menu opened
+ * on a low sidebar row was therefore placed flush with the viewport's bottom
+ * edge, and its last entries ended up behind the toolbar — which is opaque and
+ * at a higher z-index, so they were neither readable nor reachable. Reserving
+ * the toolbar's height turns that into a shorter, scrollable menu instead
+ * (`max-h-(--radix-*-content-available-height)` is already on every popper).
+ *
+ * Measured, not hard-coded: the toolbar's height follows its content and
+ * padding. The extra few pixels are so the menu ends visibly ABOVE the toolbar
+ * — flush with its top edge still reads as cut off. Returns `undefined` — i.e.
+ * Radix's own default — on every page that has no footer, which is every page
+ * except the board.
+ *
+ * Only the bottom, and only for placements Radix can move: a popper with
+ * `side="top"` is pinned to its trigger and is not shifted along that axis, so
+ * one anchored to a button INSIDE the toolbar needs a `sideOffset` that clears
+ * it instead (see CardViewMenu and the Bereitschaft checklist).
+ */
+export function footerCollisionPadding(): { bottom: number } | undefined {
+  if (typeof document === 'undefined') return undefined
+  const footer = document.querySelector('footer')
+  if (!footer) return undefined
+  return { bottom: Math.ceil(footer.getBoundingClientRect().height) + 4 }
+}
+
 // Module-level mirror of the home-city setting so non-React helpers (e.g.
 // getIncidentRefLabel) can format addresses. Kept in sync by
 // operations-context whenever the setting loads/changes — same pattern as

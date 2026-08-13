@@ -234,7 +234,14 @@ export function AttendanceModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl">
+        {/* On the modal height scale like every other dialog, instead of the
+            hand-rolled `max-h-[62vh]` the list used to carry. That clamped only
+            the list, so header + search + quick-add stacked on top of it and the
+            dialog came out ~95vh tall — 757px in an 800px window, 21px of air
+            top and bottom, and `vh` rather than `dvh` (see modal-h-* in
+            globals.css: with `vh` a mobile address bar pushes the quick-add row
+            out of reach). The list scrolls inside the clamp now. */}
+        <DialogContent className="flex modal-h-tall max-w-3xl flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="size-4" />
@@ -263,7 +270,7 @@ export function AttendanceModal({
             </Button>
           </div>
 
-          <div className="max-h-[62vh] overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {isLoading ? (
               <p className="py-6 text-center text-sm text-muted-foreground">{t('loading')}</p>
             ) : visible.length === 0 ? (

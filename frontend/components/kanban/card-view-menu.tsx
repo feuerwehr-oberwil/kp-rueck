@@ -63,7 +63,13 @@ export function CardViewMenu({
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" side="top" className="w-60 p-2" data-testid="card-view-menu">
+      {/* `sideOffset` clears the toolbar, not just the button. The trigger sits
+          ~11px below the footer's top edge, so the default 4px put the panel's
+          bottom border 7px INSIDE the toolbar — and the toolbar is opaque and a
+          layer above, so the panel looked cut off rather than placed. Radix
+          cannot fix this by collision: a `side="top"` popper is pinned to its
+          trigger and only shifts sideways. */}
+      <PopoverContent align="start" side="top" sideOffset={20} className="w-60 p-2" data-testid="card-view-menu">
         <div className="px-1 pb-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
           {t('presetsHeading')}
         </div>

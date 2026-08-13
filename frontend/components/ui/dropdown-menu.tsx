@@ -4,7 +4,7 @@ import * as React from 'react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
+import { cn, footerCollisionPadding } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
 
 function DropdownMenu({
@@ -35,6 +35,9 @@ function DropdownMenuTrigger({
 function DropdownMenuContent({
   className,
   sideOffset = 4,
+  // Keep the menu clear of the board's footer toolbar — see
+  // footerCollisionPadding. A caller-supplied value still wins.
+  collisionPadding,
   onInteractOutside,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
@@ -43,6 +46,7 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding ?? footerCollisionPadding()}
         // Dismissing a toast must never dismiss the menu behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(

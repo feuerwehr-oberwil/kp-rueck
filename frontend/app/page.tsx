@@ -2286,8 +2286,17 @@ export default function FireStationDashboard() {
 
         </div>
 
-        {/* Desktop Footer - z-index lowered when modals open so dialog overlay covers it */}
-        <footer className={`relative bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border ${detailModalOpen || newEmergencyModalOpen || statusWorkflow.disponiertOperation ? 'z-40' : 'z-[60]'}`}>
+        {/* Desktop Footer.
+
+            `z-[60]` keeps it above the footer-sheet layer (z-50), so a sheet
+            slides up from behind it instead of sweeping across it. Going UNDER
+            a modal dialog is no longer this element's business: it used to be a
+            hand-kept list of three modals here, which left the other ~20
+            dialogs with a bright, inert toolbar over a dimmed board. The rule
+            now keys off the dialog overlay itself — see the
+            `body:has([data-slot='dialog-overlay'])` block at the end of
+            app/globals.css. */}
+        <footer className="relative z-[60] bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border">
           {/* `min-w-0` on the row and on the middle group is what actually keeps
               the page from scrolling sideways. A flex item defaults to
               `min-width: auto`, i.e. it refuses to shrink below its content —
@@ -2351,11 +2360,17 @@ export default function FireStationDashboard() {
                       </Badge>
                     </Button>
                   </PopoverTrigger>
+                  {/* Same offset as CardViewMenu at the other end of the row,
+                      and for the same reason: the trigger sits inside the
+                      toolbar, so the offset has to clear the toolbar and not
+                      just the button. 10 left ~1px, and none at all while the
+                      button is still badge-less ("Checkliste wird geladen…"),
+                      which put the panel's bottom edge under the toolbar. */}
                   <PopoverContent
                     className="w-[600px] p-0"
                     align="start"
                     side="top"
-                    sideOffset={10}
+                    sideOffset={20}
                   >
                     <EventSetupChecklist
                       eventId={selectedEvent.id}

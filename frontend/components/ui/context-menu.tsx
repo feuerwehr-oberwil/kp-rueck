@@ -4,7 +4,7 @@ import * as React from 'react'
 import * as ContextMenuPrimitive from '@radix-ui/react-context-menu'
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
+import { cn, footerCollisionPadding } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
 
 function ContextMenu({
@@ -96,6 +96,9 @@ function ContextMenuSubContent({
 
 function ContextMenuContent({
   className,
+  // Keep the menu clear of the board's footer toolbar — see
+  // footerCollisionPadding. A caller-supplied value still wins.
+  collisionPadding,
   onInteractOutside,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content>) {
@@ -103,6 +106,7 @@ function ContextMenuContent({
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
+        collisionPadding={collisionPadding ?? footerCollisionPadding()}
         // Dismissing a toast must never dismiss the menu behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(

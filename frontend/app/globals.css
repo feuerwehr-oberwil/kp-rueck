@@ -892,3 +892,29 @@
 [data-toast-layer] {
   pointer-events: auto;
 }
+
+/* The footer toolbar goes UNDER a modal dialog — and only under a modal dialog.
+
+   Its `z-[60]` is deliberate: a footer sheet slides UP into place
+   (`slide-in-from-bottom`), so on the way in the panel passes across the
+   toolbar's strip. At the sheet layer's own z-50 the toolbar keeps it behind
+   itself, which is what makes that read as a drawer opening from underneath.
+
+   A modal dialog's overlay is at that same z-50, and there the toolbar has to
+   lose. Left on top it stayed bright over a dimmed board — so it read as still
+   usable while Radix had just put `pointer-events: none` on <body> and was
+   swallowing every click on it — and it painted over the bottom edge of every
+   88dvh (`modal-h-tall`) dialog on an 800px-high screen.
+
+   The overlay element is the signal, rather than the hand-maintained allowlist
+   of three modals this replaces in app/page.tsx (which is why the other ~20
+   dialogs kept the bright toolbar). It exists exactly while a modal is open,
+   and NOT for a non-modal footer sheet — that one renders a plain div backdrop
+   which already stops at the toolbar. `[data-scroll-locked]` on <body> would
+   have looked like the simpler signal and is wrong: menus and selects lock the
+   body too, so the toolbar would have dimmed on every right-click.
+
+   Deliberately outside @layer, so it beats the `z-*` utility on the element. */
+body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) footer {
+  z-index: 40;
+}
