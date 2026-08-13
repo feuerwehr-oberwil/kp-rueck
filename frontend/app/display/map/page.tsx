@@ -353,8 +353,12 @@ function AuthenticatedDisplayMap({
   const { operations } = useOperations()
   const { groups } = useGroups()
 
+  // One refresh when the display map mounts. `refreshIncidents` is the
+  // operations context's callback and changes identity with the selected event,
+  // so listing it would turn this into a refetch-on-context-change effect.
   useEffect(() => {
     refreshIncidents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // id → Operation lookup for the read-only Auftrag route overlay (stops are

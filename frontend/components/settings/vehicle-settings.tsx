@@ -77,8 +77,11 @@ export function VehicleSettings() {
     onClose: closeDialog,
   });
 
+  // Load once on mount. `loadVehicles` is a plain function re-created on every
+  // render, so listing it as a dep would refetch on every render.
   useEffect(() => {
     loadVehicles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadVehicles = async () => {

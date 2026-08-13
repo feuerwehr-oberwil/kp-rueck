@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { apiClient, type ApiEvent, type ApiViewerData } from '@/lib/api-client'
+import { apiClient, type ApiViewerData } from '@/lib/api-client'
 import { Loader2, Eye, ChevronDown, ChevronRight } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
 import { columns, ageLevel } from '@/lib/kanban-utils'
@@ -145,7 +145,8 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
 export function TokenBoard({ token }: { token: string }) {
   const t = useTranslations('display.tokenBoard')
 
-  const [event, setEvent] = useState<ApiEvent | null>(null)
+  // No event state here on purpose: the display layout loads the token's
+  // Ereignis itself for the top bar, so this board only needs the payload.
   const [payload, setPayload] = useState<ApiViewerData | null>(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   // EVERY column folds, ABGESCHLOSSEN included and closed to start with —
@@ -168,7 +169,6 @@ export function TokenBoard({ token }: { token: string }) {
     try {
       const data = await apiClient.getViewerData(token)
       if (!data) return
-      setEvent(data.event)
       setPayload(data)
       setError(null)
       setLastRefresh(new Date())
