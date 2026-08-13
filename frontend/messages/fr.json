@@ -1153,6 +1153,8 @@
       "available": "Disponible",
       "inUse": "En intervention",
       "availableCounter": "{available}/{total} disponibles",
+      "counterLoading": "–/– disponibles",
+      "visibleCounter": "{shown} sur {total} affichés",
       "zuFuss": "À pied",
       "removeZuFuss": "Retirer « à pied »",
       "priorityLow": "Basse",
@@ -1226,6 +1228,13 @@
         "applied": "Colonne triée"
       },
       "noPersonnelCheckedIn": "Personne n’est annoncé",
+      "personnelLoading": "Chargement du personnel",
+      "materialLoading": "Chargement du matériel",
+      "noPersonnelMatch": "Aucune personne ne correspond à <term>« {query} »</term>",
+      "noMaterialMatch": "Aucun engin ne correspond à <term>« {query} »</term>",
+      "resetSearch": "Réinitialiser la recherche",
+      "noMaterialYet": "Aucun matériel enregistré",
+      "createMaterialInSettings": "Créer dans les réglages",
       "scanCheckInQr": "Scanner le code QR d’arrivée",
       "boardPrintSent": "Travail d’impression du tableau envoyé",
       "qrPrintSent": "Travail d’impression du QR envoyé",
@@ -1268,6 +1277,8 @@
       "feldSheetDescription": "Scanner le code QR ou partager le lien – pour tous les groupes sur le terrain",
       "feldSheetHint": "Chaque personne affectée voit ainsi ses propres places sinistrées et peut saisir le rapport de place sinistrée. Fonctionne sans connexion.",
       "rapporte": "Rapports",
+      "more": "Plus",
+      "moreTitle": "{count, plural, one {# commande de plus} other {# commandes de plus}}",
       "rapportBacklog": {
         "toggleTitle": "Rapports de place sinistrée en attente : {count}",
         "title": "Rapports de place sinistrée",
@@ -1387,7 +1398,11 @@
       "auftragChipTooltip": "Mission : {name}",
       "auftragStopPosition": "Étape {pos}/{total}",
       "auftragPersSummary": "{count} pers",
-      "auftragMatSummary": "{count, plural, one {# engin} other {# engins}}"
+      "auftragMatSummary": "{count, plural, one {# engin} other {# engins}}",
+      "auftragStopLine": "Étape {pos} sur {total}",
+      "moreCount": "+{count} autres",
+      "moreCrewTitle": "{count, plural, one {# personne de plus} other {# personnes de plus}} – ouvrir l’intervention",
+      "moreMaterialTitle": "{count, plural, one {# engin de plus} other {# engins de plus}} – ouvrir l’intervention"
     },
     "column": {
       "ariaLabelWithCount": "colonne {title} ({count, plural, one {# intervention} other {# interventions}})",

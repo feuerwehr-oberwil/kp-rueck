@@ -107,6 +107,26 @@ interface DraggableOperationProps {
 // cannot leave an orphan line above nothing.
 const SECTION_RULE = 'border-t pt-3'
 
+/**
+ * How many chips a resource row draws before it hands the rest to «+N weitere».
+ *
+ * A card is a magnet on a board, not a roster: the column is the scarce thing.
+ * Measured on the real board — the card is 294–350px wide and a Swiss name chip
+ * («Schneider Peter») is 92–118px, so a row holds two names, occasionally three.
+ * Six is therefore three chip rows: the crew block keeps the same visual weight
+ * as the Meldung above it, and the card stays in the size class of its
+ * neighbours. Eight ran to four rows and made the resource block taller than the
+ * whole rest of the card. Uncapped, 30 people produced a 771px card that pushed
+ * every card under it off the screen.
+ *
+ * The same cap applies to the material row: it grows exactly the same way.
+ */
+const MAX_ROW_CHIPS = 6
+
+/** Grey, underlined, never a colour — colour on this board means status. */
+const MORE_LINK_CLASSES =
+  'self-center text-xs text-muted-foreground underline underline-offset-2 decoration-muted-foreground/50 transition-colors hover:text-foreground hover:decoration-foreground cursor-pointer'
+
 // Priority visual configuration — bold borders for quick scanning. The table
 // itself lives in lib/priority.ts, which every surface that draws a priority
 // now imports; the copy that used to sit here drifted from it (grey vs emerald
@@ -186,6 +206,17 @@ function DraggableOperationBase({
         .filter(Boolean)
         .join(' · ')
     : ''
+  // What the row says, in full — the tooltip's job now that the row has two
+  // lines that can each still truncate on a narrow column.
+  const auftragTitle = auftrag
+    ? [
+        auftrag.name,
+        t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal }),
+        auftragSummary,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : ''
 
   // What this device actually renders. Resolved once, up front, because the
   // resource block owns a `border-t` divider and its own padding: if the wrapper
@@ -202,6 +233,9 @@ function DraggableOperationBase({
   const showNachbarhilfeRow = !!operation.nachbarhilfe
   const showResourceBlock =
     showRekoPerson || showCrewRow || showVehicleRow || showMaterialRow || showNachbarhilfeRow
+  // How much of each resource row the counter is standing in for. Derived, not
+  // props — `crew`/`materials` are already in the memo comparator.
+  const hiddenCrewCount = showCrewRow ? Math.max(0, operation.crew.length - MAX_ROW_CHIPS) : 0
   const showMeldungBlock = cardView.meldung && !!operation.notes
   const showMelderBlock = cardView.melder && !!(operation.contact || operation.contactPhone)
   const showAuftragBlock = cardView.auftrag && !!auftrag
@@ -681,7 +715,7 @@ function DraggableOperationBase({
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {/* EL first (decision 23): on a card that clips its crew line,
                         the one name worth reading is the Einsatzleiter's. */}
-                    {sortCrewByLeader(operation.crew, operation.leaderName).map((crewName) => {
+                    {sortCrewByLeader(operation.crew, operation.leaderName).slice(0, MAX_ROW_CHIPS).map((crewName) => {
                       const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
                       return (
                         <RemovableChip
@@ -713,6 +747,20 @@ function DraggableOperationBase({
                         </RemovableChip>
                       )
                     })}
+                    {hiddenCrewCount > 0 && (
+                      /* The rest of the Mannschaft, as one affordance instead of
+                         twenty more chips. It opens the detail's Ressourcen
+                         block, which is where the full list — and every control
+                         for changing it — already lives. */
+                      <button
+                        type="button"
+                        onClick={openDetailFrom('overview', 'resources')}
+                        className={MORE_LINK_CLASSES}
+                        title={t('card.moreCrewTitle', { count: hiddenCrewCount })}
+                      >
+                        {t('card.moreCount', { count: hiddenCrewCount })}
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -784,10 +832,18 @@ function DraggableOperationBase({
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {(() => {
                       const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
+                      // Same cap, same reason as the crew row above: a Modul plus
+                      // a dozen loose Geräte grew the card without bound. Groups
+                      // are counted first because they are the denser statement —
+                      // one chip that stands for a whole module.
+                      const shownGroups = completeGroups.slice(0, MAX_ROW_CHIPS)
+                      const shownUngrouped = ungrouped.slice(0, Math.max(0, MAX_ROW_CHIPS - shownGroups.length))
+                      const hiddenMaterialCount =
+                        completeGroups.length - shownGroups.length + ungrouped.length - shownUngrouped.length
                       return (
                         <>
                           {/* Complete groups shown as single group badge */}
-                          {completeGroups.map(({ group, materialIds: matIds }) => (
+                          {shownGroups.map(({ group, materialIds: matIds }) => (
                             <RemovableChip
                               key={`group-${group.id}`}
                               variant="secondary"
@@ -802,7 +858,7 @@ function DraggableOperationBase({
                             </RemovableChip>
                           ))}
                           {/* Ungrouped materials shown individually */}
-                          {ungrouped.map((materialId, idx) => {
+                          {shownUngrouped.map((materialId, idx) => {
                             const material = materials.find(m => m.id === materialId)
                             // Left standing at this address by the crew's rapport.
                             // Marked on the card as well as in the sidebar: the
@@ -828,6 +884,16 @@ function DraggableOperationBase({
                               </RemovableChip>
                             )
                           })}
+                          {hiddenMaterialCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={openDetailFrom('overview', 'resources')}
+                              className={MORE_LINK_CLASSES}
+                              title={t('card.moreMaterialTitle', { count: hiddenMaterialCount })}
+                            >
+                              {t('card.moreCount', { count: hiddenMaterialCount })}
+                            </button>
+                          )}
                         </>
                       )
                     })()}
@@ -870,24 +936,32 @@ function DraggableOperationBase({
                   e.stopPropagation()
                   window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
                 }}
-                className="group/auftrag flex w-full min-w-0 items-center gap-1.5 text-left transition-colors"
-                title={t('card.auftragChipTooltip', { name: auftrag.name })}
+                className="group/auftrag flex w-full min-w-0 items-start gap-1.5 text-left transition-colors"
+                // The whole row, not just the name: this attribute used to carry
+                // the Auftrag NAME while the row rendered «Pio · 3 …», so the
+                // one thing that was actually cut off was the one thing the
+                // tooltip could not give back.
+                title={auftragTitle}
               >
-                <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <span
-                  className="h-2 w-2 rounded-full flex-shrink-0"
+                  className="h-2 w-2 rounded-full flex-shrink-0 mt-1"
                   style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
                 />
-                <span className="max-w-[50%] flex-shrink-0 truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
-                  {auftrag.name}
+                {/* Two lines, because one never fit: measured, the single row
+                    asked for 107px of content in 49px of space (19px on the wall
+                    at 1280) and rendered «Pio · 3 …». The name gets the first
+                    line to itself and the progress sits under it. The card grows
+                    by one line — but only on a card that is a route stop at all. */}
+                <span className="flex min-w-0 flex-1 flex-col gap-px">
+                  <span className="truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
+                    {auftrag.name}
+                  </span>
+                  <span className="truncate text-2xs text-muted-foreground">
+                    <span className="tabular-nums">{t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal })}</span>
+                    {auftragSummary && <> · {auftragSummary}</>}
+                  </span>
                 </span>
-                <span className="tabular-nums text-muted-foreground flex-shrink-0">{t('card.auftragStopPosition', { pos: auftragStopPos, total: auftragTotal })}</span>
-                {auftragSummary && (
-                  <>
-                    <span className="flex-shrink-0 text-muted-foreground/40">·</span>
-                    <span className="min-w-0 flex-1 truncate text-muted-foreground">{auftragSummary}</span>
-                  </>
-                )}
               </button>
             </div>
           )}

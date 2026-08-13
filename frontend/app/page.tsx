@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users, FileText, PanelRight } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -66,6 +67,7 @@ import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { CardViewMenu } from "@/components/kanban/card-view-menu"
+import { ToolbarOverflow } from "@/components/kanban/toolbar-overflow"
 import { useCardView } from "@/lib/card-view"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
@@ -181,6 +183,76 @@ function ToolbarToggle({
         </Badge>
       )}
     </Button>
+  )
+}
+
+/**
+ * What a resource sidebar shows while the first load is still in flight.
+ *
+ * Not a spinner and not a blank box: both sidebars used to render nothing at all
+ * while their footers asserted «0/0 verfügbar» — i.e. that the station has no
+ * crew and no material, which is a statement, not an absence of one. Rows in the
+ * shape of the list that is coming say "wait" without saying anything false, and
+ * nothing jumps when the real rows replace them.
+ */
+function SidebarSkeleton({ label }: { label: string }) {
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label={label}>
+      {[0, 1].map((group) => (
+        <div key={group}>
+          <Skeleton className="mb-2 h-3 w-16 rounded" />
+          <div className="space-y-2">
+            {/* Uneven widths on purpose: an evenly striped block reads as a
+                pattern, a ragged one reads as text that has not arrived. */}
+            {[88, 72, 94].map((width, row) => (
+              <Skeleton
+                key={row}
+                className="h-[38px] rounded-lg"
+                style={{ width: `${width}%` }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * A sidebar with nothing to list, and the reason why.
+ *
+ * One shape for all three of them — nothing checked in, nothing recorded yet,
+ * nothing matching the search — because they are the same statement with
+ * different causes, and the operator's next step is what differs. The action is
+ * grey and underlined, never coloured: on this board colour means status and
+ * priority, so an inline text action must not borrow it.
+ */
+function SidebarEmpty({
+  message,
+  action,
+  onAction,
+  actionHref,
+}: {
+  message: React.ReactNode
+  action?: string
+  onAction?: () => void
+  actionHref?: string
+}) {
+  const actionClasses =
+    'text-xs text-muted-foreground underline underline-offset-2 decoration-muted-foreground/50 transition-colors hover:text-foreground hover:decoration-foreground cursor-pointer'
+  return (
+    <div className="flex flex-col items-center gap-2 py-6 text-center animate-in fade-in duration-300">
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {action && actionHref ? (
+        <Link href={actionHref} className={actionClasses}>
+          {action}
+        </Link>
+      ) : action && onAction ? (
+        <button type="button" onClick={onAction} className={actionClasses}>
+          {action}
+        </button>
+      ) : null}
+    </div>
   )
 }
 
@@ -1357,7 +1429,9 @@ export default function FireStationDashboard() {
   // Use shared resource filtering hook — sidebar search takes priority, top search also filters
   const effectivePersonnelQuery = personnelSearchQuery || searchQuery
   const effectiveMaterialQuery = materialSearchQuery || searchQuery
-  const { groupedPersonnel, groupedMaterials } = useResourceFiltering(
+  // `filtered*` are what the sidebars actually draw — the footer counters read
+  // them so "0 von 17 sichtbar" can never disagree with the list above it.
+  const { groupedPersonnel, groupedMaterials, filteredPersonnel, filteredMaterials } = useResourceFiltering(
     personnel,
     materials,
     effectivePersonnelQuery,
@@ -1934,7 +2008,9 @@ export default function FireStationDashboard() {
               </div>
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
-                {!isLoaded ? null : personnel.length === 0 ? (
+                {!isLoaded ? (
+                  <SidebarSkeleton label={tDash('personnelLoading')} />
+                ) : personnel.length === 0 ? (
                   /* Nobody is checked in for this Ereignis — the QR is the way in.
                      The test used to be "nobody is *available*", which meant a board
                      where every checked-in person was already assigned (or driving,
@@ -1976,15 +2052,35 @@ export default function FireStationDashboard() {
                       </div>
                     ) : null}
                   </div>
-                ) : personnelAvailableOnly && Object.keys(groupedPersonnel).length === 0 ? (
-                  /* Filter hides everything — say so, otherwise the sidebar just
-                     looks broken. */
-                  <div className="py-6 text-center animate-in fade-in duration-300">
-                    <p className="text-sm italic text-muted-foreground/60">{tDash('noneAvailableFiltered')}</p>
-                    <Button variant="link" size="xs" onClick={() => setPersonnelAvailableOnly(false)}>
-                      {tDash('showAll')}
-                    </Button>
-                  </div>
+                ) : Object.keys(groupedPersonnel).length === 0 ? (
+                  /* Nothing to list although people ARE checked in: the search or
+                     the «nur Verfügbare» filter is hiding all of them. Which of
+                     the two it is decides what the way out is, so it decides the
+                     wording — a search that matches nothing used to leave a blank
+                     box under a footer still claiming «10/17». */
+                  effectivePersonnelQuery ? (
+                    <SidebarEmpty
+                      message={tDash.rich('noPersonnelMatch', {
+                        query: effectivePersonnelQuery,
+                        term: (chunks) => <span className="text-foreground">{chunks}</span>,
+                      })}
+                      action={tDash('resetSearch')}
+                      // Clear whichever field is actually driving this: the
+                      // sidebar's own search wins over the board's (see
+                      // `effectivePersonnelQuery`), so clearing the board's
+                      // while the sidebar holds a term would change nothing.
+                      onAction={() => {
+                        if (personnelSearchQuery) setPersonnelSearchQuery('')
+                        else setSearchQuery('')
+                      }}
+                    />
+                  ) : (
+                    <SidebarEmpty
+                      message={tDash('noneAvailableFiltered')}
+                      action={tDash('showAll')}
+                      onAction={() => setPersonnelAvailableOnly(false)}
+                    />
+                  )
                 ) : (
                   <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.keys(groupedPersonnel).map((role) => (
@@ -2010,7 +2106,17 @@ export default function FireStationDashboard() {
                   separate strip, and a line there was just chrome. */}
               <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
                 <p className="text-xs text-muted-foreground text-center">
-                  {tCommon('availableCounter', { available: personnel.filter((p) => p.status === "available").length, total: personnel.length })}
+                  {/* Three states, three sentences. The counter used to render
+                      «0/0 verfügbar» before the roster had arrived and «10/17»
+                      over a list showing nothing — both of them assertions about
+                      the station that were not true at the moment they were made.
+                      While loading it says nothing («–/–»); while a search is
+                      narrowing the list it counts what is on screen. */}
+                  {!isLoaded
+                    ? tCommon('counterLoading')
+                    : effectivePersonnelQuery
+                      ? tCommon('visibleCounter', { shown: filteredPersonnel.length, total: personnel.length })
+                      : tCommon('availableCounter', { available: personnel.filter((p) => p.status === "available").length, total: personnel.length })}
                 </p>
               </div>
             </aside>
@@ -2216,13 +2322,39 @@ export default function FireStationDashboard() {
               <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
-                {!isLoaded ? null : materialsAvailableOnly && Object.keys(groupedMaterials).length === 0 ? (
-                  <div className="py-6 text-center animate-in fade-in duration-300">
-                    <p className="text-sm italic text-muted-foreground/60">{tDash('noneAvailableFiltered')}</p>
-                    <Button variant="link" size="xs" onClick={() => setMaterialsAvailableOnly(false)}>
-                      {tDash('showAll')}
-                    </Button>
-                  </div>
+                {!isLoaded ? (
+                  <SidebarSkeleton label={tDash('materialLoading')} />
+                ) : materials.length === 0 ? (
+                  /* A fresh station: no Gerät has ever been recorded. The same
+                     shape the Personal sidebar has always had for «niemand
+                     angemeldet», down to naming the next step — the material
+                     sidebar used to leave a bare box here. The link is for
+                     editors: the section it points at is editor-only. */
+                  <SidebarEmpty
+                    message={tDash('noMaterialYet')}
+                    action={isEditor ? tDash('createMaterialInSettings') : undefined}
+                    actionHref="/settings?section=materials"
+                  />
+                ) : Object.keys(groupedMaterials).length === 0 ? (
+                  effectiveMaterialQuery ? (
+                    <SidebarEmpty
+                      message={tDash.rich('noMaterialMatch', {
+                        query: effectiveMaterialQuery,
+                        term: (chunks) => <span className="text-foreground">{chunks}</span>,
+                      })}
+                      action={tDash('resetSearch')}
+                      onAction={() => {
+                        if (materialSearchQuery) setMaterialSearchQuery('')
+                        else setSearchQuery('')
+                      }}
+                    />
+                  ) : (
+                    <SidebarEmpty
+                      message={tDash('noneAvailableFiltered')}
+                      action={tDash('showAll')}
+                      onAction={() => setMaterialsAvailableOnly(false)}
+                    />
+                  )
                 ) : (
                   <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.entries(groupedMaterials).map(([category, items]) => {
@@ -2275,10 +2407,15 @@ export default function FireStationDashboard() {
                   </div>
                 )}
               </div>
-              {/* Fixed availability counter at bottom — see the left sidebar. */}
+              {/* Fixed availability counter at bottom — see the left sidebar,
+                  including why it has three states. */}
               <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
                 <p className="text-xs text-muted-foreground text-center">
-                  {tCommon('availableCounter', { available: materials.filter((m) => m.status === "available").length, total: materials.length })}
+                  {!isLoaded
+                    ? tCommon('counterLoading')
+                    : effectiveMaterialQuery
+                      ? tCommon('visibleCounter', { shown: filteredMaterials.length, total: materials.length })
+                      : tCommon('availableCounter', { available: materials.filter((m) => m.status === "available").length, total: materials.length })}
                 </p>
               </div>
             </aside>
@@ -2385,151 +2522,207 @@ export default function FireStationDashboard() {
               )}
             </div>
 
-            {/* Center: Secondary actions grouped.
-                The scroll container is the last line of defence, not the plan:
-                at every width the icon row is meant to fit. It exists so that a
-                station with an extra toggle, a long locale or a 900px window
-                scrolls THIS strip instead of the application.
+            {/* Center: Secondary actions, in order, with whatever does not fit
+                behind «Mehr».
 
-                `justify-center-safe`, not `justify-center`: a centred flex row
-                that overflows spills over BOTH edges, and the part that spills
-                past the start edge cannot be scrolled back to — that is how
-                "Check-In" ended up rendered as "-In". `safe` centring falls back
-                to flex-start the moment the content stops fitting, so the
-                backstop degrades into a scrollable strip instead of eating the
-                first pill. */}
-            <div className="flex min-w-0 flex-1 items-center justify-center-safe gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {/* QR/Access group */}
-              <div className="flex shrink-0 items-center gap-0.5">
-                <ToolbarToggle
-                  icon={QrCode}
-                  label={tDash('checkIn')}
-                  active={qrDialogOpen}
-                  onActivate={generateCheckInQR}
-                />
-                <ToolbarToggle
-                  icon={Search}
-                  label={tCommon('reko')}
-                  active={rekoQrDialogOpen}
-                  onActivate={generateRekoDashboardQR}
-                />
-                <ToolbarToggle
-                  icon={Axe}
-                  label={tDash('feld')}
-                  active={feldQrDialogOpen}
-                  onActivate={generateFeldQR}
-                />
-                <ToolbarToggle
-                  icon={MonitorDown}
-                  label={tDash('display')}
-                  active={displaySheetOpen}
-                  onActivate={generateDisplayShare}
-                />
-                <ToolbarToggle
-                  icon={Siren}
-                  label={tDash('alarm')}
-                  active={alarmQrDialogOpen}
-                  onActivate={generateAlarmQR}
-                />
-              </div>
+                The strip used to rely on the label collapse alone, and the
+                measurements above were the proof that one row of pills cannot be
+                made to fit by choosing breakpoints: with the Meldungs-Leiste open
+                at 1280 four controls fell off the end entirely and a fifth
+                rendered as «Ansic». `ToolbarOverflow` measures instead of
+                guessing — see the note there. The label collapse stays: it is
+                still the cheapest width saving, and every control it does not
+                save is reachable in the panel.
 
-              <div className="h-4 w-px shrink-0 bg-border mx-1" />
-
-              {/* Status/Tools group */}
-              <div className="flex shrink-0 items-center gap-0.5">
-                <ToolbarToggle
-                  icon={Truck}
-                  label={tDash('vehicles')}
-                  active={vehicleStatusSheetOpen}
-                  disabled={!selectedEvent}
-                  onActivate={() => {
-                    if (!selectedEvent) return
-                    setActiveFooterSheet(vehicleStatusSheetOpen ? null : 'vehicles')
-                  }}
-                />
-                <ToolbarToggle
-                  icon={Waypoints}
-                  label={tDash('auftraege')}
-                  active={auftraegeSheetOpen}
-                  disabled={!selectedEvent}
-                  onActivate={() => {
-                    if (!selectedEvent) return
-                    if (!auftraegeSheetOpen) setAuftraegeFocusGroupId(null)
-                    setActiveFooterSheet(auftraegeSheetOpen ? null : 'auftraege')
-                  }}
-                />
-                {/* Schadenplatz-Rapporte, offen und erfasst. Absent only when
-                    there is NEITHER: the footer is width-constrained (see the
-                    note above) and the Bereitschaft button next door sets the
-                    precedent — a control with nothing to say leaves the row.
-                    An empty backlog on its own is no longer that case, because
-                    the sheet's second tab still answers "was haben wir letzte
-                    Woche geschrieben?". The badge is omitted at zero rather
-                    than shown as «0»: it counts OFFEN and nothing else. */}
-                {(openRapports.length > 0 || filedRapports.length > 0) && (
-                  <ToolbarToggle
-                    icon={FileText}
-                    label={tDash('rapporte')}
-                    active={rapportBacklogSheetOpen}
-                    count={openRapports.length > 0 ? openRapports.length : undefined}
-                    title={tDash('rapportBacklog.toggleTitle', { count: openRapports.length })}
-                    onActivate={() => setActiveFooterSheet(rapportBacklogSheetOpen ? null : 'rapporte')}
-                  />
-                )}
-                {/* One pill for every way onto paper. "Drucken" and "Thermo"
-                    used to sit here as two near-identical printer icons; they
-                    are now two columns inside the one sheet, which gives the
-                    width-starved row (see the note above) a slot back. */}
-                <ToolbarToggle
-                  icon={Printer}
-                  label={tDash('print')}
-                  active={printSheetOpen}
-                  disabled={!selectedEvent}
-                  title={tDash('printTitle')}
-                  onActivate={() => {
-                    if (!selectedEvent) return
-                    setActiveFooterSheet(printSheetOpen ? null : 'print')
-                  }}
-                />
-              </div>
-
-              {selectedEvent?.training_flag && (
-                <>
-                  <div className="h-4 w-px shrink-0 bg-border mx-1" />
-                  <Link href="/training" className="shrink-0">
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      className="text-warning-foreground hover:text-warning-foreground hover:bg-warning/10"
-                      title={tDash('trainingControl')}
-                      aria-label={tDash('trainingControl')}
-                    >
-                      <Sparkles className="size-3.5" />
-                      {/* Second collapse stage, at 2xl rather than xl. This is the
-                          longest label in the row (143px) and the only pill that
-                          is not part of the everyday live board — dropping its
-                          word first buys the most width for the least loss. */}
-                      <span className="hidden font-medium 2xl:inline">{tDash('trainingControl')}</span>
-                    </Button>
-                  </Link>
-                </>
-              )}
-
-              <div className="h-4 w-px shrink-0 bg-border mx-1" />
-
-              {/* One control where the two pills used to be. The pills only ever
-                  reached two of the nine card blocks — and never the long ones
-                  (Mannschaft, Fahrzeuge, Material) that decide whether forty
-                  cards fit on the screen. */}
-              <div className="shrink-0">
-                <CardViewMenu
-                  view={cardView}
-                  preset={cardViewPreset}
-                  onApplyPreset={applyCardViewPreset}
-                  onToggleKey={toggleCardViewKey}
-                />
-              </div>
-            </div>
+                Order is the contract. Items overflow from the end, so the pills
+                an operator reaches for on a live board (Check-In, Reko, Feld,
+                Display, Alarm) are the last to go. */}
+            <ToolbarOverflow
+              moreLabel={tDash('more')}
+              moreTitle={(count) => tDash('moreTitle', { count })}
+              items={[
+                {
+                  key: 'checkin',
+                  node: (
+                    <ToolbarToggle
+                      icon={QrCode}
+                      label={tDash('checkIn')}
+                      active={qrDialogOpen}
+                      onActivate={generateCheckInQR}
+                    />
+                  ),
+                },
+                {
+                  key: 'reko',
+                  node: (
+                    <ToolbarToggle
+                      icon={Search}
+                      label={tCommon('reko')}
+                      active={rekoQrDialogOpen}
+                      onActivate={generateRekoDashboardQR}
+                    />
+                  ),
+                },
+                {
+                  key: 'feld',
+                  node: (
+                    <ToolbarToggle
+                      icon={Axe}
+                      label={tDash('feld')}
+                      active={feldQrDialogOpen}
+                      onActivate={generateFeldQR}
+                    />
+                  ),
+                },
+                {
+                  key: 'display',
+                  node: (
+                    <ToolbarToggle
+                      icon={MonitorDown}
+                      label={tDash('display')}
+                      active={displaySheetOpen}
+                      onActivate={generateDisplayShare}
+                    />
+                  ),
+                },
+                {
+                  key: 'alarm',
+                  node: (
+                    <ToolbarToggle
+                      icon={Siren}
+                      label={tDash('alarm')}
+                      active={alarmQrDialogOpen}
+                      onActivate={generateAlarmQR}
+                    />
+                  ),
+                },
+                {
+                  key: 'vehicles',
+                  separatorBefore: true,
+                  node: (
+                    <ToolbarToggle
+                      icon={Truck}
+                      label={tDash('vehicles')}
+                      active={vehicleStatusSheetOpen}
+                      disabled={!selectedEvent}
+                      onActivate={() => {
+                        if (!selectedEvent) return
+                        setActiveFooterSheet(vehicleStatusSheetOpen ? null : 'vehicles')
+                      }}
+                    />
+                  ),
+                },
+                {
+                  key: 'auftraege',
+                  node: (
+                    <ToolbarToggle
+                      icon={Waypoints}
+                      label={tDash('auftraege')}
+                      active={auftraegeSheetOpen}
+                      disabled={!selectedEvent}
+                      onActivate={() => {
+                        if (!selectedEvent) return
+                        if (!auftraegeSheetOpen) setAuftraegeFocusGroupId(null)
+                        setActiveFooterSheet(auftraegeSheetOpen ? null : 'auftraege')
+                      }}
+                    />
+                  ),
+                },
+                /* Schadenplatz-Rapporte, offen und erfasst. Absent only when
+                   there is NEITHER: the Bereitschaft button next door sets the
+                   precedent — a control with nothing to say leaves the row.
+                   An empty backlog on its own is no longer that case, because
+                   the sheet's second tab still answers "was haben wir letzte
+                   Woche geschrieben?". The badge is omitted at zero rather
+                   than shown as «0»: it counts OFFEN and nothing else. */
+                ...(openRapports.length > 0 || filedRapports.length > 0
+                  ? [{
+                      key: 'rapporte',
+                      node: (
+                        <ToolbarToggle
+                          icon={FileText}
+                          label={tDash('rapporte')}
+                          active={rapportBacklogSheetOpen}
+                          count={openRapports.length > 0 ? openRapports.length : undefined}
+                          title={tDash('rapportBacklog.toggleTitle', { count: openRapports.length })}
+                          onActivate={() => setActiveFooterSheet(rapportBacklogSheetOpen ? null : 'rapporte')}
+                        />
+                      ),
+                    }]
+                  : []),
+                /* One pill for every way onto paper. "Drucken" and "Thermo"
+                   used to sit here as two near-identical printer icons; they
+                   are now two columns inside the one sheet. */
+                {
+                  key: 'print',
+                  node: (
+                    <ToolbarToggle
+                      icon={Printer}
+                      label={tDash('print')}
+                      active={printSheetOpen}
+                      disabled={!selectedEvent}
+                      title={tDash('printTitle')}
+                      onActivate={() => {
+                        if (!selectedEvent) return
+                        setActiveFooterSheet(printSheetOpen ? null : 'print')
+                      }}
+                    />
+                  ),
+                },
+                ...(selectedEvent?.training_flag
+                  ? [{
+                      key: 'training',
+                      separatorBefore: true,
+                      node: (
+                        <Link href="/training" className="shrink-0">
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="text-warning-foreground hover:text-warning-foreground hover:bg-warning/10"
+                            title={tDash('trainingControl')}
+                            aria-label={tDash('trainingControl')}
+                          >
+                            <Sparkles className="size-3.5" />
+                            {/* Second collapse stage, at 2xl rather than xl. This is the
+                                longest label in the row (143px) and the only pill that
+                                is not part of the everyday live board — dropping its
+                                word first buys the most width for the least loss. */}
+                            <span className="hidden font-medium 2xl:inline">{tDash('trainingControl')}</span>
+                          </Button>
+                        </Link>
+                      ),
+                    }]
+                  : []),
+                {
+                  key: 'cardview',
+                  separatorBefore: true,
+                  // One control where the two pills used to be. The pills only
+                  // ever reached two of the nine card blocks — and never the long
+                  // ones (Mannschaft, Fahrzeuge, Material) that decide whether
+                  // forty cards fit on the screen.
+                  node: (
+                    <CardViewMenu
+                      view={cardView}
+                      preset={cardViewPreset}
+                      onApplyPreset={applyCardViewPreset}
+                      onToggleKey={toggleCardViewKey}
+                    />
+                  ),
+                  // `data-keep-open`: this one opens a popover of its own from
+                  // inside the panel, so the panel must not close under it.
+                  panelNode: (
+                    <div data-keep-open>
+                      <CardViewMenu
+                        view={cardView}
+                        preset={cardViewPreset}
+                        onApplyPreset={applyCardViewPreset}
+                        onToggleKey={toggleCardViewKey}
+                      />
+                    </div>
+                  ),
+                },
+              ]}
+            />
 
             {/* Right: Help hint */}
             <div className="flex shrink-0 items-center gap-3">
