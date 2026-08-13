@@ -13,8 +13,55 @@ import { NotificationBellTrigger } from '@/components/notifications/notification
 // `Columns3` for the board, not a generic list glyph: the page IS cards in
 // status columns, and it stays distinct from the Karte and Events icons beside
 // it as well as from the `LayoutGrid` the UserMenu uses for the wall display.
-import { Map as MapIcon, Columns3, Calendar } from 'lucide-react';
+import { Map as MapIcon, Columns3, Calendar, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
+
+/**
+ * One icon in the top navigation.
+ *
+ * A link styled as a button, never a button inside a link: nesting the two gave
+ * every item two tab stops, left the anchor without an accessible name, and —
+ * worst — kept the current page's anchor navigable while its button sat
+ * `disabled`. When the target is where you already are (or there is no event to
+ * show), it renders as a genuinely inert button carrying `aria-current`.
+ */
+function NavIcon({
+  href,
+  label,
+  icon: Icon,
+  current,
+  unavailable = false,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  current: boolean;
+  unavailable?: boolean;
+}) {
+  const sizing = 'rounded-lg h-9 w-9 md:h-10 md:w-10';
+  if (current || unavailable) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className={`${sizing} opacity-40`}
+        disabled
+        aria-current={current ? 'page' : undefined}
+        aria-label={label}
+        title={label}
+      >
+        <Icon className="size-4" />
+      </Button>
+    );
+  }
+  return (
+    <Button asChild variant="ghost" size="icon" className={sizing}>
+      <Link href={href} prefetch={true} aria-label={label} title={label}>
+        <Icon className="size-4" />
+      </Link>
+    </Button>
+  );
+}
 
 interface PageNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'training' | 'stats' | 'help' | 'divera';
@@ -49,45 +96,28 @@ export function PageNavigation({
   return (
     // Desktop only — on mobile navigation lives in the bottom navbar.
     <nav aria-label={t('main')} className="hidden md:flex items-center gap-1 md:gap-2">
-        {/* Kanban Icon */}
-        <Link href={withSelection('/')} prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'kanban' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
-            disabled={currentPage === 'kanban' || !hasSelectedEvent}
-            title={t('kanban')}
-            aria-label={t('kanban')}
-          >
-            <Columns3 className="size-4" />
-          </Button>
-        </Link>
+        <NavIcon
+          href={withSelection('/')}
+          label={t('kanban')}
+          icon={Columns3}
+          current={currentPage === 'kanban'}
+          unavailable={!hasSelectedEvent}
+        />
 
-        {/* Map Icon */}
-        <Link href={withSelection('/map')} prefetch={true} className={!hasSelectedEvent ? 'pointer-events-none' : ''}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'map' ? 'opacity-40 cursor-default' : !hasSelectedEvent ? 'opacity-40' : ''}`}
-            disabled={currentPage === 'map' || !hasSelectedEvent}
-            title={t('map')}
-          >
-            <MapIcon className="size-4" />
-          </Button>
-        </Link>
+        <NavIcon
+          href={withSelection('/map')}
+          label={t('map')}
+          icon={MapIcon}
+          current={currentPage === 'map'}
+          unavailable={!hasSelectedEvent}
+        />
 
-        {/* Events Icon */}
-        <Link href="/events" prefetch={true}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-lg h-9 w-9 md:h-10 md:w-10 ${currentPage === 'events' ? 'opacity-40 cursor-default' : ''}`}
-            disabled={currentPage === 'events'}
-            title={t('events')}
-          >
-            <Calendar className="size-4" />
-          </Button>
-        </Link>
+        <NavIcon
+          href="/events"
+          label={t('events')}
+          icon={Calendar}
+          current={currentPage === 'events'}
+        />
 
         {/* User Menu (Cog Dropdown) - now contains all secondary navigation */}
         <UserMenu

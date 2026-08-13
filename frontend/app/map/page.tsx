@@ -53,6 +53,9 @@ import { toast } from "sonner"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
+// The board's shortcut hook owns the canonical "should this keystroke reach the
+// page?" rules; the map answers the same questions and reuses them.
+import { isActivationTarget, isOverlayOpen, isTypingTarget } from "@/lib/hooks/use-kanban-shortcuts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { useTranslations } from "next-intl"
@@ -756,10 +759,13 @@ export default function MapPage() {
         }
       }
 
-      // Ignore if typing in input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
+      // Ignore if typing in a field, and stand down while an overlay is up.
+      // Every overlay on this page is modal (detail modal, Ressourcen- and
+      // Auftrag-Dialoge, the Ansicht/Modus menus), so an open one owns the
+      // keyboard outright — without this, `l` both walked the open menu's
+      // typeahead and toggled the marker labels behind it.
+      if (isTypingTarget(e.target)) return
+      if (isOverlayOpen()) return
 
       // Handle g-prefix navigation
       if (gPrefixActive) {
@@ -816,9 +822,14 @@ export default function MapPage() {
         setResetZoomTrigger((prev) => prev + 1)
         setSelectedIncidentId(null)
       }
-      // 'e' or 'Enter' key to open details for selected incident
-      else if ((((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') && selectedIncidentId) {
-        // Only use 'e' if no modifier keys (Enter always works)
+      // 'e' or 'Enter' key to open details for selected incident. Enter is the
+      // activation key of whatever has focus, so it only means "open details"
+      // while focus is not on a button or link — same rule as the board.
+      else if (
+        (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) ||
+          (e.key === 'Enter' && !isActivationTarget(e.target))) &&
+        selectedIncidentId
+      ) {
         e.preventDefault()
         const incident = incidents.find(inc => inc.id === selectedIncidentId)
         if (incident) {

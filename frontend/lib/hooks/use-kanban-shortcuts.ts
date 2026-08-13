@@ -63,7 +63,9 @@ export interface KanbanShortcutsActions {
   onToggleRightSidebar: () => void
   /** Toggle the side panel collapsed/detail. */
   onToggleSidePanel: () => void
-  /** Switch side panel to Detail view (no-op if collapsed). */
+  /** Switch side panel to Detail view. No key binds to it — `d` used to, and
+   *  now opens the Drucken-Sheet; it is reachable from the command palette
+   *  only, which is why that entry advertises no shortcut. */
   onSidePanelDetail: () => void
   /** Opens/closes the one Drucken-Sheet (Thermodruck, Status drucken, Export). */
   onTogglePrint: () => void
@@ -73,7 +75,12 @@ export interface KanbanShortcutsActions {
   onToggleNotifications: () => void
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
+/**
+ * True when the event target is a field somebody is typing into — a bare `s`
+ * must never be eaten out of one. Exported because every other keyboard
+ * surface (the map, the wall display) needs exactly this rule.
+ */
+export function isTypingTarget(target: EventTarget | null): boolean {
   if (target instanceof HTMLInputElement) return true
   if (target instanceof HTMLTextAreaElement) return true
   if (target instanceof HTMLSelectElement) return true
@@ -81,6 +88,55 @@ function isTypingTarget(target: EventTarget | null): boolean {
   if (target.isContentEditable) return true
   const role = target.getAttribute("role")
   return role === "combobox" || role === "listbox" || role === "option"
+}
+
+/**
+ * Elements for which Enter (or Space) is already the activation key. A
+ * page-level Enter shortcut must stand down for these, or focusing a button
+ * and pressing Enter does nothing.
+ */
+const ACTIVATABLE_SELECTOR = [
+  "a[href]",
+  "button",
+  "summary",
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="tab"]',
+  '[role="switch"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+].join(", ")
+
+/** True when Enter on this target already means "activate me". */
+export function isActivationTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return !!target.closest(ACTIVATABLE_SELECTOR)
+}
+
+/**
+ * True while a Radix dropdown/context menu is open. An open menu owns the
+ * keyboard — it has its own typeahead, arrows and Enter — so a page shortcut
+ * firing underneath makes one keystroke do two things.
+ */
+export function isMenuOpen(): boolean {
+  return !!document.querySelector('[role="menu"][data-state="open"]')
+}
+
+/**
+ * `isMenuOpen` plus dialogs. For surfaces whose overlays are all modal; the
+ * board deliberately does NOT use this, because its footer sheets are
+ * non-modal dialogs whose own toggle key must stay live (see `modalOpen`).
+ */
+export function isOverlayOpen(): boolean {
+  return (
+    isMenuOpen() ||
+    !!document.querySelector(
+      '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+    )
+  )
 }
 
 // Matched by physical key position (e.Code), so Shift+1/2/3 works on every
@@ -141,6 +197,10 @@ export function useKanbanShortcuts(
 
       if (isTypingTarget(e.target)) return
       if (modalOpen) return
+      // An open menu (UserMenu, a card's context menu) is not covered by
+      // `modalOpen` — it is unmanaged Radix state — and it owns the keyboard
+      // while it is up.
+      if (isMenuOpen()) return
 
       // g-prefix navigation owns its own state machine.
       if (gPrefix.handleKey(e)) return
@@ -273,10 +333,15 @@ export function useKanbanShortcuts(
         return
       }
 
-      // Detail modal
+      // Detail modal. `E` is a shortcut like any other; Enter is not — it is
+      // the activation key of whatever has focus. Taking it unconditionally
+      // killed every focused button and link on the board, because on a dense
+      // board the pointer rests over a card nearly all the time. Enter only
+      // opens the hovered card when nothing that Enter already means something
+      // to has focus.
       if (
         ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey) ||
-        e.key === "Enter"
+        (e.key === "Enter" && !isActivationTarget(e.target))
       ) {
         if (hoveredOperationId) {
           const operation = operations.find((op) => op.id === hoveredOperationId)

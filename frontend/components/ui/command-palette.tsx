@@ -293,11 +293,14 @@ export function CommandPalette() {
                   <span className="ml-auto text-xs text-muted-foreground">I / \</span>
                 </CommandItem>
               )}
+              {/* No shortcut hint on purpose: `d` used to open the panel on
+                  Detail and now opens the Drucken-Sheet (see
+                  `lib/hooks/use-kanban-shortcuts.ts`). Nothing binds to this
+                  command any more — it lives here and nowhere else. */}
               {onSidePanelDetail && (
                 <CommandItem onSelect={() => runCommand(onSidePanelDetail)}>
                   <Edit className="mr-2 h-4 w-4" />
                   <span>{t('sidePanelDetail')}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">D</span>
                 </CommandItem>
               )}
               {onSidePanelMap && (

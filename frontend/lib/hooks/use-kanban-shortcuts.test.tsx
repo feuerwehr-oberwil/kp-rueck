@@ -159,6 +159,23 @@ describe("useKanbanShortcuts", () => {
       document.body.removeChild(input);
     });
 
+    it("stands down while a dropdown menu is open", () => {
+      // Menus are unmanaged Radix state, so `modalOpen` cannot see them — but
+      // an open one owns the keyboard (typeahead, arrows, Enter).
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      const menu = document.createElement("div");
+      menu.setAttribute("role", "menu");
+      menu.setAttribute("data-state", "open");
+      document.body.appendChild(menu);
+
+      press("n");
+      expect(actions.onOpenNewEmergency).not.toHaveBeenCalled();
+
+      menu.remove();
+      press("n");
+      expect(actions.onOpenNewEmergency).toHaveBeenCalledTimes(1);
+    });
+
     it("forwards keys to gPrefix.handleKey and short-circuits when consumed", () => {
       const handleKey = vi.fn(() => true);
       const gPrefix = makeGPrefix({ handleKey });
@@ -287,6 +304,34 @@ describe("useKanbanShortcuts", () => {
       );
       press("e");
       expect(actions.onOpenDetail).toHaveBeenCalledWith(op);
+    });
+
+    it("Enter opens the hovered op only when nothing activatable has focus", () => {
+      const op = baseOp();
+      renderHook(() =>
+        useKanbanShortcuts(
+          baseState({ hoveredOperationId: op.id, operations: [op] }),
+          actions,
+        ),
+      );
+
+      // A focused button owns Enter — the board must not take it, or the whole
+      // keyboard UI dies while the pointer merely rests over a card.
+      const button = document.createElement("button");
+      document.body.appendChild(button);
+      const fromButton = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      button.dispatchEvent(fromButton);
+      expect(actions.onOpenDetail).not.toHaveBeenCalled();
+      expect(fromButton.defaultPrevented).toBe(false);
+      button.remove();
+
+      const bare = press("Enter");
+      expect(actions.onOpenDetail).toHaveBeenCalledWith(op);
+      expect(bare.defaultPrevented).toBe(true);
     });
 
     it("'Delete' stages the hovered op for delete confirmation", () => {
