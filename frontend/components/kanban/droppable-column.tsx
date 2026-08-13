@@ -282,7 +282,7 @@ export const DroppableColumn = memo(function DroppableColumn({
       >
         <div className="flex flex-col items-center gap-2 py-3">
           {/* Same title as the expanded header, so the same casing. */}
-          <span className="text-xs font-semibold text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
             {columnTitle}
           </span>
           <span className="text-xs text-muted-foreground/60 font-mono">{operations.length}</span>
@@ -302,8 +302,13 @@ export const DroppableColumn = memo(function DroppableColumn({
         <div className="flex items-center justify-between">
           {/* min-w-0 + truncate: the title is the only part that may give way. A long
               column name must not push the sort/collapse controls off the header. */}
-          {/* Title case, not caps: `/display/*` is the only surface that shouts. */}
-          <h2 className="min-w-0 truncate text-sm font-bold tracking-tight text-foreground" title={columnTitle}>{columnTitle}</h2>
+          {/* Caps, but quieter than a card: a column header names a PLACE, a card
+              header names an Einsatz. Rendered like a card title — same size,
+              same weight, same colour — the two read as the same kind of thing
+              and the eye stops finding the column boundaries. Small, spaced caps
+              in muted-foreground make it a label instead: unmistakably a header,
+              without competing with the addresses underneath it. */}
+          <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground" title={columnTitle}>{columnTitle}</h2>
           <div className="flex items-center gap-2">
             {onSort && (
               <DropdownMenu>
