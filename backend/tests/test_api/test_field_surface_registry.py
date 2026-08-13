@@ -33,8 +33,9 @@ The four doors an entry may declare:
 
 Out of scope on purpose: `/api/alarms` and `/api/divera/webhook` are
 machine-to-machine intakes authenticated by a shared secret, not surfaces a
-human opens without logging in; `/api/photos` and `/api/print/jobs` are
-session- and agent-authenticated respectively.
+human opens without logging in; `/api/print/jobs` is agent-authenticated;
+`/api/photos` reads only, behind a session or an event-scoped viewer token
+(`serve_photo`), and this registry polices writes.
 """
 
 import uuid

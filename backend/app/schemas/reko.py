@@ -139,7 +139,7 @@ class RekoSummary(BaseModel):
     effort_json: EffortEstimation | None = None
     summary_text: str | None = None
     # Filenames only — served through /api/photos/{incident_id}/{filename},
-    # which stays behind the login.
+    # which takes a session or, event-scoped, a viewer share token.
     photos_json: list[str] = []
     submitted_at: datetime | None = None
     submitted_by_personnel_name: str | None = None
@@ -151,6 +151,48 @@ class RekoSummary(BaseModel):
         if v is None:
             return []
         return v
+
+
+class ViewerRekoDangers(BaseModel):
+    """The danger checklist without its free-text note (see ViewerRekoSummary)."""
+
+    fire: bool = False
+    fire_danger: bool = False
+    explosion: bool = False
+    collapse: bool = False
+    chemical: bool = False
+    electrical: bool = False
+
+
+class ViewerRekoSummary(BaseModel):
+    """What a share link may show of a Reko result — deliberately narrower than RekoSummary.
+
+    The /viewer/data endpoint has no session behind it: the token in the URL is
+    the only gate, and a URL gets forwarded. So this drops
+
+    * ``other_notes`` on the dangers — free text the Reko dictated about the
+      site, which can name people who live there;
+    * the submitter's name and the submission time — nothing on the display
+      renders them, and who reported it is not part of the situation.
+
+    ``photos_json`` **is** carried, and that is a deliberate widening of the
+    boundary: a picture of the damage is the most useful part of a Reko result,
+    and the detail dialog on the share board drew an empty grid without it.
+    /api/photos/{incident}/{file} therefore takes the same viewer token as a
+    second door, scoped to the token's own event and to files a submitted report
+    lists (see ``serve_photo``). Filenames only — the URL is built client-side.
+
+    What is left is what the card and the detail dialog actually draw.
+    """
+
+    is_relevant: bool | None = None
+    dangers_json: ViewerRekoDangers | None = None
+    summary_text: str | None = None
+    # Flattened out of effort_json: the display reads these two numbers and
+    # nothing else from the effort estimation.
+    personnel_count: int | None = None
+    estimated_duration_hours: float | None = None
+    photos_json: list[str] = []
 
 
 class EventRekoSummariesResponse(BaseModel):

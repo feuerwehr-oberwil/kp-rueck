@@ -12233,7 +12233,7 @@
           "photos"
         ],
         "summary": "Serve Photo",
-        "description": "Serve photo file with authentication and authorization.\n\nSECURITY: Requires authentication to prevent unauthorized access to photos\nthat may contain sensitive operational information.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    current_user: Authenticated user\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 401: If not authenticated\n    HTTPException 403: If user doesn't have access to incident\n    HTTPException 404: If photo not found",
+        "description": "Serve photo file with authentication and authorization.\n\nSECURITY: two doors, and they are not equally wide.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\nEverything that is not one of those two doors is a 404, never a 403: a share\nlink must not be usable to confirm that a photo of another event exists.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 401: If neither door opens\n    HTTPException 404: If the photo is not found, or out of the token's reach",
         "operationId": "serve_photo_api_photos__incident_id___filename__get",
         "parameters": [
           {
@@ -12254,6 +12254,24 @@
               "type": "string",
               "title": "Filename"
             }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Viewer share token, when there is no session",
+              "title": "Token"
+            },
+            "description": "Viewer share token, when there is no session"
           },
           {
             "name": "authorization",

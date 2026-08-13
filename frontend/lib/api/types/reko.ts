@@ -95,6 +95,21 @@ export interface ApiRekoSummary {
   submitted_by_personnel_name: string | null
 }
 
+/** The Reko result as the public share link carries it (`/api/viewer/data`).
+ *
+ *  Narrower than `ApiRekoSummary` on purpose — that endpoint has no session
+ *  behind it: no free-text danger note, no submitter. Photo FILENAMES do ride
+ *  along; the share token opens `/api/photos` for its own event (`rekoPhotoUrl`).
+ *  Mirrors `ViewerRekoSummary` on the backend. */
+export interface ApiViewerRekoSummary {
+  is_relevant: boolean | null
+  dangers_json: Omit<ApiDangersAssessment, 'other_notes'> | null
+  summary_text: string | null
+  personnel_count: number | null
+  estimated_duration_hours: number | null
+  photos_json: string[]
+}
+
 export interface ApiEventRekoSummariesResponse {
   /** incident_id -> summary */
   summaries: Record<string, ApiRekoSummary>

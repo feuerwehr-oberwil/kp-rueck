@@ -799,12 +799,30 @@ async def test_serve_photo_file_not_found(editor_client: AsyncClient, test_incid
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_serve_photo_viewer_can_access(viewer_client: AsyncClient, test_incident: Incident):
-    """Test that viewers can access photos."""
+async def test_serve_photo_viewer_can_access(client: AsyncClient, db_session: AsyncSession, test_incident: Incident):
+    """A viewer-role session reads photos too — read-only is still logged in.
+
+    Uses a real login: serve_photo resolves the user manually (share-token-or-
+    session), so the dependency-override viewer_client doesn't apply.
+    """
+    from app.auth.security import hash_password
+
+    viewer = User(
+        id=uuid4(),
+        username="photo_viewer",
+        password_hash=hash_password("testpassword1234"),
+        role="viewer",
+    )
+    db_session.add(viewer)
+    await db_session.commit()
+
+    login = await client.post("/api/auth/login", data={"username": "photo_viewer", "password": "testpassword1234"})
+    assert login.status_code == 200
+
     with patch("app.api.reko.photo_storage") as mock_storage:
         mock_storage.get_photo_path = MagicMock(return_value=None)
 
-        response = await viewer_client.get(f"/api/photos/{test_incident.id}/photo.jpg")
+        response = await client.get(f"/api/photos/{test_incident.id}/photo.jpg")
         # Should get 404 (file not found) not 403 (forbidden)
         assert response.status_code == 404
 

@@ -564,6 +564,7 @@ function TokenDisplayMap({
         personnelOverride={situation?.personnel ?? []}
         materialsOverride={situation?.materials ?? []}
         groupsOverride={groups}
+        viewerToken={token}
       />
       </div>
     </div>

@@ -42,7 +42,12 @@ logger = get_logger(__name__)
 from ..services.audit import log_action
 from ..services.notification_service import create_reko_arrived_notification
 from ..services.photo_storage import photo_storage
-from ..services.tokens import generate_form_token, validate_form_token, validate_reko_dashboard_token
+from ..services.tokens import (
+    generate_form_token,
+    validate_form_token,
+    validate_reko_dashboard_token,
+    validate_viewer_token,
+)
 
 router = APIRouter(prefix="/reko", tags=["reko"])
 
@@ -674,34 +679,83 @@ from fastapi import APIRouter as BaseAPIRouter
 photos_router = BaseAPIRouter(prefix="/photos", tags=["photos"])
 
 
+async def _viewer_token_may_see_photo(
+    db: AsyncSession,
+    incident: Incident,
+    filename: str,
+    event_id: uuid.UUID,
+) -> bool:
+    """Two questions a share token has to answer before a photo is served.
+
+    A viewer token is scoped to ONE event, so it may only reach an incident of
+    that event — a forwarded link for the Sturm must not open a photo from the
+    Grossbrand next door. And within that incident it may only reach the files a
+    **submitted** Reko report actually lists: `get_photo_path` proves a file
+    exists on that incident's directory on disk, nothing more, and that
+    directory also holds the Schadenplatz-Rapport photos, which the share link
+    does not carry and must not serve. A draft's photos stay out for the same
+    reason — an unsent report is not part of the shared situation.
+    """
+    if incident.event_id != event_id:
+        return False
+
+    result = await db.execute(
+        select(RekoReport.photos_json).where(
+            RekoReport.incident_id == incident.id,
+            RekoReport.is_draft == False,  # noqa: E712 - SQLAlchemy needs == not 'is'
+        )
+    )
+    return any(filename in (photos or []) for photos in result.scalars())
+
+
 @photos_router.get("/{incident_id}/{filename}")
 async def serve_photo(
     incident_id: uuid.UUID,
     filename: str,
     request: Request,
-    current_user: CurrentUser,
+    token: str | None = Query(None, description="Viewer share token, when there is no session"),
+    access_token: str | None = Cookie(None),
+    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> FileResponse:
     """
     Serve photo file with authentication and authorization.
 
-    SECURITY: Requires authentication to prevent unauthorized access to photos
-    that may contain sensitive operational information.
+    SECURITY: two doors, and they are not equally wide.
+
+    * A **session** reads any photo of any incident — an operator on the board
+      already sees the whole event.
+    * A **viewer share token** (`?token=`) reads only the Reko photos of the
+      event it was minted for, and only those a submitted report lists. Without
+      it the share board draws the Reko result but a broken image where the
+      picture of the damage should be, which is the most useful part of it.
+      Anyone holding the link can then see those photos — that is the cost the
+      link has always carried for everything else on the display, and the
+      narrowing above is what keeps it to that.
+
+    Everything that is not one of those two doors is a 404, never a 403: a share
+    link must not be usable to confirm that a photo of another event exists.
 
     Args:
         incident_id: Incident UUID
         filename: Photo filename
-        current_user: Authenticated user
+        token: Viewer share token, checked before the session cookie
         db: Database session
 
     Returns:
         Image file with cache headers
 
     Raises:
-        HTTPException 401: If not authenticated
-        HTTPException 403: If user doesn't have access to incident
-        HTTPException 404: If photo not found
+        HTTPException 401: If neither door opens
+        HTTPException 404: If the photo is not found, or out of the token's reach
     """
+    # Token first, session second — the same "one route, two doors" shape as
+    # _require_user_or_form_token. A token that does not validate falls through
+    # to the cookie rather than short-circuiting, so a stale token in a bookmark
+    # never locks out an operator who is logged in anyway.
+    viewer_event_id = validate_viewer_token(token) if token else None
+    current_user = None if viewer_event_id else await get_current_user(request, access_token, authorization, db)
+
     # Verify incident exists
     incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = incident_result.scalar_one_or_none()
@@ -709,19 +763,23 @@ async def serve_photo(
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
 
-    # Get photo path and verify it exists
+    if viewer_event_id and not await _viewer_token_may_see_photo(db, incident, filename, viewer_event_id):
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    # Get photo path and verify it exists (this is also the path-traversal guard)
     file_path = photo_storage.get_photo_path(incident_id, filename)
     if not file_path:
         raise HTTPException(status_code=404, detail="Photo not found")
 
-    # Log photo access for audit trail
+    # Log photo access for audit trail. `user=None` on the token door is the
+    # provenance itself: nobody was logged in, somebody held the share link.
     await log_action(
         db=db,
         action_type="view_photo",
         resource_type="reko_photo",
         resource_id=incident_id,
         user=current_user,
-        changes={"filename": filename},
+        changes={"filename": filename, "via": "viewer_token" if viewer_event_id else "session"},
         request=request,
     )
     await db.commit()

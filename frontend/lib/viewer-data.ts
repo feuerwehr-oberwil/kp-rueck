@@ -8,9 +8,10 @@
  * assignments rather than the (never event-scoped) availability column.
  */
 
-import { type ApiViewerData, type ApiIncident } from "@/lib/api-client"
+import { type ApiViewerData, type ApiIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
-import { type Operation } from "@/lib/contexts/operations-context"
+import { translateOutsideReact } from "@/lib/i18n-messages"
+import { type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
 import { type Person, type PersonStatus } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { type IncidentGroup } from "@/lib/types/groups"
@@ -27,8 +28,36 @@ export interface SituationData {
   materials: Material[]
 }
 
+/**
+ * The Reko result as an Operation carries it. Same labels, same order, as the
+ * logged-in board builds in operations-context — the share link and the board
+ * have to read identically, photos included: the payload carries the filenames
+ * and the display resolves them with its own token (`rekoPhotoUrl`).
+ */
+function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
+  const dangerTypes: string[] = []
+  const dangers = summary.dangers_json
+  if (dangers) {
+    if (dangers.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
+    if (dangers.fire_danger) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fireDanger'))
+    if (dangers.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
+    if (dangers.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
+    if (dangers.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
+    if (dangers.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
+  }
+  return {
+    isRelevant: summary.is_relevant ?? false,
+    hasDangers: dangerTypes.length > 0,
+    dangerTypes,
+    personnelCount: summary.personnel_count ?? null,
+    estimatedDuration: summary.estimated_duration_hours ?? null,
+    summaryText: summary.summary_text ?? null,
+    photos: summary.photos_json ?? [],
+  }
+}
+
 /** Map an API incident (from the share-token payload) onto an Operation. */
-export function viewerIncidentToOperation(a: ApiIncident): Operation {
+export function viewerIncidentToOperation(a: ApiIncident, reko?: ApiViewerRekoSummary): Operation {
   return {
     id: a.id,
     location: a.location_address || a.title,
@@ -57,7 +86,7 @@ export function viewerIncidentToOperation(a: ApiIncident): Operation {
     statusChangedAt: a.status_changed_at ? new Date(a.status_changed_at) : null,
     hasCompletedReko: a.has_completed_reko,
     rekoArrivedAt: a.reko_arrived_at ? new Date(a.reko_arrived_at) : null,
-    rekoSummary: null,
+    rekoSummary: reko ? viewerRekoSummary(reko) : null,
     assignedReko: null,
     leaderName: null,
     crewAssignments: new Map(),
@@ -90,7 +119,10 @@ export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGr
 
 /** Build the full display view-model from a share-token payload. */
 export function buildSituationData(payload: ApiViewerData): SituationData {
-  const operations: Operation[] = payload.incidents.map(viewerIncidentToOperation)
+  const rekoSummaries = payload.reko_summaries ?? {}
+  const operations: Operation[] = payload.incidents.map((incident) =>
+    viewerIncidentToOperation(incident, rekoSummaries[incident.id])
+  )
 
   // Special functions: reko people are tracked per-incident (not crew); every
   // other function (driver, magazin, …) counts its person as assigned —

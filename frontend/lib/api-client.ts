@@ -65,6 +65,7 @@ import {
   type ApiRekoReportResponse,
   type ApiRekoFormResponse,
   type ApiEventRekoSummariesResponse,
+  type ApiViewerRekoSummary,
   type ApiExcelImportPreview,
   type ApiExcelImportResult,
   type ApiEmergencyTemplate,
@@ -109,6 +110,9 @@ export interface ApiViewerData {
    *  availability (assigned vs. available) like the logged-in board. */
   assignments?: Record<string, ApiAssignment[]>
   special_functions?: ApiEventSpecialFunctionResponse[]
+  /** incident_id → what the Reko reported, for incidents with a submitted
+   *  report. Photos are not in there: the photo route needs the login. */
+  reko_summaries?: Record<string, ApiViewerRekoSummary>
 }
 
 /**

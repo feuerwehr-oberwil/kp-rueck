@@ -4,21 +4,23 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import { TokenBoard } from "./token-board"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { filterIncidents } from "@/lib/incident-search"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
+import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { CARD_VIEW_PRESETS } from "@/lib/card-view"
 import { columns, ageLevel } from "@/lib/kanban-utils"
-import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
-import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
-import { IncidentDetailModal, priorityVisuals } from "@/components/display/incident-detail-modal"
-import { Truck, Users, Siren, Package, ChevronDown, ChevronRight, Waypoints } from "lucide-react"
+import { getIncidentLocationLabel } from "@/lib/incident-types"
+import { DisplayIncidentCard } from "@/components/display/incident-card"
+import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
+import { ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /** Per-device fold state for the viewer board (see useCollapsedSections). */
@@ -47,15 +49,38 @@ export default function DisplayBoardPage() {
 function BoardDisplay() {
   const t = useTranslations('display')
   const tk = useTranslations('kanban')
-  const { operations: allOperations } = useOperations()
-  const { materials } = useMaterials()
+  const { operations: allOperations, materialOnSite } = useOperations()
+  const { materials, materialGroups } = useMaterials()
+  const { selectedEvent } = useEvent()
   // The top bar's search, same predicate the command-post board filters with —
   // an address, a name, a Fahrzeug or a Material, across every column at once.
   const { query } = useDisplaySearch()
-  const operations = useMemo(
-    () => filterIncidents(allOperations, query, materials),
-    [allOperations, query, materials],
+  const { groups, getGroupResources } = useGroups()
+  // The wall always shows the WHOLE card, and deliberately does not follow the
+  // operator's «Ansicht».
+  //
+  // It briefly did, on the theory that the wall should match the board on the
+  // next monitor. But the two want opposite things: «Kompakt» exists so an
+  // operator can fit more cards on a board they are working in, while a wall
+  // exists to be read from across the room and has the room to spare. Worse,
+  // the preset is per-device localStorage and there is no «Ansicht» control on
+  // this page — so a wall PC left on «Kompakt» showed nothing but addresses,
+  // and nobody standing at it could put that right.
+  // One roster call for the whole board rather than one per card, exactly as
+  // app/page.tsx threads it down.
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id)
+  // groupId → Auftrag name: an incident is a stop on a route, and the route's
+  // name lives on the group, not on the operation.
+  const groupNames = useMemo(
+    () => new Map(groups.map((group) => [group.id, group.name])),
+    [groups],
   )
+  const operations = useMemo(
+    () => filterIncidents(allOperations, query, materials, groupNames),
+    [allOperations, query, materials, groupNames],
+  )
+  // Same conflict marking the board carries: a name on two incidents at once.
+  const doubleBookedPersons = useDoubleBookedPersons(allOperations)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
   // EVERY column folds now — a larger Feuerwehr otherwise just scrolls. All of
@@ -104,18 +129,31 @@ function BoardDisplay() {
     }
   }, [operations, selectedOperation?.id])
 
-  // Expanding a folded column — «Abgeschlossen» lives at the far right — used to
-  // widen something off-screen: the click looked like it did nothing. Bring it
-  // into view. Only on the click, never on mount.
-  const columnRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
-  const [scrollToColumn, setScrollToColumn] = useState<string | null>(null)
+  // Folding a column changes its width by hundreds of pixels, which shoves every
+  // column after it sideways. «Abgeschlossen» lives at the far right, so the
+  // click that opens it widened something outside the scrollport and read as
+  // "nothing happened" — and CLOSING moves the board just as far, so both
+  // directions scroll the column back into view. Only on the click, never on
+  // mount: a wall display may not yank itself sideways on its own.
+  const keepInViewRef = useRef<string | null>(null)
+  const requestKeepInView = (columnId: string) => { keepInViewRef.current = columnId }
+  // A signature, because `useCollapsedSections` hands out a predicate rather than
+  // the set: this string is what actually changes when a column folds, and it is
+  // the only honest dependency for "the board has just re-laid out".
+  const collapseSignature = columns.map((c) => (collapsedColumns.isCollapsed(c.id) ? "1" : "0")).join("")
   useEffect(() => {
-    if (!scrollToColumn) return
-    columnRefs.current
-      .get(scrollToColumn)
-      ?.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" })
-    setScrollToColumn(null)
-  }, [scrollToColumn])
+    const columnId = keepInViewRef.current
+    if (!columnId) return
+    keepInViewRef.current = null
+    // A DOM query rather than a ref: the folded strip and the open column are two
+    // different elements, so the ref that survives the toggle is whichever one
+    // just unmounted. `data-column` is on both.
+    document
+      .querySelector(`[data-column="${columnId}"]`)
+      // `nearest`, not `end`: bring it back only as far as it takes to be
+      // visible, so a column that never left the scrollport does not jump.
+      ?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" })
+  }, [collapseSignature])
 
   useCrossWindowSync({
     onMessage: (msg) => {
@@ -135,6 +173,18 @@ function BoardDisplay() {
 
   return (
     <div className="flex h-full gap-2 p-3 overflow-x-auto">
+      {/* The status-change flash, defined once for the board instead of once per
+          card — the old copy shipped an identical <style> block inside every
+          rendered card. */}
+      <style>{`
+        @keyframes display-card-flash {
+          0%, 100% { box-shadow: none; }
+          25% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.4); }
+          50% { box-shadow: none; }
+          75% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.4); }
+        }
+        .display-card-flash { animation: display-card-flash 1.5s ease-out; }
+      `}</style>
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
         const isCollapsed = collapsedColumns.isCollapsed(column.id)
@@ -160,9 +210,10 @@ function BoardDisplay() {
             <button
               key={column.id}
               type="button"
+              data-column={column.id}
               onClick={() => {
+                requestKeepInView(column.id)
                 collapsedColumns.toggle(column.id)
-                setScrollToColumn(column.id)
               }}
               className={cn(
                 "flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5",
@@ -191,12 +242,15 @@ function BoardDisplay() {
         return (
           <div
             key={column.id}
-            ref={(element) => { columnRefs.current.set(column.id, element) }}
+            data-column={column.id}
             className="flex flex-1 flex-col min-w-[280px] overflow-hidden"
           >
             <button
               type="button"
-              onClick={() => collapsedColumns.toggle(column.id)}
+              onClick={() => {
+                requestKeepInView(column.id)
+                collapsedColumns.toggle(column.id)
+              }}
               aria-expanded
               className={cn(
                 "mb-2 w-full cursor-pointer rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-foreground/5",
@@ -218,16 +272,29 @@ function BoardDisplay() {
                 </span>
               </div>
             </button>
-            <div className="flex-1 space-y-2 overflow-y-auto rounded-lg p-1">
-              {ops.map((op) => (
-                <DisplayOperationCard
-                  key={op.id}
-                  operation={op}
-                  isHighlighted={highlightedId === op.id}
-                  isFlashing={flashIds.has(op.id)}
-                  onClick={() => setSelectedOperation(op)}
-                />
-              ))}
+            {/* space-y-3 and p-2, the column body the board uses: the cards are
+                the board's cards now, so they get the board's rhythm too. */}
+            <div className="flex-1 space-y-3 overflow-y-auto rounded-lg p-2">
+              {ops.map((op) => {
+                const auftrag = op.groupId ? groups.find((g) => g.id === op.groupId) : undefined
+                return (
+                  <DisplayIncidentCard
+                    key={op.id}
+                    operation={op}
+                    cardView={CARD_VIEW_PRESETS.alles}
+                    materials={materials}
+                    materialGroups={materialGroups}
+                    materialOnSite={materialOnSite}
+                    vehicleDrivers={vehicleDrivers}
+                    doubleBookedCrewNames={doubleBookedPersons.names}
+                    auftrag={auftrag}
+                    auftragResources={auftrag ? getGroupResources(auftrag.id) : null}
+                    isHighlighted={highlightedId === op.id}
+                    isFlashing={flashIds.has(op.id)}
+                    onClick={() => setSelectedOperation(op)}
+                  />
+                )
+              })}
             </div>
           </div>
         )
@@ -242,140 +309,5 @@ function BoardDisplay() {
         showReports
       />
     </div>
-  )
-}
-
-function DisplayOperationCard({
-  operation,
-  isHighlighted,
-  isFlashing,
-  onClick,
-}: {
-  operation: Operation
-  isHighlighted: boolean
-  isFlashing: boolean
-  onClick: () => void
-}) {
-  const t = useTranslations('display')
-  const tk = useTranslations('kanban')
-  const { groups } = useGroups()
-  const { Icon: PriorityIcon, label: priorityLabel, iconColor: priorityIconColor } =
-    priorityVisuals[operation.priority]
-
-  // Auftrag (route) membership — read-only chip. Stop position derives from the
-  // resolved stop order; group_position (0-based) is the fallback when the id
-  // isn't in stopIds yet (optimistic add mid-sync). Mirrors the board card.
-  const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  const auftragTotal = auftrag ? auftrag.stopIds.length : 0
-  const auftragStopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
-  const auftragStopPos = auftrag
-    ? (auftragStopIndex >= 0 ? auftragStopIndex + 1 : operation.groupPosition + 1)
-    : 0
-
-  return (
-    <Card
-      className={cn(
-        "p-3 transition-all border border-border bg-card/80 cursor-pointer hover:bg-card",
-        isHighlighted && "ring-2 ring-primary border-primary scale-[1.02]",
-        isFlashing && "animate-flash"
-      )}
-      onClick={onClick}
-    >
-      <style>{`
-        @keyframes flash {
-          0%, 100% { box-shadow: none; }
-          25% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.4); }
-          50% { box-shadow: none; }
-          75% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.4); }
-        }
-        .animate-flash { animation: flash 1.5s ease-out; }
-      `}</style>
-      <div className="space-y-2">
-        <div className="flex items-start gap-2">
-          <PriorityIcon
-            className={cn("h-4 w-4 flex-shrink-0 mt-0.5", priorityIconColor)}
-            aria-label={t('board.priorityAria', { label: priorityLabel })}
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <h3 className="font-bold text-sm leading-tight break-words">{getIncidentLocationLabel(operation)}</h3>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex-shrink-0">
-                {priorityLabel}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-          <span className="text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
-        </div>
-
-        {auftrag && (
-          <div
-            className="flex items-center gap-1.5 rounded-md px-1.5 py-1"
-            style={{
-              backgroundColor: `color-mix(in srgb, ${auftrag.color ?? "var(--muted-foreground)"} 14%, transparent)`,
-            }}
-            title={t('board.auftragChipTooltip', { name: auftrag.name })}
-          >
-            <Waypoints
-              className="h-3.5 w-3.5 flex-shrink-0"
-              style={{ color: auftrag.color ?? "var(--muted-foreground)" }}
-            />
-            <span
-              className="text-xs font-bold uppercase tracking-wide truncate"
-              style={{ color: auftrag.color ?? "var(--muted-foreground)" }}
-            >
-              {auftrag.name}
-            </span>
-            <span className="ml-auto text-[10px] font-mono font-semibold uppercase tabular-nums text-muted-foreground flex-shrink-0">
-              {tk('card.auftragStopPosition', { pos: auftragStopPos, total: auftragTotal })}
-            </span>
-          </div>
-        )}
-
-        {/* Read-only: nobody clicks a wall display. The mode it shows follows the
-            station setting (or this machine's own choice). */}
-        <IncidentTimeRow
-          operation={operation}
-          readOnly
-          colorByAge
-          className="justify-between gap-1.5"
-          startClassName="text-xs"
-          startIconClassName="h-3.5 w-3.5"
-          iconClassName="h-3 w-3"
-        />
-
-        {operation.notes && (
-          <p className="text-xs text-muted-foreground line-clamp-2 border-t pt-2">{operation.notes}</p>
-        )}
-
-        {operation.vehicles.length > 0 && (
-          <div className="flex items-start gap-1.5 border-t pt-2">
-            <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <div className="flex flex-wrap gap-1">
-              {operation.vehicles.map((v, i) => (
-                <Badge key={i} variant="secondary" className="text-xs px-1.5 py-0">{v}</Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {operation.crew.length > 0 && (
-          <div className="flex items-start gap-1.5">
-            <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <span className="text-xs text-muted-foreground">{t('common.personCount', { count: operation.crew.length })}</span>
-          </div>
-        )}
-
-        {operation.materials.length > 0 && (
-          <div className="flex items-start gap-1.5">
-            <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <span className="text-xs text-muted-foreground">{t('board.materialCount', { count: operation.materials.length })}</span>
-          </div>
-        )}
-      </div>
-    </Card>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -9,7 +9,7 @@ import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useMaterials, type Material } from "@/lib/contexts/materials-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { type IncidentGroup } from "@/lib/types/groups"
+import { type IncidentGroup, type GroupResources } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -28,8 +28,10 @@ import {
 import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { rapportApplies } from "@/lib/rapport-visibility"
-import { useIncidentTimeline } from "@/lib/hooks/use-incident-timeline"
+import { useIncidentTimeline, type IncidentTimelineState } from "@/lib/hooks/use-incident-timeline"
+import { PickupBadge } from "@/components/kanban/pickup-badge"
 import RekoReportSection from "@/components/reko/reko-report-section"
+import { FieldMessageThread } from "@/components/kanban/field-reports-row"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
@@ -52,10 +54,15 @@ export const priorityVisuals: Record<
  *
  * With `showReports` it also carries the three things the command post's own
  * detail keeps behind tabs — the Reko-Bericht in full, the Schadenplatz-Rapport
- * and the Verlauf — as folded sections, mounted only once opened so a wall
- * display does not poll three endpoints per card it shows. Read-only
- * throughout: the same components the editor mounts, with `canEdit={false}`,
- * rather than a second rendering that drifts.
+ * and the Verlauf. Read-only throughout: the same components the editor mounts,
+ * with `canEdit={false}`, rather than a second rendering that drifts.
+ *
+ * Reko-Bericht and Rapport open by themselves **when there is one filed**:
+ * nobody stands at a wall display to click a chevron, so a report behind a fold
+ * is a report the command post does not read. Empty stays folded — an unfilled
+ * form and a «kein Bericht» placeholder are not information, and folded means
+ * unmounted, so they cost no request either. The Verlauf stays folded on
+ * purpose: it is the one section that is a log rather than a picture of now.
  *
  * It is off by default because those endpoints need a session: a share-token
  * display has no cookie, and offering a section that can only answer 401 is
@@ -68,6 +75,8 @@ export function IncidentDetailModal({
   personnelOverride,
   materialsOverride,
   groupsOverride,
+  groupResourcesOverride,
+  viewerToken,
   showReports = false,
 }: {
   operation: Operation | null
@@ -76,24 +85,41 @@ export function IncidentDetailModal({
   personnelOverride?: Person[]
   materialsOverride?: Material[]
   groupsOverride?: IncidentGroup[]
+  /** groupId → route-owned resources, for token displays that have no groups context. */
+  groupResourcesOverride?: Map<string, GroupResources>
+  /**
+   * The share token this display was opened with, if any. Only the Reko photos
+   * need it: their `<img>` carries no session cookie, so without the token the
+   * endpoint answers 401 and the grid draws broken images.
+   */
+  viewerToken?: string
   showReports?: boolean
 }) {
   const t = useTranslations('display')
   const tk = useTranslations('kanban')
+  const tr = useTranslations('reko.reportSection')
   const { materials: contextMaterials } = useMaterials()
   const { personnel: contextPersonnel } = usePersonnel()
   const { selectedEvent } = useEvent()
   const { groups: contextGroups, getGroupResources } = useGroups()
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id, open && !!operation)
+  // ONE fetch of the incident's history for the whole dialog — the Funkmeldungen
+  // thread and the Verlauf read the same feed, exactly as the command post's two
+  // tabs do. Only with `showReports`: a share-token display has no session and
+  // the endpoint would answer 401.
+  const timeline = useIncidentTimeline(operation?.id ?? null, open && showReports && !!operation)
 
   const materials = materialsOverride ?? contextMaterials
   const personnel = personnelOverride ?? contextPersonnel
   const groups = groupsOverride ?? contextGroups
 
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  // Route-owned resources come from the groups context; the token payload
-  // doesn't carry them, so the roll-up is auth-only.
-  const auftragResources = auftrag && !groupsOverride ? getGroupResources(auftrag.id) : null
+  // Route-owned resources: from the groups context when logged in, from the
+  // caller's map on a share-token display (whose payload carries the raw
+  // Auftrag assignments but has no groups context to resolve them).
+  const auftragResources = auftrag
+    ? (groupsOverride ? groupResourcesOverride?.get(auftrag.id) ?? null : getGroupResources(auftrag.id))
+    : null
 
   if (!operation) return null
 
@@ -112,6 +138,19 @@ export function IncidentDetailModal({
   const personnelRoleByName = new Map<string, string | undefined>(
     personnel.map(p => [p.name, p.role]),
   )
+
+  // What the Reko reported. It rides along on the event-wide Reko-Summaries the
+  // board already loads — no request of its own. A share-token display gets the
+  // same summaries in its payload, photo filenames included; the pictures then
+  // come from the photo endpoint with `viewerToken` appended (see `rekoPhotoUrl`).
+  const rekoSummary = operation.hasCompletedReko ? operation.rekoSummary : null
+
+  // Anything the Schadenplatz reported — a tapped «angekommen»/«beendet», or a
+  // Freitext-Meldung in the feed. It decides whether the Rapport block opens by
+  // itself: on a wall, folded means unread.
+  const hasFieldReports =
+    Boolean(operation.fieldArrivedAt || operation.fieldCompleteReportedAt)
+    || (timeline.events?.some((event) => event.event_type === 'field_message' && event.message) ?? false)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -169,6 +208,18 @@ export function IncidentDetailModal({
               <Badge variant="outline" className="gap-1">
                 <Footprints className="h-3 w-3" /> {t('board.zuFuss')}
               </Badge>
+            )}
+            {/* «Abholung nötig» — the Funkmeldung the command post's Rapport tab
+                sets and this screen only reads. A crew standing in the rain is
+                the last thing a wall display may keep to itself. No
+                `incidentId`: without it the shared chip is a label, not the
+                KP's «erledigt» button. */}
+            {operation.pickupNeeded && (
+              <PickupBadge
+                requestedAt={operation.pickupRequestedAt}
+                note={operation.pickupNote}
+                className="py-1"
+              />
             )}
           </div>
 
@@ -282,13 +333,18 @@ export function IncidentDetailModal({
             </div>
           )}
 
-          {/* Reko assignment (who scouts, since when on site) */}
-          {(operation.assignedReko || operation.rekoArrivedAt) && (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <Binoculars className="h-4 w-4" /> {t('board.rekoHeading')}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
+          {/* REKO — who went, since when, and above all WHAT THEY FOUND.
+              Those were two blocks with the three resource lists between them:
+              the top of the dialog said a Reko was running, the result turned up
+              somewhere below the Material. One block now, and the finding — the
+              free text the Reko dictated — leads it, because that is the
+              sentence somebody walks up to the wall to read. */}
+          {(operation.assignedReko || operation.rekoArrivedAt || rekoSummary) && (
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                  <Binoculars className="h-4 w-4" /> {t('board.rekoHeading')}
+                </div>
                 {operation.assignedReko && (
                   <Badge variant="secondary" className="text-sm">{operation.assignedReko.name}</Badge>
                 )}
@@ -299,7 +355,90 @@ export function IncidentDetailModal({
                     })}
                   </span>
                 )}
+                {/* «Einsatz relevant» / «Kein Einsatz nötig» — the verdict, as a
+                    badge rather than the old «Relevant: Ja» line: it is the one
+                    Reko fact that decides whether this incident still needs
+                    anybody. */}
+                {rekoSummary && (
+                  <Badge
+                    variant={rekoSummary.isRelevant ? "secondary" : "outline"}
+                    className="ml-auto gap-1 text-sm"
+                  >
+                    <FileCheck className="h-3.5 w-3.5" />
+                    {rekoSummary.isRelevant ? tr('relevant') : tr('notNeeded')}
+                  </Badge>
+                )}
               </div>
+
+              {rekoSummary && (
+                <div className="space-y-2">
+                  {/* The finding, in the dialog's largest body size. Capped at
+                      eight lines: the full text stands untruncated in the
+                      Reko-Bericht below, and one long dictation may not push the
+                      Fahrzeuge off the screen. */}
+                  {rekoSummary.summaryText && (
+                    <p
+                      className="line-clamp-[8] whitespace-pre-wrap text-base leading-snug"
+                      title={rekoSummary.summaryText}
+                    >
+                      {rekoSummary.summaryText}
+                    </p>
+                  )}
+                  {rekoSummary.hasDangers && (
+                    <div className="flex items-start gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      <span>{t('board.dangers', { types: rekoSummary.dangerTypes.join(", ") })}</span>
+                    </div>
+                  )}
+                  {(rekoSummary.personnelCount !== null || rekoSummary.estimatedDuration !== null) && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                      {rekoSummary.personnelCount !== null && (
+                        <span>
+                          <span className="text-muted-foreground">{t('board.personnelNeed')}</span>{" "}
+                          {t('common.personCount', { count: rekoSummary.personnelCount })}
+                        </span>
+                      )}
+                      {rekoSummary.estimatedDuration !== null && (
+                        <span>
+                          <span className="text-muted-foreground">{t('board.estimatedDuration')}</span>{" "}
+                          {t('board.durationHours', { hours: rekoSummary.estimatedDuration })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* The photos the Reko took on site. They existed all along but
+                      only ever inside the Reko form — the one place the command
+                      post does not look. A picture of the damage is the most
+                      useful part of a Reko result; it belongs where the result
+                      is read. */}
+                  {rekoSummary.photos.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 pt-1 sm:grid-cols-4">
+                      {rekoSummary.photos.map((filename, index) => (
+                        <a
+                          key={filename}
+                          href={rekoPhotoUrl(operation.id, filename, viewerToken)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block aspect-square overflow-hidden rounded-md border border-border bg-muted transition-opacity hover:opacity-80"
+                          title={t('board.rekoPhotoOpen')}
+                        >
+                          {/* Plain <img>: the endpoint needs a credential the
+                              browser carries itself — the session cookie, or the
+                              share token in the query — and next/image's
+                              optimiser (fetching server-side) carries neither. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={rekoPhotoUrl(operation.id, filename, viewerToken)}
+                            alt={t('board.rekoPhotoAlt', { index: index + 1 })}
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -387,83 +526,57 @@ export function IncidentDetailModal({
           </>
           )}
 
-          {/* Reko Summary */}
-          {operation.hasCompletedReko && operation.rekoSummary && (
-            <div className="space-y-1.5 border-t pt-3">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <FileCheck className="h-4 w-4" /> {t('board.rekoResult')}
-              </div>
-              <div className="space-y-1 text-sm">
-                <p>
-                  <span className="text-muted-foreground">{t('board.relevant')}</span>{" "}
-                  {operation.rekoSummary.isRelevant ? t('common.yes') : t('common.no')}
-                </p>
-                {operation.rekoSummary.hasDangers && (
-                  <div className="flex items-start gap-1.5">
-                    <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                    <span>{t('board.dangers', { types: operation.rekoSummary.dangerTypes.join(", ") })}</span>
-                  </div>
-                )}
-                {operation.rekoSummary.personnelCount !== null && (
-                  <p>
-                    <span className="text-muted-foreground">{t('board.personnelNeed')}</span>{" "}
-                    {t('common.personCount', { count: operation.rekoSummary.personnelCount })}
-                  </p>
-                )}
-                {operation.rekoSummary.estimatedDuration !== null && (
-                  <p>
-                    <span className="text-muted-foreground">{t('board.estimatedDuration')}</span>{" "}
-                    {t('board.durationHours', { hours: operation.rekoSummary.estimatedDuration })}
-                  </p>
-                )}
-                {operation.rekoSummary.summaryText && (
-                  <p className="whitespace-pre-wrap">{operation.rekoSummary.summaryText}</p>
-                )}
-              </div>
-              {/* The photos the Reko took on site. They existed all along but
-                  only ever inside the Reko form — the one place the command post
-                  does not look. A picture of the damage is the most useful part
-                  of a Reko result; it belongs where the result is read. */}
-              {operation.rekoSummary.photos.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 pt-1 sm:grid-cols-4">
-                  {operation.rekoSummary.photos.map((filename, index) => (
-                    <a
-                      key={filename}
-                      href={rekoPhotoUrl(operation.id, filename)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block aspect-square overflow-hidden rounded-md border border-border bg-muted transition-opacity hover:opacity-80"
-                      title={t('board.rekoPhotoOpen')}
-                    >
-                      {/* Plain <img>: the endpoint is behind the login and needs
-                          the session cookie, which next/image's optimiser
-                          (fetching server-side) does not carry. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={rekoPhotoUrl(operation.id, filename)}
-                        alt={t('board.rekoPhotoAlt', { index: index + 1 })}
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                      />
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* The reports, folded. Everything the command post detail shows,
-              nothing it can change. */}
+          {/* The reports. Everything the command post detail shows, nothing it
+              can change — and the two that describe the Schadenplatz open on
+              their own when something has been filed. */}
           {showReports && (
             <div className="space-y-2 border-t pt-3">
-              <DisclosureSection label={t('board.rekoReportSection')} icon={Binoculars}>
+              <DisclosureSection
+                label={t('board.rekoReportSection')}
+                icon={Binoculars}
+                defaultOpen={operation.hasCompletedReko}
+              >
                 <RekoReportSection incidentId={operation.id} canEdit={false} />
               </DisclosureSection>
 
-              <DisclosureSection label={t('board.rapportSection')} icon={ClipboardList}>
+              <DisclosureSection
+                label={t('board.rapportSection')}
+                icon={ClipboardList}
+                // A draft counts: half a rapport dictated over the radio is
+                // still what the Schadenplatz reported, and the wall is where
+                // it gets read. So does a bare Funkmeldung — the crew said
+                // something about this address and nobody has to click for it.
+                defaultOpen={
+                  operation.hasSchadenplatzRapport
+                  || operation.hasSchadenplatzRapportDraft
+                  || hasFieldReports
+                }
+              >
+                {/* What came in from the Schadenplatz, above the rapport it
+                    belongs to — the command post's Rapport tab in one column.
+                    This was the one thing the display had no rendering of at
+                    all: a crew's Funkmeldung reached the board and the wall
+                    beside it stayed silent. */}
+                <div className="mb-3">
+                  <FieldMessageThread
+                    operation={operation}
+                    events={timeline.events}
+                    isLoading={timeline.isLoading}
+                    failed={timeline.failed}
+                    onRetry={timeline.reload}
+                  />
+                </div>
                 <SchadenplatzRapportSection
                   incidentId={operation.id}
                   canEdit={false}
+                  // «Material zurück – freigeben» is the KP's own to-do list, not
+                  // a report: it was rendering here as a greyed-out «1 Gerät
+                  // freigeben» button on a screen nobody operates. The command
+                  // post's detail opts out of it in the same way and mounts the
+                  // list itself, next to the rest of its work. What the wall
+                  // needs from it — which Material stayed at the address — is on
+                  // the card, as the amber chip with the pin.
+                  showMaterialReturn={false}
                   hasRapport={operation.hasSchadenplatzRapport}
                   applies={rapportApplies({
                     hasBeenDispatched: operation.hasBeenDispatched,
@@ -473,8 +586,12 @@ export function IncidentDetailModal({
                 />
               </DisclosureSection>
 
+              {/* Folded, alone among the three: the Verlauf is a log of what is
+                  already over, it is the longest thing in the dialog, and it
+                  costs two more requests (timeline + Teilnehmer). What happened
+                  is a question somebody asks — and asking is a click. */}
               <DisclosureSection label={t('board.historySection')} icon={History}>
-                <IncidentHistory incidentId={operation.id} />
+                <IncidentHistory incidentId={operation.id} timeline={timeline} />
               </DisclosureSection>
             </div>
           )}
@@ -485,20 +602,31 @@ export function IncidentDetailModal({
 }
 
 /**
- * One folded report block. The children are not mounted while closed — each of
- * these fetches (and the Reko section polls), and a wall display that opened a
- * card would otherwise start three request loops it never shows.
+ * One report block. The children are not mounted while closed — each of these
+ * fetches (and the Reko section polls), so a section nobody is looking at costs
+ * nothing.
+ *
+ * `defaultOpen` is that trade made per incident rather than for all of them:
+ * the caller opens the blocks that HAVE something to show, and leaves the empty
+ * ones folded and unmounted. Once open the block stays open — including when a
+ * report lands while the dialog sits on the wall, which is the one case where
+ * there is nobody to click.
  */
 function DisclosureSection({
   label,
   icon: Icon,
+  defaultOpen = false,
   children,
 }: {
   label: string
   icon: LucideIcon
+  defaultOpen?: boolean
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
+  useEffect(() => {
+    if (defaultOpen) setOpen(true)
+  }, [defaultOpen])
   return (
     <div className="rounded-md border border-border">
       <button
@@ -516,9 +644,10 @@ function DisclosureSection({
   )
 }
 
-/** Verlauf: what happened, and who was here — the Verlauf tab's two lists. */
-function IncidentHistory({ incidentId }: { incidentId: string }) {
-  const timeline = useIncidentTimeline(incidentId, true)
+/** Verlauf: what happened, and who was here — the Verlauf tab's two lists.
+ *  The timeline comes from the dialog so the Funkmeldungen thread above and
+ *  this list share one request; only the Teilnehmer are fetched on opening. */
+function IncidentHistory({ incidentId, timeline }: { incidentId: string; timeline: IncidentTimelineState }) {
   return (
     <div className="space-y-3">
       <IncidentTimeline
