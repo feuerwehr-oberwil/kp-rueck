@@ -40,13 +40,19 @@ function SheetOverlay({
   elevated?: boolean
   nonModal?: boolean
 }) {
-  // For non-modal sheets, use a simple div backdrop instead of Radix Overlay
+  // For non-modal sheets, use a simple div backdrop instead of Radix Overlay.
+  //
+  // It ABSORBS the pointer (`pointer-events-auto`), and its `bottom` stops at
+  // the footer toolbar — which is the whole shape of a footer sheet: the
+  // toolbar underneath stays live, everything the backdrop dims does not. It
+  // used to be `pointer-events-none`, so the dimmed board still lit up its
+  // hover states and handed clicks through to cards nobody was aiming at.
   if (nonModal) {
     return (
       <div
         data-slot="sheet-overlay"
         className={cn(
-          'fixed inset-0 bg-black/50 pointer-events-none',
+          'fixed inset-0 bg-black/50',
           elevated ? 'z-[70]' : 'z-50',
           className,
         )}
