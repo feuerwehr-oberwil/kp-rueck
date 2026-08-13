@@ -143,18 +143,24 @@ describe('the card view switches', () => {
     expect(screen.queryByText(/TLF Oberwil/)).not.toBeInTheDocument()
   })
 
-  it('takes the separator and the padding with a hidden block, so Kompakt is really compact', () => {
+  it('reads as three sections: two rules on a full card, none inside a section', () => {
     const { container: full, unmount } = renderCard(CARD_VIEW_PRESETS.standard)
-    expect(full.querySelectorAll('.operation-card .border-t').length).toBeGreaterThan(0)
+    // Kopf/Meldung | Ressourcen | Reko — the Ressourcen block and the Reko block
+    // each open a section, everything else is 12px of rhythm and nothing more.
+    expect(full.querySelectorAll('.operation-card .border-t')).toHaveLength(2)
+    const fullBlocks = full.querySelectorAll('.operation-card > .space-y-3 > *').length
+    expect(fullBlocks).toBeGreaterThan(0)
     unmount()
 
     const { container: compact } = renderCard(CARD_VIEW_PRESETS.kompakt)
-    // No orphan divider, and no bordered box left holding only its own padding.
+    // Nothing below the header survives Kompakt, so neither rule does.
     expect(compact.querySelectorAll('.operation-card .border-t')).toHaveLength(0)
-    expect(compact.querySelectorAll('.operation-card .pt-3')).toHaveLength(0)
+    // A switched-off block leaves nothing behind — no wrapper still holding its
+    // own spacing, which would make Kompakt no shorter than Standard.
+    expect(compact.querySelectorAll('.operation-card > .space-y-3 > *').length).toBeLessThan(fullBlocks)
   })
 
-  it('drops the resource block entirely when all three resource switches are off', () => {
+  it('drops the resource block – and its rule – when all three resource switches are off', () => {
     const { container } = renderCard({
       ...CARD_VIEW_PRESETS.standard,
       mannschaft: false,
@@ -164,8 +170,42 @@ describe('the card view switches', () => {
       reko: false,
     })
     // Crew/vehicles/materials all present on the incident, all switched off:
-    // the bordered wrapper must go with them.
+    // the bordered wrapper must go with them, and no orphan line may be left
+    // introducing a section that is not there.
     expect(container.querySelectorAll('.operation-card .border-t')).toHaveLength(0)
+  })
+
+  it('leaves no orphan rule when only one of the two lower sections renders', () => {
+    // Reko only: the Reko block opens its own section, the Ressourcen rule goes
+    // with the block that is no longer rendered.
+    const { container: rekoOnly, unmount } = renderCard({
+      ...CARD_VIEW_PRESETS.standard,
+      mannschaft: false,
+      fahrzeuge: false,
+      material: false,
+    })
+    expect(rekoOnly.querySelectorAll('.operation-card .border-t')).toHaveLength(1)
+    unmount()
+
+    // Ressourcen only: an incident whose Reko never filed a summary.
+    const { container: resourcesOnly } = renderCard(
+      CARD_VIEW_PRESETS.standard,
+      operation({ rekoSummary: null, hasCompletedReko: false }),
+    )
+    expect(resourcesOnly.querySelectorAll('.operation-card .border-t')).toHaveLength(1)
+  })
+
+  it('lets the Auftrag row open the Ressourcen section when the resource rows are gone', () => {
+    // A route stop carries no resources of its own — the Auftrag row is the
+    // whole Ressourcen section, so it has to bring the rule with it.
+    mockGroups.push({ id: 'route-1', name: 'Route Nord', stopIds: ['incident-1'], color: null })
+    const { container } = renderCard(
+      CARD_VIEW_PRESETS.standard,
+      operation({ groupId: 'route-1', rekoSummary: null, hasCompletedReko: false }),
+    )
+    expect(screen.getByText('Route Nord')).toBeInTheDocument()
+    expect(container.querySelectorAll('.operation-card .border-t')).toHaveLength(1)
+    mockGroups.length = 0
   })
 
   it('hides the Meldung without touching the Reko, and the other way round', () => {

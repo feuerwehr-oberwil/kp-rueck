@@ -86,6 +86,17 @@ interface DraggableOperationProps {
   onDragActiveChange?: (dragging: boolean) => void
 }
 
+// The boundary between the card's three sections — Kopf/Meldung, Ressourcen,
+// Reko. Everything inside a section keeps the plain 12px rhythm; only these two
+// boundaries get a rule, because Ressourcen and Reko are the two blocks that are
+// genuinely a different kind of fact from the incident's own data.
+//
+// The rule belongs to whichever block OPENS a section, never to a wrapper: a
+// section that renders nothing (Kompakt, a route stop whose resources live on
+// the Auftrag, an incident without a Reko) then takes its rule with it and
+// cannot leave an orphan line above nothing.
+const SECTION_RULE = 'border-t pt-3'
+
 // Priority visual configuration - bold borders for quick scanning
 // All cards always have border-l-4 to prevent layout shifts on hover/select
 const priorityStyles = {
@@ -99,7 +110,12 @@ const priorityStyles = {
   },
   low: {
     icon: 'text-muted-foreground/50',
-    card: 'border-l-transparent',
+    // `border-border`, not `transparent`: the 4px left edge is always there to
+    // keep the box from shifting, so making it invisible did not remove it —
+    // it punched a light gap into the card's own outline where the other three
+    // sides carry one. Low priority now simply closes the border instead of
+    // colouring it, which is the absence of a signal rather than a hole.
+    card: 'border-l-border',
   },
 } as const
 
@@ -143,7 +159,13 @@ function DraggableOperationBase({
   const [isDragging, setIsDragging] = useState(false)
   const [isOver, setIsOver] = useState(false)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
-  const [isLargeScreen, setIsLargeScreen] = useState(false)
+  // `null` until the first measurement. Not `false`: the selection frame below
+  // is gated on this, and a card that renders unstyled for one frame on a board
+  // that does have the side panel is exactly the flicker we are avoiding. An
+  // unmeasured card is therefore assumed to be on a large screen for STYLING
+  // (server, hydration and first paint all agree), while the click handler keeps
+  // treating "not yet measured" as small, which is what it always did.
+  const [isLargeScreen, setIsLargeScreen] = useState<boolean | null>(null)
   const [isPrinting, setIsPrinting] = useState(false)
   const { materialGroups } = useMaterials()
   const { groups, getGroupResources } = useGroups()
@@ -192,6 +214,12 @@ function DraggableOperationBase({
   const showAuftragBlock = cardView.auftrag && !!auftrag
   const showRekoSummary = cardView.reko && !!operation.rekoSummary
   const melderTel = telHref(operation.contactPhone)
+
+  // Selection is only worth showing while a side panel is on screen to reflect
+  // it. Below SIDE_PANEL_BREAKPOINT the detail opens as a modal, so the frame
+  // would just sit behind the overlay. `!== false` and not `=== true`: see the
+  // note on the state — an unmeasured card keeps the frame.
+  const showSelectionFrame = !!isSelected && isLargeScreen !== false
 
   // Handle thermal print. The "gesendet" toast is now the START of the story —
   // trackPrintJob replaces it with what the printer actually did.
@@ -298,20 +326,61 @@ function DraggableOperationBase({
             data-testid="incident-card"
             data-incident-id={operation.id}
             className={cn(
-              'operation-card border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/30 cursor-pointer',
-              // Priority styling (when not selected/highlighted)
-              !isSelected && !isHighlighted && !isKeyboardFocused && priorityConfig?.card,
+              // Hover is deliberately faint (/20): selection is expressed by the
+              // frame below, so the background is left to say one thing only —
+              // "the pointer is here". At /30 the two states looked the same.
+              'operation-card border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/20 cursor-pointer',
+              // Priority styling. Kept while the card is selected AND while it is
+              // hovered: selection is a neutral frame now and no longer borrows
+              // the priority colours, and hover has no business overwriting them
+              // either — a high-priority card that loses its red edge, wash and
+              // pulse the moment the pointer crosses it is hiding the one thing
+              // the operator is scanning for.
+              !isHighlighted && priorityConfig?.card,
               isOver && 'bg-muted/20',
               // "Hier steht sie" — the answer to a click in the sidebar. The old
               // treatment was bg-muted/30 plus a border tint, which was quieter
-              // than the selection ring right next to it and got lost on a board
+              // than the selected card right next to it and got lost on a board
               // full of cards. Now the card keeps its brightness while the rest of
               // the board steps back for a moment (Spotlight, see globals.css) and
               // carries an accent ring while it does. Priority still reads from the
               // chevron, so borrowing the left border for ~4s costs no information.
               isHighlighted && 'is-highlighted border-l-accent bg-muted/30 ring-[1.5px] ring-accent shadow-lg shadow-accent/25',
-              isSelected && !isHighlighted && (priority === 'high' ? 'ring-2 ring-destructive/50 border-l-destructive/80 bg-muted/30' : priority === 'medium' ? 'ring-2 ring-warning/50 border-l-warning/80 bg-muted/30' : 'ring-2 ring-primary/50 border-l-foreground/70 bg-muted/30'),
-              isKeyboardFocused && !isHighlighted && !isSelected && (priority === 'high' ? 'border-l-destructive/50' : priority === 'medium' ? 'border-l-warning/50' : 'border-l-muted-foreground/50')
+              // Selection: a full-strength neutral frame plus a neutral surface
+              // tint — no colour of its own, so it can never compete with the red
+              // a high-priority card already carries. Three deliberate choices:
+              //
+              // 1. OUTLINE, not ring/shadow. `priority-high-pulse` animates
+              //    `box-shadow` outright (globals.css), which wipes out every
+              //    box-shadow utility on the element — that is why the earlier
+              //    ring-based selection was invisible on exactly the cards that
+              //    matter most. An outline is a separate property, survives the
+              //    animation, and is out of flow: 2px of extra frame, zero layout
+              //    shift. At offset 0 it wraps OUTSIDE the border box, so the 4px
+              //    priority edge stays fully visible inside it.
+              // 2. The 1px border is taken to full `foreground` on top/right/bottom
+              //    so no grey `border-border` line sits between the outline and the
+              //    content. Bare `border-foreground` would clobber `border-l-*`
+              //    (cn is twMerge), hence the three sides spelled out.
+              // 3. The tint is a GRADIENT, not a `bg-*` colour: a background colour
+              //    would twMerge away `bg-card/80` — and, on a high-priority card,
+              //    its `bg-destructive` wash. A background image layers over
+              //    whatever colour the card has. Keyed to `foreground`, so it
+              //    darkens the light card and lightens the dark one with one value.
+              //
+              // Gated on `showSelectionFrame`, not on `isSelected`: on a screen
+              // narrow enough that a click opens the modal instead of the side
+              // panel there is nothing for the frame to point at. `isHighlighted`
+              // (the notification Spotlight) is a different signal and stays at
+              // every width.
+              showSelectionFrame && !isHighlighted && 'border-t-foreground border-r-foreground border-b-foreground outline-2 outline-offset-0 outline-foreground bg-linear-to-b from-foreground/[0.06] to-foreground/[0.06]',
+              // The hovered card is the one the keyboard shortcuts act on (the
+              // board feeds `hoveredOperationId` in here), so it earns a cue of
+              // its own — but NOT on the left edge, which belongs to priority.
+              // Brightening the other three sides says "this one" without
+              // overwriting anything, and stays out of the way of the selection
+              // frame, which takes the same sides at full strength.
+              isKeyboardFocused && !isHighlighted && !showSelectionFrame && 'border-t-muted-foreground/40 border-r-muted-foreground/40 border-b-muted-foreground/40'
             )}
             onMouseEnter={() => onHover(operation.id)}
             onMouseLeave={() => onHover(null)}
@@ -354,7 +423,7 @@ function DraggableOperationBase({
                     note={operation.pickupNote}
                     incidentId={operation.id}
                     canEdit={canDrag}
-                    className="mt-1"
+                    className="mt-1.5"
                   />
                 )}
               </div>
@@ -431,34 +500,53 @@ function DraggableOperationBase({
             </div>
           </div>
 
-          {cardView.einsatzart && (
-            <div className="flex items-center gap-2">
-              <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span className="text-sm text-muted-foreground break-words">{getIncidentTypeLabel(operation.incidentType)}</span>
+          {/* Einsatzart and time share one line: they are both single short facts,
+              and two stacked rows cost a card's worth of height on a full board.
+              The label truncates rather than wraps so it can never push the time
+              off the row. Each half is independently toggleable (see lib/card-view.ts),
+              so the pair only shares a row when both are switched on — with the time
+              alone the row keeps its original full-width split.
+              Label and time share the chip's type scale (text-xs, 3.5 icon) so the
+              row reads as one line rather than a big label with a small number
+              stuck to it — most Einsatzarten are long enough («Elementarereignis»)
+              that the label is truncating anyway, and the address above is what
+              carries the card.
+              The chip carries the age colouring (amber/red once it has sat too long),
+              which is a separate signal from whichever number the mode shows —
+              see components/ui/incident-time.tsx. */}
+          {cardView.einsatzart && cardView.zeiten ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+              </div>
+              <IncidentTimeRow operation={operation} colorByAge className="flex-shrink-0" />
             </div>
-          )}
-
-          {/* Start time on the left, the board-wide mode chip on the right — see
-              components/ui/incident-time.tsx. The chip carries the age colouring
-              (amber/red once it has sat too long), which is a separate signal from
-              whichever number the mode happens to show. */}
-          {cardView.zeiten && <IncidentTimeRow operation={operation} colorByAge className="justify-between" />}
+          ) : cardView.einsatzart ? (
+            <div className="flex items-center gap-1.5">
+              <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+            </div>
+          ) : cardView.zeiten ? (
+            <IncidentTimeRow operation={operation} colorByAge className="justify-between" />
+          ) : null}
 
           {/* What the field reported, as a question instead of a second status
               display. Rendered conditionally so only the handful of cards that
               actually have a field report subscribe to the operations context —
               the card body itself stays behind its memo. */}
           {(operation.fieldCompleteReportedAt || operation.fieldArrivedAt) && (
-            <FieldStatusNudge
-              operation={operation}
-              canEdit={canDrag}
-              onRequestComplete={onRequestComplete}
-            />
+            <FieldStatusNudge operation={operation} canEdit={canDrag} />
           )}
 
-          {/* Meldung (notes) — what came in on the phone. */}
+          {/* Meldung (notes) — what came in on the phone. Still part of the first
+              section: everything down to the Melder is the incident's own data,
+              12px apart and with no rule between any two of them. The card used
+              to fence off every single block, which read as a hierarchy the
+              content does not have; the two rules it kept (see SECTION_RULE)
+              mark the only real change of subject. */}
           {showMeldungBlock && (
-            <div className="border-t pt-3">
+            <div>
               <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
                 {operation.notes}
               </p>
@@ -470,8 +558,11 @@ function DraggableOperationBase({
               working the phones wants to reach the address without opening the
               incident first. */}
           {showMelderBlock && (
-            <div className="border-t pt-3 flex items-start gap-1.5 text-xs">
-              <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-1.5 text-xs">
+              {/* Name and number can wrap, so the glyph stays top-aligned and is
+                  nudged onto the middle of the FIRST line: (16px line − 14px
+                  icon) / 2 = 1px. Same rule for every plain-text row below. */}
+              <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
                 {operation.contact && (
                   <span className="text-muted-foreground break-words">{operation.contact}</span>
@@ -494,13 +585,14 @@ function DraggableOperationBase({
             </div>
           )}
 
-          {/* Resource assignments - show names with quick removal. For grouped
-              incidents the per-incident crew/vehicle/material rows are suppressed
-              (the route owns those, summarised in the Auftrag row below), so this
-              block — and its top divider — only renders when something inside it
-              will actually show; otherwise it left an orphan divider line. */}
+          {/* RESSOURCEN — section two, opened by the rule. Who and what is on
+              this address, as opposed to the incident's own data above.
+              For grouped incidents the per-incident crew/vehicle/material rows
+              are suppressed (the route owns those, summarised in the Auftrag row
+              below), so this block — and its rule — only renders when something
+              inside it will actually show; otherwise it left an orphan line. */}
           {showResourceBlock && (
-            <div className="border-t pt-3 space-y-1.5 text-xs">
+            <div className={cn(SECTION_RULE, "space-y-3 text-xs")}>
               {/* Assigned Reko Person — rides the "Reko" switch, not "Mannschaft":
                   one label, one concept, so turning Reko off really does take the
                   whole reconnaissance off the card. */}
@@ -553,7 +645,10 @@ function DraggableOperationBase({
                           removeButtonClassName="hover:text-destructive cursor-pointer"
                           removeIconClassName="h-2.5 w-2.5"
                         >
-                          {isConflict && <AlertTriangle className="h-2.5 w-2.5" />}
+                          {/* Leading chip glyphs are h-3 throughout the card (the
+                              chip's own remove X stays at 2.5) and never shrink,
+                              so a long name cannot squash them. */}
+                          {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
                           {/* Read-only here: the card is a drag source, and the
                               star only renders for whoever actually holds the
                               role, so the chip row stays as dense as it was. */}
@@ -578,7 +673,7 @@ function DraggableOperationBase({
                         removeButtonClassName="hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
                       >
-                        <Footprints className="h-3 w-3" />
+                        <Footprints className="h-3 w-3 flex-shrink-0" />
                         <span>{t('common.zuFuss')}</span>
                       </RemovableChip>
                     )}
@@ -616,9 +711,9 @@ function DraggableOperationBase({
                             )}
                           </span>
                           {driverStay ? (
-                            <MapPin className="h-3 w-3 text-muted-foreground/70" />
+                            <MapPin className="h-3 w-3 flex-shrink-0 text-muted-foreground/70" />
                           ) : (
-                            <Undo2 className="h-3 w-3 text-muted-foreground/40" />
+                            <Undo2 className="h-3 w-3 flex-shrink-0 text-muted-foreground/40" />
                           )}
                         </button>
                       </RemovableChip>
@@ -646,7 +741,7 @@ function DraggableOperationBase({
                               removeButtonClassName="hover:text-destructive cursor-pointer"
                               removeIconClassName="h-2.5 w-2.5"
                             >
-                              <Layers className="h-2.5 w-2.5 text-muted-foreground" />
+                              <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                               <span>{group.name}</span>
                             </RemovableChip>
                           ))}
@@ -672,7 +767,7 @@ function DraggableOperationBase({
                                 removeButtonClassName="hover:text-destructive cursor-pointer"
                                 removeIconClassName="h-2.5 w-2.5"
                               >
-                                {onSite && <MapPin className="h-2.5 w-2.5" />}
+                                {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
                                 <span>{material?.name || materialId}</span>
                               </RemovableChip>
                             )
@@ -685,7 +780,10 @@ function DraggableOperationBase({
               )}
               {showNachbarhilfeRow && (
                 <div className="flex items-start gap-1.5">
-                  <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+                  {/* Plain text, not chips: mt-1 is the chip offset and left the
+                      glyph sitting off-centre against the word. 1px centres it on
+                      the first line and keeps a wrapped note top-aligned. */}
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
                     <span className="text-muted-foreground break-words">
                       {operation.nachbarhilfeNote || t('common.nachbarhilfe')}
@@ -700,9 +798,13 @@ function DraggableOperationBase({
               (matching the crew/vehicle/material rows above) rather than a floating
               pill. Resources live on the route, so the row carries the route name,
               its done/total progress, and the route's resource roll-up. The whole
-              row opens the Aufträge sheet. */}
+              row opens the Aufträge sheet.
+              Part of the Ressourcen section, not a fourth one: the route is where
+              this stop's crew, vehicles and material actually are. It therefore
+              carries the section's rule only when it OPENS the section, i.e. when
+              the resource block above it rendered nothing. */}
           {showAuftragBlock && auftrag && (
-            <div className="border-t pt-3 text-xs">
+            <div className={cn("text-xs", !showResourceBlock && SECTION_RULE)}>
               <button
                 type="button"
                 onClick={(e) => {
@@ -731,12 +833,18 @@ function DraggableOperationBase({
             </div>
           )}
 
-          {/* Reko Summary — its own switch, not the Meldung's (§18.12). */}
+          {/* REKO — section three, and the reason the card has rules at all: what
+              somebody went and looked at is a different kind of statement from
+              everything above it. Its own switch, not the Meldung's (§18.12), so
+              the rule disappears with the block on a card without a Reko. */}
           {showRekoSummary && operation.rekoSummary && (
-            <div className="border-t pt-3 space-y-1.5">
+            <div className={cn(SECTION_RULE, "space-y-3")}>
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
-                  <AlertTriangle className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  {/* Chips, so the same offset the resource rows use (mt-1), and
+                      the same 3.5 glyph — it used to be a smaller icon sitting
+                      above its badges. */}
+                  <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap gap-1">
                     {operation.rekoSummary.dangerTypes.map((danger, idx) => (
                       <Badge key={idx} variant="outline" className="text-xs px-1.5 py-0.5">

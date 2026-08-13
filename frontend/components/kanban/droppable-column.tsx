@@ -198,28 +198,42 @@ export const DroppableColumn = memo(function DroppableColumn({
 
   // Only a *click* scrolls; a column that was already open at load must not
   // yank the board sideways on every mount.
-  const scrollOnOpenRef = useRef(false)
+  const keepInViewRef = useRef(false)
+  const requestKeepInView = () => {
+    keepInViewRef.current = true
+  }
 
   const toggleCollapsible = () => {
     const next = !isCollapsibleOpen
-    scrollOnOpenRef.current = next
+    requestKeepInView()
     setIsCollapsibleOpen(next)
     localStorage.setItem(`column-collapsed-${column.id}`, next ? 'open' : 'collapsed')
   }
-
-  // «Abgeschlossen» sits at the far right of the board, so opening it used to
-  // expand a column the operator could not see — the click looked like it did
-  // nothing. Bring it into the scrollport instead.
-  useEffect(() => {
-    if (!scrollOnOpenRef.current || !isCollapsibleOpen) return
-    scrollOnOpenRef.current = false
-    rootRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'end', block: 'nearest' })
-  }, [isCollapsibleOpen])
 
   const isEmpty = operations.length === 0
   const isCollapsed = isCollapsibleColumn
     ? !isCollapsibleOpen
     : (isEmpty && !isOver && !isManuallyExpanded && !isLargeScreen)
+
+  // Folding a column changes its width by hundreds of pixels, which shoves every
+  // column after it sideways — so the one you just clicked can end up outside the
+  // scrollport and the click reads as "the column disappeared". «Abgeschlossen»
+  // showed this worst, sitting at the far right, but an empty column folding in
+  // the middle of a wide board does it too.
+  //
+  // BOTH directions, not just opening: closing moves the board just as far.
+  // And a DOM query rather than a ref, because the collapsed strip and the
+  // expanded column are two different elements — the ref that survives the
+  // toggle is whichever one is not mounted. `data-column` is on both.
+  useEffect(() => {
+    if (!keepInViewRef.current) return
+    keepInViewRef.current = false
+    document
+      .querySelector(`[data-column="${column.id}"]`)
+      // `nearest`, not `end`: bring it back only as far as it takes to be
+      // visible, so a column that never left the viewport does not jump.
+      ?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
+  }, [isCollapsed, column.id])
 
   // Reset manual expand when column gets operations (non-collapsible only)
   useEffect(() => {
@@ -253,7 +267,11 @@ export const DroppableColumn = memo(function DroppableColumn({
           column.color,
           isOver && "drop-zone-active w-16"
         )}
-        onClick={() => isCollapsibleColumn ? toggleCollapsible() : setIsManuallyExpanded(true)}
+        onClick={() => {
+          if (isCollapsibleColumn) return toggleCollapsible()
+          requestKeepInView()
+          setIsManuallyExpanded(true)
+        }}
         role="region"
         aria-label={t('column.ariaLabelWithCount', { title: columnTitle, count: operations.length })}
       >
@@ -270,7 +288,9 @@ export const DroppableColumn = memo(function DroppableColumn({
   return (
     <div ref={rootRef} data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
       <div className={cn(
-        "mb-2 rounded-lg border border-border px-3 py-3 transition-all",
+        // py-2, not py-3: the header carries one line of text and three small
+        // controls, and every pixel it takes is a pixel off the column body.
+        "mb-2 rounded-lg border border-border px-3 py-2 transition-all",
         column.color
       )}>
         <div className="flex items-center justify-between">
@@ -343,7 +363,10 @@ export const DroppableColumn = memo(function DroppableColumn({
         {isEmpty && !isOver && (
           <div className="flex items-center justify-center h-32">
             <button
-              onClick={() => setIsManuallyExpanded(false)}
+              onClick={() => {
+                requestKeepInView()
+                setIsManuallyExpanded(false)
+              }}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               {t('column.empty')}

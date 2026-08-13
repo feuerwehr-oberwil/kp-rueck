@@ -22,7 +22,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, Clock } from 'lucide-react'
+import { Check } from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -34,7 +34,6 @@ import { useIncidentTimeMode } from '@/lib/hooks/use-incident-time-mode'
 import {
   INCIDENT_TIME_MODES,
   INCIDENT_TIME_MODE_ICON,
-  formatClockTime,
   formatIncidentTime,
   incidentTimeReference,
   isDurationMode,
@@ -215,21 +214,28 @@ export function IncidentTime({
 
 export interface IncidentTimeRowProps extends Omit<IncidentTimeProps, 'className'> {
   className?: string
-  /** Classes for the always-present start time on the left. */
+  /** Classes for the value while the board is in `start` mode. */
   startClassName?: string
-  /** Classes for the mode chip on the right. */
+  /** Classes for the value in the duration modes. */
   chipClassName?: string
-  /** Classes for the leading clock icon of the start time. */
+  /** Classes for the leading icon while the board is in `start` mode. */
   startIconClassName?: string
 }
 
 /**
- * The «HH:MM … 12'» pair the card-shaped surfaces all render: when the incident
- * came in on the left, the active mode's chip on the right.
+ * The single time the card-shaped surfaces render: whichever one the board is
+ * currently measuring by.
  *
- * In `start` mode the two would be the same number twice, so the pair collapses
- * into the single chip — which then carries the dropdown (or, `readOnly`, just
- * the tooltip) and stays where the start time always was.
+ * It used to show the start time AND the active mode's chip side by side, on
+ * the theory that «when did it come in» is always worth an anchor. In practice
+ * that read as a bug — you pick «In diesem Status» and the card answers with two
+ * numbers, the first of which you did not ask for — and on a card the pair
+ * crowded out the Einsatzart label beside it. So the row now shows exactly what
+ * the mode says, and the start time stays one click away in the dropdown, which
+ * lists every mode's value anyway.
+ *
+ * `IncidentTime` supplies the matching icon per mode, so `start` still reads as
+ * a clock and the durations as their own glyphs.
  */
 export function IncidentTimeRow({
   operation,
@@ -237,28 +243,23 @@ export function IncidentTimeRow({
   startClassName,
   chipClassName,
   startIconClassName,
+  iconClassName,
   ...chipProps
 }: IncidentTimeRowProps) {
   const { mode } = useIncidentTimeMode()
-  useMinuteTick()
 
-  const collapsed = mode === 'start'
+  // `start` is the only mode whose value is a clock time; the durations keep the
+  // denser type the chip has always used.
+  const showingStart = mode === 'start'
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      {collapsed ? (
-        <IncidentTime operation={operation} {...chipProps} className={cn('text-sm', startClassName)} />
-      ) : (
-        <>
-          <span className="flex items-center gap-2">
-            <Clock className={cn('h-4 w-4 flex-shrink-0 text-muted-foreground', startIconClassName)} aria-hidden />
-            <span className={cn('font-mono text-sm text-muted-foreground', startClassName)}>
-              {formatClockTime(operation.dispatchTime)}
-            </span>
-          </span>
-          <IncidentTime operation={operation} {...chipProps} className={cn('text-xs', chipClassName)} />
-        </>
-      )}
+      <IncidentTime
+        operation={operation}
+        {...chipProps}
+        iconClassName={cn(iconClassName, showingStart && startIconClassName)}
+        className={cn(showingStart ? 'text-sm' : 'text-xs', showingStart ? startClassName : chipClassName)}
+      />
     </div>
   )
 }
