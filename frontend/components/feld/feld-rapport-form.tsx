@@ -96,6 +96,12 @@ interface FeldRapportFormProps {
   mount?: 'feld' | 'kp'
   disabled?: boolean
   onSaved?: (rapport: ApiSchadenplatzRapport) => void
+  /** Put the cursor in the Kurzbericht as soon as the form mounts. Set when the
+   *  operator was SENT here to write it — from the Offene-Rapporte backlog or a
+   *  notification — so the one field a rapport really wants filled is ready to
+   *  type into. Never set when the detail was merely opened on this tab by hand;
+   *  stealing focus from somebody who is reading is its own bug. */
+  autoFocusKurzbericht?: boolean
 }
 
 const AUTOSAVE_MS = 30000
@@ -161,7 +167,7 @@ function formatDateTime(value: string | null): string {
   })
 }
 
-export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved }: FeldRapportFormProps) {
+export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
   const isKp = mount === 'kp'
 
@@ -446,6 +452,19 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     return lines
   }, [rapport, t])
 
+  // Focus the Kurzbericht once, after the form has actually rendered it. The
+  // rapport loads async and this component returns early while it does, so the
+  // effect has to live ABOVE that return and wait on `isLoading` rather than
+  // firing on mount. The one-shot ref also means a later autosave re-render
+  // cannot yank the cursor back out of whatever field the operator moved on to.
+  const kurzberichtRef = useRef<HTMLTextAreaElement>(null)
+  const didAutoFocus = useRef(false)
+  useEffect(() => {
+    if (!autoFocusKurzbericht || disabled || isLoading || didAutoFocus.current) return
+    didAutoFocus.current = true
+    kurzberichtRef.current?.focus()
+  }, [autoFocusKurzbericht, disabled, isLoading])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -567,6 +586,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             microphone key for a decade; the people who use it already do, and
             the ones who do not are not reading a caption in the rain. */}
         <Textarea
+          ref={kurzberichtRef}
           value={formData.kurzbericht}
           disabled={readOnly}
           rows={isKp ? 3 : 5}

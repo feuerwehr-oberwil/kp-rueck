@@ -225,11 +225,10 @@ describe("OperationDetailContent", () => {
       />,
     )
 
-    // The action footer sits outside the tabs and stays reachable from any of
-    // them. Everything but «WhatsApp kopieren» lives behind ⋯ now — those
-    // actions are rare here and already on the card's context menu.
-    await user.click(screen.getByRole("button", { name: "Weitere Aktionen" }))
-    await user.click(await screen.findByRole("menuitem", { name: "Ressourcen übertragen" }))
+    // «Ressourcen übertragen» is a native button at the foot of the Ressourcen
+    // block in the Übersicht — it acts on the resources listed right above it,
+    // so it no longer hides in the ⋯ menu.
+    await user.click(screen.getByRole("button", { name: "Ressourcen übertragen" }))
     const confirm = await screen.findByRole("button", { name: "Transfer bestätigen" })
     await user.click(confirm)
 
@@ -260,12 +259,13 @@ describe("OperationDetailContent", () => {
     expect(screen.getByRole("textbox", { name: "Meldung" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "WhatsApp kopieren" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Disponiert / Anfahrt" })).not.toBeInTheDocument()
-    // A viewer's ⋯ menu holds none of the editing actions — so it is not
-    // rendered as an empty menu either.
-    await user.click(screen.getByRole("button", { name: "Weitere Aktionen" }))
-    expect(screen.queryByRole("menuitem", { name: "Ressourcen übertragen" })).not.toBeInTheDocument()
-    expect(screen.queryByRole("menuitem", { name: "Löschen" })).not.toBeInTheDocument()
-    await user.keyboard("{Escape}")
+    // The action bar carries every action directly now — no ⋯ to open — so a
+    // viewer simply does not get the editing ones. «WhatsApp kopieren» above is
+    // the one that survives: copying a summary changes nothing.
+    expect(screen.queryByRole("button", { name: "Weitere Aktionen" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Ressourcen übertragen" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "An Auftrag verteilen" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Löschen" })).not.toBeInTheDocument()
     expect(screen.getByText("Adresse ändern").parentElement).toHaveAttribute("data-initial-geocode", "false")
     await user.click(screen.getByRole("button", { name: "Adresse ändern" }))
     await user.click(screen.getByRole("button", { name: "Koordinaten löschen" }))
@@ -299,8 +299,11 @@ describe("OperationDetailContent", () => {
     expect(screen.getByText("Hauptstrasse 1")).toBeInTheDocument()
     expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
     expect(screen.getByRole("textbox", { name: "Meldung" })).toBeInTheDocument()
-    // ...and what used to cost a tab switch is on the same panel.
-    expect(screen.getByText("Zugewiesene Ressourcen")).toBeInTheDocument()
+    // ...and what used to cost a tab switch is on the same panel. There is no
+    // «Zugewiesene Ressourcen» heading over it any more — the resource blocks
+    // carry their own labels and counts, which is what identifies the section.
+    expect(screen.getByText("Mannschaft (0)")).toBeInTheDocument()
+    expect(screen.queryByText("Zugewiesene Ressourcen")).not.toBeInTheDocument()
     // The Rapport panel is force-mounted for its form state, so it must be
     // hidden rather than absent. Reko is a plain panel and simply absent.
     expect(screen.queryByText("Reko-Meldungen")).not.toBeInTheDocument()
@@ -324,7 +327,7 @@ describe("OperationDetailContent", () => {
     expect(screen.getByText("Abholung nötig")).toBeVisible()
     expect(screen.queryByText("Reko vor Ort")).not.toBeInTheDocument()
     expect(screen.getByText("Meldungen vom Feld")).toBeVisible()
-    expect(screen.queryByText("Zugewiesene Ressourcen")).not.toBeInTheDocument()
+    expect(screen.queryByText("Mannschaft (0)")).not.toBeInTheDocument()
 
     await user.click(tab("Verlauf"))
     // Both lists, expanded, with no toggle to reveal them.
@@ -366,6 +369,37 @@ describe("OperationDetailContent", () => {
     )
 
     expect(tab(/^Rapport/)).toHaveAccessibleName("Rapport · Entwurf")
+  })
+
+  it("states the Abholung as a banner — in the Übersicht column, but under the tabs in the panel", () => {
+    const waiting = {
+      ...operation,
+      pickupNeeded: true,
+      pickupRequestedAt: new Date(Date.now() - 45 * 60_000),
+    }
+
+    const { unmount } = renderWithIntl(
+      <OperationDetailContent operation={waiting} layout="modal" materials={[]} onUpdate={vi.fn()} />,
+    )
+
+    // A sentence with its action, not a chip on the meta line.
+    expect(screen.getByText(/Abholung – wartet seit 45 Min/)).toBeInTheDocument()
+    // The modal has a second column for it: it sits inside Übersicht, above
+    // «Status ändern».
+    expect(
+      screen.getByRole("button", { name: "Abholung erledigt" }).closest('[role="tabpanel"]'),
+    ).not.toBeNull()
+    unmount()
+
+    renderWithIntl(
+      <OperationDetailContent operation={waiting} layout="panel" materials={[]} onUpdate={vi.fn()} />,
+    )
+
+    // 420px has no second column, so the banner is a strip under the tab bar —
+    // outside every tab panel, and therefore visible from all four tabs.
+    expect(
+      screen.getByRole("button", { name: "Abholung erledigt" }).closest('[role="tabpanel"]'),
+    ).toBeNull()
   })
 
   it("stays quiet on the labels while nothing is assigned and no rapport was filed", () => {

@@ -57,6 +57,9 @@ let store: Record<string, string> = {}
 
 beforeEach(() => {
   store = {}
+  // The mock is module-level, so without this its call count carries over from
+  // the previous test and any «called once» assertion measures the whole file.
+  changeStatusToTop.mockClear()
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => (key in store ? store[key] : null),
     setItem: (key: string, value: string) => {
@@ -80,24 +83,23 @@ afterEach(() => {
 describe("FieldStatusNudge", () => {
   it("asks to move a card the field reported finished", () => {
     renderWithIntl(
-      <FieldStatusNudge
-        operation={operation({ status: "active", fieldCompleteReportedAt: new Date() })}
-        onRequestComplete={vi.fn()}
-      />,
+      <FieldStatusNudge operation={operation({ status: "active", fieldCompleteReportedAt: new Date() })} />,
     )
 
-    expect(screen.getByText("Feld meldet beendet – nach Abgeschlossen verschieben?")).toBeDefined()
+    expect(screen.getByText("Feld meldet beendet – nach Beendet / Rückfahrt verschieben?")).toBeDefined()
   })
 
-  it("stays silent once the card already sits in Abgeschlossen", () => {
-    renderWithIntl(
-      <FieldStatusNudge
-        operation={operation({ status: "complete", fieldCompleteReportedAt: new Date() })}
-        onRequestComplete={vi.fn()}
-      />,
-    )
-
-    expect(screen.queryByTestId("field-nudge-complete")).toBeNull()
+  it("does not re-ask about a card already in or past Beendet / Rückfahrt", () => {
+    // Rückfahrt IS the state the field reported, so the question is answered by
+    // the card being there — including after a reload, which is why this is
+    // derived from the status and not from the session-only confirmation.
+    for (const status of ["returning", "complete"] as const) {
+      const { unmount } = renderWithIntl(
+        <FieldStatusNudge operation={operation({ status, fieldCompleteReportedAt: new Date() })} />,
+      )
+      expect(screen.queryByTestId("field-nudge-complete")).toBeNull()
+      unmount()
+    }
   })
 
   it("asks to move an arrival that has not reached Einsatz yet", () => {
@@ -116,19 +118,18 @@ describe("FieldStatusNudge", () => {
     }
   })
 
-  it("runs the shared completion flow when the beendet nudge is confirmed", async () => {
+  it("moves a finished card to Beendet / Rückfahrt and does nothing else", async () => {
     const user = userEvent.setup()
-    const onRequestComplete = vi.fn()
     renderWithIntl(
-      <FieldStatusNudge
-        operation={operation({ status: "active", fieldCompleteReportedAt: new Date() })}
-        onRequestComplete={onRequestComplete}
-      />,
+      <FieldStatusNudge operation={operation({ status: "active", fieldCompleteReportedAt: new Date() })} />,
     )
 
     await user.click(screen.getByRole("button", { name: "Verschieben" }))
 
-    expect(onRequestComplete).toHaveBeenCalledTimes(1)
+    // The plain move IS the whole answer — no completion flow, no gate, no
+    // second prompt. A crew that needs a lift back reports an Abholung instead.
+    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "returning")
+    expect(changeStatusToTop).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId("field-nudge-complete")).toBeNull()
   })
 
@@ -194,17 +195,16 @@ describe("FieldStatusNudge", () => {
   it("shares a confirmed move between both copies", async () => {
     const user = userEvent.setup()
     const op = operation({ status: "active", fieldCompleteReportedAt: new Date() })
-    const onRequestComplete = vi.fn()
     renderWithIntl(
       <>
-        <FieldStatusNudge operation={op} onRequestComplete={onRequestComplete} />
-        <FieldStatusNudge operation={op} variant="detail" onRequestComplete={onRequestComplete} />
+        <FieldStatusNudge operation={op} />
+        <FieldStatusNudge operation={op} variant="detail" />
       </>,
     )
 
     await user.click(screen.getAllByRole("button", { name: "Verschieben" })[0])
 
-    expect(onRequestComplete).toHaveBeenCalledTimes(1)
+    expect(changeStatusToTop).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId("field-nudge-complete")).toBeNull()
     // Answered by moving, not waved away: nothing is written to storage.
     expect(store[FIELD_NUDGE_STORAGE_KEY]).toBeUndefined()
@@ -215,7 +215,6 @@ describe("FieldStatusNudge", () => {
       <FieldStatusNudge
         operation={operation({ status: "enroute", fieldArrivedAt: new Date(), fieldCompleteReportedAt: new Date() })}
         canEdit={false}
-        onRequestComplete={vi.fn()}
       />,
     )
 

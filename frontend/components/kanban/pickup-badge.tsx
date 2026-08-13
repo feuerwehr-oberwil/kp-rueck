@@ -3,10 +3,11 @@
 /**
  * The amber "Abholung" chip (plan 25, decision 24).
  *
- * One component, three mounts — kanban card, detail header, map view — because
- * the pickup is a driving job and whoever assigns it is looking at wherever
- * things are. It carries the waiting time on purpose: "Abholung" alone says
- * nothing at 02:00, "Abholung · seit 23:14" says who to send first.
+ * One component, several mounts — kanban card, map view, Restliste, wall
+ * display as a chip, and the incident detail as a `banner` — because the pickup
+ * is a driving job and whoever assigns it is looking at wherever things are. It
+ * carries the waiting time on purpose: "Abholung" alone says nothing at 02:00,
+ * "Abholung · seit 23:14" says who to send first.
  *
  * It stays on a card that has been moved to `complete`. That is not an
  * oversight to tidy up later: completing an incident auto-releases the
@@ -27,6 +28,7 @@ import { useTranslations } from 'next-intl'
 import { CarTaxiFront, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { apiClient } from '@/lib/api-client'
@@ -41,8 +43,11 @@ function stopEvent(event: { stopPropagation: () => void }) {
 interface PickupBadgeProps {
   requestedAt: Date | null | undefined
   note?: string
-  /** `compact` drops the waiting time — for the map, where space is scarcer. */
-  variant?: 'default' | 'compact'
+  /** `compact` drops the waiting time — for the map, where space is scarcer.
+   *  `banner` is the boxed call to action used in the detail (modal Übersicht
+   *  column / panel strip under the tabs): the same fact stated as a sentence,
+   *  in the shape of the «Feld meldet …» nudge next to it. */
+  variant?: 'default' | 'compact' | 'banner'
   className?: string
   /**
    * Which incident this pickup belongs to. Supplying it makes the chip the
@@ -79,8 +84,12 @@ export function PickupBadge({
     if (!incidentId) return
     setClearing(true)
     try {
+      // No success toast: the KP operator pressed this button and confirmed it in
+      // a dialog, and the badge disappears in front of them. Announcing it back
+      // tells them something they just did — and while the detail modal is open
+      // the toast lands on top of it, where it is in the way rather than useful.
+      // A FAILURE still speaks up: that is the case they cannot see.
       await apiClient.setIncidentFieldReport(incidentId, { pickup_needed: false })
-      toast.success(t('clearedToast'))
       await refreshOperations()
       await onCleared?.()
     } catch (error) {
@@ -118,6 +127,78 @@ export function PickupBadge({
     className,
   )
 
+  // The dialog is a portal in the DOM but still a CHILD in the React tree, and
+  // React bubbles portalled events to the React parent. So a click on
+  // "Abholung erledigt" – or on Abbrechen, or anywhere on the overlay – reached
+  // the kanban card's own onClick and opened the incident behind the dialog.
+  // `display: contents` so this wrapper adds no box of its own to the row it
+  // sits in (the dialog itself renders elsewhere).
+  const confirmDialog = (
+    <span className="contents" onClick={stopEvent} onPointerDown={stopEvent} onMouseDown={stopEvent}>
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={t('clearConfirmTitle')}
+        description={
+          waiting ? t('clearConfirmBodyWaiting', { duration: waiting }) : t('clearConfirmBody')
+        }
+        confirmText={t('clear')}
+        onConfirm={handleClear}
+      />
+    </span>
+  )
+
+  if (variant === 'banner') {
+    // Same shape as FieldStatusNudge's `detail` variant — a boxed sentence with
+    // its action on the right — because to the operator these are the same kind
+    // of thing: something the field reported that the KP still has to answer.
+    // Amber rather than the nudge's primary tint: «Abholung» is amber
+    // everywhere else on the board, and the colour is the fastest read.
+    // No dismiss X: the waiting crew does not go away by being waved away, so
+    // «Abholung erledigt» is the only way out (§18.9).
+    return (
+      <>
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg p-3 text-xs',
+            'border border-amber-500/30 bg-amber-500/5',
+            className,
+          )}
+        >
+          <div className="flex min-w-[11rem] flex-1 items-start gap-2">
+            <CarTaxiFront
+              className="mt-px h-3.5 w-3.5 flex-shrink-0 text-amber-700 dark:text-amber-400"
+              aria-hidden
+            />
+            <span className="min-w-0 text-foreground">
+              {waiting ? `${t('badge')} – ${t('waiting', { duration: waiting })}` : t('badge')}
+              {note ? <span className="text-muted-foreground"> · {note}</span> : null}
+            </span>
+          </div>
+          {clearable && (
+            <div className="ml-auto flex flex-shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={clearing}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setConfirming(true)
+                }}
+              >
+                {clearing && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+                {t('clear')}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {confirmDialog}
+      </>
+    )
+  }
+
   if (!clearable) {
     return (
       <span className={chrome} title={tooltip}>
@@ -150,24 +231,7 @@ export function PickupBadge({
         {body}
       </button>
 
-      {/* The dialog is a portal in the DOM but still a CHILD in the React tree,
-          and React bubbles portalled events to the React parent. So a click on
-          "Abholung erledigt" — or on Abbrechen, or anywhere on the overlay —
-          reached the kanban card's own onClick and opened the incident behind
-          the dialog. `display: contents` so this wrapper adds no box of its own
-          to the card's flex row (the dialog itself renders elsewhere). */}
-      <span className="contents" onClick={stopEvent} onPointerDown={stopEvent} onMouseDown={stopEvent}>
-        <ConfirmDialog
-          open={confirming}
-          onOpenChange={setConfirming}
-          title={t('clearConfirmTitle')}
-          description={
-            waiting ? t('clearConfirmBodyWaiting', { duration: waiting }) : t('clearConfirmBody')
-          }
-          confirmText={t('clear')}
-          onConfirm={handleClear}
-        />
-      </span>
+      {confirmDialog}
     </>
   )
 }

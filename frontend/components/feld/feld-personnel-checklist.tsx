@@ -180,54 +180,71 @@ export function FeldPersonnelChecklist({
         ))}
 
         {!disabled && (
-          /* One row, therefore one height: the Inputs are a fixed h-9 and do not
-             stretch while the Button is min-h-44, so the row read as three boxes
-             on two baselines. Both sit at 44px now.
+          /* Name, Notiz and the «+» on ONE line — a container query decides, and
+             the container is this wrapper rather than the grid itself. That is
+             the whole bug the row used to have: `@container` and `@md:` sat on
+             the SAME element, and an element cannot query its own width, so the
+             columns never applied anywhere. The row stacked into three
+             full-width boxes at every width, in the KP panel as much as on a
+             phone.
 
-             A CONTAINER query, not `sm:`. This block lives in a max-w-md column
-             on /feld and in a wide modal in the KP — a viewport breakpoint made
-             a desktop browser squeeze three controls into a 400px column, which
-             is where the clipped placeholders came from. The container decides.
-             The columns are explicit (`minmax(0,…)`) because two equal flex
-             children clipped both placeholders mid-word; the note gets the wider
-             share, and below `sm` the three stack instead of squeezing. */
-          <div className="@container grid gap-2 @md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] @md:items-center">
-            <Input
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              placeholder={t('extraNamePlaceholder')}
-              maxLength={100}
-              className="h-11 text-sm"
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addExtra()
-                }
-              }}
-            />
-            <Input
-              value={newNote}
-              onChange={e => setNewNote(e.target.value)}
-              placeholder={t('extraNotePlaceholder')}
-              maxLength={200}
-              className="h-11 text-sm"
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addExtra()
-                }
-              }}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 w-full @md:w-auto"
-              disabled={!newName.trim()}
-              onClick={addExtra}
-            >
-              <Plus className="h-4 w-4" />
-              {t('addExtra')}
-            </Button>
+             The threshold is measured against the app's own stylesheet, not
+             guessed: at text-xs in Geist the two placeholders want 125px and
+             130px, and with two equal columns, gap-2, px-2 and a 32px «+» that
+             is met from ~347px of column upwards. The narrowest real mount is
+             the board's 420px detail panel, which leaves this block ~347px (420
+             less the panel's p-4, the always-on scrollbar and the section's
+             border and px-3); /feld gives ~390px. 336px is where the single
+             line still reads (the Notiz placeholder loses its last character);
+             under that a phone keeps the stacked, thumb-sized shape, which is
+             the only place 44px targets are wanted here — the KP is mouse and
+             keyboard (see CLAUDE.md). */
+          <div className="@container">
+            <div className="grid gap-2 @min-[336px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] @min-[336px]:items-center">
+              <Input
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder={t('extraNamePlaceholder')}
+                maxLength={100}
+                className="h-11 px-2 text-sm @min-[336px]:h-8 @min-[336px]:text-xs"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addExtra()
+                  }
+                }}
+              />
+              <Input
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                placeholder={t('extraNotePlaceholder')}
+                maxLength={200}
+                className="h-11 px-2 text-sm @min-[336px]:h-8 @min-[336px]:text-xs"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addExtra()
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-xs"
+                aria-label={t('addExtra')}
+                title={t('addExtra')}
+                className="h-11 w-full @min-[336px]:h-8 @min-[336px]:w-8"
+                disabled={!newName.trim()}
+                onClick={addExtra}
+              >
+                <Plus className="h-4 w-4" />
+                {/* Stacked, the button is full width and wants its word. Inline
+                    beside the two fields the «+» says it on its own, and the
+                    row has no 100px to spend on saying it twice — the label
+                    stays the accessible name either way. */}
+                <span className="@min-[336px]:hidden">{t('addExtra')}</span>
+              </Button>
+            </div>
           </div>
         )}
       </div>

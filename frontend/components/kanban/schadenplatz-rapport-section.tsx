@@ -36,6 +36,19 @@ interface SchadenplatzRapportSectionProps {
    *  an empty form nobody can fill in meaningfully. Computed by the caller
    *  through `rapportApplies`, which never hides an already-filed rapport. */
   applies?: boolean
+  /** Opt out of the built-in «Material zurück – freigeben» list. The incident
+   *  detail sets this false and mounts `MaterialReturnList` itself, in the
+   *  column that holds what came in from the field — the release is the KP's
+   *  to-do, not part of the form. Every other mount (display modal) keeps the
+   *  list here. Pair it with `onFiled` to know when to refetch. */
+  showMaterialReturn?: boolean
+  /** Fired when a rapport is saved as filed rather than a draft — the moment
+   *  the material-return list stops being empty. Only of interest to a caller
+   *  that renders that list itself. */
+  onFiled?: () => void
+  /** Passed straight to the form: put the cursor in the Kurzbericht when the
+   *  operator was sent here to write it (Offene Rapporte, a notification). */
+  autoFocusKurzbericht?: boolean
 }
 
 export function SchadenplatzRapportSection({
@@ -44,6 +57,9 @@ export function SchadenplatzRapportSection({
   hasRapport = false,
   applies = true,
   boxed = true,
+  showMaterialReturn = true,
+  onFiled,
+  autoFocusKurzbericht,
 }: SchadenplatzRapportSectionProps) {
   const t = useTranslations('feld.rapport')
   const [returnKey, setReturnKey] = useState(0)
@@ -73,9 +89,13 @@ export function SchadenplatzRapportSection({
   const handleSaved = useCallback((saved: ApiSchadenplatzRapport) => {
     setFiled(!saved.is_draft)
     // The return list only exists for a submitted rapport, so it has to be
-    // refetched the moment one is filed.
-    if (!saved.is_draft) setReturnKey(key => key + 1)
-  }, [])
+    // refetched the moment one is filed — here, or by whoever mounts the list
+    // in our place.
+    if (!saved.is_draft) {
+      setReturnKey(key => key + 1)
+      onFiled?.()
+    }
+  }, [onFiled])
 
   return (
     <div className="space-y-3">
@@ -111,6 +131,7 @@ export function SchadenplatzRapportSection({
             mount="kp"
             disabled={!canEdit}
             onSaved={handleSaved}
+            autoFocusKurzbericht={autoFocusKurzbericht}
           />
         </div>
       )}
@@ -120,8 +141,10 @@ export function SchadenplatzRapportSection({
           where nobody looks at 02:00. Only fetched once a rapport has actually
           been filed — the list is empty for a draft by definition, and every
           incident detail opening would otherwise pay for a request that can
-          only answer "nothing". */}
-      {(filed || returnKey > 0) && (
+          only answer "nothing".
+          The incident detail opts out (`showMaterialReturn={false}`) and puts
+          the same list in its own left column, next to the field's messages. */}
+      {showMaterialReturn && (filed || returnKey > 0) && (
         <MaterialReturnList incidentId={incidentId} canEdit={canEdit} refreshKey={returnKey} />
       )}
     </div>

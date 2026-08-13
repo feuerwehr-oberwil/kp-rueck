@@ -614,7 +614,7 @@
     "board": {
       "cardRapportTooltip": "Rapport de place sinistrée saisi",
       "cardNoRapportTooltip": "Aucun rapport saisi",
-      "nudgeCompleteText": "Le terrain annonce la fin – déplacer vers Clôturé ?",
+      "nudgeCompleteText": "Le terrain annonce la fin – déplacer vers Terminé / retour ?",
       "nudgeArrivedText": "Le terrain annonce l’arrivée – déplacer vers Intervention ?",
       "nudgeConfirm": "Déplacer",
       "nudgeDismiss": "Masquer l’indication"
@@ -1182,7 +1182,6 @@
       "amWartenDescription": "Intervention retardée / en attente de ressources",
       "amWartenPlaceholder": "Motif du retard...",
       "rekoReports": "Annonces de reconnaissance",
-      "assignedResources": "Ressources attribuées",
       "reko": "Reconnaissance",
       "magazin": "Caserne",
       "directLink": "Lien direct",

@@ -70,6 +70,7 @@
       "newIncident": "Neuer Einsatz",
       "vehicleStatus": "Fahrzeugstatus",
       "auftraege": "Aufträge öffnen",
+      "print": "Drucken & Export",
       "groupAuftraege": "Aufträge",
       "refreshData": "Daten aktualisieren",
       "groupView": "Ansicht",
@@ -340,7 +341,6 @@
       "amWartenDescription": "Einsatz verzögert / wartet auf Ressourcen",
       "amWartenPlaceholder": "Grund der Verzögerung...",
       "rekoReports": "Rekognoszierungs-Meldungen",
-      "assignedResources": "Zugewiesene Ressourcen",
       "reko": "Reko",
       "magazin": "Magazin",
       "directLink": "Direkt-Link",
@@ -399,8 +399,7 @@
       "alarm": "Alarm",
       "vehicles": "Fahrzeuge",
       "print": "Drucken",
-      "thermo": "Thermo",
-      "thermoTitle": "Board auf Thermodrucker drucken",
+      "printTitle": "Drucken & Export – Bon, A4, Datei",
       "trainingControl": "Übungs-Steuerung",
       "commands": "Befehle",
       "checkInSheetTitle": "Personal Check-In",
@@ -425,7 +424,29 @@
       "feldLinkFailed": "Feld-Link konnte nicht generiert werden. Bitte versuche es erneut.",
       "feldSheetTitle": "Feld-Link",
       "feldSheetDescription": "QR-Code scannen oder Link teilen – für alle Trupps im Feld",
-      "feldSheetHint": "Jede eingeteilte Person sieht damit ihre eigenen Einsatzstellen und kann den Schadenplatz-Rapport erfassen. Funktioniert ohne Anmeldung."
+      "feldSheetHint": "Jede eingeteilte Person sieht damit ihre eigenen Einsatzstellen und kann den Schadenplatz-Rapport erfassen. Funktioniert ohne Anmeldung.",
+      "rapporte": "Rapporte",
+      "rapportBacklog": {
+        "toggleTitle": "Offene Schadenplatz-Rapporte: {count}",
+        "title": "Schadenplatz-Rapporte",
+        "description": "älteste zuerst",
+        "descriptionFiled": "neueste zuerst",
+        "tabOpen": "Offen ({count})",
+        "tabFiled": "Erfasst ({count})",
+        "draft": "Entwurf",
+        "completedAt": "Abgeschlossen {time}",
+        "changedAt": "Stand {time}",
+        "since": "seit {duration}",
+        "empty": "Alle Rapporte sind erfasst.",
+        "emptyFiled": "Noch kein Rapport erfasst."
+      },
+      "materialOnSite": {
+        "toggle": "{count, plural, one {# Gerät vor Ort} other {# Geräte vor Ort}}",
+        "toggleTitle": "{count, plural, one {# Gerät steht noch an einem Schadenplatz} other {# Geräte stehen noch an einem Schadenplatz}} – älteste zuerst",
+        "rowTitle": "{name} steht noch bei {address}",
+        "since": "seit {duration}",
+        "unknownAddress": "Ohne Adresse"
+      }
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -2033,6 +2054,18 @@
       "personnelOverview": "Personal-Übersicht",
       "printing": "Wird gedruckt..."
     },
+    "hub": {
+      "title": "Drucken",
+      "description": "Wähle, wie die Lage auf Papier kommt.",
+      "exportHeading": "Export",
+      "exportHint": "Datei auf dieses Gerät laden.",
+      "exportReport": "Bericht (PDF)",
+      "exportLageblatt": "Lageblatt (A4)",
+      "exportAutomatic": "Automatisch exportieren einrichten",
+      "exportAudit": "Audit (XLSX)",
+      "exporting": "Wird erstellt...",
+      "exportFailed": "Export fehlgeschlagen"
+    },
     "view": {
       "title": "KP RÜCK STATUSÜBERSICHT",
       "eventLabel": "Event",
@@ -2988,7 +3021,7 @@
     "board": {
       "cardRapportTooltip": "Schadenplatz-Rapport erfasst",
       "cardNoRapportTooltip": "Kein Rapport erfasst",
-      "nudgeCompleteText": "Feld meldet beendet – nach Abgeschlossen verschieben?",
+      "nudgeCompleteText": "Feld meldet beendet – nach Beendet / Rückfahrt verschieben?",
       "nudgeArrivedText": "Feld meldet angekommen – nach Einsatz verschieben?",
       "nudgeConfirm": "Verschieben",
       "nudgeDismiss": "Hinweis ausblenden"

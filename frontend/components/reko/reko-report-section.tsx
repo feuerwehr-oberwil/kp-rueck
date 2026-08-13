@@ -227,7 +227,7 @@ export default function RekoReportSection({
         // that says nothing reads as a rendering fault.
         (split || !isEditing) && (
           <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4 shrink-0" />
             <p className="text-sm">{t('noReport')}</p>
           </div>
         )
@@ -246,7 +246,7 @@ export default function RekoReportSection({
           // inside a border inside the modal is two frames around one form.
           <div className={cn("space-y-3", split ? "" : "rounded-lg border border-border p-4")}>
             <div className="flex items-center gap-2">
-              <Binoculars className="h-4 w-4 text-muted-foreground" />
+              <Binoculars className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="text-sm font-semibold text-muted-foreground">
                 {latestReport ? t('amendTitle') : t('createTitle')}
               </span>

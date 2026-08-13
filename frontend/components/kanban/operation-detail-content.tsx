@@ -6,22 +6,14 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints, MoreHorizontal } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Kbd } from "@/components/ui/kbd"
+import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints, type LucideIcon } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -49,6 +41,7 @@ import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
+import { MaterialReturnList } from "@/components/kanban/material-return-list"
 import { DetailField, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
@@ -76,6 +69,67 @@ import type { Incident } from "@/lib/types/incidents"
  *  operator case. */
 function isEditorClaimedSource(source: string | undefined): boolean {
   return !source || source === 'operator' || source === 'intake'
+}
+
+/**
+ * One action on the detail's footer bar.
+ *
+ * The modal has room for the word and shows it. The 420px panel does not — four
+ * labelled controls do not fit and wrapping grows the bar into the content — so
+ * there the icon stands alone AND CARRIES A HOVER LABEL. Not the browser's
+ * `title`: that waits about a second and cannot be styled, which is no help to
+ * somebody who does not already know that ⇄ means «Ressourcen übertragen». The
+ * app's own tooltip opens with `delayDuration = 0`, i.e. on contact.
+ *
+ * `aria-label` is set in BOTH layouts, so the control keeps one name regardless
+ * of how wide the window happens to be.
+ *
+ * Module level on purpose: declared inside the component it would be a new type
+ * every render, and React would remount the button mid-interaction.
+ */
+function ActionBarButton({
+  icon: Icon,
+  label,
+  visibleLabel,
+  dense,
+  onClick,
+  disabled,
+  variant = 'outline',
+  className,
+}: {
+  icon: LucideIcon
+  /** The full sentence — accessible name, and the hover label in `dense`. */
+  label: string
+  /** What the modal prints on the button; defaults to `label`. */
+  visibleLabel?: string
+  dense: boolean
+  onClick: () => void
+  disabled?: boolean
+  variant?: 'outline' | 'ghost'
+  className?: string
+}) {
+  const button = (
+    <Button
+      variant={variant}
+      size="sm"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className={className}
+    >
+      <Icon className="size-3.5" />
+      {!dense && (visibleLabel ?? label)}
+    </Button>
+  )
+
+  if (!dense) return button
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  )
 }
 
 export interface OperationDetailContentProps {
@@ -187,7 +241,7 @@ export function OperationDetailContent({
       title={t('detail.viaAuftrag', { name: auftrag.name })}
     >
       <span
-        className="h-1.5 w-1.5 rounded-full"
+        className="h-1.5 w-1.5 shrink-0 rounded-full"
         style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
       />
       {t('detail.viaAuftrag', { name: auftrag.name })}
@@ -223,6 +277,9 @@ export function OperationDetailContent({
   const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
+  // Bumped when the rapport section files a rapport: that is the moment the
+  // material-return list in the Rapport tab's left column stops being empty.
+  const [materialReturnKey, setMaterialReturnKey] = useState(0)
 
   const {
     copied: rekoCopied,
@@ -451,6 +508,11 @@ export function OperationDetailContent({
   // The panel mount stays single-column; it is barely wider than one.
   // The panel reads `Label │ Wert` rows; the modal keeps the stacked form.
   const dense = layout === 'panel'
+  // The panel's tab bar shares its row with the ← / → hints, so its triggers
+  // take their own label plus a share of whatever is left (`flex-auto`) rather
+  // than a fixed quarter each (`flex-1`, the default): «Rapport · erfasst» is
+  // wider than a quarter of 420px and would spill over «Verlauf».
+  const tabTriggerClass = dense ? "flex-auto px-1.5" : undefined
   const tabGridClass = cn("grid grid-cols-1 gap-8 py-4", layout === 'modal' && "lg:grid-cols-2")
   const tabColumnBreakClass = cn("space-y-5", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
@@ -459,6 +521,42 @@ export function OperationDetailContent({
   // block is opened, and a scrollbar that appears at that moment narrows the
   // column under the pointer — the row you were about to click moves.
   const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll"
+
+  /**
+   * The banners: what came in from the field and is still waiting for the KP to
+   * do something about it — «Feld meldet beendet / angekommen» and «Abholung».
+   * One group, two homes, because the two mounts have different room for it:
+   *
+   *  * modal — first thing in the Übersicht RIGHT column, directly above
+   *    «Status wechseln», which is the control those questions are about.
+   *  * panel — a full-width strip directly under the tab bar. 420px has no
+   *    second column to put them in, and burying them inside Übersicht would
+   *    hide them whenever the operator is on Rapport or Verlauf.
+   *
+   * `empty:hidden` is what keeps the group honest: FieldStatusNudge renders
+   * nothing once its question has been answered, and a dismissed nudge with no
+   * pickup must not leave a padded gap under the tabs. A `display:none` box
+   * carries no margin either, so the spacing below can stay on this element.
+   */
+  const banners = (
+    <div className={cn("space-y-2 empty:hidden", dense ? "flex-shrink-0 pt-3" : "mb-5")}>
+      {(operation.fieldCompleteReportedAt || operation.fieldArrivedAt) && (
+        <FieldStatusNudge operation={operation} canEdit={canEdit} variant="detail" />
+      )}
+      {/* Stays visible on a completed incident on purpose, and is the KP's
+          «Abholung erledigt» control here as everywhere else — passing
+          `incidentId` is what turns it into that button. */}
+      {operation.pickupNeeded && (
+        <PickupBadge
+          requestedAt={operation.pickupRequestedAt}
+          note={operation.pickupNote}
+          incidentId={operation.id}
+          canEdit={canEdit}
+          variant="banner"
+        />
+      )}
+    </div>
+  )
 
   return (
     <div
@@ -505,9 +603,9 @@ export function OperationDetailContent({
             <h2
               className={cn(
                 "flex items-center gap-2.5 font-semibold leading-none tracking-tight",
-                // The panel row also carries the badge, the clock and three
-                // controls: the address gives way rather than wrapping, and it
-                // is the only part that may.
+                // The panel row also carries the clock and three controls: the
+                // address gives way rather than wrapping, and it is the only
+                // part that may.
                 dense ? "min-w-0 text-lg" : "text-xl",
               )}
               // Both, because the address is what truncated and the id is what
@@ -523,23 +621,6 @@ export function OperationDetailContent({
               <span className={cn(dense && "min-w-0 truncate")}>
                 {formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
               </span>
-              {/* Stays visible on a completed incident on purpose, and is the
-                  KP's "Abholung erledigt" control here as everywhere else —
-                  passing `incidentId` is what turns the chip into that button. */}
-              {operation.pickupNeeded && (
-                <span className="shrink-0">
-                  {/* Compact in the panel: «Abholung seit 12:12» spelled out ate
-                      a third of a row the address needs. The chip keeps its
-                      tooltip and stays the «erledigt» control either way. */}
-                  <PickupBadge
-                    requestedAt={operation.pickupRequestedAt}
-                    note={operation.pickupNote}
-                    incidentId={operation.id}
-                    canEdit={canEdit}
-                    variant={dense ? 'compact' : 'default'}
-                  />
-                </span>
-              )}
               {dense && showIncidentTime && (
                 // The wrapper, not the component's own className: the chip is a
                 // button with its own classes and was being squeezed to «171h 3»
@@ -553,8 +634,15 @@ export function OperationDetailContent({
                 </span>
               )}
             </h2>
+            {/* The line under the title: what identifies the incident without
+                being its address — the id and the time chip. «Abholung» used to
+                ride here as a chip and is now one of the banners below the tabs
+                / in the Übersicht column, where it states the same fact as a
+                sentence with its «erledigt» control attached.
+                In the panel the id lives in the title's tooltip and the clock
+                rides the title row, so there is nothing left to show. */}
             {!dense && (
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
               {/* The board-wide time chip (start / in status / since alarm). Its
                   durations are dropped once the incident is closed: a running clock
@@ -566,20 +654,35 @@ export function OperationDetailContent({
                   <IncidentTime operation={operation} size="lg" suppressDurations={operation.status === "complete"} />
                 </>
               )}
-            </p>
+            </div>
             )}
           </div>
           {headerActions && <div className="ml-auto flex flex-shrink-0 items-center gap-1">{headerActions}</div>}
           </div>
 
-          <div className={cn("flex min-w-0 items-center gap-2", layout === 'panel' && "w-full")}>
-            <TabsList className={cn("flex-shrink-0", layout === 'panel' && "w-full")}>
-              <TabsTrigger value="overview">{t('detail.tabs.overview')}</TabsTrigger>
+          <div className={cn("flex min-w-0 items-center", dense ? "w-full gap-1" : "gap-2")}>
+            {/* The shortcut has to be visible or it does not exist. Same Kbd the
+                rest of the board hints with, and split so each key sits on the
+                side it moves towards: ← before the tabs, → after them. Both
+                `shrink-0`, because the row is `justify-between` and a long
+                address would otherwise squeeze exactly these. Both mounts: the
+                arrows walk the tabs in the panel too, and a shortcut nobody is
+                told about is a shortcut nobody uses. The panel pays for them
+                with a smaller key cap and a tighter gap — 24px of its 420. */}
+            <Kbd
+              className={cn("hidden shrink-0 lg:inline-flex", dense && "h-4 min-w-4 px-0.5 text-2xs")}
+              title={t('detail.tabs.switchHint')}
+              aria-label={t('detail.tabs.switchHint')}
+            >
+              ←
+            </Kbd>
+            <TabsList className={cn(dense ? "min-w-0 flex-1" : "flex-shrink-0")}>
+              <TabsTrigger value="overview" className={tabTriggerClass}>{t('detail.tabs.overview')}</TabsTrigger>
               {/* Reko stands alone: it is written and read at a different moment
                   than everything the crew sends from the Schadenplatz, and one
                   tab holding both was one tab nobody could see the end of. */}
-              <TabsTrigger value="reko">{t('detail.tabs.reko')}</TabsTrigger>
-              <TabsTrigger value="rapport">
+              <TabsTrigger value="reko" className={tabTriggerClass}>{t('detail.tabs.reko')}</TabsTrigger>
+              <TabsTrigger value="rapport" className={tabTriggerClass}>
                 {t('detail.tabs.rapport')}
                 {/* Whitespace-only text nodes generate no box in a flex
                     container, so this costs nothing visually and keeps the
@@ -598,26 +701,22 @@ export function OperationDetailContent({
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="history">{t('detail.tabs.history')}</TabsTrigger>
+              <TabsTrigger value="history" className={tabTriggerClass}>{t('detail.tabs.history')}</TabsTrigger>
             </TabsList>
 
-            {/* The shortcut has to be visible or it does not exist. Same Kbd the
-                rest of the board hints with, in a KbdGroup so the two keys stay
-                one horizontal line — `shrink-0` because the row is
-                `justify-between` and a long address would otherwise squeeze
-                exactly this element. Hidden on the panel mount, where the bar
-                already takes the full width. */}
-            {layout === 'modal' && (
-              <KbdGroup
-                className="hidden shrink-0 whitespace-nowrap text-muted-foreground lg:inline-flex"
-                title={t('detail.tabs.switchHint')}
-              >
-                <Kbd aria-label={t('detail.tabs.switchHint')}>←</Kbd>
-                <Kbd aria-hidden="true">→</Kbd>
-              </KbdGroup>
-            )}
+            <Kbd
+              className={cn("hidden shrink-0 lg:inline-flex", dense && "h-4 min-w-4 px-0.5 text-2xs")}
+              title={t('detail.tabs.switchHint')}
+              aria-hidden="true"
+            >
+              →
+            </Kbd>
           </div>
         </header>
+
+          {/* The panel's home for the banners: under the tabs, above whichever
+              tab is in front — see `banners` above. */}
+          {dense && banners}
 
           {/* ------------------------------------------------------ Übersicht */}
           <TabsContent value="overview" className={tabPanelClass}>
@@ -657,8 +756,18 @@ export function OperationDetailContent({
               value={operation.notes}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ notes: e.target.value })}
-              // The modal has the width for a taller Meldung; the panel does not.
-              className={cn(DENSE_CONTROL, "py-1", dense ? "min-h-[3.5rem]" : "min-h-[5rem]")}
+              // Grows with what is in it. `h-auto` is what makes that work:
+              // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
+              // height beats the base Textarea's `field-sizing-content` — which
+              // is how a dictated Meldung ended up scrolling inside five rems
+              // and clipped mid-word. The min-height stays the floor, the
+              // max-height is the point where it goes back to scrolling rather
+              // than pushing the whole form off the panel.
+              className={cn(
+                DENSE_CONTROL,
+                "h-auto py-1",
+                dense ? "max-h-[14rem] min-h-[3.5rem]" : "max-h-[20rem] min-h-[5rem]",
+              )}
             />
           </DetailField>
 
@@ -723,7 +832,7 @@ export function OperationDetailContent({
                 href={telHref(operation.contactPhone) ?? undefined}
                 className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
               >
-                <Phone className="h-3 w-3" />
+                <Phone className="h-3 w-3 shrink-0" />
                 {t('common.callContact')}
               </a>
             ) : undefined}
@@ -751,7 +860,12 @@ export function OperationDetailContent({
               value={operation.internalNotes}
               disabled={!canEdit}
               onChange={(e) => onUpdate({ internalNotes: e.target.value })}
-              className={cn(DENSE_CONTROL, "py-1", dense ? "min-h-[3.5rem]" : "min-h-[4rem]")}
+              // Same auto-grow as «Meldung» above — see there for why `h-auto`.
+              className={cn(
+                DENSE_CONTROL,
+                "h-auto py-1",
+                dense ? "max-h-[14rem] min-h-[3.5rem]" : "max-h-[20rem] min-h-[4rem]",
+              )}
             />
           </DetailField>
 
@@ -770,7 +884,7 @@ export function OperationDetailContent({
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
 
-              icon={<Phone className="h-3.5 w-3.5" />}
+              icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
               checked={operation.source === 'intake'}
               disabled={!canEdit}
               onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
@@ -782,7 +896,7 @@ export function OperationDetailContent({
             label={t('common.nachbarhilfe')}
             description={t('detail.nachbarhilfeDescription')}
 
-            icon={<Building2 className="h-3.5 w-3.5" />}
+            icon={<Building2 className="h-3.5 w-3.5 shrink-0" />}
             checked={operation.nachbarhilfe || false}
             disabled={!canEdit}
             onToggle={(checked) => canEdit && onUpdate({ nachbarhilfe: checked })}
@@ -803,7 +917,7 @@ export function OperationDetailContent({
             label={t('common.amWarten')}
             description={t('common.amWartenDescription')}
 
-            icon={<Timer className="h-3.5 w-3.5" />}
+            icon={<Timer className="h-3.5 w-3.5 shrink-0" />}
             checked={operation.amWarten || false}
             disabled={!canEdit}
             onToggle={(checked) => canEdit && onUpdate({ amWarten: checked })}
@@ -826,29 +940,24 @@ export function OperationDetailContent({
               to click twice for one question, and the modal is wide enough to
               answer it in one look. */}
           <div className={tabColumnBreakClass}>
+          {/* The modal's home for the banners: the same questions the card
+              asks, in front of the control that answers them — the field
+              reported «angekommen» / «beendet», and the next thing an operator
+              does about it is move the card, which is «Status wechseln»
+              directly below. The nudge's dismissal is shared with the card
+              behind the modal (one external store in field-status-nudge.tsx),
+              so the X only has to be clicked once. In the panel this same group
+              sits under the tab bar instead — see `banners` above. */}
+          {!dense && banners}
+
           {/* Status quick-change — one-click move across the board (drops the
               card at the top of the target column) instead of drag & drop. It
               opens this column because it is the most-used control on the tab
               and must not sit below a resource list of unpredictable length. */}
-          {/* The same question the card asks, in front of the control that
-              answers it — the field reported «angekommen» / «beendet», and the
-              next thing an operator does about it is move the card. Dismissal
-              is shared with the card behind the modal (one external store in
-              field-status-nudge.tsx), so the X only has to be clicked once. */}
-          {(operation.fieldCompleteReportedAt || operation.fieldArrivedAt) && (
-            <FieldStatusNudge
-              operation={operation}
-              canEdit={canEdit}
-              variant="detail"
-              className="mb-5"
-              onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
-            />
-          )}
-
           {canEdit && onChangeStatus && (
           <div className="mb-5">
             <div className="flex items-center gap-2 mb-1.5">
-              <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+              <ArrowRightLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="text-sm font-medium">{t('detail.changeStatus')}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -870,27 +979,29 @@ export function OperationDetailContent({
           </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Label className="text-sm font-semibold text-muted-foreground">
-              {t('common.assignedResources')}
-            </Label>
-            {auftrag && (
+          {/* No «Zugewiesene Ressourcen» heading: Reko, Mannschaft, Fahrzeuge and
+              Material each carry their own label and count, so the line above
+              them only named the column it already is. The Auftrag chip stays —
+              it is the one thing those four labels do not say, namely that the
+              resources belong to a route rather than to this incident. */}
+          {auftrag && (
+            <div className="flex flex-wrap items-center gap-2">
               <span
                 className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
                 title={t('detail.viaAuftrag', { name: auftrag.name })}
               >
-                <Waypoints className="h-3 w-3" />
+                <Waypoints className="h-3 w-3 shrink-0" />
                 {t('detail.viaAuftrag', { name: auftrag.name })}
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="mt-4">
+          <div>
             {/* Reko Personnel */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="text-sm font-medium">{t('common.reko')}</span>
                 </div>
                 <div className="flex flex-wrap justify-end gap-1">
@@ -931,7 +1042,7 @@ export function OperationDetailContent({
               {assignedRekoPersonnel ? (
                 <div className="space-y-2">
                   <Badge variant="secondary" className="text-sm bg-info/10 text-info">
-                    <Search className="h-3 w-3 mr-1" />
+                    <Search className="mr-1 h-3 w-3 shrink-0" />
                     {assignedRekoPersonnel.name}
                   </Badge>
 
@@ -1105,7 +1216,7 @@ export function OperationDetailContent({
                             operation.zuFuss ? "bg-primary/10 text-primary" : "hover:bg-muted"
                           )}
                         >
-                          <Footprints className="h-4 w-4" />
+                          <Footprints className="h-4 w-4 shrink-0" />
                            <div className="text-left flex-1">
                              <div className="font-medium">{t('common.zuFuss')}</div>
                              <div className="text-xs text-muted-foreground">{t('detail.ohneFahrzeug')}</div>
@@ -1139,7 +1250,7 @@ export function OperationDetailContent({
                                     isAssigned ? "bg-primary/10 text-primary" : "hover:bg-muted"
                                   )}
                                 >
-                                  <Truck className={cn("h-4 w-4", isAssigned ? "text-primary" : "text-muted-foreground")} />
+                                  <Truck className={cn("h-4 w-4 shrink-0", isAssigned ? "text-primary" : "text-muted-foreground")} />
                                    <div className="text-left flex-1">
                                      <div className="font-medium">{vehicle.name}</div>
                                      <div className="text-xs text-muted-foreground">{vehicle.type}</div>
@@ -1163,7 +1274,7 @@ export function OperationDetailContent({
                     removeTitle={t('common.removeZuFuss')}
                     removeButtonClassName="ml-0.5 hover:text-destructive"
                   >
-                    <Footprints className="h-3.5 w-3.5" />
+                    <Footprints className="h-3.5 w-3.5 shrink-0" />
                     {t('common.zuFuss')}
                   </RemovableChip>
                 )}
@@ -1200,9 +1311,9 @@ export function OperationDetailContent({
                             tabIndex={-1}
                           >
                             {driverStay ? (
-                              <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" /> {t('common.driverStays')}</span>
+                              <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3 shrink-0" /> {t('common.driverStays')}</span>
                             ) : (
-                              <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3" /> {t('common.driverReturns')}</span>
+                              <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3 shrink-0" /> {t('common.driverReturns')}</span>
                             )}
                           </button>
                         )}
@@ -1253,7 +1364,10 @@ export function OperationDetailContent({
                             removeTitle={t('common.removeNamed', { name: group.name })}
                             removeButtonClassName="ml-1"
                           >
-                            <Layers className="h-3 w-3 text-muted-foreground" />
+                            {/* h-3.5 like the «Zu Fuss» chip's glyph: both sit
+                                in a `text-sm` chip, and 12px next to 14px text
+                                read as two different chip families. */}
+                            <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                             {group.name}
                           </RemovableChip>
                         ))}
@@ -1287,6 +1401,7 @@ export function OperationDetailContent({
             </div>
             </>
           )}
+
           </div>
           </div>
           </div>
@@ -1355,6 +1470,24 @@ export function OperationDetailContent({
                 failed={timeline.failed}
                 onRetry={timeline.reload}
               />
+
+              {/* «Material zurück – freigeben» — the KP's own to-do, and it
+                  belongs on this side: it answers the same «was ist draussen
+                  passiert» as the Abholung row and the crew's messages above,
+                  and it is a list to work through rather than a form to fill
+                  in. Mounted here rather than inside the rapport section (which
+                  opts out via `showMaterialReturn`), on the same condition it
+                  had there: only once a rapport has actually been FILED, since
+                  the list is empty for a draft by definition and every detail
+                  opening would otherwise pay for a request that answers
+                  "nothing". */}
+              {(operation.hasSchadenplatzRapport || materialReturnKey > 0) && (
+                <MaterialReturnList
+                  incidentId={operation.id}
+                  canEdit={canEdit}
+                  refreshKey={materialReturnKey}
+                />
+              )}
             </div>
 
             {/* Right: the one thing that is written rather than reported. */}
@@ -1367,6 +1500,16 @@ export function OperationDetailContent({
               canEdit={canEdit}
               boxed={false}
               hasRapport={operation.hasSchadenplatzRapport}
+              // The release list lives in the left column, next to the rest of
+              // what came in from the field — so the section must not render a
+              // second copy, and has to say when it filed one.
+              showMaterialReturn={false}
+              onFiled={() => setMaterialReturnKey((key) => key + 1)}
+              // Only when the detail was OPENED on this tab — from Offene
+              // Rapporte or a notification, i.e. somebody was sent here to write
+              // it. Clicking «Rapport» by hand leaves the cursor alone: stealing
+              // focus from someone who came to read is its own bug.
+              autoFocusKurzbericht={openOnTab?.tab === 'rapport'}
               // No rapport before the Schadenplatz was disponiert (§18.27).
               // Same gate on both shapes of the detail, because it is the same
               // component — and on the card and the Restliste through the same
@@ -1402,63 +1545,64 @@ export function OperationDetailContent({
         </Tabs>
 
         {/* Actions - Fixed Footer */}
-        {/* One visible action, the rest behind ⋯.
-            «WhatsApp kopieren» is the one an operator reaches for while the
-            detail is open. Übertragen, In Auftrag einfügen and Löschen are
-            already on the card's context menu — where they are actually
-            triggered — and Divera is a once-per-incident thing. Five buttons
-            side by side spent the whole footer on that, and in the 420px panel
-            they wrapped onto a second row for it. */}
+        {/* Every action on one row, no ⋯. The overflow menu had been reduced to
+            «Löschen» (plus Divera where it is configured), i.e. a button behind a
+            button — and in the 420px panel its content opened downwards into the
+            board footer, where it was clipped.
+            The panel has no room for four labelled controls, so there the icons
+            stand alone and the label arrives ON HOVER — see `ActionBarButton`,
+            which uses the app's tooltip rather than the browser's delayed
+            `title`. Löschen is pushed to the far end by `ml-auto`, away from the
+            things that are merely useful. */}
         <div className="flex-shrink-0 flex items-center gap-2 pt-3 mt-auto border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopyWhatsApp}
+          <ActionBarButton
+            icon={MessageCircle}
+            label={t('detail.copyWhatsapp')}
+            visibleLabel={isCopyingWhatsApp ? t('common.copying') : undefined}
+            dense={dense}
             disabled={isCopyingWhatsApp}
-          >
-            <MessageCircle className="size-3.5" />
-            {isCopyingWhatsApp ? t('common.copying') : t('detail.copyWhatsapp')}
-          </Button>
+            onClick={handleCopyWhatsApp}
+          />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="ml-auto border border-border" aria-label={t('detail.moreActions')}>
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canEdit && diveraEnabled && onSendDivera && operation && (
-                <DropdownMenuItem onSelect={() => onSendDivera(operation)}>
-                  <Siren className="size-3.5" />
-                  {t('detail.diveraAlarm')}
-                </DropdownMenuItem>
-              )}
-              {canEdit && (
-                <DropdownMenuItem onSelect={handleOpenTransfer}>
-                  <ArrowRightLeft className="size-3.5" />
-                  {t('common.transferResources')}
-                </DropdownMenuItem>
-              )}
-              {canEdit && onDistributeToAuftrag && operation && (
-                <DropdownMenuItem onSelect={() => onDistributeToAuftrag(operation.id)}>
-                  <Waypoints className="size-3.5" />
-                  {t('common.distributeToAuftrag')}
-                </DropdownMenuItem>
-              )}
-              {canEdit && onDelete && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => setShowDeleteConfirm(true)}
-                  >
-                    <Trash2 className="size-3.5" />
-                    {t('common.delete')}
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canEdit && (
+            <ActionBarButton
+              icon={ArrowRightLeft}
+              label={t('common.transferResources')}
+              dense={dense}
+              onClick={handleOpenTransfer}
+            />
+          )}
+
+          {canEdit && onDistributeToAuftrag && (
+            <ActionBarButton
+              icon={Waypoints}
+              label={t('common.distributeToAuftrag')}
+              dense={dense}
+              onClick={() => onDistributeToAuftrag(operation.id)}
+            />
+          )}
+
+          {canEdit && diveraEnabled && onSendDivera && operation && (
+            <ActionBarButton
+              icon={Siren}
+              label={t('detail.diveraAlarm')}
+              dense={dense}
+              onClick={() => onSendDivera(operation)}
+            />
+          )}
+
+          {canEdit && onDelete && (
+            <ActionBarButton
+              icon={Trash2}
+              label={t('common.delete')}
+              // Always icon-only: it is the one control here nobody should reach
+              // for by accident, and a red word invites the eye to it.
+              dense
+              variant="ghost"
+              className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+            />
+          )}
         </div>
 
       {canEdit && onDelete && <DeleteConfirmDialog

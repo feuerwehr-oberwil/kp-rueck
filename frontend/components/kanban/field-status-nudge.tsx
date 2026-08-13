@@ -45,6 +45,7 @@ export const FIELD_NUDGE_STORAGE_KEY = "kp-rueck:field-nudge-dismissed"
 // deriving from it means a new column cannot silently desync this predicate.
 const STATUS_ORDER: OperationStatus[] = columns.map((column) => column.id)
 const ACTIVE_INDEX = STATUS_ORDER.indexOf("active")
+const RETURNING_INDEX = STATUS_ORDER.indexOf("returning")
 
 function statusRank(status: OperationStatus): number {
   const index = STATUS_ORDER.indexOf(status)
@@ -173,10 +174,6 @@ interface FieldStatusNudgeProps {
   operation: Operation
   /** False for viewers — a move whose PATCH would 403 must not be offered. */
   canEdit?: boolean
-  /** The shared completion flow (material decision, gates). When absent the
-   *  «beendet» nudge stays silent rather than moving the card behind the
-   *  operator's back. */
-  onRequestComplete?: () => void
   /** `card` sits under a divider inside the kanban card; `detail` is the boxed
    *  call to action above «Status wechseln» in the Übersicht tab. Same
    *  question, same answers, two frames. */
@@ -187,7 +184,6 @@ interface FieldStatusNudgeProps {
 export function FieldStatusNudge({
   operation,
   canEdit = true,
-  onRequestComplete,
   variant = "card",
   className,
 }: FieldStatusNudgeProps) {
@@ -197,7 +193,11 @@ export function FieldStatusNudge({
   // the copy in the modal, and the other way round.
   useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
-  const completeActive = Boolean(operation.fieldCompleteReportedAt) && operation.status !== "complete"
+  // Answered the moment the card reaches BEENDET / RÜCKFAHRT — that IS the state
+  // the field reported, so there is nothing left to ask. A card that has already
+  // overtaken it (Abgeschlossen) is past the question too.
+  const completeActive =
+    Boolean(operation.fieldCompleteReportedAt) && statusRank(operation.status) < RETURNING_INDEX
   // "Not yet in EINSATZ and not already past it" — a card in Rückfahrt or
   // Abgeschlossen has long overtaken the arrival report.
   const arrivedActive = Boolean(operation.fieldArrivedAt) && statusRank(operation.status) < ACTIVE_INDEX
@@ -213,17 +213,20 @@ export function FieldStatusNudge({
     storeDismissal(operation.id, kind)
   }, [operation.id])
 
+  // Both answers are the same shape: move the card to the column the field just
+  // described, and stop. «Beendet» used to open the whole completion flow —
+  // material decisions, gates, a dialog — which asked the operator to finish an
+  // incident whose crew is still driving home. Beendet/Rückfahrt IS that state,
+  // so the move alone is the honest answer: if the crew turns up, the card is
+  // already where it should be, and if they need a lift back, that arrives as an
+  // Abholung, not as another prompt about this one.
   const confirm = useCallback((kind: FieldNudgeKind) => {
     storeConfirmation(operation.id, kind)
-    if (kind === "complete") onRequestComplete?.()
-    // Moving into `active` passes no gate in useIncidentStatusWorkflow (only
-    // enroute/reko/reko_done/returning/complete do), so there is nothing to
-    // reuse here — the plain move IS the whole workflow.
-    else changeStatusToTop(operation.id, "active")
-  }, [changeStatusToTop, onRequestComplete, operation.id])
+    changeStatusToTop(operation.id, kind === "complete" ? "returning" : "active")
+  }, [changeStatusToTop, operation.id])
 
   const rows: Array<{ kind: FieldNudgeKind; text: string }> = []
-  if (completeActive && !isAnswered(operation.id, "complete") && onRequestComplete) {
+  if (completeActive && !isAnswered(operation.id, "complete")) {
     rows.push({ kind: "complete", text: t("nudgeCompleteText") })
   }
   if (arrivedActive && !isAnswered(operation.id, "arrived")) {
@@ -236,9 +239,11 @@ export function FieldStatusNudge({
     <div
       className={cn(
         "space-y-2",
-        variant === "detail"
-          ? "rounded-lg border border-primary/25 bg-primary/5 p-3"
-          : "border-t pt-3",
+        // The card variant draws no rule of its own: the card reads as three
+        // sections (Kopf/Meldung, Ressourcen, Reko) and this nudge belongs to
+        // the first one, so it takes that section's plain 12px rhythm. A rule
+        // here used to open a fourth section that does not exist.
+        variant === "detail" && "rounded-lg border border-primary/25 bg-primary/5 p-3",
         className,
       )}
     >

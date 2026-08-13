@@ -43,7 +43,6 @@ import { useOperations, type Operation } from '@/lib/contexts/operations-context
 import { usePersonnel } from '@/lib/contexts/personnel-context'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
-import { formatPickupWaiting } from '@/lib/pickup'
 
 interface FieldReportsRowProps {
   operation: Operation
@@ -134,7 +133,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
   const rows: ReportRow[] = ([
     {
       key: 'rekoArrived',
-      icon: <Binoculars className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
+      icon: <Binoculars className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />,
       label: t('rekoArrived'),
       at: operation.rekoArrivedAt,
       on: Boolean(operation.rekoArrivedAt),
@@ -155,7 +154,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
     },
     {
       key: 'pickup',
-      icon: <CarTaxiFront className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
+      icon: <CarTaxiFront className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />,
       label: t('pickup'),
       at: operation.pickupRequestedAt,
       on: Boolean(operation.pickupNeeded),
@@ -186,16 +185,38 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
         </p>
       )}
 
-      <div>
+      {/* Space separates the rows, not rules. Under a single row — which is what
+          both real mounts render — a rule is a line with nothing on the far side
+          of it, and it read as a divider belonging to whatever came next. */}
+      <div className="space-y-2">
         {rows.map(row => {
           const line = row.line !== undefined ? row.line : provenance(row.at, row.by)
           return (
-            <div key={row.key} className="border-b border-border/50 py-1">
-              <div className="flex items-center justify-between gap-3">
+            <div key={row.key}>
+              {/* One row unit — `min-h-8`, the height of the time input — in
+                  every state. The `h-8` input exists only while the row is on,
+                  so without a floor the line was 20px off and 32px on, and
+                  everything below it jumped by 12px the moment somebody flipped
+                  the switch. The floor is also what makes the two rows the same
+                  height as each other: they are meant to be interchangeable
+                  blocks, and «Reko vor Ort» and «Abholung nötig» sit in
+                  different tabs of the same panel. */}
+              <div className="flex min-h-8 items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   {row.icon}
-                  <div className="min-w-0">
-                    <span className="text-sm">{row.label}</span>
+                  {/* `text-sm` on the box, not just the label: the icon is
+                      centred against this box, and a larger inherited font would
+                      stretch it and leave the glyph sitting high.
+                      `truncate` is what keeps the floor a fixed height at 420px:
+                      the provenance appears with the toggle, and a long one
+                      («vom Feld, …») would otherwise wrap onto a second line and
+                      move the content below all over again. The full sentence
+                      stays reachable on hover. */}
+                  <div
+                    className="min-w-0 truncate text-sm"
+                    title={line ? `${row.label} – ${line}` : row.label}
+                  >
+                    <span>{row.label}</span>
                     {line && <span className="ml-2 text-xs text-muted-foreground">{line}</span>}
                   </div>
                 </div>
@@ -223,8 +244,16 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                 </div>
               </div>
 
+              {/* The one thing that may still grow the row, and it is a control
+                  the operator asked for by flipping the switch — exactly one
+                  more row unit (4px + `h-7`), never a ragged amount.
+                  The «Wartet seit …» line that used to sit under it is gone: a
+                  pickup that is on always renders `PickupBadge` as a banner at
+                  the top of the same detail, which says the same duration, so
+                  this was the third copy of one timestamp (banner, provenance,
+                  line) and 20px of the jump. */}
               {row.key === 'pickup' && row.on && (
-                <div className="mt-1 space-y-1 pl-6">
+                <div className="mt-1 pl-6">
                   <Input
                     placeholder={t('pickupNotePlaceholder')}
                     value={note}
@@ -237,11 +266,6 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                     }}
                     className="h-7 text-sm"
                   />
-                  {operation.pickupRequestedAt && (
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                      {t('waiting', { duration: formatPickupWaiting(operation.pickupRequestedAt) })}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
@@ -345,7 +369,7 @@ export function FieldMessageThread({
   return (
     <div className="rounded-lg border border-border p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
         <Label className="text-sm font-semibold">{t('messagesTitle')}</Label>
         {entries.length > 0 && (
           <span className="ml-auto text-xs tabular-nums text-muted-foreground">{entries.length}</span>

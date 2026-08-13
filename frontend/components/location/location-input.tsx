@@ -330,7 +330,12 @@ export function LocationInput({
           </Label>
           <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
         </div>
-        <div className={cn("flex items-start gap-2", dense ? "min-w-0 flex-1" : "mt-2")}>
+        {/* items-CENTER, not items-start: the two icon buttons belong on the
+            field's own line. Nothing in this row ever grows taller than the
+            input — the suggestion list is portalled and the coordinate drawer
+            is a SIBLING of this row further down, not a child — so centring
+            here cannot push either of them out of place. */}
+        <div className={cn("flex items-center gap-2", dense ? "min-w-0 flex-1" : "mt-2")}>
           {/* One field, not two. The input IS the search box: what you type is
               what the geocoder gets, and what is committed is what the field
               shows afterwards. The old shape put a read-only combobox button in
@@ -410,14 +415,20 @@ export function LocationInput({
                     either a geocoded result row or the «…» übernehmen freetext
                     fallback, and clicking either commits the address. */}
                 <div id="location-options" data-testid="location-options" className="overflow-y-auto overscroll-contain max-h-[260px]">
+                  {/* One type scale for the whole dropdown: an option title is
+                      text-sm, everything secondary (coordinates, hints, status
+                      lines) is text-xs. The popover itself sets no font size,
+                      so anything unsized in here inherits the 16px body text
+                      and renders LARGER than the result rows it sits next to —
+                      which is what made the list look oversized. */}
                   {isSearching && (
-                    <div className="p-4 text-sm text-muted-foreground text-center">
+                    <div className="px-3 py-2.5 text-xs text-muted-foreground text-center">
                       {t('locationInput.searching')}
                     </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length >= 3 && (
                     <div className="py-1">
-                      <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+                      <div className="px-3 py-2 text-xs text-muted-foreground text-center">
                         {t('locationInput.noResults')}
                       </div>
                       <button
@@ -427,7 +438,7 @@ export function LocationInput({
                       >
                         <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{t('locationInput.useFreetext', { query: addressSearchQuery.trim() })}</div>
+                          <div className="truncate text-sm font-medium">{t('locationInput.useFreetext', { query: addressSearchQuery.trim() })}</div>
                           <div className="text-xs text-muted-foreground">
                             {t('locationInput.freetextNote')}
                           </div>
@@ -436,7 +447,7 @@ export function LocationInput({
                     </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length < 3 && (
-                    <div className="p-4 text-sm text-muted-foreground text-center">
+                    <div className="px-3 py-2.5 text-xs text-muted-foreground text-center">
                       {t('locationInput.minChars')}
                     </div>
                   )}
@@ -450,7 +461,7 @@ export function LocationInput({
                           onMouseEnter={() => setActiveIndex(index)}
                           aria-selected={index === activeIndex}
                           className={cn(
-                            "w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors cursor-pointer hover:bg-muted",
+                            "w-full flex items-start gap-2 px-3 py-2 text-left transition-colors cursor-pointer hover:bg-muted",
                             index === activeIndex && "bg-muted",
                           )}
                         >
