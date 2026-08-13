@@ -301,6 +301,31 @@ async def test_update_notification_settings_invalid_value(editor_client: AsyncCl
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_size_limit_zero_switches_the_disk_alarm_off(editor_client: AsyncClient):
+    """0 must be storable: it is how an operator turns a disk alarm off.
+
+    The validator used to reject anything below 1 GB, so a limit could be set
+    but never unset — while the service reads 0 as "do not measure, do not
+    warn". Negative values stay rejected.
+    """
+    response = await editor_client.patch(
+        "/api/notifications/settings/",
+        json={"database_size_limit_gb": 0, "photo_size_limit_gb": 0},
+    )
+    assert response.status_code == 200
+    assert response.json()["database_size_limit_gb"] == 0
+    assert response.json()["photo_size_limit_gb"] == 0
+
+    assert (
+        await editor_client.patch(
+            "/api/notifications/settings/",
+            json={"database_size_limit_gb": -1},
+        )
+    ).status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_update_notification_settings_material_threshold(editor_client: AsyncClient):
     """Test updating material depletion thresholds."""
     update_data = {

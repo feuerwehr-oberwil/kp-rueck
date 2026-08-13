@@ -208,10 +208,15 @@ class NotificationSettingsUpdate(BaseModel):
     @field_validator("database_size_limit_gb", "photo_size_limit_gb")
     @classmethod
     def validate_size_limits(cls, v: int | None) -> int | None:
-        """Validate size limits are reasonable."""
+        """Validate size limits are reasonable.
+
+        0 disables the alarm — that is the value `_check_event_size_alerts`
+        reads as "do not measure, do not warn". Rejecting it (the old `< 1`)
+        left an operator no way to switch a disk alarm off once it was set.
+        """
         if v is not None:
-            if v < 1:
-                raise ValueError("Size limit must be at least 1 GB")
+            if v < 0:
+                raise ValueError("Size limit must not be negative")
             if v > 100:
                 raise ValueError("Size limit should not exceed 100 GB")
         return v
