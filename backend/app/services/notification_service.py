@@ -397,23 +397,65 @@ async def _check_data_quality_alerts(db: AsyncSession, event_id: UUID) -> list[N
     return notifications
 
 
+#: Message prefixes for the two storage limits. They double as the deduplication key
+#: (see `_deduplicate_and_save`), so they must stay stable and distinct.
+STORAGE_LABEL_DATABASE = "Datenbank"
+STORAGE_LABEL_PHOTOS = "Foto-Speicher"
+
+
 async def _check_event_size_alerts(
     db: AsyncSession, event_id: UUID, settings: NotificationSettings
 ) -> list[Notification]:
-    """Check for event size limit warnings."""
+    """Warn when measured storage exceeds the limits configured in the Warnungen settings.
+
+    Two independent measurements — the Postgres database and the photo storage tree — because
+    on a station box they can sit on different filesystems (see `storage_usage`). A limit of
+    0 or less means «no alarm»: the operator's way of switching one of the two off without
+    switching off the whole event-alert category.
+
+    Measurement is cached process-wide, so the ~10 s notification poll does not re-walk the
+    photo directory for every connected board.
+    """
     notifications: list[Notification] = []
 
-    # Note: Actual database and photo size checking would require additional implementation
-    # This is a placeholder that would need to query actual sizes
-    # For now, we'll skip this check as it requires external tools
+    db_limit_gb = settings.database_size_limit_gb
+    photo_limit_gb = settings.photo_size_limit_gb
 
-    # TODO: Implement database size check
-    # - Query pg_database_size for the database
-    # - Compare against settings.database_size_limit_gb
+    # Both off — don't pay for a measurement nobody asked for.
+    if db_limit_gb <= 0 and photo_limit_gb <= 0:
+        return notifications
 
-    # TODO: Implement photo storage size check
-    # - Calculate total size of photos directory
-    # - Compare against settings.photo_size_limit_gb
+    from .storage_usage import BYTES_PER_GB, format_gb, get_storage_usage
+
+    usage = await get_storage_usage(db)
+
+    # An unmeasurable value stays silent. Reporting «0 GB» would be a false all-clear, and
+    # inventing an alarm out of a failed stat would be worse.
+    if db_limit_gb > 0 and usage.database_bytes is not None and usage.database_bytes > db_limit_gb * BYTES_PER_GB:
+        notifications.append(
+            Notification(
+                type="event_size_limit",
+                severity="warning",
+                message=(
+                    f"{STORAGE_LABEL_DATABASE}: {format_gb(usage.database_bytes)} GB belegt – "
+                    f"Limit von {db_limit_gb} GB überschritten"
+                ),
+                event_id=event_id,
+            )
+        )
+
+    if photo_limit_gb > 0 and usage.photo_bytes is not None and usage.photo_bytes > photo_limit_gb * BYTES_PER_GB:
+        notifications.append(
+            Notification(
+                type="event_size_limit",
+                severity="warning",
+                message=(
+                    f"{STORAGE_LABEL_PHOTOS}: {format_gb(usage.photo_bytes)} GB belegt – "
+                    f"Limit von {photo_limit_gb} GB überschritten"
+                ),
+                event_id=event_id,
+            )
+        )
 
     return notifications
 
@@ -551,14 +593,24 @@ async def _deduplicate_and_save(
         # For event-level notifications (no incident_id), also match on message
         # This prevents e.g. a dismissed "Depot" notification from suppressing a new "TLF" notification
         if not notification.incident_id:
-            base_conditions.append(Notification.message == notification.message)
+            if notification.type == "event_size_limit":
+                # Storage warnings carry a live measurement ("4,7 GB belegt") that grows
+                # between polls, so an exact message match would never find the previous one
+                # and the bell would ring on every 10 s cycle. Match on the stable label
+                # before the colon instead — that still keeps the database warning and the
+                # photo warning apart, which is the reason the message is matched at all.
+                base_conditions.append(Notification.message.startswith(notification.message.split(":", 1)[0]))
+            else:
+                base_conditions.append(Notification.message == notification.message)
 
         # Build suppression logic based on re-alarm settings
         now = datetime.now(UTC)
 
-        # Use longer suppression interval for fatigue warnings (2 hours instead of 30 minutes)
-        # to avoid repeated alerts for the same person
-        suppression_minutes = 120 if notification.type == "personnel_fatigue" else 30
+        # Use longer suppression intervals where the condition is slow-moving and repeating it
+        # is pure noise: a tired person (2 h) and a full disk (6 h — nobody frees storage
+        # mid-incident, and the condition persists until someone acts on it).
+        suppression_by_type = {"personnel_fatigue": 120, "event_size_limit": 360}
+        suppression_minutes = suppression_by_type.get(notification.type, 30)
 
         if re_alarm_enabled:
             # Re-alarming enabled: suppress both active and dismissed notifications within intervals
