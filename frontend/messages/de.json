@@ -2871,7 +2871,8 @@
       "exitFullscreen": "Vollbild beenden",
       "fullscreen": "Vollbild",
       "searchPlaceholder": "Suchen …",
-      "readOnly": "Nur-Lesen"
+      "readOnly": "Nur-Lesen",
+      "selectEvent": "Ereignis wählen"
     },
     "map": {
       "authRequired": "Bitte melde dich an oder verwende einen Zugangscode (?token=xxx)"
