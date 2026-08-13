@@ -32,6 +32,7 @@ import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
+import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
@@ -46,8 +47,12 @@ interface DraggableOperationProps {
   onRemoveVehicle: (vehicleName: string) => void
   onToggleDriverStay?: (vehicleName: string) => void
   onRemoveReko?: () => void
-  onClick: () => void
-  onSelect?: () => void
+  /** Open the detail as a modal (small screens). `tab`/`section` carry WHERE the
+   *  click was aimed — see `openDetail` below; omitted for a click on the card
+   *  as a whole, which lands on whichever tab the operator was last in. */
+  onClick: (tab?: OperationDetailTab, section?: OperationDetailSection) => void
+  /** Same intent, expressed as a selection for the side panel (large screens). */
+  onSelect?: (tab?: OperationDetailTab, section?: OperationDetailSection) => void
   onHover: (opId: string | null) => void
   isHighlighted?: boolean
   isSelected?: boolean
@@ -221,6 +226,44 @@ function DraggableOperationBase({
   // note on the state — an unmeasured card keeps the frame.
   const showSelectionFrame = !!isSelected && isLargeScreen !== false
 
+  /**
+   * The card's ONE way into the detail — every target on the card goes through
+   * here, so the drag guard and the panel/modal decision are written once.
+   *
+   * `tab`/`section` are what the operator pointed AT: the card is not a single
+   * click target any more, it routes. A click on the Reko block opens the Reko
+   * tab, a click on a crew/vehicle/material row opens Übersicht at its
+   * Ressourcen block, and a click on anything else — the address, the Meldung,
+   * the Melder, the card's background — carries no target at all and lands on
+   * whichever tab that incident was last left in, exactly as before.
+   *
+   * The guard stays where it was: a click that merely ended a drag must not
+   * navigate, and now that there are several targets it has to cover all of
+   * them rather than the card's own handler alone.
+   */
+  const openDetail = (tab?: OperationDetailTab, section?: OperationDetailSection) => {
+    if (isDraggingRef.current) return
+    // Large screen: select for the sidebar, small screen: open the modal.
+    if (isLargeScreen) {
+      onSelect?.(tab, section)
+    } else {
+      onClick(tab, section)
+    }
+  }
+
+  /** A click handler for one block of the card. It stops the event: the card's
+   *  own handler is an ancestor and would otherwise fire straight afterwards
+   *  and overwrite the block's target with the untargeted default. Chips,
+   *  links and toggles inside a block stop the event themselves (see
+   *  RemovableChip, IncidentTime, PickupBadge), so their own action still
+   *  wins over the block's. */
+  const openDetailFrom =
+    (tab: OperationDetailTab, section?: OperationDetailSection) =>
+    (event: React.MouseEvent) => {
+      event.stopPropagation()
+      openDetail(tab, section)
+    }
+
   // Handle thermal print. The "gesendet" toast is now the START of the story —
   // trackPrintJob replaces it with what the printer actually did.
   const handlePrint = async () => {
@@ -384,17 +427,11 @@ function DraggableOperationBase({
             )}
             onMouseEnter={() => onHover(operation.id)}
             onMouseLeave={() => onHover(null)}
-            onClick={() => {
-              // Only trigger click if not dragging
-              if (!isDraggingRef.current) {
-                // Large screen: select for sidebar, small screen: open modal
-                if (isLargeScreen) {
-                  onSelect?.()
-                } else {
-                  onClick()
-                }
-              }
-            }}
+            // No target: the address, the Meldung, the Melder and the card's
+            // own background all say «this incident» and nothing more precise.
+            // The blocks that DO say something more precise stop the event
+            // before it gets here — see `openDetailFrom`.
+            onClick={() => openDetail()}
           >
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-2">
@@ -456,38 +493,54 @@ function DraggableOperationBase({
               )}
               {/* Reko carries the Binoculars everywhere else in the app — a
                   second document glyph next to the Rapport's only invited the
-                  operator to tell two near-identical papers apart. */}
+                  operator to tell two near-identical papers apart.
+                  A button, not a chip: it says a Reko-Bericht exists, so the
+                  useful thing to do with it is read it — it opens the detail on
+                  the Reko tab. Same faint hover as the map link beside it, which
+                  is the card's established «this one is clickable» cue. */}
               {operation.hasCompletedReko && (
-                <div
-                  className="p-1.5 rounded-md bg-muted/60"
+                <button
+                  type="button"
+                  onClick={openDetailFrom('reko')}
+                  className="p-1.5 rounded-md bg-muted/60 transition-colors hover:bg-muted"
                   title={t('card.rekoDoneTooltip')}
+                  aria-label={t('card.rekoDoneTooltip')}
                 >
                   <Binoculars className="h-4 w-4 text-muted-foreground/80" />
-                </div>
+                </button>
               )}
               {/* The Schadenplatz-Rapport — ONE glyph, two brightnesses. Filed =
                   a quiet chip; missing on a card that already reached `complete`
                   = the same paper dimmed, so the gap is visible without a dialog
                   and without a block (decision 10 — a blocking gate is a gate
                   people defeat with empty forms). */}
+              {/* Both brightnesses open the detail's Rapport tab: on a filed one
+                  that is where it is read, and on a missing one that is where it
+                  gets written — the gap is the reason to click. */}
               {operation.hasSchadenplatzRapport ? (
-                <div
-                  className="p-1.5 rounded-md bg-muted/60"
+                <button
+                  type="button"
+                  onClick={openDetailFrom('rapport')}
+                  className="p-1.5 rounded-md bg-muted/60 transition-colors hover:bg-muted"
                   title={tFeld('cardRapportTooltip')}
+                  aria-label={tFeld('cardRapportTooltip')}
                 >
                   <FileText className="h-4 w-4 text-muted-foreground/80" />
-                </div>
+                </button>
               ) : operation.status === 'complete' && rapportApplies({
                   hasBeenDispatched: operation.hasBeenDispatched,
                   status: operation.status,
                   hasReport: operation.hasSchadenplatzRapportDraft,
                 }) ? (
-                <div
-                  className="p-1.5 rounded-md bg-muted/40"
+                <button
+                  type="button"
+                  onClick={openDetailFrom('rapport')}
+                  className="p-1.5 rounded-md bg-muted/40 transition-colors hover:bg-muted"
                   title={tFeld('cardNoRapportTooltip')}
+                  aria-label={tFeld('cardNoRapportTooltip')}
                 >
                   <FileText className="h-4 w-4 text-muted-foreground/40" />
-                </div>
+                </button>
               ) : null}
               <Link
                 href={`/map?highlight=${operation.id}`}
@@ -590,14 +643,24 @@ function DraggableOperationBase({
               For grouped incidents the per-incident crew/vehicle/material rows
               are suppressed (the route owns those, summarised in the Auftrag row
               below), so this block — and its rule — only renders when something
-              inside it will actually show; otherwise it left an orphan line. */}
+              inside it will actually show; otherwise it left an orphan line.
+              Clicking anywhere in here opens Übersicht at its Ressourcen block:
+              who and what is on the address is one question, and the detail
+              answers it in one place. */}
           {showResourceBlock && (
-            <div className={cn(SECTION_RULE, "space-y-3 text-xs")}>
+            <div
+              className={cn(SECTION_RULE, "space-y-3 text-xs")}
+              onClick={openDetailFrom('overview', 'resources')}
+            >
               {/* Assigned Reko Person — rides the "Reko" switch, not "Mannschaft":
                   one label, one concept, so turning Reko off really does take the
                   whole reconnaissance off the card. */}
               {showRekoPerson && operation.assignedReko && (
-                <div className="flex items-start gap-1.5">
+                // The one row in this block that is NOT a Ressource in the
+                // Übersicht sense: who is out looking, and every control for
+                // changing that, now lives on the Reko tab. So it overrides its
+                // parent's target instead of inheriting it.
+                <div className="flex items-start gap-1.5" onClick={openDetailFrom('reko')}>
                   <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
                     <RemovableChip
@@ -798,7 +861,10 @@ function DraggableOperationBase({
               (matching the crew/vehicle/material rows above) rather than a floating
               pill. Resources live on the route, so the row carries the route name,
               its done/total progress, and the route's resource roll-up. The whole
-              row opens the Aufträge sheet.
+              row opens the Aufträge sheet — deliberately NOT the incident detail,
+              even now that the card's other blocks route into it: a grouped
+              stop's crew, vehicles and material are owned and edited by the
+              route, and the detail can only show them read-through.
               Part of the Ressourcen section, not a fourth one: the route is where
               this stop's crew, vehicles and material actually are. It therefore
               carries the section's rule only when it OPENS the section, i.e. when
@@ -838,7 +904,9 @@ function DraggableOperationBase({
               everything above it. Its own switch, not the Meldung's (§18.12), so
               the rule disappears with the block on a card without a Reko. */}
           {showRekoSummary && operation.rekoSummary && (
-            <div className={cn(SECTION_RULE, "space-y-3")}>
+            // What the Reko found — so the block opens the Reko tab, which is
+            // where the whole report is.
+            <div className={cn(SECTION_RULE, "space-y-3")} onClick={openDetailFrom('reko')}>
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   {/* Chips, so the same offset the resource rows use (mt-1), and
@@ -875,7 +943,7 @@ function DraggableOperationBase({
         collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
       >
         {/* Bearbeiten */}
-        <ContextMenuItem onClick={() => isLargeScreen ? onSelect?.() : onClick()}>
+        <ContextMenuItem onClick={() => openDetail()}>
           <PenLine className="mr-2 h-4 w-4" />
           {t('common.edit')}
         </ContextMenuItem>

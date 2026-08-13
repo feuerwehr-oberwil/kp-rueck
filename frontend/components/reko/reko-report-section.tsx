@@ -34,9 +34,8 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Loader2, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
 import { getApiUrl } from '@/lib/env'
@@ -300,63 +299,98 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
     return `${apiUrl}/api/photos/${incidentId}/${filename}`
   }
 
+  /**
+   * The numbered facts, as self-labelling `Label: Wert` pairs in one wrapping
+   * row instead of four stacked lines under an «Aufwand» heading. Each string
+   * already names itself, so the group heading was a line that introduced
+   * nothing — and the same goes for «Stromversorgung», one word behind a
+   * heading, which now rides in the same row as its own label.
+   */
+  const facts: string[] = []
+  if (report.effort_json?.personnel_count) {
+    facts.push(t('personnel', { count: report.effort_json.personnel_count }))
+  }
+  if (report.effort_json?.estimated_duration_hours) {
+    facts.push(t('duration', { hours: report.effort_json.estimated_duration_hours }))
+  }
+  if (report.effort_json?.vehicles_needed?.length) {
+    facts.push(t('vehicles', { list: report.effort_json.vehicles_needed.join(', ') }))
+  }
+  if (report.effort_json?.equipment_needed?.length) {
+    facts.push(t('equipment', { list: report.effort_json.equipment_needed.join(', ') }))
+  }
+  if (report.power_supply && report.power_supply !== 'unknown') {
+    const power =
+      report.power_supply === 'available' ? t('powerAvailable')
+      : report.power_supply === 'unavailable' ? t('powerUnavailable')
+      : t('powerEmergencyNeeded')
+    facts.push(`${t('powerSupply')}: ${power}`)
+  }
+
+  const hasDangers = !!report.dangers_json && (
+    report.dangers_json.fire ||
+    report.dangers_json.fire_danger ||
+    report.dangers_json.explosion ||
+    report.dangers_json.collapse ||
+    report.dangers_json.chemical ||
+    report.dangers_json.electrical ||
+    !!report.dangers_json.other_notes
+  )
+
   return (
     <div className="rounded-lg border">
-      <div className="p-4">
-        <div className="flex items-center gap-3 mb-4">
+      <div className="p-3">
+        {/* The verdict. Its bottom border does the job the standalone
+            <Separator/> used to do one full row lower down. */}
+        <div className="flex items-center gap-2 border-b pb-2 mb-3">
           {report.is_relevant ? (
-            <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
+            <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
           ) : (
-            <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           )}
-          <div className="flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium">
-                {report.is_relevant ? t('relevant') : t('notNeeded')}
-              </span>
-              <div className="flex items-center gap-2">
-                {report.submitted_by_personnel_name && (
-                  <Badge variant="secondary" className="gap-1">
-                    <Binoculars className="h-3 w-3" />
-                    {report.submitted_by_personnel_name}
-                  </Badge>
-                )}
-                {/* Reko reported the incident not relevant — let the operator close it
-                    straight from the Reko-Meldung card. */}
-                {!report.is_relevant && onRequestComplete && (
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    onClick={onRequestComplete}
-                  >
-                    <CheckCheck className="size-3.5" />
-                    {t('completeIncident')}
-                  </Button>
-                )}
-              </div>
-            </div>
+          <span className="font-medium">
+            {report.is_relevant ? t('relevant') : t('notNeeded')}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            {report.submitted_by_personnel_name && (
+              <Badge variant="secondary" className="gap-1">
+                <Binoculars className="h-3 w-3" />
+                {report.submitted_by_personnel_name}
+              </Badge>
+            )}
+            {/* Reko reported the incident not relevant — let the operator close it
+                straight from the Reko-Meldung card. */}
+            {!report.is_relevant && onRequestComplete && (
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={onRequestComplete}
+              >
+                <CheckCheck className="size-3.5" />
+                {t('completeIncident')}
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="space-y-4">
-          <Separator />
+        <div className="space-y-3">
+          {/* The finding leads, one size above the facts around it — it is the
+              sentence somebody reads to decide what to send, and it used to sit
+              below four headings. Same treatment the display's own Reko block
+              gives it, so wall and board read alike. */}
+          {report.summary_text && (
+            <p className="text-base leading-snug">{report.summary_text}</p>
+          )}
 
-          {/* Dangers */}
-          {report.dangers_json && (
-            report.dangers_json.fire ||
-            report.dangers_json.fire_danger ||
-            report.dangers_json.explosion ||
-            report.dangers_json.collapse ||
-            report.dangers_json.chemical ||
-            report.dangers_json.electrical ||
-            report.dangers_json.other_notes
-          ) && (
-            <div>
-              <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                {t('dangers')}
-              </h5>
-              <div className="flex flex-wrap gap-2">
+          {/* Dangers — label and badges share the row; the word stays, so
+              nothing here is a bare icon. */}
+          {hasDangers && report.dangers_json && (
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4" />
+                  {t('dangers')}
+                </span>
                 {report.dangers_json.fire && <Badge variant="destructive">{t('dangerBadges.fire')}</Badge>}
                 {report.dangers_json.fire_danger && <Badge variant="destructive">{t('dangerBadges.fire_danger')}</Badge>}
                 {report.dangers_json.explosion && <Badge variant="destructive">{t('dangerBadges.explosion')}</Badge>}
@@ -365,61 +399,26 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
                 {report.dangers_json.electrical && <Badge variant="destructive">{t('dangerBadges.electrical')}</Badge>}
               </div>
               {report.dangers_json.other_notes && (
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="text-sm text-muted-foreground">
                   {report.dangers_json.other_notes}
                 </p>
               )}
             </div>
           )}
 
-          {/* Effort */}
-          {report.effort_json && (
-            report.effort_json.personnel_count ||
-            report.effort_json.estimated_duration_hours ||
-            report.effort_json.vehicles_needed?.length > 0 ||
-            report.effort_json.equipment_needed?.length > 0
-          ) && (
-            <div>
-              <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                {t('effort')}
-              </h5>
-              <div className="text-sm space-y-1">
-                {report.effort_json.personnel_count && (
-                  <p>{t('personnel', { count: report.effort_json.personnel_count })}</p>
-                )}
-                {report.effort_json.estimated_duration_hours && (
-                  <p>{t('duration', { hours: report.effort_json.estimated_duration_hours })}</p>
-                )}
-                {report.effort_json.vehicles_needed && report.effort_json.vehicles_needed.length > 0 && (
-                  <p>{t('vehicles', { list: report.effort_json.vehicles_needed.join(', ') })}</p>
-                )}
-                {report.effort_json.equipment_needed && report.effort_json.equipment_needed.length > 0 && (
-                  <p>{t('equipment', { list: report.effort_json.equipment_needed.join(', ') })}</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Power Supply */}
-          {report.power_supply && report.power_supply !== 'unknown' && (
-            <div>
-              <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
-                <Zap className="h-4 w-4 text-muted-foreground" />
-                {t('powerSupply')}
-              </h5>
-              <p className="text-sm">
-                {report.power_supply === 'available' && t('powerAvailable')}
-                {report.power_supply === 'unavailable' && t('powerUnavailable')}
-                {report.power_supply === 'emergency_needed' && t('powerEmergencyNeeded')}
-              </p>
+          {/* Effort + power, one wrapping row of labelled pairs. */}
+          {facts.length > 0 && (
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
+              {facts.map((fact) => (
+                <span key={fact}>{fact}</span>
+              ))}
             </div>
           )}
 
           {/* Photos */}
           {report.photos_json && report.photos_json.length > 0 && (
             <div>
-              <h5 className="font-medium text-sm mb-2">{t('photosCount', { count: report.photos_json.length })}</h5>
+              <h5 className="text-xs font-medium text-muted-foreground mb-1.5">{t('photosCount', { count: report.photos_json.length })}</h5>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {report.photos_json.map((filename, index) => (
                   <a
@@ -449,29 +448,24 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             </div>
           )}
 
-          {/* Summary - show text directly without label */}
-          {report.summary_text && (
-            <div>
-              <p className="text-sm">{report.summary_text}</p>
-            </div>
-          )}
-
-          {/* Additional Notes */}
+          {/* Additional notes — the label leads the sentence instead of
+              standing on a line of its own above it. */}
           {report.additional_notes && (
-            <div>
-              <h5 className="font-medium text-sm mb-2">{t('additionalNotes')}</h5>
-              <p className="text-sm text-muted-foreground">{report.additional_notes}</p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{t('additionalNotes')}: </span>
+              {report.additional_notes}
+            </p>
           )}
 
-          {/* Metadata */}
-          <div className="text-xs text-muted-foreground border-t pt-2 mt-4">
+          {/* Provenance, one wrapping row: two timestamps are one line's worth
+              of information. */}
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground border-t pt-2">
             {report.submitted_by_personnel_name && (
-              <p>{t('rekoBy', { name: report.submitted_by_personnel_name })}</p>
+              <span>{t('rekoBy', { name: report.submitted_by_personnel_name })}</span>
             )}
-            <p>{t('submittedAt', { date: new Date(report.submitted_at).toLocaleString('de-CH') })}</p>
+            <span>{t('submittedAt', { date: new Date(report.submitted_at).toLocaleString('de-CH') })}</span>
             {report.updated_at !== report.submitted_at && (
-              <p>{t('updatedAt', { date: new Date(report.updated_at).toLocaleString('de-CH') })}</p>
+              <span>{t('updatedAt', { date: new Date(report.updated_at).toLocaleString('de-CH') })}</span>
             )}
           </div>
         </div>

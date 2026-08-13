@@ -113,6 +113,12 @@ export type OperationDetailTab = "overview" | "reko" | "rapport" | "history"
  *  ← / → walk through. */
 export const OPERATION_DETAIL_TABS: readonly OperationDetailTab[] = ["overview", "reko", "rapport", "history"]
 
+/** A block INSIDE a tab worth landing on directly, for a caller that pointed at
+ *  something more specific than the tab — a click on the kanban card's crew or
+ *  material row, say. Only Übersicht has one so far: its Ressourcen block, which
+ *  in the 420px panel sits a long way below the form. */
+export type OperationDetailSection = "resources"
+
 function isDetailTab(value: unknown): value is OperationDetailTab {
   return typeof value === "string" && (OPERATION_DETAIL_TABS as readonly string[]).includes(value)
 }

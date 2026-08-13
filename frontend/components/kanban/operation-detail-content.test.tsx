@@ -203,7 +203,13 @@ describe("OperationDetailContent", () => {
     await user.click(screen.getByRole("button", { name: "Disponiert / Anfahrt" }))
     expect(onChangeStatus).toHaveBeenCalledWith("incident-1", "enroute")
 
-    // Resources live on Übersicht now — no tab switch to reach the Reko row.
+    // Übersicht keeps ONE Reko line — who is assigned, and a way through. The
+    // dispatch controls live on the Reko tab, and that line is one of the ways
+    // to get there.
+    expect(screen.queryByRole("button", { name: "Alle offenen Rekos übertragen" })).toBeNull()
+    await user.click(screen.getByRole("button", { name: /Reko Eins/ }))
+    expect(screen.getByRole("tab", { name: "Reko" })).toHaveAttribute("aria-selected", "true")
+
     const transfer = screen.getByRole("button", { name: "Alle offenen Rekos übertragen" })
     expect(transfer).toHaveAttribute(
       "title",

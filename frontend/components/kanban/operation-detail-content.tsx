@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints, type LucideIcon } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -27,12 +27,14 @@ import {
   rememberDetailTab,
   useOperationDetailShortcutTabs,
   useOperationDetailTabArrows,
+  type OperationDetailSection,
   type OperationDetailTab,
 } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useIncidentTimeline } from "@/lib/hooks/use-incident-timeline"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { columns } from "@/lib/kanban-utils"
 import { IncidentTime, useIncidentTimeVisible } from "@/components/ui/incident-time"
+import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
@@ -139,15 +141,18 @@ export interface OperationDetailContentProps {
    *  mode switch and its close button there rather than on a bar of its own. */
   headerActions?: ReactNode
   active?: boolean
-  /** "Open on THIS tab" — a notification click, which is the operator pointing
-   *  at one specific thing (§18.27). It beats the remembered tab for that one
-   *  opening and is deliberately NOT written back to the memory: reopening the
-   *  card by hand later still returns to whatever tab they were working in.
+  /** "Open on THIS tab" — a notification click, or a click on one block of a
+   *  kanban card, which is the operator pointing at one specific thing
+   *  (§18.27). It beats the remembered tab for that one opening and is
+   *  deliberately NOT written back to the memory: reopening the card by hand
+   *  later still returns to whatever tab they were working in.
    *
    *  Carries a `nonce` because the panel does not remount when the same
    *  incident is opened again — clicking the same notification twice has to
-   *  bring the tab forward both times. */
-  openOnTab?: { tab: OperationDetailTab; nonce: number }
+   *  bring the tab forward both times.
+   *
+   *  `section` narrows it one step further, to a block inside the tab. */
+  openOnTab?: { tab: OperationDetailTab; nonce: number; section?: OperationDetailSection }
   canEdit?: boolean
   onUpdate: (updates: Partial<Operation>) => void
   onDelete?: (operationId: string) => void
@@ -260,6 +265,8 @@ export function OperationDetailContent({
     () => requestedTab ?? readRememberedTab(operation.id) ?? 'overview',
   )
   const rootRef = useRef<HTMLDivElement>(null)
+  /** Übersicht's Ressourcen block — the landing point for `openOnTab.section`. */
+  const resourcesRef = useRef<HTMLDivElement>(null)
 
   /** The one way the tab changes — so nothing can move it without recording it. */
   const selectTab = useCallback(
@@ -357,6 +364,25 @@ export function OperationDetailContent({
   // not only the first. The nonce is what makes a repeat click a new event.
   useEffect(() => {
     if (requestedTab) setTab(requestedTab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openOnTab])
+
+  /**
+   * …and, for a caller that pointed at a block rather than at a tab, put that
+   * block on screen. The 420px panel is the reason this exists: its Übersicht
+   * is one column, so the Ressourcen sit a full screen below the address, and a
+   * click on the card's Mannschaft row would otherwise land on the Einsatzort
+   * field. In the modal the block already opens the right-hand column, so the
+   * scroll is a no-op there rather than a special case.
+   *
+   * One frame late, so the tab set above has been rendered before we measure.
+   */
+  useEffect(() => {
+    if (openOnTab?.section !== 'resources' || requestedTab !== 'overview') return
+    const frame = window.requestAnimationFrame(() => {
+      resourcesRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openOnTab])
 
@@ -996,98 +1022,45 @@ export function OperationDetailContent({
             </div>
           )}
 
-          <div>
-            {/* Reko Personnel */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="text-sm font-medium">{t('common.reko')}</span>
-                </div>
-                <div className="flex flex-wrap justify-end gap-1">
-                {canEdit && assignedRekoPerson && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => setRekoTransferDialogOpen(true)}
-                    className="px-2"
-                    title={t('detail.eventWideRekoTransferTooltip')}
-                  >
-                    <ArrowRightLeft className="size-3.5" />
-                    {t('detail.eventWideRekoTransfer')}
-                  </Button>
-                )}
-                {canEdit && <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => setRekoDialogOpen(true)}
-                  className="px-2"
-                  tabIndex={0}
-                >
-                  {assignedRekoPersonnel ? (
-                    <>
-                      <ArrowRightLeft className="size-3.5" />
-                      {t('common.switch')}
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="size-3.5" />
-                      {t('common.assign')}
-                    </>
-                  )}
-                </Button>}
-                </div>
-              </div>
-
+          {/* Ressourcen — Reko, Mannschaft, Fahrzeuge, Material. Reached
+              directly by a click on the matching block of a kanban card, which
+              is what the ref is for (see the scroll effect above). */}
+          <div ref={resourcesRef} data-detail-section="resources">
+            {/* Reko, as ONE line: who is out looking, since when — and a way
+                through to the rest. The five controls that used to live here
+                (zuweisen/wechseln, the two links, the event-wide transfer) are
+                on the Reko tab now: they are used about once per incident, and
+                they were taking a quarter of a column that also carries Status
+                ändern, Mannschaft, Fahrzeuge and Material. The line stays a
+                button rather than becoming plain text, because assigning a Reko
+                happens at the busiest moment and must not go into hiding — it
+                is one click from here, the same click the card's Reko block
+                makes. */}
+            <button
+              type="button"
+              onClick={() => selectTab('reko')}
+              className="group -mx-1 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50"
+              title={t('detail.tabs.reko')}
+            >
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="shrink-0 text-sm font-medium">{t('common.reko')}</span>
               {assignedRekoPersonnel ? (
-                <div className="space-y-2">
-                  <Badge variant="secondary" className="text-sm bg-info/10 text-info">
-                    <Search className="mr-1 h-3 w-3 shrink-0" />
-                    {assignedRekoPersonnel.name}
-                  </Badge>
-
-                  {/* Link sharing buttons */}
-                  {canEdit && <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCopyDirectRekoLink}
-                      disabled={isCopyingRekoLink}
-                      className="h-8 px-3 text-sm flex-1"
-                    >
-                      {isCopyingRekoLink ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : rekoCopied === 'direct' ? (
-                        <Check className="size-3.5 text-success" />
-                      ) : (
-                        <Link2 className="size-3.5" />
-                      )}
-                      {t('common.directLink')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCopyDashboardLink}
-                      disabled={isCopyingRekoLink}
-                      className="h-8 px-3 text-sm flex-1"
-                    >
-                      {rekoCopied === 'dashboard' ? (
-                        <Check className="size-3.5 text-success" />
-                      ) : (
-                        <LayoutDashboard className="size-3.5" />
-                      )}
-                      {t('common.dashboard')}
-                    </Button>
-                  </div>}
-                </div>
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                  {assignedRekoPersonnel.name}
+                  {operation.rekoArrivedAt && (
+                    <> · {t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}</>
+                  )}
+                </span>
               ) : (
-                <p className="text-sm text-muted-foreground/60 italic">{t('common.noRekoAssigned')}</p>
+                <span className="min-w-0 flex-1 truncate text-sm italic text-muted-foreground/60">
+                  {canEdit ? t('card.assignReko') : t('common.noRekoAssigned')}
+                </span>
               )}
-            </div>
-          </div>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
+            </button>
 
           {/* The resource sections bring their own `mt-4` rhythm, which is what
-              spaces them from the Reko block above. */}
+              spaces them from the Reko line above. */}
           <div>
           {/* Mannschaft / Fahrzeuge / Material. A grouped incident carries no
               resources itself — the Auftrag (route) owns them, so render the
@@ -1405,6 +1378,7 @@ export function OperationDetailContent({
           </div>
           </div>
           </div>
+          </div>
           </TabsContent>
 
           {/* ----------------------------------------------------------- Reko */}
@@ -1413,7 +1387,104 @@ export function OperationDetailContent({
               is a different moment from everything below, which is why it is no
               longer stacked on top of it. */}
           <TabsContent value="reko" className={tabPanelClass}>
-            <div className="py-4">
+            <div className="space-y-4 py-4">
+              {/* Der Reko-Auftrag: wer schaut es an, und alles, was daran
+                  geändert wird. Moved here off Übersicht — Reko was split
+                  across two tabs, with the tab NAMED Reko holding only the
+                  report while every dispatch control sat in a column that also
+                  carries Status ändern and three resource lists.
+                  It also answers what this tab used to be before a report
+                  exists: an empty box. Now the first thing an incident without
+                  a Reko offers here is the way to assign one. */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-medium">{t('detail.rekoAuftrag')}</span>
+                </div>
+                {/* One wrapping row, so the 420px panel breaks it over two or
+                    three lines instead of squeezing four controls onto one. */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {assignedRekoPersonnel ? (
+                    <Badge variant="secondary" className="text-sm bg-info/10 text-info">
+                      <Search className="mr-1 h-3 w-3 shrink-0" />
+                      {assignedRekoPersonnel.name}
+                    </Badge>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/60 italic">{t('common.noRekoAssigned')}</p>
+                  )}
+                  {canEdit && (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => setRekoDialogOpen(true)}
+                      tabIndex={0}
+                    >
+                      {assignedRekoPersonnel ? (
+                        <>
+                          <ArrowRightLeft className="size-3.5" />
+                          {t('common.switch')}
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="size-3.5" />
+                          {t('common.assign')}
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {/* The two links only exist once somebody is assigned — they
+                      point the Reko person at this incident. */}
+                  {canEdit && assignedRekoPersonnel && (
+                    <>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={handleCopyDirectRekoLink}
+                        disabled={isCopyingRekoLink}
+                      >
+                        {isCopyingRekoLink ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : rekoCopied === 'direct' ? (
+                          <Check className="size-3.5 text-success" />
+                        ) : (
+                          <Link2 className="size-3.5" />
+                        )}
+                        {t('common.directLink')}
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={handleCopyDashboardLink}
+                        disabled={isCopyingRekoLink}
+                      >
+                        {rekoCopied === 'dashboard' ? (
+                          <Check className="size-3.5 text-success" />
+                        ) : (
+                          <LayoutDashboard className="size-3.5" />
+                        )}
+                        {t('common.dashboard')}
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {/* Its own line: this one reaches beyond the incident on screen
+                    (every open Reko of that person, event-wide), so it must not
+                    read as a fourth button of the row above. */}
+                {canEdit && assignedRekoPerson && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => setRekoTransferDialogOpen(true)}
+                    className="px-2"
+                    title={t('detail.eventWideRekoTransferTooltip')}
+                  >
+                    <ArrowRightLeft className="size-3.5" />
+                    {t('detail.eventWideRekoTransfer')}
+                  </Button>
+                )}
+              </div>
+
+              <div className="border-t border-border pt-4">
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
@@ -1426,6 +1497,7 @@ export function OperationDetailContent({
                 layout={dense ? 'stacked' : 'split'}
                 onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
               />
+              </div>
             </div>
           </TabsContent>
 

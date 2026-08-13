@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { ComponentProps } from 'react'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Material, Operation } from '@/lib/contexts/operations-context'
 import { CARD_VIEW_KEYS, CARD_VIEW_PRESETS, type CardViewSettings } from '@/lib/card-view'
@@ -84,7 +86,14 @@ function operation(overrides: Partial<Operation> = {}): Operation {
 
 const MATERIALS = [{ id: 'mat-1', name: 'Tauchpumpe' }] as unknown as Material[]
 
-function card(cardView?: CardViewSettings, op: Operation = operation()) {
+type CardProps = ComponentProps<typeof DraggableOperation>
+
+function card(
+  cardView?: CardViewSettings,
+  op: Operation = operation(),
+  /** Overrides for the click-routing tests below; the view tests ignore it. */
+  props: Partial<CardProps> = {},
+) {
   return (
     <DraggableOperation
       operation={op}
@@ -98,6 +107,7 @@ function card(cardView?: CardViewSettings, op: Operation = operation()) {
       index={0}
       formatLocation={(address: string) => address}
       cardView={cardView}
+      {...props}
     />
   )
 }
@@ -265,4 +275,64 @@ describe('the memo comparator sees every switch', () => {
       mockGroups.length = 0
     })
   }
+})
+
+/**
+ * Where a click lands. The card is not one click target any more: each block
+ * answers a different question, so it opens the detail where that question is
+ * answered. jsdom's 1024px window is below SIDE_PANEL_BREAKPOINT, which is why
+ * `onClick` (the modal path) is the observable one here.
+ */
+describe('the card routes each block into the detail', () => {
+  const mount = (props: Partial<CardProps> = {}, op: Operation = operation()) => {
+    const onClick = vi.fn()
+    renderWithIntl(card(CARD_VIEW_PRESETS.alles, op, { onClick, ...props }))
+    return onClick
+  }
+
+  it('names no tab for the incident’s own data — that keeps the remembered tab', async () => {
+    const onClick = mount()
+    await userEvent.click(screen.getByText('Anruferin meldet Wasser im Keller'))
+    expect(onClick).toHaveBeenCalledWith(undefined, undefined)
+  })
+
+  it('opens Übersicht at its Ressourcen from a crew, vehicle or material row', async () => {
+    const onClick = mount()
+    await userEvent.click(screen.getByText('Muster Hans'))
+    expect(onClick).toHaveBeenCalledWith('overview', 'resources')
+  })
+
+  it('opens the Reko tab from what the Reko found', async () => {
+    const onClick = mount()
+    await userEvent.click(screen.getByText('Einsturzgefahr'))
+    expect(onClick).toHaveBeenCalledWith('reko', undefined)
+  })
+
+  it('opens the Reko tab from the «Reko erfasst» glyph', async () => {
+    const onClick = mount()
+    await userEvent.click(screen.getByRole('button', { name: 'Reko-Bericht ausgefüllt' }))
+    expect(onClick).toHaveBeenCalledWith('reko', undefined)
+  })
+
+  it('opens the Rapport tab from the Schadenplatz-Rapport glyph', async () => {
+    const onClick = mount({}, operation({ hasSchadenplatzRapport: true }))
+    await userEvent.click(screen.getByRole('button', { name: 'Schadenplatz-Rapport erfasst' }))
+    expect(onClick).toHaveBeenCalledWith('rapport', undefined)
+  })
+
+  it('leaves a chip’s own action alone — it removes, and navigates nowhere', async () => {
+    const onRemoveCrew = vi.fn()
+    const onClick = mount({ onRemoveCrew })
+    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans entfernen' }))
+    expect(onRemoveCrew).toHaveBeenCalledWith('Muster Hans')
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('navigates nowhere when the click only ended a drag', async () => {
+    const onClick = mount({ isDraggingRef: { current: true } })
+    await userEvent.click(screen.getByText('Muster Hans'))
+    await userEvent.click(screen.getByText('Einsturzgefahr'))
+    await userEvent.click(screen.getByText('Hauptstrasse 1'))
+    expect(onClick).not.toHaveBeenCalled()
+  })
 })

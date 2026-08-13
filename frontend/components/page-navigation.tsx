@@ -10,7 +10,10 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/user-menu';
 import { NotificationBellTrigger } from '@/components/notifications/notification-bell-trigger';
-import { Map as MapIcon, List, Calendar } from 'lucide-react';
+// `Columns3` for the board, not a generic list glyph: the page IS cards in
+// status columns, and it stays distinct from the Karte and Events icons beside
+// it as well as from the `LayoutGrid` the UserMenu uses for the wall display.
+import { Map as MapIcon, Columns3, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 interface PageNavigationProps {
@@ -56,7 +59,7 @@ export function PageNavigation({
             title={t('kanban')}
             aria-label={t('kanban')}
           >
-            <List className="size-4" />
+            <Columns3 className="size-4" />
           </Button>
         </Link>
 

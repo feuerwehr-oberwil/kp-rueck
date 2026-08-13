@@ -6,6 +6,7 @@ import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { DraggableOperation } from "./draggable-operation"
 import { type CardViewSettings } from "@/lib/card-view"
+import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown } from "lucide-react"
@@ -46,8 +47,12 @@ interface DroppableColumnProps {
   onRemoveVehicle: (operationId: string, vehicleName: string) => void
   onToggleDriverStay?: (operationId: string, vehicleName: string) => void
   onRemoveReko?: (operationId: string) => void
-  onCardClick: (operation: Operation) => void
-  onCardSelect?: (operation: Operation) => void
+  /** A card was clicked. `tab`/`section` are the block that was hit — the card
+   *  routes now (Reko block → Reko tab, a resource row → Übersicht/Ressourcen);
+   *  undefined means "the card as a whole". Plumbing only, see
+   *  draggable-operation.tsx. */
+  onCardClick: (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => void
+  onCardSelect?: (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => void
   onCardHover: (opId: string | null) => void
   highlightedOperationId: string | null
   selectedOperationId?: string | null
@@ -390,8 +395,8 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
                 onToggleDriverStay={onToggleDriverStay ? (vehicleName) => onToggleDriverStay(operation.id, vehicleName) : undefined}
                 onRemoveReko={onRemoveReko ? () => onRemoveReko(operation.id) : undefined}
-                onClick={() => onCardClick(operation)}
-                onSelect={() => onCardSelect?.(operation)}
+                onClick={(tab, section) => onCardClick(operation, tab, section)}
+                onSelect={(tab, section) => onCardSelect?.(operation, tab, section)}
                 onHover={onCardHover}
                 isHighlighted={highlightedOperationId === operation.id}
                 isSelected={selectedOperationId === operation.id}

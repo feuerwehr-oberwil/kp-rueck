@@ -19,7 +19,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users, FileText } from 'lucide-react'
+import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users, FileText, PanelRight } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -53,7 +53,7 @@ import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
-import type { OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
+import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -288,6 +288,7 @@ export default function FireStationDashboard() {
   const tRes = useTranslations('kanban.resources')
   const tAttendance = useTranslations('kanban.attendance')
   const tPrint = useTranslations('print.toasts')
+  const tSidePanel = useTranslations('kanban.sidePanel')
   const trackPrint = usePrintJobToast()
 
   // Ref for highlight timeout cleanup
@@ -404,15 +405,18 @@ export default function FireStationDashboard() {
     'collapsed',
     isSidePanelMode,
   )
-  // "Open the detail on THIS tab" — set by a notification click and by nothing
-  // else, so every ordinary card click clears it and lands on the tab the
-  // operator was last working in. The nonce makes a repeat click on the same
-  // notification a new event; the panel does not remount for an incident that
-  // is already selected.
-  const [openDetailOnTab, setOpenDetailOnTab] = useState<{ tab: OperationDetailTab; nonce: number } | null>(null)
+  // "Open the detail on THIS tab" — set by whoever pointed at one specific
+  // thing: a notification, the Rapport-Backlog, or a click on one BLOCK of a
+  // kanban card (its Reko part, its resource rows). A click on the card as a
+  // whole names no tab, clears this, and lands on the tab the operator was last
+  // working in. The nonce makes a repeat click a new event; the panel does not
+  // remount for an incident that is already selected.
+  const [openDetailOnTab, setOpenDetailOnTab] = useState<{ tab: OperationDetailTab; nonce: number; section?: OperationDetailSection } | null>(null)
 
-  const openIncidentDetail = useCallback((operationId: string, tab?: OperationDetailTab) => {
-    setOpenDetailOnTab(tab ? { tab, nonce: Date.now() } : null)
+  /** `section` narrows the landing further than the tab does — today only
+   *  Übersicht's Ressourcen block, which the panel has to scroll to. */
+  const openIncidentDetail = useCallback((operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => {
+    setOpenDetailOnTab(tab ? { tab, nonce: Date.now(), section } : null)
     setSelectedOperationId(operationId)
     setHoveredOperationId(operationId)
     if (typeof window !== 'undefined' && window.innerWidth >= SIDE_PANEL_BREAKPOINT) {
@@ -1423,17 +1427,21 @@ export default function FireStationDashboard() {
     deleteOperation,
   })
 
-  const handleCardClick = (operation: Operation) => {
+  // `tab`/`section` come from the card and say which BLOCK was clicked — the
+  // card routes into the detail rather than always landing on one tab. Both
+  // handlers just forward them; the card decides which of the two it calls
+  // (modal below the side-panel breakpoint, selection above it).
+  const handleCardClick = (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => {
     // Don't open modal if we just finished dragging
     if (isDraggingOperationRef.current) {
       return
     }
-    openIncidentDetail(operation.id)
+    openIncidentDetail(operation.id, tab, section)
     broadcast("incident:selected", operation.id)
   }
 
-  const handleCardSelect = (operation: Operation) => {
-    openIncidentDetail(operation.id)
+  const handleCardSelect = (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => {
+    openIncidentDetail(operation.id, tab, section)
   }
 
   // Derived state for convenience
@@ -2084,6 +2092,24 @@ export default function FireStationDashboard() {
             )}
           </main>
 
+          {/* Reopen the Einsatz-Detail panel. Drawn HERE, not by `SidePanel`,
+              and pinned rather than in the flow: a flex item reserves its width
+              down the whole height of the board, so a 48px tab left a 20px
+              column of nothing running beside the Material-Leiste. Inside the
+              board's own box it lands on the board's right edge whether or not
+              that sidebar is open. `2xl:` is SIDE_PANEL_BREAKPOINT (1536px) —
+              below it the panel does not exist, so neither does its tab. */}
+          {sidePanelMode === 'collapsed' && (
+            <button
+              onClick={() => setSidePanelMode('detail')}
+              className="absolute right-1 top-3 z-20 hidden h-12 w-5 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
+              title={`${tSidePanel('railLabel')} (\\)`}
+              aria-label={tSidePanel('railLabel')}
+            >
+              <PanelRight className="h-4 w-4" />
+            </button>
+          )}
+
           {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles).
               Mirrors the Personen-Leiste's tab on the left: `absolute right-1`,
               out of flow, so it costs the board no width — and, sitting inside
@@ -2121,7 +2147,6 @@ export default function FireStationDashboard() {
             // of flow, so a folded panel costs the board no width. Only while
             // the Material-Leiste is folded too — otherwise there IS something
             // at this edge and the tab belongs beside it, not on top of it.
-            floatCollapsed={!showRightSidebar}
             selectedOperation={selectedOperation}
             onOpenOnMap={() =>
               router.push(selectedOperation ? `/map?highlight=${selectedOperation.id}` : '/map')
