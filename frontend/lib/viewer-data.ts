@@ -61,18 +61,16 @@ function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
  * Melder block and Notiz section simply do not render. See
  * `backend/app/schemas/viewer.py` for the full allowlist.
  *
- * Three more Operation fields stay at their empty value because the allowlist
- * does not carry them either — the display has code for all three, so say why:
+ * `pickupNeeded` / `pickupRequestedAt` DO arrive: a crew waiting to be collected
+ * is the situation, not the office's bookkeeping, so `PickupBadge` renders on a
+ * shared board. `pickupNote` does not — unbounded operator free text that only
+ * shows in a tooltip, and nobody hovers a wall display. `leaderName` is filled
+ * in `buildSituationData` from `assignment.is_leader`, exactly as the board does.
+ *
+ * What still stays at its empty value, because the allowlist does not carry it:
  *
  * * `hasSchadenplatzRapport` / `…Draft` — whether the KP has filed its
  *   paperwork is the office's state, not the situation's. Left off.
- * * `pickupNeeded` / `pickupRequestedAt` — a crew waiting to be collected IS
- *   operational, and `display/incident-card` says so in its own comment. It
- *   cannot render until `ViewerIncident` carries the two fields again.
- * * `leaderName` — the board reads it off `assignment.is_leader`, which
- *   `ViewerAssignment` drops (its Auftrag sibling keeps it). So the displays'
- *   `sortCrewByLeader(crew, operation.leaderName)` is a no-op here and no crew
- *   member is marked as Gruppenführer on a shared board.
  */
 export function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSummary): Operation {
   return {
@@ -99,6 +97,10 @@ export function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewer
     amWarten: a.am_warten ?? false,
     amWartenNote: a.am_warten_note ?? "",
     zuFuss: a.zu_fuss ?? false,
+    pickupNeeded: a.pickup_needed ?? false,
+    // The note stays out of the share payload; the badge reads the time only.
+    pickupNote: "",
+    pickupRequestedAt: a.pickup_requested_at ? new Date(a.pickup_requested_at) : null,
     groupId: a.group_id ?? null,
     groupPosition: a.group_position ?? 0,
     source: a.source,
@@ -185,6 +187,9 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
         }
         op.crew.push(person.name)
         op.crewAssignments.set(person.name, assignment.id)
+        // Marks which of the already-shared names leads — the displays sort
+        // the crew leader-first off this, like the logged-in board.
+        if (assignment.is_leader) op.leaderName = person.name
         assignedPersonIds.add(String(person.id))
       } else if (assignment.resource_type === "material") {
         op.materials.push(assignment.resource_id)

@@ -14,10 +14,19 @@ What is deliberately NOT here, per model:
 
 * **Incident** — `contact` / `contact_phone` (a resident's name and phone
   number: the caller is not part of the situation, the address is) and
-  `internal_notes` (by its own name not for sharing). Also every workflow field
-  the display never draws: the Schadenplatz-Rapport flags, the pickup fields,
-  the field/Reko provenance ids, `source_ref` and `created_by` — personnel and
-  user UUIDs that no wall needs and that identify people across events.
+  `internal_notes` (by its own name not for sharing). Also the workflow fields
+  the display never draws: the Schadenplatz-Rapport flags (whether the KP has
+  filed its paperwork is the office's state, not the situation's), `pickup_note`
+  (unbounded operator free text that only ever surfaces in a tooltip, and nobody
+  hovers a wall display — the badge and its "seit HH:MM" read fine without it),
+  the field/Reko provenance ids, `pickup_requested_by`, `source_ref` and
+  `created_by` — personnel and user UUIDs that no wall needs and that identify
+  people across events.
+
+  `pickup_needed` / `pickup_requested_at` DO ride along: "this crew is finished
+  and cannot get itself back" is a fact about the situation, not about a person
+  — a boolean and a timestamp, naming nobody — and a crew standing at the kerb
+  is the last thing a wall display may keep to itself.
 * **Personnel** — `divera_user_id` (an account identity in another system),
   the raw `status` column and the check-in stamps. The display computes
   "assigned vs. available" from this event's assignments; the roster is already
@@ -32,7 +41,10 @@ What is deliberately NOT here, per model:
   status display exists to answer.
 * **Assignment / special function** — `assigned_by` (the operator's user id),
   `assigned_at`, `unassigned_at`. The display needs to know *that* a resource is
-  on an incident, never who put it there or when.
+  on an incident, never who put it there or when. `is_leader` stays: the crew's
+  names are already on the wire, and the flag adds no person — it only marks
+  which of those shared names leads, which is what the board's own
+  `sortCrewByLeader` is for. Its Auftrag sibling has always kept it.
 * **Auftrag (group)** — `created_by` and the Funkdurchsage bookkeeping (a
   display draws the route, it never makes an announcement). Its assignment rows
   stay, narrowed the same way as an incident's: the shared board names the
@@ -94,6 +106,11 @@ class ViewerIncident(BaseModel):
     am_warten: bool = False
     am_warten_note: str | None = None
     zu_fuss: bool = False
+    # "Abholung nötig" — the crew is finished and cannot get back on its own.
+    # Operational, and nobody's personal data: a flag and a timestamp. The
+    # free-text `pickup_note` and the requesting operator stay behind.
+    pickup_needed: bool = False
+    pickup_requested_at: datetime | None = None
     # Auftrag membership + this stop's place in the route.
     group_id: UUID | None = None
     group_position: int = 0
@@ -151,7 +168,9 @@ class ViewerAssignment(BaseModel):
     """One resource on one incident — the shape the display reconciles with.
 
     `driver_stay` rides along because the board draws the "Fahrer bleibt" marker
-    from it. Who assigned it, and when, do not.
+    from it, and `is_leader` because the display sorts the crew leader-first —
+    it names nobody new, it only marks one of the names already on the wire.
+    Who assigned it, and when, do not.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -160,6 +179,7 @@ class ViewerAssignment(BaseModel):
     resource_type: str  # 'personnel' | 'vehicle' | 'material'
     resource_id: UUID
     driver_stay: bool = False
+    is_leader: bool = False
 
 
 class ViewerGroupAssignment(BaseModel):

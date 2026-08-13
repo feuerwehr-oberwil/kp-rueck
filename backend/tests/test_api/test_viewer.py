@@ -10,6 +10,7 @@ The last part of the file covers the one thing the payload does NOT carry:
 the Reko photos themselves, served by /api/photos, which takes the same token.
 """
 
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -123,11 +124,53 @@ async def test_viewer_data_omits_the_operator_and_the_workflow_bookkeeping(
         "field_arrived_by",
         "field_complete_reported_by",
         "pickup_requested_by",
+        "pickup_note",
         "has_schadenplatz_rapport",
+        "has_schadenplatz_rapport_draft",
         "has_been_dispatched",
         "reko_arrived_by_kp",
+        "contact",
+        "contact_phone",
+        "internal_notes",
     ):
         assert field not in incident, field
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_carries_the_pickup_flag_but_not_its_note(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_incident: Incident,
+):
+    """"Abholung nötig" is the situation; the operator's note about it is not.
+
+    The flag and its timestamp draw the PickupBadge on a wall display — a crew
+    standing at the kerb is the last thing a shared board may keep to itself,
+    and neither value names anybody. `pickup_note` is unbounded operator free
+    text that only ever surfaces in a tooltip, so it stays behind — as does the
+    person who asked for the pickup.
+    """
+    requester = Personnel(id=uuid4(), name="Bucher Tim", role="Feuerwehrmann", status="available")
+    db_session.add(requester)
+    await db_session.flush()
+    test_incident.pickup_needed = True
+    test_incident.pickup_note = "Meier Ruth fährt sie sonst, Handy 061 222 22 22"
+    test_incident.pickup_requested_at = datetime(2026, 8, 13, 21, 30, tzinfo=UTC)
+    test_incident.pickup_requested_by = requester.id
+    await db_session.commit()
+
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+
+    incident = next(i for i in response.json()["incidents"] if i["id"] == str(test_incident.id))
+    assert incident["pickup_needed"] is True
+    assert incident["pickup_requested_at"] is not None
+    assert "pickup_note" not in incident
+    assert "pickup_requested_by" not in incident
+    assert "Meier Ruth" not in response.text
+    assert str(requester.id) not in response.text
 
 
 @pytest.mark.asyncio
@@ -184,7 +227,51 @@ async def test_viewer_data_assignments_do_not_name_the_operator(
     assert row["resource_id"] == str(person.id)
     assert row["resource_type"] == "personnel"
     assert "assigned_by" not in row
+    assert "assigned_at" not in row
+    assert "unassigned_at" not in row
     assert str(test_user.id) not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_marks_which_crew_member_leads(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_incident: Incident,
+):
+    """`is_leader` names nobody new — it marks one of the names already shared.
+
+    Without it the displays' `sortCrewByLeader(crew, leaderName)` is a no-op on
+    a shared board and no crew member is drawn as Gruppenführer.
+    """
+    leader = Personnel(id=uuid4(), name="Frey Marc", role="Gruppenführer", status="available")
+    member = Personnel(id=uuid4(), name="Suter Nina", role="Feuerwehrfrau", status="available")
+    db_session.add_all([leader, member])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            IncidentAssignment(
+                incident_id=test_incident.id,
+                resource_type="personnel",
+                resource_id=leader.id,
+                is_leader=True,
+            ),
+            IncidentAssignment(
+                incident_id=test_incident.id,
+                resource_type="personnel",
+                resource_id=member.id,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+
+    rows = {row["resource_id"]: row for row in response.json()["assignments"][str(test_incident.id)]}
+    assert rows[str(leader.id)]["is_leader"] is True
+    assert rows[str(member.id)]["is_leader"] is False
 
 
 @pytest.mark.asyncio

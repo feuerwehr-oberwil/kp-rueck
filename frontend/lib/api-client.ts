@@ -101,9 +101,11 @@ import {
  *
  * Mirrors the backend's `schemas.ViewerIncident`: `contact`, `contact_phone`
  * and `internal_notes` are not in the payload, and neither is the workflow
- * bookkeeping (rapport flags, pickup, field/user ids). Built with `Pick` on
- * purpose — a field is in the share payload only if it is named here, and
- * adding one to `ApiIncident` cannot leak it onto a wall by itself.
+ * bookkeeping (rapport flags, `pickup_note`, field/user ids). `pickup_needed` /
+ * `pickup_requested_at` are the exception and are here on purpose: a crew that
+ * cannot get itself back is the situation, and the flag names nobody. Built
+ * with `Pick` on purpose — a field is in the share payload only if it is named
+ * here, and adding one to `ApiIncident` cannot leak it onto a wall by itself.
  */
 export type ApiViewerIncident = Pick<
   ApiIncident,
@@ -124,6 +126,8 @@ export type ApiViewerIncident = Pick<
   | 'am_warten'
   | 'am_warten_note'
   | 'zu_fuss'
+  | 'pickup_needed'
+  | 'pickup_requested_at'
   | 'group_id'
   | 'group_position'
   | 'created_at'
@@ -152,8 +156,13 @@ export type ApiViewerMaterial = Pick<
   'id' | 'name' | 'type' | 'location' | 'location_sort_order' | 'consumable' | 'group_id'
 >
 
-/** Which resource sits on which incident — never who put it there, or when. */
-export type ApiViewerAssignment = Pick<ApiAssignment, 'id' | 'resource_type' | 'resource_id' | 'driver_stay'>
+/** Which resource sits on which incident — never who put it there, or when.
+ *  `is_leader` rides along: the crew's names are already in the payload, and it
+ *  only marks which of them leads (the display sorts the crew leader-first). */
+export type ApiViewerAssignment = Pick<
+  ApiAssignment,
+  'id' | 'resource_type' | 'resource_id' | 'driver_stay' | 'is_leader'
+>
 
 /** Reko / driver / Magazin roles for the event. */
 export type ApiViewerSpecialFunction = Pick<
