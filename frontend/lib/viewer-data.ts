@@ -10,8 +10,7 @@
 
 import { type ApiViewerData, type ApiViewerIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
-import { translateOutsideReact } from "@/lib/i18n-messages"
-import { type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
+import { rekoDangerTypes, type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
 import { type Person, type PersonStatus } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { type IncidentGroup } from "@/lib/types/groups"
@@ -33,18 +32,15 @@ export interface SituationData {
  * logged-in board builds in operations-context — the share link and the board
  * have to read identically, photos included: the payload carries the filenames
  * and the display resolves them with its own token (`rekoPhotoUrl`).
+ *
+ * The danger chips come from the board's own `rekoDangerTypes`, not a copy of
+ * it: this file held a third copy of that if-chain, and the two in
+ * operations-context had already drifted apart (the poll path had lost
+ * `fire_danger`) before they were merged into one. The share payload drops
+ * `other_notes`, which is why that function takes the flags-only shape.
  */
 function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
-  const dangerTypes: string[] = []
-  const dangers = summary.dangers_json
-  if (dangers) {
-    if (dangers.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
-    if (dangers.fire_danger) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fireDanger'))
-    if (dangers.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
-    if (dangers.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
-    if (dangers.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
-    if (dangers.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
-  }
+  const dangerTypes = rekoDangerTypes(summary.dangers_json)
   return {
     isRelevant: summary.is_relevant ?? false,
     hasDangers: dangerTypes.length > 0,
@@ -64,6 +60,19 @@ function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
  * three Operation fields that carry them stay empty here and the display's
  * Melder block and Notiz section simply do not render. See
  * `backend/app/schemas/viewer.py` for the full allowlist.
+ *
+ * Three more Operation fields stay at their empty value because the allowlist
+ * does not carry them either — the display has code for all three, so say why:
+ *
+ * * `hasSchadenplatzRapport` / `…Draft` — whether the KP has filed its
+ *   paperwork is the office's state, not the situation's. Left off.
+ * * `pickupNeeded` / `pickupRequestedAt` — a crew waiting to be collected IS
+ *   operational, and `display/incident-card` says so in its own comment. It
+ *   cannot render until `ViewerIncident` carries the two fields again.
+ * * `leaderName` — the board reads it off `assignment.is_leader`, which
+ *   `ViewerAssignment` drops (its Auftrag sibling keeps it). So the displays'
+ *   `sortCrewByLeader(crew, operation.leaderName)` is a no-op here and no crew
+ *   member is marked as Gruppenführer on a shared board.
  */
 export function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSummary): Operation {
   return {

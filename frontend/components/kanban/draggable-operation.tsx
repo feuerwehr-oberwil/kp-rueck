@@ -1045,21 +1045,37 @@ function DraggableOperationBase({
   )
 }
 
+/**
+ * Same strings, same order — the card draws lists of text, so a comparator that
+ * only counted them would hold a stale label whenever one value is swapped for
+ * another (Einsturz → Brandgefahr: still one chip, still the old word).
+ */
+export function sameStrings(prev: readonly string[], next: readonly string[]): boolean {
+  return prev.length === next.length && prev.every((value, i) => value === next[i])
+}
+
 // Memoize the component to prevent unnecessary re-renders
 // Only re-render if props actually change (deep comparison)
 export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextProps) => {
-  // Check if REKO summary has changed
+  // Check if REKO summary has changed. Only what the card draws: the chips,
+  // the head count and the duration — not `summaryText` or `photos`, which
+  // live in the detail view.
   const rekoSummaryChanged =
     prevProps.operation.hasCompletedReko !== nextProps.operation.hasCompletedReko ||
     prevProps.operation.rekoArrivedAt?.getTime() !== nextProps.operation.rekoArrivedAt?.getTime() ||
     (prevProps.operation.rekoSummary?.hasDangers !== nextProps.operation.rekoSummary?.hasDangers) ||
-    (prevProps.operation.rekoSummary?.dangerTypes.length !== nextProps.operation.rekoSummary?.dangerTypes.length) ||
+    !sameStrings(
+      prevProps.operation.rekoSummary?.dangerTypes ?? [],
+      nextProps.operation.rekoSummary?.dangerTypes ?? []
+    ) ||
     (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||
     (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration)
 
-  // Check if assigned reko has changed
+  // Check if assigned reko has changed. The card draws the name, so a person
+  // renamed under the same id has to get through here too.
   const assignedRekoChanged =
-    prevProps.operation.assignedReko?.id !== nextProps.operation.assignedReko?.id
+    prevProps.operation.assignedReko?.id !== nextProps.operation.assignedReko?.id ||
+    prevProps.operation.assignedReko?.name !== nextProps.operation.assignedReko?.name
 
   return (
     prevProps.operation.id === nextProps.operation.id &&
@@ -1073,6 +1089,9 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.contactPhone === nextProps.operation.contactPhone &&
     prevProps.operation.incidentType === nextProps.operation.incidentType &&
     prevProps.operation.nachbarhilfe === nextProps.operation.nachbarhilfe &&
+    // The note IS the chip's label when there is one — the flag alone would
+    // leave a corrected «Nachbarhilfe Therwil» reading as the old town.
+    prevProps.operation.nachbarhilfeNote === nextProps.operation.nachbarhilfeNote &&
     prevProps.operation.amWarten === nextProps.operation.amWarten &&
     prevProps.operation.zuFuss === nextProps.operation.zuFuss &&
     prevProps.operation.source === nextProps.operation.source &&
@@ -1095,13 +1114,13 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.groupId === nextProps.operation.groupId &&
     prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
     prevProps.operation.leaderName === nextProps.operation.leaderName &&
-    prevProps.operation.crew.length === nextProps.operation.crew.length &&
-    prevProps.operation.crew.every((c, i) => c === nextProps.operation.crew[i]) &&
-    prevProps.operation.materials.length === nextProps.operation.materials.length &&
-    prevProps.operation.materials.every((m, i) => m === nextProps.operation.materials[i]) &&
-    prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
-    prevProps.operation.vehicles.every((v, i) => v === nextProps.operation.vehicles[i]) &&
+    sameStrings(prevProps.operation.crew, nextProps.operation.crew) &&
+    sameStrings(prevProps.operation.materials, nextProps.operation.materials) &&
+    sameStrings(prevProps.operation.vehicles, nextProps.operation.vehicles) &&
     prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleDriverStay?.get(v) === nextProps.operation.vehicleDriverStay?.get(v)) &&
+    // Drawn next to the vehicle name, and edited in the fleet settings without
+    // the incident itself changing at all.
+    prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleCallsigns?.get(v) === nextProps.operation.vehicleCallsigns?.get(v)) &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
