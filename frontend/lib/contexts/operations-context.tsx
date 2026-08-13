@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
+import { apiClient, ApiError, type ApiDangersAssessment, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
@@ -66,6 +66,35 @@ export interface RekoSummary {
   summaryText: string | null
   /** Photo filenames from the Reko form; resolve via `rekoPhotoUrl`. */
   photos: string[]
+}
+
+/** Just the checkboxes — the `/api/viewer/data` payload drops `other_notes`,
+ *  so the shared derivation below must not insist on it. */
+type RekoDangerFlags = Omit<ApiDangersAssessment, "other_notes">
+
+/**
+ * The danger chips a completed Reko puts on a card, in reading order.
+ *
+ * ONE derivation, deliberately: the board's two load paths each carried their
+ * own copy and they drifted — the poll path forgot `fire_danger`, so a Reko
+ * whose only danger was Brandgefahr showed its chips after a manual refresh and
+ * lost them again ~5s later, on the card, the wall display and the mobile
+ * warning triangle alike.
+ *
+ * `fire` is kept for reports written before the Reko form dropped it: the form
+ * only ever writes `fire_danger` now, and hard-codes `fire: false` (a burning
+ * building doesn't need a scout).
+ */
+export function rekoDangerTypes(dangers: RekoDangerFlags | null | undefined): string[] {
+  if (!dangers) return []
+  const dangerTypes: string[] = []
+  if (dangers.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
+  if (dangers.fire_danger) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fireDanger'))
+  if (dangers.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
+  if (dangers.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
+  if (dangers.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
+  if (dangers.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
+  return dangerTypes
 }
 
 export interface Operation {
@@ -644,15 +673,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         ops.forEach(op => {
           const summary = rekoSummaries.summaries[op.id]
           if (summary?.has_completed_reko) {
-            const dangerTypes: string[] = []
-            if (summary.dangers_json) {
-              if (summary.dangers_json.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
-              if (summary.dangers_json.fire_danger) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fireDanger'))
-              if (summary.dangers_json.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
-              if (summary.dangers_json.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
-              if (summary.dangers_json.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
-              if (summary.dangers_json.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
-            }
+            const dangerTypes = rekoDangerTypes(summary.dangers_json)
             op.hasCompletedReko = true
             op.rekoSummary = {
               isRelevant: summary.is_relevant ?? false,
@@ -864,14 +885,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           ops.forEach(op => {
             const summary = rekoSummaries.summaries[op.id]
             if (summary?.has_completed_reko) {
-              const dangerTypes: string[] = []
-              if (summary.dangers_json) {
-                if (summary.dangers_json.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
-                if (summary.dangers_json.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
-                if (summary.dangers_json.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
-                if (summary.dangers_json.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
-                if (summary.dangers_json.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
-              }
+              const dangerTypes = rekoDangerTypes(summary.dangers_json)
               op.hasCompletedReko = true
               op.rekoSummary = {
                 isRelevant: summary.is_relevant ?? false,

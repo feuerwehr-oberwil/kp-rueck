@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
+import { extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import type { Operation, Person, Material, OperationStatus } from '@/lib/contexts/operations-context'
 import type { IncidentGroup } from '@/lib/types/groups'
 import type { GroupResourceType } from '@/lib/api-client'
@@ -187,6 +187,184 @@ export function applyResourceDrop(
 }
 
 /**
+ * The column's card order after a same-column drop: the dragged card lifted out
+ * and re-inserted at the edge the pointer was closest to.
+ *
+ * Pure and exported so the "did anything actually move?" guard in the monitor
+ * below is testable without driving a real drag.
+ */
+export function reorderWithinColumn<T extends { id: string }>(
+  columnOps: T[],
+  draggedId: string,
+  sourceIndex: number,
+  targetIndex: number,
+  edge: Edge | null,
+): T[] {
+  const dragged = columnOps.find(op => op.id === draggedId)
+  if (!dragged) return columnOps
+
+  const filtered = columnOps.filter(op => op.id !== draggedId)
+
+  // 'bottom' means "after the card the pointer is over".
+  let newIndex = edge === 'bottom' ? targetIndex + 1 : targetIndex
+
+  // Moving DOWN the same list: the dragged card no longer occupies its old slot
+  // in `filtered`, so every index past it has shifted up by one.
+  if (sourceIndex < targetIndex) newIndex = newIndex - 1
+
+  return [...filtered.slice(0, newIndex), dragged, ...filtered.slice(newIndex)]
+}
+
+/** Same cards in the same order — i.e. this drop changed nothing. */
+function isSameOrder(a: readonly { id: string }[], b: readonly { id: string }[]): boolean {
+  return a.length === b.length && a.every((op, index) => op.id === b[index].id)
+}
+
+/** Everything moving a card needs — the hook hands its own props straight in. */
+type OperationDropDeps = Pick<
+  UseKanbanDragDropProps,
+  | 'operations'
+  | 'setOperations'
+  | 'updateOperation'
+  | 'reorderColumn'
+  | 'onOperationDrop'
+  | 'onStatusChange'
+>
+
+/**
+ * Moves the dragged card: reorders it inside its column, or carries it across
+ * to another one (which also writes the status change and its side effects).
+ *
+ * Takes its mutators as arguments for the same reason `applyResourceDrop` does
+ * — the interesting questions ("does a wobble write?", "does a real reorder
+ * still persist?") are then answerable without driving a real HTML5 drag.
+ */
+export function applyOperationDrop(
+  sourceData: DragData,
+  destData: DragData,
+  {
+    operations,
+    setOperations,
+    updateOperation,
+    reorderColumn,
+    onOperationDrop,
+    onStatusChange,
+  }: OperationDropDeps,
+): void {
+  if (sourceData.type !== "operation") return
+
+  // Look the operation up FRESH by id instead of using the drag-start
+  // snapshot: re-inserting the snapshot would overwrite fields another
+  // operator changed mid-drag, or resurrect a card that was deleted
+  // remotely while it was in the user's hand.
+  const draggedOpId = (sourceData.operation as Operation).id
+  const draggedOp = operations.find(op => op.id === draggedOpId)
+  if (!draggedOp) return
+  const sourceIndex = sourceData.index as number
+
+  // Dropped on another operation
+  if (destData.type === "operation-drop") {
+    const targetOpId = destData.operationId as string
+    const targetIndex = destData.index as number
+    const edge = extractClosestEdge(destData)
+
+    // Find the target operation to determine its column
+    const targetOp = operations.find(op => op.id === targetOpId)
+    if (!targetOp) return
+
+    // Same column - reorder
+    if (draggedOp.status === targetOp.status) {
+      // A card cannot be reordered against ITSELF, so this drop is a click
+      // that wobbled. pragmatic-drag-and-drop starts a drag at Blink's 3px
+      // threshold — below every OS threshold, so real hands hit it constantly
+      // — and the closest edge at the card's own centre comes out 'bottom',
+      // which used to push the card one slot down and POST that order.
+      // Meanwhile the click was swallowed by the card's own post-drag guard
+      // (draggable-operation.tsx), so the gesture read as "my click didn't
+      // work". Hand it back as the click it was: the same selection a real
+      // click makes.
+      if (targetOpId === draggedOp.id) {
+        onOperationDrop?.(draggedOp.id)
+        return
+      }
+
+      const sameColumnOps = operations.filter(op => op.status === draggedOp.status)
+      const otherOps = operations.filter(op => op.status !== draggedOp.status)
+
+      const reordered = reorderWithinColumn(
+        sameColumnOps,
+        draggedOp.id,
+        sourceIndex,
+        targetIndex,
+        edge,
+      )
+
+      // Dropping on a neighbour's near edge lands the card back in its own
+      // slot. Nothing moved, so nothing is written: a reorder POST re-stamps
+      // every card's position in the column and pushes that over the socket
+      // to every other board.
+      if (isSameOrder(sameColumnOps, reordered)) return
+
+      setOperations([...otherOps, ...reordered])
+
+      // Persist the new manual order so the next sync reproduces it
+      // instead of snapping the card back to its created_at slot.
+      reorderColumn(reordered.map(op => op.id))
+    } else {
+      // Different column - move to new column with position
+      const updatedOp = { ...draggedOp, status: targetOp.status }
+
+      // Remove from old position
+      const withoutDragged = operations.filter(op => op.id !== draggedOp.id)
+
+      // Get operations in target column
+      const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
+      const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
+
+      // Calculate insert index
+      let insertIndex = targetIndex
+      if (edge === 'bottom') {
+        insertIndex = targetIndex + 1
+      }
+
+      // Insert at position
+      const reordered = [
+        ...targetColOps.slice(0, insertIndex),
+        updatedOp,
+        ...targetColOps.slice(insertIndex)
+      ]
+
+      setOperations([...otherOps, ...reordered])
+
+      // Persist status change to backend (keeps status-transition side effects)
+      updateOperation(draggedOp.id, { status: targetOp.status as OperationStatus })
+
+      // Persist the dropped card's position within the target column so the
+      // next sync keeps it where the user dropped it.
+      reorderColumn(reordered.map(op => op.id))
+
+      // Auto-select the dropped card
+      onOperationDrop?.(draggedOp.id)
+      onStatusChange?.(draggedOp.id, targetOp.status as OperationStatus, draggedOp.status as OperationStatus)
+    }
+  }
+  // Dropped on empty column area
+  else if (destData.type === "column") {
+    const targetColumnId = destData.columnId as string
+    const targetColumn = columns.find(col => col.id === targetColumnId)
+
+    if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
+      const newStatus = targetColumn.status[0] as OperationStatus
+      updateOperation(draggedOp.id, { status: newStatus })
+
+      // Auto-select the dropped card
+      onOperationDrop?.(draggedOp.id)
+      onStatusChange?.(draggedOp.id, newStatus, draggedOp.status as OperationStatus)
+    }
+  }
+}
+
+/**
  * Shared hook for Kanban drag-and-drop functionality
  * Handles person, material, and operation dragging/dropping
  * Used across Kanban board and Combined view
@@ -262,111 +440,17 @@ export function useKanbanDragDrop({
           return
         }
 
-        // Operation reordering/moving
-        if (sourceData.type === "operation") {
-          // Look the operation up FRESH by id instead of using the drag-start
-          // snapshot: re-inserting the snapshot would overwrite fields another
-          // operator changed mid-drag, or resurrect a card that was deleted
-          // remotely while it was in the user's hand.
-          const draggedOpId = (sourceData.operation as Operation).id
-          const draggedOp = operations.find(op => op.id === draggedOpId)
-          if (!draggedOp) return
-          const sourceIndex = sourceData.index as number
-
-          // Dropped on another operation
-          if (destData.type === "operation-drop") {
-            const targetOpId = destData.operationId as string
-            const targetIndex = destData.index as number
-            const edge = extractClosestEdge(destData)
-
-            // Find the target operation to determine its column
-            const targetOp = operations.find(op => op.id === targetOpId)
-            if (!targetOp) return
-
-            // Same column - reorder
-            if (draggedOp.status === targetOp.status) {
-              const sameColumnOps = operations.filter(op => op.status === draggedOp.status)
-              const otherOps = operations.filter(op => op.status !== draggedOp.status)
-
-              // Remove dragged operation
-              const filtered = sameColumnOps.filter(op => op.id !== draggedOp.id)
-
-              // Calculate new index based on edge
-              let newIndex = targetIndex
-              if (edge === 'bottom') {
-                newIndex = targetIndex + 1
-              }
-
-              // Adjust index if we're moving down in the same list
-              if (sourceIndex < targetIndex) {
-                newIndex = newIndex - 1
-              }
-
-              // Insert at new position
-              const reordered = [
-                ...filtered.slice(0, newIndex),
-                draggedOp,
-                ...filtered.slice(newIndex)
-              ]
-
-              setOperations([...otherOps, ...reordered])
-
-              // Persist the new manual order so the next sync reproduces it
-              // instead of snapping the card back to its created_at slot.
-              reorderColumn(reordered.map(op => op.id))
-            } else {
-              // Different column - move to new column with position
-              const updatedOp = { ...draggedOp, status: targetOp.status }
-
-              // Remove from old position
-              const withoutDragged = operations.filter(op => op.id !== draggedOp.id)
-
-              // Get operations in target column
-              const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
-              const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
-
-              // Calculate insert index
-              let insertIndex = targetIndex
-              if (edge === 'bottom') {
-                insertIndex = targetIndex + 1
-              }
-
-              // Insert at position
-              const reordered = [
-                ...targetColOps.slice(0, insertIndex),
-                updatedOp,
-                ...targetColOps.slice(insertIndex)
-              ]
-
-              setOperations([...otherOps, ...reordered])
-
-              // Persist status change to backend (keeps status-transition side effects)
-              updateOperation(draggedOp.id, { status: targetOp.status as OperationStatus })
-
-              // Persist the dropped card's position within the target column so the
-              // next sync keeps it where the user dropped it.
-              reorderColumn(reordered.map(op => op.id))
-
-              // Auto-select the dropped card
-              onOperationDrop?.(draggedOp.id)
-              onStatusChange?.(draggedOp.id, targetOp.status as OperationStatus, draggedOp.status as OperationStatus)
-            }
-          }
-          // Dropped on empty column area
-          else if (destData.type === "column") {
-            const targetColumnId = destData.columnId as string
-            const targetColumn = columns.find(col => col.id === targetColumnId)
-
-            if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
-              const newStatus = targetColumn.status[0] as OperationStatus
-              updateOperation(draggedOp.id, { status: newStatus })
-
-              // Auto-select the dropped card
-              onOperationDrop?.(draggedOp.id)
-              onStatusChange?.(draggedOp.id, newStatus, draggedOp.status as OperationStatus)
-            }
-          }
-        }
+        // Moving the card itself — reorder, or across to another column. Pure
+        // like applyResourceDrop above, so the wobble guard inside it can be
+        // tested without a real drag.
+        applyOperationDrop(sourceData, destData, {
+          operations,
+          setOperations,
+          updateOperation,
+          reorderColumn,
+          onOperationDrop,
+          onStatusChange,
+        })
       },
     })
   }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, setDraggingItem, onOperationDrop, onStatusChange, groups, addStopsToGroup, assignGroupResource, occupiedGroupResourceIds])
