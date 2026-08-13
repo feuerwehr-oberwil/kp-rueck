@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -10,6 +10,7 @@ import { apiClient } from "@/lib/api-client"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { SearchInput } from "@/components/ui/search-input"
+import { Kbd } from "@/components/ui/kbd"
 import { DisplaySearchProvider, useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { useDisplayErrorRecovery } from "@/components/display-error"
 
@@ -21,6 +22,29 @@ const displayPages = [
 
 /** Which display pages filter on the top bar's search field. */
 const SEARCHABLE_PAGES = ["/display/board", "/display/status"]
+
+/**
+ * Mirrors `isTypingTarget` in `lib/hooks/use-kanban-shortcuts.ts` — a bare `s`
+ * must never steal a character out of a field somebody is typing in. It is not
+ * imported because that module is the main board's shortcut hook and does not
+ * export the helper.
+ */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (target instanceof HTMLInputElement) return true
+  if (target instanceof HTMLTextAreaElement) return true
+  if (target instanceof HTMLSelectElement) return true
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  const role = target.getAttribute("role")
+  return role === "combobox" || role === "listbox" || role === "option"
+}
+
+/** True while any Radix dialog is open on the page (the incident detail, mostly). */
+function isModalOpen(): boolean {
+  return !!document.querySelector(
+    '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+  )
+}
 
 function ConnectionIndicator({ token }: { token: string | null }) {
   const t = useTranslations('display')
@@ -102,6 +126,25 @@ function DisplayChrome({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const { query, setQuery } = useDisplaySearch()
   const isSearchable = SEARCHABLE_PAGES.includes(pathname)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // `s` (or `/`) jumps to the search field — the same two keys as the main
+  // board, so somebody who walks from the KP to the wall screen does not have to
+  // learn a second habit. Registered only where there IS a field to focus, and
+  // never while a dialog is up or a field already has the caret: on a display
+  // that is running unattended, a stray keystroke must do nothing at all.
+  useEffect(() => {
+    if (!isSearchable) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "/" && e.key !== "s" && e.key !== "S") return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTypingTarget(e.target) || isModalOpen()) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [isSearchable])
 
   // Clock
   useEffect(() => {
@@ -192,12 +235,14 @@ function DisplayChrome({
               predicate the main board filters with. */}
           {isSearchable && (
             <SearchInput
+              ref={searchRef}
               size="sm"
               value={query}
               onValueChange={setQuery}
               placeholder={t('layout.searchPlaceholder')}
               containerClassName="ml-2 hidden w-40 shrink md:block lg:w-64"
               className="h-7 text-sm"
+              hint={<Kbd>S</Kbd>}
             />
           )}
         </div>

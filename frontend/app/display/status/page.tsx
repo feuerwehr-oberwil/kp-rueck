@@ -19,6 +19,7 @@ import { type Operation } from "@/lib/contexts/operations-context"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { type IncidentGroup } from "@/lib/types/groups"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { apiClient, type ApiViewerData } from "@/lib/api-client"
 import { buildSituationData, viewerGroupsToIncidentGroups, type SituationData } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
@@ -127,7 +128,7 @@ function TokenStatusView({ token }: { token: string }) {
     <div className="flex h-full flex-col">
       <DisplayStaleBanner lastRefresh={lastRefresh} />
       <div className="min-h-0 flex-1">
-        <SituationBoard {...data} detailGroups={detailGroups} />
+        <SituationBoard {...data} detailGroups={detailGroups} viewerToken={token} />
       </div>
     </div>
   )
@@ -140,9 +141,12 @@ function SituationBoard({
   personnel: allPersonnel,
   materials: allMaterials,
   detailGroups,
+  viewerToken,
 }: SituationData & {
   /** Token mode only: payload-derived Aufträge for the detail dialog. */
   detailGroups?: IncidentGroup[]
+  /** Token mode only: the share token, which the Reko photos need to load. */
+  viewerToken?: string
 }) {
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
@@ -154,9 +158,17 @@ function SituationBoard({
   // an unfiltered count is a panel that argues with itself.
   const { query } = useDisplaySearch()
   const needle = query.trim().toLowerCase()
+  // Typing the name of an Auftrag must find its stops — on the board they carry
+  // the route's colour, so «Sturmtour Nord» is how one talks about them. Token
+  // mode has no groups context, so the payload's routes stand in for it.
+  const { groups } = useGroups()
+  const groupNames = useMemo(
+    () => new Map((detailGroups ?? groups).map((g) => [g.id, g.name])),
+    [detailGroups, groups],
+  )
   const operations = useMemo(
-    () => filterIncidents(allOperations, query, allMaterials),
-    [allOperations, query, allMaterials],
+    () => filterIncidents(allOperations, query, allMaterials, groupNames),
+    [allOperations, query, allMaterials, groupNames],
   )
   const personnel = useMemo(
     () => (!needle ? allPersonnel : allPersonnel.filter((p) =>
@@ -425,6 +437,7 @@ function SituationBoard({
         personnelOverride={personnel}
         materialsOverride={materials}
         groupsOverride={detailGroups}
+        viewerToken={viewerToken}
         // Token mode passes `detailGroups`; only the logged-in display can read
         // the report endpoints.
         showReports={!detailGroups}
