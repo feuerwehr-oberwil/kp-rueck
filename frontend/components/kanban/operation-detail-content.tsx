@@ -1038,9 +1038,17 @@ export function OperationDetailContent({
                 makes. */}
             <button
               type="button"
-              onClick={() => selectTab('reko')}
+              // Unassigned, this line reads «Reko zuweisen» — so it does that,
+              // rather than dropping the operator on a tab where they have to
+              // find the button again. It still switches tabs first, so the
+              // dialog closes onto the Reko-Auftrag block that now owns the
+              // assignment and not onto the Übersicht they came from.
+              onClick={() => {
+                selectTab('reko')
+                if (canEdit && !assignedRekoPersonnel) setRekoDialogOpen(true)
+              }}
               className="group -mx-1 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50"
-              title={t('detail.tabs.reko')}
+              title={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : t('detail.tabs.reko')}
             >
               <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="shrink-0 text-sm font-medium">{t('common.reko')}</span>

@@ -28,7 +28,7 @@
  * longer says whether Reko is on site.
  */
 
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, Fragment, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -292,6 +292,21 @@ interface RekoReportCardProps {
   onRequestComplete?: () => void
 }
 
+/**
+ * A report timestamp, to the minute. Nobody reads a Reko-Bericht to the second,
+ * and `toLocaleString()`'s default seconds were what pushed the provenance
+ * footer onto a second line as soon as the submitter's name stood next to it.
+ */
+function formatStamp(iso: string): string {
+  return new Date(iso).toLocaleString('de-CH', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCardProps) {
   const t = useTranslations('reko.reportSection')
   function getPhotoUrl(filename: string): string {
@@ -300,55 +315,75 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
   }
 
   /**
-   * The numbered facts, as self-labelling `Label: Wert` pairs in one wrapping
-   * row instead of four stacked lines under an «Aufwand» heading. Each string
-   * already names itself, so the group heading was a line that introduced
-   * nothing — and the same goes for «Stromversorgung», one word behind a
-   * heading, which now rides in the same row as its own label.
+   * The numbered facts, as `{ label, value }` pairs rather than pre-composed
+   * «Label: Wert» strings. They render as a two-column definition grid: in a
+   * wrapping row every value started at whatever x the previous string happened
+   * to end at, and no two lines agreed on anything. One label column and one
+   * value column let the eye run straight down the values.
+   *
+   * «Zusätzliche Notizen» is the last pair and not a separately styled
+   * paragraph — it is a label and a value like the rest, and one emphasis rule
+   * for all of them beats a bold label here and a plain one there.
    */
-  const facts: string[] = []
+  const facts: { label: string; value: string }[] = []
   if (report.effort_json?.personnel_count) {
-    facts.push(t('personnel', { count: report.effort_json.personnel_count }))
+    facts.push({
+      label: t('personnelLabel'),
+      value: t('personnelValue', { count: report.effort_json.personnel_count }),
+    })
   }
   if (report.effort_json?.estimated_duration_hours) {
-    facts.push(t('duration', { hours: report.effort_json.estimated_duration_hours }))
+    facts.push({
+      label: t('durationLabel'),
+      value: t('durationValue', { hours: report.effort_json.estimated_duration_hours }),
+    })
   }
   if (report.effort_json?.vehicles_needed?.length) {
-    facts.push(t('vehicles', { list: report.effort_json.vehicles_needed.join(', ') }))
+    facts.push({ label: t('vehiclesLabel'), value: report.effort_json.vehicles_needed.join(', ') })
   }
   if (report.effort_json?.equipment_needed?.length) {
-    facts.push(t('equipment', { list: report.effort_json.equipment_needed.join(', ') }))
+    facts.push({ label: t('equipmentLabel'), value: report.effort_json.equipment_needed.join(', ') })
   }
   if (report.power_supply && report.power_supply !== 'unknown') {
-    const power =
-      report.power_supply === 'available' ? t('powerAvailable')
-      : report.power_supply === 'unavailable' ? t('powerUnavailable')
-      : t('powerEmergencyNeeded')
-    facts.push(`${t('powerSupply')}: ${power}`)
+    facts.push({
+      label: t('powerSupply'),
+      value:
+        report.power_supply === 'available' ? t('powerAvailable')
+        : report.power_supply === 'unavailable' ? t('powerUnavailable')
+        : t('powerEmergencyNeeded'),
+    })
+  }
+  if (report.additional_notes) {
+    facts.push({ label: t('additionalNotes'), value: report.additional_notes })
   }
 
-  const hasDangers = !!report.dangers_json && (
-    report.dangers_json.fire ||
-    report.dangers_json.fire_danger ||
-    report.dangers_json.explosion ||
-    report.dangers_json.collapse ||
-    report.dangers_json.chemical ||
-    report.dangers_json.electrical ||
-    !!report.dangers_json.other_notes
-  )
+  const dangers = report.dangers_json
+  const dangerLabels: string[] = []
+  if (dangers?.fire) dangerLabels.push(t('dangerBadges.fire'))
+  if (dangers?.fire_danger) dangerLabels.push(t('dangerBadges.fire_danger'))
+  if (dangers?.explosion) dangerLabels.push(t('dangerBadges.explosion'))
+  if (dangers?.collapse) dangerLabels.push(t('dangerBadges.collapse'))
+  if (dangers?.chemical) dangerLabels.push(t('dangerBadges.chemical'))
+  if (dangers?.electrical) dangerLabels.push(t('dangerBadges.electrical'))
+  const hasDangers = dangerLabels.length > 0 || !!dangers?.other_notes
 
   return (
     <div className="rounded-lg border">
       <div className="p-3">
         {/* The verdict. Its bottom border does the job the standalone
-            <Separator/> used to do one full row lower down. */}
+            <Separator/> used to do one full row lower down.
+
+            One leading system across the card: `snug` for the finding, which is
+            prose and has to read well, `tight` for everything that is a label,
+            a chip or a value. The verdict used to reserve a 24px line box for a
+            16px word and pushed its own rule down with it. */}
         <div className="flex items-center gap-2 border-b pb-2 mb-3">
           {report.is_relevant ? (
             <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
           ) : (
             <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           )}
-          <span className="font-medium">
+          <span className="font-medium leading-tight">
             {report.is_relevant ? t('relevant') : t('notNeeded')}
           </span>
           <div className="ml-auto flex items-center gap-2">
@@ -382,43 +417,59 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             <p className="text-base leading-snug">{report.summary_text}</p>
           )}
 
-          {/* Dangers — label and badges share the row; the word stays, so
-              nothing here is a bare icon. */}
-          {hasDangers && report.dangers_json && (
+          {/* Dangers — label and chips share the row; the word stays, so nothing
+              here is a bare icon.
+
+              Warning-toned outline chips, not solid `destructive` pills: a
+              saturated red block was the brightest object on the card and it
+              outshouted the finding above it, which is the sentence somebody
+              reads to decide what to send. The board card and the wall card
+              already render this same danger list as outline badges, and the
+              display's own Reko block already tints it warning — this is those
+              two put together, so one danger looks like one danger wherever it
+              is read. The note below is a fact, not an aside, and reads in the
+              foreground like every other value on the card. */}
+          {hasDangers && (
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                  <AlertTriangle className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4 text-warning-foreground" />
                   {t('dangers')}
                 </span>
-                {report.dangers_json.fire && <Badge variant="destructive">{t('dangerBadges.fire')}</Badge>}
-                {report.dangers_json.fire_danger && <Badge variant="destructive">{t('dangerBadges.fire_danger')}</Badge>}
-                {report.dangers_json.explosion && <Badge variant="destructive">{t('dangerBadges.explosion')}</Badge>}
-                {report.dangers_json.collapse && <Badge variant="destructive">{t('dangerBadges.collapse')}</Badge>}
-                {report.dangers_json.chemical && <Badge variant="destructive">{t('dangerBadges.chemical')}</Badge>}
-                {report.dangers_json.electrical && <Badge variant="destructive">{t('dangerBadges.electrical')}</Badge>}
+                {dangerLabels.map((label) => (
+                  <Badge
+                    key={label}
+                    variant="outline"
+                    className="border-warning/40 bg-warning/10 text-warning-foreground"
+                  >
+                    {label}
+                  </Badge>
+                ))}
               </div>
-              {report.dangers_json.other_notes && (
-                <p className="text-sm text-muted-foreground">
-                  {report.dangers_json.other_notes}
-                </p>
+              {dangers?.other_notes && (
+                <p className="text-sm leading-tight">{dangers.other_notes}</p>
               )}
             </div>
           )}
 
-          {/* Effort + power, one wrapping row of labelled pairs. */}
+          {/* Effort, power and notes — one definition grid, muted label column,
+              foreground value column. */}
           {facts.length > 0 && (
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
-              {facts.map((fact) => (
-                <span key={fact}>{fact}</span>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-sm leading-tight">
+              {facts.map(({ label, value }) => (
+                <Fragment key={label}>
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="min-w-0">{value}</dd>
+                </Fragment>
               ))}
-            </div>
+            </dl>
           )}
 
-          {/* Photos */}
+          {/* Photos. Its heading is a label like every other label on the card:
+              plain and muted, not the one bold thing in the box. */}
           {report.photos_json && report.photos_json.length > 0 && (
             <div>
-              <h5 className="text-xs font-medium text-muted-foreground mb-1.5">{t('photosCount', { count: report.photos_json.length })}</h5>
+              <h5 className="text-xs text-muted-foreground mb-1.5">{t('photosCount', { count: report.photos_json.length })}</h5>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {report.photos_json.map((filename, index) => (
                   <a
@@ -448,24 +499,15 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             </div>
           )}
 
-          {/* Additional notes — the label leads the sentence instead of
-              standing on a line of its own above it. */}
-          {report.additional_notes && (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{t('additionalNotes')}: </span>
-              {report.additional_notes}
-            </p>
-          )}
-
           {/* Provenance, one wrapping row: two timestamps are one line's worth
               of information. */}
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground border-t pt-2">
             {report.submitted_by_personnel_name && (
               <span>{t('rekoBy', { name: report.submitted_by_personnel_name })}</span>
             )}
-            <span>{t('submittedAt', { date: new Date(report.submitted_at).toLocaleString('de-CH') })}</span>
+            <span>{t('submittedAt', { date: formatStamp(report.submitted_at) })}</span>
             {report.updated_at !== report.submitted_at && (
-              <span>{t('updatedAt', { date: new Date(report.updated_at).toLocaleString('de-CH') })}</span>
+              <span>{t('updatedAt', { date: formatStamp(report.updated_at) })}</span>
             )}
           </div>
         </div>
@@ -513,8 +555,10 @@ function RekoReportCardCompact({ report }: RekoReportCardProps) {
                 {report.submitted_by_personnel_name}
               </span>
             )}
+            {/* Same warning tone the current report's card uses — the history
+                row was the last place a Reko danger still read as red. */}
             {hasDangers && (
-              <span className="flex items-center gap-1 text-destructive">
+              <span className="flex items-center gap-1 text-warning-foreground">
                 <AlertTriangle className="h-3 w-3" />
                 {t('dangers')}
               </span>
