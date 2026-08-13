@@ -1,0 +1,167 @@
+{
+  "_comment": [
+    "THE case table for the location display formatter, which exists twice:",
+    "frontend/lib/utils.ts (formatLocationForDisplay) and",
+    "backend/app/services/pdf_report_service.py (format_location_for_display).",
+    "Both test suites read THIS file, so the two copies cannot drift silently.",
+    "",
+    "It lives under backend/tests/ because the backend test run only ever sees",
+    "backend/ (pytest runs inside the dev container, where ./backend is mounted",
+    "as /app), while Vitest runs from the repo checkout and can reach up.",
+    "",
+    "Shapes below are real: the 'nominatim_*' ones are verbatim display_name",
+    "values from https://nominatim.openstreetmap.org/search?format=json&",
+    "addressdetails=1&countrycodes=ch (no accept-language, which is why the",
+    "country arrives as 'Schweiz/Suisse/Svizzera/Svizra'), the 'natural_*' /",
+    "'home_*' ones are what frontend/lib/geocoding.ts actually stores."
+  ],
+  "cases": [
+    {
+      "name": "home_natural_form",
+      "why": "The shape every row in the dev database has – the city is redundant.",
+      "address": "Bahnhofstrasse 8, 4104 Oberwil",
+      "home_city": "Oberwil, BL",
+      "expected": "Bahnhofstrasse 8"
+    },
+    {
+      "name": "home_free_text_with_hint",
+      "why": "Operator free text kept intact; only the home city is stripped.",
+      "address": "Bättwilerstrasse (Waldrand), 4104 Oberwil",
+      "home_city": "Oberwil, BL",
+      "expected": "Bättwilerstrasse (Waldrand)"
+    },
+    {
+      "name": "home_house_number_first",
+      "why": "Raw Nominatim display_name for a home-city address.",
+      "address": "8, Storchenweg, Oberwil, Bezirk Arlesheim, Basel-Landschaft, 4104, Switzerland",
+      "home_city": "Oberwil",
+      "expected": "Storchenweg 8"
+    },
+    {
+      "name": "home_city_only_multilingual_country",
+      "why": "Nothing more specific than the home city – hidden. Before the fix the multilingual country component became the street.",
+      "address": "Oberwil, Bezirk Arlesheim, Basel-Landschaft, 4104, Schweiz/Suisse/Svizzera/Svizra",
+      "home_city": "Oberwil",
+      "expected": ""
+    },
+    {
+      "name": "home_city_bare",
+      "why": "The configured home city, echoed back as the location.",
+      "address": "Oberwil, BL",
+      "home_city": "Oberwil, BL",
+      "expected": ""
+    },
+    {
+      "name": "b1_main_street_basel",
+      "why": "Blocker B1: index 1 is the STREET here, so the city lookup must not take it.",
+      "address": "45, Main Street, Basel, Switzerland",
+      "home_city": "Oberwil",
+      "expected": "Main Street 45, Basel"
+    },
+    {
+      "name": "b1_rue_du_rhone",
+      "why": "Blocker B1, second audited example.",
+      "address": "7, Rue du Rhone, Genf, Schweiz",
+      "home_city": "Oberwil",
+      "expected": "Rue du Rhone 7, Genf"
+    },
+    {
+      "name": "b1_bahnhofstrasse_liestal",
+      "why": "Blocker B1, third audited example, with the full Swiss tail.",
+      "address": "12, Bahnhofstrasse, Liestal, Bezirk Liestal, Basel-Landschaft, 4410, Schweiz/Suisse/Svizzera/Svizra",
+      "home_city": "Oberwil, BL",
+      "expected": "Bahnhofstrasse 12, Liestal"
+    },
+    {
+      "name": "nominatim_house_number_first",
+      "why": "Verbatim display_name for 'Bahnhofstrasse 12 Liestal' – the Nachbarhilfe case.",
+      "address": "12, Bahnhofstrasse, Pratteln, Bezirk Liestal, Basel-Landschaft, 4133, Schweiz/Suisse/Svizzera/Svizra",
+      "home_city": "Oberwil, BL",
+      "expected": "Bahnhofstrasse 12, Pratteln"
+    },
+    {
+      "name": "nominatim_canton_after_bezirk",
+      "why": "A canton that is not in any list: what follows a 'Bezirk …' is the canton, the town sits before it.",
+      "address": "12, Amthausstrasse, Dornach, Bezirk Dorneck, Solothurn, 4143, Schweiz/Suisse/Svizzera/Svizra",
+      "home_city": "Oberwil, BL",
+      "expected": "Amthausstrasse 12, Dornach"
+    },
+    {
+      "name": "nominatim_street_without_house_number",
+      "why": "Verbatim display_name for a street: index 0 is the street, index 1 the town.",
+      "address": "Storchenweg, Therwil, Bezirk Arlesheim, Basel-Landschaft, 4106, Schweiz/Suisse/Svizzera/Svizra",
+      "home_city": "Oberwil, BL",
+      "expected": "Storchenweg, Therwil"
+    },
+    {
+      "name": "nominatim_place_only",
+      "why": "A municipality, not an address – no city to append. Before the fix this ended in ', Schweiz/Suisse/Svizzera/Svizra'.",
+      "address": "Therwil, Bezirk Arlesheim, Basel-Landschaft, 4106, Schweiz/Suisse/Svizzera/Svizra",
+      "home_city": "Oberwil, BL",
+      "expected": "Therwil"
+    },
+    {
+      "name": "nominatim_poi_prefixed",
+      "why": "Verbatim display_name for 'Bahnhof Basel SBB' – POI first, suburb and borough before the city.",
+      "address": "Basel SBB, Centralbahnstrasse, St. Alban, Grossbasel, Basel, Basel-Stadt, 4002, Schweiz/Suisse/Svizzera/Svizra",
+      "home_city": "Oberwil, BL",
+      "expected": "Basel SBB, Basel"
+    },
+    {
+      "name": "natural_form_out_of_town",
+      "why": "What the geocoder stores for a neighbouring town – already correct today, must stay untouched.",
+      "address": "Bahnhofstrasse 12, 4133 Pratteln",
+      "home_city": "Oberwil, BL",
+      "expected": "Bahnhofstrasse 12, 4133 Pratteln"
+    },
+    {
+      "name": "already_street_and_city",
+      "why": "'Street 12, City' – nothing to strip.",
+      "address": "Hauptstrasse 3, Basel",
+      "home_city": "Oberwil, BL",
+      "expected": "Hauptstrasse 3, Basel"
+    },
+    {
+      "name": "bare_title_no_comma",
+      "why": "Free text with no components at all.",
+      "address": "Waldbrand Rütihard",
+      "home_city": "Oberwil, BL",
+      "expected": "Waldbrand Rütihard"
+    },
+    {
+      "name": "missing_city",
+      "why": "House number and street, nothing else.",
+      "address": "45, Main Street",
+      "home_city": "Oberwil",
+      "expected": "Main Street 45"
+    },
+    {
+      "name": "missing_city_with_tail",
+      "why": "Postcode and country present, city missing – no empty ', ' tail.",
+      "address": "45, Main Street, 4133, Switzerland",
+      "home_city": "Oberwil",
+      "expected": "Main Street 45"
+    },
+    {
+      "name": "map_pin_coordinates",
+      "why": "The reverse-geocode fallback in use-route-planning / map-picker.",
+      "address": "47.516377, 7.561800",
+      "home_city": "Oberwil, BL",
+      "expected": "47.516377, 7.561800"
+    },
+    {
+      "name": "no_home_city_configured",
+      "why": "Fresh station: nothing to strip against, so the address is passed through.",
+      "address": "45, Main Street, Basel, Switzerland",
+      "home_city": "",
+      "expected": "45, Main Street, Basel, Switzerland"
+    },
+    {
+      "name": "empty_address",
+      "why": "An incident without a location.",
+      "address": "",
+      "home_city": "Oberwil, BL",
+      "expected": ""
+    }
+  ]
+}

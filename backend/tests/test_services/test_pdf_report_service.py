@@ -8,7 +8,10 @@ text via ``pypdf``.
 """
 
 import io
+import json
+import re
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -37,11 +40,16 @@ from app.services.pdf_report_service import (
     extra_material_left_on_site_names,
     format_corrected_count,
     format_extra_material,
+    format_location_for_display,
     format_material_unit,
     material_left_on_site_names,
     material_used_label,
     vehicle_present_names,
 )
+
+_LOCATION_CASES: list[dict[str, str]] = json.loads(
+    (Path(__file__).parent / "location_display_cases.json").read_text(encoding="utf-8")
+)["cases"]
 
 
 def _extract_text(pdf_bytes: bytes) -> str:
@@ -1216,3 +1224,36 @@ class TestPagination:
             # Last line before the footer (event name · date, then "Seite x von y").
             body = [line for line in lines if not line.startswith("Seite ") and simple_event.name not in line]
             assert not (body and body[-1] in headings), f"stranded heading: {body[-1]}"
+
+
+# ============================================
+# Location display – shared case table
+# ============================================
+
+
+class TestFormatLocationForDisplay:
+    """``format_location_for_display`` against the table the frontend also runs.
+
+    The formatter exists twice – here and as ``formatLocationForDisplay`` in
+    frontend/lib/utils.ts. This copy is the one that fills the ``location_display``
+    the API serves, so a divergence is a wrong label on the board, the map, the
+    PDF, the WhatsApp/Divera message and the thermal slip at once. Both suites read
+    ``location_display_cases.json`` next to this file; frontend/lib/utils.test.ts
+    reaches across the tree for the very same file.
+    """
+
+    @pytest.mark.parametrize("case", _LOCATION_CASES, ids=[c["name"] for c in _LOCATION_CASES])
+    def test_shared_case_table(self, case: dict[str, str]):
+        assert format_location_for_display(case["address"], case["home_city"]) == case["expected"], case["why"]
+
+    def test_never_repeats_the_street_where_the_city_belongs(self):
+        """The B1 symptom ("Main Street 45, Main Street") as a property over the table."""
+        for case in _LOCATION_CASES:
+            output = format_location_for_display(case["address"], case["home_city"])
+            street, _, city = output.partition(", ")
+            if not city:
+                continue
+            assert city != re.sub(r" \d+$", "", street), f"{case['address']} → {output}"
+
+    def test_none_address(self):
+        assert format_location_for_display(None, "Oberwil, BL") == ""

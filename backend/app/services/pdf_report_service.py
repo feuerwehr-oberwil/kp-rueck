@@ -341,32 +341,93 @@ def _tidy(line: str) -> str:
     return line.strip().rstrip(",").strip()
 
 
+# Country components, as Nominatim writes them. The frontend geocoder sends no
+# ``accept-language``, so the Swiss one arrives as the multilingual
+# "Schweiz/Suisse/Svizzera/Svizra" – hence the per-token check, which also keeps a
+# street like "Schweizerhalle" out of the set.
+_COUNTRY_NAMES: frozenset[str] = frozenset(
+    {
+        "switzerland", "schweiz", "suisse", "svizzera", "svizra",
+        "germany", "deutschland", "allemagne", "germania",
+        "france", "frankreich", "francia",
+        "italy", "italien", "italia", "italie",
+        "austria", "österreich", "autriche",
+        "liechtenstein",
+    }
+)  # fmt: skip
+
+_POSTCODE_RE = re.compile(r"\d{4,5}")
+# A county / district component. Word-bounded on purpose: a bare ``^region`` also
+# matched "Regionalstrasse", which would have swallowed a street.
+_DISTRICT_RE = re.compile(r"(?:bezirk|region|kanton|canton|district|wahlkreis)\b", re.IGNORECASE)
+# Half-cantons that are never a municipality, so they can be dropped by name.
+_STATE_NAMES: frozenset[str] = frozenset({"basel-landschaft", "basel-stadt"})
+
+
+def _is_country_part(part: str) -> bool:
+    tokens = [t.strip().lower() for t in part.split("/") if t.strip()]
+    return bool(tokens) and all(t in _COUNTRY_NAMES for t in tokens)
+
+
+def _is_address_noise(part: str) -> bool:
+    """Postcode / canton / country tail noise – never the street, never the city."""
+    if _POSTCODE_RE.fullmatch(part):
+        return True
+    if _is_country_part(part):
+        return True
+    if _DISTRICT_RE.match(part):
+        return True
+    return part.lower() in _STATE_NAMES
+
+
 def format_location_for_display(full_address: str | None, home_city: str) -> str:
     """Python mirror of the frontend ``formatLocationForDisplay`` (lib/utils.ts).
 
-    Strips home-city / region / country / postcode noise. Returns ``""`` when the
-    location is only the home city (redundant) so callers can hide or fall back.
+    Strips home-city / district / canton / country / postcode noise. Returns ``""``
+    when the location is only the home city (redundant) so callers can hide or fall
+    back.
+
+    Shapes that reach this function, all of them real:
+
+    - ``"Bahnhofstrasse 12, 4133 Pratteln"`` – what the frontend geocoder stores
+      today (built from Nominatim's structured ``address`` object, not
+      ``display_name``).
+    - ``"12, Bahnhofstrasse, Pratteln, Bezirk Liestal, Basel-Landschaft, 4133,
+      Schweiz/Suisse/Svizzera/Svizra"`` – a raw Nominatim ``display_name``, i.e.
+      house number FIRST, pasted by an operator or held by an older row.
+    - The same without a house number (``"Storchenweg, Therwil, …"``), or with
+      neither (``"Therwil, Bezirk Arlesheim, …"`` – a place, not an address).
+    - Free text an operator typed, and ``"47.516377, 7.561800"`` from a map pin.
+
+    The city is therefore looked up from the END, past the postcode / canton /
+    country tail, rather than at a fixed index: index 1 is the STREET in the
+    house-number-first shape and the CITY in the short one. A component that sits
+    directly after a "Bezirk …" is the canton, not the town ("…, Dornach, Bezirk
+    Dorneck, Solothurn, 4143, …"), so it is skipped too.
+
+    Known limitation: for a canton with no districts whose name differs from the
+    town (Carouge GE, Baar ZG), the canton is shown instead of the town. Outside
+    Switzerland the state component is not recognised at all.
+
+    The frontend copy and this one are held to the same case table – see
+    ``tests/test_services/location_display_cases.json``.
     """
     if not full_address:
         return ""
     if not home_city:
         return full_address
-    parts = [p.strip() for p in full_address.split(",")]
-    home_parts = [p.strip() for p in home_city.split(",")]
-    contains_home = any(any(hp.lower() in ap.lower() for ap in parts) for hp in home_parts)
+    parts = [p.strip() for p in full_address.split(",") if p.strip()]
+    home_parts = [p.strip() for p in home_city.split(",") if p.strip()]
 
-    if contains_home:
+    def is_home_city_part(part: str) -> bool:
+        return any(hp.lower() in part.lower() for hp in home_parts)
+
+    if any(is_home_city_part(p) for p in parts):
         house_number = ""
         street_name = ""
         for part in parts:
-            pl = part.lower()
-            if re.fullmatch(r"\d{4}", part):
-                continue
-            if pl in ("switzerland", "schweiz", "basel-landschaft", "basel-stadt"):
-                continue
-            if any(hp.lower() in pl for hp in home_parts):
-                continue
-            if pl.startswith("bezirk"):
+            # The noise goes FIRST so a postcode is never taken for a house number.
+            if _is_address_noise(part) or is_home_city_part(part):
                 continue
             if part.isdigit():
                 house_number = part
@@ -379,25 +440,33 @@ def format_location_for_display(full_address: str | None, home_city: str) -> str
 
     house_number = ""
     street = ""
-    for part in parts:
-        if re.fullmatch(r"\d{4}", part):
+    street_index = -1
+    for idx, part in enumerate(parts):
+        if _POSTCODE_RE.fullmatch(part):
             continue
         if part.isdigit():
             house_number = part
             continue
-        if not street:
+        if street_index == -1:
             street = part
-    city = None
-    for idx, part in enumerate(parts):
-        if idx == 0 or part.isdigit():
+            street_index = idx
+
+    city = ""
+    for idx in range(len(parts) - 1, street_index, -1):
+        part = parts[idx]
+        if part.isdigit() or _is_address_noise(part):
             continue
-        if part.lower() in ("switzerland", "schweiz"):
+        # "…, Dornach, Bezirk Dorneck, Solothurn, …" – what follows a district is
+        # the canton, and the town is further left.
+        if idx > 0 and _DISTRICT_RE.match(parts[idx - 1]):
             continue
-        if re.match(r"^(basel-landschaft|basel-stadt|bezirk|region)", part.lower()):
+        # Never print the street where the city belongs.
+        if part.lower() == street.lower():
             continue
         city = part
         break
-    formatted_street = f"{street} {house_number}" if house_number else street
+
+    formatted_street = " ".join(p for p in (street, house_number) if p)
     return f"{formatted_street}, {city}" if city else formatted_street
 
 
