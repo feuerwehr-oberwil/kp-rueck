@@ -74,6 +74,18 @@ LABELS: dict[str, str] = {
     "materials_used": "Material",
     "reko_reports_count": "Reko-Berichte",
     "no_incidents": "Keine Einsätze erfasst",
+    # Anwesenheit (roll-call with An-/Abmeldezeit)
+    "attendance_title": "Anwesenheit",
+    "attendance_hint": "Personen mit Anmeldung zu diesem Ereignis, in der Reihenfolge der Mannschaftsliste. Dauer in h:mm.",
+    #: The end of an open attendance: somebody who arrived and never checked out. The
+    #: report says so instead of leaving the cell blank – blank reads as "no data",
+    #: and the whole point of the column is that the difference is visible.
+    "attendance_open": "noch anwesend",
+    "col_person": "Name",
+    "col_function": "Funktion",
+    "col_from": "Von",
+    "col_to": "Bis",
+    "col_duration": "Dauer",
     # Reaction times (debrief metrics)
     "reaction_title": "Reaktionszeiten",
     "reaction_hint": "Zeit ab Eingang bis zum ersten Erreichen des Status, in h:mm.",
@@ -1132,6 +1144,70 @@ def _fmt_duration(seconds: float | None) -> str:
     return f"{minutes // 60}:{minutes % 60:02d}"
 
 
+def _attendance_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> LongTable:
+    """Who was here, from when to when – one row per person who arrived.
+
+    A LongTable like the Einsatztagebuch, because a storm event checks in the whole
+    Mannschaft and the list has to split across pages with its header repeating.
+
+    Two honest gaps, neither of them invented:
+
+    * somebody who is still here has no departure – the Bis cell says «noch anwesend»
+      and the Dauer cell stays empty rather than being closed against the print time,
+    * somebody who never arrived is not in ``data.attendance`` at all (the collector
+      drops rows without ``checked_in_at``), so the list never lengthens itself with
+      people who were not there.
+    """
+    header = [
+        _p(LABELS["col_person"], styles["cell_header"]),
+        _p(LABELS["col_function"], styles["cell_header"]),
+        _p(LABELS["col_from"], styles["cell_header"]),
+        _p(LABELS["col_to"], styles["cell_header"]),
+        _p(LABELS["col_duration"], styles["cell_header"]),
+    ]
+    rows = [header]
+    for record in data.attendance:
+        person = data.personnel_map.get(record.personnel_id)
+        arrived = record.checked_in_at
+        left = record.checked_out_at
+        duration = (
+            _fmt_duration((_as_utc(left) - _as_utc(arrived)).total_seconds())
+            if arrived is not None and left is not None
+            else ""
+        )
+        rows.append(
+            [
+                _p(person.name if person else str(record.personnel_id), styles["cell"]),
+                _p(_text(person.role) if person else "", styles["cell"]),
+                _p(_fmt_dt(arrived), styles["cell"]),
+                _p(_fmt_dt(left) if left is not None else LABELS["attendance_open"], styles["cell"]),
+                _p(duration, styles["cell"]),
+            ]
+        )
+
+    # Same 25mm clock columns as the Einsatzübersicht (a full "05.08.2026 15:21" is
+    # 24.8mm with padding, and «noch anwesend» 22.6mm); Funktion and Dauer are measured
+    # the same way, and the name column absorbs the rest.
+    col_widths = _widths(30 * mm, 25 * mm, 25 * mm, 15 * mm, flex=0)
+    table = LongTable(rows, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), _PANEL),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.8, _GRID),
+                ("GRID", (0, 0), (-1, -1), 0.5, _GRID),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _ZEBRA]),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
+
+
 def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> Table:
     """Per-incident reaction metrics: time from Eingang to first reaching each
     key status. Feeds the debrief – "incident 3 sat unnoticed for 9 minutes"
@@ -1824,6 +1900,15 @@ def build_event_report_pdf(
     story.extend(_section(LABELS["summary_title"], styles, LABELS["summary_hint"]))
     story.append(_summary_table(data, styles))
     story.append(Spacer(1, 10))
+
+    # Anwesenheit – event-level, so it sits with the summary rather than inside the
+    # incident chapters, and it is simply absent when nobody checked in. A station
+    # that does not use the check-in link would otherwise carry an empty heading on
+    # every report it ever files.
+    if data.attendance:
+        story.extend(_section(LABELS["attendance_title"], styles, LABELS["attendance_hint"]))
+        story.append(_attendance_table(data, styles))
+        story.append(Spacer(1, 12))
 
     if not data.incidents:
         story.append(_p(LABELS["no_incidents"], styles["body"]))

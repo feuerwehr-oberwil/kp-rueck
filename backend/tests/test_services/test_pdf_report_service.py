@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import (
     AuditLog,
     Event,
+    EventAttendance,
     Incident,
     IncidentAssignment,
     Personnel,
@@ -445,6 +446,84 @@ class TestCollectAndBuild:
         text = _extract_text(pdf_bytes)
         assert "Zeitraum" in text
         assert "laufend" not in text  # archived -> concrete end date, not "laufend"
+
+
+# ============================================
+# Anwesenheit (roll-call with An-/Abmeldezeit)
+# ============================================
+
+
+class TestAnwesenheit:
+    """Who was here, from when to when — and who the section must not invent."""
+
+    @pytest.mark.asyncio
+    async def test_section_lists_arrivals_with_from_to(self, db_session: AsyncSession, test_event: Event):
+        arrived = datetime(2026, 6, 1, 8, 5, tzinfo=UTC)
+
+        gone = Personnel(id=uuid4(), name="Gegangen Greta", role="Offizier", status="available", role_sort_order=1)
+        present = Personnel(id=uuid4(), name="Anwesend Anna", role="Korporal", status="available", role_sort_order=2)
+        absent = Personnel(id=uuid4(), name="Niemals Nils", role="Mannschaft", status="available", role_sort_order=3)
+        # A bulk check-out can leave a row for somebody who never arrived: a departure
+        # without an arrival is not attendance, and must not lengthen the list.
+        ghost = Personnel(id=uuid4(), name="Geist Gustav", role="Mannschaft", status="available", role_sort_order=4)
+        db_session.add_all([gone, present, absent, ghost])
+        await db_session.flush()
+
+        db_session.add_all(
+            [
+                EventAttendance(
+                    id=uuid4(),
+                    event_id=test_event.id,
+                    personnel_id=gone.id,
+                    checked_in=False,
+                    checked_in_at=arrived,
+                    checked_out_at=arrived + timedelta(hours=2, minutes=35),
+                ),
+                EventAttendance(
+                    id=uuid4(),
+                    event_id=test_event.id,
+                    personnel_id=present.id,
+                    checked_in=True,
+                    checked_in_at=arrived + timedelta(minutes=10),
+                    checked_out_at=None,
+                ),
+                EventAttendance(
+                    id=uuid4(),
+                    event_id=test_event.id,
+                    personnel_id=ghost.id,
+                    checked_in=False,
+                    checked_in_at=None,
+                    checked_out_at=arrived + timedelta(hours=1),
+                ),
+            ]
+        )
+        await db_session.commit()
+
+        data = await collect_event_report_data(db_session, test_event.id)
+        assert [a.personnel_id for a in data.attendance] == [gone.id, present.id]
+
+        text = _extract_text(build_event_report_pdf(data, generated_by="u"))
+        assert "Anwesenheit" in text
+        # Closed attendance: both clocks (local time) and the duration as h:mm.
+        assert arrived.astimezone(LOCAL_TZ).strftime("%d.%m.%Y %H:%M") in text
+        assert "2:35" in text
+        # Open attendance: named, never closed against the print time.
+        assert "Anwesend Anna" in text
+        assert "noch anwesend" in text
+        # Nobody who did not arrive.
+        assert "Niemals Nils" not in text
+        assert "Geist Gustav" not in text
+
+    def test_no_heading_without_a_single_check_in(self, simple_event: Event, simple_incident: Incident):
+        data = EventReportData(
+            event=simple_event,
+            incidents=[simple_incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[],
+            incident_map={simple_incident.id: simple_incident},
+        )
+        assert "Anwesenheit" not in _extract_text(build_event_report_pdf(data, generated_by="u"))
 
 
 # ============================================

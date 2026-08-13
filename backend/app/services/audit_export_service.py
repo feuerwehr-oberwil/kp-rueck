@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import (
     AuditLog,
     Event,
+    EventAttendance,
     Incident,
     IncidentAssignment,
     Material,
@@ -55,6 +56,11 @@ class EventReportData:
     # Schadenplatz-Rapporte (plan 25), at most one per incident. Drafts included:
     # a half-filled rapport is still what the crew said, and the outputs mark it.
     schadenplatz_reports: list[SchadenplatzReport] = field(default_factory=list)
+    # Anwesenheit: one row per person who actually arrived, in arrival order.
+    # Rows whose `checked_in_at` is NULL are dropped by the collector – a bulk
+    # check-out can create an attendance row for somebody who never came, and a
+    # departure without an arrival is not evidence of presence.
+    attendance: list[EventAttendance] = field(default_factory=list)
     incident_map: dict[uuid.UUID, Incident] = field(default_factory=dict)
     personnel_map: dict[uuid.UUID, Personnel] = field(default_factory=dict)
     vehicle_map: dict[uuid.UUID, Vehicle] = field(default_factory=dict)
@@ -181,6 +187,23 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
             personnel_ids.update(pid for pid in (report.created_by_personnel_id, report.updated_by_personnel_id) if pid)
             user_ids.update(uid for uid in (report.created_by_user_id, report.updated_by_user_id) if uid)
 
+    # Load the Anwesenheit (event-scoped, independent of any incident): everybody who
+    # actually arrived. `checked_in_at IS NOT NULL` is the filter, not `checked_in` —
+    # somebody who has already gone home is exactly who this section is about, while a
+    # row created by a check-out for a person who never came carries no arrival and is
+    # not attendance. Ordered like every other roll-call in the app (rank, then name:
+    # `crud.personnel.get_personnel_list`, the A4 status slip) so the section reads the
+    # way the station's printed lists already do.
+    attendance_result = await db.execute(
+        select(EventAttendance)
+        .join(Personnel, EventAttendance.personnel_id == Personnel.id)
+        .where(EventAttendance.event_id == event_id)
+        .where(EventAttendance.checked_in_at.is_not(None))
+        .order_by(Personnel.role_sort_order.asc(), Personnel.name.asc())
+    )
+    attendance = list(attendance_result.scalars().all())
+    personnel_ids.update(a.personnel_id for a in attendance)
+
     # Load journal-worthy audit entries (Einsatztagebuch). Audit rows carry no
     # event scoping, only resource_type/resource_id — so we scope them via the
     # event's incident ids and restrict to the whitelisted action types.
@@ -225,6 +248,7 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         reko_reports=reko_reports,
         audit_entries=audit_entries,
         schadenplatz_reports=schadenplatz_reports,
+        attendance=attendance,
         incident_map=incident_map,
         personnel_map=personnel_map,
         vehicle_map=vehicle_map,
