@@ -109,6 +109,7 @@ beforeEach(() => {
     onToggleRightSidebar: vi.fn(),
     onToggleSidePanel: vi.fn(),
     onSidePanelDetail: vi.fn(),
+    onTogglePrint: vi.fn(),
     onSidePanelMap: vi.fn(),
     onToggleNotifications: vi.fn(),
   } as unknown as KanbanShortcutsActions;
@@ -374,22 +375,36 @@ describe("useKanbanShortcuts", () => {
   });
 
   describe("side panel view switching", () => {
-    it("'d' and 'k' switch view ONLY when side panel is open", () => {
+    it("'k' opens the Karte ONLY when the side panel is open", () => {
+      const { rerender } = renderHook(
+        ({ open }: { open: boolean }) =>
+          useKanbanShortcuts(baseState({ sidePanelOpen: open }), actions),
+        { initialProps: { open: false } },
+      );
+      press("k");
+      expect(actions.onSidePanelMap).not.toHaveBeenCalled();
+
+      rerender({ open: true });
+      press("k");
+      expect(actions.onSidePanelMap).toHaveBeenCalled();
+    });
+
+    it("'d' prints — it no longer switches the panel view", () => {
+      // The old binding fired only while the panel was already open, and the
+      // panel's only other mode is `collapsed`, so it set `detail` on something
+      // that was already `detail`. The key now belongs to the Drucken-Sheet, in
+      // both panel states.
       const { rerender } = renderHook(
         ({ open }: { open: boolean }) =>
           useKanbanShortcuts(baseState({ sidePanelOpen: open }), actions),
         { initialProps: { open: false } },
       );
       press("d");
-      press("k");
-      expect(actions.onSidePanelDetail).not.toHaveBeenCalled();
-      expect(actions.onSidePanelMap).not.toHaveBeenCalled();
-
       rerender({ open: true });
       press("d");
-      press("k");
-      expect(actions.onSidePanelDetail).toHaveBeenCalled();
-      expect(actions.onSidePanelMap).toHaveBeenCalled();
+
+      expect(actions.onSidePanelDetail).not.toHaveBeenCalled();
+      expect(actions.onTogglePrint).toHaveBeenCalledTimes(2);
     });
   });
 

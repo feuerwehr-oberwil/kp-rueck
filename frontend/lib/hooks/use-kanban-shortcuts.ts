@@ -65,6 +65,8 @@ export interface KanbanShortcutsActions {
   onToggleSidePanel: () => void
   /** Switch side panel to Detail view (no-op if collapsed). */
   onSidePanelDetail: () => void
+  /** Opens/closes the one Drucken-Sheet (Thermodruck, Status drucken, Export). */
+  onTogglePrint: () => void
   /** Switch side panel to Map view (no-op if collapsed). */
   onSidePanelMap: () => void
   /** Toggle the notification sidebar. */
@@ -227,6 +229,11 @@ export function useKanbanShortcuts(
         actions.onToggleAuftraege()
         return
       }
+      if ((e.key === "d" || e.key === "D") && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        actions.onTogglePrint()
+        return
+      }
 
       // Sidebars
       if (e.key === "[" || e.key === "q" || e.key === "Q") {
@@ -244,16 +251,12 @@ export function useKanbanShortcuts(
         actions.onToggleSidePanel()
         return
       }
-      if (
-        (e.key === "d" || e.key === "D") &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        sidePanelOpen
-      ) {
-        e.preventDefault()
-        actions.onSidePanelDetail()
-        return
-      }
+      // `d` used to be «Seitenpanel auf Detail schalten», gated on the panel
+      // already being open — and the panel has only had `detail` and `collapsed`
+      // since the map mode was dropped, so the guard meant it only ever fired
+      // when the mode was already `detail`. A key that could not change anything.
+      // It now opens the Drucken-Sheet; the palette entry for the panel stays,
+      // where clicking it from a collapsed panel does still do something.
       if (
         (e.key === "k" || e.key === "K") &&
         !e.metaKey &&

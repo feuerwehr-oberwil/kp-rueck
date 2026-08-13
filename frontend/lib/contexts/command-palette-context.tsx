@@ -10,6 +10,8 @@ export interface CommandPaletteHandlers {
   onToggleRightSidebar?: () => void
   onToggleVehicleStatus?: () => void
   onToggleAuftraege?: () => void
+  /** Opens the Drucken-Sheet (Thermodruck, Status drucken, Export) — key «D». */
+  onTogglePrint?: () => void
   /** Open the Aufträge sheet focused on a specific route (from palette search). */
   onOpenAuftrag?: (groupId: string) => void
   onToggleNotifications?: () => void

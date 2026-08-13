@@ -869,3 +869,26 @@
     transition: none;
   }
 }
+
+/* A toast has to stay usable while a dialog is open.
+   Radix locks the page by putting `pointer-events: none` on <body> for as long
+   as a modal is mounted. Sonner portals its stack into <body> and never sets a
+   pointer-events value of its own, so the whole toast layer inherited the lock:
+   the toast was painted ON TOP of the modal (z-index 999999999 against the
+   dialog's 50) and yet could not be clicked — neither its ✕ nor its «Öffnen».
+   A notification you can read, cannot act on and cannot dismiss is worse than
+   no notification at all.
+
+   The container stays transparent to clicks so it never swallows a press aimed
+   at the board behind it; only the toasts themselves, and the «Alle
+   ausblenden» pill, take pointer events back. Clicking them does not close the
+   dialog underneath — see lib/toast-layer.ts, which already teaches every
+   dialog to ignore this layer when deciding what counts as "outside". */
+[data-sonner-toaster] {
+  pointer-events: none;
+}
+
+[data-sonner-toast],
+[data-toast-layer] {
+  pointer-events: auto;
+}

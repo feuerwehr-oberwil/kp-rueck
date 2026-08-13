@@ -19,7 +19,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users } from 'lucide-react'
+import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users, FileText } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -32,6 +32,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
+import { RapportBacklogSheet, selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
+import { MaterialOnSitePanel, selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { RoutenEditorModal } from "@/components/kanban/routen-editor-modal"
 import { useMaterials } from "@/lib/contexts/materials-context"
@@ -82,8 +84,7 @@ import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
-import { PrintOptionsModal } from "@/components/print/print-options-modal"
-import { ThermoOptionsSheet, type ThermoPrintOptions } from "@/components/print/thermo-options-sheet"
+import { PrintHubSheet, type ThermoPrintOptions } from "@/components/print/print-hub-sheet"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import type { Incident } from "@/lib/types/incidents"
@@ -93,7 +94,28 @@ import {
   useIncidentStatusWorkflow,
 } from "@/components/kanban/incident-status-workflow"
 import { cn } from "@/lib/utils"
+import { usePersistedState } from "@/lib/hooks/use-persisted-state"
+import { isStringArray } from "@/lib/utils/safe-storage"
 import type { LucideIcon } from "lucide-react"
+
+/**
+ * Per-device layout memory. Folding a sidebar away is a deliberate act; walking
+ * to the Karte and back used to undo it, which made the fold worthless. Keys
+ * follow the `kp-board-*` family the other board preferences already use.
+ */
+const LEFT_SIDEBAR_KEY = "kp-board-leftSidebarOpen"
+const RIGHT_SIDEBAR_KEY = "kp-board-rightSidebarOpen"
+const SIDE_PANEL_MODE_KEY = "kp-board-sidePanelMode"
+/** Events whose Bereitschaft checklist the operator has closed — see the auto-open effect. */
+const CHECKLIST_DISMISSED_KEY = "kp-board-checklistDismissedEvents"
+/** How many dismissals to keep; enough for a season of Einsätze, bounded on purpose. */
+const CHECKLIST_DISMISSED_LIMIT = 30
+
+const isBoolean = (value: unknown): value is boolean => typeof value === "boolean"
+
+type SidePanelMode = 'detail' | 'collapsed'
+const isSidePanelMode = (value: unknown): value is SidePanelMode =>
+  value === 'detail' || value === 'collapsed'
 
 /**
  * One footer-toolbar pill: icon + label, highlighted when the sheet/dialog it
@@ -117,6 +139,7 @@ function ToolbarToggle({
   active,
   disabled,
   title,
+  count,
   onActivate,
 }: {
   icon: LucideIcon
@@ -124,6 +147,10 @@ function ToolbarToggle({
   active: boolean
   disabled?: boolean
   title?: string
+  /** Optional count badge. It survives the icon-only collapse below `xl`, for the
+   *  same reason the Bereitschaft badge does: the number IS the information, and
+   *  an icon on its own does not carry it. */
+  count?: number
   onActivate: () => void
 }) {
   return (
@@ -148,6 +175,11 @@ function ToolbarToggle({
     >
       <Icon className="size-3.5" />
       <span className="hidden text-xs xl:inline">{label}</span>
+      {count !== undefined && (
+        <Badge variant="secondary" className="h-4 px-1.5 text-[11px] font-medium tabular-nums">
+          {count}
+        </Badge>
+      )}
     </Button>
   )
 }
@@ -211,6 +243,7 @@ export default function FireStationDashboard() {
     assignVehicleToOperation,
     requestResourceConflict,
     deleteOperation,
+    materialOnSite,
     isLoading,
     isLoaded
   } = useOperations()
@@ -366,7 +399,11 @@ export default function FireStationDashboard() {
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
   // Modal and panel intentionally share one incident identity; only presentation
   // changes at the external-monitor breakpoint.
-  const [sidePanelMode, setSidePanelMode] = useState<'detail' | 'collapsed'>('collapsed')
+  const [sidePanelMode, setSidePanelMode] = usePersistedState<SidePanelMode>(
+    SIDE_PANEL_MODE_KEY,
+    'collapsed',
+    isSidePanelMode,
+  )
   // "Open the detail on THIS tab" — set by a notification click and by nothing
   // else, so every ordinary card click clears it and lands on the tab the
   // operator was last working in. The nonce makes a repeat click on the same
@@ -384,7 +421,9 @@ export default function FireStationDashboard() {
     } else {
       setDetailModalOpen(true)
     }
-  }, [])
+    // `setSidePanelMode` comes from `usePersistedState`; it is the plain
+    // `useState` setter and therefore stable, but eslint cannot see that.
+  }, [setSidePanelMode])
 
   const handleOpenIncidentFromNotification = useCallback((incidentId: string) => {
     if (operations.some((operation) => operation.id === incidentId)) openIncidentDetail(incidentId)
@@ -393,10 +432,12 @@ export default function FireStationDashboard() {
   useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
   const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
-  const [showLeftSidebar, setShowLeftSidebar] = useState(true)
-  const [showRightSidebar, setShowRightSidebar] = useState(true)
+  const [showLeftSidebar, setShowLeftSidebar] = usePersistedState(LEFT_SIDEBAR_KEY, true, isBoolean)
+  const [showRightSidebar, setShowRightSidebar] = usePersistedState(RIGHT_SIDEBAR_KEY, true, isBoolean)
   // Single state for footer sheets - only one can be open at a time
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'feld' | 'display' | 'alarm' | 'vehicles' | 'print' | 'thermo' | 'auftraege' | null>(null)
+  // `'print'` is the one print/export sheet: thermal slip, A4 status print and
+  // per-event file export live in it together (`PrintHubSheet`).
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'feld' | 'display' | 'alarm' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
   // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
@@ -518,7 +559,7 @@ export default function FireStationDashboard() {
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [detailModalOpen, selectedOperationId, sidePanelMode])
+  }, [detailModalOpen, selectedOperationId, sidePanelMode, setSidePanelMode])
   // Anything that moves the open card, or moves the board around it, must not
   // lose it: toggling a sidebar or the panel re-lays the board out, and
   // «Status ändern» drops the card into a different column — often one that is
@@ -918,6 +959,7 @@ export default function FireStationDashboard() {
       onToggleLeftSidebar: () => setShowLeftSidebar(prev => !prev),
       onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
       onToggleVehicleStatus: () => setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles'),
+      onTogglePrint: () => setActiveFooterSheet(prev => prev === 'print' ? null : 'print'),
       onToggleAuftraege: () => setActiveFooterSheet(prev => {
         if (prev === 'auftraege') return null
         setAuftraegeFocusGroupId(null)
@@ -1005,13 +1047,15 @@ export default function FireStationDashboard() {
     openIncidentDetail,
   ])
 
-  // Hide sidebars on mobile by default
+  // Hide sidebars on mobile by default. Runs after the persisted state has been
+  // restored (`isMobile` only turns true once its own mount effect has measured
+  // the window), so a remembered «offen» never survives on a phone — mobile wins.
   useEffect(() => {
     if (isMobile) {
       setShowLeftSidebar(false)
       setShowRightSidebar(false)
     }
-  }, [isMobile])
+  }, [isMobile, setShowLeftSidebar, setShowRightSidebar])
 
   // Show empty state if no event is selected (removed automatic redirect)
   // useEffect(() => {
@@ -1024,6 +1068,29 @@ export default function FireStationDashboard() {
   const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false)
   const [checklistProgress, setChecklistProgress] = useState({ completed: 0, total: 0 })
   const autoOpenedEventRef = useRef<string | null>(null)
+  // What is remembered is the DISMISSAL, per event — not whether the popover
+  // happened to be open. A checklist the operator closed stays closed for that
+  // Einsatz across navigation and reload; a genuinely new event may still
+  // auto-open once. The popover itself always starts closed, since restoring an
+  // open overlay on load is not what «bleibt zu» means.
+  const [dismissedChecklistEvents, setDismissedChecklistEvents] = usePersistedState<string[]>(
+    CHECKLIST_DISMISSED_KEY,
+    [],
+    isStringArray,
+  )
+
+  const handleChecklistOpenChange = useCallback(
+    (open: boolean) => {
+      setChecklistPopoverOpen(open)
+      if (open || !selectedEvent) return
+      setDismissedChecklistEvents((previous) =>
+        previous.includes(selectedEvent.id)
+          ? previous
+          : [...previous, selectedEvent.id].slice(-CHECKLIST_DISMISSED_LIMIT),
+      )
+    },
+    [selectedEvent, setDismissedChecklistEvents],
+  )
 
   // The setup checklist is an operational aid for real callouts (printer, real
   // check-in workflow, offline maps). It's noise in the public demo, so hide it
@@ -1062,15 +1129,19 @@ export default function FireStationDashboard() {
 
   // Auto-open the checklist once per event whenever setup is still incomplete
   // (regardless of event age), then hand off to the persistent button so it
-  // never re-nags after the user has dismissed it.
+  // never re-nags after the user has dismissed it — not this session (the ref)
+  // and not on the next reload either (the persisted dismissal). The dismissal
+  // list is read from localStorage on mount, well before `checklistProgress`
+  // arrives from the API, so it always gets the first word.
   useEffect(() => {
     if (!selectedEvent || !isMounted) return
     if (checklistProgress.total === 0) return
     if (checklistProgress.completed >= checklistProgress.total) return
     if (autoOpenedEventRef.current === selectedEvent.id) return
+    if (dismissedChecklistEvents.includes(selectedEvent.id)) return
     autoOpenedEventRef.current = selectedEvent.id
     setChecklistPopoverOpen(true)
-  }, [selectedEvent, isMounted, checklistProgress])
+  }, [selectedEvent, isMounted, checklistProgress, dismissedChecklistEvents])
 
   // Load vehicles from API to populate vehicle types for shortcuts
   useEffect(() => {
@@ -1119,9 +1190,14 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        // Vehicle + Aufträge footers are non-modal on desktop: keep their toggle
-        // keys (F / A) able to close them again.
-        (!!activeFooterSheet && activeFooterSheet !== 'vehicles' && activeFooterSheet !== 'auftraege') ||
+        // Vehicle, Aufträge and Drucken footers are non-modal on desktop: keep
+        // their toggle keys (F / A / D) able to close them again. Every other
+        // shortcut still stops at an open sheet — it is only the key that opened
+        // this one that stays live.
+        (!!activeFooterSheet &&
+          activeFooterSheet !== 'vehicles' &&
+          activeFooterSheet !== 'auftraege' &&
+          activeFooterSheet !== 'print') ||
         deleteDialogOpen,
       sidePanelOpen: sidePanelMode !== 'collapsed',
       hoveredOperationId,
@@ -1176,6 +1252,7 @@ export default function FireStationDashboard() {
         setSidePanelMode((prev) => (prev === 'collapsed' ? 'detail' : 'collapsed')),
       onSidePanelDetail: () => setSidePanelMode('detail'),
       onSidePanelMap: () => router.push(selectedOperationId ? `/map?highlight=${selectedOperationId}` : '/map'),
+      onTogglePrint: () => setActiveFooterSheet((prev) => (prev === 'print' ? null : 'print')),
       onToggleNotifications: toggleNotificationSidebar,
     },
   )
@@ -1288,9 +1365,17 @@ export default function FireStationDashboard() {
   // Memoize filtered operations to avoid unnecessary recalculations on every render.
   // The predicate itself lives in lib/incident-search so the /display board and
   // status page search exactly the same fields (§ display parity).
+  // groupId → Auftrag name, so searching a route's name also turns up the
+  // incidents that are stops on it. The operation itself only carries `groupId`,
+  // so the name has to come from the groups context.
+  const groupNames = useMemo(
+    () => new Map(groups.map((group) => [group.id, group.name])),
+    [groups],
+  )
+
   const filteredOperations = useMemo(
-    () => filterIncidents(operations, searchQuery, materials),
-    [operations, searchQuery, materials],
+    () => filterIncidents(operations, searchQuery, materials, groupNames),
+    [operations, searchQuery, materials, groupNames],
   )
 
   const handlePersonClick = async (person: Person) => {
@@ -1362,9 +1447,39 @@ export default function FireStationDashboard() {
   const alarmQrDialogOpen = activeFooterSheet === 'alarm'
   const feldQrDialogOpen = activeFooterSheet === 'feld'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
-  const printModalOpen = activeFooterSheet === 'print'
-  const thermoSheetOpen = activeFooterSheet === 'thermo'
+  const printSheetOpen = activeFooterSheet === 'print'
   const auftraegeSheetOpen = activeFooterSheet === 'auftraege'
+  const rapportBacklogSheetOpen = activeFooterSheet === 'rapporte'
+
+  // The rolling Schadenplatz-Rapport backlog — closed incidents whose rapport is
+  // still missing, oldest first. Computed once: the footer pill shows the count,
+  // the sheet shows the same list. Editors only — a viewer cannot fill a rapport,
+  // so a backlog they cannot act on is pure noise.
+  const openRapports = useMemo(
+    () => (isEditor ? selectOpenRapports(operations) : []),
+    [isEditor, operations],
+  )
+
+  // The archive half of the same sheet. Same editor gate as the backlog — it is
+  // one control, and a pill a viewer can only half use is worse than no pill.
+  const filedRapports = useMemo(
+    () => (isEditor ? selectFiledRapports(operations) : []),
+    [isEditor, operations],
+  )
+
+  // Material a crew left standing at a Schadenplatz, longest-standing first.
+  // Not editor-gated: knowing that a pump is still in a stranger's cellar is a
+  // read, and the person watching the board is not always the one holding the
+  // mouse. The rows only navigate — nothing here releases anything.
+  const materialOnSiteEntries = useMemo(
+    () => selectMaterialOnSite(materialOnSite, materials),
+    [materialOnSite, materials],
+  )
+
+  const handleOpenRapport = useCallback((operationId: string) => {
+    setActiveFooterSheet(null)
+    openIncidentDetail(operationId, 'rapport')
+  }, [openIncidentDetail])
 
   const generateCheckInQR = async () => {
     // Toggle behavior: if already open, just close
@@ -1882,8 +1997,10 @@ export default function FireStationDashboard() {
                   </div>
                 )}
               </div>
-              {/* Fixed availability counter at bottom */}
-              <div className="border-t border-border px-4 py-2 bg-card/50 backdrop-blur-sm">
+              {/* Fixed availability counter at bottom. No rule above it: the
+                  slightly lighter bar and its own padding already read as a
+                  separate strip, and a line there was just chrome. */}
+              <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
                 <p className="text-xs text-muted-foreground text-center">
                   {tCommon('availableCounter', { available: personnel.filter((p) => p.status === "available").length, total: personnel.length })}
                 </p>
@@ -1908,11 +2025,19 @@ export default function FireStationDashboard() {
             </button>
           )}
 
+          {/* The board and the Material-Leiste's reopen tab share one containing
+              block so the tab can be pinned to the BOARD's right edge rather than
+              held in the flow between the board and the detail panel — where it
+              reserved an empty 28px column the full height of the window. */}
+          <div className="relative flex min-w-0 flex-1">
           {/* Main Kanban Board */}
           <main
             id="kanban-main"
             data-spotlight={spotlightActive ? 'on' : undefined}
-            className="flex-1 overflow-x-auto overscroll-contain p-4 bg-muted/30 dark:bg-background"
+            // No bottom padding: with `overflow-x-auto` the horizontal scrollbar
+            // already sits below the columns, so a pb-4 underneath it drew a
+            // second empty band between the board and the footer.
+            className="flex-1 overflow-x-auto overscroll-contain px-4 pt-4 pb-0 bg-muted/30 dark:bg-background"
           >
             {!isLoaded ? null : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
@@ -1959,10 +2084,44 @@ export default function FireStationDashboard() {
             )}
           </main>
 
+          {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles).
+              Mirrors the Personen-Leiste's tab on the left: `absolute right-1`,
+              out of flow, so it costs the board no width — and, sitting inside
+              the board's own containing block, it lands on the board's right
+              edge whether or not the detail panel is open beside it. */}
+          {!showRightSidebar && (
+            <button
+              onClick={() => setShowRightSidebar(true)}
+              className="absolute right-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              title={
+                materialOnSiteEntries.length > 0
+                  ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
+                  : `${tDash('toggleRightSidebar')} (])`
+              }
+              aria-label={tDash('toggleRightSidebar')}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {/* The «vor Ort» roll-up lives inside this panel, so a folded
+                  panel would hide the one thing on the board that says a pump
+                  is still in a stranger's cellar. A dot, not a number: it is a
+                  "there is something behind this" mark, and the count is one
+                  click and a tooltip away. */}
+              {materialOnSiteEntries.length > 0 && (
+                <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning" aria-hidden />
+              )}
+            </button>
+          )}
+          </div>
+
           {/* Side Panel for ultrawide monitors */}
           <SidePanel
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
+            // Same trick the Personen-Leiste's reopen tab uses on the left: out
+            // of flow, so a folded panel costs the board no width. Only while
+            // the Material-Leiste is folded too — otherwise there IS something
+            // at this edge and the tab belongs beside it, not on top of it.
+            floatCollapsed={!showRightSidebar}
             selectedOperation={selectedOperation}
             onOpenOnMap={() =>
               router.push(selectedOperation ? `/map?highlight=${selectedOperation.id}` : '/map')
@@ -2025,6 +2184,11 @@ export default function FireStationDashboard() {
                   label={materialsAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
                 />
               </div>
+              {/* «Vor Ort» roll-up — above the scroll area on purpose, so neither
+                  the search nor «nur verfügbare» (which hides everything that is
+                  assigned, i.e. exactly this material) can filter the answer to
+                  "what is still out there" away. Renders nothing at zero. */}
+              <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? null : materialsAvailableOnly && Object.keys(groupedMaterials).length === 0 ? (
@@ -2086,8 +2250,8 @@ export default function FireStationDashboard() {
                   </div>
                 )}
               </div>
-              {/* Fixed availability counter at bottom */}
-              <div className="border-t border-border px-4 py-2 bg-card/50 backdrop-blur-sm">
+              {/* Fixed availability counter at bottom — see the left sidebar. */}
+              <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
                 <p className="text-xs text-muted-foreground text-center">
                   {tCommon('availableCounter', { available: materials.filter((m) => m.status === "available").length, total: materials.length })}
                 </p>
@@ -2095,24 +2259,6 @@ export default function FireStationDashboard() {
             </aside>
           )}
 
-          {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles).
-              Mirrors the left one — see the note there. */}
-          {/* In the flow, not `absolute right-1`. It used to be pinned to the
-              container's right edge, which is where the side panel lives — so
-              with the Material-Leiste collapsed it drew ON TOP of the panel
-              (and, since the panel got its rail, on top of that). Ordered after
-              the panel it is simply the rightmost thing, which is also what it
-              claims to be. */}
-          {!showRightSidebar && (
-            <button
-              onClick={() => setShowRightSidebar(true)}
-              className="z-20 my-auto mx-1 flex h-12 w-5 flex-none cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-              title={`${tDash('toggleRightSidebar')} (])`}
-              aria-label={tDash('toggleRightSidebar')}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          )}
         </div>
 
         {/* Desktop Footer - z-index lowered when modals open so dialog overlay covers it */}
@@ -2159,7 +2305,7 @@ export default function FireStationDashboard() {
 
               {/* Event Setup Checklist — shown only while setup is incomplete; disappears once done */}
               {selectedEvent && checklistProgress.total > 0 && checklistProgress.completed < checklistProgress.total && (
-                <Popover open={checklistPopoverOpen} onOpenChange={setChecklistPopoverOpen}>
+                <Popover open={checklistPopoverOpen} onOpenChange={handleChecklistOpenChange}>
                   <PopoverTrigger asChild>
                     <Button
                       size="sm"
@@ -2189,8 +2335,8 @@ export default function FireStationDashboard() {
                     <EventSetupChecklist
                       eventId={selectedEvent.id}
                       eventName={selectedEvent.name}
-                      onDismiss={() => setChecklistPopoverOpen(false)}
-                      onAllTasksComplete={() => setChecklistPopoverOpen(false)}
+                      onDismiss={() => handleChecklistOpenChange(false)}
+                      onAllTasksComplete={() => handleChecklistOpenChange(false)}
                       onOpenVehicles={() => setActiveFooterSheet('vehicles')}
                       onOpenAttendance={() => setAttendanceOpen(true)}
                     />
@@ -2272,29 +2418,39 @@ export default function FireStationDashboard() {
                     setActiveFooterSheet(auftraegeSheetOpen ? null : 'auftraege')
                   }}
                 />
+                {/* Schadenplatz-Rapporte, offen und erfasst. Absent only when
+                    there is NEITHER: the footer is width-constrained (see the
+                    note above) and the Bereitschaft button next door sets the
+                    precedent — a control with nothing to say leaves the row.
+                    An empty backlog on its own is no longer that case, because
+                    the sheet's second tab still answers "was haben wir letzte
+                    Woche geschrieben?". The badge is omitted at zero rather
+                    than shown as «0»: it counts OFFEN and nothing else. */}
+                {(openRapports.length > 0 || filedRapports.length > 0) && (
+                  <ToolbarToggle
+                    icon={FileText}
+                    label={tDash('rapporte')}
+                    active={rapportBacklogSheetOpen}
+                    count={openRapports.length > 0 ? openRapports.length : undefined}
+                    title={tDash('rapportBacklog.toggleTitle', { count: openRapports.length })}
+                    onActivate={() => setActiveFooterSheet(rapportBacklogSheetOpen ? null : 'rapporte')}
+                  />
+                )}
+                {/* One pill for every way onto paper. "Drucken" and "Thermo"
+                    used to sit here as two near-identical printer icons; they
+                    are now two columns inside the one sheet, which gives the
+                    width-starved row (see the note above) a slot back. */}
                 <ToolbarToggle
                   icon={Printer}
                   label={tDash('print')}
-                  active={printModalOpen}
+                  active={printSheetOpen}
                   disabled={!selectedEvent}
+                  title={tDash('printTitle')}
                   onActivate={() => {
                     if (!selectedEvent) return
-                    setActiveFooterSheet(printModalOpen ? null : 'print')
+                    setActiveFooterSheet(printSheetOpen ? null : 'print')
                   }}
                 />
-                {printerEnabled && (
-                  <ToolbarToggle
-                    icon={Printer}
-                    label={tDash('thermo')}
-                    active={thermoSheetOpen}
-                    disabled={!selectedEvent}
-                    title={tDash('thermoTitle')}
-                    onActivate={() => {
-                      if (!selectedEvent) return
-                      setActiveFooterSheet(thermoSheetOpen ? null : 'thermo')
-                    }}
-                  />
-                )}
               </div>
 
               {selectedEvent?.training_flag && (
@@ -2624,6 +2780,15 @@ export default function FireStationDashboard() {
         funkrufname={funkrufname}
       />
 
+      {/* Offene Schadenplatz-Rapporte — the rolling backlog, oldest first */}
+      <RapportBacklogSheet
+        open={rapportBacklogSheetOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'rapporte' && setActiveFooterSheet(null)}
+        rapports={openRapports}
+        filed={filedRapports}
+        onOpenRapport={handleOpenRapport}
+      />
+
       {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}
       <RoutenEditorModal
         open={routenEditorGroupId !== null}
@@ -2698,18 +2863,13 @@ export default function FireStationDashboard() {
         />
       )}
 
-      {/* Print Options Modal */}
-      <PrintOptionsModal
-        open={printModalOpen}
+      {/* Thermal slip, A4 status print and per-event file export in one sheet */}
+      <PrintHubSheet
+        open={printSheetOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'print' && setActiveFooterSheet(null)}
-      />
-
-      {/* Thermo Print Options Sheet */}
-      <ThermoOptionsSheet
-        open={thermoSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'thermo' && setActiveFooterSheet(null)}
-        onPrint={handlePrintBoard}
-        isPrinting={isPrintingBoard}
+        onThermoPrint={handlePrintBoard}
+        isThermoPrinting={isPrintingBoard}
+        printerEnabled={printerEnabled}
       />
 
       <IncidentStatusWorkflowDialogs
@@ -2753,7 +2913,9 @@ export default function FireStationDashboard() {
         operations={operations}
       />
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation. No separate Thermo entry any more: the one
+          print sheet carries the thermal column itself, gated on the same
+          `printerEnabled` it is still handed here. */}
       <MobileBottomNavigation
         currentPage="kanban"
         hasSelectedEvent={!!selectedEvent}
@@ -2762,8 +2924,7 @@ export default function FireStationDashboard() {
         onDisplay={generateDisplayShare}
         onPersonnel={() => setMobilePersonnelSheetOpen(true)}
         onVehicleStatus={() => setActiveFooterSheet('vehicles')}
-        onPrint={() => setActiveFooterSheet(printModalOpen ? null : 'print')}
-        onThermo={() => setActiveFooterSheet(thermoSheetOpen ? null : 'thermo')}
+        onPrint={() => setActiveFooterSheet(printSheetOpen ? null : 'print')}
         printerEnabled={printerEnabled}
       />
     </ProtectedRoute>

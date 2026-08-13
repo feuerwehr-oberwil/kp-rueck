@@ -43,6 +43,7 @@ import {
   Crosshair,
   ChevronDown,
   Waypoints,
+  Printer,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -68,6 +69,7 @@ export function CommandPalette() {
     onToggleRightSidebar,
     onToggleVehicleStatus,
     onToggleAuftraege,
+    onTogglePrint,
     onOpenAuftrag,
     onToggleNotifications,
     onToggleSidePanel,
@@ -220,6 +222,13 @@ export function CommandPalette() {
                   <Waypoints className="mr-2 h-4 w-4" />
                   <span>{t('auftraege')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">A</span>
+                </CommandItem>
+              )}
+              {onTogglePrint && (
+                <CommandItem onSelect={() => runCommand(onTogglePrint)}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  <span>{t('print')}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">D</span>
                 </CommandItem>
               )}
               {onRefresh && (
