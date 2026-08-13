@@ -281,7 +281,8 @@ export const DroppableColumn = memo(function DroppableColumn({
         aria-label={t('column.ariaLabelWithCount', { title: columnTitle, count: operations.length })}
       >
         <div className="flex flex-col items-center gap-2 py-3">
-          <span className="text-xs font-semibold uppercase text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
+          {/* Same title as the expanded header, so the same casing. */}
+          <span className="text-xs font-semibold text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
             {columnTitle}
           </span>
           <span className="text-xs text-muted-foreground/60 font-mono">{operations.length}</span>
@@ -301,7 +302,8 @@ export const DroppableColumn = memo(function DroppableColumn({
         <div className="flex items-center justify-between">
           {/* min-w-0 + truncate: the title is the only part that may give way. A long
               column name must not push the sort/collapse controls off the header. */}
-          <h2 className="min-w-0 truncate text-sm font-bold uppercase tracking-tight text-foreground" title={columnTitle}>{columnTitle}</h2>
+          {/* Title case, not caps: `/display/*` is the only surface that shouts. */}
+          <h2 className="min-w-0 truncate text-sm font-bold tracking-tight text-foreground" title={columnTitle}>{columnTitle}</h2>
           <div className="flex items-center gap-2">
             {onSort && (
               <DropdownMenu>

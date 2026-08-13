@@ -326,7 +326,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
 
     // The rapport lives on the Rapport tab now — three tabs since the detail
     // absorbed Ressourcen into Übersicht — and it is permanently open there,
-    // like the Reko-Meldungen beside it. No accordion header to click.
+    // like the Reko-Berichte beside it. No accordion header to click.
     await detail.getByRole('tab', { name: /^Rapport/ }).click();
     // ONE line says it: the section's own state chip. The dashed «Noch kein
     // Rapport» box under it said the same thing twice and made the normal state
@@ -338,7 +338,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     // everything else, and a KP rapport is filed from its first saved
     // keystroke. Typing IS the filing.
     await expect(detail.getByRole('button', { name: /Rapport abschliessen/ })).toHaveCount(0);
-    await detail.getByPlaceholder('Lage, Tätigkeit, Geräte').fill('Baum auf Fahrbahn, per Funk gemeldet.');
+    await detail.getByPlaceholder('Lage, Tätigkeit, Material').fill('Baum auf Fahrbahn, per Funk gemeldet.');
 
     // Provenance is never faked: a KP write leaves the personnel columns NULL,
     // and that absence — not a guess — is what the line renders.

@@ -151,7 +151,7 @@ describe('the briefing does not fold', () => {
     renderWithIntl(<FeldBriefing assignment={assignment({ description: 'Wasser im Keller' })} folded />)
 
     expect(screen.getByText('Wasser im Keller')).toBeVisible()
-    expect(screen.queryByRole('button', { name: /Lage und Mittel/ })).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Lage und Mittel' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Lage und Ressourcen/ })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Lage und Ressourcen' })).toBeInTheDocument()
   })
 })

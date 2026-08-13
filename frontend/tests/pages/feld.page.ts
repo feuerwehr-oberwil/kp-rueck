@@ -4,7 +4,7 @@ import { BasePage } from './base.page';
 /**
  * `/feld` — the login-less field surface (plan 25).
  *
- * Three views behind one URL: the person picker, "meine Einsatzstellen", and the
+ * Three views behind one URL: the person picker, "meine Schadenplätze", and the
  * Schadenplatz detail with the four field actions and the Rapport form. They are
  * one page component with a `viewMode` (`frontend/app/feld/page.tsx`), so the
  * page object mirrors that rather than pretending there are three routes.
@@ -60,7 +60,7 @@ export class FeldPage extends BasePage {
     this.selfReturnButton = page.getByRole('button', { name: 'Wir fahren selbst' });
     this.pickupBadge = page.getByText('Abholung', { exact: false });
 
-    this.kurzberichtField = page.getByPlaceholder('Lage, Tätigkeit, Geräte');
+    this.kurzberichtField = page.getByPlaceholder('Lage, Tätigkeit, Material');
     // The `/feld` mount is the ONLY one with this button since §18.17 — the KP
     // has no submit at all and files what it autosaves.
     this.submitRapportButton = page.getByRole('button', { name: 'Rapport abschliessen', exact: true });
@@ -83,12 +83,12 @@ export class FeldPage extends BasePage {
     // Ereignis, and on a station roster that is a long scroll.
     await this.personSearch.fill(name);
     await this.person(name).click();
-    await expect(this.page.getByRole('heading', { name: 'Meine Einsatzstellen' })).toBeVisible({
+    await expect(this.page.getByRole('heading', { name: 'Meine Schadenplätze' })).toBeVisible({
       timeout: 15_000,
     });
   }
 
-  /** One row of "meine Einsatzstellen". */
+  /** One row of "meine Schadenplätze". */
   assignmentRow(incidentTitle: string): Locator {
     return this.page.locator('button').filter({ hasText: incidentTitle }).first();
   }

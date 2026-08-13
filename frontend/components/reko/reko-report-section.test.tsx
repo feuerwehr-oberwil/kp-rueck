@@ -43,7 +43,7 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
   it('offers "Reko-Bericht erfassen" on an incident with no report and no field contact', async () => {
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
 
-    expect(await screen.findByText('Noch keine Reko-Meldung')).toBeInTheDocument()
+    expect(await screen.findByText('Noch kein Reko-Bericht')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Reko-Bericht erfassen/ })).toBeInTheDocument()
   })
 
@@ -113,14 +113,14 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
     ])
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
 
-    expect(await screen.findByText('Noch keine Reko-Meldung')).toBeInTheDocument()
+    expect(await screen.findByText('Noch kein Reko-Bericht')).toBeInTheDocument()
     expect(screen.queryByText(/vor Ort/)).not.toBeInTheDocument()
   })
 
   it('offers nothing to a mount that may not write', async () => {
     renderWithIntl(<RekoReportSection incidentId="i-1" />)
 
-    expect(await screen.findByText('Noch keine Reko-Meldung')).toBeInTheDocument()
+    expect(await screen.findByText('Noch kein Reko-Bericht')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Reko-Bericht/ })).not.toBeInTheDocument()
   })
 })

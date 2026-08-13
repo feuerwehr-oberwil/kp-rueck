@@ -77,7 +77,7 @@ describe('an absent rapport (§18.16)', () => {
       <FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" />,
     )
 
-    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Material')).toBeInTheDocument()
     expect(screen.queryByText('Noch kein Rapport')).not.toBeInTheDocument()
     expect(screen.queryByText('Rapport konnte nicht geladen werden.')).not.toBeInTheDocument()
   })
@@ -90,7 +90,7 @@ describe('an absent rapport (§18.16)', () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Material')).toBeInTheDocument()
     expect(screen.queryByText('Rapport konnte nicht geladen werden.')).not.toBeInTheDocument()
   })
 
@@ -102,7 +102,7 @@ describe('an absent rapport (§18.16)', () => {
     expect(await screen.findByText('Rapport konnte nicht geladen werden.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
 
-    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Material')).toBeInTheDocument()
     expect(load).toHaveBeenCalledTimes(2)
   })
 })
@@ -112,7 +112,7 @@ describe('the two coaching lines are gone (§18.22)', () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')
+    await screen.findByPlaceholderText('Lage, Tätigkeit, Material')
     expect(screen.queryByText(/Diktiertaste/)).not.toBeInTheDocument()
     // The retention rule itself is unchanged — it lives in docs/DEPLOYMENT.md,
     // where the person who has to answer for it reads it.
@@ -125,7 +125,7 @@ describe('the KP mount saves itself (§18.17)', () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" />)
 
-    await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')
+    await screen.findByPlaceholderText('Lage, Tätigkeit, Material')
     expect(screen.queryByRole('button', { name: /Rapport abschliessen/ })).not.toBeInTheDocument()
     expect(screen.getByText('Wird laufend gespeichert – kein Abschliessen nötig.')).toBeInTheDocument()
   })
@@ -136,8 +136,8 @@ describe('the KP mount saves itself (§18.17)', () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} mount="kp" />)
 
-    await vi.waitFor(() => expect(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument())
-    fireEvent.change(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte'), {
+    await vi.waitFor(() => expect(screen.getByPlaceholderText('Lage, Tätigkeit, Material')).toBeInTheDocument())
+    fireEvent.change(screen.getByPlaceholderText('Lage, Tätigkeit, Material'), {
       target: { value: 'Baum auf Fahrbahn, per Funk gemeldet.' },
     })
 
@@ -156,7 +156,7 @@ describe('the KP mount saves itself (§18.17)', () => {
     const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, kurzbericht: 'Vom Trupp erfasst.' }))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} mount="kp" />)
 
-    await vi.waitFor(() => expect(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument())
+    await vi.waitFor(() => expect(screen.getByPlaceholderText('Lage, Tätigkeit, Material')).toBeInTheDocument())
     await vi.advanceTimersByTimeAsync(65000)
 
     expect(save).not.toHaveBeenCalled()
@@ -168,8 +168,8 @@ describe('the KP mount saves itself (§18.17)', () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} mount="kp" />)
 
-    await vi.waitFor(() => expect(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument())
-    fireEvent.change(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte'), { target: { value: '   ' } })
+    await vi.waitFor(() => expect(screen.getByPlaceholderText('Lage, Tätigkeit, Material')).toBeInTheDocument())
+    fireEvent.change(screen.getByPlaceholderText('Lage, Tätigkeit, Material'), { target: { value: '   ' } })
     await vi.advanceTimersByTimeAsync(65000)
 
     expect(save).not.toHaveBeenCalled()
@@ -183,10 +183,10 @@ describe('the /feld mount keeps its "I am done" moment', () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} />)
 
-    await vi.waitFor(() => expect(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeInTheDocument())
+    await vi.waitFor(() => expect(screen.getByPlaceholderText('Lage, Tätigkeit, Material')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: /Rapport abschliessen/ })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte'), { target: { value: 'Keller ausgepumpt.' } })
+    fireEvent.change(screen.getByPlaceholderText('Lage, Tätigkeit, Material'), { target: { value: 'Keller ausgepumpt.' } })
     // No KP debounce here — the phone's own 30 s interval is the draft-save.
     await vi.advanceTimersByTimeAsync(3000)
     expect(save).not.toHaveBeenCalled()
@@ -280,7 +280,7 @@ describe('a filed rapport on /feld (the amend flow)', () => {
     expect(await screen.findByText(/Abgeschlossen/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Änderungen senden/ })).not.toBeInTheDocument()
 
-    const kurzbericht = screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')
+    const kurzbericht = screen.getByPlaceholderText('Lage, Tätigkeit, Material')
     fireEvent.change(kurzbericht, { target: { value: 'Keller ausgepumpt, Pumpe bleibt vor Ort.' } })
 
     const send = await screen.findByRole('button', { name: /Änderungen senden/ })
@@ -322,7 +322,7 @@ describe('the rapport is folded into blocks on /feld', () => {
     // Closed: the fields are still mounted (half-typed text survives a fold)
     // but nothing of them is on screen…
     await screen.findByRole('button', { name: /Kurzbericht/ })
-    expect(screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')).not.toBeVisible()
+    expect(screen.getByPlaceholderText('Lage, Tätigkeit, Material')).not.toBeVisible()
     // …but what it contains is still readable without opening anything.
     expect(screen.getByRole('button', { name: /Kurzbericht/ })).toHaveTextContent('Keller ausgepumpt')
     expect(screen.getByRole('button', { name: /Mannschaft und Fahrzeuge/ })).toHaveTextContent(
@@ -331,7 +331,7 @@ describe('the rapport is folded into blocks on /feld', () => {
     expect(screen.getByRole('button', { name: /Material/ })).toHaveTextContent('kein Material erfasst')
 
     await userEvent.click(screen.getByRole('button', { name: /Kurzbericht/ }))
-    const box = screen.getByPlaceholderText('Lage, Tätigkeit, Geräte')
+    const box = screen.getByPlaceholderText('Lage, Tätigkeit, Material')
     expect(box).toBeVisible()
     expect(box).toHaveValue('Keller ausgepumpt')
   })
@@ -341,7 +341,7 @@ describe('the rapport is folded into blocks on /feld', () => {
     renderWithIntl(<FeldRapportForm incidentId="inc-1" mount="kp" transport={{ load, save: vi.fn() }} />)
 
     // The block somebody dictating over the radio types into first stays open…
-    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Geräte')).toBeVisible()
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Material')).toBeVisible()
     expect(screen.queryByRole('button', { name: /Kurzbericht/ })).toBeNull()
 
     // …while the lists state what is in them and stay out of the way. In the

@@ -198,7 +198,7 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     )
 
     expect(screen.getByText(/Abholliste/)).toBeInTheDocument()
-    expect(screen.getByText(/keine erfassten Einheiten/)).toBeInTheDocument()
+    expect(screen.getByText(/kein erfasstes Material/)).toBeInTheDocument()
   })
 
   it('keeps free text for something that is in no catalogue at all', async () => {

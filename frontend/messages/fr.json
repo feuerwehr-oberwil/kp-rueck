@@ -107,10 +107,10 @@
   "common": {
     "deploymentBanner": {
       "ariaLabel": "{label} – ce système n’agit pas vers l’extérieur",
-      "hint": "Personne n’est alarmé."
+      "hint": "Personne n’est convoqué."
     },
     "deploymentBlocked": {
-      "alerting": "L’alarmement est bloqué sur ce système ({label}). Personne n’est alarmé.",
+      "alerting": "L’alarmement est bloqué sur ce système ({label}). Personne n’est convoqué.",
       "sync": "L’échange de données avec un autre système est bloqué sur ce système ({label})."
     },
     "demoBanner": {
@@ -128,7 +128,7 @@
         "canIncidents": "Saisir des interventions, les prioriser et les faire avancer dans les phases d’engagement",
         "canResources": "Engager du personnel, des véhicules et du matériel",
         "canMap": "Planifier des lieux, des missions et des itinéraires sur la carte",
-        "canWorkflows": "Tester les annonces de reconnaissance et d’autres déroulements d’intervention",
+        "canWorkflows": "Tester les rapports de reconnaissance et d’autres déroulements d’intervention",
         "knowTitle": "Bon à savoir",
         "knowDescription": "Toutes les données sont synthétiques et sans rapport avec de vraies interventions. L’alarmement externe et les systèmes raccordés sont désactivés dans la démo.",
         "cta": "C’est parti"
@@ -218,7 +218,7 @@
     "common": {
       "yes": "Oui",
       "no": "Non",
-      "personCount": "{count} personne(s)",
+      "personCount": "{count, plural, one {# personne} other {# personnes}}",
       "staleWarn": "Liaison perturbée – dernier état à {time}. L’actualisation continue.",
       "staleAlert": "Pas de liaison · état à {time}"
     },
@@ -228,7 +228,7 @@
       "columnAlarmTitle": "{count} en retard : {titles}",
       "columnAlarmMore": "… et {count} autres",
       "priorityAria": "Priorité : {label}",
-      "materialCount": "{count} matériel(s)",
+      "materialCount": "{count, plural, one {# engin} other {# engins}}",
       "auftragChipTooltip": "Mission : {name}",
       "auftragStopPosition": "Étape {pos}/{total}",
       "nachbarhilfe": "Entraide",
@@ -251,7 +251,7 @@
       "rekoResult": "Résultat de la reconnaissance",
       "relevant": "Pertinent :",
       "dangers": "Dangers : {types}",
-      "personnelNeed": "Besoin en personnel :",
+      "personnelNeed": "Besoin en effectif :",
       "estimatedDuration": "Durée estimée :",
       "durationHours": "{hours} h",
       "contactPhone": "Téléphone",
@@ -295,11 +295,11 @@
       "noMaterial": "Aucun matériel saisi",
       "available": "disponibles",
       "freeOfTotal": "{free}/{total} libres",
-      "onIncidents": "{count} interventions"
+      "onIncidents": "{count, plural, one {# intervention} other {# interventions}}"
     },
     "tokenBoard": {
       "unknown": "Inconnu",
-      "incidentCount": "{count} interventions",
+      "incidentCount": "{count, plural, one {# intervention} other {# interventions}}",
       "training": "Exercice",
       "rekoCompleted": "Rapport de reconnaissance rempli",
       "rekoOnSite": "Reconnaissance sur place",
@@ -325,7 +325,7 @@
       "attachError": "Les urgences n’ont pas pu être rattachées",
       "notLoggedIn": "Non connecté",
       "title": "Alarmes entrantes",
-      "entriesCount": "{count} entrées",
+      "entriesCount": "{count, plural, one {# entrée} other {# entrées}}",
       "searchPlaceholder": "Rechercher...",
       "selectedClear": "{count} sélectionnées – annuler",
       "attach": "Rattacher",
@@ -349,7 +349,7 @@
     },
     "alarmSettings": {
       "cardTitle": "Alarmement",
-      "cardDescription": "Envoie, au moment de l’engagement, une alarme push aux personnes attribuées et liées, via le fournisseur d’alarme configuré. Le message est généré à partir de l’intervention (le genre comme mot-clé, les détails comme texte). Nécessite une clé d’accès du fournisseur ; les personnes sont liées par la synchronisation des membres.",
+      "cardDescription": "Envoie, au moment de l’engagement, une convocation push aux personnes attribuées et liées, via le fournisseur d’alarme configuré. Le message est généré à partir de l’intervention (le genre comme mot-clé, les détails comme texte). Nécessite une clé d’accès du fournisseur ; les personnes sont liées par la synchronisation des membres.",
       "titleFieldLabel": "Mot-clé (titre)",
       "titleFieldHint": "Titre du push. Reste bref. Champs disponibles : '{type}, {location}, {priority}'.",
       "textFieldLabel": "Texte de l’alarme",
@@ -369,13 +369,13 @@
     },
     "sendDialog": {
       "noRecipientsError": "Aucun destinataire lié sélectionné",
-      "sent": "Convocation envoyée à {count} personne(s)",
-      "sentWithSkipped": "Convocation envoyée à {count} personne(s), {skipped} ignorée(s)",
-      "simulatedTitle": "Exercice : alarme simulée",
-      "simulatedDescription": "En exercice, aucune alarme réelle n’est envoyée.",
+      "sent": "Convocation envoyée à {count, plural, one {# personne} other {# personnes}}",
+      "sentWithSkipped": "Convocation envoyée à {count, plural, one {# personne} other {# personnes}}, {skipped, plural, one {# ignorée} other {# ignorées}}",
+      "simulatedTitle": "Exercice : convocation simulée",
+      "simulatedDescription": "En exercice, aucune convocation réelle n’est envoyée.",
       "sendError": "La convocation n’a pas pu être envoyée",
       "title": "Envoyer la convocation",
-      "description": "{location} – seules les personnes sélectionnées et liées à l’alarmement sont alarmées.",
+      "description": "{location} – seules les personnes sélectionnées et liées à l’alarmement sont convoquées.",
       "recipients": "Destinataires ({count})",
       "noAssigned": "Aucune personne n’est attribuée à cette intervention.",
       "driverBadge": "Conducteur",
@@ -387,7 +387,7 @@
       "charCountTruncated": "{count}/1000 · sera tronqué",
       "priorityLabel": "Priorité (course urgente)",
       "cancel": "Annuler",
-      "send": "Envoyer l’alarme ({count})"
+      "send": "Envoyer la convocation ({count})"
     },
     "notification": {
       "trainingTag": "[EXERCICE]"
@@ -463,10 +463,10 @@
       "delete": "Supprimer",
       "exportTitle": "Exporter",
       "export": "Export",
-      "exportReport": "Rapport (PDF)",
+      "exportReport": "Rapport d’intervention (PDF)",
       "exportAudit": "Audit (XLSX)",
       "exportEinsaetze": "Interventions (XLSX)",
-      "reportExportFailed": "Échec de l’export du rapport",
+      "reportExportFailed": "Échec de l’export du rapport d’intervention",
       "auditExportFailed": "Échec de l’export de l’audit",
       "einsaetzeExportFailed": "Échec de l’export des interventions"
     },
@@ -492,7 +492,7 @@
       "title": "Supprimer définitivement l’événement ?",
       "warning": "Attention : cette opération est irréversible !",
       "question": "Veux-tu vraiment supprimer définitivement l’événement « {name} » et toutes les interventions qui s’y rattachent ?",
-      "note": "Cela concerne {count} interventions et toutes les données associées.",
+      "note": "Cela concerne {count, plural, one {# intervention} other {# interventions}} et toutes les données associées.",
       "cancel": "Annuler",
       "confirm": "Supprimer définitivement"
     },
@@ -506,12 +506,12 @@
     "restliste": {
       "missingRapport": "{count} sinistres sur {total} sans rapport",
       "stateDraft": "Brouillon",
-      "materialOnSite": "{count} engins encore sur place",
+      "materialOnSite": "{count, plural, one {# engin encore sur place} other {# engins encore sur place}}",
       "untracked": "non saisi",
-      "openPickups": "{count} groupes attendent d’être récupérés",
+      "openPickups": "{count, plural, one {# groupe attend d’être récupéré} other {# groupes attendent d’être récupérés}}",
       "printAbholliste": "Imprimer la liste de récupération",
       "abhollisteQueued": "Liste de récupération envoyée",
-      "abhollisteQueuedDescription": "Adresse · engin · depuis quand – une ligne par engin.",
+      "abhollisteQueuedDescription": "Adresse · matériel · depuis quand – une ligne par position.",
       "abhollisteFailed": "La liste de récupération n’a pas pu être imprimée"
     }
   },
@@ -521,21 +521,21 @@
     "missingCode": "Code d’accès manquant. Scanne le code QR.",
     "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
     "picker": {
-      "description": "Choisis-toi dans la liste – tu verras ensuite tes lieux d’engagement.",
+      "description": "Choisis-toi dans la liste – tu verras ensuite tes places sinistrées.",
       "searchPlaceholder": "Rechercher un nom...",
       "noneFound": "Aucune personne trouvée",
-      "empty": "Dans cet événement, personne n’est encore affecté à un lieu d’engagement.",
-      "incidentCount": "{count, plural, one {# lieu d’engagement} other {# lieux d’engagement}}",
+      "empty": "Dans cet événement, personne n’est encore affecté à une place sinistrée.",
+      "incidentCount": "{count, plural, one {# place sinistrée} other {# places sinistrées}}",
       "missingRapport": "{count} sans rapport"
     },
     "assignments": {
-      "title": "Mes lieux d’engagement",
+      "title": "Mes places sinistrées",
       "notMe": "Ce n’est pas moi",
-      "empty": "Aucun lieu d’engagement ne t’est attribué pour le moment. Annonce-toi au PC – dès que tu es affecté, il apparaîtra ici.",
+      "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es affecté, elle apparaîtra ici.",
       "released": "Plus affecté"
     },
     "briefing": {
-      "title": "Situation et moyens",
+      "title": "Situation et ressources",
       "meldung": "Annonce",
       "melder": "Annonceur",
       "crew": "Effectif",
@@ -544,7 +544,7 @@
       "reko": "Reconnaissance",
       "rekoBy": "Reconnaissance par {name}, {time}",
       "rekoByName": "Reconnaissance par {name}",
-      "summaryFallback": "Annonce, effectif et moyens"
+      "summaryFallback": "Annonce, effectif et matériel"
     },
     "rapportState": {
       "none": "pas de rapport",
@@ -669,7 +669,7 @@
         "extraSearchPlaceholder": "Rechercher du matériel",
         "extraNoneFound": "Rien trouvé – tape-le simplement ci-dessous.",
         "extraRemove": "Retirer {name}",
-        "extraLeftOnSiteHint": "Passe sur la liste de récupération. Pas dans « Matériel de retour – libérer » : ce sont des noms, pas des unités saisies.",
+        "extraLeftOnSiteHint": "Passe sur la liste de récupération. Pas dans « Matériel de retour – libérer » : ce sont des noms, pas du matériel saisi.",
         "extraShowAll": "Afficher le catalogue ({count})",
         "extraHideAll": "Masquer le catalogue"
       },
@@ -684,8 +684,8 @@
         "hideRest": "Masquer les autres véhicules",
         "noMatch": "Aucun véhicule trouvé"
       },
-      "kurzberichtPlaceholder": "Situation, activité, engins",
-      "handedOverTo": "Lieu d’engagement remis à",
+      "kurzberichtPlaceholder": "Situation, activité, matériel",
+      "handedOverTo": "Place sinistrée remise à",
       "handedOverToPlaceholder": "p. ex. propriétaire, police",
       "ownerName": "Propriétaire / détenteur",
       "ownerNamePlaceholder": "Nom",
@@ -737,7 +737,7 @@
     },
     "materialReturn": {
       "title": "Matériel de retour – libérer",
-      "description": "Le groupe n’a pas marqué ces engins comme « restés sur place ».",
+      "description": "Le groupe n’a pas marqué ce matériel comme « resté sur place ».",
       "notUsed": "pas utilisé",
       "releaseAll": "{count, plural, one {Libérer # engin} other {Libérer # engins}}",
       "released": "{count, plural, one {# engin libéré} other {# engins libérés}}",
@@ -787,7 +787,7 @@
       "reko": "Reconnaissance",
       "reko_done": "Reconnaissance terminée",
       "enroute": "Engagé / en route",
-      "active": "Intervention",
+      "active": "En intervention",
       "returning": "Terminé / retour",
       "complete": "Clôturé"
     },
@@ -833,7 +833,7 @@
       "tryDifferentSearch": "Essaie un autre terme de recherche",
       "noOtherIncidents": "Aucune autre intervention disponible",
       "needTwoIncidents": "Il faut au moins deux interventions",
-      "vehicleCount": "{count} véhicule(s)",
+      "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert...",
       "transfer": "Transférer"
     },
@@ -949,7 +949,7 @@
       "rekoBadge": "Reco",
       "notesPlaceholder": "Ajouter une note...",
       "dangers": "Dangers",
-      "personnelCount": "{count} personnes",
+      "personnelCount": "{count, plural, one {# personne} other {# personnes}}",
       "estimatedDuration": "{duration} h estimées",
       "vehicles": "Véhicules ({count})",
       "noVehicles": "Aucun véhicule attribué",
@@ -1041,7 +1041,7 @@
       "reko": "Reconnaissance",
       "reko_done": "Reconnaissance terminée",
       "enroute": "Engagé / en route",
-      "active": "Intervention",
+      "active": "En intervention",
       "returning": "Terminé / retour",
       "complete": "Clôturé"
     },
@@ -1050,14 +1050,14 @@
       "reko": "Reconnaissance",
       "reko_done": "Reconnaissance terminée",
       "enroute": "Engagé / en route",
-      "active": "Intervention",
+      "active": "En intervention",
       "returning": "Terminé / retour",
       "complete": "Clôturé"
     },
     "resources": {
-      "crew": "Personnel",
+      "crew": "Effectif",
       "vehicles": "Véhicules",
-      "materials": "Moyens",
+      "materials": "Matériel",
       "auftrag": "Mission",
       "roleOther": "Autres"
     },
@@ -1182,7 +1182,7 @@
       "amWarten": "En attente",
       "amWartenDescription": "Intervention retardée / en attente de ressources",
       "amWartenPlaceholder": "Motif du retard...",
-      "rekoReports": "Annonces de reconnaissance",
+      "rekoReports": "Rapports de reconnaissance",
       "reko": "Reconnaissance",
       "magazin": "Caserne",
       "directLink": "Lien direct",
@@ -1201,7 +1201,7 @@
     },
     "dashboard": {
       "loading": "Chargement...",
-      "stopsAddedToast": "{count} étapes ajoutées à l’itinéraire",
+      "stopsAddedToast": "{count, plural, one {# étape ajoutée à l’itinéraire} other {# étapes ajoutées à l’itinéraire}}",
       "distributedToast": "Réparti dans la mission « {name} »",
       "removedFromAuftragToast": "Intervention retirée de la mission",
       "noEventSelected": "Aucun événement sélectionné",
@@ -1266,7 +1266,7 @@
       "feldLinkFailed": "Le lien terrain n’a pas pu être généré. Réessaie.",
       "feldSheetTitle": "Lien terrain",
       "feldSheetDescription": "Scanner le code QR ou partager le lien – pour tous les groupes sur le terrain",
-      "feldSheetHint": "Chaque personne affectée voit ainsi ses propres lieux d’engagement et peut saisir le rapport de place sinistrée. Fonctionne sans connexion.",
+      "feldSheetHint": "Chaque personne affectée voit ainsi ses propres places sinistrées et peut saisir le rapport de place sinistrée. Fonctionne sans connexion.",
       "rapporte": "Rapports",
       "rapportBacklog": {
         "toggleTitle": "Rapports de place sinistrée en attente : {count}",
@@ -1294,13 +1294,13 @@
       "title": "Il manque des ressources",
       "titleCrewOnly": "Il manque du personnel",
       "titleVehiclesOnly": "Il manque un véhicule",
-      "titleMaterialsOnly": "Il manque des moyens",
+      "titleMaterialsOnly": "Il manque du matériel",
       "readyTitle": "Tout est prêt",
       "checklistIntro": "<hl>{location}</hl> va être engagée. Attribue les ressources manquantes ou engage quand même.",
       "readyIntro": "<hl>{location}</hl> est complètement équipée – prête à être engagée.",
       "addMore": "Ajouter",
       "personalSummary": "{count, plural, one {# personne} other {# personnes}}",
-      "mittelSummary": "{count, plural, one {# moyen} other {# moyens}}",
+      "mittelSummary": "{count, plural, one {# engin} other {# engins}}",
       "done": "Engager",
       "dispatchAnyway": "Engager quand même"
     },
@@ -1323,9 +1323,9 @@
     },
     "materialDecision": {
       "title": "Matériel sur place ou à la caserne ?",
-      "description": "<hl>{location}</hl> a été clôturée. Décide pour chaque moyen s’il est resté sur place ou s’il rentre à la caserne.",
-      "descriptionFromRapport": "<hl>{location}</hl> a été clôturée. L’effectif a déjà répondu sur place pour chaque moyen – contrôle et confirme.",
-      "descriptionPartialRapport": "<hl>{location}</hl> a été clôturée. Les réponses de l’effectif sont reprises ; {count, plural, one {un moyen reste} other {# moyens restent}} en suspens.",
+      "description": "<hl>{location}</hl> a été clôturée. Décide pour chaque engin s’il est resté sur place ou s’il rentre à la caserne.",
+      "descriptionFromRapport": "<hl>{location}</hl> a été clôturée. L’effectif a déjà répondu sur place pour chaque engin – contrôle et confirme.",
+      "descriptionPartialRapport": "<hl>{location}</hl> a été clôturée. Les réponses de l’effectif sont reprises ; {count, plural, one {un engin reste} other {# engins restent}} en suspens.",
       "toMagazinShort": "Caserne",
       "onSiteShort": "Sur place",
       "toastToMagazin": "Rentre à la caserne",
@@ -1387,10 +1387,10 @@
       "auftragChipTooltip": "Mission : {name}",
       "auftragStopPosition": "Étape {pos}/{total}",
       "auftragPersSummary": "{count} pers",
-      "auftragMatSummary": "{count} moyens"
+      "auftragMatSummary": "{count, plural, one {# engin} other {# engins}}"
     },
     "column": {
-      "ariaLabelWithCount": "colonne {title} ({count} interventions)",
+      "ariaLabelWithCount": "colonne {title} ({count, plural, one {# intervention} other {# interventions}})",
       "ariaLabel": "colonne {title}",
       "collapse": "Replier la colonne",
       "dropHere": "Déposer l’intervention ici",
@@ -1471,7 +1471,7 @@
       "confirmAction": "Retirer de l’intervention et attribuer",
       "unassignTitle": "Retirer la fonction {function} ?",
       "unassignRekoDescription": "<strong>{name}</strong> perd la fonction de reconnaissance et n’apparaîtra plus dans les vues de reconnaissance (tableau de reconnaissance, carte). Les affectations existantes aux interventions sont conservées. La personne redevient ensuite un intervenant ordinaire.",
-      "unassignRekoTransfer": "Transférer {count} intervention(s)",
+      "unassignRekoTransfer": "{count, plural, one {Transférer # intervention} other {Transférer # interventions}}",
       "unassignDriverDescription": "<strong>{name}</strong> ne sera alors plus conducteur de <strong>{vehicle}</strong> et redeviendra un intervenant ordinaire.",
       "unassignMagazinDescription": "<strong>{name}</strong> perd la fonction de caserne et redevient ensuite un intervenant ordinaire.",
       "unassignConfirm": "Retirer la fonction"
@@ -1489,7 +1489,7 @@
       "titleVehiclesIncident": "Attribuer des véhicules à une intervention",
       "titleMaterialsIncident": "Attribuer du matériel à une intervention",
       "selectedCount": "{selected} sélectionnés, {available} disponibles",
-      "vehiclesAssigned": "{count} véhicule(s) attribué(s)",
+      "vehiclesAssigned": "{count, plural, one {# véhicule attribué} other {# véhicules attribués}}",
       "zuFussSuffix": ", à pied",
       "quickSelectByType": "Par genre :",
       "showAllPersonnel": "Tout afficher",
@@ -1558,7 +1558,7 @@
       "noStops": "Aucune étape pour l’instant. Fais glisser des cartes ici ou ajoute une étape.",
       "noSquad": "aucune équipe",
       "persLabel": "{count} pers",
-      "matLabel": "{count} moyens",
+      "matLabel": "{count, plural, one {# engin} other {# engins}}",
       "progress": "{done}/{total} faites",
       "toggle": "Déplier/replier la mission",
       "rename": "Renommer",
@@ -1657,7 +1657,7 @@
       "description": "Rattacher l’intervention à une mission. Elle sera déplacée comme étape dans l’itinéraire.",
       "empty": "Aucune mission pour l’instant. Crées-en une nouvelle.",
       "alreadyHere": "déjà ici",
-      "stopCount": "{count} étapes",
+      "stopCount": "{count, plural, one {# étape} other {# étapes}}",
       "namePlaceholder": "Nom de la mission",
       "createConfirm": "Créer",
       "cancel": "Annuler",
@@ -1781,7 +1781,7 @@
     "view": {
       "markerAria": "Intervention : {label}",
       "firestationFallback": "Sapeurs-pompiers",
-      "crewSummary": "{vehicles} véhicule(s), {personnel} personne(s) attribuées",
+      "crewSummary": "{vehicles, plural, one {# véhicule} other {# véhicules}}, {personnel, plural, one {# personne attribuée} other {# personnes attribuées}}",
       "magazin": "Caserne",
       "missingCoords": "⚠️ {count, plural, one {# intervention sans coordonnées valables} other {# interventions sans coordonnées valables}}",
       "clickToExpand": "Cliquer pour agrandir",
@@ -1909,7 +1909,7 @@
       "diveraPool": "Alarmes entrantes",
       "export": "Export",
       "noEventSelected": "Aucun événement sélectionné",
-      "reportPdf": "Rapport (PDF)",
+      "reportPdf": "Rapport d’intervention (PDF)",
       "auditXlsx": "Export d’audit (XLSX)",
       "lageblattA4": "Feuille de situation (A4)",
       "commands": "Commandes et raccourcis clavier",
@@ -2064,7 +2064,7 @@
     },
     "trainingActions": {
       "rekoArrived": "Reconnaissance sur place",
-      "rekoReport": "Annonce de reconnaissance",
+      "rekoReport": "Rapport de reconnaissance",
       "driveToIncident": "Course vers l’intervention",
       "vehicleOnScene": "Véhicule sur place",
       "fieldComplete": "Intervention terminée",
@@ -2102,7 +2102,7 @@
       "databaseLabel": "Base de données (Go)",
       "photoLabel": "Limite de photos (Go)",
       "materialThresholdsTitle": "Seuils de stock de matériel",
-      "materialThresholdsSubtitle": "Avertit lorsque les unités disponibles d’une catégorie passent sous le seuil. Décoche la case pour masquer les avertissements d’une catégorie.",
+      "materialThresholdsSubtitle": "Avertit lorsque le matériel disponible d’une catégorie passe sous le seuil. Décoche la case pour masquer les avertissements d’une catégorie.",
       "materialThresholdsManageLink": "Gérer le matériel"
     },
     "toasts": {
@@ -2185,7 +2185,7 @@
       "description": "Choisis comment mettre la situation sur papier.",
       "exportHeading": "Export",
       "exportHint": "Télécharger le fichier sur cet appareil.",
-      "exportReport": "Rapport (PDF)",
+      "exportReport": "Rapport d’intervention (PDF)",
       "exportLageblatt": "Feuille de situation (A4)",
       "exportAutomatic": "Configurer l’export automatique",
       "exportAudit": "Audit (XLSX)",
@@ -2203,7 +2203,7 @@
         "reko": "Reconnaissance",
         "reko_done": "Reconnaissance terminée",
         "enroute": "Engagé / en route",
-        "active": "Intervention",
+        "active": "En intervention",
         "returning": "Terminé / retour",
         "complete": "Clôturé"
       },
@@ -2282,8 +2282,8 @@
       "back": "Retour"
     },
     "success": {
-      "title": "Annonce transmise",
-      "description": "Ton annonce de reconnaissance a bien été transmise à la conduite de l’intervention.",
+      "title": "Rapport de reconnaissance transmis",
+      "description": "Ton rapport de reconnaissance a bien été transmis à la conduite de l’intervention.",
       "closeHint": "Tu peux maintenant fermer cette fenêtre ou revenir à la vue d’ensemble.",
       "incidentIdLabel": "ID de l’intervention :",
       "backToOverview": "Retour à la vue d’ensemble"
@@ -2345,7 +2345,7 @@
       "otherDangers": "Autres dangers",
       "otherDangersPlaceholder": "Description...",
       "effort": "Moyens nécessaires",
-      "personnelCount": "Personnel (nbre)",
+      "personnelCount": "Effectif (nbre)",
       "personnelPlaceholder": "p. ex. 10",
       "duration": "Durée (h)",
       "durationPlaceholder": "p. ex. 2",
@@ -2364,7 +2364,7 @@
       "notes": "Notes complémentaires",
       "notesPlaceholder": "Autres remarques...",
       "submitting": "Transmission...",
-      "submit": "Transmettre l’annonce",
+      "submit": "Transmettre le rapport de reconnaissance",
       "savedAt": "Enregistré à {time}",
       "autoSave": "Enregistrement automatique",
       "summaries": {
@@ -2378,7 +2378,7 @@
         "low": [
           "Situation claire et stable. Intervention réalisable avec un petit effectif.",
           "Faible atteinte. Situation bien maîtrisée.",
-          "Lieu d’intervention facilement accessible, moyens limités."
+          "Place sinistrée facilement accessible, moyens limités."
         ],
         "high": [
           "Plusieurs dangers constatés. Renfort et matériel supplémentaire nécessaires.",
@@ -2386,12 +2386,12 @@
           "Mise en danger importante sur place. Effectif important nécessaire."
         ]
       },
-      "submitKp": "Enregistrer le rapport",
+      "submitKp": "Enregistrer le rapport de reconnaissance",
       "submittingKp": "Enregistrement …"
     },
     "reportSection": {
-      "noReport": "Aucune annonce de reconnaissance pour l’instant",
-      "previousReports": "{count, plural, one {# annonce précédente} other {# annonces précédentes}}",
+      "noReport": "Aucun rapport de reconnaissance pour l’instant",
+      "previousReports": "{count, plural, one {# rapport de reconnaissance précédent} other {# rapports de reconnaissance précédents}}",
       "relevant": "Intervention pertinente",
       "notNeeded": "Aucune intervention nécessaire",
       "completeIncident": "Clôturer l’intervention",
@@ -2405,7 +2405,7 @@
         "electrical": "Électrique"
       },
       "effort": "Moyens nécessaires",
-      "personnelLabel": "Personnel",
+      "personnelLabel": "Effectif",
       "personnelValue": "{count, plural, one {# personne} other {# personnes}}",
       "durationLabel": "Durée",
       "durationValue": "{hours, plural, one {# heure} other {# heures}}",
@@ -2463,7 +2463,7 @@
       "loadSettingsError": "Erreur lors du chargement des réglages",
       "checkInputRetry": "Vérifie la saisie et réessaie.",
       "reloadPage": "Recharge la page.",
-      "entriesCount": "{count} entrées",
+      "entriesCount": "{count, plural, one {# entrée} other {# entrées}}",
       "sortCategoriesTab": "Trier les catégories"
     },
     "page": {
@@ -2827,7 +2827,7 @@
       "syncSectionNew": "Nouvelles",
       "syncSectionUnchanged": "Inchangées",
       "syncSectionNotInDivera": "Absentes de Divera",
-      "removeStaleLabel": "Retirer {count} personne(s) absente(s) de Divera",
+      "removeStaleLabel": "{count, plural, one {Retirer # personne absente de Divera} other {Retirer # personnes absentes de Divera}}",
       "syncExecuteButton": "Synchroniser"
     },
     "printer": {
@@ -3039,7 +3039,7 @@
       "direction": "Sens",
       "lastSync": "Dernière synchronisation",
       "lastError": "Dernière erreur :",
-      "pendingRecords": "{count} enregistrements en attente de synchronisation",
+      "pendingRecords": "{count, plural, one {# enregistrement en attente de synchronisation} other {# enregistrements en attente de synchronisation}}",
       "connectionString": "Chaîne de connexion PostgreSQL Railway",
       "syncFromButton": "Synchroniser depuis Railway",
       "syncToButton": "Synchroniser vers Railway"
@@ -3080,7 +3080,7 @@
       "toastPhoneFailed": "L’alarme téléphonique n’a pas pu être générée",
       "toastDispatched": "Intervention déclenchée",
       "toastDispatchFailed": "L’intervention n’a pas pu être déclenchée",
-      "toastBurstGenerated": "{count} interventions générées",
+      "toastBurstGenerated": "{count, plural, one {# intervention générée} other {# interventions générées}}",
       "toastBurstFailed": "La rafale n’a pas pu être générée"
     },
     "autogen": {
@@ -3146,7 +3146,7 @@
       "noVehicleFound": "Aucun véhicule trouvé pour la course",
       "noVehicleFoundDescription": "Les véhicules attribués sont inconnus ou déjà en route.",
       "actionFailed": "Échec de l’action",
-      "checkinsScheduled": "{count} arrivées planifiées",
+      "checkinsScheduled": "{count, plural, one {# arrivée planifiée} other {# arrivées planifiées}}",
       "checkinsScheduledDescription": "Les personnes s’annonceront au cours des {minutes} prochaines minutes.",
       "noMorePersons": "Plus aucune personne disponible",
       "noMorePersonsDescription": "Toutes les personnes disponibles sont déjà annoncées.",
