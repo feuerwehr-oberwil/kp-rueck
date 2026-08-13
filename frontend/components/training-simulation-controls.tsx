@@ -21,7 +21,9 @@ import {
   Users,
   ClipboardCheck,
   Bot,
+  Bus,
   MapPin,
+  MapPinCheck,
   Truck,
   Flag,
   Home,
@@ -174,6 +176,22 @@ export function TrainingSimulationControls() {
 
     // Plain status transitions reuse the optimistic one-click board move.
     if (action.kind === 'status' && action.targetStatus) {
+      // …but «Fahrzeug vor Ort» IS the crew arriving, so it also files the
+      // "Angekommen" report. The GPS route stamps that arrival on its own (the
+      // automation does it at the geofence); without this the exercise that
+      // falls back to the button was the only one whose Schadenplatz never got
+      // an arrival time. A failed stamp must not block the board move.
+      if (action.key === 'vehicle_on_scene' && !op.fieldArrivedAt) {
+        setAdvancing(op.id, true);
+        try {
+          await apiClient.simulateFieldArrived(selectedEvent.id, op.id);
+        } catch (error: unknown) {
+          const detail = error instanceof Error ? error.message : t('actionFailed');
+          toast.error(tCommon('error'), { description: detail });
+        } finally {
+          setAdvancing(op.id, false);
+        }
+      }
       changeStatusToTop(op.id, action.targetStatus);
       return;
     }
@@ -292,12 +310,26 @@ export function TrainingSimulationControls() {
   // needs an assigned vehicle.
   const handleInject = async (
     op: Operation,
-    inject: 'escalate' | 'reinforcement' | 'breakdown' | 'rapport' | 'fieldMessage'
+    inject: 'escalate' | 'reinforcement' | 'breakdown' | 'rapport' | 'fieldMessage' | 'arrived' | 'pickup'
   ) => {
     if (!selectedEvent) return;
     setAdvancing(op.id, true);
     try {
-      if (inject === 'escalate') {
+      if (inject === 'arrived') {
+        const result = await apiClient.simulateFieldArrived(selectedEvent.id, op.id);
+        toast.success(t('arrivedReported'), { description: result.message });
+      } else if (inject === 'pickup') {
+        // One item, both halves: a Trupp either needs a lift or has just been
+        // picked up — the same toggle the crew has on /feld.
+        const result = await apiClient.simulatePickup(selectedEvent.id, op.id, {
+          needed: !op.pickupNeeded,
+        });
+        if (op.pickupNeeded) {
+          toast.success(t('pickupCleared'), { description: result.message });
+        } else {
+          toast.warning(t('pickupNeeded'), { description: result.message });
+        }
+      } else if (inject === 'escalate') {
         await apiClient.simulateEscalation(selectedEvent.id, op.id);
         toast.success(t('escalated'), {
           description: t('escalatedDescription'),
@@ -307,11 +339,15 @@ export function TrainingSimulationControls() {
         toast.success(t('reinforcementRequested'), { description: result.message });
       } else if (inject === 'rapport') {
         const result = await apiClient.simulateRapport(selectedEvent.id, op.id);
-        toast.success(t('rapportFiled'), {
-          description: result.filed_by
-            ? t('rapportFiledBy', { name: result.filed_by })
-            : result.message,
-        });
+        // The photo count is worth saying out loud: it is the one part of the
+        // rapport the KP has to open the card to see.
+        let description = result.message;
+        if (result.filed_by && result.photos > 0) {
+          description = t('rapportFiledByPhotos', { name: result.filed_by, count: result.photos });
+        } else if (result.filed_by) {
+          description = t('rapportFiledBy', { name: result.filed_by });
+        }
+        toast.success(t('rapportFiled'), { description });
       } else if (inject === 'fieldMessage') {
         const result = await apiClient.simulateFieldMessage(selectedEvent.id, op.id);
         toast.success(t('fieldMessageSent'), { description: result.message });
@@ -453,8 +489,18 @@ export function TrainingSimulationControls() {
                             {t('injectBreakdown')}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {/* Plan 25: the field side of the exercise — a filed
-                              rapport and the generic Meldung vom Feld. */}
+                          {/* Plan 25: the field side of the exercise — every
+                              report a real crew can send. "Angekommen" is
+                              normally filed by «Fahrzeug vor Ort» or by the GPS
+                              arrival; it stays here for the Trupp that walked,
+                              or the card an operator moved by hand. */}
+                          <DropdownMenuItem
+                            onClick={() => handleInject(op, 'arrived')}
+                            disabled={op.fieldArrivedAt != null}
+                          >
+                            <MapPinCheck className="mr-2 h-4 w-4 text-emerald-600" />
+                            {t('injectArrived')}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'rapport')}>
                             <ClipboardCheck className="mr-2 h-4 w-4 text-emerald-600" />
                             {t('injectRapport')}
@@ -462,6 +508,13 @@ export function TrainingSimulationControls() {
                           <DropdownMenuItem onClick={() => handleInject(op, 'fieldMessage')}>
                             <MessageSquare className="mr-2 h-4 w-4 text-blue-600" />
                             {t('injectFieldMessage')}
+                          </DropdownMenuItem>
+                          {/* Decision 24: a Schadenplatz can be finished and
+                              still have three people standing in the rain — and
+                              the lift arriving is a report of its own. */}
+                          <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
+                            <Bus className="mr-2 h-4 w-4 text-amber-600" />
+                            {op.pickupNeeded ? t('injectPickupDone') : t('injectPickupNeeded')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

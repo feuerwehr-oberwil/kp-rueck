@@ -59,6 +59,8 @@ export interface ApiSimulatedRapport {
   /** How many of the incident's vehicles the simulated crew confirmed as present. */
   vehicles_present: number
   materials_ticked: number
+  /** Scene photos the simulated crew attached — 0 most of the time, like a real one. */
+  photos: number
   message: string
 }
 

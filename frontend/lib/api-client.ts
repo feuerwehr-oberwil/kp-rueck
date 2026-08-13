@@ -1560,6 +1560,34 @@ class ApiClient {
     )
   }
 
+  /** Inject "Angekommen": the crew reports it is on the Schadenplatz. Stamps
+   *  `arrived_at` on the Schadenplatz-Rapport through the same CRUD the `/feld`
+   *  button uses. A second call never moves an arrival that is already
+   *  reported — the message says so instead. */
+  async simulateFieldArrived(eventId: string, incidentId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/training/events/${eventId}/simulate/arrived/${incidentId}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** Inject "Abholung nötig" / "Abholung erledigt" on its own — the crew that
+   *  asks for a lift an hour after "Einsatz beendet", or reports the bus has
+   *  been. Omit `note` and the backend derives one from the situation. */
+  async simulatePickup(
+    eventId: string,
+    incidentId: string,
+    options?: { needed?: boolean; note?: string }
+  ): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/training/events/${eventId}/simulate/pickup/${incidentId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ needed: options?.needed ?? true, note: options?.note ?? null }),
+      }
+    )
+  }
+
   // Divera 24/7 Integration
   async getDiveraEmergencies(params?: {
     attached?: boolean

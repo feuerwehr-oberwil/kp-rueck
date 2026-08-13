@@ -4,10 +4,11 @@ import asyncio
 import logging
 import random
 from datetime import UTC, datetime
+from io import BytesIO
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +49,7 @@ from ..schemas import (
     SimulateDiveraRequest,
     SimulateFieldCompleteRequest,
     SimulateInjectResponse,
+    SimulatePickupRequest,
     SimulateRapportResponse,
     SimulateVehicleBreakdownResponse,
     TrainingLocationResponse,
@@ -60,7 +62,7 @@ from ..services.training import (
     generate_training_divera_emergency,
     generate_training_emergency,
 )
-from ..services.training_photos import attach_training_photos
+from ..services.training_photos import attach_training_photos, pick_pool_photos
 from ..services.training_simulation_data import (
     RAPPORT_SIM_PROFILE,
     generate_escalation,
@@ -389,7 +391,7 @@ async def simulate_field_complete(
         rate = RAPPORT_SIM_PROFILE.pickup_when_stranded if stranded else RAPPORT_SIM_PROFILE.pickup_otherwise
         pickup_needed = rng.random() < rate
         if pickup_needed and pickup_note is None:
-            pickup_note = "Trupp zu Fuss vor Ort" if incident.zu_fuss else "Fahrzeug ist weitergefahren"
+            pickup_note = _pickup_note(incident)
 
     # The parity endpoint, called as an editor — same handler, same CRUD, same
     # provenance rule (the personnel FKs stay NULL for a KP write, decision 28).
@@ -666,11 +668,15 @@ async def simulate_reinforcement_request(
 # * "Einsatz beendet" calls the KP-parity endpoint as the editor, because the
 #   Übungsleiter genuinely sits in the KP — the personnel FK stays NULL and the
 #   audit entry carries the user, which is the honest provenance.
-# * The Rapport and the Meldung carry a **simulated field identity** (the
-#   Einsatzleiter most of the time, decision 22), because "erfasst von Muster
-#   Hans (Feld)" versus "im KP erfasst (Funkmeldung)" is one of the things the
-#   exercise has to show. A Meldung vom Feld has no KP twin at all, on purpose
-#   (§6.1): the KP is its recipient.
+# * The Rapport, the Meldung, das Angekommen and die Abholung carry a
+#   **simulated field identity** (the Einsatzleiter most of the time, decision
+#   22), because "erfasst von Muster Hans (Feld)" versus "im KP erfasst
+#   (Funkmeldung)" is one of the things the exercise has to show. A Meldung vom
+#   Feld has no KP twin at all, on purpose (§6.1): the KP is its recipient.
+#
+# With "Angekommen" and the standalone "Abholung" the console can now produce
+# all five field reports a real crew can — which is the point: an exercise the
+# KP can only half-experience rehearses half a board.
 
 
 async def _has_vehicle(db: AsyncSession, incident: Incident) -> bool:
@@ -703,6 +709,15 @@ async def _has_vehicle(db: AsyncSession, incident: Incident) -> bool:
         .limit(1)
     )
     return grouped.first() is not None
+
+
+def _pickup_note(incident: Incident) -> str:
+    """Why this crew is stuck, in the words the field would use.
+
+    Two situations cover practically every real pickup: the Trupp walked there,
+    or the vehicle that brought them drove on to the next Schadenplatz.
+    """
+    return "Trupp zu Fuss vor Ort" if incident.zu_fuss else "Fahrzeug ist weitergefahren"
 
 
 async def _simulated_material_units(db: AsyncSession, incident_id: UUID) -> list[dict[str, Any]]:
@@ -767,6 +782,36 @@ async def _simulated_filer(
     return feld_crud.FieldActor(user=current_user)
 
 
+async def _attach_simulated_rapport_photos(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: feld_crud.FieldActor,
+    request: Request,
+) -> int:
+    """Put 0-2 curated scene photos on the Schadenplatz-Rapport; returns how many.
+
+    The same offline pool the simulated Reko reports draw from
+    (``services/training_photos``), but through ``crud.feld.add_photo`` rather
+    than the storage service directly: a rapport photo carries its own audit
+    entry and its own ``updated_by``, and going around that door would leave a
+    file on the report that nobody filed. So the exercise shows the KP a rapport
+    photo that is indistinguishable from a crew's.
+
+    Degrades to fewer or no photos on any per-file failure — a stripped or
+    unreadable pool must never break the inject.
+    """
+    attached = 0
+    for path in pick_pool_photos(incident.type):
+        try:
+            upload = UploadFile(file=BytesIO(path.read_bytes()), filename=path.name)
+            await feld_crud.add_photo(db, incident, actor=actor, file=upload, request=request)
+            attached += 1
+        except Exception as exc:  # a bad pool image is not a failed exercise
+            logger.warning("Skipping training pool photo %s for rapport: %s", path, exc)
+    return attached
+
+
 async def _file_simulated_rapport(
     db: AsyncSession,
     incident: Incident,
@@ -780,8 +825,12 @@ async def _file_simulated_rapport(
     Everything the KP feels — the card badge, "Material zurück – freigeben", the
     Restliste, the Einsätze export — comes out of this one call, because it
     is the same ``save_rapport`` an operator and a crew both reach.
+
+    Photos go on **before** the rapport is filed, which is the order a crew
+    works in: they photograph the Schadenplatz while filling the form.
     """
     actor = await _simulated_filer(db, incident, current_user, rng)
+    photos = await _attach_simulated_rapport_photos(db, incident, actor=actor, request=request)
     view = await feld_crud.get_rapport(db, incident, actor=actor)
     prefill = view["prefill"]
     units = await _simulated_material_units(db, incident.id)
@@ -808,6 +857,7 @@ async def _file_simulated_rapport(
         filed_by=actor.personnel_name,
         vehicles_present=sum(1 for row in saved["vehicles"] if row["present"]),
         materials_ticked=ticked,
+        photos=photos,
         message=f"Rapport erfasst: {incident.location_address or incident.title}{actor.suffix}",
     )
 
@@ -924,6 +974,91 @@ async def simulate_field_message(
 
     notification = await feld_crud.record_field_message(db, incident, actor=actor, message=text, request=request)
     return SimulateInjectResponse(message=notification.message if notification else text)
+
+
+@router.post("/events/{event_id}/simulate/arrived/{incident_id}", response_model=SimulateInjectResponse)
+async def simulate_field_arrived(
+    event_id: UUID,
+    incident_id: UUID,
+    request: Request,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> SimulateInjectResponse:
+    """Inject "Angekommen": the crew reports it is on the Schadenplatz.
+
+    The fifth field report, and the last one an exercise could not produce. It
+    stamps ``schadenplatz_reports.arrived_at`` through ``crud.feld.record_arrival``
+    — the same call the `/feld` button and the KP-parity endpoint make — so the
+    KP sees the arrival badge, the bell entry and the Rapport row exactly as it
+    would in an Ernstfall.
+
+    ``only_if_unset=True``, the same as the field tap: a second click never
+    moves a time the KP has already acted on, and the arrival the GPS automation
+    stamped keeps its own provenance.
+    """
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
+
+    actor = await _simulated_filer(db, incident, current_user, random.Random())
+    changed = await feld_crud.record_arrival(
+        db,
+        incident,
+        actor=actor,
+        at=datetime.now(UTC),
+        only_if_unset=True,
+        request=request,
+    )
+
+    place = incident.location_address or incident.title
+    if not changed:
+        return SimulateInjectResponse(message=f"Angekommen war bereits gemeldet: {place}")
+    return SimulateInjectResponse(message=f"Angekommen: {place}{actor.suffix}")
+
+
+@router.post("/events/{event_id}/simulate/pickup/{incident_id}", response_model=SimulateInjectResponse)
+async def simulate_pickup(
+    event_id: UUID,
+    incident_id: UUID,
+    request: Request,
+    current_user: CurrentEditor,
+    payload: SimulatePickupRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> SimulateInjectResponse:
+    """Inject "Abholung nötig" / "Abholung erledigt" on its own (decision 24).
+
+    Until now a pickup could only be simulated bundled with "Einsatz beendet",
+    which is the one moment a real crew often does *not* know yet: the vehicle
+    drives on half an hour later, and only then do three people need a lift. The
+    other half — "der Bus war da" — had no way in at all, so an exercise could
+    raise the warning but never clear it.
+
+    Goes through ``crud.feld.record_pickup``, so the Restliste, the map and the
+    warning bell behave exactly as they do for a crew tapping on `/feld`.
+    """
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
+
+    needed = payload.needed if payload else True
+    note = (payload.note if payload else None) or (_pickup_note(incident) if needed else None)
+
+    actor = await _simulated_filer(db, incident, current_user, random.Random())
+    changed = await feld_crud.record_pickup(
+        db,
+        incident,
+        actor=actor,
+        needed=needed,
+        note=note,
+        request=request,
+    )
+
+    place = incident.location_address or incident.title
+    if not changed:
+        return SimulateInjectResponse(
+            message=(f"Abholung war bereits gemeldet: {place}" if needed else f"Keine offene Abholung: {place}")
+        )
+    if needed:
+        return SimulateInjectResponse(message=f"Abholung nötig: {place} ({note}){actor.suffix}")
+    return SimulateInjectResponse(message=f"Abholung erledigt: {place}{actor.suffix}")
 
 
 @router.post(

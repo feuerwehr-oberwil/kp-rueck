@@ -274,6 +274,19 @@ class SimulateFieldCompleteRequest(BaseModel):
     pickup_note: str | None = None
 
 
+class SimulatePickupRequest(BaseModel):
+    """ "Abholung nötig" / "abgeholt" as a standalone report (decision 24).
+
+    The crew that asks for a pickup an hour after "Einsatz beendet" — or calls
+    in that the bus has been and gone — is a report of its own, not a follow-up
+    question. ``note=None`` lets the simulator derive one from the situation
+    (zu Fuss / kein Fahrzeug), the same way the completion inject does.
+    """
+
+    needed: bool = True
+    note: str | None = None
+
+
 class SimulateRapportResponse(BaseModel):
     """One simulated Schadenplatz-Rapport, as the console reports it back."""
 
@@ -286,6 +299,9 @@ class SimulateRapportResponse(BaseModel):
     # How many of the board's vehicles the simulated crew confirmed were there.
     vehicles_present: int = 0
     materials_ticked: int = 0
+    # Scene photos the simulated crew attached, from the same offline pool the
+    # simulated Reko reports use. 0 most of the time — a real crew rarely does.
+    photos: int = 0
     message: str
 
 

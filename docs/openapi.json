@@ -15693,6 +15693,195 @@
         }
       }
     },
+    "/api/training/events/{event_id}/simulate/arrived/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Field Arrived",
+        "description": "Inject \"Angekommen\": the crew reports it is on the Schadenplatz.\n\nThe fifth field report, and the last one an exercise could not produce. It\nstamps ``schadenplatz_reports.arrived_at`` through ``crud.feld.record_arrival``\n— the same call the `/feld` button and the KP-parity endpoint make — so the\nKP sees the arrival badge, the bell entry and the Rapport row exactly as it\nwould in an Ernstfall.\n\n``only_if_unset=True``, the same as the field tap: a second click never\nmoves a time the KP has already acted on, and the arrival the GPS automation\nstamped keeps its own provenance.",
+        "operationId": "simulate_field_arrived_api_training_events__event_id__simulate_arrived__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateInjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/pickup/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Pickup",
+        "description": "Inject \"Abholung nötig\" / \"Abholung erledigt\" on its own (decision 24).\n\nUntil now a pickup could only be simulated bundled with \"Einsatz beendet\",\nwhich is the one moment a real crew often does *not* know yet: the vehicle\ndrives on half an hour later, and only then do three people need a lift. The\nother half — \"der Bus war da\" — had no way in at all, so an exercise could\nraise the warning but never clear it.\n\nGoes through ``crud.feld.record_pickup``, so the Restliste, the map and the\nwarning bell behave exactly as they do for a crew tapping on `/feld`.",
+        "operationId": "simulate_pickup_api_training_events__event_id__simulate_pickup__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SimulatePickupRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateInjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/events/{event_id}/simulate/vehicle-breakdown/{incident_id}": {
       "post": {
         "tags": [
@@ -25686,6 +25875,29 @@
         "title": "SimulateInjectResponse",
         "description": "Generic result of a trainer inject (reinforcement request etc.)."
       },
+      "SimulatePickupRequest": {
+        "properties": {
+          "needed": {
+            "type": "boolean",
+            "title": "Needed",
+            "default": true
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "SimulatePickupRequest",
+        "description": "\"Abholung nötig\" / \"abgeholt\" as a standalone report (decision 24).\n\nThe crew that asks for a pickup an hour after \"Einsatz beendet\" — or calls\nin that the bus has been and gone — is a report of its own, not a follow-up\nquestion. ``note=None`` lets the simulator derive one from the situation\n(zu Fuss / kein Fahrzeug), the same way the completion inject does."
+      },
       "SimulateRapportResponse": {
         "properties": {
           "incident_id": {
@@ -25716,6 +25928,11 @@
           "materials_ticked": {
             "type": "integer",
             "title": "Materials Ticked",
+            "default": 0
+          },
+          "photos": {
+            "type": "integer",
+            "title": "Photos",
             "default": 0
           },
           "message": {
