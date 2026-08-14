@@ -100,21 +100,37 @@ async def update_event(db: AsyncSession, event_id: uuid.UUID, event_data: schema
 
 async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
     """
-    Archive an event (soft delete).
+    Archive an event (soft delete). Idempotent — archiving twice does not move the timestamp.
+
+    ``archived_at`` is when the Ereignis was closed, and a second archive used to overwrite it
+    with "now": a double-click, a retried request or two operators on the same card silently
+    rewrote history, and the archive list is sorted and read by that timestamp.
+
+    The re-stamp is prevented by the ``archived_at IS NULL`` predicate on the UPDATE rather
+    than by the read above. Postgres re-evaluates that predicate after the row lock is
+    granted, so a *concurrent* second archive matches zero rows instead of overwriting the
+    winner — the early return only covers the sequential case. Either way the row is re-read
+    afterwards, so the caller is told the truth about when it was actually archived.
 
     Args:
         db: Database session
         event_id: Event ID to archive
 
     Returns:
-        Archived event or None if not found
+        Archived event (with its original timestamp if it was already archived), or None if
+        not found
     """
     event = await get_event_by_id(db, event_id)
     if not event:
         return None
 
-    event.archived_at = datetime.now(UTC)
-    event.updated_at = datetime.now(UTC)
+    if event.archived_at is not None:
+        return event
+
+    now = datetime.now(UTC)
+    await db.execute(
+        update(Event).where(Event.id == event_id, Event.archived_at.is_(None)).values(archived_at=now, updated_at=now)
+    )
     await db.commit()
     await db.refresh(event)
     return event
@@ -160,7 +176,19 @@ async def delete_event(
     Ereignis from the storm week is gone, who deleted it and what went with it".
 
     The entry is written BEFORE the delete, while the counts can still be read, and survives
-    it: ``audit_log.resource_id`` carries no foreign key, so nothing cascades into it.
+    it: ``audit_log.resource_id`` carries no foreign key, so nothing cascades into it. It is
+    only flushed, not committed (``services/audit.log_action``), so the entry and the cascade
+    share the single commit at the end: either the Ereignis is gone and the deletion is
+    recorded exactly once, or neither happened.
+
+    Two concurrent calls used to both pass the read below, both write that entry and both
+    report success — the loser's cascade matched no rows and said so only as a SQLAlchemy
+    warning. Two entries for one deletion is precisely the thing somebody would be reading
+    while trying to work out what went wrong. The ``SELECT … FOR UPDATE`` — the same row-lock
+    pattern as ``crud/assignments.py`` and ``crud/groups.py`` — makes the loser wait on the
+    winner's row lock instead; under READ COMMITTED it re-evaluates the row once the lock is
+    released, finds it deleted, and returns False. So the second caller gets an honest 404,
+    with no second audit entry and no cascade running against a row that is already gone.
 
     Args:
         db: Database session
@@ -174,7 +202,7 @@ async def delete_event(
     Raises:
         ValueError: If event is not archived
     """
-    event = await get_event_by_id(db, event_id)
+    event = await db.scalar(select(Event).where(Event.id == event_id).with_for_update())
     if not event:
         return False
 

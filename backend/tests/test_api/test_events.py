@@ -8,7 +8,7 @@ Tests cover:
 - Incident count tracking
 """
 
-from datetime import UTC
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -38,8 +38,6 @@ async def test_event(db_session: AsyncSession) -> Event:
 @pytest_asyncio.fixture
 async def archived_event(db_session: AsyncSession) -> Event:
     """Create an archived test event."""
-    from datetime import datetime
-
     event = Event(
         id=uuid4(),
         name="Archived Event",
@@ -376,6 +374,28 @@ async def test_archive_event_success(editor_client: AsyncClient, test_event: Eve
     assert response.status_code == 200
     data = response.json()
     assert data["archived_at"] is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_archive_event_is_idempotent(editor_client: AsyncClient, db_session: AsyncSession, test_event: Event):
+    """Archiving twice must not move `archived_at`.
+
+    The timestamp is when the Ereignis was closed, and the archive list is sorted and read by
+    it. A second archive — a double-click, a retried request, two operators on the same card
+    — used to overwrite it with "now", silently rewriting that answer with no trace.
+    """
+    first = await editor_client.post(f"/api/events/{test_event.id}/archive")
+    assert first.status_code == 200
+    archived_at = first.json()["archived_at"]
+    assert archived_at is not None
+
+    second = await editor_client.post(f"/api/events/{test_event.id}/archive")
+    assert second.status_code == 200
+    assert second.json()["archived_at"] == archived_at
+
+    stored = await db_session.scalar(select(Event.archived_at).where(Event.id == test_event.id))
+    assert stored == datetime.fromisoformat(archived_at)
 
 
 @pytest.mark.asyncio
