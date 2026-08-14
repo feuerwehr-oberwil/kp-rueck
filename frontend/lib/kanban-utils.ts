@@ -100,6 +100,26 @@ export const columns: Array<{
   { id: "complete", title: "ABGESCHLOSSEN", status: ["complete"], color: STATUS_ACCENT.complete.surface, collapsible: true },
 ]
 
+/**
+ * How a kanban column header is set — the ONE definition, shared by all three
+ * boards: the desk board (`droppable-column.tsx`), the wall board
+ * (`app/display/board/page.tsx`) and the token board (`token-board.tsx`).
+ *
+ * They drifted: the desk board rendered small muted caps while both display
+ * boards used `text-sm font-bold text-foreground`, so the same column looked
+ * like two different things on two screens hanging next to each other — the
+ * exact complaint that made the card's left edge one colour table.
+ *
+ * The treatment itself: caps, because a column header names a PLACE and
+ * scanning for it should not mean reading it. But small, spaced and muted,
+ * because at a card title's size, weight and colour the two read as the same
+ * kind of thing and the eye stops finding the column boundaries. It is a label
+ * above the cards, not a heading competing with them.
+ *
+ * Change it here and all three change together — that is the point.
+ */
+export const COLUMN_HEADER_CLASS = "text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+
 // ── Map marker coloring ("Färben nach") ──────────────────────────────────────
 // Re-colors the map's incident markers by a chosen dimension so the operator can
 // group visually (e.g. all incidents handled by one Reko person share a colour).

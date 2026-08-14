@@ -15,7 +15,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { CARD_VIEW_PRESETS } from "@/lib/card-view"
-import { columns, ageLevel } from "@/lib/kanban-utils"
+import { columns, ageLevel, COLUMN_HEADER_CLASS } from "@/lib/kanban-utils"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { DisplayIncidentCard } from "@/components/display/incident-card"
@@ -236,7 +236,7 @@ function BoardDisplay() {
                   />
                 )}
               </span>
-              <span className="text-xs font-bold uppercase tracking-tight text-foreground [writing-mode:vertical-rl]">
+              <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]")}>
                 {tk(`columns.${column.id}`)}
               </span>
             </button>
@@ -283,7 +283,7 @@ function BoardDisplay() {
             >
               <div className="flex items-center gap-2">
                 <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                <h2 className="flex-1 truncate text-sm font-bold tracking-tight text-foreground uppercase">{tk(`columns.${column.id}`)}</h2>
+                <h2 className={cn("flex-1 truncate", COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
                 {hasAlarm && (
                   <span
                     title={alarmTitle}

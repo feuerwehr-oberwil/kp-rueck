@@ -7,6 +7,7 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { DraggableOperation } from "./draggable-operation"
 import { type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { COLUMN_HEADER_CLASS } from "@/lib/kanban-utils"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown } from "lucide-react"
@@ -281,8 +282,8 @@ export const DroppableColumn = memo(function DroppableColumn({
         aria-label={t('column.ariaLabelWithCount', { title: columnTitle, count: operations.length })}
       >
         <div className="flex flex-col items-center gap-2 py-3">
-          {/* Same title as the expanded header, so the same casing. */}
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
+          {/* Same title as the expanded header, so the same treatment. */}
+          <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-lr] [text-orientation:mixed]")}>
             {columnTitle}
           </span>
           <span className="text-xs text-muted-foreground/60 font-mono">{operations.length}</span>
@@ -302,13 +303,10 @@ export const DroppableColumn = memo(function DroppableColumn({
         <div className="flex items-center justify-between">
           {/* min-w-0 + truncate: the title is the only part that may give way. A long
               column name must not push the sort/collapse controls off the header. */}
-          {/* Caps, but quieter than a card: a column header names a PLACE, a card
-              header names an Einsatz. Rendered like a card title — same size,
-              same weight, same colour — the two read as the same kind of thing
-              and the eye stops finding the column boundaries. Small, spaced caps
-              in muted-foreground make it a label instead: unmistakably a header,
-              without competing with the addresses underneath it. */}
-          <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground" title={columnTitle}>{columnTitle}</h2>
+          {/* Treatment from COLUMN_HEADER_CLASS — see there for why caps but quiet.
+              Shared with both display boards so one column cannot look like two
+              different things on two screens. */}
+          <h2 className={cn("min-w-0 truncate", COLUMN_HEADER_CLASS)} title={columnTitle}>{columnTitle}</h2>
           <div className="flex items-center gap-2">
             {onSort && (
               <DropdownMenu>

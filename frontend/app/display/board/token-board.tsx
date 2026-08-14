@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { apiClient, type ApiViewerData } from '@/lib/api-client'
 import { Loader2, Eye, ChevronDown, ChevronRight } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
-import { columns, ageLevel } from '@/lib/kanban-utils'
+import { columns, ageLevel, COLUMN_HEADER_CLASS } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { getIncidentLocationLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
@@ -98,7 +98,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
           {operations.length}
           {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('absolute -right-1 -top-1 h-2 w-2', alarmDotClass)} />}
         </span>
-        <span className="text-xs font-bold uppercase tracking-tight text-foreground [writing-mode:vertical-rl]">
+        <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]")}>
           {tk(`columns.${column.id}`)}
         </span>
       </button>
@@ -115,7 +115,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
       >
         <div className="flex items-center gap-2">
           <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-          <h2 className="flex-1 truncate text-sm font-bold uppercase tracking-tight text-foreground">{tk(`columns.${column.id}`)}</h2>
+          <h2 className={cn("flex-1 truncate", COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
           {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('h-2 w-2 flex-shrink-0', alarmDotClass)} />}
           <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
             {operations.length}
