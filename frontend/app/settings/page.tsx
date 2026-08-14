@@ -785,8 +785,9 @@ export default function SettingsPage() {
               isEditor={isEditor}
               saving={saving}
             />
-            {/* Inbound side of Alarmierung: the standing lines the dispatch system
-                injects into every alarm text, dropped from the incident description. */}
+            {/* Inbound side of Alarmierung: what the dispatch system puts into every alarm
+                text — standing lines dropped whole, labels stripped off kept lines. Both
+                lists ship empty, so an install that configures nothing filters nothing. */}
             <AlarmDescriptionFilterSettings
               settings={settings}
               serverSettings={serverSettings}

@@ -40,7 +40,11 @@ from ..alarm_keywords import (
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from .audit import log_action
-from .settings import get_alarm_description_filter_prefixes, get_alarm_webhook_secret
+from .settings import (
+    get_alarm_description_filter_prefixes,
+    get_alarm_description_label_prefixes,
+    get_alarm_webhook_secret,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -180,31 +184,102 @@ def _sender_hint(emergency: models.DiveraEmergency, key: str) -> str | None:
     return value.strip().lower() if isinstance(value, str) and value.strip() else None
 
 
+def _rejoin(lines: Sequence[str]) -> str | None:
+    """Put kept lines back together — a removed line must not leave a hole behind.
+
+    Blank runs collapse, and a text left with nothing becomes None rather than
+    whitespace, so the card shows no description instead of an empty-looking one.
+    """
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip() or None
+
+
+def _needles(prefixes: Sequence[str]) -> list[str]:
+    """The configured prefixes, blanks dropped — an operator types into a Textarea."""
+    return [p.strip() for p in prefixes if p.strip()]
+
+
+def _starts_with(line: str, prefix: str) -> bool:
+    """Does this (leading-whitespace-tolerant) line begin with `prefix`, ignoring case?"""
+    return line[: len(prefix)].casefold() == prefix.casefold()
+
+
 def filter_description_lines(text: str | None, prefixes: Sequence[str]) -> str | None:
-    """Drop the station's configured standing lines from an alarm text.
+    """Drop whole lines from an alarm text — the station's configured standing lines.
 
     Divera lets a brigade prepend boilerplate to every alarm ("Ausrückeordnung: 1. TLF →
     2. PIO"). It is identical on every emergency, so on the board it is noise that crowds
-    out the «Details:» line that actually says what happened.
+    out the line that actually says what happened.
 
     Matching is per line, on the line's start, case-insensitive and tolerant of leading
-    whitespace — an operator types the prefix into a Textarea, not a regex. Removing a line
-    must not leave a hole behind, so blank runs collapse; a text that is nothing but
-    standing lines becomes None rather than whitespace.
+    whitespace — an operator types the prefix into a Textarea, not a regex.
 
-    The prefixes are configuration (`alarm.description_filter_prefixes`), not a literal
-    here: the vocabulary is the brigade's, and the next standing line the dispatch system
-    grows must cost a settings edit, not a release.
+    The prefixes are configuration (`alarm.description_filter_prefixes`) and ship EMPTY:
+    the vocabulary is the brigade's, so an install that configures nothing filters
+    nothing, and the next standing line the dispatch system grows costs a settings edit
+    rather than a release.
     """
     if not text:
         return None
-    needles = [p.strip().casefold() for p in prefixes if p.strip()]
+    needles = _needles(prefixes)
     if not needles:
         return text
 
-    kept = [line for line in text.splitlines() if not any(line.lstrip().casefold().startswith(n) for n in needles)]
-    # A dropped line between two kept ones would otherwise show up as an extra blank line.
-    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip() or None
+    kept = [line for line in text.splitlines() if not any(_starts_with(line.lstrip(), n) for n in needles)]
+    return _rejoin(kept)
+
+
+def strip_description_labels(text: str | None, prefixes: Sequence[str]) -> str | None:
+    """Strip a leading label off a line while KEEPING the line.
+
+    The sibling of `filter_description_lines`: that one removes the whole line, this one
+    removes only the label in front of it. Divera labels the dispatch text it sends
+    ("Meldung: Wasser dringt ein") while our own UI already puts a «Meldung» heading above
+    that field, so without this the card reads the word twice.
+
+    Per line, case-insensitive, tolerant of leading whitespace, like the drop list. The
+    label and any whitespace directly behind it go; the remainder stays. A line left with
+    nothing behind its label is dropped — a label alone is not content.
+
+    Configuration (`alarm.description_label_prefixes`), shipped EMPTY.
+    """
+    if not text:
+        return None
+    needles = _needles(prefixes)
+    if not needles:
+        return text
+
+    kept: list[str] = []
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        label = next((n for n in needles if _starts_with(stripped, n)), None)
+        if label is None:
+            kept.append(line)
+            continue
+        remainder = stripped[len(label) :].lstrip()
+        # A label with nothing behind it ("Meldung:") is not content — drop the line.
+        if remainder:
+            kept.append(remainder)
+    return _rejoin(kept)
+
+
+def clean_description(
+    text: str | None,
+    *,
+    drop_prefixes: Sequence[str] = (),
+    label_prefixes: Sequence[str] = (),
+) -> str | None:
+    """The operator-facing description of an inbound alarm: drop lines, then strip labels.
+
+    THE ORDER IS LOAD-BEARING. Divera's two labelled lines arrive as
+
+        Meldung: -
+        Ausrückeordnung: 1. TLF → 2. PIO
+
+    when the Alarmzentrale sent no text. Dropping `Meldung: -` (a drop-list entry) before
+    the label strip leaves nothing; stripping labels first would turn that same line into a
+    bare "-" that no drop rule can name any more — exactly the noise this removes.
+    """
+    return strip_description_labels(filter_description_lines(text, drop_prefixes), label_prefixes)
 
 
 def incident_create_from_emergency(
@@ -212,6 +287,7 @@ def incident_create_from_emergency(
     event_id: uuid.UUID,
     *,
     description_filter_prefixes: Sequence[str] = (),
+    description_label_prefixes: Sequence[str] = (),
 ) -> schemas.IncidentCreate:
     """Derive the IncidentCreate payload for attaching an emergency to an event.
 
@@ -219,11 +295,13 @@ def incident_create_from_emergency(
     classifying the call knows more than our title matcher does. An unrecognised value falls
     back to inference rather than raising: a typo in an optional hint must never cost an alarm.
 
-    `description_filter_prefixes` (from `alarm.description_filter_prefixes`) strips the
-    provider's standing lines from the INCIDENT's description only. The emergency row keeps
-    `text`/`raw_payload_json` byte-for-byte: that is the provenance record of what the
-    Leitstelle actually sent, and it stays answerable even after the board copy is trimmed.
-    Priority inference below reads the raw text for the same reason.
+    The two prefix lists (from `alarm.description_filter_prefixes` and
+    `alarm.description_label_prefixes`, both empty unless the station configures them) tidy
+    the INCIDENT's description only — see `clean_description` for why the drop list runs
+    first. The emergency row keeps `text`/`raw_payload_json` byte-for-byte: that is the
+    provenance record of what the Leitstelle actually sent, and it stays answerable even
+    after the board copy is trimmed. Priority inference below reads the raw text for the
+    same reason.
     """
     type_hint = _sender_hint(emergency, "type")
     priority_hint = _sender_hint(emergency, "priority")
@@ -247,7 +325,11 @@ def incident_create_from_emergency(
         location_address=emergency.address,
         location_lat=str(emergency.latitude) if emergency.latitude else None,
         location_lng=str(emergency.longitude) if emergency.longitude else None,
-        description=filter_description_lines(emergency.text, description_filter_prefixes),
+        description=clean_description(
+            emergency.text,
+            drop_prefixes=description_filter_prefixes,
+            label_prefixes=description_label_prefixes,
+        ),
         status=schemas.IncidentStatus.INCOMING,
     )
 
@@ -297,7 +379,10 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         return None
 
     data = incident_create_from_emergency(
-        emergency, event.id, description_filter_prefixes=await get_alarm_description_filter_prefixes(db)
+        emergency,
+        event.id,
+        description_filter_prefixes=await get_alarm_description_filter_prefixes(db),
+        description_label_prefixes=await get_alarm_description_label_prefixes(db),
     )
     incident_data = data.model_dump()
     # The editor schema's `source` only ever carries what an operator may claim

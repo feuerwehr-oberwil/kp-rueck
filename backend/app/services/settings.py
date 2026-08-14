@@ -131,23 +131,30 @@ DEFAULT_SETTINGS = {
     # the Einstellungen page edits it in the same Textarea shape as the templates
     # next to it. Blank lines are dropped on read (`parse_message_chips`).
     "feld.message_chips": "Verstärkung nötig\nMaterial nötig\nfertig in ~30 Min\nEinsatzstelle übergeben",
-    # Standing lines an alarm provider injects into every alarm text. Divera lets a
-    # brigade configure a boilerplate line ("Ausrückeordnung: 1. TLF → 2. PIO") that then
-    # arrives on EVERY emergency — identical each time, so it is pure noise on the board
-    # and in every printout, and it pushes the one line that says what happened
-    # («Details: …») out of view.
+    # Two ways to tidy the text an alarm provider puts into every alarm, both applied to
+    # the INCIDENT's description only and both EMPTY BY DEFAULT — a fresh install passes
+    # every alarm description through untouched. What a dispatch system prepends is that
+    # station's arrangement with its Leitstelle, so nobody else's vocabulary belongs in
+    # our shipped defaults; a station types its own lines into Settings → Alarmierung.
     #
-    # A configurable prefix list rather than a hardcoded rule: it keeps German
-    # fire-service vocabulary out of our code, and the next standing line the dispatch
-    # system grows costs a settings edit instead of a release. Same storage shape as the
-    # `/feld` chips above — ONE PREFIX PER LINE, edited in a Textarea, blank lines dropped
-    # on read (`parse_message_chips`).
-    "alarm.description_filter_prefixes": "Ausrückeordnung:",
+    # Same storage shape as the `/feld` chips above — ONE PREFIX PER LINE, edited in a
+    # Textarea, blank lines dropped on read (`parse_message_chips`).
+    #
+    # (1) Whole lines to DROP. Divera lets a brigade configure boilerplate
+    #     ("Ausrückeordnung: 1. TLF → 2. PIO") that then arrives on every emergency —
+    #     identical each time, so it is noise on the board and in every printout.
+    "alarm.description_filter_prefixes": "",
+    # (2) Labels to STRIP off the front of a line that is otherwise kept. Divera labels
+    #     its lines ("Meldung: Wasser dringt ein"), and our own UI already puts a
+    #     «Meldung» heading above that field, so the label reads twice on the card. A line
+    #     left with nothing behind its label is dropped: a label alone is not content.
+    "alarm.description_label_prefixes": "",
 }
 
 FELD_MESSAGE_CHIPS_KEY = "feld.message_chips"
 
 ALARM_DESCRIPTION_FILTER_PREFIXES_KEY = "alarm.description_filter_prefixes"
+ALARM_DESCRIPTION_LABEL_PREFIXES_KEY = "alarm.description_label_prefixes"
 
 
 def parse_message_chips(value: str | None) -> list[str]:
@@ -178,13 +185,24 @@ async def get_setting_value(db: AsyncSession, key: str, default: str | None = No
 
 
 async def get_alarm_description_filter_prefixes(db: AsyncSession) -> list[str]:
-    """Line prefixes to drop from an inbound alarm's description (one per line).
+    """Line prefixes whose whole line is dropped from an alarm description (one per line).
 
     Stored and parsed exactly like the `/feld` chips — a string-valued settings row
     edited in a Textarea — so the same tolerance for blank lines and stray spaces
-    applies. Applied by `services/divera_intake.filter_description_lines`.
+    applies. Empty by default: filter nothing until a station says otherwise.
+    Applied by `services/divera_intake.filter_description_lines`.
     """
     return parse_message_chips(await get_setting_value(db, ALARM_DESCRIPTION_FILTER_PREFIXES_KEY))
+
+
+async def get_alarm_description_label_prefixes(db: AsyncSession) -> list[str]:
+    """Labels stripped off the front of a KEPT alarm-description line (one per line).
+
+    The sibling of `get_alarm_description_filter_prefixes`: that one removes the whole
+    line, this one removes only the label and keeps what follows it. Empty by default.
+    Applied by `services/divera_intake.strip_description_labels`.
+    """
+    return parse_message_chips(await get_setting_value(db, ALARM_DESCRIPTION_LABEL_PREFIXES_KEY))
 
 
 # Marks a database as disposable — written only by the demo seeder, checked by the demo
