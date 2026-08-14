@@ -92,6 +92,7 @@ import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
 import { DiveraAlarmSettingsCard } from '@/components/divera/divera-alarm-settings-card';
 import { GpsSettingsCard } from '@/components/settings/gps-settings';
+import { AlarmDescriptionFilterSettings } from '@/components/settings/alarm-description-filter-settings';
 import { SyncStatusCard } from '@/components/sync/sync-status-card';
 import { SyncConfigCard } from '@/components/sync/sync-config-card';
 import { SyncHistoryCard } from '@/components/sync/sync-history-card';
@@ -777,6 +778,16 @@ export default function SettingsPage() {
               );
             })()}
             <DiveraAlarmSettingsCard
+              settings={settings}
+              serverSettings={serverSettings}
+              setSettings={setSettings}
+              updateSetting={updateSetting}
+              isEditor={isEditor}
+              saving={saving}
+            />
+            {/* Inbound side of Alarmierung: the standing lines the dispatch system
+                injects into every alarm text, dropped from the incident description. */}
+            <AlarmDescriptionFilterSettings
               settings={settings}
               serverSettings={serverSettings}
               setSettings={setSettings}
