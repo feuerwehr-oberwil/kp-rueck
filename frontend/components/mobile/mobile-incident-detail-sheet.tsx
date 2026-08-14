@@ -28,10 +28,12 @@ import {
   ChevronDown,
   Minus,
   Pencil,
+  Footprints,
 } from "lucide-react"
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { RemovableChip } from "@/components/ui/removable-chip"
+import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
@@ -351,11 +353,24 @@ export function MobileIncidentDetailSheet({
                 <Truck className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</span>
               </div>
-              {operation.vehicles.length > 0 ? (
+              {/* «Zu Fuss» is a deliberate state, not an absence: a crew that
+                  walked to the address has to read as such here, exactly as it
+                  does on the board and on the wall. Without it the sheet said
+                  «Keine Fahrzeuge zugewiesen» — the opposite of the truth. So
+                  the empty line is gated on BOTH facts, and the chip leads the
+                  row, in the same order as the board. */}
+              {operation.zuFuss || operation.vehicles.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
+                  {operation.zuFuss && (
+                    <RemovableChip variant="secondary" className="text-sm max-w-full font-normal">
+                      <Footprints className="flex-shrink-0" />
+                      <span>{tKanban('common.zuFuss')}</span>
+                    </RemovableChip>
+                  )}
                   {operation.vehicles.map((vehicleName) => {
                     const driverName = vehicleDrivers.get(vehicleName)
                     const callsign = operation.vehicleCallsigns.get(vehicleName)
+                    const driverStay = operation.vehicleDriverStay?.get(vehicleName)
                     return (
                       <RemovableChip
                         key={vehicleName}
@@ -369,6 +384,11 @@ export function MobileIncidentDetailSheet({
                             <span className="text-muted-foreground"> ({driverName})</span>
                           )}
                         </span>
+                        {/* Whether the driver stays with the vehicle — the same
+                            state the board and the wall carry per chip. The
+                            phone shows the state only; the toggle is a control
+                            and stays on the board. */}
+                        <DriverStayGlyph stays={driverStay} />
                       </RemovableChip>
                     )
                   })}
