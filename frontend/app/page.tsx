@@ -19,9 +19,8 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users, FileText, PanelRight } from 'lucide-react'
+import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users, FileText, PanelRight, Loader2 } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
-import { Skeleton } from "@/components/ui/skeleton"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -189,31 +188,24 @@ function ToolbarToggle({
 /**
  * What a resource sidebar shows while the first load is still in flight.
  *
- * Not a spinner and not a blank box: both sidebars used to render nothing at all
- * while their footers asserted «0/0 verfügbar» — i.e. that the station has no
- * crew and no material, which is a statement, not an absence of one. Rows in the
- * shape of the list that is coming say "wait" without saying anything false, and
- * nothing jumps when the real rows replace them.
+ * The point is not to look like the list — it is to stop the sidebar from
+ * lying. Both used to render nothing while their footers asserted «0/0
+ * verfügbar», i.e. that the station has no crew and no material, which is a
+ * statement rather than an absence of one. A spinner plus the «–/–» counter
+ * says «wait» without saying anything false.
+ *
+ * Deliberately not a skeleton: keeping placeholder rows in the true shape of
+ * the list means maintaining a second copy of the layout, and it buys nothing
+ * here beyond what a spinner already says.
  */
-function SidebarSkeleton({ label }: { label: string }) {
+function SidebarLoading({ label }: { label: string }) {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label={label}>
-      {[0, 1].map((group) => (
-        <div key={group}>
-          <Skeleton className="mb-2 h-3 w-16 rounded" />
-          <div className="space-y-2">
-            {/* Uneven widths on purpose: an evenly striped block reads as a
-                pattern, a ragged one reads as text that has not arrived. */}
-            {[88, 72, 94].map((width, row) => (
-              <Skeleton
-                key={row}
-                className="h-[38px] rounded-lg"
-                style={{ width: `${width}%` }}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+    <div
+      className="flex items-center justify-center py-10"
+      aria-busy="true"
+      aria-label={label}
+    >
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
     </div>
   )
 }
@@ -2008,7 +2000,7 @@ export default function FireStationDashboard() {
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? (
-                  <SidebarSkeleton label={tDash('personnelLoading')} />
+                  <SidebarLoading label={tDash('personnelLoading')} />
                 ) : personnel.length === 0 ? (
                   /* Nobody is checked in for this Ereignis — the QR is the way in.
                      The test used to be "nobody is *available*", which meant a board
@@ -2322,7 +2314,7 @@ export default function FireStationDashboard() {
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? (
-                  <SidebarSkeleton label={tDash('materialLoading')} />
+                  <SidebarLoading label={tDash('materialLoading')} />
                 ) : materials.length === 0 ? (
                   /* A fresh station: no Gerät has ever been recorded. The same
                      shape the Personal sidebar has always had for «niemand
