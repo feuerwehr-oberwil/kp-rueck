@@ -249,7 +249,7 @@ export function IncidentDetailModal({
                   {auftrag.name}
                 </span>
                 <span className="ml-auto text-xs font-mono uppercase tabular-nums text-muted-foreground">
-                  {tk('card.auftragStopPosition', {
+                  {tk('card.auftragStopLine', {
                     pos: (() => {
                       const idx = auftrag.stopIds.indexOf(operation.id)
                       return idx >= 0 ? idx + 1 : operation.groupPosition + 1

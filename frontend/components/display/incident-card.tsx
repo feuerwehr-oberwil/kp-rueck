@@ -128,6 +128,18 @@ export function DisplayIncidentCard({
         .filter(Boolean)
         .join(" · ")
     : ""
+  // The whole row as one string. Kept even though a wall has no pointer: the
+  // logged-in /display/board is also opened on a desk, and the attribute used to
+  // carry the Auftrag NAME — the one part of the row that was never cut off.
+  const auftragTitle = auftrag
+    ? [
+        auftrag.name,
+        t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal }),
+        auftragSummary,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : ""
 
   // Resolved up front for the same reason the kanban card does it: the resource
   // block owns a rule and a gap, so a block whose every row is switched off has
@@ -420,25 +432,28 @@ export function DisplayIncidentCard({
             somebody walks up to the wall to answer — a count cannot. */}
         {showAuftragBlock && auftrag && (
           <div className={cn("text-xs", !showResourceBlock && SECTION_RULE)}>
-            <div
-              className="flex w-full min-w-0 items-center gap-1.5"
-              title={t("card.auftragChipTooltip", { name: auftrag.name })}
-            >
-              <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+            <div className="flex w-full min-w-0 items-start gap-1.5" title={auftragTitle}>
+              <Waypoints className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
               <span
-                className="h-2 w-2 rounded-full flex-shrink-0"
+                className="h-2 w-2 rounded-full flex-shrink-0 mt-1"
                 style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
               />
-              <span className="max-w-[50%] flex-shrink-0 truncate font-medium text-foreground/80">{auftrag.name}</span>
-              <span className="tabular-nums text-muted-foreground flex-shrink-0">
-                {t("card.auftragStopPosition", { pos: auftragStopPos, total: auftragTotal })}
+              {/* Two lines, the same shape as the kanban card — and needed here
+                  more, not less. Measured on this board: one line gave the
+                  summary 19px of the 264px card at 1280 (39px of 284px at 1920)
+                  for 106px of content, so it rendered «P…», and a wall has
+                  nobody to hover the tooltip that could give it back. Split, the
+                  progress and the summary have 193px for ~161px of text and
+                  neither truncates at either width. */}
+              <span className="flex min-w-0 flex-1 flex-col gap-px">
+                <span className="truncate font-medium text-foreground/80">{auftrag.name}</span>
+                <span className="truncate text-2xs text-muted-foreground">
+                  <span className="tabular-nums">
+                    {t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal })}
+                  </span>
+                  {auftragSummary && <> · {auftragSummary}</>}
+                </span>
               </span>
-              {auftragSummary && (
-                <>
-                  <span className="flex-shrink-0 text-muted-foreground/40">·</span>
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">{auftragSummary}</span>
-                </>
-              )}
             </div>
             {auftragResources && auftragResources.personnel.length > 0 && (
               <div className="mt-1.5 flex items-start gap-1.5">

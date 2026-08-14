@@ -33,9 +33,13 @@ export function OperationDetailModal({
         // (`!pb-2`), which left the action bar 8px from an 8px-radius corner —
         // the bar sat IN the rounding while everything else kept a 24px gutter.
         // `p-5` rather than the base `p-6`: the four sides now agree, and 20px
-        // gives the fixed-height 85vh dialog back the content height that
+        // gives the fixed-height 85dvh dialog back the content height that
         // squaring the bottom would otherwise have cost it.
-        className="!w-[90vw] !h-[85vh] !max-w-6xl !p-5 flex flex-col overflow-hidden"
+        // `dvh`, not `vh`: on a mobile browser `vh` is measured against the
+        // viewport with the URL bar RETRACTED, so a `vh` dialog is taller than
+        // what is actually on screen and its bottom edge — the action bar —
+        // sits under the chrome. `dvh` follows the bar as it moves.
+        className="!w-[90vw] !h-[85dvh] !max-w-6xl !p-5 flex flex-col overflow-hidden"
         // Radix parks focus on the first tabbable child when a dialog opens —
         // which is the clock chip in the title row, so the first arrow key lit
         // a focus ring around the time and looked like the shortcut had gone
