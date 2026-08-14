@@ -87,10 +87,12 @@ def normalize_logo(raw: bytes, content_type: str | None = None) -> bytes:
             if img.width * img.height > MAX_IMAGE_PIXELS:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_INVALID_IMAGE)
             # Transparency is the point for a crest on white paper, so RGBA is kept.
-            img = img.convert("RGBA") if img.mode in ("RGBA", "LA", "P") else img.convert("RGB")
-            img.thumbnail(MAX_STORED_PX, Image.LANCZOS)
+            # Converting yields a new Image rather than the opened ImageFile, so it gets
+            # its own name — rebinding `img` is what the type checker objects to.
+            normalized = img.convert("RGBA") if img.mode in ("RGBA", "LA", "P") else img.convert("RGB")
+            normalized.thumbnail(MAX_STORED_PX, Image.Resampling.LANCZOS)
             out = BytesIO()
-            img.save(out, "PNG", optimize=True)
+            normalized.save(out, "PNG", optimize=True)
     except HTTPException:
         raise
     except (UnidentifiedImageError, OSError, ValueError) as exc:

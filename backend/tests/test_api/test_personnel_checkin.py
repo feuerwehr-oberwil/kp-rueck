@@ -309,9 +309,7 @@ async def test_checkout_not_checked_in(client: AsyncClient, valid_token: str, te
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_clear_attendance_returns_person_to_absent(
-    editor_client: AsyncClient, test_event: Event, test_personnel
-):
+async def test_clear_attendance_returns_person_to_absent(editor_client: AsyncClient, test_event: Event, test_personnel):
     """anwesend → gegangen → nicht anwesend, and the row is gone rather than blanked."""
     person = test_personnel[0]
     query = f"?event_id={test_event.id}"

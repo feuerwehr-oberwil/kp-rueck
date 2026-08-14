@@ -68,9 +68,11 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         "POST /{personnel_id}/in": "both",
         "POST /{personnel_id}/out": "both",
         "POST /event/{event_id}/out-all": "session",
-        # DELETE /{personnel_id} — the roll-call cycle's third click, deliberately
-        # not built (§4.2, answered 2026-08-10). It is absent from the route table
-        # and therefore absent here; when it lands it lands as "session".
+        # The roll-call cycle's third click, built after §4.2 was answered on
+        # 2026-08-10 — and it landed as "session", exactly as predicted there. A
+        # phone can say it arrived and that it left; "I was never here" corrects
+        # the record, which belongs to whoever keeps it.
+        "DELETE /{personnel_id}": "session",
     },
     "reko": {
         "POST /": "both",

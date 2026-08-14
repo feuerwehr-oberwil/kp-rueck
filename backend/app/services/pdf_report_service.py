@@ -395,9 +395,7 @@ _CANTON_BARE_RE = re.compile(r"^(.+?)\s+([A-Za-z]{2})$")
 # blank nor a digit, so a bare "12" and a coordinate ("47.516377") are excluded. A house
 # number of four digits or more is not recognised – the address is then left in the
 # order it arrived instead of being reordered on a guess.
-_STREET_WITH_NUMBER_RE = re.compile(
-    r"^.*[^\s\d]\s+\d{1,3}[A-Za-z]?(?:\s*[-/]\s*\d{1,3}[A-Za-z]?)?$"
-)
+_STREET_WITH_NUMBER_RE = re.compile(r"^.*[^\s\d]\s+\d{1,3}[A-Za-z]?(?:\s*[-/]\s*\d{1,3}[A-Za-z]?)?$")
 
 
 class _CityPart(NamedTuple):

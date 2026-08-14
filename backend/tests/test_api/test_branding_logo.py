@@ -121,8 +121,6 @@ class TestGenericSettingsSurface:
 
     @pytest.mark.asyncio
     async def test_patch_refuses_to_write_the_logo_key(self, editor_client: AsyncClient):
-        response = await editor_client.patch(
-            f"/api/settings/{LOGO_SETTING_KEY}", json={"value": "bm90LWFuLWltYWdl"}
-        )
+        response = await editor_client.patch(f"/api/settings/{LOGO_SETTING_KEY}", json={"value": "bm90LWFuLWltYWdl"})
         assert response.status_code == 403
         assert "branding/logo" in response.json()["detail"]
