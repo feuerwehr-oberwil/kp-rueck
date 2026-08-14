@@ -1275,7 +1275,6 @@ export default function FireStationDashboard() {
           activeFooterSheet !== 'auftraege' &&
           activeFooterSheet !== 'print') ||
         deleteDialogOpen,
-      sidePanelOpen: sidePanelMode !== 'collapsed',
       hoveredOperationId,
       operations,
       vehicleTypes,

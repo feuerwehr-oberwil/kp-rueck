@@ -18,8 +18,6 @@ interface VehicleType {
 export interface KanbanShortcutsState {
   /** True when any modal/dialog/sheet is open — disables every shortcut. */
   modalOpen: boolean
-  /** True when the side panel is showing (enables D/K view switch shortcuts). */
-  sidePanelOpen: boolean
   /** Currently-hovered operation, if any — actions that need a target read this. */
   hoveredOperationId: string | null
   operations: Operation[]
@@ -174,7 +172,6 @@ export function useKanbanShortcuts(
 ): void {
   const {
     modalOpen,
-    sidePanelOpen,
     hoveredOperationId,
     operations,
     vehicleTypes,
@@ -317,12 +314,12 @@ export function useKanbanShortcuts(
       // when the mode was already `detail`. A key that could not change anything.
       // It now opens the Drucken-Sheet; the palette entry for the panel stays,
       // where clicking it from a collapsed panel does still do something.
-      if (
-        (e.key === "k" || e.key === "K") &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        sidePanelOpen
-      ) {
+      //
+      // `k` carried the same leftover gate: it once switched the panel into a
+      // map mode, so it required an open panel. It navigates to /map now, which
+      // is nothing to do with the panel — with the panel folded the key did
+      // nothing at all, silently, while the palette advertised it. Ungated.
+      if ((e.key === "k" || e.key === "K") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         actions.onSidePanelMap()
         return
@@ -384,7 +381,6 @@ export function useKanbanShortcuts(
     return () => window.removeEventListener("keydown", handleKeyPress)
   }, [
     modalOpen,
-    sidePanelOpen,
     hoveredOperationId,
     operations,
     vehicleTypes,
