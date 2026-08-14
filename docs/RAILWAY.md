@@ -206,7 +206,7 @@ almost always one of these refusing a weak or missing value, and the message nam
 | Variable | Value | Notes |
 |---|---|---|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Railway reference, not a literal string. Railway hands out a `postgresql://` URL and the backend rewrites it to `postgresql+asyncpg://` itself (`config.py`), so paste it through unchanged |
-| `SECRET_KEY` | 32-byte hex | Signs check-in, Reko, viewer and alarm-intake tokens. **Required.** |
+| `SECRET_KEY` | 32-byte hex | Signs every public token: check-in, Reko, viewer, alarm-intake and `/feld`. **Required. Keep stable** — changing it invalidates every printed QR and poster |
 | `AUTH_SECRET_KEY` | 32-byte hex | Signs login/refresh JWTs. **Required. Keep stable** — changing it logs everyone out |
 | `ADMIN_SEED_PASSWORD` | 12+ characters | The initial `admin` login, created on first seed. **Required** |
 | `VIEWER_PASSWORD` | 12+ characters | The read-only `viewer` login. **Required** |

@@ -5,7 +5,7 @@ Digitaler Ersatz für die Magnettafel im Kommandoposten. Verwalten Sie Einsätze
 ## Ansichten
 
 ### Kanban-Board (`G K`)
-Hauptansicht beim Laden der App. Zeigt alle Einsätze in Status-Spalten (Eingegangen → Archiv). Links die Personal-Seitenleiste, rechts Material und Fahrzeuge.
+Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (Eingegangen → Abgeschlossen). Links die Personal-Seitenleiste, rechts Material und Fahrzeuge.
 
 **Die Ansicht bleibt, wie man sie eingestellt hat.** Zugeklappte Seitenleisten, das Seitenpanel und eine weggeklickte Einrichtungs-Checkliste überstehen einen Reload – pro Gerät gemerkt, wie die übrigen Anzeige-Einstellungen.
 
@@ -28,7 +28,7 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 **Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen – siehe [Tastaturkürzel](#tastaturkürzel).
 
 ### Seitenpanel (Kanban)
-Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel. Wechseln Sie zwischen **Details** (Einsatzbearbeitung) und **Karte** (Mini-Übersicht).
+Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **Details** des ausgewählten Einsatzes (Einsatzbearbeitung). Mit `I` bzw. `\` ein- und ausklappen. Eine Mini-Karte im Panel gibt es nicht mehr – die Karte ist eine eigene Seite (`G M`), und `K` öffnet den ausgewählten Einsatz dort.
 
 **Klick-Verhalten:**
 - **Einfach-Klick**: Zeigt Einsatz-Details im Seitenpanel
@@ -64,7 +64,7 @@ Für Kommandoposten mit mehreren Bildschirmen gibt es spezielle Anzeige-Seiten u
 Vollbild-Karte ohne Seitenleiste. Zeigt alle Einsatzorte, GPS-Fahrzeugpositionen und animierte Zuweisungslinien (Fahrzeug → Einsatz). Ideal für einen zentralen Lagebildschirm.
 
 ### Board (`/display/board`)
-Kanban-Board ohne Bearbeitungsmöglichkeiten. Alle 6 Status-Spalten werden gleichmässig auf die Fensterbreite skaliert.
+Kanban-Board ohne Bearbeitungsmöglichkeiten. Alle 7 Status-Spalten werden gleichmässig auf die Fensterbreite skaliert – auch auf einem schmalen Wandschirm bleibt keine Spalte draussen. **Abgeschlossen** ist standardmässig zugeklappt.
 
 Es ist **dieselbe Einsatzkarte wie im Kommandoposten**, nur ohne Bedienelemente – gleiche Blöcke, gleiche Reihenfolge, inklusive Reko-Person, Rapport-Zeichen, Mannschaft und Material mit Namen, Melder und offener Abholung. Das Detail zeigt zusätzlich die Funkmeldungen des Trupps.
 
@@ -146,9 +146,17 @@ Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" akt
 
 Alarme, die über den [Alarm-Link](#alarm-link-telefon-walk-in) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
 
-### Meldung anzeigen
+### Ansicht – was auf den Karten steht
 
-Im Footer gibt es einen "Meldung" Schalter. Aktiviert zeigt er den vollständigen Meldungstext direkt auf jeder Einsatzkarte an - praktisch für schnellen Überblick ohne jeden Einsatz zu öffnen.
+Im Footer sitzt das Menü **Ansicht**. Es bestimmt, welche Blöcke eine Einsatzkarte zeigt: Einsatzart, Zeiten, Meldung, Melder, Mannschaft, Fahrzeuge, Material, Auftrag und Reko – neun Schalter, dazu drei Vorlagen als Startpunkt:
+
+- **Kompakt** – nur der Kopf der Karte (möglichst viele Einsätze auf den Schirm)
+- **Standard** – alles ausser dem Melder
+- **Alles** – zusätzlich Melder und Telefonnummer
+
+Eine Vorlage setzt alle neun Schalter; danach ändert ein einzelner Schalter nur sich selbst, nichts springt zurück. **Adresse, Priorität und alle Warnhinweise** (Abholung, Rapport, Meldung vom Feld) lassen sich nicht abschalten.
+
+Die Einstellung gilt **pro Gerät** und überlebt einen Reload – zwei Arbeitsplätze am selben Ereignis dürfen sich unterscheiden, und ein Klick hier malt niemand anderem das Board um. Die Anzeige-Seiten unter `/display` folgen ihr nicht: eine Wand soll aus fünf Metern lesbar sein und zeigt immer die volle Karte.
 
 ### Karten-Icon
 
@@ -296,25 +304,29 @@ beide Zeilen. Beim Normalfall – jemand meldet sich selbst an – steht bewusst
 
 ### Mehrere Einsätze gleichzeitig
 
-- Mit `↑`/`↓` zwischen Einsätzen wechseln
+- Mit `S` oder `/` die richtige Karte suchen statt sie zu suchen
 - Prioritäten helfen beim Überblick (Rot = dringend)
 - Alters-Badges zeigen, welche Einsätze lange offen sind
-- Seitenpanel für Karte + Details nutzen (auf breiten Bildschirmen)
+- Seitenpanel für die Details nutzen (auf breiten Bildschirmen), Karte auf `G M`
+- Im offenen Detail-Dialog wechseln `←`/`→` zwischen den Reitern
 
 ---
 
 ## Einsatz-Workflow
 
-Einsätze durchlaufen 6 Phasen: **Eingegangen** → **Reko** → **Disponiert** → **Einsatz** → **Beendet** → **Archiv**
+Einsätze durchlaufen 7 Spalten: **Eingegangen** → **Reko** → **Reko abgeschlossen** → **Disponiert / Anfahrt** → **Im Einsatz** → **Beendet / Rückfahrt** → **Abgeschlossen**
 
-| Phase | Beschreibung |
+| Spalte | Beschreibung |
 |-------|-------------|
 | Eingegangen | Neu gemeldet, Details erfassen |
-| Reko | Erkundung vor Ort (optional) |
-| Disponiert | Ressourcen zugewiesen, unterwegs |
-| Einsatz | Aktive Arbeitsphase |
-| Beendet | Rückfahrt zur Basis |
-| Archiv | Beendet, Personal & Fahrzeuge automatisch freigegeben |
+| Reko | Erkundung vor Ort läuft (optional) |
+| Reko abgeschlossen | Reko-Bericht liegt vor, Entscheid steht aus |
+| Disponiert / Anfahrt | Ressourcen zugewiesen, Trupp unterwegs |
+| Im Einsatz | Aktive Arbeitsphase |
+| Beendet / Rückfahrt | Arbeit fertig, Trupp fährt zurück |
+| Abgeschlossen | Erledigt, Personal & Fahrzeuge automatisch freigegeben. Die Spalte lässt sich einklappen. |
+
+Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **Ereignis** als Ganzes (`G E`).
 
 **Verschieben:** Karte in neue Spalte ziehen, oder `>` / `<` Tasten nutzen.
 
@@ -426,7 +438,7 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 ### Global
 | Shortcut | Aktion |
 |----------|--------|
-| `Cmd/Ctrl+K` | Befehlspalette öffnen/schliessen |
+| `Cmd/Ctrl+K` oder `?` | Befehlspalette öffnen/schliessen |
 | `G K` | Kanban-Board |
 | `G M` | Kartenansicht |
 | `G E` | Ereignisse |
@@ -463,7 +475,7 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 | `Q` / `[` | Personal-Seitenleiste ein/aus |
 | `W` / `]` | Material-Seitenleiste ein/aus |
 | `I` / `\` | Seitenpanel ein/aus |
-| `K` | Seitenpanel: Karte anzeigen |
+| `K` | Ausgewählten Einsatz auf der Kartenseite öffnen (nur bei offenem Seitenpanel) |
 | `B` | Benachrichtigungen |
 | `P` | Personal suchen |
 | `M` | Material suchen |
@@ -592,7 +604,7 @@ Die lokale Instanz läuft unter `http://localhost:3000`.
 
 ## Thermodrucker
 
-Druckt Einsatzzettel und Board-Snapshots auf einem 58mm ESC/POS Thermodrucker (z. B. Epson TM-T20).
+Druckt Einsatzzettel und Board-Snapshots auf einem **80 mm** ESC/POS Thermodrucker (z. B. Epson TM-T20III oder kompatibel). Die Formatierung ist fix auf 80 mm ausgelegt – 48 Zeichen pro Zeile in Schrift A; auf einem 58-mm-Gerät bricht jede Zeile um.
 
 ### Aufbau
 

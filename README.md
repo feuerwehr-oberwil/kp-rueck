@@ -65,8 +65,8 @@ event, one operator at the board**, not scaled down from a dispatch center.
   and QR walk-in slips.
 - **Resilience:** paper Lageblatt PDF, automatic thermal board snapshots, and an outage SOP.
 - **Reporting:** after-action PDF report and Excel import/export.
-- **Access:** Editor (full CRUD) and Viewer (read-only) roles, a German (next-intl) UI, dark
-  mode, a ⌘K command palette with keyboard shortcuts, and a built-in help page.
+- **Access:** Editor (full CRUD) and Viewer (read-only) roles, a German and French (next-intl)
+  UI, dark mode, a ⌘K command palette with keyboard shortcuts, and a built-in help page.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the feature history.
 
@@ -74,8 +74,9 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the feature history.
 
 KP Rück is in operational use at Feuerwehr Oberwil and under active development. Each
 single-tenant deployment supplies its own branding, fleet, personnel roster, and integration
-credentials. The UI ships in German (Swiss firefighting terminology); a next-intl layer is in
-place, so additional locales are a tractable contribution.
+credentials. The UI ships in German (Swiss firefighting terminology) and French (CSSP
+terminology); the next-intl layer merges every locale over German, so a further language is a
+tractable contribution – it becomes selectable once it covers every German key.
 
 ## Quick Start
 
@@ -197,8 +198,11 @@ New connectors are welcome contributions – the alarm and alerting seams are th
 
 ## Known limitations
 
-- **German only.** The next-intl layer is in place, but `de.json` is the only catalogue, so a
-  non-German-speaking station has no UI today.
+- **The UI is German and French; everything the backend writes is German.** Both catalogues are
+  complete and both languages are selectable per device. But PDFs, Excel exports, thermal print
+  output and API error details are German-only, and no French-speaking firefighter has reviewed
+  the translation yet. Italian is a registered stub (`it.json` is empty) and stays hidden until
+  it covers every German key.
 - **The board needs a network.** Offline coverage means map tiles, the paper Lageblatt, and
   automatic thermal snapshots – not offline editing. When the connection goes, you go to paper;
   see [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md).
@@ -218,7 +222,7 @@ kp-rueck/
 ├── frontend/                 # Next.js 15 (App Router)
 │   ├── app/                  # Pages: dashboard, map, settings, help
 │   ├── components/           # React components + shadcn/ui
-│   ├── messages/             # next-intl catalog (de.json)
+│   ├── messages/             # next-intl catalogues (de.json canonical, fr.json complete)
 │   └── lib/                  # API client, contexts, utilities
 ├── backend/                  # FastAPI
 │   ├── app/api/              # Route handlers

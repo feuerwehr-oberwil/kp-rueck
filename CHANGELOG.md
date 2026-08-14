@@ -50,6 +50,35 @@ will keep holding.
   the audit log with `via: viewer_token` and no user – "nobody was signed in, somebody held
   the link" is the provenance.
 
+- **A Viewer-Link no longer carries the caller's name and phone number.** `/api/viewer/data` is
+  gated by nothing but a token in a URL, and a URL gets forwarded, screenshotted and taped to a
+  wall – yet it was serving whole incident rows, `contact`, `contact_phone` and `internal_notes`
+  included. The person who reported a flooded cellar is not part of the situation; the address
+  is. The shared payload is now an **allowlist** on both sides of the wire, built from what the
+  display actually draws, so a column added to the incident table can no longer reach a shared
+  link on its own – which is the property that matters in a year, not the two fields removed
+  today. Operator ids, workflow flags and the Divera user id go with them. Vehicles and
+  materials stay whole on purpose: a radio call sign is painted on the truck.
+  Also still withheld after that pass: the pickup note (unbounded operator free text) and
+  whether the KP has filed its Rapport – that is the office's state, not the situation's.
+  **What the wall display kept:** which crew member leads, and that a crew is waiting to be
+  picked up (a boolean and a timestamp, naming nobody). Both were collateral in the narrowing
+  and are back, because a shared board that cannot show "this squad is standing at the kerb" is
+  missing a fact about the incident.
+
+- **A `/feld` link can now be bound to one person.** Every person-scoped `/feld` endpoint
+  enforces the binding, and a token whose binding is unreadable is rejected outright rather than
+  quietly widened to the whole event. Nothing mints a bound link yet, so every printed poster
+  and Einsatzzettel keeps working exactly as before.
+  ⚠️ **This does not make `/feld` an identity.** An unbound link – which is what both the wall
+  poster and the printed Einsatzzettel carry – is a credential for the **whole Ereignis**:
+  `/feld` hands any holder the full crew picker, so whoever has the link can read, and write as,
+  any crew in that event. That is the price of one shared QR, it is now written down where the
+  code says it rather than promised otherwise, and closing it needs a decision (personal links,
+  or a PIN). Practical consequence unchanged: collect the printed slips at the end of an
+  Ereignis – see [`docs/SETUP.md`](docs/SETUP.md) §7 and the token table in
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ### Added
 
 - **The landing page speaks French, and it is generated rather than written twice.**
@@ -66,12 +95,13 @@ will keep holding.
   ⚠️ **The built pages are committed**, because GitHub Pages serves `site/` verbatim: the page in
   the repo *is* the page on the web. `node site/build.mjs --check` runs in `frontend-build` so a
   stale build fails loudly instead of silently serving yesterday's text.
-  ⚠️ **The French page says twice, in plain words, that the app itself does not speak French yet**
-  (`frontend/messages/fr.json` is still `{}` – plan 06). Both spots are named in `site/README.md`
-  so they get corrected when plan 06 lands, rather than promising an interface that does not
-  exist. It also carries a visible line saying no French-speaking firefighter has read the
-  translation yet – that line comes off when somebody has, and it is the same reviewer plan 06
-  needs.
+  The page deliberately says nothing about the app's own language: German is named only where a
+  visitor meets it anyway – the **demo** runs in German and the screenshots come from it. That
+  is a fact about the demo, not a claim about the product, so it stayed true when the app's
+  French catalogue landed later in this same release (see *"Die App spricht Französisch"* below).
+  It does carry a visible line saying no French-speaking firefighter has read the translation
+  yet – that line comes off when somebody has, and it is the same reviewer the interface
+  translation needs.
   French terminology follows the **CSSP** (the FKS's French name) rather than French-from-France
   usage: *signes conventionnels* not *signes tactiques*, *équipe* not *binôme*, *surveillance PR*
   not *surveillance ARI*, *assistance technique* not *secours techniques*.
@@ -181,6 +211,33 @@ will keep holding.
   setup checklist survive a reload, per device. Closing a sidebar you never use was, until now,
   a thing you did again after every refresh.
 
+- **Die App spricht Französisch – Français steht jetzt in der Sprachauswahl.** `fr.json` covered
+  2604 of German's 2661 keys, and the picker's gate is *complete* coverage, not *some*: 96 %
+  translated showed up as no French at all. The 69 missing keys are translated, 12 dead ones
+  dropped and three corrected where the German had drifted since; both catalogues now stand at
+  2669 leaves. Terminology follows what the file already established – Schadenplatz = *place
+  sinistrée*, Reko = *reconnaissance*, Auftrag = *mission*. The in-app help page has a French
+  version too.
+  Language is chosen **per device** (Einstellungen → Sprache, stored in the `NEXT_LOCALE`
+  cookie), so two workstations on one Ereignis can disagree. Two honest limits: **everything the
+  backend writes stays German** – PDFs, Excel exports, thermal print and API error details – and
+  **no French-speaking firefighter has read the translation yet**. Italian is registered but
+  empty and therefore stays out of the picker.
+  ⚠️ For contributors: a German key added without its French counterpart drops French out of the
+  picker entirely. The two catalogues have to stay leaf-for-leaf equal.
+
+- **Der Speicherplatz-Alarm löst jetzt wirklich aus.** «Datenbank (GB)» and «Foto-Limit (GB)»
+  were editable limits in the settings whose check behind them always returned nothing – an operator
+  configured a safeguard that did not exist, on a station box where the app, Postgres and the
+  photos share one disk. The two are now measured, and deliberately **never summed**: compose
+  puts the database and the photos on different volumes, so one combined number would mean
+  nothing. A value that cannot be measured stays silent rather than reading as "plenty of room".
+  Measured at most every 5 minutes, because the notification endpoint is polled by every open
+  board; with both limits off, nothing is measured at all. The warning is a warning, not a
+  critical alert – a full disk must not put a dialog over the board during an Einsatz.
+  **Setting a limit to 0 (or clearing the field) switches it off.** Until now the input rejected
+  anything below 1 GB, so a limit could be set but never unset.
+
 ### Changed
 
 - **Der Einsatzbericht sieht aus wie der Einsatzrapport aus KP Front.** Eine Nacht kann
@@ -270,6 +327,34 @@ will keep holding.
   left always was. The detail opener sits in the top corner rather than beside the sidebar
   chevron.
 
+- **Ein Wort pro Sache – die deutschen Bezeichnungen sind vereinheitlicht.** Material was called
+  four different things (Mittel / Material / Gerät / Einheiten) while «Mittel» was *also* the
+  label for medium priority, so one word meant both a resource and an urgency. Sharpest case: a
+  dialog headed «Material vor Ort oder ins Magazin?» over a body reading «Entscheide pro
+  Mittel». **Material** is now the category, **Mittel** is priority only, and a single countable
+  item is a **Gerät** – «3 Geräte noch vor Ort» is what a crew says.
+  In the same pass: «Einsatz» named both the whole thing and one of its seven columns, so a card
+  could be an Einsatz in Einsatz – the column is **«Im Einsatz»** now. Aufgebot and Alarm are
+  separated (the footer's «Alarm» is the *inbound* intake link, the opposite direction). Five
+  names for the Reko report collapse to **Reko-Bericht**, and Personal / Personen / BESATZUNG to
+  **Mannschaft**. About 20 strings gained real plural rules, replacing «Fahrzeug(e)» and
+  «1 Trupps» – including a typo inside one, which rendered «Einsatze» in exactly the branch
+  operators see. French mirrors every change.
+
+- **Die Kartenränder bedeuten überall dasselbe.** Two screens hang on the same wall and
+  disagreed: the coloured left edge of a card meant **priority** on the board and the share
+  board, but **status** on the status display – the same stripe, two meanings, side by side in a
+  command post. The edge is priority everywhere now. The status page loses nothing: rows stay
+  grouped by status in board order, each group header names it in words and carries the board
+  column's tint, and every row gets a status dot in that colour, so a row scrolled away from its
+  header still says which column it is in. Low priority was also grey on two surfaces and green
+  on all the others; there is one colour table now.
+
+- **Spaltenköpfe sind wieder Grossbuchstaben, aber leiser.** The board's column headers had been
+  set in caps deliberately; a cleanup removed it. They are back – as small spaced caps in muted
+  grey, not at card-title size. A column header names a place, a card header names an Einsatz,
+  and when both were drawn the same the eye stopped finding the column boundaries.
+
 ### Fixed
 
 - **Fünf Fehler im Einsatzbericht, gefunden beim Ausdrucken statt beim Lesen des Codes.**
@@ -339,6 +424,94 @@ will keep holding.
   effect ran in the same flush and persisted the fallback *over* the stored value, and
   StrictMode's second read picked that up – so a sidebar you closed came back open. Covered by a
   regression test that runs under an explicit `StrictMode`.
+
+- **Die Glocke behauptet nicht mehr, alles sei in Ordnung, wenn sie den Server nicht erreicht.**
+  A failed notification fetch was indistinguishable from an empty list, so the panel said «Alles
+  ist in Ordnung» while the backend was unreachable. The honest answer is "I cannot tell", and
+  that is what it says now – with one sticky toast instead of the dozen a minute a failing poll
+  would otherwise raise on top of an outage.
+
+- **Reko-Gefahren verschwinden nicht mehr fünf Sekunden nach dem Aktualisieren.** The two board
+  load paths each carried their own copy of the danger derivation and the polling one had lost
+  Brandgefahr: a Reko whose only hazard was fire showed its chips on a manual refresh and dropped
+  them at the next poll – on the card, the wall display and the mobile warning triangle. One
+  derivation feeds both now. A card whose danger *changed* (Einsturz → Brandgefahr) also kept
+  showing the old chip, because the repaint check compared how many dangers there were rather
+  than which. Same class of bug fixed for a renamed Reko person, the Nachbarhilfe note and the
+  vehicle call signs, all of which are drawn on the card and none of which were compared.
+
+- **Ein 3-px-Zucken auf einer Karte gilt nicht mehr als Umsortieren.** The board wrote a new
+  order to the server for a mouse twitch. "Did anything actually move?" is now answered before
+  anything is saved.
+
+- **Die Wandanzeige zeigt wieder alle Spalten.** Below 1800 px the display board's column width
+  floor pushed columns off-screen – 508 px of them at 1280, so BEENDET/RÜCKFAHRT and
+  ABGESCHLOSSEN were simply not there. A wall screen has no mouse, so scrolling sideways was
+  never a recovery. Cards get narrower instead; nothing changes at 1920. In the same pass: any
+  banner (stale data, truncation) used to push the bottom chrome exactly its own height off the
+  screen, and a fresh kiosk profile had no way to pick an Ereignis – the picker lives on
+  `/display`, not in the wall header, because a control that changes what a whole room is
+  watching should not sit one stray click from the board.
+
+- **Ein Viewer stolpert nicht mehr über den Rapport.** Anyone opening an incident with a
+  read-only account got «Rapport konnte nicht geladen werden.» plus two error toasts, every
+  time: the detail always mounted the Schadenplatz-Rapport section, whose endpoint is
+  editor-only because it holds citizen data. The Reko report, the Funkmeldungen and the Verlauf
+  stay visible – those are open to any signed-in user.
+
+- **Eine auswärtige Adresse zeigt ihren Ort, nicht zweimal ihre Strasse.** A raw address came out
+  as «Bahnhofstrasse 12, Bahnhofstrasse»: the formatter took the component after the street as
+  the town, but the geocoder puts the house number first when there is one. For a Nachbarhilfe
+  incident the town is the one thing that has to be right. Two more defects fell out of it – the
+  country test never matched the multilingual «Schweiz/Suisse/Svizzera/Svizra», so the whole
+  string leaked onto the card, and an address with no town repeated the street. Known limit,
+  written down in both copies: a canton without districts whose name differs from its town
+  (Carouge GE, Baar ZG) still shows the canton.
+
+- **Enter tut wieder das, was das fokussierte Element bedeutet.** Merely *resting* the pointer on
+  a card made the board eat `Enter` – with the Karte link focused, Enter opened the hovered card
+  instead of following the link. On a dense board the pointer is over a card most of the time, so
+  Enter was effectively dead for the whole keyboard UI. Related: map shortcuts fired underneath
+  open menus and dialogs (`l` toggled Labels while the menu's own typeahead moved the selection),
+  and `b` toggled the notification sidebar under an open user menu. And the command palette
+  advertised `D` twice – the side-panel command it named has no key bound to it any more, so the
+  stale hint is gone while the command stays.
+
+- **Ein Doppelklick kann ein Ereignis nicht mehr zweimal löschen.** Measured: a double-click on
+  «Dauerhaft löschen» fired two deletes, and on «Archivieren» two archives. Delete takes every
+  incident under the event with it and has no undo. The confirm button now disables with a
+  spinner on the first click, Cancel disables with it, and the dialog refuses to close while the
+  request is out – otherwise Esc dismisses it and the whole thing can be fired again.
+
+- **Eine grosse Mannschaft begräbt die Karten unter sich nicht mehr.** A card with 30 crew
+  measured 771 px, so its own header scrolled away and every card below it became unreachable.
+  Crew and material cap at six chips with a «+N weitere» that opens the detail: 771 px → 355 px.
+  Four more things in the same pass: the sidebars claimed «0/0 verfügbar» while still loading
+  (asserting there is no crew and no material) and blanked the list on a search that matched
+  nothing while the footer still read «10/17» – both are now honest, with a named empty state
+  and a reset; a fresh station's material sidebar was just an empty box and now points into the
+  settings; the Auftrag row on a card crammed 107 px of text into 49 px with no way to recover
+  it by hovering, and takes two lines now; and the footer strip dropped Rapporte, Drucken,
+  Übungs-Steuerung and Ansicht off its right edge whenever the notification sidebar was open –
+  whatever does not fit moves into an overflow menu, verified from 1024 to 2560 px.
+
+- **Vier Stellen in der Dokumentation, die einem Selbst-Hoster einen Abend oder einen Fehlkauf
+  gekostet hätten.** The in-app help said the thermal printer is **58 mm** – it is **80 mm**
+  (48 characters in Font A, verified on the machine), and a station buying from that sentence
+  would have bought a printer that wraps every line. The same help described a six-column
+  workflow ending in an «Archiv» that does not exist: there are **seven** columns, and
+  archiving happens on the *Ereignis*, not on a single incident. It also still documented a
+  «Meldung» switch and a map mode in the side panel, both of which the «Ansicht» menu and the
+  separate map page replaced. And [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) called the
+  Viewer, Check-In and Reko tokens "long-lived" when all three last **24 hours**, gave the login
+  token 24 h when it is **8 h**, and omitted the two 30-day tokens (Alarm and Feld) entirely –
+  that is the table somebody reads to decide who gets which link, so it now lists every token
+  with its real lifetime.
+
+- **Die Testsuite ruft nicht mehr den produktiven GPS-Server an.** Anybody running `pytest` with
+  a populated `backend/.env` was making live requests to the station's Traccar box on every run.
+  The suite now blocks real outbound sockets outright, so a test can neither depend on the GPS
+  server being up nor add load to it.
 
 ## [0.5.0] – 2026-08-08
 

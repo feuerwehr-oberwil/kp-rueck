@@ -5,7 +5,13 @@ Remplacement numérique du tableau magnétique du poste de commandement. Gère l
 ## Vues
 
 ### Tableau kanban (`G K`)
-Vue principale au chargement de l’application. Affiche toutes les interventions dans des colonnes de statut (Reçu → Archive). À gauche la barre latérale du personnel, à droite le matériel et les véhicules.
+Vue principale au chargement de l’application. Affiche toutes les interventions dans sept colonnes de statut (Reçu → Clôturé). À gauche la barre latérale du personnel, à droite le matériel et les véhicules.
+
+**La vue reste telle qu’on l’a réglée.** Les barres latérales repliées, le panneau latéral et une liste de mise en route écartée survivent à un rechargement – mémorisés par appareil, comme les autres réglages d’affichage.
+
+**« 3 engins sur place » en tête de la barre du matériel.** Le matériel qu’une équipe a laissé quelque part est autrement invisible sur le tableau – il n’est ni libre ni visiblement en service. La liste dépliante indique l’engin, l’adresse et depuis quand, le plus ancien en haut ; un clic ouvre l’intervention correspondante. Elle n’apparaît que s’il y a réellement quelque chose dehors.
+
+**« Rapports » dans la barre du bas.** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
 
 ### Vue carte (`G M`)
 Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs colorés indiquent la priorité (vert/jaune/rouge).
@@ -22,7 +28,7 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 **Clavier :** `L` étiquettes, `I` lignes, `1-5` afficher un véhicule – voir [Raccourcis clavier](#raccourcis-clavier).
 
 ### Panneau latéral (kanban)
-Sur les écrans larges (>1280 px), un panneau latéral apparaît à droite. Bascule entre **Détails** (édition de l’intervention) et **Carte** (mini vue d’ensemble).
+Sur les écrans larges (>1280 px), un panneau latéral apparaît à droite avec les **détails** de l’intervention sélectionnée (édition de l’intervention). Se replie et se déplie avec `I` ou `\`. Il n’y a plus de mini-carte dans le panneau – la carte est une page à part (`G M`), et `K` y ouvre l’intervention sélectionnée.
 
 **Comportement au clic :**
 - **Simple clic** : affiche les détails de l’intervention dans le panneau latéral
@@ -41,10 +47,10 @@ Cette page de documentation.
 
 **Export d’audit :** Réglages → Import/export → choisir un événement → export Excel. Contient toutes les interventions, les attributions (historique compris), les changements de statut et les rapports de reconnaissance. Pour la facturation et le débriefing. Le journal d’audit est nettoyé automatiquement en arrière-plan (conservation par défaut 90 jours, 7 jours en mode démo), afin que la table ne grossisse pas indéfiniment.
 
-**Imprimer (PDF) :** barre du bas → « Imprimer » ouvre l’aperçu avant impression avec des options :
-- Filtrer les interventions par statut
-- Vue d’ensemble cartographique (montre tous les lieux d’intervention sur une carte)
-- Afficher l’état des véhicules
+**Impression et export :** barre du bas → « Imprimer » ou touche `D` ouvre **un seul** panneau à trois colonnes – tout ce qui part sur papier ou dans un fichier au même endroit :
+- **Impression thermique** – instantané du tableau sur l’[imprimante thermique](#imprimante-thermique)
+- **Imprimer l’état (A4)** – aperçu avant impression avec options : filtrer les interventions par statut, vue d’ensemble cartographique (montre tous les lieux d’intervention sur une carte), afficher l’état des véhicules
+- **Export** – rapport (PDF), feuille de situation (A4) et audit (XLSX) comme fichier sur cet appareil
 
 ---
 
@@ -58,7 +64,11 @@ Pour les postes de commandement dotés de plusieurs écrans, des pages d’affic
 Carte plein écran sans barre latérale. Montre tous les lieux d’intervention, les positions GPS des véhicules et les lignes d’attribution animées (véhicule → intervention). Idéal pour un écran de situation central.
 
 ### Tableau (`/display/board`)
-Tableau kanban sans possibilité d’édition. Les 6 colonnes de statut sont mises à l’échelle uniformément sur la largeur de la fenêtre.
+Tableau kanban sans possibilité d’édition. Les 7 colonnes de statut sont mises à l’échelle uniformément sur la largeur de la fenêtre – même sur un écran mural étroit, aucune colonne ne reste dehors. **Clôturé** est replié par défaut.
+
+C’est **la même carte d’intervention qu’au poste de commandement**, seulement sans les commandes – mêmes blocs, même ordre, y compris la personne de reconnaissance, le marqueur de rapport, l’effectif et le matériel avec leurs noms, l’annonceur et un ramassage en attente. Le détail montre en plus les messages radio du groupe.
+
+Le mur ne suit **pas** la « Vue » de l’opérateur : *Compact* existe pour caser plus de cartes sur un tableau auquel on travaille – un mur, lui, doit être lisible à cinq mètres. La page d’affichage n’a pas de commutateur pour cela et montre donc toujours la carte complète.
 
 ### État (`/display/status`)
 Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans.
@@ -81,7 +91,9 @@ Sous Réglages → Style de carte, on peut passer d’un style à l’autre : Op
 
 ## Recherche
 
-La barre de recherche (`/`) parcourt toutes les interventions par adresse, genre et texte de l’annonce. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
+La barre de recherche (`S` ou `/`) parcourt toutes les interventions par adresse, genre, texte de l’annonce et **nom de mission** – qui cherche l’itinéraire en trouve les étapes. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
+
+Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte.
 
 ---
 
@@ -134,9 +146,17 @@ Pour les interventions avec l’appui d’un corps voisin, « Entraide » peut �
 
 Les alarmes saisies via le [lien d’alarme](#lien-dalarme-téléphone-guichet) affichent en haut à droite un **symbole de téléphone** bleu (aligné avec les autres symboles de statut). Il signale les annonces provenant d’une source non vérifiée, que la conduite de l’intervention devrait contrôler.
 
-### Afficher l’annonce
+### Vue – ce qui figure sur les cartes
 
-La barre du bas comporte un commutateur « Annonce ». Activé, il affiche le texte complet de l’annonce directement sur chaque carte d’intervention – pratique pour avoir une vue rapide sans ouvrir chaque intervention.
+Le menu **Vue** se trouve dans la barre du bas. Il détermine les blocs qu’affiche une carte d’intervention : genre d’intervention, horaires, annonce, annonceur, effectif, véhicules, matériel, mission et reconnaissance – neuf commutateurs, plus trois modèles comme point de départ :
+
+- **Compact** – seulement l’en-tête de la carte (le plus d’interventions possible à l’écran)
+- **Standard** – tout sauf l’annonceur
+- **Tout** – en plus l’annonceur et son numéro de téléphone
+
+Un modèle règle les neuf commutateurs ; ensuite, un commutateur ne change que lui-même, rien ne revient en arrière. **L’adresse, la priorité et tous les avertissements** (ramassage, rapport, annonce du terrain) ne peuvent pas être désactivés.
+
+Le réglage vaut **par appareil** et survit à un rechargement – deux postes de travail sur le même événement ont le droit de diverger, et un clic ici ne repeint le tableau de personne d’autre. Les pages d’affichage sous `/display` ne le suivent pas : un mur doit être lisible à cinq mètres et montre toujours la carte complète.
 
 ### Icône de carte
 
@@ -176,7 +196,7 @@ Un clic droit sur une carte d’intervention ouvre un menu avec les options suiv
 5. Remplir le formulaire de reconnaissance, téléverser des photos
 6. Sur la base du rapport : engager ou clôturer
 
-**Où atterrit le résultat de la reconnaissance :** dans le détail de l’intervention – y compris dans les vues d’affichage sous `/display` – la rubrique **Résultat de la reconnaissance** donne l’appréciation, les dangers, les besoins en personnel et en temps, le texte de situation **et les photos téléversées**. Un clic sur une image l’ouvre en taille réelle. Les images sont derrière l’authentification ; elles ne sont pas visibles via un lien de partage sans connexion.
+**Où atterrit le résultat de la reconnaissance :** dans le détail de l’intervention – y compris dans les vues d’affichage sous `/display` – la rubrique **Résultat de la reconnaissance** donne l’appréciation, les dangers, les besoins en personnel et en temps, le texte de situation **et les photos téléversées**. Un clic sur une image l’ouvre en taille réelle. Les images sont **aussi** visibles via un lien de partage – sans connexion, pour toute personne qui détient le lien. Seules apparaissent alors les photos des rapports de reconnaissance **envoyés** de l’événement lié ; les photos d’un brouillon et celles du rapport de place sinistrée restent derrière l’authentification. Qui transmet le lien transmet les photos de reconnaissance avec.
 
 **Sans téléphone dehors :** si l’officier annonce par radio plutôt que par le lien,
 le même rapport est saisi au PC – voir
@@ -288,31 +308,37 @@ s’annonce lui-même – rien n’est écrit, délibérément.
 
 ### Plusieurs interventions à la fois
 
-- Passer d’une intervention à l’autre avec `↑`/`↓`
+- Chercher la bonne carte avec `S` ou `/` plutôt que de la chercher des yeux
 - Les priorités aident à garder la vue d’ensemble (rouge = urgent)
 - Les badges d’ancienneté montrent quelles interventions sont ouvertes depuis longtemps
-- Utiliser le panneau latéral pour la carte et les détails (sur les écrans larges)
+- Utiliser le panneau latéral pour les détails (sur les écrans larges), la carte est sur `G M`
+- Dans la fenêtre de détail ouverte, `←`/`→` passent d’un onglet à l’autre
 
 ---
 
 ## Déroulement d’une intervention
 
-Une intervention traverse 6 phases : **Reçu** → **Reconnaissance** → **Engagé** → **Intervention** → **Terminé** → **Archive**
+Une intervention traverse 7 colonnes : **Reçu** → **Reconnaissance** → **Reconnaissance terminée** → **Engagé / en route** → **En intervention** → **Terminé / retour** → **Clôturé**
 
-| Phase | Description |
+| Colonne | Description |
 |-------|-------------|
 | Reçu | Nouvellement annoncée, détails à saisir |
-| Reconnaissance | Reconnaissance sur place (facultative) |
-| Engagé | Ressources attribuées, en route |
-| Intervention | Phase de travail active |
-| Terminé | Retour à la base |
-| Archive | Terminée, personnel et véhicules libérés automatiquement |
+| Reconnaissance | Reconnaissance sur place en cours (facultative) |
+| Reconnaissance terminée | Le rapport de reconnaissance est là, la décision reste à prendre |
+| Engagé / en route | Ressources attribuées, le groupe est en route |
+| En intervention | Phase de travail active |
+| Terminé / retour | Travail achevé, le groupe rentre |
+| Clôturé | Réglé, personnel et véhicules libérés automatiquement. La colonne peut être repliée. |
+
+Il n’existe pas d’« archive » pour une intervention isolée – c’est l’**événement** entier qui s’archive (`G E`).
 
 **Déplacer :** faire glisser la carte dans une nouvelle colonne, ou utiliser les touches `>` / `<`.
 
 **Ordre à l’intérieur d’une colonne :** les cartes se trient par glisser-déposer à l’intérieur d’une même colonne. L’ordre manuel est conservé et s’affiche à l’identique après un rechargement ou sur d’autres appareils (il ne revient plus à l’ordre initial).
 
 **Sauter des colonnes :** autorisé. Toutes les interventions n’ont pas besoin d’une reconnaissance.
+
+**Annonce du terrain « intervention terminée » :** l’indication sur la carte ou dans le détail déplace l’intervention d’un clic vers **Terminé / retour** – et s’arrête là. Elle ne lance **pas** la clôture (relevé du matériel, questions en retour) : le groupe est justement en train de rentrer, et c’est exactement cette colonne. La clôture vient après, comme d’habitude. Si le groupe a besoin d’être ramené, il annonce un **ramassage** – qui apparaît comme bandeau propre dans le détail de l’intervention, juste à côté de l’annonce du terrain.
 
 ---
 
@@ -417,7 +443,7 @@ saisie a le focus.
 ### Global
 | Raccourci | Action |
 |----------|--------|
-| `Cmd/Ctrl+K` | Ouvrir/fermer la palette de commandes |
+| `Cmd/Ctrl+K` ou `?` | Ouvrir/fermer la palette de commandes |
 | `G K` | Tableau kanban |
 | `G M` | Vue carte |
 | `G E` | Événements |
@@ -431,6 +457,7 @@ saisie a le focus.
 | `N` | Nouvelle intervention |
 | `A` | Ouvrir/fermer les missions (itinéraires) |
 | `S` / `/` | Mettre le focus sur la recherche |
+| `D` | Ouvrir/fermer Impression et export |
 | `R` / `F5` | Actualiser |
 | `F` | État des véhicules |
 
@@ -453,8 +480,7 @@ saisie a le focus.
 | `Q` / `[` | Barre latérale du personnel afficher/masquer |
 | `W` / `]` | Barre latérale du matériel afficher/masquer |
 | `I` / `\` | Panneau latéral afficher/masquer |
-| `D` | Panneau latéral : afficher les détails |
-| `K` | Panneau latéral : afficher la carte |
+| `K` | Ouvrir l’intervention sélectionnée sur la page carte (panneau latéral ouvert requis) |
 | `B` | Notifications |
 | `P` | Rechercher du personnel |
 | `M` | Rechercher du matériel |
@@ -506,7 +532,11 @@ En mode démo public, chaque connexion éditeur (`demo-editor`) reçoit une **si
 
 ### Lien observateur (lecture seule)
 
-Pour les personnes sans compte : barre du bas → « Observateur » génère un lien valable 24 h. Il montre le tableau kanban et la carte sans possibilité d’édition. Actualisation automatique toutes les 5 secondes.
+Pour les personnes sans compte : barre du bas → « Observateur » génère un lien valable 24 h. Il montre le tableau kanban et la carte sans possibilité d’édition – la même carte d’intervention qu’au poste de commandement. Actualisation automatique toutes les 5 secondes.
+
+**Le lien montre désormais aussi le résultat de la reconnaissance** : pertinent oui/non, dangers, estimation de l’engagement, rapport bref **et les photos de la place sinistrée**. Auparavant il n’y figurait que le fait *qu’*une reconnaissance avait eu lieu – ce qui rendait le lien peu utile pour la commune ou un corps voisin.
+
+> **Qui détient le lien voit cela.** Délibérément **non** inclus : le champ « Autres remarques » (texte libre dans lequel des riverains sont régulièrement nommés), **qui** a saisi le rapport, et les photos d’un brouillon non encore envoyé. Les photos du rapport de place sinistrée restent elles aussi derrière l’authentification. Le lien vaut pour **un** événement : un lien transmis n’ouvre rien d’un autre. À transmettre en connaissance de cause.
 
 ### Lien d’alarme (téléphone / guichet)
 
@@ -579,7 +609,7 @@ L’instance locale tourne sur `http://localhost:3000`.
 
 ## Imprimante thermique
 
-Imprime les fiches d’intervention et les instantanés du tableau sur une imprimante thermique ESC/POS 58 mm (p. ex. Epson TM-T20).
+Imprime les fiches d’intervention et les instantanés du tableau sur une imprimante thermique ESC/POS **80 mm** (p. ex. Epson TM-T20III ou compatible). La mise en forme est fixée sur 80 mm – 48 caractères par ligne en police A ; sur un appareil 58 mm, chaque ligne se renvoie à la ligne.
 
 ### Montage
 
@@ -597,7 +627,7 @@ Un **agent d’impression** tourne sur un Raspberry Pi dans le réseau du poste 
 | Travail | Déclencheur | Contenu |
 |---------|----------|--------|
 | **Fiche d’intervention** | Automatiquement au statut « Engagé »/« Intervention », ou clic droit → « Imprimer la fiche d’intervention » | Adresse, genre, priorité, description, véhicules, personnel, matériel |
-| **Instantané du tableau** | Bouton « Thermique » dans la barre du bas → choisir les options → « Imprimer » | Vue d’ensemble de l’événement, interventions avec détails, état des véhicules, liste du personnel |
+| **Instantané du tableau** | Barre du bas → « Imprimer » (ou touche `D`) → colonne **Impression thermique** → choisir les options → « Imprimer » | Vue d’ensemble de l’événement, interventions avec détails, état des véhicules, liste du personnel |
 | **Fiche code QR** | Dans les panneaux Arrivée / Reconnaissance / Observateur / Alarme → symbole d’imprimante | Titre, brève description et code QR scannable du lien – à distribuer sur papier |
 
 ### Fiche code QR
@@ -606,7 +636,7 @@ Chaque panneau de lien (arrivée du personnel, tableau de reconnaissance, lien o
 
 ### Options de l’instantané du tableau
 
-Un clic sur « Thermique » ouvre une fenêtre de sélection :
+La colonne **Impression thermique** du panneau d’impression comporte pour cela trois commutateurs :
 
 - **Interventions terminées** – inclure aussi les interventions archivées (par défaut : désactivé)
 - **État des véhicules** – afficher la disponibilité de tous les véhicules (par défaut : activé)

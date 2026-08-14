@@ -303,10 +303,14 @@ open http://localhost:8080
 - **Training vs Live**: Same database, filtered by `training_flag` on incidents
 - **i18n**: German is canonical (`messages/de.json`); `fr`/`it` are deep-partial overlays
   merged over German (`lib/i18n-messages.ts`) – missing keys fall back to the German string.
-  The language picker in Settings only offers locales whose overlay contains translations
-  (`AVAILABLE_LOCALES`), so empty stubs stay invisible. Locale is per-device via the
-  `NEXT_LOCALE` cookie. Backend output (API error details, PDFs, exports, thermal print)
-  is German-only for now.
+  The language picker in Settings offers a locale only when its overlay covers **every** German
+  leaf (`coversGerman` → `AVAILABLE_LOCALES`) – not "has some translations": one missing key
+  hides the language entirely. So **`de.json` and `fr.json` must stay leaf-for-leaf equal**
+  (currently 2669 each); adding a German key without the French one silently drops French out
+  of the picker. Today: **`de` + `fr` ship, `it` is still `{}`**. Locale is per-device via the
+  `NEXT_LOCALE` cookie. The in-app help is a separate per-language Markdown file
+  (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
+  Backend output (API error details, PDFs, exports, thermal print) is German-only for now.
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
 
 ## Important Files & Documentation
