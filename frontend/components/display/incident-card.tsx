@@ -119,10 +119,15 @@ export function DisplayIncidentCard({
   const auftragStopPos = auftrag
     ? (auftragStopIndex >= 0 ? auftragStopIndex + 1 : operation.groupPosition + 1)
     : 0
+  // Vehicles and material only — ONE FIELD FEWER THAN THE KANBAN CARD, on purpose.
+  // The kanban card also names «3 Pers» here because its crew chips stop at six
+  // and hand the rest to «+N weitere», so the count is the only place the true
+  // number survives. The wall draws every name uncapped, 4px below this line
+  // (see the AUFTRAG block), which makes «3 Pers» a caption for a list the reader
+  // is already looking at — and buys back the width the untruncated names need.
   const auftragSummary = auftragResources
     ? [
         auftragResources.vehicles.map((v) => v.name).join(", "),
-        auftragResources.personnel.length ? t("card.auftragPersSummary", { count: auftragResources.personnel.length }) : "",
         auftragResources.materials.length ? t("card.auftragMatSummary", { count: auftragResources.materials.length }) : "",
       ]
         .filter(Boolean)
@@ -429,7 +434,9 @@ export function DisplayIncidentCard({
             Aufträge sheet it opens is an editing surface.
             The crew names ride underneath, which the kanban card leaves to its
             sheet: a route is one squad, and «wer ist dort» is the question
-            somebody walks up to the wall to answer — a count cannot. */}
+            somebody walks up to the wall to answer — a count cannot. Which is
+            also why the summary line above deliberately carries one field fewer
+            than the kanban card's: no «N Pers» over a list of the same names. */}
         {showAuftragBlock && auftrag && (
           <div className={cn("text-xs", !showResourceBlock && SECTION_RULE)}>
             <div className="flex w-full min-w-0 items-start gap-1.5" title={auftragTitle}>
@@ -443,8 +450,9 @@ export function DisplayIncidentCard({
                   summary 19px of the 264px card at 1280 (39px of 284px at 1920)
                   for 106px of content, so it rendered «P…», and a wall has
                   nobody to hover the tooltip that could give it back. Split, the
-                  progress and the summary have 193px for ~161px of text and
-                  neither truncates at either width. */}
+                  second line has 193px at 1280 (213px at 1920) for 135.4px of
+                  «Stopp 6 von 7 · Pio · 1 Gerät» — 174.9px before the crew count
+                  came out of `auftragSummary` above. Neither width truncates. */}
               <span className="flex min-w-0 flex-1 flex-col gap-px">
                 <span className="truncate font-medium text-foreground/80">{auftrag.name}</span>
                 <span className="truncate text-2xs text-muted-foreground">

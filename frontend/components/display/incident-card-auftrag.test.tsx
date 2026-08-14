@@ -92,15 +92,26 @@ describe('the wall card’s Auftrag row', () => {
     expect(screen.getByText('Sturmholz Oberwil')).toBeInTheDocument()
     // «Stopp», not «Stop» — and spelled out, so «6/7» cannot be read as a date.
     expect(screen.getByText('Stopp 6 von 7')).toBeInTheDocument()
-    expect(screen.getByText(/Pio · 3 Pers · 1 Gerät/)).toBeInTheDocument()
+    expect(screen.getByText(/Pio · 1 Gerät/)).toBeInTheDocument()
+  })
+
+  it('names the crew instead of counting it — the wall carries one field fewer', () => {
+    renderCard()
+    // The kanban card says «3 Pers» here because its chips stop at six. This one
+    // draws all three names 4px below the line, so the count would only caption
+    // a list the reader is already looking at.
+    expect(screen.getByText('Weber Martin')).toBeInTheDocument()
+    expect(screen.getByText('Moser Lea')).toBeInTheDocument()
+    expect(screen.getByText('Baumann Michael')).toBeInTheDocument()
+    expect(screen.queryByText(/3 Pers/)).not.toBeInTheDocument()
   })
 
   it('puts the whole row in the tooltip, not just the Auftrag name', () => {
     const { container } = renderCard()
     const row = container.querySelector('[title]:has(> svg.lucide-waypoints)')
-    expect(row?.getAttribute('title')).toBe(
-      'Sturmholz Oberwil · Stopp 6 von 7 · Pio · 3 Pers · 1 Gerät',
-    )
+    // Same one-field-fewer summary as the visible line — the tooltip exists for
+    // the truncation case, not to smuggle back a field the wall dropped.
+    expect(row?.getAttribute('title')).toBe('Sturmholz Oberwil · Stopp 6 von 7 · Pio · 1 Gerät')
   })
 
   it('falls back to the incident’s own group position when the route has lost the stop', () => {

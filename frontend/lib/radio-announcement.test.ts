@@ -104,7 +104,7 @@ describe("Auftrag — full announcement", () => {
     )
     expect(text).toBe(
       "An alle Omega, neuer Auftrag «Sturmholz Oberwil»: es rücken aus Weber Martin, Moser Lea mit Pio und Motorsäge Gr.. " +
-        "2 Stops:\n1. Poststrasse 6\n2. Schulstrasse 9",
+        "2 Stopps:\n1. Poststrasse 6\n2. Schulstrasse 9",
     )
   })
 
@@ -123,7 +123,7 @@ describe("Auftrag — full announcement", () => {
     )
     // Stop 1 is done and gone, but 2 and 3 keep the numbers they always had.
     expect(text).toBe(
-      "An alle Omega, neuer Auftrag «Sturmholz Oberwil»: 2 Stops:\n2. Schulstrasse 9\n3. Mühlemattstrasse 12",
+      "An alle Omega, neuer Auftrag «Sturmholz Oberwil»: 2 Stopps:\n2. Schulstrasse 9\n3. Mühlemattstrasse 12",
     )
   })
 
@@ -152,7 +152,7 @@ describe("Auftrag — full announcement", () => {
         stops: [stop()],
       }),
     )
-    expect(text).toContain("1 Stop:\n1. Poststrasse 6")
+    expect(text).toContain("1 Stopp:\n1. Poststrasse 6")
   })
 })
 
@@ -211,7 +211,7 @@ describe("Auftrag — short continuation", () => {
         stop: stop({ position: 3, address: "Mühlemattstrasse 12" }),
       }),
     )
-    expect(text).toBe("An alle Omega, Auftrag «Sturmholz Oberwil» weiter mit Stop 3: Mühlemattstrasse 12.")
+    expect(text).toBe("An alle Omega, Auftrag «Sturmholz Oberwil» weiter mit Stopp 3: Mühlemattstrasse 12.")
   })
 
   it("still warns — a Gefahr is never dropped for brevity", () => {
