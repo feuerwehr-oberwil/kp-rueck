@@ -141,6 +141,11 @@
         "sub": "Sur le téléphone privé de la reconnaissance : s’annoncer sur place, cocher les dangers, joindre des photos"
       },
       {
+        "alt": "Vue terrain : sa propre place sinistrée avec les annonces au PC, la situation et l’effectif",
+        "title": "Terrain",
+        "sub": "Chaque groupe ne voit que ses propres places sinistrées – arrivé, récupération, intervention terminée, sans radio"
+      },
+      {
         "alt": "Missions : plusieurs interventions regroupées en une tournée",
         "title": "Missions",
         "sub": "Plusieurs interventions comme une seule tournée – avec l’effectif, les moyens et un ordre que le tableau optimise selon la distance"
