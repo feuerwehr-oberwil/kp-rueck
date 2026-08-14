@@ -138,6 +138,38 @@ const shots = [
       }
     },
   },
+  {
+    name: 'feld',
+    path: '/',
+    settle: 1500,
+    viewport: FORM_VIEWPORT,
+    note: 'Die eigenen Schadenplätze auf dem Handy des Trupps, über den Feld-Link',
+    // Überspringt sich, solange die Instanz den Feld-Knopf nicht hat. Die Demo
+    // hinkt dem Board naturgemäss hinterher — sie wird aus `main` deployt, und
+    // ein Shot kann erst entstehen, wenn das Feature dort angekommen ist. Ohne
+    // diesen Ausstieg risse ein voller `node site/capture.mjs`-Lauf ab und man
+    // verlöre auch die acht Bilder, die sich sehr wohl aufnehmen liessen.
+    skipIf: async (page) =>
+      !(await page
+        .getByRole('button', { name: /^Feld$/ })
+        .isVisible({ timeout: 10000 })
+        .catch(() => false)),
+    prep: async (page) => {
+      const url = await openShareLink(page, /^Feld$/)
+      await page.goto(url, { waitUntil: 'domcontentloaded' })
+      await page.waitForTimeout(3000)
+      // Die Personenauswahl zuerst. Gewählt wird über «N Schadenplatz/Schadenplätze»
+      // statt über einen Namen: die Demo-Namen ändern sich, die Zeile mit einer
+      // Zuteilung ist dagegen genau die, hinter der «Meine Schadenplätze» auch
+      // etwas zeigt — ein Trupp ohne Zuteilung ergäbe ein leeres Bild.
+      await page
+        .locator('button')
+        .filter({ hasText: /Schadenplat/ })
+        .first()
+        .click()
+      await page.waitForTimeout(2500)
+    },
+  },
   // Bewusst dunkel: das Board an der Wand im abgedunkelten KP. Der einzige
   // dunkle Shot – er belegt die dunkle Oberfläche aus der Funktionsliste.
   { name: 'display', path: '/display/board', settle: 4000, theme: 'dark', note: 'Beamer-Ansicht im KP' },
@@ -225,6 +257,13 @@ const run = async () => {
     await page.goto(base + shot.path, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(shot.settle)
+    // Ein Shot darf sich abmelden, wenn die Instanz das Feature noch nicht hat.
+    // Nur das: kein Ersatzbild, keine Notlösung — ein fehlendes Bild ist ein
+    // ehrlicheres Ergebnis als eines, das etwas anderes zeigt als es behauptet.
+    if (shot.skipIf && (await shot.skipIf(page))) {
+      console.log(`  – ${shot.name} übersprungen (Instanz kennt die Ansicht noch nicht)`)
+      continue
+    }
     if (shot.prep) await shot.prep(page)
     // Erst hier ausblenden: prep() navigiert teils weg, ein früheres addStyleTag
     // wäre dann wieder verloren.
