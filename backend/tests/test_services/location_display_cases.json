@@ -150,6 +150,48 @@
       "expected": "47.516377, 7.561800"
     },
     {
+      "name": "neighbour_town_containing_canton_abbrev",
+      "why": "Blauen BL is a real neighbouring municipality. A substring test matched the 'BL' of the setting inside 'Blauen' and dropped the town – exactly the part a Nachbarhilfe address must keep.",
+      "address": "Hauptstrasse 3, 4223 Blauen",
+      "home_city": "Oberwil, BL",
+      "expected": "Hauptstrasse 3, 4223 Blauen"
+    },
+    {
+      "name": "street_containing_canton_abbrev",
+      "why": "Same substring trap one component earlier: the STREET carries the letters, and the whole address was read as home.",
+      "address": "Blauenstrasse 12, 4147 Aesch",
+      "home_city": "Oberwil, BL",
+      "expected": "Blauenstrasse 12, 4147 Aesch"
+    },
+    {
+      "name": "nominatim_street_containing_canton_abbrev",
+      "why": "The same street in the raw display_name shape, where the tail also carries the canton in full.",
+      "address": "12, Blauenstrasse, Aesch, Bezirk Arlesheim, Basel-Landschaft, 4147, Schweiz/Suisse/Svizzera/Svizra",
+      "home_city": "Oberwil, BL",
+      "expected": "Blauenstrasse 12, Aesch"
+    },
+    {
+      "name": "town_name_extends_home_city",
+      "why": "Oberwil im Simmental (BE) is not Oberwil (BL): a component that merely STARTS with the home city is a different municipality and keeps its name.",
+      "address": "Dorfstrasse 5, 3765 Oberwil im Simmental",
+      "home_city": "Oberwil, BL",
+      "expected": "Dorfstrasse 5, 3765 Oberwil im Simmental"
+    },
+    {
+      "name": "home_city_case_and_spacing_insensitive",
+      "why": "The setting is free text an operator types – case and stray spacing must not decide whether the town is stripped.",
+      "address": "Bahnhofstrasse 8, 4104  Oberwil",
+      "home_city": "oberwil ,  BL",
+      "expected": "Bahnhofstrasse 8"
+    },
+    {
+      "name": "home_city_whitespace_only",
+      "why": "A cleared setting saved as spaces is unset, not a home city that matches nothing – the address is passed through, like with an empty setting.",
+      "address": "45, Main Street, Basel, Switzerland",
+      "home_city": "   ",
+      "expected": "45, Main Street, Basel, Switzerland"
+    },
+    {
       "name": "no_home_city_configured",
       "why": "Fresh station: nothing to strip against, so the address is passed through.",
       "address": "45, Main Street, Basel, Switzerland",

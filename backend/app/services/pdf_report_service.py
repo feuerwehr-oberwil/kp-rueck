@@ -357,11 +357,25 @@ _COUNTRY_NAMES: frozenset[str] = frozenset(
 )  # fmt: skip
 
 _POSTCODE_RE = re.compile(r"\d{4,5}")
+# The postcode a geocoded component carries in front of the town ("4104 Oberwil"),
+# which the home-city comparison has to look past.
+_POSTCODE_PREFIX_RE = re.compile(r"^\d{4,5}\s+")
+_WHITESPACE_RE = re.compile(r"\s+")
 # A county / district component. Word-bounded on purpose: a bare ``^region`` also
 # matched "Regionalstrasse", which would have swallowed a street.
 _DISTRICT_RE = re.compile(r"(?:bezirk|region|kanton|canton|district|wahlkreis)\b", re.IGNORECASE)
 # Half-cantons that are never a municipality, so they can be dropped by name.
 _STATE_NAMES: frozenset[str] = frozenset({"basel-landschaft", "basel-stadt"})
+
+
+def _normalize_city_part(part: str) -> str:
+    """One address / home-city component in the form the two are compared in.
+
+    No postcode prefix, no double spaces, lower case. Not a fuzzy match –
+    "4104 Oberwil" and "Oberwil" are the same town written two ways, everything
+    else is a different place.
+    """
+    return _WHITESPACE_RE.sub(" ", _POSTCODE_PREFIX_RE.sub("", part).strip()).lower()
 
 
 def _is_country_part(part: str) -> bool:
@@ -405,6 +419,14 @@ def format_location_for_display(full_address: str | None, home_city: str) -> str
     directly after a "Bezirk …" is the canton, not the town ("…, Dornach, Bezirk
     Dorneck, Solothurn, 4143, …"), so it is skipped too.
 
+    The home city is matched component against component, both normalised
+    ("4104 Oberwil" ≡ "Oberwil"), NEVER as a substring: the setting holds a town
+    plus its canton ("Oberwil, BL"), and a substring test let that "BL" match any
+    component containing the letters – "4223 Blauen", "Blauenstrasse" – so a
+    Nachbarhilfe address in a neighbouring town silently lost the one part that has
+    to be right. By the same rule "Oberwil im Simmental" is a different
+    municipality from "Oberwil" and keeps its name.
+
     Known limitation: for a canton with no districts whose name differs from the
     town (Carouge GE, Baar ZG), the canton is shown instead of the town. Outside
     Switzerland the state component is not recognised at all.
@@ -414,13 +436,16 @@ def format_location_for_display(full_address: str | None, home_city: str) -> str
     """
     if not full_address:
         return ""
-    if not home_city:
+    # An unset – or blank – home city leaves nothing to strip against, so the
+    # address is passed through untouched.
+    home_parts = [n for n in (_normalize_city_part(p) for p in (home_city or "").split(",")) if n]
+    if not home_parts:
         return full_address
     parts = [p.strip() for p in full_address.split(",") if p.strip()]
-    home_parts = [p.strip() for p in home_city.split(",") if p.strip()]
 
     def is_home_city_part(part: str) -> bool:
-        return any(hp.lower() in part.lower() for hp in home_parts)
+        """One whole component equal to one whole component of the setting."""
+        return _normalize_city_part(part) in home_parts
 
     if any(is_home_city_part(p) for p in parts):
         house_number = ""

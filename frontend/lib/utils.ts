@@ -67,12 +67,27 @@ const COUNTRY_NAMES = new Set([
 const POSTCODE_RE = /^\d{4,5}$/
 const NUMBER_RE = /^\d+$/
 /**
+ * The postcode a geocoded component carries in front of the town
+ * ("4104 Oberwil"), which the home-city comparison has to look past.
+ */
+const POSTCODE_PREFIX_RE = /^\d{4,5}\s+/
+/**
  * A county / district component. Word-bounded on purpose: `^region` alone also
  * matched "Regionalstrasse", which would have swallowed a street.
  */
 const DISTRICT_RE = /^(?:bezirk|region|kanton|canton|district|wahlkreis)\b/i
 /** Half-cantons that are never a municipality, so they can be dropped by name. */
 const STATE_NAMES = new Set(['basel-landschaft', 'basel-stadt'])
+
+/**
+ * One address / home-city component, reduced to the form the two are compared
+ * in: no postcode prefix, no double spaces, lower case. Not a fuzzy match —
+ * "4104 Oberwil" and "Oberwil" are the same town written two ways, everything
+ * else is a different place.
+ */
+function normalizeCityPart(part: string): string {
+  return part.replace(POSTCODE_PREFIX_RE, '').trim().replace(/\s+/g, ' ').toLowerCase()
+}
 
 function isCountryPart(part: string): boolean {
   const tokens = part.split('/').map(t => t.trim().toLowerCase()).filter(Boolean)
@@ -108,6 +123,14 @@ function isAddressNoise(part: string): boolean {
  * directly after a "Bezirk …" is the canton, not the town ("…, Dornach, Bezirk
  * Dorneck, Solothurn, 4143, …"), so it is skipped too.
  *
+ * The home city is matched component against component, both normalised
+ * ("4104 Oberwil" ≡ "Oberwil"), NEVER as a substring: the setting holds a town
+ * plus its canton ("Oberwil, BL"), and a substring test let that "BL" match any
+ * component containing the letters — "4223 Blauen", "Blauenstrasse" — so a
+ * Nachbarhilfe address in a neighbouring town silently lost the one part that
+ * has to be right. By the same rule "Oberwil im Simmental" is a different
+ * municipality from "Oberwil" and keeps its name.
+ *
  * Known limitation: for a canton with no districts whose name differs from the
  * town (Carouge GE, Baar ZG), the canton is shown instead of the town. Outside
  * Switzerland the state component is not recognised at all.
@@ -130,15 +153,20 @@ function isAddressNoise(part: string): boolean {
  * backend/tests/test_services/location_display_cases.json.
  */
 export function formatLocationForDisplay(fullAddress: string, homeCity?: string): string {
-  if (!homeCity || !fullAddress) return fullAddress
+  if (!fullAddress) return fullAddress
+
+  // An unset — or blank — home city leaves nothing to strip against, so the
+  // address is passed through untouched.
+  const homeCityParts = (homeCity ?? '').split(',').map(normalizeCityPart).filter(Boolean)
+  if (homeCityParts.length === 0) return fullAddress
 
   // Parse the full address to extract components
   const parts = fullAddress.split(',').map(s => s.trim()).filter(Boolean)
 
-  // Check if the address contains the home city
-  const homeCityParts = homeCity.split(',').map(s => s.trim()).filter(Boolean)
-  const isHomeCityPart = (part: string) =>
-    homeCityParts.some(hcp => part.toLowerCase().includes(hcp.toLowerCase()))
+  // Check if the address is IN the home city — one whole component equal to one
+  // whole component of the setting, canton abbreviation included ("Oberwil, BL"
+  // echoed back as the location is still the home city).
+  const isHomeCityPart = (part: string) => homeCityParts.includes(normalizeCityPart(part))
 
   if (parts.some(isHomeCityPart)) {
     // Return street name with house number
