@@ -238,6 +238,25 @@ will keep holding.
   **Setting a limit to 0 (or clearing the field) switches it off.** Until now the input rejected
   anything below 1 GB, so a limit could be set but never unset.
 
+- **Standing lines from the Leitstelle can be dropped before they reach the board.** Divera
+  appends the brigade's turnout order to every alarm («Ausrückeordnung: 1. TLF → 2. PIO»); it is
+  identical on every incident, so it is noise on the board and in every printout, and it crowds
+  out the «Details:» line that says what actually happened. Two settings now handle that: one
+  drops whole lines by prefix, the other strips a **label** and keeps the line – needed since our
+  own UI already writes «Meldung» as a heading, so «Meldung: Wasser dringt …» read as the word
+  twice. Order is fixed and pinned by tests: whole lines go first, labels are stripped from what
+  survives. Reversed, a «Meldung: -» – what the Alarmzentrale sends when there is no text –
+  would become a bare «-» instead of disappearing.
+  **Both lists ship empty**: «Ausrückeordnung» is one brigade's German fire-service vocabulary,
+  and a station that has never heard the word must not find a rule quietly dropping lines from
+  its alarms. A station enters what its own dispatcher sends, one prefix per line, and the next
+  standing line Divera grows costs a settings edit rather than a release. Applied at all three
+  ingest paths (webhook, poller, generic `/api/alarms`).
+  The raw emergency text and payload are kept byte-for-byte – that is the record of what the
+  Leitstelle actually sent, and it is what priority inference still reads, so filtering what an
+  operator sees cannot quietly change how an alarm is classified. Incidents already on the board
+  are left exactly as they are.
+
 ### Changed
 
 - **Der Einsatzbericht sieht aus wie der Einsatzrapport aus KP Front.** Eine Nacht kann
@@ -512,6 +531,40 @@ will keep holding.
   a populated `backend/.env` was making live requests to the station's Traccar box on every run.
   The suite now blocks real outbound sockets outright, so a test can neither depend on the GPS
   server being up nor add load to it.
+
+- **Jeder Einsatz auf dem Board zeigte «Oberwil (BL)» – die Ortschaft, die der Formatierer
+  entfernen soll.** Two reasons, both invisible against the addresses it had been tested on.
+  Home-city matching normalised away a *postcode*, so «4104 Oberwil» matched «Oberwil, BL» while
+  «Oberwil (BL)» and «Oberwil BL» did not – the brackets and the bare suffix defeated the
+  comparison. And Divera delivers the town **before** the street, the inverse of the Nominatim
+  shape the ordering logic was written for, so even a recognised town was read the wrong way
+  round. Canton abbreviations are now recognised from the list of 26 as a standalone trailing
+  token, and the street – identified by carrying its own house number – leads the output, with
+  everything else following in the order it arrived. Where that is ambiguous (no house number
+  anywhere, or two components carrying one) the address is passed through untouched: an
+  unformatted address is untidy, a mangled one sends a crew to the wrong place.
+  The canton is compared rather than discarded, so «Oberwil BE» – a different municipality – is
+  no longer swallowed by a home city of «Oberwil, BL», and a foreign town keeps its canton.
+  Fixes 9 of the 18 addresses in production and leaves the other 9 byte-identical; two were
+  losing data outright («Oberwil (BL), Grenzweg 1, BLT Tramdepot» rendered without its street).
+
+- **Eine Mannschaft zu Fuss liest sich auf dem Handy nicht mehr als «Keine Fahrzeuge
+  zugewiesen».** The phone's incident sheet had no notion of «Zu Fuss», so a crew that walked to
+  the address rendered as having no vehicles – not a missing detail but the opposite of the
+  truth, on the surface people read when they are away from the board. The empty line is now
+  gated on both facts. The sheet also dropped the driver-stay marker the board and the wall carry
+  per vehicle, which decides whether that vehicle can be moved and changes without the incident
+  changing; it is now shown there too, as state only – the toggle stays where the operator is
+  actually running the board. Extracted as `DriverStayGlyph` rather than hand-rolled a third
+  time: the two existing copies had already drifted, drawing «zurück» on the board and nothing on
+  the wall for an assignment carrying no answer. Nothing is the honest reading, so that is what
+  the shared one does.
+
+- **`K` erreicht die Karte auch bei eingeklappter Seitenleiste.** The key navigates to `/map`,
+  but was still gated on the side panel being open – a leftover from when it switched that panel
+  into a map mode that no longer exists. So with the panel collapsed it did nothing at all,
+  silently, while the command palette went on advertising it. The hint was right; the binding was
+  wrong. `K` still stands down while typing, under an open menu and under a modal.
 
 ## [0.5.0] – 2026-08-08
 
