@@ -168,6 +168,16 @@ const shots = [
         .first()
         .click()
       await page.waitForTimeout(2500)
+      // Dann in den Schadenplatz hinein. Die Liste allein füllt das Bild nicht
+      // — ein Trupp hat meist einen einzigen Auftrag, und der Rest der Kachel
+      // bliebe weiss. Drinnen steht, worum es bei der Ansicht geht: Auftrag,
+      // Meldung, und was der Trupp von hier aus melden kann. Derselbe Griff wie
+      // beim Reko-Shot, der auch erst im Formular etwas zeigt.
+      const firstPlatz = page.getByRole('button', { name: /Wasser|Brand|Sturm|Öl|Unfall/i }).first()
+      if (await firstPlatz.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await firstPlatz.click()
+        await page.waitForTimeout(3000)
+      }
     },
   },
   // Bewusst dunkel: das Board an der Wand im abgedunkelten KP. Der einzige
