@@ -144,7 +144,7 @@ async def test_viewer_data_carries_the_pickup_flag_but_not_its_note(
     test_event: Event,
     test_incident: Incident,
 ):
-    """"Abholung nötig" is the situation; the operator's note about it is not.
+    """ "Abholung nötig" is the situation; the operator's note about it is not.
 
     The flag and its timestamp draw the PickupBadge on a wall display — a crew
     standing at the kerb is the last thing a shared board may keep to itself,
