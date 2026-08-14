@@ -17,6 +17,9 @@ import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
+import { RemovableChip } from "@/components/ui/removable-chip"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { Card } from "@/components/ui/card"
 import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench, ArrowLeft } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -72,6 +75,24 @@ const MapView = dynamic(() => import("@/components/map-view"), {
   ),
 })
 
+/**
+ * The resource chips in the incident rail. Same `RemovableChip` the kanban card
+ * and the wall board use, same secondary tint — the rail had been hand-rolling
+ * `<Badge>` with a third set of variants (vehicles secondary, Geräte outline),
+ * so the same TLF looked like two different things depending on which surface
+ * you were looking at. `max-w-full` on top of the shared classes because the
+ * rail is 320px and a long Gerätename has to ellipsise rather than push the
+ * card sideways.
+ */
+const RAIL_CHIP = "text-xs px-1.5 py-0.5 font-normal max-w-full"
+
+/** «Bastian Eichenberger» → «B.E». Tolerates single-word and empty names, which
+ *  the previous inline version indexed into unguarded. */
+function crewInitials(name: string): string {
+  const [first = "", second = ""] = name.trim().split(/\s+/)
+  if (!first) return name
+  return `${first[0]}.${second[0] ?? ""}`
+}
 
 export default function MapPage() {
   const t = useTranslations('map')
@@ -1164,6 +1185,10 @@ export default function MapPage() {
                 ) : (
                   activeIncidents.map((incident) => {
                     const isExpanded = selectedIncidentId === incident.id
+                    // The list runs on the `useIncidents()` adapter shape, which
+                    // carries neither the pickup flags nor who the Einsatzleiter
+                    // is. Both live on the Operation, one lookup away.
+                    const operation = operationsById.get(incident.id)
                     return (
                       <Card
                         key={incident.id}
@@ -1194,6 +1219,24 @@ export default function MapPage() {
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     {incident.title}
                                   </p>
+                                )}
+                                {/* Abholung (decision 24). The pickup is a
+                                    driving job and whoever assigns it is looking
+                                    at where things are, so the rail carries the
+                                    same chip the board does — and, like there,
+                                    it IS the «Abholung erledigt» button:
+                                    completing the incident already released the
+                                    crew, so this chip is the only thing left
+                                    saying they are standing at the kerb.
+                                    Not gated on status, for the same reason. */}
+                                {operation?.pickupNeeded && (
+                                  <PickupBadge
+                                    requestedAt={operation.pickupRequestedAt}
+                                    note={operation.pickupNote}
+                                    incidentId={incident.id}
+                                    canEdit={isEditor}
+                                    className="mt-1.5"
+                                  />
                                 )}
                               </div>
                             </div>
@@ -1242,14 +1285,14 @@ export default function MapPage() {
                             <div className="flex items-start gap-2">
                               <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                               <div className="flex flex-wrap gap-1.5 flex-1">
-                                {incident.assigned_vehicles.map((vehicle, idx) => (
-                                  <Badge
-                                    key={idx}
+                                {incident.assigned_vehicles.map((vehicle) => (
+                                  <RemovableChip
+                                    key={vehicle.name}
                                     variant="secondary"
-                                    className="text-xs"
+                                    className={RAIL_CHIP}
                                   >
-                                    {vehicle.name}
-                                  </Badge>
+                                    <span>{vehicle.name}</span>
+                                  </RemovableChip>
                                 ))}
                               </div>
                             </div>
@@ -1260,14 +1303,22 @@ export default function MapPage() {
                             <div className="flex items-start gap-2">
                               <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                               <div className="flex flex-wrap gap-1.5 flex-1">
-                                {incident.assigned_personnel.map((person, idx) => (
-                                  <Badge
-                                    key={idx}
+                                {/* Initials, because the rail is 320px wide and
+                                    a full crew of names would push everything
+                                    else below the fold — but the full name is
+                                    on the chip's tooltip, and the «EL» mark
+                                    rides along so the one person you would ring
+                                    is not reduced to two ambiguous letters. */}
+                                {incident.assigned_personnel.map((person) => (
+                                  <RemovableChip
+                                    key={person.name}
                                     variant="secondary"
-                                    className="text-xs"
+                                    className={RAIL_CHIP}
+                                    title={person.name}
                                   >
-                                    {person.name.split(" ")[0][0]}.{person.name.split(" ")[1]?.[0] || ""}
-                                  </Badge>
+                                    <LeaderBadge isLeader={operation?.leaderName === person.name} />
+                                    <span>{crewInitials(person.name)}</span>
+                                  </RemovableChip>
                                 ))}
                               </div>
                             </div>
@@ -1278,14 +1329,20 @@ export default function MapPage() {
                             <div className="flex items-start gap-2">
                               <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                               <div className="flex flex-wrap gap-1.5 flex-1">
-                                {incident.assigned_materials.map((material, idx) => (
-                                  <Badge
-                                    key={idx}
-                                    variant="outline"
-                                    className="text-xs"
+                                {/* Was hard-cut at 15 characters, which turned
+                                    «Tauchpumpe gross» into «Tauchpumpe gro»
+                                    with nothing to say it had been cut. The
+                                    chip ellipsises instead, and the full name
+                                    is on the tooltip. */}
+                                {incident.assigned_materials.map((material) => (
+                                  <RemovableChip
+                                    key={material.material_id}
+                                    variant="secondary"
+                                    className={RAIL_CHIP}
+                                    title={material.name}
                                   >
-                                    {material.name.substring(0, 15)}
-                                  </Badge>
+                                    <span className="min-w-0 truncate">{material.name}</span>
+                                  </RemovableChip>
                                 ))}
                               </div>
                             </div>

@@ -55,7 +55,11 @@ export function MobileIncidentListView({
   const t = useTranslations('incidents.mobileList')
   const { selectedEvent } = useEvent()
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
+  // The id, not the object: the sheet used to hold a snapshot taken at tap
+  // time, so anything that changed underneath it while it was open (a status
+  // moved on the board, a pickup the KP cleared) stayed on screen until it was
+  // closed and re-opened.
+  const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
 
@@ -110,8 +114,13 @@ export function MobileIncidentListView({
     return counts
   }, [operations])
 
+  const selectedOperation = useMemo(
+    () => operations.find((op) => op.id === selectedOperationId) ?? null,
+    [operations, selectedOperationId],
+  )
+
   const handleCardClick = (operation: Operation) => {
-    setSelectedOperation(operation)
+    setSelectedOperationId(operation.id)
     setDetailSheetOpen(true)
   }
 

@@ -31,6 +31,9 @@ import {
 } from "lucide-react"
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
+import { RemovableChip } from "@/components/ui/removable-chip"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
@@ -66,6 +69,9 @@ export function MobileIncidentDetailSheet({
   isEditor = false,
 }: MobileIncidentDetailSheetProps) {
   const t = useTranslations('incidents')
+  // The resource chips reuse the board's own labels (Funkrufname, Zu Fuss …)
+  // so the phone and the board name the same thing the same way.
+  const tKanban = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const { changeStatusToTop } = useOperations()
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
@@ -222,6 +228,22 @@ export function MobileIncidentDetailSheet({
         </SheetHeader>
 
         <div className="space-y-5">
+          {/* Abholung (decision 24) — the `banner` variant, the same shape the
+              desktop detail uses, because this sheet is the phone's detail
+              surface. Read-only (`canEdit={false}`): the phone is for looking,
+              and «Abholung erledigt» is irreversible — it erases the waiting
+              time, which is the only record of how long the crew stood there.
+              Not gated on status: completing the card releases the crew while
+              they are still at the address. */}
+          {operation.pickupNeeded && (
+            <PickupBadge
+              variant="banner"
+              requestedAt={operation.pickupRequestedAt}
+              note={operation.pickupNote}
+              canEdit={false}
+            />
+          )}
+
           {/* Status & Time Row */}
           <div className="flex items-center gap-3 flex-wrap">
             {canEdit ? (
@@ -335,12 +357,19 @@ export function MobileIncidentDetailSheet({
                     const driverName = vehicleDrivers.get(vehicleName)
                     const callsign = operation.vehicleCallsigns.get(vehicleName)
                     return (
-                      <Badge key={vehicleName} variant="default" className="text-sm">
-                        {vehicleName}{callsign ? ` · ${callsign}` : ''}
-                        {driverName && (
-                          <span className="ml-1 opacity-70">({driverName})</span>
-                        )}
-                      </Badge>
+                      <RemovableChip
+                        key={vehicleName}
+                        variant="secondary"
+                        className="text-sm max-w-full font-normal"
+                        title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
+                      >
+                        <span>
+                          {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                          {driverName && (
+                            <span className="text-muted-foreground"> ({driverName})</span>
+                          )}
+                        </span>
+                      </RemovableChip>
                     )
                   })}
                 </div>
@@ -358,11 +387,14 @@ export function MobileIncidentDetailSheet({
               {operation.crew.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {/* EL first (decision 23): the phone is a viewing surface, and
-                      a wrapped badge row is exactly where a name gets lost. */}
+                      a wrapped badge row is exactly where a name gets lost.
+                      The «EL» mark rides along — sorting alone only helps if
+                      you already know the list is sorted. */}
                   {sortCrewByLeader(operation.crew, operation.leaderName).map((member) => (
-                    <Badge key={member} variant="secondary" className="text-sm">
-                      {member}
-                    </Badge>
+                    <RemovableChip key={member} variant="secondary" className="text-sm max-w-full font-normal">
+                      <LeaderBadge isLeader={operation.leaderName === member} />
+                      <span>{member}</span>
+                    </RemovableChip>
                   ))}
                 </div>
               ) : (
@@ -379,9 +411,9 @@ export function MobileIncidentDetailSheet({
               {operation.materials.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {operation.materials.map((matId) => (
-                    <Badge key={matId} variant="outline" className="text-sm">
-                      {materials.find(m => m.id === matId)?.name || matId}
-                    </Badge>
+                    <RemovableChip key={matId} variant="secondary" className="text-sm max-w-full font-normal">
+                      <span>{materials.find(m => m.id === matId)?.name || matId}</span>
+                    </RemovableChip>
                   ))}
                 </div>
               ) : (
