@@ -13,7 +13,12 @@
     "values from https://nominatim.openstreetmap.org/search?format=json&",
     "addressdetails=1&countrycodes=ch (no accept-language, which is why the",
     "country arrives as 'Schweiz/Suisse/Svizzera/Svizra'), the 'natural_*' /",
-    "'home_*' ones are what frontend/lib/geocoding.ts actually stores."
+    "'home_*' ones are what frontend/lib/geocoding.ts actually stores, and the",
+    "'prod_*' ones are verbatim incidents.location_address values from the",
+    "production database, against its real home_city setting 'Oberwil, BL'.",
+    "Divera writes the TOWN FIRST and carries the canton as '(BL)' or a bare",
+    "'BL' – the opposite of Nominatim, which is what the formatter was built",
+    "for and why every card showed the brigade's own town."
   ],
   "cases": [
     {
@@ -204,6 +209,111 @@
       "address": "",
       "home_city": "Oberwil, BL",
       "expected": ""
+    },
+    {
+      "name": "prod_home_street_with_preposition",
+      "why": "Production row. The commonest shape (7 of 18 rows): street first, postcode + home town after. The street name starts with a preposition and carries no '-strasse', so it is only recognisable by its trailing house number.",
+      "address": "Im Lohgraben 26, 4104 Oberwil",
+      "home_city": "Oberwil, BL",
+      "expected": "Im Lohgraben 26"
+    },
+    {
+      "name": "prod_home_street_without_number",
+      "why": "Production row: a street with no house number at all, so nothing carries the street marker and the Nominatim reading takes over.",
+      "address": "Storchenweg, 4104 Oberwil",
+      "home_city": "Oberwil, BL",
+      "expected": "Storchenweg"
+    },
+    {
+      "name": "prod_home_canton_bare_suffix",
+      "why": "Production row: the home town with a BARE canton suffix. Equality on the whole component never matched it, so the board showed 'Stallenmattstrasse 8, Oberwil BL'.",
+      "address": "Stallenmattstrasse 8, Oberwil BL",
+      "home_city": "Oberwil, BL",
+      "expected": "Stallenmattstrasse 8"
+    },
+    {
+      "name": "prod_home_town_then_country",
+      "why": "Production row: home town without a postcode, English country name after it.",
+      "address": "Grenzweg 1, Oberwil, Switzerland",
+      "home_city": "Oberwil, BL",
+      "expected": "Grenzweg 1"
+    },
+    {
+      "name": "prod_divera_town_first",
+      "why": "Production row, THE Divera shape: town first with the canton in parentheses. Neither half worked – the town was not recognised as home, and the ordering logic reads the first component as the street.",
+      "address": "Oberwil (BL), Talstrasse 61",
+      "home_city": "Oberwil, BL",
+      "expected": "Talstrasse 61"
+    },
+    {
+      "name": "prod_divera_town_first_poi",
+      "why": "Production row: Divera appends the POI AFTER the street. Both survive, street first – the crew drives to the address and recognises it by the name.",
+      "address": "Oberwil (BL), Grenzweg 1, BLT Tramdepot",
+      "home_city": "Oberwil, BL",
+      "expected": "Grenzweg 1, BLT Tramdepot"
+    },
+    {
+      "name": "prod_divera_town_first_poi_second",
+      "why": "Production row, the second POI shape: 'Coop Center' has no house number and must not be mistaken for the street.",
+      "address": "Oberwil (BL), Bahnhofstrasse 1, Coop Center",
+      "home_city": "Oberwil, BL",
+      "expected": "Bahnhofstrasse 1, Coop Center"
+    },
+    {
+      "name": "prod_divera_status_prefix",
+      "why": "Production row: Divera puts status wording in FRONT of the town. The home town still goes, the street leads because it is the part being driven to, and the wording is kept – it is an order the KP gave.",
+      "address": "Nicht mehr einrücken, Oberwil (BL), Im Lohgraben 60",
+      "home_city": "Oberwil, BL",
+      "expected": "Im Lohgraben 60, Nicht mehr einrücken"
+    },
+    {
+      "name": "prod_divera_neighbour_town_first",
+      "why": "Production row, Nachbarhilfe: a neighbouring municipality delivered town-first. The town has to stay, and the order is turned around so every card on the board reads street first.",
+      "address": "Bottmingen, Mittleri Rüti 5",
+      "home_city": "Oberwil, BL",
+      "expected": "Mittleri Rüti 5, Bottmingen"
+    },
+    {
+      "name": "home_city_setting_with_parenthesised_canton",
+      "why": "The setting is free text: an operator who copies Divera's own spelling into it must get the same result as one who types 'Oberwil, BL'.",
+      "address": "Talstrasse 61, 4104 Oberwil",
+      "home_city": "Oberwil (BL)",
+      "expected": "Talstrasse 61"
+    },
+    {
+      "name": "same_town_name_other_canton",
+      "why": "Oberwil BE is a different municipality from Oberwil BL. Stripping the canton to compare must not merge the two – when both sides name one, they have to agree.",
+      "address": "Dorfstrasse 5, Oberwil BE",
+      "home_city": "Oberwil, BL",
+      "expected": "Dorfstrasse 5, Oberwil BE"
+    },
+    {
+      "name": "foreign_town_keeps_its_canton",
+      "why": "The canton suffix is removed to COMPARE, never from the output: a town that is not home is echoed exactly as it arrived, canton and all.",
+      "address": "Hauptstrasse 3, 9434 Au SG",
+      "home_city": "Oberwil, BL",
+      "expected": "Hauptstrasse 3, 9434 Au SG"
+    },
+    {
+      "name": "town_first_without_house_number",
+      "why": "Fail safe: with no house number anywhere, nothing says which component is the street, so the address is left in the order it arrived instead of being reordered on a guess.",
+      "address": "Bottmingen, Schulstrasse",
+      "home_city": "Oberwil, BL",
+      "expected": "Bottmingen, Schulstrasse"
+    },
+    {
+      "name": "two_house_numbers_out_of_town",
+      "why": "Fail safe: two components carry a house number, so which one is THE address is a guess – and the Nominatim reading would drop one of them. Passed through untouched.",
+      "address": "Bottmingen, Hauptstrasse 15, Talstrasse 61",
+      "home_city": "Oberwil, BL",
+      "expected": "Bottmingen, Hauptstrasse 15, Talstrasse 61"
+    },
+    {
+      "name": "two_house_numbers_in_home_city",
+      "why": "Same ambiguity inside the home city: the town goes because it is certain, both streets stay in the order they arrived because their roles are not.",
+      "address": "Oberwil (BL), Hauptstrasse 15, Talstrasse 61",
+      "home_city": "Oberwil, BL",
+      "expected": "Hauptstrasse 15, Talstrasse 61"
     }
   ]
 }

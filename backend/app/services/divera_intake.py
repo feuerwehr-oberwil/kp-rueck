@@ -23,6 +23,7 @@ import logging
 import re
 import secrets as _secrets
 import uuid
+from collections.abc import Sequence
 from typing import Any
 
 from fastapi import HTTPException, Request, status
@@ -39,7 +40,7 @@ from ..alarm_keywords import (
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from .audit import log_action
-from .settings import get_alarm_webhook_secret
+from .settings import get_alarm_description_filter_prefixes, get_alarm_webhook_secret
 
 logger = logging.getLogger(__name__)
 
@@ -179,12 +180,50 @@ def _sender_hint(emergency: models.DiveraEmergency, key: str) -> str | None:
     return value.strip().lower() if isinstance(value, str) and value.strip() else None
 
 
-def incident_create_from_emergency(emergency: models.DiveraEmergency, event_id: uuid.UUID) -> schemas.IncidentCreate:
+def filter_description_lines(text: str | None, prefixes: Sequence[str]) -> str | None:
+    """Drop the station's configured standing lines from an alarm text.
+
+    Divera lets a brigade prepend boilerplate to every alarm ("Ausrückeordnung: 1. TLF →
+    2. PIO"). It is identical on every emergency, so on the board it is noise that crowds
+    out the «Details:» line that actually says what happened.
+
+    Matching is per line, on the line's start, case-insensitive and tolerant of leading
+    whitespace — an operator types the prefix into a Textarea, not a regex. Removing a line
+    must not leave a hole behind, so blank runs collapse; a text that is nothing but
+    standing lines becomes None rather than whitespace.
+
+    The prefixes are configuration (`alarm.description_filter_prefixes`), not a literal
+    here: the vocabulary is the brigade's, and the next standing line the dispatch system
+    grows must cost a settings edit, not a release.
+    """
+    if not text:
+        return None
+    needles = [p.strip().casefold() for p in prefixes if p.strip()]
+    if not needles:
+        return text
+
+    kept = [line for line in text.splitlines() if not any(line.lstrip().casefold().startswith(n) for n in needles)]
+    # A dropped line between two kept ones would otherwise show up as an extra blank line.
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip() or None
+
+
+def incident_create_from_emergency(
+    emergency: models.DiveraEmergency,
+    event_id: uuid.UUID,
+    *,
+    description_filter_prefixes: Sequence[str] = (),
+) -> schemas.IncidentCreate:
     """Derive the IncidentCreate payload for attaching an emergency to an event.
 
     A sender that names `type`/`priority` wins over our keyword inference — a Leitstelle
     classifying the call knows more than our title matcher does. An unrecognised value falls
     back to inference rather than raising: a typo in an optional hint must never cost an alarm.
+
+    `description_filter_prefixes` (from `alarm.description_filter_prefixes`) strips the
+    provider's standing lines from the INCIDENT's description only. The emergency row keeps
+    `text`/`raw_payload_json` byte-for-byte: that is the provenance record of what the
+    Leitstelle actually sent, and it stays answerable even after the board copy is trimmed.
+    Priority inference below reads the raw text for the same reason.
     """
     type_hint = _sender_hint(emergency, "type")
     priority_hint = _sender_hint(emergency, "priority")
@@ -208,7 +247,7 @@ def incident_create_from_emergency(emergency: models.DiveraEmergency, event_id: 
         location_address=emergency.address,
         location_lat=str(emergency.latitude) if emergency.latitude else None,
         location_lng=str(emergency.longitude) if emergency.longitude else None,
-        description=emergency.text,
+        description=filter_description_lines(emergency.text, description_filter_prefixes),
         status=schemas.IncidentStatus.INCOMING,
     )
 
@@ -257,7 +296,9 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
     if event is None:
         return None
 
-    data = incident_create_from_emergency(emergency, event.id)
+    data = incident_create_from_emergency(
+        emergency, event.id, description_filter_prefixes=await get_alarm_description_filter_prefixes(db)
+    )
     incident_data = data.model_dump()
     # The editor schema's `source` only ever carries what an operator may claim
     # ("operator"/"intake"); the sending system names itself below.

@@ -2632,6 +2632,10 @@
         "incidentTemplateTitle": "Message WhatsApp d’intervention",
         "incidentTemplateDescription": "Modèle de l’annonce WhatsApp copiée depuis une intervention. Changer l’ordre = déplacer les lignes. Une ligne dont tous les champs sont vides disparaît. Champs disponibles :",
         "templateLabel": "Modèle",
+        "alarmFilterTitle": "Filtrer les lignes standard des alarmes",
+        "alarmFilterDescription": "Certains systèmes d’alarme ajoutent la même ligne standard à chaque alarme (p. ex. l’ordre de départ). Les lignes commençant par l’un de ces préfixes sont retirées de la description de l’intervention – l’alarme reçue est conservée telle quelle.",
+        "alarmFilterLabel": "Préfixes de ligne (un par ligne)",
+        "alarmFilterHint": "Casse indifférente, les espaces en début de ligne sont ignorés. S’applique uniquement aux nouvelles alarmes.",
         "feldChipsTitle": "Annonces rapides pour /feld",
         "feldChipsDescription": "Annonces en un geste qu’un groupe sur le terrain peut envoyer au PC. Une annonce par ligne. Volontairement non traduites : chaque corps les formule lui-même.",
         "feldChipsLabel": "Annonces (une par ligne)"

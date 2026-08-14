@@ -219,7 +219,11 @@ async def attach_emergency_to_event(
         )
 
     # Derive incident (type/priority inferred from title/text)
-    incident_create = incident_create_from_emergency(emergency, request_data.event_id)
+    incident_create = incident_create_from_emergency(
+        emergency,
+        request_data.event_id,
+        description_filter_prefixes=await settings_service.get_alarm_description_filter_prefixes(db),
+    )
 
     # Create the incident, carrying the alarm's provenance onto the board card
     incident = await incidents_crud.create_incident(
@@ -279,6 +283,8 @@ async def bulk_attach_emergencies(
 
     created_incidents = []
     errors = []
+    # Read once, not per emergency — the station's standing-line filter is the same for all.
+    description_filters = await settings_service.get_alarm_description_filter_prefixes(db)
 
     for emergency_id in request_data.emergency_ids:
         try:
@@ -301,7 +307,9 @@ async def bulk_attach_emergencies(
                 continue
 
             # Create incident (type/priority inferred from title/text)
-            incident_create = incident_create_from_emergency(emergency, request_data.event_id)
+            incident_create = incident_create_from_emergency(
+                emergency, request_data.event_id, description_filter_prefixes=description_filters
+            )
 
             incident = await incidents_crud.create_incident(
                 db=db,
