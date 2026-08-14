@@ -71,6 +71,13 @@ services:
       # Declares this a real deployment: mandatory secrets (no per-restart SECRET_KEY),
       # no auth bypass, no sample incidents seeded onto the board. See app/environment.py.
       ENVIRONMENT: production
+      # A separate axis from ENVIRONMENT: what this instance may do to the OUTSIDE world.
+      # Blank = production, which blocks nothing. `staging` refuses outbound alerting and sync
+      # and shows a permanent band — set it on a second instance running on a copy of the real
+      # database, where the switches in the settings table arrive still pointing outward.
+      # Only those two values are accepted; anything else aborts startup rather than being
+      # guessed as production. See .env.example and docs/RAILWAY.md §5.1.
+      DEPLOYMENT_ROLE: ${DEPLOYMENT_ROLE:-}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-kprueck}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-kprueck}
       # Signs sessions/tokens — mandatory in production, and must stay STABLE.
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env (openssl rand -hex 32)}

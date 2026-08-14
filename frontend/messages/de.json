@@ -1,5 +1,13 @@
 {
   "common": {
+    "deploymentBanner": {
+      "ariaLabel": "{label} – dieses System wirkt nicht nach aussen",
+      "hint": "Es wird niemand aufgeboten."
+    },
+    "deploymentBlocked": {
+      "alerting": "Ausalarmierung ist auf diesem System gesperrt ({label}). Es wird niemand aufgeboten.",
+      "sync": "Datenabgleich mit einem anderen System ist auf diesem System gesperrt ({label})."
+    },
     "demoBanner": {
       "resettingTitle": "Demo wird zurückgesetzt...",
       "resettingDescription": "Die Seite wird in wenigen Sekunden neu geladen.",
@@ -15,19 +23,19 @@
         "canIncidents": "Einsätze erfassen, priorisieren und durch die Einsatzphasen bewegen",
         "canResources": "Personal, Fahrzeuge und Material disponieren",
         "canMap": "Standorte, Aufträge und Routen auf der Karte planen",
-        "canWorkflows": "Reko-Meldungen und weitere Einsatzabläufe testen",
+        "canWorkflows": "Reko-Berichte und weitere Einsatzabläufe testen",
         "knowTitle": "Gut zu wissen",
         "knowDescription": "Alle Daten sind synthetisch und haben keinen Bezug zu echten Einsätzen. Externe Alarmierung und angebundene Systeme sind in der Demo deaktiviert.",
         "cta": "Los geht’s"
       }
     },
     "staleDataBanner": {
-      "connectionLost": "Verbindung verloren — Daten sind möglicherweise veraltet.",
+      "connectionLost": "Verbindung verloren – Daten sind möglicherweise veraltet.",
       "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund.",
       "reconnect": "Neu verbinden"
     },
     "incidentTruncation": {
-      "message": "Es werden {shown} von {total} Einsätzen angezeigt — die Liste ist unvollständig."
+      "message": "Es werden {shown} von {total} Einsätzen angezeigt – die Liste ist unvollständig."
     },
     "copyButton": {
       "copiedTitle": "Kopiert",
@@ -62,6 +70,7 @@
       "newIncident": "Neuer Einsatz",
       "vehicleStatus": "Fahrzeugstatus",
       "auftraege": "Aufträge öffnen",
+      "print": "Drucken & Export",
       "groupAuftraege": "Aufträge",
       "refreshData": "Daten aktualisieren",
       "groupView": "Ansicht",
@@ -70,7 +79,7 @@
       "notifications": "Benachrichtigungen",
       "toggleSidePanel": "Seitenpanel umschalten",
       "sidePanelDetail": "Seitenpanel: Detail",
-      "sidePanelMap": "Seitenpanel: Karte",
+      "sidePanelMap": "Einsatz auf der Karte öffnen",
       "groupMap": "Karte",
       "toggleLabels": "Labels umschalten",
       "toggleAssignmentLines": "Zuweisungslinien umschalten",
@@ -141,7 +150,7 @@
       "diveraPool": "Alarmeingang",
       "export": "Export",
       "noEventSelected": "Kein Ereignis ausgewählt",
-      "reportPdf": "Bericht (PDF)",
+      "reportPdf": "Einsatzbericht (PDF)",
       "auditXlsx": "Audit-Export (XLSX)",
       "lageblattA4": "Lageblatt (A4)",
       "commands": "Befehle & Tastaturkürzel",
@@ -190,7 +199,7 @@
       "reko": "Reko",
       "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert / Anfahrt",
-      "active": "Einsatz",
+      "active": "Im Einsatz",
       "returning": "Beendet / Rückfahrt",
       "complete": "Abgeschlossen"
     },
@@ -199,14 +208,14 @@
       "reko": "Reko",
       "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert / Anfahrt",
-      "active": "Einsatz",
+      "active": "Im Einsatz",
       "returning": "Beendet / Rückfahrt",
       "complete": "Abgeschlossen"
     },
     "resources": {
-      "crew": "Personal",
+      "crew": "Mannschaft",
       "vehicles": "Fahrzeuge",
-      "materials": "Mittel",
+      "materials": "Material",
       "auftrag": "Auftrag",
       "roleOther": "Andere"
     },
@@ -245,6 +254,30 @@
         "total": "Zeit seit Alarmierung ({since})"
       }
     },
+    "cardView": {
+      "label": "Ansicht",
+      "tooltip": "Was auf den Karten steht – nur für dieses Gerät",
+      "presetsHeading": "Vorlage",
+      "blocksHeading": "Blöcke",
+      "custom": "{count}/9",
+      "alwaysVisibleHint": "Adresse, Priorität und alle Warnhinweise bleiben immer sichtbar.",
+      "preset": {
+        "kompakt": "Kompakt",
+        "standard": "Standard",
+        "alles": "Alles"
+      },
+      "block": {
+        "einsatzart": "Einsatzart",
+        "zeiten": "Zeiten",
+        "meldung": "Meldung",
+        "melder": "Melder",
+        "mannschaft": "Mannschaft",
+        "fahrzeuge": "Fahrzeuge",
+        "material": "Material",
+        "auftrag": "Auftrag",
+        "reko": "Reko"
+      }
+    },
     "common": {
       "search": "Suchen...",
       "clearSearch": "Suche löschen",
@@ -273,19 +306,21 @@
       "transferFailedDescription": "Die Ressourcen konnten nicht übertragen werden.",
       "noEventSelected": "Kein Event ausgewählt.",
       "deleteIncidentTitle": "Einsatz wirklich löschen?",
-      "deleteIncidentDescription": "Der Einsatz \"{name}\" wird gelöscht und nicht nur archiviert — er wird vollständig vom Board entfernt.",
+      "deleteIncidentDescription": "Der Einsatz \"{name}\" wird gelöscht und nicht nur archiviert – er wird vollständig vom Board entfernt.",
       "removeNamed": "{name} entfernen",
       "available": "Verfügbar",
       "inUse": "Im Einsatz",
       "availableCounter": "{available}/{total} verfügbar",
+      "counterLoading": "–/– verfügbar",
+      "visibleCounter": "{shown} von {total} sichtbar",
       "zuFuss": "Zu Fuss",
       "removeZuFuss": "Zu Fuss entfernen",
       "priorityLow": "Niedrig",
       "priorityMedium": "Mittel",
       "priorityHigh": "Hoch",
       "funkrufname": "Funkrufname: {callsign}",
-      "driverStayTooltip": "Fahrer bleibt vor Ort — klicken für Rückkehr",
-      "driverReturnTooltip": "Fahrer kehrt zurück — klicken für vor Ort bleiben",
+      "driverStayTooltip": "Fahrer bleibt vor Ort – klicken für Rückkehr",
+      "driverReturnTooltip": "Fahrer kehrt zurück – klicken für vor Ort bleiben",
       "driverStays": "bleibt",
       "driverReturns": "zurück",
       "meldung": "Meldung",
@@ -293,6 +328,8 @@
       "einsatzart": "Einsatzart",
       "einsatzartPlaceholder": "Einsatzart auswählen",
       "priority": "Priorität",
+      "phoneReported": "Telefonisch gemeldet",
+      "phoneReportedDescription": "Meldung kam per Telefon oder Walk-in ins KP",
       "contact": "Kontakt / Melder",
       "contactPlaceholder": "Name der meldenden Person",
       "contactPhone": "Telefonnummer",
@@ -305,8 +342,7 @@
       "amWarten": "Am Warten",
       "amWartenDescription": "Einsatz verzögert / wartet auf Ressourcen",
       "amWartenPlaceholder": "Grund der Verzögerung...",
-      "rekoReports": "Rekognoszierungs-Meldungen",
-      "assignedResources": "Zugewiesene Ressourcen",
+      "rekoReports": "Reko-Berichte",
       "reko": "Reko",
       "magazin": "Magazin",
       "directLink": "Direkt-Link",
@@ -325,7 +361,7 @@
     },
     "dashboard": {
       "loading": "Laden...",
-      "stopsAddedToast": "{count} Stops zur Route hinzugefügt",
+      "stopsAddedToast": "{count, plural, one {# Stopp zur Route hinzugefügt} other {# Stopps zur Route hinzugefügt}}",
       "distributedToast": "In Auftrag «{name}» verteilt",
       "removedFromAuftragToast": "Einsatz aus Auftrag entfernt",
       "noEventSelected": "Kein Ereignis ausgewählt",
@@ -349,7 +385,14 @@
         "type": "Nach Typ",
         "applied": "Spalte sortiert"
       },
-      "noPersonnelAvailable": "Keine Personen verfügbar",
+      "noPersonnelCheckedIn": "Niemand angemeldet",
+      "personnelLoading": "Personal wird geladen",
+      "materialLoading": "Material wird geladen",
+      "noPersonnelMatch": "Keine Person passt zu <term>«{query}»</term>",
+      "noMaterialMatch": "Kein Gerät passt zu <term>«{query}»</term>",
+      "resetSearch": "Suche zurücksetzen",
+      "noMaterialYet": "Noch kein Material erfasst",
+      "createMaterialInSettings": "In den Einstellungen anlegen",
       "scanCheckInQr": "Check-In QR-Code scannen",
       "boardPrintSent": "Board-Druckauftrag gesendet",
       "qrPrintSent": "QR-Druckauftrag gesendet",
@@ -365,8 +408,7 @@
       "alarm": "Alarm",
       "vehicles": "Fahrzeuge",
       "print": "Drucken",
-      "thermo": "Thermo",
-      "thermoTitle": "Board auf Thermodrucker drucken",
+      "printTitle": "Drucken & Export – Bon, A4, Datei",
       "trainingControl": "Übungs-Steuerung",
       "commands": "Befehle",
       "checkInSheetTitle": "Personal Check-In",
@@ -386,19 +428,48 @@
       "alarmSheetTitle": "Alarm-Link",
       "alarmSheetDescription": "QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z. B. Telefon / Walk-in)",
       "alarmSheetHint": "Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung.",
-      "auftraege": "Aufträge"
+      "auftraege": "Aufträge",
+      "feld": "Feld",
+      "feldLinkFailed": "Feld-Link konnte nicht generiert werden. Bitte versuche es erneut.",
+      "feldSheetTitle": "Feld-Link",
+      "feldSheetDescription": "QR-Code scannen oder Link teilen – für alle Trupps im Feld",
+      "feldSheetHint": "Jede eingeteilte Person sieht damit ihre eigenen Schadenplätze und kann den Schadenplatz-Rapport erfassen. Funktioniert ohne Anmeldung.",
+      "rapporte": "Rapporte",
+      "more": "Mehr",
+      "moreTitle": "{count, plural, one {# weiteres Bedienelement} other {# weitere Bedienelemente}}",
+      "rapportBacklog": {
+        "toggleTitle": "Offene Schadenplatz-Rapporte: {count}",
+        "title": "Schadenplatz-Rapporte",
+        "description": "älteste zuerst",
+        "descriptionFiled": "neueste zuerst",
+        "tabOpen": "Offen ({count})",
+        "tabFiled": "Erfasst ({count})",
+        "draft": "Entwurf",
+        "completedAt": "Abgeschlossen {time}",
+        "changedAt": "Stand {time}",
+        "since": "seit {duration}",
+        "empty": "Alle Rapporte sind erfasst.",
+        "emptyFiled": "Noch kein Rapport erfasst."
+      },
+      "materialOnSite": {
+        "toggle": "{count, plural, one {# Gerät vor Ort} other {# Geräte vor Ort}}",
+        "toggleTitle": "{count, plural, one {# Gerät steht noch an einem Schadenplatz} other {# Geräte stehen noch an einem Schadenplatz}} – älteste zuerst",
+        "rowTitle": "{name} steht noch bei {address}",
+        "since": "seit {duration}",
+        "unknownAddress": "Ohne Adresse"
+      }
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
       "titleCrewOnly": "Personal fehlt",
       "titleVehiclesOnly": "Fahrzeug fehlt",
-      "titleMaterialsOnly": "Mittel fehlen",
+      "titleMaterialsOnly": "Material fehlt",
       "readyTitle": "Alles bereit",
       "checklistIntro": "<hl>{location}</hl> wird disponiert. Weise die fehlenden Ressourcen zu oder disponiere trotzdem.",
       "readyIntro": "<hl>{location}</hl> ist vollständig ausgerüstet – bereit zum Disponieren.",
       "addMore": "Hinzufügen",
       "personalSummary": "{count, plural, one {# Person} other {# Personen}}",
-      "mittelSummary": "{count, plural, one {# Mittel} other {# Mittel}}",
+      "mittelSummary": "{count, plural, one {# Gerät} other {# Geräte}}",
       "done": "Disponieren",
       "dispatchAnyway": "Trotzdem disponieren"
     },
@@ -413,16 +484,29 @@
       "proceedAnyway": "Trotzdem fortfahren",
       "assignReko": "Reko-Person zuweisen"
     },
+    "driverPrompt": {
+      "driverlessTitle": "Fahrzeug ohne Fahrer?",
+      "driverlessDescription": "«{vehicle}» ist {incident} zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder entfernen?",
+      "driverlessRemove": "Fahrzeug entfernen",
+      "driverlessKeep": "Ohne Fahrer lassen"
+    },
     "materialDecision": {
       "title": "Material vor Ort oder ins Magazin?",
-      "description": "<hl>{location}</hl> wurde abgeschlossen. Entscheide pro Mittel, ob es vor Ort blieb oder zurück ins Magazin kommt.",
+      "description": "<hl>{location}</hl> wurde abgeschlossen. Entscheide für jedes Gerät, ob es vor Ort blieb oder zurück ins Magazin kommt.",
+      "descriptionFromRapport": "<hl>{location}</hl> wurde abgeschlossen. Die Mannschaft hat vor Ort bereits für jedes Gerät geantwortet – kontrolliere und bestätige.",
+      "descriptionPartialRapport": "<hl>{location}</hl> wurde abgeschlossen. Die Antworten der Mannschaft sind übernommen; {count, plural, one {ein Gerät ist} other {# Geräte sind}} noch offen.",
       "toMagazinShort": "Magazin",
       "onSiteShort": "Vor Ort",
       "toastToMagazin": "Ins Magazin zurück",
       "toastOnSite": "Vor Ort gelassen",
       "confirm": "Bestätigen",
+      "confirmRapport": "Übernehmen",
       "cancel": "Abbrechen",
-      "leftOnSite": "Vor Ort gelassen"
+      "leftOnSite": "Vor Ort gelassen",
+      "rapportSource": "Aus dem Rapport von {name}",
+      "rapportSourceDraft": "Aus dem Rapport-Entwurf von {name}",
+      "answeredHint": "Laut Rapport",
+      "consumableHint": "Verbrauchsmaterial – kommt nicht zurück"
     },
     "disponiert": {
       "whatsappCopied": "WhatsApp-Nachricht kopiert",
@@ -443,9 +527,9 @@
       "noResourcesHint": "Noch keine Ressourcen zugewiesen.",
       "radioSpecial": "Besonderes:",
       "radioAuftragIntro": "An alle {funkrufname}, neuer Auftrag «{name}»:",
-      "radioAuftragStops": "{count, plural, one {# Stop} other {# Stops}}:",
-      "radioAuftragContinue": "An alle {funkrufname}, Auftrag «{name}» weiter mit Stop {pos}:",
-      "auftragContext": "Auftrag «{name}» · Stop {pos}/{total}",
+      "radioAuftragStops": "{count, plural, one {# Stopp} other {# Stopps}}:",
+      "radioAuftragContinue": "An alle {funkrufname}, Auftrag «{name}» weiter mit Stopp {pos}:",
+      "auftragContext": "Auftrag «{name}» · Stopp {pos}/{total}",
       "copyWhatsapp": "WhatsApp-Nachricht kopieren",
       "sendDivera": "Aufgebot senden"
     },
@@ -457,7 +541,7 @@
       "rekoDoneTooltip": "Reko-Bericht ausgefüllt",
       "showOnMap": "Auf Karte anzeigen",
       "onSiteSince": "vor Ort {time}",
-      "doubleBookedTooltip": "{name} ist auf mehreren Einsätzen — Doppelbelegung",
+      "doubleBookedTooltip": "{name} ist auf mehreren Einsätzen – Doppelbelegung",
       "persCount": "{count} Pers.",
       "changeReko": "Reko ändern",
       "assignReko": "Reko zuweisen",
@@ -469,13 +553,15 @@
       "completeIncident": "Einsatz abschliessen",
       "showOnMapMenu": "Auf Karte zeigen",
       "printing": "Drucke...",
-      "auftragChipTooltip": "Auftrag: {name}",
-      "auftragStopPosition": "Stop {pos}/{total}",
       "auftragPersSummary": "{count} Pers",
-      "auftragMatSummary": "{count} Mittel"
+      "auftragMatSummary": "{count, plural, one {# Gerät} other {# Geräte}}",
+      "auftragStopLine": "Stopp {pos} von {total}",
+      "moreCount": "+{count} weitere",
+      "moreCrewTitle": "{count, plural, one {# weitere Person} other {# weitere Personen}} – Einsatz öffnen",
+      "moreMaterialTitle": "{count, plural, one {# weiteres Gerät} other {# weitere Geräte}} – Einsatz öffnen"
     },
     "column": {
-      "ariaLabelWithCount": "{title} column ({count} Einsätze)",
+      "ariaLabelWithCount": "Spalte {title} ({count, plural, one {# Einsatz} other {# Einsätze}})",
       "ariaLabel": "{title} column",
       "collapse": "Spalte einklappen",
       "dropHere": "Einsatz hier ablegen",
@@ -483,9 +569,9 @@
     },
     "timeline": {
       "loadFailed": "Verlauf konnte nicht geladen werden.",
-      "showAria": "Verlauf anzeigen",
+      "retry": "Erneut versuchen",
       "title": "Verlauf",
-      "subtitle": "Statusänderungen und Zuweisungen",
+      "subtitle": "Statusänderungen, Zuweisungen und Meldungen",
       "empty": "Noch keine Einträge.",
       "removed": "entfernt",
       "assigned": "zugewiesen",
@@ -500,6 +586,16 @@
       "create": "Einsatz erstellen"
     },
     "detail": {
+      "rekoAuftrag": "Reko-Auftrag",
+      "tabs": {
+        "overview": "Übersicht",
+        "reko": "Reko",
+        "rapport": "Rapport",
+        "rapportFiled": "erfasst",
+        "rapportDraft": "Entwurf",
+        "history": "Verlauf",
+        "switchHint": "Tab wechseln"
+      },
       "viaAuftrag": "über Auftrag «{name}»",
       "vehiclesLoadFailed": "Fahrzeuge konnten nicht geladen werden",
       "vehiclesLoadFailedDescription": "Bitte erneut versuchen oder das Fenster neu öffnen.",
@@ -518,6 +614,7 @@
       "noMaterial": "Kein Material zugewiesen",
       "changeStatus": "Status ändern",
       "copyWhatsapp": "WhatsApp kopieren",
+      "moreActions": "Weitere Aktionen",
       "diveraAlarm": "Aufgebot",
       "eventWideRekoTransfer": "Alle offenen Rekos übertragen",
       "eventWideRekoTransferTooltip": "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Event, nicht nur diesen Einsatz.",
@@ -525,17 +622,12 @@
     },
     "sidePanel": {
       "togglePanel": "Panel ein-/ausblenden",
-      "details": "Details",
-      "map": "Karte",
+      "railLabel": "Einsatz-Detail",
+      "openOnMap": "Auf der Karte öffnen",
       "clickToView": "Klicke auf einen Einsatz, um Details anzuzeigen",
       "selectPlaceholder": "Auswählen",
       "transfer": "Übertragen",
-      "whatsapp": "WhatsApp",
-      "mapLoading": "Karte wird geladen..."
-    },
-    "sidePanelMap": {
-      "noCoordinates": "Keine Einsätze mit gültigen Koordinaten",
-      "vehicle": "Fahrzeug"
+      "whatsapp": "WhatsApp"
     },
     "personMenu": {
       "vehicleTaken": "Fahrzeug bereits zugewiesen",
@@ -550,7 +642,7 @@
       "confirmAction": "Vom Einsatz entfernen & zuweisen",
       "unassignTitle": "{function}-Funktion entfernen?",
       "unassignRekoDescription": "<strong>{name}</strong> verliert die Reko-Funktion und erscheint nicht mehr in den Reko-Ansichten (Reko-Dashboard, Karte). Bestehende Einsatz-Zuteilungen bleiben bestehen. Die Person gilt danach wieder als normale Einsatzkraft.",
-      "unassignRekoTransfer": "{count} Einsatz/Einsätze übertragen",
+      "unassignRekoTransfer": "{count, plural, one {# Einsatz übertragen} other {# Einsätze übertragen}}",
       "unassignDriverDescription": "<strong>{name}</strong> ist danach nicht mehr Fahrer von <strong>{vehicle}</strong> und gilt wieder als normale Einsatzkraft.",
       "unassignMagazinDescription": "<strong>{name}</strong> verliert die Magazin-Funktion und gilt danach wieder als normale Einsatzkraft.",
       "unassignConfirm": "Funktion entfernen"
@@ -568,7 +660,7 @@
       "titleVehiclesIncident": "Fahrzeuge zu Einsatz zuweisen",
       "titleMaterialsIncident": "Material zu Einsatz zuweisen",
       "selectedCount": "{selected} ausgewählt, {available} verfügbar",
-      "vehiclesAssigned": "{count} Fahrzeug(e) zugewiesen",
+      "vehiclesAssigned": "{count, plural, one {# Fahrzeug zugewiesen} other {# Fahrzeuge zugewiesen}}",
       "zuFussSuffix": ", Zu Fuss",
       "quickSelectByType": "Nach Typ:",
       "showAllPersonnel": "Alle anzeigen",
@@ -605,11 +697,13 @@
       "noOthers": "Keine anderen Reko-Personen verfügbar"
     },
     "person": {
-      "doubleBookedTooltip": "Auf {count} Einsätzen — Doppelbelegung"
+      "doubleBookedTooltip": "Auf {count} Einsätzen – Doppelbelegung"
     },
     "material": {
       "consumable": "Verbrauchsmaterial",
-      "consumableUnlimited": "Verbrauchsmaterial (unbegrenzt)"
+      "consumableUnlimited": "Verbrauchsmaterial (unbegrenzt)",
+      "onSite": "vor Ort",
+      "onSiteTitle": "Steht noch bei {address} · seit {since}"
     },
     "shortcuts": {
       "refreshing": "Aktualisiere...",
@@ -632,30 +726,30 @@
       "create": "Erstellen",
       "cancel": "Abbrechen",
       "empty": "Noch keine Aufträge. Erstelle einen, um Einsätze zu einer Route zu bündeln.",
-      "noStops": "Noch keine Stops. Zieh Karten hierher oder füge einen Stop hinzu.",
+      "noStops": "Noch keine Stopps. Zieh Karten hierher oder füge einen Stopp hinzu.",
       "noSquad": "kein Squad",
       "persLabel": "{count} Pers",
-      "matLabel": "{count} Mittel",
+      "matLabel": "{count, plural, one {# Gerät} other {# Geräte}}",
       "progress": "{done}/{total} erledigt",
       "toggle": "Auftrag auf-/zuklappen",
       "rename": "Umbenennen",
       "delete": "Auftrag löschen",
-      "addStop": "Stop hinzufügen",
+      "addStop": "Stopp hinzufügen",
       "routenEditor": "Routen-Editor",
       "stopsCount": "Zugewiesene Einsätze ({count})",
       "deleteTitle": "Auftrag löschen?",
       "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur die Route wird entfernt.",
       "deleteConfirm": "Löschen",
       "map": "Karte",
-      "dragStop": "Stop verschieben",
+      "dragStop": "Stopp verschieben",
       "openDetail": "Details öffnen",
-      "removeStop": "Stop entfernen",
+      "removeStop": "Stopp entfernen",
       "changeColor": "Farbe ändern",
       "optimizeOrder": "Optimieren",
       "optimizeStartHint": "Start ab",
       "startMagazin": "Magazin",
       "startVehicle": "Fahrzeug-GPS",
-      "startFirst": "Erster Stop",
+      "startFirst": "Erster Stopp",
       "optimized": "Reihenfolge optimiert.",
       "optimizeUnchanged": "Reihenfolge bereits optimal.",
       "undo": "Rückgängig",
@@ -664,7 +758,7 @@
       "repeatRadioTitlePreview": "Funkdurchsage",
       "repeatRadioDescription": "Zuletzt durchgegeben um {time} Uhr – Wortlaut unverändert.",
       "repeatRadioPreview": "Noch nicht durchgegeben – so würde sie jetzt lauten.",
-      "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stop. Die Durchsage entsteht mit dem ersten.",
+      "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stopp. Die Durchsage entsteht mit dem ersten.",
       "repeatRadioCopy": "Text kopieren",
       "repeatRadioCopied": "Funkdurchsage kopiert",
       "moreOptions": "Weitere Optionen"
@@ -672,8 +766,8 @@
     "closedStop": {
       "title": "Einsatz ist abgeschlossen",
       "titleMany": "{count} Einsätze sind abgeschlossen",
-      "description": "«{name}» ist abgeschlossen. Trotzdem als Stop hinzufügen?",
-      "descriptionMany": "Diese Einsätze sind abgeschlossen: {names}. Trotzdem als Stops hinzufügen?",
+      "description": "«{name}» ist abgeschlossen. Trotzdem als Stopp hinzufügen?",
+      "descriptionMany": "Diese Einsätze sind abgeschlossen: {names}. Trotzdem als Stopps hinzufügen?",
       "confirm": "Trotzdem hinzufügen"
     },
     "stopStatus": {
@@ -687,32 +781,32 @@
     },
     "routenEditorModal": {
       "title": "Routen-Editor",
-      "description": "Stops auf der Karte anordnen: klicken zum Hinzufügen, ziehen zum Umsortieren, optimieren.",
+      "description": "Stopps auf der Karte anordnen: klicken zum Hinzufügen, ziehen zum Umsortieren, optimieren.",
       "mapHeading": "Karte",
-      "emptyState": "Noch keine Stops — klicke auf die Karte oder nutze «Stop hinzufügen».",
+      "emptyState": "Noch keine Stopps – klicke auf die Karte oder nutze «Stopp hinzufügen».",
       "order": "Reihenfolge",
-      "addStopToggle": "Stop hinzufügen",
-      "addStopHint": "Klick auf die Karte platziert einen neuen Stop.",
-      "addingStop": "Stop wird hinzugefügt …",
+      "addStopToggle": "Stopp hinzufügen",
+      "addStopHint": "Klick auf die Karte platziert einen neuen Stopp.",
+      "addingStop": "Stopp wird hinzugefügt …",
       "optimizeStartHint": "Start ab",
       "startMagazin": "Magazin",
       "startVehicle": "Fahrzeug-GPS",
-      "startFirst": "Erster Stop",
+      "startFirst": "Erster Stopp",
       "optimize": "Reihenfolge optimieren",
       "previewUnchanged": "Die Reihenfolge ist bereits optimal.",
       "applied": "Reihenfolge übernommen.",
       "done": "Fertig",
-      "noStops": "Noch keine Stops in diesem Auftrag.",
+      "noStops": "Noch keine Stopps in diesem Auftrag.",
       "mapLoading": "Karte wird geladen …",
-      "dragStop": "Stop verschieben",
-      "noCoords": "Dieser Stop hat keine Koordinaten und liegt nicht auf der Route.",
+      "dragStop": "Stopp verschieben",
+      "noCoords": "Dieser Stopp hat keine Koordinaten und liegt nicht auf der Route.",
       "noCoordsBadge": "kein Ort",
       "optimized": "Reihenfolge optimiert.",
       "undo": "Rückgängig",
-      "removeStop": "Stop entfernen"
+      "removeStop": "Stopp entfernen"
     },
     "incidentPicker": {
-      "title": "Einsätze als Stops hinzufügen",
+      "title": "Einsätze als Stopps hinzufügen",
       "description": "Bestehende Einsätze auswählen. Ein Einsatz aus einem anderen Auftrag wird hierher verschoben.",
       "searchPlaceholder": "Einsatz suchen …",
       "empty": "Keine passenden Einsätze gefunden.",
@@ -731,15 +825,35 @@
     },
     "auftragPicker": {
       "title": "An Auftrag verteilen",
-      "description": "Einsatz einem Auftrag zuordnen. Er wird als Stop in die Route verschoben.",
+      "description": "Einsatz einem Auftrag zuordnen. Er wird als Stopp in die Route verschoben.",
       "empty": "Noch keine Aufträge. Erstelle einen neuen.",
       "alreadyHere": "bereits hier",
-      "stopCount": "{count} Stops",
+      "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
       "namePlaceholder": "Auftragsname",
       "createConfirm": "Erstellen",
       "cancel": "Abbrechen",
       "newAuftrag": "Neuer Auftrag",
       "removeFromAuftrag": "Aus Auftrag entfernen"
+    },
+    "attendance": {
+      "title": "Anwesenheit · {event}",
+      "summary": "{present} anwesend · {left} gegangen · {total} Mannschaft",
+      "rowLabel": "Anwesenheit",
+      "rowCount": "{present} von {total} angemeldet",
+      "open": "Appell öffnen",
+      "loading": "Lädt...",
+      "noneFound": "Keine Personen gefunden",
+      "since": "seit {time}",
+      "unavailable": "nicht verfügbar",
+      "assignedChip": "zugeteilt",
+      "assignedTitle": "Person ist noch zugeteilt",
+      "assignedDescription": "{name} ist noch an {where} zugeteilt – trotzdem abmelden? Die Zuteilung bleibt bestehen.",
+      "checkOutAnyway": "Trotzdem abmelden",
+      "checkOutAll": "Alle abmelden",
+      "checkOutAllTitle": "Alle abmelden?",
+      "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuteilungen bleiben bestehen.",
+      "quickAddHint": "Wird direkt angemeldet",
+      "writeFailed": "Anwesenheit konnte nicht gespeichert werden"
     }
   },
   "incidents": {
@@ -771,7 +885,7 @@
       "reko": "Reko",
       "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert / Anfahrt",
-      "active": "Einsatz",
+      "active": "Im Einsatz",
       "returning": "Beendet / Rückfahrt",
       "complete": "Abgeschlossen"
     },
@@ -793,6 +907,7 @@
       "markError": "Die Person konnte nicht als Reko markiert werden. Versuche es erneut.",
       "back": "Zurück",
       "assigned": "Zugewiesen",
+      "keepAssigned": "Zuweisung übernehmen",
       "recommended": "Empfohlen",
       "openCount": "{count} offen",
       "noOpenWork": "frei",
@@ -816,7 +931,7 @@
       "tryDifferentSearch": "Versuche einen anderen Suchbegriff",
       "noOtherIncidents": "Keine anderen Einsätze verfügbar",
       "needTwoIncidents": "Es müssen mindestens zwei Einsätze vorhanden sein",
-      "vehicleCount": "{count} Fahrzeug(e)",
+      "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
       "transferring": "Übertrage...",
       "transfer": "Übertragen"
     },
@@ -855,20 +970,22 @@
       "addAndAssign": "Hinzufügen & als Fahrer",
       "adding": "Wird hinzugefügt…",
       "addError": "Person konnte nicht hinzugefügt werden",
+      "checkInFailedTitle": "Anmeldung fehlgeschlagen",
+      "checkInFailedDescription": "{name} wurde erfasst, ist aber nicht als anwesend angemeldet und darum nicht auf dem Board sichtbar. Person im Appell anmelden und danach als Fahrer zuweisen.",
       "duplicateName": "Es existiert bereits eine Person mit diesem Namen.",
       "markAsDriver": "Als Fahrer markieren",
       "markedAsDriver": "{name} als Fahrer markiert",
       "markError": "Markierung fehlgeschlagen"
     },
-    "vehicleConflict": {
-      "title": "Fahrzeug bereits im Einsatz",
-      "alreadyAssigned": "<strong>{vehicle}</strong> ist bereits zugewiesen",
+    "resourceConflict": {
+      "title": "Doppelbelegung?",
+      "alreadyAssigned": "<strong>{name}</strong> ist bereits zugewiesen",
       "assignedToSingle": "auf »{label}«.",
       "assignedToMultiple": "auf:",
       "bullet": "• {label}",
-      "question": "Soll das Fahrzeug hierher verschoben werden, oder auf beiden Einsätzen bleiben?",
-      "keepBoth": "Mehrfach zuweisen",
-      "moveHere": "Hierher verschieben"
+      "question": "Hierher verschieben, oder auf beiden Einsätzen belassen?",
+      "moveHere": "Hierher verschieben",
+      "keepBoth": "Mehrfach zuweisen"
     },
     "vehicleStatus": {
       "durationMinutes": "{minutes} Min",
@@ -905,8 +1022,8 @@
       "releaseFailed": "Freigabe fehlgeschlagen",
       "completed": "{label} abgeschlossen",
       "completeFailed": "Abschliessen fehlgeschlagen",
-      "title": "Fahrzeug zurück im Magazin — freigeben?",
-      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu »{label}« freigeben — oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
+      "title": "Fahrzeug zurück im Magazin – freigeben?",
+      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu »{label}« freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
       "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
       "completeIncident": "Einsatz abschliessen"
@@ -930,7 +1047,7 @@
       "rekoBadge": "Reko",
       "notesPlaceholder": "Notiz hinzufügen...",
       "dangers": "Gefahren",
-      "personnelCount": "{count} Personen",
+      "personnelCount": "{count, plural, one {# Person} other {# Personen}}",
       "estimatedDuration": "{duration}h geschätzt",
       "vehicles": "Fahrzeuge ({count})",
       "noVehicles": "Keine Fahrzeuge zugewiesen",
@@ -985,6 +1102,7 @@
     "page": {
       "loading": "Karte wird geladen…",
       "title": "Lagekarte",
+      "backToBoard": "Zurück zum Board",
       "activeBadge": "{count} Aktiv",
       "incidentsHeading": "Einsätze ({count})",
       "labels": "Labels",
@@ -994,7 +1112,7 @@
       "showDetails": "Details anzeigen",
       "groupRoutes": "Aufträge",
       "groupRoutesColorHint": "Färbt die Karte nach Auftrag",
-      "colorByRoutesOverride": "Von «Aufträge» gesetzt — beim Ausschalten wird die vorherige Färbung wiederhergestellt.",
+      "colorByRoutesOverride": "Von «Aufträge» gesetzt – beim Ausschalten wird die vorherige Färbung wiederhergestellt.",
       "routePlanning": "Routenplanung",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
@@ -1009,20 +1127,20 @@
       "defaultName": "Auftrag {n}",
       "create": "Erstellen",
       "cancel": "Abbrechen",
-      "noGroupSelected": "Wähle oder erstelle einen Auftrag, um Stops zu planen.",
+      "noGroupSelected": "Wähle oder erstelle einen Auftrag, um Stopps zu planen.",
       "order": "Reihenfolge",
-      "addStopToggle": "Stop hinzufügen",
-      "addStopHint": "Klick auf die Karte platziert einen neuen Stop.",
-      "addingStop": "Stop wird hinzugefügt …",
-      "noStops": "Noch keine Stops in diesem Auftrag.",
+      "addStopToggle": "Stopp hinzufügen",
+      "addStopHint": "Klick auf die Karte platziert einen neuen Stopp.",
+      "addingStop": "Stopp wird hinzugefügt …",
+      "noStops": "Noch keine Stopps in diesem Auftrag.",
       "optimizeStartHint": "Start ab",
       "startMagazin": "Magazin",
       "startVehicle": "Fahrzeug-GPS",
-      "startFirst": "Erster Stop",
+      "startFirst": "Erster Stopp",
       "optimize": "Reihenfolge optimieren",
       "previewUnchanged": "Die Reihenfolge ist bereits optimal.",
       "applied": "Reihenfolge übernommen.",
-      "stopAdded": "Stop zur Route hinzugefügt.",
+      "stopAdded": "Stopp zur Route hinzugefügt.",
       "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route.",
       "optimized": "Reihenfolge optimiert.",
       "undo": "Rückgängig",
@@ -1031,13 +1149,13 @@
     "view": {
       "markerAria": "Einsatz: {label}",
       "firestationFallback": "Feuerwehr",
-      "crewSummary": "{vehicles} Fahrzeug(e), {personnel} Person(en) zugewiesen",
+      "crewSummary": "{vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {personnel, plural, one {# Person} other {# Personen}} zugewiesen",
       "magazin": "Magazin",
-      "missingCoords": "⚠️ {count, plural, one {# Einsatz} other {# Einsatze}} ohne gültige Koordinaten",
+      "missingCoords": "⚠️ {count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
       "clickToExpand": "Klicken zum Erweitern",
       "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
       "retry": "Neu versuchen",
-      "mapAria": "Einsatzkarte — Pfeiltasten zum Verschieben, Tab zum Markieren"
+      "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren"
     },
     "legend": {
       "show": "Legende anzeigen",
@@ -1059,6 +1177,7 @@
     },
     "locationInput": {
       "addressLabel": "Einsatzort (Adresse)",
+      "addressLabelShort": "Einsatzort",
       "requiredField": "Pflichtfeld",
       "addressPlaceholder": "Adresse eingeben oder suchen...",
       "searchPlaceholder": "Adresse suchen...",
@@ -1140,7 +1259,7 @@
       "loadSettingsError": "Fehler beim Laden der Einstellungen",
       "checkInputRetry": "Überprüfe die Eingabe und versuche es erneut.",
       "reloadPage": "Bitte Seite neu laden.",
-      "entriesCount": "{count} Einträge",
+      "entriesCount": "{count, plural, one {# Eintrag} other {# Einträge}}",
       "sortCategoriesTab": "Kategorien sortieren"
     },
     "page": {
@@ -1275,6 +1394,17 @@
               "total": "Zeit seit Alarmierung"
             }
           }
+        },
+        "logo": {
+          "label": "Stationslogo",
+          "description": "Erscheint als Briefkopf auf dem Einsatzbericht (PNG, JPEG oder WebP, max. 5 MB)",
+          "upload": "Hochladen",
+          "replace": "Ersetzen",
+          "remove": "Entfernen",
+          "uploaded": "Logo gespeichert",
+          "removed": "Logo entfernt",
+          "uploadFailed": "Logo konnte nicht gespeichert werden",
+          "tooLarge": "Datei zu gross – maximal 5 MB"
         }
       },
       "alerting": {
@@ -1286,7 +1416,10 @@
         "message2Hint": "Direkter Aufruf: ins Magazin einrücken.",
         "incidentTemplateTitle": "WhatsApp-Einsatznachricht",
         "incidentTemplateDescription": "Vorlage für die aus einem Einsatz kopierte WhatsApp-Meldung. Reihenfolge ändern = Zeilen verschieben. Eine Zeile, deren Platzhalter alle leer sind, fällt weg. Platzhalter:",
-        "templateLabel": "Vorlage"
+        "templateLabel": "Vorlage",
+        "feldChipsTitle": "Meldungs-Chips für /feld",
+        "feldChipsDescription": "Ein-Tipp-Meldungen, die ein Trupp im Feld an den KP schicken kann. Eine Meldung pro Zeile. Bewusst keine Übersetzung: jede Feuerwehr formuliert das selbst.",
+        "feldChipsLabel": "Meldungen (eine pro Zeile)"
       },
       "demo": {
         "sync": "Synchronisation ist im Demo-Modus nicht verfügbar.",
@@ -1326,7 +1459,7 @@
         "exportDescription": "Vollständiges Protokoll eines Ereignisses zur Archivierung und Abrechnung: alle Einsätze, die komplette Zuweisungshistorie von Personal, Fahrzeugen und Material mit Zeitstempeln (zugewiesen/freigegeben), Status-Verlauf und Reko-Berichte.",
         "selectEventPlaceholder": "Ereignis auswählen...",
         "trainingTag": "(Training)",
-        "archivedDivider": "— Archiviert —",
+        "archivedDivider": "– Archiviert –",
         "exporting": "Exportiere...",
         "exportButton": "Audit exportieren",
         "searchPlaceholder": "Suche nach Aktion, Ressource, ID, Benutzer oder IP...",
@@ -1359,19 +1492,19 @@
       "autoDownloadActiveDescription": "Erster Download in ~{minutes} Min., danach alle {minutes} Min. auf diesem Gerät.",
       "downloadFailed": "Lageblatt konnte nicht heruntergeladen werden",
       "title": "Ausfallsicherheit",
-      "intro": "Hält den aktuellen Board-Stand ausserhalb des Systems bereit — auf Papier und auf diesem Gerät. Vorgehen im Ausfall: siehe Ausfall-SOP (docs/AUSFALL_SOP.md).",
+      "intro": "Hält den aktuellen Board-Stand ausserhalb des Systems bereit – auf Papier und auf diesem Gerät. Vorgehen im Ausfall: siehe Ausfall-SOP (docs/AUSFALL_SOP.md).",
       "autoPrintLabel": "Board automatisch drucken (Thermo)",
-      "autoPrintHint": "Druckt regelmässig einen Board-Schnappschuss, solange ein Live-Ereignis aktiv ist — nur wenn sich etwas geändert hat",
-      "autoPrintPrinterRequired": " — benötigt aktivierten Drucker (Einstellungen → Drucker)",
+      "autoPrintHint": "Druckt regelmässig einen Board-Schnappschuss, solange ein Live-Ereignis aktiv ist – nur wenn sich etwas geändert hat",
+      "autoPrintPrinterRequired": " – benötigt aktivierten Drucker (Einstellungen → Drucker)",
       "intervalLabel": "Druck-Intervall (Minuten)",
       "intervalHint": "Frühestens alle 5, spätestens alle 120 Minuten",
       "autoDownloadLabel": "Lageblatt Auto-Download (dieses Gerät)",
-      "autoDownloadHint": "Lädt regelmässig ein aktuelles Lageblatt (PDF) in den Download-Ordner — bleibt auch ohne Netz lesbar und druckbar. Der erste Download startet beim nächsten Intervall, nicht sofort. Gilt nur für dieses Gerät.",
+      "autoDownloadHint": "Lädt regelmässig ein aktuelles Lageblatt (PDF) in den Download-Ordner – bleibt auch ohne Netz lesbar und druckbar. Der erste Download startet beim nächsten Intervall, nicht sofort. Gilt nur für dieses Gerät.",
       "autoDownloadIntervalLabel": "Download-Intervall (Min.)",
       "autoDownloadIntervalHint": "Frühestens alle 5, spätestens alle 120 Minuten",
       "manualLabel": "Lageblatt jetzt herunterladen",
       "manualHint": "A4-Führungsformular (BL/BS-Layout) mit allen Einsatzdetails",
-      "manualNoEvent": " — kein Ereignis ausgewählt",
+      "manualNoEvent": " – kein Ereignis ausgewählt",
       "downloadButton": "Herunterladen"
     },
     "gps": {
@@ -1490,7 +1623,7 @@
       "syncSectionNew": "Neu",
       "syncSectionUnchanged": "Unverändert",
       "syncSectionNotInDivera": "Nicht in Divera",
-      "removeStaleLabel": "{count} Person(en) entfernen, die nicht in Divera vorhanden sind",
+      "removeStaleLabel": "{count, plural, one {# Person entfernen, die nicht in Divera vorhanden ist} other {# Personen entfernen, die nicht in Divera vorhanden sind}}",
       "syncExecuteButton": "Synchronisieren"
     },
     "printer": {
@@ -1534,12 +1667,12 @@
       "setupTitle": "Aufbau",
       "setupText": "Ein Print-Agent (Raspberry Pi) im Kommandoposten-Netzwerk fragt das Backend regelmässig nach neuen Druckaufträgen ab und sendet diese an den Thermodrucker.",
       "jobsTitle": "Druckaufträge",
-      "jobEinsatzzettel": "<strong>Einsatzzettel</strong> — wird automatisch gedruckt wenn ein Einsatz auf \"Disponiert\" oder \"Einsatz\" gesetzt wird, oder manuell über das Kontextmenü",
-      "jobBoardSnapshot": "<strong>Board-Snapshot</strong> — über den \"Thermo\"-Button in der Fussleiste, mit Optionen für abgeschlossene Einsätze, Fahrzeuge und Personal",
+      "jobEinsatzzettel": "<strong>Einsatzzettel</strong> – wird automatisch gedruckt wenn ein Einsatz auf \"Disponiert\" oder \"Einsatz\" gesetzt wird, oder manuell über das Kontextmenü",
+      "jobBoardSnapshot": "<strong>Board-Snapshot</strong> – über den \"Thermo\"-Button in der Fussleiste, mit Optionen für abgeschlossene Einsätze, Fahrzeuge und Personal",
       "pollingTitle": "Polling-Verhalten",
       "pollingText": "Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit Folgeaufträge schneller verarbeitet werden.",
       "networkTitle": "Netzwerk",
-      "networkText": "Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker. Nur ausgehende Verbindungen — keine Portfreigaben nötig."
+      "networkText": "Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker. Nur ausgehende Verbindungen – keine Portfreigaben nötig."
     },
     "users": {
       "roles": {
@@ -1679,10 +1812,12 @@
       "delete": "Löschen",
       "exportTitle": "Exportieren",
       "export": "Export",
-      "exportReport": "Bericht (PDF)",
+      "exportReport": "Einsatzbericht (PDF)",
       "exportAudit": "Audit (XLSX)",
-      "reportExportFailed": "Bericht-Export fehlgeschlagen",
-      "auditExportFailed": "Audit-Export fehlgeschlagen"
+      "exportEinsaetze": "Einsätze (XLSX)",
+      "reportExportFailed": "Einsatzbericht-Export fehlgeschlagen",
+      "auditExportFailed": "Audit-Export fehlgeschlagen",
+      "einsaetzeExportFailed": "Einsätze-Export fehlgeschlagen"
     },
     "createDialog": {
       "title": "Neues Ereignis erstellen",
@@ -1706,7 +1841,7 @@
       "title": "Ereignis dauerhaft löschen?",
       "warning": "Warnung: Dieser Vorgang kann nicht rückgängig gemacht werden!",
       "question": "Möchtest du das Ereignis \"{name}\" und alle zugehörigen Einsätze wirklich dauerhaft löschen?",
-      "note": "Dies betrifft {count} Einsätze und alle zugehörigen Daten.",
+      "note": "Dies betrifft {count, plural, one {# Einsatz} other {# Einsätze}} und alle zugehörigen Daten.",
       "cancel": "Abbrechen",
       "confirm": "Dauerhaft löschen"
     },
@@ -1716,6 +1851,17 @@
       "ready": "Bereit für deinen ersten Einsatz",
       "createButton": "Neues Ereignis erstellen",
       "viewButton": "Ereignisse anzeigen"
+    },
+    "restliste": {
+      "missingRapport": "{count} von {total} Schadenplätzen ohne Rapport",
+      "stateDraft": "Entwurf",
+      "materialOnSite": "{count, plural, one {# Gerät noch vor Ort} other {# Geräte noch vor Ort}}",
+      "untracked": "nicht erfasst",
+      "openPickups": "{count, plural, one {# Trupp wartet auf Abholung} other {# Trupps warten auf Abholung}}",
+      "printAbholliste": "Abholliste drucken",
+      "abhollisteQueued": "Abholliste gesendet",
+      "abhollisteQueuedDescription": "Adresse · Material · seit wann – eine Zeile pro Position.",
+      "abhollisteFailed": "Abholliste konnte nicht gedruckt werden"
     }
   },
   "reko": {
@@ -1723,8 +1869,8 @@
       "back": "Zurück"
     },
     "success": {
-      "title": "Meldung übermittelt",
-      "description": "Deine Rekognoszierungs-Meldung wurde erfolgreich an die Einsatzleitung übermittelt.",
+      "title": "Reko-Bericht übermittelt",
+      "description": "Dein Reko-Bericht wurde erfolgreich an die Einsatzleitung übermittelt.",
       "closeHint": "Du kannst dieses Fenster nun schliessen oder zur Übersicht zurückkehren.",
       "incidentIdLabel": "Einsatz-ID:",
       "backToOverview": "Zurück zur Übersicht"
@@ -1752,7 +1898,7 @@
       "uploadFailed": "{count, plural, one {1 Foto konnte nicht hochgeladen werden} other {# Fotos konnten nicht hochgeladen werden}}",
       "deleteFailed": "Foto konnte nicht gelöscht werden",
       "camera": "Kamera",
-      "gallery": "Galerie",
+      "gallery": "Mediathek",
       "uploading": "Wird hochgeladen...",
       "noPhotos": "Noch keine Fotos hochgeladen",
       "loadFailed": "Bild konnte nicht geladen werden",
@@ -1772,7 +1918,7 @@
       "markingArrival": "Melde Ankunft...",
       "arrivalReported": "Ankunft gemeldet ({time})",
       "imOnSite": "Ich bin vor Ort",
-      "relevantQuestion": "Einsatz relevant? *",
+      "relevantQuestion": "Einsatz relevant?",
       "yes": "Ja",
       "no": "Nein",
       "dangers": "Gefahren",
@@ -1786,7 +1932,7 @@
       "otherDangers": "Weitere Gefahren",
       "otherDangersPlaceholder": "Beschreibung...",
       "effort": "Aufwand",
-      "personnelCount": "Personal (Anz.)",
+      "personnelCount": "Mannschaft (Anz.)",
       "personnelPlaceholder": "z. B. 10",
       "duration": "Dauer (Std.)",
       "durationPlaceholder": "z. B. 2",
@@ -1798,13 +1944,14 @@
         "emergency_needed": "Notstrom nötig"
       },
       "photos": "Fotos",
+      "photosKpHint": "Bilder, die per WhatsApp oder ähnlich hereinkommen, hier anhängen.",
       "summary": "Zusammenfassung",
       "summaryShort": "Kurzzusammenfassung",
       "summaryPlaceholder": "Wichtigste Erkenntnisse...",
       "notes": "Zusätzliche Notizen",
       "notesPlaceholder": "Weitere Bemerkungen...",
       "submitting": "Übermitteln...",
-      "submit": "Meldung übermitteln",
+      "submit": "Reko-Bericht übermitteln",
       "savedAt": "Gespeichert um {time}",
       "autoSave": "Wird automatisch gespeichert",
       "summaries": {
@@ -1818,19 +1965,20 @@
         "low": [
           "Lage übersichtlich und stabil. Einsatz mit kleinem Aufgebot durchführbar.",
           "Geringe Beeinträchtigung. Situation gut unter Kontrolle.",
-          "Einsatzstelle gut zugänglich, überschaubarer Aufwand."
+          "Schadenplatz gut zugänglich, überschaubarer Aufwand."
         ],
         "high": [
           "Mehrere Gefahren festgestellt. Verstärkung und zusätzliches Material nötig.",
           "Ausgedehnte Lage, mehrere Bereiche betroffen. Längerer Einsatz zu erwarten.",
           "Erhebliche Gefährdung vor Ort. Umfangreiches Aufgebot erforderlich."
         ]
-      }
+      },
+      "submitKp": "Reko-Bericht speichern",
+      "submittingKp": "Wird gespeichert …"
     },
     "reportSection": {
-      "onSiteSince": "vor Ort seit {time}",
-      "noReport": "Noch keine Reko-Meldung",
-      "previousReports": "{count, plural, one {# frühere Meldung} other {# frühere Meldungen}}",
+      "noReport": "Noch kein Reko-Bericht",
+      "previousReports": "{count, plural, one {# früherer Reko-Bericht} other {# frühere Reko-Berichte}}",
       "relevant": "Einsatz relevant",
       "notNeeded": "Kein Einsatz nötig",
       "completeIncident": "Einsatz abschliessen",
@@ -1844,10 +1992,12 @@
         "electrical": "Elektrisch"
       },
       "effort": "Aufwand",
-      "personnel": "Personal: {count} Personen",
-      "duration": "Dauer: {hours} Stunden",
-      "vehicles": "Fahrzeuge: {list}",
-      "equipment": "Ausrüstung: {list}",
+      "personnelLabel": "Mannschaft",
+      "personnelValue": "{count, plural, one {# Person} other {# Personen}}",
+      "durationLabel": "Dauer",
+      "durationValue": "{hours, plural, one {# Stunde} other {# Stunden}}",
+      "vehiclesLabel": "Fahrzeuge",
+      "equipmentLabel": "Ausrüstung",
       "powerSupply": "Stromversorgung",
       "powerAvailable": "Vorhanden",
       "powerUnavailable": "Nicht vorhanden",
@@ -1861,7 +2011,15 @@
       "updatedAt": "Aktualisiert: {date}",
       "relevantShort": "Relevant",
       "notRelevantShort": "Nicht relevant",
-      "photoCount": "{count, plural, one {# Foto} other {# Fotos}}"
+      "photoCount": "{count, plural, one {# Foto} other {# Fotos}}",
+      "create": "Reko-Bericht erfassen",
+      "createTitle": "Reko-Bericht erfassen",
+      "amend": "Reko-Bericht ergänzen",
+      "amendTitle": "Reko-Bericht ergänzen",
+      "cancel": "Abbrechen",
+      "radioHint": "Was der Trupp über Funk meldet, hier erfassen. Wird als KP-Erfassung vermerkt.",
+      "saved": "Reko-Bericht gespeichert",
+      "saveFailed": "Speichern fehlgeschlagen"
     },
     "dummyGenerator": {
       "title": "Übungs-Modus",
@@ -1886,7 +2044,8 @@
       "subjectSlip": "Einsatzzettel",
       "subjectBoard": "Board-Snapshot",
       "subjectQr": "QR-Code",
-      "subjectTest": "Testdruck"
+      "subjectTest": "Testdruck",
+      "subjectAbholliste": "Abholliste"
     },
     "common": {
       "incidentList": "Einsatzliste",
@@ -1911,18 +2070,30 @@
       "personnelOverview": "Personal-Übersicht",
       "printing": "Wird gedruckt..."
     },
+    "hub": {
+      "title": "Drucken",
+      "description": "Wähle, wie die Lage auf Papier kommt.",
+      "exportHeading": "Export",
+      "exportHint": "Datei auf dieses Gerät laden.",
+      "exportReport": "Einsatzbericht (PDF)",
+      "exportLageblatt": "Lageblatt (A4)",
+      "exportAutomatic": "Automatisch exportieren einrichten",
+      "exportAudit": "Audit (XLSX)",
+      "exporting": "Wird erstellt...",
+      "exportFailed": "Export fehlgeschlagen"
+    },
     "view": {
-      "mapLoading": "Karte wird geladen...",
       "title": "KP RÜCK STATUSÜBERSICHT",
       "eventLabel": "Event",
       "printedLabel": "Gedruckt",
       "mapOverview": "EINSATZÜBERSICHT KARTE",
+      "mapLoading": "Karte wird geladen...",
       "statusHeading": {
         "incoming": "Eingegangen",
         "reko": "Reko",
         "reko_done": "Reko abgeschlossen",
         "enroute": "Disponiert / Anfahrt",
-        "active": "Einsatz",
+        "active": "Im Einsatz",
         "returning": "Beendet / Rückfahrt",
         "complete": "Abgeschlossen"
       },
@@ -1946,10 +2117,23 @@
       "fahrzeuge": "Fahrzeuge",
       "material": "Material",
       "kontakt": "Kontakt",
+      "telPrefix": "Tel.",
       "reko": "Reko",
       "persCount": "~{count} Pers.",
       "durationHours": "~{count}h",
+      "onSiteSince": "vor Ort {time}",
+      "lagebeurteilung": "Lagebeurteilung",
       "driverPrefix": "Fahrer",
+      "driverStays": "bleibt vor Ort",
+      "driverReturns": "kehrt zurück",
+      "leaderPrefix": "EL",
+      "auftrag": "Auftrag «{name}» · Stopp {pos}/{total}",
+      "amWarten": "Am Warten",
+      "abholung": "Abholung",
+      "zuFuss": "Zu Fuss",
+      "nachbarhilfe": "Nachbarhilfe",
+      "phoneReported": "Telefonisch gemeldet",
+      "since": "seit {time}",
       "meldung": "Meldung",
       "interneNotizen": "Interne Notizen",
       "personalHeading": "PERSONAL ({count} eingecheckt)",
@@ -1958,13 +2142,21 @@
       "funktionCol": "Funktion",
       "inUse": "Im Einsatz",
       "available": "Verfügbar",
+      "gegangen": "Gegangen",
+      "maintenance": "Wartung",
+      "unavailable": "Nicht verfügbar",
       "fahrzeugeHeading": "FAHRZEUGE ({count})",
       "fahrzeugCol": "Fahrzeug",
       "typCol": "Typ",
       "funkrufnameCol": "Funkrufname",
       "materialHeading": "MATERIAL ({count})",
+      "materialOnSiteHeading": "MATERIAL VOR ORT ({count})",
       "materialCol": "Material",
       "kategorieCol": "Kategorie",
+      "schadenplatzCol": "Schadenplatz",
+      "seitCol": "Seit",
+      "vorOrt": "vor Ort",
+      "unknownAddress": "Ohne Adresse",
       "footer": "KP Rück - Notfall-Ausdruck"
     },
     "map": {
@@ -1979,7 +2171,7 @@
     "pool": {
       "newAlarmTraining": "Neuer Alarm (ÜBUNG)",
       "newEmergency": "Neuer Divera-Notfall",
-      "autoAttached": "{title} — automatisch angehängt",
+      "autoAttached": "{title} – automatisch angehängt",
       "attachedSuccess": "Erfolgreich angehängt",
       "attachedOne": "1 Notfall wurde dem Ereignis zugewiesen",
       "partiallyAttached": "Teilweise angehängt",
@@ -1989,13 +2181,13 @@
       "attachError": "Notfälle konnten nicht angehängt werden",
       "notLoggedIn": "Nicht angemeldet",
       "title": "Alarmeingang",
-      "entriesCount": "{count} Einträge",
+      "entriesCount": "{count, plural, one {# Eintrag} other {# Einträge}}",
       "searchPlaceholder": "Suchen...",
-      "selectedClear": "{count} ausgewählt — Aufheben",
+      "selectedClear": "{count} ausgewählt – Aufheben",
       "attach": "Anhängen",
       "loading": "Lädt...",
       "demoTitle": "Alarmeingang ist im Demo-Modus nicht verfügbar",
-      "demoDescription": "Diese Seite zeigt eingehende Alarme an — aus <b>DIVERA 24/7</b> oder über die offene Webhook-Schnittstelle. Im Demo-Modus ist keine Alarmierungs-Anbindung konfiguriert.",
+      "demoDescription": "Diese Seite zeigt eingehende Alarme an – aus <b>DIVERA 24/7</b> oder über die offene Webhook-Schnittstelle. Im Demo-Modus ist keine Alarmierungs-Anbindung konfiguriert.",
       "noResults": "Keine Treffer",
       "noEmergencies": "Keine Notfälle vorhanden",
       "resetSearch": "Suche zurücksetzen",
@@ -2013,7 +2205,7 @@
     },
     "alarmSettings": {
       "cardTitle": "Ausalarmierung",
-      "cardDescription": "Schickt beim Disponieren einen Push-Alarm über den konfigurierten Alarmierungs-Anbieter an die zugewiesenen, verknüpften Personen. Die Nachricht wird aus dem Einsatz erzeugt (Typ als Stichwort, Details als Text). Benötigt einen Zugangsschlüssel des Anbieters; Personen werden über den Member-Sync verknüpft.",
+      "cardDescription": "Schickt beim Disponieren ein Aufgebot als Push über den konfigurierten Alarmierungs-Anbieter an die zugewiesenen, verknüpften Personen. Die Nachricht wird aus dem Einsatz erzeugt (Typ als Stichwort, Details als Text). Benötigt einen Zugangsschlüssel des Anbieters; Personen werden über den Member-Sync verknüpft.",
       "titleFieldLabel": "Stichwort (Titel)",
       "titleFieldHint": "Push-Titel. Kurz halten. Platzhalter: '{type}, {location}, {priority}'.",
       "textFieldLabel": "Alarmtext",
@@ -2033,13 +2225,13 @@
     },
     "sendDialog": {
       "noRecipientsError": "Keine verknüpften Empfänger ausgewählt",
-      "sent": "Aufgebot gesendet an {count} Person(en)",
-      "sentWithSkipped": "Aufgebot gesendet an {count} Person(en), {skipped} übersprungen",
-      "simulatedTitle": "Übung: Alarm simuliert",
-      "simulatedDescription": "In der Übung wird kein echter Alarm gesendet.",
+      "sent": "Aufgebot gesendet an {count, plural, one {# Person} other {# Personen}}",
+      "sentWithSkipped": "Aufgebot gesendet an {count, plural, one {# Person} other {# Personen}}, {skipped} übersprungen",
+      "simulatedTitle": "Übung: Aufgebot simuliert",
+      "simulatedDescription": "In der Übung wird kein echtes Aufgebot gesendet.",
       "sendError": "Aufgebot konnte nicht gesendet werden",
       "title": "Aufgebot senden",
-      "description": "{location} — nur ausgewählte, mit der Alarmierung verknüpfte Personen werden alarmiert.",
+      "description": "{location} – nur ausgewählte, mit der Alarmierung verknüpfte Personen werden aufgeboten.",
       "recipients": "Empfänger ({count})",
       "noAssigned": "Diesem Einsatz ist keine Person zugewiesen.",
       "driverBadge": "Fahrer",
@@ -2051,7 +2243,7 @@
       "charCountTruncated": "{count}/1000 · wird gekürzt",
       "priorityLabel": "Priorität (Sonderrechte)",
       "cancel": "Abbrechen",
-      "send": "Alarm senden ({count})"
+      "send": "Aufgebot senden ({count})"
     },
     "notification": {
       "trainingTag": "[ÜBUNG]"
@@ -2074,9 +2266,9 @@
       "updateFailed": "Auftrag konnte nicht aktualisiert werden",
       "deleteFailed": "Auftrag konnte nicht gelöscht werden",
       "reorderFailed": "Reihenfolge der Aufträge konnte nicht gespeichert werden",
-      "reorderStopsFailed": "Reihenfolge der Stops konnte nicht gespeichert werden",
-      "addStopsFailed": "Stops konnten nicht hinzugefügt werden",
-      "removeStopFailed": "Stop konnte nicht entfernt werden",
+      "reorderStopsFailed": "Reihenfolge der Stopps konnte nicht gespeichert werden",
+      "addStopsFailed": "Stopps konnten nicht hinzugefügt werden",
+      "removeStopFailed": "Stopp konnte nicht entfernt werden",
       "assignFailed": "Ressource konnte nicht zugewiesen werden",
       "unassignFailed": "Ressource konnte nicht entfernt werden"
     },
@@ -2098,9 +2290,9 @@
       "removeMaterialFailedDescription": "Das Material konnte nicht entfernt werden.",
       "removeVehicleFailedDescription": "Das Fahrzeug konnte nicht entfernt werden.",
       "conflictTitle": "Von anderer Person geändert",
-      "conflictDescription": "Dieser Einsatz wurde gerade von jemand anderem aktualisiert — die Ansicht wurde neu geladen.",
+      "conflictDescription": "Dieser Einsatz wurde gerade von jemand anderem aktualisiert – die Ansicht wurde neu geladen.",
       "amWartenClearedTitle": "«Am Warten» aufgehoben",
-      "amWartenClearedDescription": "Der Einsatz läuft jetzt — die Wartemarkierung wurde automatisch entfernt.",
+      "amWartenClearedDescription": "Der Einsatz läuft jetzt – die Wartemarkierung wurde automatisch entfernt.",
       "statusNotChangedTitle": "Status nicht geändert",
       "statusNotChangedDescription": "Der Einsatz wurde auf den letzten Stand zurückgesetzt.",
       "updateFailedTitle": "Fehler beim Aktualisieren",
@@ -2110,19 +2302,15 @@
       "createFailedTitle": "Einsatz konnte nicht erstellt werden",
       "createFailedDescription": "Bitte erneut versuchen. Wenn das Problem bestehen bleibt, prüfe die Verbindung.",
       "recentRemovalWarningTitle": "{name} war vor {seconds}s noch auf \"{incident}\"",
-      "recentRemovalWarningDescription": "Doppelbelegung — bitte prüfen.",
+      "recentRemovalWarningDescription": "Doppelbelegung – bitte prüfen.",
       "assignFailedTitle": "Fehler beim Zuweisen",
-      "assignConflictDescription": "{name} wurde gerade von jemand anderem geändert — bitte erneut versuchen.",
+      "assignConflictDescription": "{name} wurde gerade von jemand anderem geändert – bitte erneut versuchen.",
       "assignFailedDescription": "{name} konnte nicht zugewiesen werden.",
       "assignFailedFollowupTitle": "Zuweisung fehlgeschlagen",
       "assignRekoFailedTitle": "Reko-Zuweisung fehlgeschlagen",
       "assignRekoFailedDescription": "{name} konnte nicht als Reko zugewiesen werden.",
       "errorTitle": "Fehler",
       "vehicleInvalidIdDescription": "Fahrzeug \"{name}\" hat keine gültige ID. Bitte lade die Seite neu.",
-      "vehicleNotMovedTitle": "{name} nicht verschoben",
-      "vehicleNotMovedDescription": "Nicht alle Einsätze konnten bereinigt werden — bitte prüfen.",
-      "vehicleMovedTitle": "{name} verschoben",
-      "vehicleMovedDescription": "Von {labels} entfernt.",
       "restoreFailedTitle": "Wiederherstellen fehlgeschlagen",
       "restoreFailedDescription": "Der Einsatz konnte nicht wiederhergestellt werden.",
       "restoredTitle": "Einsatz wiederhergestellt",
@@ -2137,7 +2325,11 @@
         "collapse": "Einsturz",
         "chemical": "Gefahrstoffe",
         "electrical": "Elektrisch"
-      }
+      },
+      "resourceNotMovedTitle": "{name} nicht verschoben",
+      "resourceNotMovedDescription": "Nicht alle Einsätze konnten bereinigt werden – bitte prüfen.",
+      "resourceMovedTitle": "{name} verschoben",
+      "resourceMovedDescription": "Von {labels} entfernt."
     },
     "railway": {
       "backOnlineTitle": "Railway ist wieder online!",
@@ -2169,7 +2361,7 @@
     },
     "trainingActions": {
       "rekoArrived": "Reko vor Ort",
-      "rekoReport": "Reko-Meldung",
+      "rekoReport": "Reko-Bericht",
       "driveToIncident": "Fahrt zu Einsatz",
       "vehicleOnScene": "Fahrzeug vor Ort",
       "fieldComplete": "Einsatz beendet",
@@ -2207,13 +2399,16 @@
       "databaseLabel": "Datenbank (GB)",
       "photoLabel": "Foto-Limit (GB)",
       "materialThresholdsTitle": "Materialbestand-Schwellenwerte",
-      "materialThresholdsSubtitle": "Warnung wenn verfügbare Einheiten einer Kategorie unter den Schwellenwert fallen. Deaktiviere die Checkbox, um Warnungen für eine Kategorie auszublenden.",
+      "materialThresholdsSubtitle": "Warnung wenn das verfügbare Material einer Kategorie unter den Schwellenwert fällt. Deaktiviere die Checkbox, um Warnungen für eine Kategorie auszublenden.",
       "materialThresholdsManageLink": "Material verwalten"
     },
     "toasts": {
       "criticalTitle": "Kritische Warnung",
       "warningTitle": "Warnung",
-      "infoTitle": "Information"
+      "infoTitle": "Information",
+      "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
+      "overflowDescription": "Im Benachrichtigungs-Panel ansehen.",
+      "overflowAction": "Öffnen"
     },
     "sidebar": {
       "title": "Benachrichtigungen",
@@ -2234,7 +2429,9 @@
       "timeDays": "vor {days}d",
       "timeHours": "vor {hours}h",
       "timeMinutes": "vor {minutes}m",
-      "justNow": "gerade eben"
+      "justNow": "gerade eben",
+      "moveToActive": "Nach Einsatz verschieben",
+      "moveToComplete": "Einsatz abschliessen"
     }
   },
   "help": {
@@ -2321,7 +2518,7 @@
       "removePin": "Pin entfernen",
       "setPin": "Pin auf Karte setzen",
       "dispatch": "Auslösen",
-      "dispatchHint": "Szenario + Adresse aus der Liste — oder Pin direkt auf die Karte setzen.",
+      "dispatchHint": "Szenario + Adresse aus der Liste – oder Pin direkt auf die Karte setzen.",
       "multipleIncidents": "Mehrere Einsätze gleichzeitig",
       "burst": "Burst (5x zufällig)",
       "burstHint": "Generiert 5 zufällige Einsätze gleichzeitig",
@@ -2332,12 +2529,12 @@
       "toastPhoneFailed": "Telefon-Alarm konnte nicht generiert werden",
       "toastDispatched": "Einsatz ausgelöst",
       "toastDispatchFailed": "Einsatz konnte nicht ausgelöst werden",
-      "toastBurstGenerated": "{count} Einsätze generiert",
+      "toastBurstGenerated": "{count, plural, one {# Einsatz generiert} other {# Einsätze generiert}}",
       "toastBurstFailed": "Burst konnte nicht generiert werden"
     },
     "autogen": {
       "title": "Automatik",
-      "description": "Generiert laufend neue Einsätze — du beobachtest, statt Knöpfe zu drücken",
+      "description": "Generiert laufend neue Einsätze – du beobachtest, statt Knöpfe zu drücken",
       "toggleAria": "Automatik ein/aus",
       "intervalLabel": "Intervall (Min.)",
       "maxLabel": "Max. Einsätze",
@@ -2351,7 +2548,7 @@
     },
     "gpsSim": {
       "title": "GPS-Simulation",
-      "description": "Schickt ein Fahrzeug auf eine simulierte Fahrt — Karte, Distanzen und die Ankunfts-/Rückkehr-Meldungen verhalten sich wie mit echtem GPS",
+      "description": "Schickt ein Fahrzeug auf eine simulierte Fahrt – Karte, Distanzen und die Ankunfts-/Rückkehr-Meldungen verhalten sich wie mit echtem GPS",
       "stopAll": "Alle stoppen",
       "speed": "{speed} km/h",
       "noVehicles": "Keine Fahrzeuge vorhanden.",
@@ -2362,11 +2559,11 @@
       "targetPlaceholder": "Ziel wählen…",
       "magazinTarget": "Magazin (Rückkehr)",
       "startDrive": "Fahrt starten",
-      "footer": "Fahrten laufen in gerader Linie (inkl. Umwegfaktor), bremsen vor dem Ziel ab und stoppen automatisch nach 30 Minuten. Das Tempo gilt für alle Fahrzeuge — Ändern während der Fahrt passt laufende Fahrten an. Rückfahrten starten am zugewiesenen Einsatzort.",
-      "lockedDemo": "Im Demo-Modus nicht verfügbar — simulierte Fahrten sind hier gesperrt.",
+      "footer": "Fahrten laufen in gerader Linie (inkl. Umwegfaktor), bremsen vor dem Ziel ab und stoppen automatisch nach 30 Minuten. Das Tempo gilt für alle Fahrzeuge – Ändern während der Fahrt passt laufende Fahrten an. Rückfahrten starten am zugewiesenen Einsatzort.",
+      "lockedDemo": "Im Demo-Modus nicht verfügbar – simulierte Fahrten sind hier gesperrt.",
       "speedChangeFailed": "Tempo konnte nicht geändert werden",
       "arrivalHintTitle": "Hinweis: Ankunftsmeldung kommt nur bei Status «Disponiert»",
-      "arrivalHintDescription": "Der Einsatz steht aktuell nicht auf Disponiert — die Fahrt läuft, aber ohne Ankunfts-Abfrage.",
+      "arrivalHintDescription": "Der Einsatz steht aktuell nicht auf Disponiert – die Fahrt läuft, aber ohne Ankunfts-Abfrage.",
       "startFailed": "Simulation konnte nicht gestartet werden",
       "returnFailed": "Rückfahrt konnte nicht gestartet werden",
       "stopFailed": "Simulation konnte nicht gestoppt werden"
@@ -2383,32 +2580,58 @@
       "since": "seit {time}",
       "fieldComplete": "Feld meldet: beendet",
       "recommendedAction": "Empfohlene nächste Aktion",
-      "injectTitle": "Inject: Lage verschärfen, Verstärkung, Fahrzeugausfall",
+      "injectTitle": "Inject: Lage verschärfen, Verstärkung, Fahrzeugausfall, Meldungen vom Feld",
       "inject": "Inject",
       "injectEscalate": "Lage verschärft sich",
       "injectReinforcement": "Verstärkung anfordern",
       "injectBreakdown": "Fahrzeug fällt aus",
-      "footer": "Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). \"Fahrt zu Einsatz\" und \"Rückfahrt Magazin\" starten GPS-Fahrten — Ankunft und Rückkehr melden sich über die GPS-Abfrage. \"Einsatz beendet\" erscheint nur hier — das Board informierst du selbst (z. B. per Funk).",
+      "footer": "Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). \"Fahrt zu Einsatz\" und \"Rückfahrt Magazin\" starten GPS-Fahrten – Ankunft und Rückkehr melden sich über die GPS-Abfrage. \"Fahrzeug vor Ort\" meldet zugleich \"Angekommen\". \"Einsatz beendet\" erscheint nur hier – das Board informierst du selbst (z. B. per Funk).",
       "checkinLabel": "Personal einchecken",
       "immediately": "sofort",
       "overMinutes": "über {count} Min",
       "checkingIn": "Wird eingecheckt...",
       "checkin": "Einchecken",
-      "checkinHint": "Checkt zufällige verfügbare Personen ein — sofort oder gestaffelt, wie AdF wirklich eintreffen",
+      "checkinHint": "Checkt zufällige verfügbare Personen ein – sofort oder gestaffelt, wie AdF wirklich eintreffen",
       "noVehicleFound": "Kein Fahrzeug für die Fahrt gefunden",
       "noVehicleFoundDescription": "Die zugewiesenen Fahrzeuge sind unbekannt oder bereits unterwegs.",
       "actionFailed": "Aktion fehlgeschlagen",
-      "checkinsScheduled": "{count} Check-ins geplant",
+      "checkinsScheduled": "{count, plural, one {# Check-in geplant} other {# Check-ins geplant}}",
       "checkinsScheduledDescription": "Die Personen checken über die nächsten {minutes} Minuten ein.",
       "noMorePersons": "Keine weiteren Personen verfügbar",
       "noMorePersonsDescription": "Alle verfügbaren Personen sind bereits eingecheckt.",
       "checkinFailed": "Fehler beim Simulieren der Check-ins",
       "escalated": "Lage verschärft",
-      "escalatedDescription": "Priorität hoch — Lagemeldung ist auf der Karte und in den Meldungen.",
+      "escalatedDescription": "Priorität hoch – Lagemeldung ist auf der Karte und in den Meldungen.",
       "reinforcementRequested": "Verstärkung angefordert",
       "vehicleBrokenDown": "Fahrzeug {name} ausgefallen",
       "vehicleBrokenDownDescription": "Der Operator muss Ersatz disponieren.",
-      "injectFailed": "Inject fehlgeschlagen"
+      "injectFailed": "Inject fehlgeschlagen",
+      "injectArrived": "Angekommen melden",
+      "injectRapport": "Rapport eingetroffen",
+      "injectFieldMessage": "Meldung vom Feld",
+      "injectPickupNeeded": "Abholung nötig melden",
+      "injectPickupDone": "Abholung erledigt melden",
+      "arrivedReported": "Angekommen gemeldet",
+      "pickupCleared": "Abholung erledigt",
+      "rapportFiled": "Rapport erfasst",
+      "rapportFiledBy": "Erfasst von {name} (Feld)",
+      "rapportFiledByPhotos": "Erfasst von {name} (Feld) · {count, plural, one {# Foto} other {# Fotos}}",
+      "fieldMessageSent": "Meldung vom Feld eingetroffen",
+      "rapportLabel": "Schadenplatz-Rapporte",
+      "rapportBulk": "Rapporte eintreffen lassen",
+      "rapportFiling": "Rapporte treffen ein...",
+      "rapportHint": "Erfasst 80 % der Rapporte der abgeschlossenen Schadenplätze. Der Rest fehlt absichtlich – genau das steht in der Restliste.",
+      "rapportBulkDone": "{covered} von {candidates} Rapporten erfasst",
+      "rapportBulkDoneDescription": "{skipped} fehlen weiterhin – nachfassen ist Teil der Übung.",
+      "rapportNoCandidates": "Keine offenen Rapporte",
+      "rapportNoCandidatesDescription": "Es gibt keine abgeschlossenen Schadenplätze ohne Rapport.",
+      "pickupQuestion": "Kommt der Trupp selbst zurück?",
+      "pickupQuestionDescription": "Der Trupp meldet «Einsatz beendet» für {location}. Ein Schadenplatz kann fertig sein und trotzdem stehen drei Leute im Regen.",
+      "pickupSelfReturn": "Fährt selbst",
+      "pickupRequired": "Abholung nötig",
+      "pickupAuto": "Lage entscheidet",
+      "pickupNeeded": "Abholung nötig",
+      "pickupNeededDescription": "Der Trupp wartet vor Ort – die Abholung ist auf der Karte und in der Restliste."
     }
   },
   "sync": {
@@ -2488,7 +2711,7 @@
       "direction": "Richtung",
       "lastSync": "Letzte Synchronisation",
       "lastError": "Letzter Fehler:",
-      "pendingRecords": "{count} Datensätze warten auf Synchronisation",
+      "pendingRecords": "{count, plural, one {# Datensatz wartet auf Synchronisation} other {# Datensätze warten auf Synchronisation}}",
       "connectionString": "Railway PostgreSQL Connection String",
       "syncFromButton": "Von Railway synchronisieren",
       "syncToButton": "Zu Railway synchronisieren"
@@ -2554,7 +2777,11 @@
     },
     "actions": {
       "printQr": "QR drucken",
-      "copyLink": "Link kopieren"
+      "copyLink": "Link kopieren",
+      "openVehicles": "Fahrzeuge öffnen",
+      "assignDrivers": "Fahrer zuweisen",
+      "openRekoMode": "Reko-Modus öffnen",
+      "openAttendance": "Appell öffnen"
     },
     "setup": {
       "title": "Setup-Checkliste",
@@ -2582,11 +2809,11 @@
       "message1": "Nachricht 1 · Standby",
       "message2": "Nachricht 2 · Einrücken",
       "checkInTitle": "Personal Check-In",
-      "checkInSubtitle": "QR scannen zum Einchecken — funktioniert ohne Anmeldung.",
+      "checkInSubtitle": "QR scannen zum Einchecken – funktioniert ohne Anmeldung.",
       "rekoTitle": "Reko-Dashboard",
-      "rekoSubtitle": "Reko-Personal sieht Zuweisungen und füllt Formulare aus — ohne Anmeldung.",
+      "rekoSubtitle": "Reko-Personal sieht Zuweisungen und füllt Formulare aus – ohne Anmeldung.",
       "alarmTitle": "Alarm-Link",
-      "alarmSubtitle": "Neue Alarme erfassen (Telefon/Walk-in) — ohne Anmeldung.",
+      "alarmSubtitle": "Neue Alarme erfassen (Telefon/Walk-in) – ohne Anmeldung.",
       "dismiss": "Checkliste ausblenden"
     },
     "priority": {
@@ -2599,8 +2826,8 @@
     "common": {
       "yes": "Ja",
       "no": "Nein",
-      "personCount": "{count} Person(en)",
-      "staleWarn": "Verbindung gestört — letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
+      "personCount": "{count, plural, one {# Person} other {# Personen}}",
+      "staleWarn": "Verbindung gestört – letzter Stand {time} Uhr. Aktualisierung läuft weiter.",
       "staleAlert": "Keine Verbindung · Stand {time} Uhr"
     },
     "board": {
@@ -2609,9 +2836,7 @@
       "columnAlarmTitle": "{count} überfällig: {titles}",
       "columnAlarmMore": "… und {count} weitere",
       "priorityAria": "Priorität: {label}",
-      "materialCount": "{count} Material(ien)",
-      "auftragChipTooltip": "Auftrag: {name}",
-      "auftragStopPosition": "Stop {pos}/{total}",
+      "materialCount": "{count, plural, one {# Gerät} other {# Geräte}}",
       "nachbarhilfe": "Nachbarhilfe",
       "amWarten": "Am Warten",
       "zuFuss": "Zu Fuss",
@@ -2632,7 +2857,7 @@
       "rekoResult": "Reko-Ergebnis",
       "relevant": "Relevant:",
       "dangers": "Gefahren: {types}",
-      "personnelNeed": "Personalbedarf:",
+      "personnelNeed": "Mannschaftsbedarf:",
       "estimatedDuration": "Geschätzte Dauer:",
       "durationHours": "{hours}h",
       "contactPhone": "Telefon",
@@ -2640,6 +2865,9 @@
       "rekoHeading": "Reko",
       "rekoOnSite": "vor Ort seit {time}",
       "rekoPhotoAlt": "Reko-Bild {index}",
+      "rekoReportSection": "Reko-Bericht",
+      "rapportSection": "Schadenplatz-Rapport",
+      "historySection": "Verlauf",
       "rekoPhotoOpen": "Bild in voller Grösse öffnen"
     },
     "layout": {
@@ -2652,7 +2880,10 @@
       "displayOverview": "Display-Übersicht",
       "training": "Übung",
       "exitFullscreen": "Vollbild beenden",
-      "fullscreen": "Vollbild"
+      "fullscreen": "Vollbild",
+      "searchPlaceholder": "Suchen …",
+      "readOnly": "Nur-Lesen",
+      "selectEvent": "Ereignis wählen"
     },
     "map": {
       "authRequired": "Bitte melde dich an oder verwende einen Zugangscode (?token=xxx)"
@@ -2670,11 +2901,11 @@
       "noMaterial": "Kein Material erfasst",
       "available": "verfügbar",
       "freeOfTotal": "{free}/{total} frei",
-      "onIncidents": "{count} Einsätze"
+      "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}"
     },
     "tokenBoard": {
       "unknown": "Unbekannt",
-      "incidentCount": "{count} Einsätze",
+      "incidentCount": "{count, plural, one {# Einsatz} other {# Einsätze}}",
       "training": "Übung",
       "rekoCompleted": "Reko-Bericht ausgefüllt",
       "rekoOnSite": "Reko vor Ort",
@@ -2730,6 +2961,239 @@
       "badgeAssigned": "Im Einsatz",
       "badgeCheckedIn": "Anwesend",
       "badgeNotCheckedIn": "Nicht hier"
+    }
+  },
+  "feld": {
+    "title": "Schadenplatz-Rapport",
+    "accessRequired": "Zugriff erforderlich",
+    "missingCode": "Zugriffscode fehlt. Bitte QR-Code scannen.",
+    "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",
+    "picker": {
+      "description": "Wähle dich aus der Liste – danach siehst du deine Schadenplätze.",
+      "searchPlaceholder": "Name suchen...",
+      "noneFound": "Keine Person gefunden",
+      "empty": "In diesem Ereignis ist noch niemand einem Schadenplatz zugeteilt.",
+      "incidentCount": "{count, plural, one {# Schadenplatz} other {# Schadenplätze}}",
+      "missingRapport": "{count} ohne Rapport"
+    },
+    "assignments": {
+      "title": "Meine Schadenplätze",
+      "notMe": "Nicht ich",
+      "empty": "Dir ist im Moment kein Schadenplatz zugeteilt. Melde dich beim KP – sobald du eingeteilt bist, erscheint er hier.",
+      "released": "Nicht mehr zugeteilt"
+    },
+    "briefing": {
+      "title": "Lage und Ressourcen",
+      "meldung": "Meldung",
+      "melder": "Melder",
+      "crew": "Mannschaft",
+      "vehicles": "Fahrzeuge",
+      "material": "Material",
+      "reko": "Reko",
+      "rekoBy": "Reko von {name}, {time}",
+      "rekoByName": "Reko von {name}",
+      "summaryFallback": "Meldung, Mannschaft und Material"
+    },
+    "rapportState": {
+      "none": "kein Rapport",
+      "draft": "Entwurf",
+      "submitted": "Rapport erfasst"
+    },
+    "leader": {
+      "label": "EL: {name}",
+      "none": "kein EL erfasst",
+      "self": "Du bist EL – der Rapport ist deine Aufgabe."
+    },
+    "detail": {
+      "arrivedAt": "Angekommen: {time}",
+      "arrivedAtAuto": "Angekommen (GPS): {time}",
+      "completeAt": "Einsatz beendet: {time}",
+      "rapportTitle": "Schadenplatz-Rapport"
+    },
+    "actions": {
+      "title": "Meldungen an den KP",
+      "arrived": "Angekommen",
+      "arrivedDone": "Angekommen gemeldet",
+      "arrivedAuto": "Angekommen erkannt",
+      "complete": "Einsatz beendet",
+      "completeDone": "Beendet gemeldet",
+      "cancel": "Abbrechen",
+      "confirmArrivedQuestion": "Angekommen melden?",
+      "confirmArrivedYes": "Ja, angekommen",
+      "confirmCompleteQuestion": "Einsatz beendet melden?",
+      "confirmCompleteYes": "Ja, beendet",
+      "message": "Meldung",
+      "messageTitle": "Meldung an den KP",
+      "messagePlaceholder": "Kurze Meldung schreiben...",
+      "failed": "Konnte nicht gesendet werden – der Text bleibt erhalten. Verbindung prüfen.",
+      "sending": "«{label}» wird gesendet …",
+      "sent": "«{label}» ist beim KP angekommen.",
+      "failedTitle": "«{label}» wurde nicht übermittelt.",
+      "retry": "Nochmals senden",
+      "send": "Meldung senden"
+    },
+    "pickup": {
+      "badge": "Abholung",
+      "since": "seit {time}",
+      "waiting": "wartet seit {duration}",
+      "waitingTooltip": "Wartet seit {duration}",
+      "request": "Abholung",
+      "clear": "Abholung erledigt",
+      "clearConfirmTitle": "Abholung erledigt?",
+      "clearConfirmBody": "Die Abholung verschwindet danach von Karte, Karteikarte und Restliste. Nur bestätigen, wenn die Leute wirklich weg sind.",
+      "clearConfirmBodyWaiting": "Die Mannschaft wartet seit {duration}. Die Abholung verschwindet danach von Karte, Karteikarte und Restliste – nur bestätigen, wenn die Leute wirklich weg sind.",
+      "clearedToast": "Abholung erledigt.",
+      "clearFailed": "Die Abholung konnte nicht abgeschlossen werden.",
+      "followupQuestion": "Kommt ihr selbst zurück?",
+      "selfReturn": "Wir fahren selbst",
+      "needPickup": "Wir müssen abgeholt werden",
+      "requestQuestion": "Ihr kommt nicht selbst zurück?",
+      "alreadyRequested": "Die Abholung ist beim KP gemeldet. Notiz anpassen?",
+      "updateNote": "Notiz aktualisieren",
+      "notePlaceholder": "Notiz (optional): wie viele, wo genau"
+    },
+    "pickupPrompt": {
+      "title": "Abholung erledigt?",
+      "assigned": "{vehicle} ist neu bei {label} zugeteilt – dort wartet eine Abholung.",
+      "returned": "{vehicle} ist zurück im Magazin. Bei {label} wartet noch eine Abholung.",
+      "waiting": "Wartet seit {duration}.",
+      "neverAutomatic": "Wird nie automatisch erledigt – nur diese Bestätigung räumt die Abholung weg.",
+      "stillOpen": "Noch offen",
+      "fallbackVehicle": "Ein Fahrzeug"
+    },
+    "board": {
+      "cardRapportTooltip": "Schadenplatz-Rapport erfasst",
+      "cardNoRapportTooltip": "Kein Rapport erfasst",
+      "nudgeCompleteText": "Feld meldet beendet – nach Beendet / Rückfahrt verschieben?",
+      "nudgeArrivedText": "Feld meldet angekommen – nach Einsatz verschieben?",
+      "nudgeConfirm": "Verschieben",
+      "nudgeDismiss": "Hinweis ausblenden"
+    },
+    "kp": {
+      "reportsTitle": "Funkmeldungen",
+      "reportsDescription": "Meldet der Trupp etwas über Funk, hier erfassen.",
+      "arrived": "Angekommen",
+      "rekoArrived": "Reko vor Ort",
+      "complete": "Einsatz beendet",
+      "pickup": "Abholung nötig",
+      "fromField": "vom Feld, {name}, {time}",
+      "fromKp": "im KP erfasst, {time}",
+      "fromReko": "von der Reko, {time}",
+      "fromAutomation": "automatisch (GPS), {time}",
+      "unknownPerson": "unbekannt",
+      "timeLabel": "Zeit für «{what}»",
+      "pickupNotePlaceholder": "Notiz: wie viele, wo genau",
+      "waiting": "Wartet seit {duration}",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "messagesTitle": "Meldungen vom Feld",
+      "messagesEmpty": "Noch keine Meldungen.",
+      "messagesLoadFailed": "Meldungen konnten nicht geladen werden.",
+      "messagesRetry": "Erneut versuchen"
+    },
+    "rapport": {
+      "sectionTitle": "Schadenplatz-Rapport",
+      "stateSubmitted": "erfasst",
+      "stateMissing": "kein Rapport",
+      "stateNotDispatched": "noch nicht disponiert",
+      "notDispatched": "Ein Rapport wird erst erfasst, wenn der Schadenplatz disponiert wurde.",
+      "sections": {
+        "kurzbericht": "Kurzbericht",
+        "owner": "Eigentümer- / Halterdaten",
+        "confirm": "Mannschaft und Fahrzeuge",
+        "photos": "Fotos"
+      },
+      "material": {
+        "title": "Material",
+        "empty": "Kein Material erfasst.",
+        "noLongerAssigned": "Nicht mehr zugeteilt",
+        "consumable": "Verbrauch",
+        "used": "gebraucht",
+        "usedAria": "Gebraucht: {name}",
+        "leftOnSite": "vor Ort verblieben",
+        "leftOnSiteAria": "Vor Ort verblieben: {name}",
+        "extraLabel": "Weiteres gebrauchtes Material",
+        "extraPlaceholder": "Nicht im Katalog? Hier eintippen, mit Komma trennen",
+        "extraFreeText": "Alles, was nicht in der Liste steht – z. B. eine geliehene Pumpe.",
+        "extraSearchPlaceholder": "Material suchen",
+        "extraNoneFound": "Nichts gefunden – einfach unten eintippen.",
+        "extraRemove": "{name} entfernen",
+        "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, kein erfasstes Material.",
+        "extraShowAll": "Katalog anzeigen ({count})",
+        "extraHideAll": "Katalog ausblenden"
+      },
+      "vehicles": {
+        "label": "Fahrzeuge – alle ankreuzen, die dabei waren",
+        "present": "war dabei",
+        "presentAria": "War dabei: {name}",
+        "empty": "Keine Fahrzeuge erfasst.",
+        "dispatched": "disponiert",
+        "searchPlaceholder": "Fahrzeug suchen",
+        "showRest": "Weitere Fahrzeuge ({count})",
+        "hideRest": "Weitere Fahrzeuge ausblenden",
+        "noMatch": "Kein Fahrzeug gefunden"
+      },
+      "kurzberichtPlaceholder": "Lage, Tätigkeit, Material",
+      "handedOverTo": "Schadenplatz übergeben an",
+      "handedOverToPlaceholder": "z. B. Eigentümer, Polizei",
+      "ownerName": "Eigentümer / Halter",
+      "ownerNamePlaceholder": "Name",
+      "ownerPhone": "Telefon",
+      "ownerPhonePlaceholder": "z. B. 079 123 45 67",
+      "ownerCall": "Anrufen",
+      "takeOverMelder": "Melder übernehmen: {name}",
+      "fromBoard": "vom Board: {count}",
+      "concurrentEditor": "{name} bearbeitet diesen Rapport gerade ({at})",
+      "createdInField": "Erfasst von {name} (Feld), {at}",
+      "createdInKp": "Erfasst im KP durch {name} (Funkmeldung), {at}",
+      "updatedInField": "Zuletzt bearbeitet von {name} (Feld), {at}",
+      "updatedInKp": "Zuletzt bearbeitet im KP durch {name} (Funkmeldung), {at}",
+      "lastSaved": "Zwischengespeichert um {at}",
+      "localRestored": "Lokaler Entwurf wiederhergestellt.",
+      "submit": "Rapport abschliessen",
+      "autosaveHint": "Wird laufend gespeichert – kein Abschliessen nötig.",
+      "submitted": "Rapport erfasst.",
+      "submittedBadge": "Abgeschlossen {at}",
+      "submitError": "Rapport konnte nicht abgeschlossen werden. Nochmals versuchen.",
+      "unsentChanges": "Änderungen noch nicht übermittelt",
+      "sendChanges": "Änderungen senden",
+      "loadError": "Rapport konnte nicht geladen werden.",
+      "loadRetry": "Erneut versuchen",
+      "personnel": {
+        "label": "Eingesetztes Personal – alle ankreuzen, die dabei waren ({count})",
+        "present": "war dabei",
+        "presentAria": "War dabei: {name}",
+        "empty": "Niemand angemeldet – Personen unten von Hand erfassen.",
+        "dispatched": "aufgeboten",
+        "searchPlaceholder": "Person suchen",
+        "showRest": "Weitere Angemeldete ({count})",
+        "hideRest": "Weitere Angemeldete ausblenden",
+        "noMatch": "Keine Person gefunden",
+        "extraNamePlaceholder": "Weitere Person (Name)",
+        "extraNotePlaceholder": "Notiz, z. B. FW Allschwil",
+        "addExtra": "Hinzufügen",
+        "removeAria": "{name} entfernen"
+      },
+      "summary": {
+        "material": "{count, plural, one {# Position} other {# Positionen}}",
+        "materialEmpty": "kein Material erfasst",
+        "kurzberichtEmpty": "noch nichts erfasst",
+        "ownerEmpty": "leer – nur wenn nötig",
+        "confirm": "{people, plural, one {# Person} other {# Personen}} · {vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
+        "photos": "{count, plural, one {# Foto} other {# Fotos}}",
+        "photosEmpty": "keine hochgeladen"
+      }
+    },
+    "materialReturn": {
+      "title": "Material zurück – freigeben",
+      "description": "Der Trupp hat dieses Material nicht als «vor Ort verblieben» markiert.",
+      "notUsed": "nicht gebraucht",
+      "releaseAll": "{count, plural, one {# Gerät freigeben} other {# Geräte freigeben}}",
+      "released": "{count, plural, one {# Gerät freigegeben} other {# Geräte freigegeben}}",
+      "releaseFailed": "Freigeben fehlgeschlagen",
+      "stillOnSiteTitle": "Vor Ort verblieben",
+      "stillOnSiteHint": "Bleibt zugeteilt, bis es abgeholt ist – erscheint in der Restliste.",
+      "namedTitle": "Weiteres Material vor Ort",
+      "namedHint": "Vom Trupp benannt, nicht vom Board zugeteilt – es gibt nichts freizugeben. Steht auf der Restliste und auf der Abholliste."
     }
   }
 }

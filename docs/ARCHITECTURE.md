@@ -397,29 +397,42 @@ sequenceDiagram
 
 ## Incident Lifecycle
 
-An incident progresses through these stages:
+An incident has exactly **seven** statuses – one kanban column each, defined once in
+`frontend/lib/kanban-utils.ts` (`columns`) and typed in `frontend/lib/api/types/incidents.ts`.
+Columns may be skipped in either direction; there is no enforced state machine, and there is
+**no `archiv` status** – archiving happens one level up, on the *Ereignis*
+(`events.archived_at`), never on a single incident.
+
+| # | Status (API) | Column (German UI) | Meaning |
+|---|--------------|--------------------|---------|
+| 1 | `incoming` | Eingegangen | Reported, not yet assessed |
+| 2 | `reko` | Reko | Field recon in progress |
+| 3 | `reko_done` | Reko abgeschlossen | Recon report filed, decision pending |
+| 4 | `enroute` | Disponiert / Anfahrt | Crew and vehicles dispatched |
+| 5 | `active` | Im Einsatz | Working on scene |
+| 6 | `returning` | Beendet / Rückfahrt | Work done, crew driving back |
+| 7 | `complete` | Abgeschlossen | Closed. Collapsible column; collapsed by default on `/display/board` |
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Eingegangen: New incident created
-    Eingegangen --> Reko: Reconnaissance assigned
-    Eingegangen --> Disponiert: Resources dispatched
-    Reko --> Disponiert: Assessment complete
-    Disponiert --> Abschluss: Incident resolved
-    Abschluss --> Archiv: Auto-archive (24h)
-    Archiv --> [*]
+    [*] --> incoming: New incident created
+    incoming --> reko: Reconnaissance assigned
+    incoming --> enroute: Resources dispatched
+    reko --> reko_done: Recon report filed
+    reko_done --> enroute: Resources dispatched
+    enroute --> active: Crew on scene
+    active --> returning: Work done
+    returning --> complete: Closed
+    complete --> [*]
 
-    note right of Eingegangen: Incoming – not yet assessed
-    note right of Reko: Field recon in progress
-    note right of Disponiert: Crew and vehicles en route
-    note right of Abschluss: Completed – resources released
-    note right of Archiv: Historical record
+    note right of incoming: Columns may be skipped, and moved backwards
 ```
 
 At each transition:
 - A `status_transition` record is created (audit trail)
 - WebSocket broadcasts the change to all connected clients
-- Moving to **Abschluss** automatically releases all assigned personnel, vehicles, and materials
+- Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials
+  (`crud/incidents.auto_release_incident_resources`); moving back out restores them
 
 ---
 
@@ -428,9 +441,9 @@ At each transition:
 ```mermaid
 graph LR
     subgraph auth["Authentication Methods"]
-        jwt["JWT Token<br/><small>Login form → 24h token</small>"]
+        jwt["JWT Token<br/><small>Login form → 8h access + 7d refresh</small>"]
         master["Master Token<br/><small>ENV var for remote config</small>"]
-        public_token["Public Tokens<br/><small>Check-In / Viewer / Reko</small>"]
+        public_token["Public Tokens<br/><small>Check-In / Viewer / Reko / Alarm / Feld</small>"]
     end
 
     subgraph roles["Access Levels"]
@@ -438,6 +451,8 @@ graph LR
         editor["Editor<br/><small>Full CRUD on incidents,<br/>resources, settings</small>"]
         viewer["Viewer<br/><small>Read-only board view</small>"]
         checkin["Check-In<br/><small>Personnel self-service</small>"]
+        intake["Alarm intake<br/><small>Create incidents only</small>"]
+        feld["Feld<br/><small>Field surface: rapport,<br/>photos, material</small>"]
     end
 
     jwt --> admin
@@ -445,15 +460,35 @@ graph LR
     master --> editor
     public_token --> viewer
     public_token --> checkin
+    public_token --> intake
+    public_token --> feld
 ```
+
+Every public token is a signed JWT scoped to **one** Ereignis (the Reko *form* token to one
+incident) and carries a hard expiry. The lifetimes below are the defaults in
+`backend/app/services/tokens.py` and `backend/app/auth/config.py`; nothing in the UI extends
+them, so **a link that has to keep working past its expiry has to be re-generated**.
 
 | Token Type | How Obtained | Expiry | Access |
 |------------|-------------|--------|--------|
-| JWT (access) | Login form | 24 hours | Full editor or admin |
+| JWT (access) | Login form | **8 hours** (`ACCESS_TOKEN_EXPIRE_MINUTES=480`) | Full editor or admin |
+| JWT (refresh) | Login form | **7 days** (`REFRESH_TOKEN_EXPIRE_DAYS`) | Mints a new access token |
 | Master Token | Environment variable | Never | Editor-level API access |
-| Viewer Token | Generated in UI (QR code) | Long-lived | Read-only board |
-| Check-In Token | Generated in UI (QR code) | Long-lived | Personnel check-in form only |
-| Reko Token | Generated in UI (QR code) | Long-lived | View assigned Reko forms |
+| Viewer Token | Generated in UI (QR code) | **24 hours** | Read-only board for one Ereignis – incl. the Reko result and its photos |
+| Check-In Token | Generated in UI (QR code) | **24 hours** | Personnel check-in form for one Ereignis |
+| Reko Dashboard Token | Generated in UI (QR code) | **24 hours** | The Reko person's list of forms for one Ereignis |
+| Reko Form Token | Generated per incident (link/QR) | **24 hours** | One Reko form, for one incident |
+| Alarm Token | Generated in UI (QR code) | **30 days** (720 h) | Public alarm intake – **write**: creates incidents in one Ereignis, rate-limited and flagged `source='intake'` |
+| Feld Token | Generated in UI (QR/poster) and printed on every Einsatzzettel | **30 days** (720 h) | The `/feld` field surface for one Ereignis |
+
+> **The Feld token is a credential for the whole Ereignis, not for a person.** The unbound
+> token that both mint sites issue names only the event, and `GET /feld/personnel` hands any
+> holder of the link the full crew picker – so whoever has it can read, and write as, any crew
+> in that event. That is the price of one shared QR on a wall. The token format *does* support
+> binding to a single `personnel_id`, and every person-scoped `/feld` endpoint enforces it, but
+> nothing mints a bound token yet: neither the poster nor the printed slip knows who will drive.
+> Practical consequence: **a printed Einsatzzettel is a working credential for 30 days** –
+> collect them at the end of an Ereignis ([`SETUP.md`](SETUP.md) §7).
 
 ---
 

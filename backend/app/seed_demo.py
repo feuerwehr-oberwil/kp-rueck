@@ -557,6 +557,10 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         "Moser Lea",
         "Zimmermann Fabian",
         "Wyss Fabio",
+        # The crew of the closed Einliegerwohnung — released hours ago, but they
+        # were out, and they are the ones who filed its Schadenplatz-Rapport.
+        "Fischer Thomas",
+        "Bühler Nadja",
     ]
     for i, name in enumerate(checked_in_names):
         db.add(
@@ -836,6 +840,114 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     ]
     for t in transitions:
         db.add(t)
+
+    await db.flush()
+
+    # ============================================
+    # SCHADENPLATZ-RAPPORT (plan 25)
+    # One filed rapport on the closed Einliegerwohnung, so a visitor sees the
+    # whole feature — the card badge, "Material zurück – freigeben", the
+    # Restliste/Abholliste and the Einsätze export — without ever opening
+    # `/feld`. Filed AFTER the crew was released, which is exactly the moment
+    # the form exists for.
+    #
+    # Muster names in the owner block: it is the first citizen PII in kp-rueck
+    # (plan 25 §9), and demo data must never read like a real person's address.
+    # The block is deliberately NOT locked in the demo (decision 27 confirms §8)
+    # — the sandbox is per visitor and wiped on reset.
+    # ============================================
+    rapport_incident = incidents["Wasser im Keller Einliegerwohnung"]
+    rapport_filer = person["Fischer Thomas"]
+    rapport_crew = [rapport_filer, person["Bühler Nadja"]]
+    # A completed incident has no active leader row left (decision 29), so the
+    # EL of record is what every /feld and PDF surface reads back.
+    rapport_incident.leader_personnel_id = rapport_filer.id
+
+    for member in rapport_crew:
+        db.add(
+            models.IncidentAssignment(
+                id=uuid4(),
+                incident_id=rapport_incident.id,
+                resource_type="personnel",
+                resource_id=member.id,
+                assigned_by=editor_id,
+                assigned_at=ago(150),
+                unassigned_at=ago(55),
+            )
+        )
+
+    # The Wassersauger came back with the crew; the pump is STILL RUNNING in the
+    # cellar, so its assignment stays open (decision 15). That single open row is
+    # what puts the address on the Abholliste the next morning.
+    returned_unit = models.IncidentAssignment(
+        id=uuid4(),
+        incident_id=rapport_incident.id,
+        resource_type="material",
+        resource_id=material[("Wassersauger", "Magazin")].id,
+        assigned_by=editor_id,
+        assigned_at=ago(150),
+        unassigned_at=ago(55),
+    )
+    left_on_site_unit = models.IncidentAssignment(
+        id=uuid4(),
+        incident_id=rapport_incident.id,
+        resource_type="material",
+        resource_id=material[("Tauchpumpe S-Gr.", "Magazin")].id,
+        assigned_by=editor_id,
+        assigned_at=ago(150),
+    )
+    db.add(returned_unit)
+    db.add(left_on_site_unit)
+
+    db.add(
+        models.SchadenplatzReport(
+            id=uuid4(),
+            incident_id=rapport_incident.id,
+            arrived_at=ago(148),
+            arrived_by_personnel_id=rapport_filer.id,
+            materials_json=[
+                {
+                    "assignment_id": str(returned_unit.id),
+                    "material_id": str(returned_unit.resource_id),
+                    "name": "Wassersauger",
+                    "consumable": False,
+                    "used": True,
+                    "left_on_site": False,
+                },
+                {
+                    "assignment_id": str(left_on_site_unit.id),
+                    "material_id": str(left_on_site_unit.resource_id),
+                    "name": "Tauchpumpe S-Gr.",
+                    "consumable": False,
+                    "used": True,
+                    "left_on_site": True,
+                },
+            ],
+            # Two named things, one of which stayed (§18.35) — the demo has to
+            # show the "nicht erfasst" line on the Restliste and the Abholliste,
+            # because that is the case an operator has never seen before.
+            extra_materials_json=[
+                {"name": "2 Schaufeln vom Werkhof ausgeliehen", "left_on_site": False},
+                {"name": "Nassauger vom Betrieb vor Ort", "left_on_site": True},
+            ],
+            kurzbericht=(
+                "Keller ca. 25 cm unter Wasser. Mit Tauchpumpe ausgepumpt und mit Wassersauger nachgetrocknet. "
+                "Pumpe läuft über Nacht weiter."
+            ),
+            handed_over_to="Eigentümer Muster Hans",
+            owner_name="Muster Hans",
+            owner_phone="079 000 00 01",
+            personnel_count=2,
+            cost_snapshot_json=[
+                {"kind": "personnel", "name": member.name, "from": ago(150).isoformat(), "to": ago(55).isoformat()}
+                for member in rapport_crew
+            ],
+            created_by_personnel_id=rapport_filer.id,
+            updated_by_personnel_id=rapport_filer.id,
+            is_draft=False,
+            submitted_at=ago(50),
+        )
+    )
 
     await db.flush()
 

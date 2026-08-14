@@ -1,13 +1,15 @@
 """Event CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
+from fastapi import Request
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Event, Incident
+from ..models import Event, Incident, User
+from ..services.audit import log_action
 
 
 async def get_events(
@@ -62,7 +64,7 @@ async def create_event(db: AsyncSession, event_data: schemas.EventCreate) -> Eve
         name=event_data.name,
         training_flag=event_data.training_flag,
         auto_attach_divera=event_data.auto_attach_divera if event_data.auto_attach_divera is not None else False,
-        last_activity_at=datetime.utcnow(),
+        last_activity_at=datetime.now(UTC),
     )
     db.add(event)
     await db.commit()
@@ -90,7 +92,7 @@ async def update_event(db: AsyncSession, event_id: uuid.UUID, event_data: schema
     for field, value in update_data.items():
         setattr(event, field, value)
 
-    event.updated_at = datetime.utcnow()
+    event.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(event)
     return event
@@ -98,21 +100,37 @@ async def update_event(db: AsyncSession, event_id: uuid.UUID, event_data: schema
 
 async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
     """
-    Archive an event (soft delete).
+    Archive an event (soft delete). Idempotent — archiving twice does not move the timestamp.
+
+    ``archived_at`` is when the Ereignis was closed, and a second archive used to overwrite it
+    with "now": a double-click, a retried request or two operators on the same card silently
+    rewrote history, and the archive list is sorted and read by that timestamp.
+
+    The re-stamp is prevented by the ``archived_at IS NULL`` predicate on the UPDATE rather
+    than by the read above. Postgres re-evaluates that predicate after the row lock is
+    granted, so a *concurrent* second archive matches zero rows instead of overwriting the
+    winner — the early return only covers the sequential case. Either way the row is re-read
+    afterwards, so the caller is told the truth about when it was actually archived.
 
     Args:
         db: Database session
         event_id: Event ID to archive
 
     Returns:
-        Archived event or None if not found
+        Archived event (with its original timestamp if it was already archived), or None if
+        not found
     """
     event = await get_event_by_id(db, event_id)
     if not event:
         return None
 
-    event.archived_at = datetime.utcnow()
-    event.updated_at = datetime.utcnow()
+    if event.archived_at is not None:
+        return event
+
+    now = datetime.now(UTC)
+    await db.execute(
+        update(Event).where(Event.id == event_id, Event.archived_at.is_(None)).values(archived_at=now, updated_at=now)
+    )
     await db.commit()
     await db.refresh(event)
     return event
@@ -134,19 +152,49 @@ async def unarchive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None
         return None
 
     event.archived_at = None
-    event.updated_at = datetime.utcnow()
+    event.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(event)
     return event
 
 
-async def delete_event(db: AsyncSession, event_id: uuid.UUID) -> bool:
+async def delete_event(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    current_user: User | None = None,
+    request: Request | None = None,
+) -> bool:
     """
     Permanently delete an event (only if archived).
+
+    The cascade is intentional and the dialog says so ("dauerhaft", "kann nicht rückgängig
+    gemacht werden", plus the incident count). What was missing is the record OF it: this is
+    the most destructive operation in the application — every incident under the event, with
+    its assignments, Reko- and Schadenplatz-Rapporte, status transitions and notifications —
+    and it used to leave nothing behind saying it happened. Unlike an incident deletion it
+    has no Undo to fall back on, so the audit entry is the only thing that can answer "the
+    Ereignis from the storm week is gone, who deleted it and what went with it".
+
+    The entry is written BEFORE the delete, while the counts can still be read, and survives
+    it: ``audit_log.resource_id`` carries no foreign key, so nothing cascades into it. It is
+    only flushed, not committed (``services/audit.log_action``), so the entry and the cascade
+    share the single commit at the end: either the Ereignis is gone and the deletion is
+    recorded exactly once, or neither happened.
+
+    Two concurrent calls used to both pass the read below, both write that entry and both
+    report success — the loser's cascade matched no rows and said so only as a SQLAlchemy
+    warning. Two entries for one deletion is precisely the thing somebody would be reading
+    while trying to work out what went wrong. The ``SELECT … FOR UPDATE`` — the same row-lock
+    pattern as ``crud/assignments.py`` and ``crud/groups.py`` — makes the loser wait on the
+    winner's row lock instead; under READ COMMITTED it re-evaluates the row once the lock is
+    released, finds it deleted, and returns False. So the second caller gets an honest 404,
+    with no second audit entry and no cascade running against a row that is already gone.
 
     Args:
         db: Database session
         event_id: Event ID to delete
+        current_user: Who asked for it — recorded in the audit entry
+        request: FastAPI request, for IP/user-agent capture
 
     Returns:
         True if deleted, False if not found
@@ -154,13 +202,34 @@ async def delete_event(db: AsyncSession, event_id: uuid.UUID) -> bool:
     Raises:
         ValueError: If event is not archived
     """
-    event = await get_event_by_id(db, event_id)
+    event = await db.scalar(select(Event).where(Event.id == event_id).with_for_update())
     if not event:
         return False
 
     # Require event to be archived before deletion
     if event.archived_at is None:
         raise ValueError("Event must be archived before deletion")
+
+    doomed_incidents = (
+        await db.execute(select(Incident.id, Incident.title).where(Incident.event_id == event_id))
+    ).all()
+
+    await log_action(
+        db=db,
+        action_type="delete",
+        resource_type="event",
+        resource_id=event_id,
+        user=current_user,
+        changes={
+            "name": event.name,
+            "archived_at": event.archived_at.isoformat() if event.archived_at else None,
+            "incident_count": len(doomed_incidents),
+            # Titles as well as ids: after the cascade the ids resolve to nothing, and
+            # "Wasser im Keller, Hauptstrasse 4" is what somebody will be asking about.
+            "incidents": [{"id": str(row.id), "title": row.title} for row in doomed_incidents],
+        },
+        request=request,
+    )
 
     # Cascade delete will handle all related incidents, assignments, etc.
     await db.delete(event)
@@ -226,5 +295,5 @@ async def update_event_activity(db: AsyncSession, event_id: uuid.UUID) -> None:
         db: Database session
         event_id: Event ID to update
     """
-    await db.execute(update(Event).where(Event.id == event_id).values(last_activity_at=datetime.utcnow()))
+    await db.execute(update(Event).where(Event.id == event_id).values(last_activity_at=datetime.now(UTC)))
     await db.flush()

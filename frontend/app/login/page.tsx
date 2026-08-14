@@ -21,6 +21,13 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Loader2, LogIn, Shield, Eye, Flame } from 'lucide-react';
+import {
+  AVAILABLE_LOCALES,
+  LOCALE_NAMES,
+  getActiveLocale,
+  setActiveLocale,
+  type SupportedLocale,
+} from '@/lib/i18n-messages';
 
 export default function LoginPage() {
   const t = useTranslations('login.page');
@@ -34,9 +41,15 @@ export default function LoginPage() {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The locale lives in a cookie the server never sees on this route, so the
+  // switcher can only be rendered after mount – otherwise the server marks DE
+  // active and the client disagrees.
+  const [mounted, setMounted] = useState(false);
   const { login } = useAuth();
   const { setSelectedEvent } = useEvent();
   const router = useRouter();
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     Promise.all([
@@ -315,6 +328,41 @@ export default function LoginPage() {
             )}
           </div>
         </Card>
+
+        {/* Language switcher. It belongs BEFORE the login, not only in Settings:
+            a reader from the Romandie meets this page first, and a picker that
+            sits behind a login they cannot read is no picker at all. Same rule
+            as Settings – it appears only once a second locale is complete. */}
+        {mounted && AVAILABLE_LOCALES.length > 1 && (
+          <div className="mt-6 flex items-center justify-center gap-1">
+            {AVAILABLE_LOCALES.map((locale) => {
+              const active = locale === getActiveLocale();
+              return (
+                <button
+                  key={locale}
+                  type="button"
+                  lang={locale}
+                  aria-current={active ? 'true' : undefined}
+                  onClick={() => {
+                    if (active) return;
+                    setActiveLocale(locale as SupportedLocale);
+                    // Full reload, like Settings: server components and the
+                    // out-of-React translators read the cookie at load time.
+                    window.location.reload();
+                  }}
+                  className={cn(
+                    'rounded-md px-3 py-2 text-xs font-medium uppercase tracking-wider transition-colors',
+                    active
+                      ? 'text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {LOCALE_NAMES[locale]}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
       </div>
     </div>

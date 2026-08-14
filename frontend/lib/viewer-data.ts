@@ -8,9 +8,9 @@
  * assignments rather than the (never event-scoped) availability column.
  */
 
-import { type ApiViewerData, type ApiIncident } from "@/lib/api-client"
+import { type ApiViewerData, type ApiViewerIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
-import { type Operation } from "@/lib/contexts/operations-context"
+import { rekoDangerTypes, type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
 import { type Person, type PersonStatus } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { type IncidentGroup } from "@/lib/types/groups"
@@ -27,8 +27,52 @@ export interface SituationData {
   materials: Material[]
 }
 
-/** Map an API incident (from the share-token payload) onto an Operation. */
-export function viewerIncidentToOperation(a: ApiIncident): Operation {
+/**
+ * The Reko result as an Operation carries it. Same labels, same order, as the
+ * logged-in board builds in operations-context — the share link and the board
+ * have to read identically, photos included: the payload carries the filenames
+ * and the display resolves them with its own token (`rekoPhotoUrl`).
+ *
+ * The danger chips come from the board's own `rekoDangerTypes`, not a copy of
+ * it: this file held a third copy of that if-chain, and the two in
+ * operations-context had already drifted apart (the poll path had lost
+ * `fire_danger`) before they were merged into one. The share payload drops
+ * `other_notes`, which is why that function takes the flags-only shape.
+ */
+function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
+  const dangerTypes = rekoDangerTypes(summary.dangers_json)
+  return {
+    isRelevant: summary.is_relevant ?? false,
+    hasDangers: dangerTypes.length > 0,
+    dangerTypes,
+    personnelCount: summary.personnel_count ?? null,
+    estimatedDuration: summary.estimated_duration_hours ?? null,
+    summaryText: summary.summary_text ?? null,
+    photos: summary.photos_json ?? [],
+  }
+}
+
+/**
+ * Map an API incident (from the share-token payload) onto an Operation.
+ *
+ * The share payload is narrower than the board's own row on purpose: the Melder
+ * (`contact` / `contact_phone`) and the `internal_notes` are not in it, so the
+ * three Operation fields that carry them stay empty here and the display's
+ * Melder block and Notiz section simply do not render. See
+ * `backend/app/schemas/viewer.py` for the full allowlist.
+ *
+ * `pickupNeeded` / `pickupRequestedAt` DO arrive: a crew waiting to be collected
+ * is the situation, not the office's bookkeeping, so `PickupBadge` renders on a
+ * shared board. `pickupNote` does not — unbounded operator free text that only
+ * shows in a tooltip, and nobody hovers a wall display. `leaderName` is filled
+ * in `buildSituationData` from `assignment.is_leader`, exactly as the board does.
+ *
+ * What still stays at its empty value, because the allowlist does not carry it:
+ *
+ * * `hasSchadenplatzRapport` / `…Draft` — whether the KP has filed its
+ *   paperwork is the office's state, not the situation's. Left off.
+ */
+export function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSummary): Operation {
   return {
     id: a.id,
     location: a.location_address || a.title,
@@ -43,21 +87,27 @@ export function viewerIncidentToOperation(a: ApiIncident): Operation {
     coordinates: apiCoordinatesToTuple(a.location_lat, a.location_lng),
     materials: [],
     notes: a.description ?? "",
-    contact: a.contact ?? "",
-    contactPhone: a.contact_phone ?? "",
-    internalNotes: a.internal_notes ?? "",
+    // Not in the share payload — a resident's name, phone number and the KP's
+    // internal notes are not part of a shared situation.
+    contact: "",
+    contactPhone: "",
+    internalNotes: "",
     nachbarhilfe: a.nachbarhilfe ?? false,
     nachbarhilfeNote: a.nachbarhilfe_note ?? "",
     amWarten: a.am_warten ?? false,
     amWartenNote: a.am_warten_note ?? "",
     zuFuss: a.zu_fuss ?? false,
+    pickupNeeded: a.pickup_needed ?? false,
+    // The note stays out of the share payload; the badge reads the time only.
+    pickupNote: "",
+    pickupRequestedAt: a.pickup_requested_at ? new Date(a.pickup_requested_at) : null,
     groupId: a.group_id ?? null,
     groupPosition: a.group_position ?? 0,
     source: a.source,
     statusChangedAt: a.status_changed_at ? new Date(a.status_changed_at) : null,
     hasCompletedReko: a.has_completed_reko,
     rekoArrivedAt: a.reko_arrived_at ? new Date(a.reko_arrived_at) : null,
-    rekoSummary: null,
+    rekoSummary: reko ? viewerRekoSummary(reko) : null,
     assignedReko: null,
     leaderName: null,
     crewAssignments: new Map(),
@@ -79,7 +129,8 @@ export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGr
     position: group.position,
     createdAt: new Date(group.created_at),
     updatedAt: new Date(group.updated_at),
-    createdBy: group.created_by ? String(group.created_by) : null,
+    // Not in the share payload: who created the route is not part of it.
+    createdBy: null,
     stopIds: group.stop_ids.map(String),
     assignments: [],
     progress: group.progress ?? { total: group.stop_ids.length, done: 0 },
@@ -90,7 +141,10 @@ export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGr
 
 /** Build the full display view-model from a share-token payload. */
 export function buildSituationData(payload: ApiViewerData): SituationData {
-  const operations: Operation[] = payload.incidents.map(viewerIncidentToOperation)
+  const rekoSummaries = payload.reko_summaries ?? {}
+  const operations: Operation[] = payload.incidents.map((incident) =>
+    viewerIncidentToOperation(incident, rekoSummaries[incident.id])
+  )
 
   // Special functions: reko people are tracked per-incident (not crew); every
   // other function (driver, magazin, …) counts its person as assigned —
@@ -133,6 +187,9 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
         }
         op.crew.push(person.name)
         op.crewAssignments.set(person.name, assignment.id)
+        // Marks which of the already-shared names leads — the displays sort
+        // the crew leader-first off this, like the logged-in board.
+        if (assignment.is_leader) op.leaderName = person.name
         assignedPersonIds.add(String(person.id))
       } else if (assignment.resource_type === "material") {
         op.materials.push(assignment.resource_id)
@@ -161,7 +218,9 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     driverVehicleName: driverInfoByPerson.get(String(p.id))?.vehicleName || undefined,
     isMagazin: magazinPersonnelIds.has(String(p.id)),
     roleSortOrder: p.role_sort_order,
-    diveraUserId: p.divera_user_id ?? null,
+    // Not in the share payload — an account id in another system is nothing a
+    // display draws, and it identifies a person across events.
+    diveraUserId: null,
   }))
 
   const materials: Material[] = payload.materials.map((m) => ({

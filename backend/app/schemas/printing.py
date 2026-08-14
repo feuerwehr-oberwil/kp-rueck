@@ -15,6 +15,11 @@ class PrintJobType(str, Enum):
     BOARD = "board"
     TEST = "test"
     QR_CODE = "qr_code"
+    # The material half of the Restliste on paper (plan 25, decision 25):
+    # address · unit · since when, the sheet somebody takes along the next
+    # morning. Deliberately the existing print-job path rather than a fourth
+    # document format — this is a list, not a report.
+    ABHOLLISTE = "abholliste"
 
 
 class PrintJobStatus(str, Enum):

@@ -303,6 +303,65 @@ async def test_checkout_not_checked_in(client: AsyncClient, valid_token: str, te
 
 
 # ============================================
+# "Nicht anwesend" — the third step of the board's cycle
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_clear_attendance_returns_person_to_absent(
+    editor_client: AsyncClient, test_event: Event, test_personnel
+):
+    """anwesend → gegangen → nicht anwesend, and the row is gone rather than blanked."""
+    person = test_personnel[0]
+    query = f"?event_id={test_event.id}"
+
+    await editor_client.post(f"/api/personnel/check-in/{person.id}/in{query}")
+    await editor_client.post(f"/api/personnel/check-in/{person.id}/out{query}")
+
+    left = await editor_client.get(f"/api/personnel/check-in/list{query}&include_unavailable=true")
+    row = next(p for p in left.json()["personnel"] if p["id"] == str(person.id))
+    assert row["checked_out_at"] is not None  # "gegangen"
+
+    response = await editor_client.delete(f"/api/personnel/check-in/{person.id}{query}")
+    assert response.status_code == 200
+    assert response.json()["checked_in"] is False
+    assert response.json()["checked_out_at"] is None
+
+    after = await editor_client.get(f"/api/personnel/check-in/list{query}&include_unavailable=true")
+    row = next(p for p in after.json()["personnel"] if p["id"] == str(person.id))
+    # Absent means the absence of a record — not a row with both stamps NULL.
+    assert row["checked_in"] is False
+    assert row["checked_in_at"] is None
+    assert row["checked_out_at"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_clear_attendance_is_idempotent(editor_client: AsyncClient, test_event: Event, test_personnel):
+    """Clearing somebody who never came is a no-op, not a 404."""
+    person = test_personnel[0]
+    response = await editor_client.delete(f"/api/personnel/check-in/{person.id}?event_id={test_event.id}")
+    assert response.status_code == 200
+    assert response.json()["checked_in"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_clear_attendance_requires_an_editor(
+    viewer_client: AsyncClient, client: AsyncClient, test_event: Event, test_personnel
+):
+    """The phone has no "I was never here" to report — this is the board's correction."""
+    person = test_personnel[0]
+    query = f"?event_id={test_event.id}"
+    # No session and a viewer session both come back 403 here — the route has no
+    # token door at all, so there is nothing for an anonymous caller to be
+    # challenged for.
+    assert (await client.delete(f"/api/personnel/check-in/{person.id}{query}")).status_code == 403
+    assert (await viewer_client.delete(f"/api/personnel/check-in/{person.id}{query}")).status_code == 403
+
+
+# ============================================
 # Stats Tests
 # ============================================
 

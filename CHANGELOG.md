@@ -28,6 +28,491 @@ will keep holding.
 
 ## [Unreleased]
 
+### Security
+
+- **⚠️ A Viewer-Link now shows what the Reko found, photos included.** Until now the share
+  board said only *that* a Reko had happened; it now carries the Reko summary – relevant
+  yes/no, the dangers, the effort estimate, the Kurzbericht – and the photos of the damage,
+  which are the useful half of a Reko. That is a real widening of what the token exposes, and
+  it is deliberate: a link handed to the Gemeinde or to a Nachbarwehr is worth little if the
+  one thing it will not show is what the officer actually saw.
+  **Decide with that in mind who gets the link.** It is still the same 24-hour, event-scoped
+  token, still read-only, and it has always shown addresses, crews and the Meldung.
+
+  Withheld from a link whose only gate is the token, and staying withheld: **`other_notes`**,
+  free text that regularly names residents; the **submitter's identity**; and the photos of a
+  **draft** Reko – an unsent report is not part of the shared situation. Photos of a
+  Schadenplatz-Rapport live in the same directory on disk and are **not** reachable with a
+  viewer token either: `GET /api/photos/{incident}/{file}` serves a file to a token only when
+  the incident belongs to that token's event **and** a submitted Reko report lists the
+  filename. Anything else answers `404`, never `403`, so a forwarded link cannot be used to
+  probe which photos exist in a neighbouring Ereignis. Every token-door access is written to
+  the audit log with `via: viewer_token` and no user – "nobody was signed in, somebody held
+  the link" is the provenance.
+
+- **A Viewer-Link no longer carries the caller's name and phone number.** `/api/viewer/data` is
+  gated by nothing but a token in a URL, and a URL gets forwarded, screenshotted and taped to a
+  wall – yet it was serving whole incident rows, `contact`, `contact_phone` and `internal_notes`
+  included. The person who reported a flooded cellar is not part of the situation; the address
+  is. The shared payload is now an **allowlist** on both sides of the wire, built from what the
+  display actually draws, so a column added to the incident table can no longer reach a shared
+  link on its own – which is the property that matters in a year, not the two fields removed
+  today. Operator ids, workflow flags and the Divera user id go with them. Vehicles and
+  materials stay whole on purpose: a radio call sign is painted on the truck.
+  Also still withheld after that pass: the pickup note (unbounded operator free text) and
+  whether the KP has filed its Rapport – that is the office's state, not the situation's.
+  **What the wall display kept:** which crew member leads, and that a crew is waiting to be
+  picked up (a boolean and a timestamp, naming nobody). Both were collateral in the narrowing
+  and are back, because a shared board that cannot show "this squad is standing at the kerb" is
+  missing a fact about the incident.
+
+- **A `/feld` link can now be bound to one person.** Every person-scoped `/feld` endpoint
+  enforces the binding, and a token whose binding is unreadable is rejected outright rather than
+  quietly widened to the whole event. Nothing mints a bound link yet, so every printed poster
+  and Einsatzzettel keeps working exactly as before.
+  ⚠️ **This does not make `/feld` an identity.** An unbound link – which is what both the wall
+  poster and the printed Einsatzzettel carry – is a credential for the **whole Ereignis**:
+  `/feld` hands any holder the full crew picker, so whoever has the link can read, and write as,
+  any crew in that event. That is the price of one shared QR, it is now written down where the
+  code says it rather than promised otherwise, and closing it needs a decision (personal links,
+  or a PIN). Practical consequence unchanged: collect the printed slips at the end of an
+  Ereignis – see [`docs/SETUP.md`](docs/SETUP.md) §7 and the token table in
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+### Added
+
+- **The landing page speaks French, and it is generated rather than written twice.**
+  `site/index.html` used to be the page; it is now the *output* of `site/index.template.html`
+  plus one text file per language (`site/content/de.json`, `fr.json`). German is the base and
+  every other language is laid over it, so a translation writes only what it translates, a gap
+  falls back to German *visibly*, and `build.mjs` prints the coverage after every run. A third
+  language is one entry in `content/config.json` and one file in `content/`; the template does
+  not change. The switcher is two plain text links (no flags, no dropdown, no cookie, and
+  deliberately **no `Accept-Language` redirect**), with `hreflang` alternates both ways and a
+  per-language `canonical`.
+  This is **one** piece of work across both repos, not two: `site/build.mjs` and `site/landing.css`
+  are byte-identical with kp-front, and duplicating either would drift on every design change.
+  ⚠️ **The built pages are committed**, because GitHub Pages serves `site/` verbatim: the page in
+  the repo *is* the page on the web. `node site/build.mjs --check` runs in `frontend-build` so a
+  stale build fails loudly instead of silently serving yesterday's text.
+  The page deliberately says nothing about the app's own language: German is named only where a
+  visitor meets it anyway – the **demo** runs in German and the screenshots come from it. That
+  is a fact about the demo, not a claim about the product, so it stayed true when the app's
+  French catalogue landed later in this same release (see *"Die App spricht Französisch"* below).
+  It does carry a visible line saying no French-speaking firefighter has read the translation
+  yet – that line comes off when somebody has, and it is the same reviewer the interface
+  translation needs.
+  French terminology follows the **CSSP** (the FKS's French name) rather than French-from-France
+  usage: *signes conventionnels* not *signes tactiques*, *équipe* not *binôme*, *surveillance PR*
+  not *surveillance ARI*, *assistance technique* not *secours techniques*.
+
+- **Schadenplatz-Rapport — the paper `fahrzeugrapport.pdf` becomes a form on the phone.** A crew
+  opens `/feld`, taps its Schadenplatz and fills the slip: damage type, start/end of work, the
+  Kurzbericht, "übergeben an", the owner block and the Kostenpflicht counts. The draft survives
+  locally with a 30-second autosave, so a closed tab or a dead spot costs nothing. Filing it
+  freezes who and which vehicles were there — a later board edit cannot change a rapport that has
+  been handed in.
+
+- **A material checklist instead of a material hunt.** Every unit the board has on that
+  Schadenplatz is one row with two ticks: *gebraucht* and *vor Ort verblieben*. Consumables have
+  only the first — what was used up is not left anywhere. What came back is then offered in the
+  incident detail as **"Material zurück – freigeben"**: one list, one click. Until now somebody
+  worked out by hand which of fourteen units were still out.
+
+- **The KP can do everything the field can.** The rapport in the incident detail is a full
+  editing surface, not a read-only view: an editor creates a rapport for an incident that never
+  had any field contact, fills it and files it — the normal case is a radio message. Both doors
+  write the same columns, and every rapport says where it came from ("Feld" vs. "Funkmeldung");
+  a KP entry leaves the personnel attribution empty rather than guessing it.
+
+- **A rapport marker on the card.** A card with a filed rapport carries a quiet chip; one that
+  reached `complete` without a rapport carries a muted "kein Rapport" marker. Not a dialog and
+  not a block — during a storm, a blocking gate is a gate people defeat with empty forms.
+
+- **Fotos vom Schadenplatz, von beiden Seiten.** The crew photographs the cellar from `/feld`;
+  the operator attaches the picture that arrived by WhatsApp from the incident detail. Same
+  storage as the Reko form, and deliberately not the same door — a Reko form token does not open
+  the field upload, and a field token does not open the Reko one.
+
+- **The Einsatzzettel carries a second QR.** It opens `/feld` with that Schadenplatz already
+  selected, using the Ereignis token the poster already carries. The slip can only preselect the
+  Schadenplatz, never the person — it is printed before it is known who drives. A printed slip is
+  therefore a working credential until the token expires: collect them at the end of an Ereignis
+  ([`docs/SETUP.md`](docs/SETUP.md) §7).
+
+- **Die Restliste auf der Ereignisseite.** Three counts, each clickable through to the incidents
+  behind it: *"4 von 23 Schadenplätzen ohne Rapport"*, *"3 Geräte noch vor Ort"*, *"2 Trupps
+  warten auf Abholung"*. This is where somebody at 02:00 finds the gaps, because nobody clicks
+  twenty-three cards individually.
+
+- **Die Abholliste auf Papier.** The material half of the Restliste prints on the thermal
+  printer: address · Gerät · seit wann, one line each — the sheet somebody takes along the next
+  morning. Material left on site is a different day's job and stays separate from the
+  Trupp-Abholung.
+
+- **Der Rapport steht jetzt auch auf dem Papier, das nachher gebraucht wird.** The
+  Einsatzbericht (PDF) gains a "Schadenplatz-Rapport" block per Einsatz, and the Lageblatt gains
+  Schadensart, Tätigkeit, "übergeben an", "Material vor Ort" und eine offene Abholung — the sheet
+  the KP prints when the screens die now carries what the field reported. A count the crew
+  corrected prints **with the board's own number next to it** ("8 (vom Board: 6)"), because the
+  divergence is the information: it says the board was behind reality.
+
+- **Ein Kostenpflicht-Export für die Verrechnung.** One wide row per Schadenplatz —
+  Einsatz-Nr., Adresse, Schadensart, Beginn/Ende/Dauer, Personal und Fahrzeuge (mit
+  `korrigiert`-Vermerk), Eigentümer- und KFZ-Block, Material, Kurzbericht und wer den Rapport
+  erfasst hat. Reachable from the export menu on the Ereignisseite. It deliberately matches no
+  external format: the numbers are retyped by hand, so the sheet is built to be *read while
+  retyping*. Schadenplätze **ohne** Rapport get a row too — blank, with their address, because a
+  missing rapport has to be visible and nothing forces one to exist.
+
+  Every output keeps the three answers a crew can give about a unit apart: *gebraucht*, *nicht
+  gebraucht* and *keine Angabe*. "Niemand hat geantwortet" is a real answer and never becomes a
+  quiet "nein". Verbrauchsmaterial has no "vor Ort verblieben" state at all — what was used up is
+  not left anywhere and nobody drives out for it.
+
+- **Der Rapport lässt sich üben.** Die Übungssteuerung bekommt drei Injects: *Rapport
+  eingetroffen* für einen Schadenplatz, *Rapporte eintreffen lassen* für 80 % aller
+  abgeschlossenen Schadenplätze auf einmal, und *Meldung vom Feld* über die konfigurierbaren
+  Meldungs-Chips. Die fehlenden 20 % sind Absicht: sie sind die Restliste, und sie zu finden ist
+  die Übung. Die Rapporte sind bewusst lückenhaft — Material teilweise unbeantwortet, der
+  Eigentümerblock oft leer, ein KFZ-Block nur dort, wo wirklich ein Fahrzeug beteiligt war —,
+  und alle Quoten stehen in **einer** benannten Tabelle, damit "das ist zu sauber" eine Zeile
+  Änderung ist.
+
+- **"Einsatz beendet" fragt in der Übung dasselbe wie im Feld.** *Kommt der Trupp selbst
+  zurück?* — vorbelegt aus der Lage (zu Fuss oder kein Fahrzeug = meist gestrandet), vom
+  Übungsleiter jederzeit überstimmbar. Und die Meldung geht neu über denselben Endpunkt, den der
+  KP am Board benutzt: eine Übung löst damit endlich auch die Glocke und den Journal-Eintrag aus,
+  statt still eine Spalte zu setzen.
+
+- **Die Demo zeigt den Rapport, ohne dass jemand `/feld` öffnet.** Der abgeschlossene Einsatz im
+  Demo-Sandkasten hat einen erfassten Rapport mit Materialhaken — eine Pumpe blieb vor Ort und
+  steht damit auf der Abholliste, der Wassersauger kam zurück und wartet in "Material zurück –
+  freigeben". Muster-Namen im Eigentümerblock.
+
+- **What `/feld` stores about third parties is written down** in
+  [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §8. The owner block is the first citizen PII in
+  KP Rück: it lives with the incident and is deleted with it, the `/feld` QR is an event-scoped
+  credential that reaches it, and posters and Einsatzzettel belong in the "collect at the end of
+  the Ereignis" habit.
+
+- **Ein «Rapporte»-Rückstand in der Fusszeile.** A pill next to the other footer sheets counts
+  the completed Schadenplätze that still have no filed Schadenplatz-Rapport, and opens a list
+  split into **Offen** (oldest first, because the oldest is the one nobody will remember) and
+  **Erfasst** (newest first). A row jumps straight to its incident. The same gap is already on
+  the Ereignisseite; this is it where the work happens, on the board, without changing pages.
+
+- **«{n} Geräte vor Ort» am Kopf der Material-Leiste.** Material a crew left standing somewhere
+  is otherwise invisible on the board – it is neither free nor obviously in use. The roll-up
+  names each unit, the address it is standing at and since when, oldest first, and clicking one
+  opens that incident. Only shown when there is something to show.
+
+- **The board keeps the layout you gave it.** Folded sidebars, the side panel and a dismissed
+  setup checklist survive a reload, per device. Closing a sidebar you never use was, until now,
+  a thing you did again after every refresh.
+
+- **Die App spricht Französisch – Français steht jetzt in der Sprachauswahl.** `fr.json` covered
+  2604 of German's 2661 keys, and the picker's gate is *complete* coverage, not *some*: 96 %
+  translated showed up as no French at all. The 69 missing keys are translated, 12 dead ones
+  dropped and three corrected where the German had drifted since; both catalogues now stand at
+  2669 leaves. Terminology follows what the file already established – Schadenplatz = *place
+  sinistrée*, Reko = *reconnaissance*, Auftrag = *mission*. The in-app help page has a French
+  version too.
+  Language is chosen **per device** (Einstellungen → Sprache, stored in the `NEXT_LOCALE`
+  cookie), so two workstations on one Ereignis can disagree. Two honest limits: **everything the
+  backend writes stays German** – PDFs, Excel exports, thermal print and API error details – and
+  **no French-speaking firefighter has read the translation yet**. Italian is registered but
+  empty and therefore stays out of the picker.
+  ⚠️ For contributors: a German key added without its French counterpart drops French out of the
+  picker entirely. The two catalogues have to stay leaf-for-leaf equal.
+
+- **Der Speicherplatz-Alarm löst jetzt wirklich aus.** «Datenbank (GB)» and «Foto-Limit (GB)»
+  were editable limits in the settings whose check behind them always returned nothing – an operator
+  configured a safeguard that did not exist, on a station box where the app, Postgres and the
+  photos share one disk. The two are now measured, and deliberately **never summed**: compose
+  puts the database and the photos on different volumes, so one combined number would mean
+  nothing. A value that cannot be measured stays silent rather than reading as "plenty of room".
+  Measured at most every 5 minutes, because the notification endpoint is polled by every open
+  board; with both limits off, nothing is measured at all. The warning is a warning, not a
+  critical alert – a full disk must not put a dialog over the board during an Einsatz.
+  **Setting a limit to 0 (or clearing the field) switches it off.** Until now the input rejected
+  anything below 1 GB, so a limit could be set but never unset.
+
+### Changed
+
+- **Der Einsatzbericht sieht aus wie der Einsatzrapport aus KP Front.** Eine Nacht kann
+  zwei Dokumente hervorbringen, und die sahen aus wie aus zwei verschiedenen Produkten.
+  Der Bericht übernimmt die Palette des Rapports (Tinte, gedämpftes Grau, hellgraue
+  Tabellenköpfe); das satte Rot, das jede Tabellenkopfzeile füllte, ist weg – auf einem
+  Dokument, das grösstenteils aus Tabellen besteht, waren das drei alarmfarbene Bänder
+  pro Blatt. Der einzige warme Akzent ist der ÜBUNG-Marker. Dazu eine durchgehende
+  Gliederung: jede Ebene wird von genau einer Funktion gebaut, jeder Abschnitt hat Titel,
+  Linie und eine Zeile, die sagt, was darunter steht, und der Schadenplatz-Rapport ist
+  neu als eigene Ebene erkennbar statt in derselben Schrift wie die Felder des Einsatzes
+  darüber. Das Ereignis ist die Überschrift, «Einsatzbericht» die Zeile darüber.
+  Neu am Schluss: **Unterschriften** – Ort/Datum plus Einsatzleiter und Kommandant, die
+  gleichen zwei Rollen in derselben Reihenfolge wie im Einsatzrapport.
+
+- **Der Bericht druckt nur noch, was passiert ist.** Bisher stand bei jedem Einsatz
+  Kontakt, Merkmale, Personal, Fahrzeuge und Material – auch wenn es zu allen fünf nichts
+  zu sagen gab. Auf einer Sturmlage waren das 188 Gedankenstriche, zwei Seiten bestanden
+  aus nichts anderem. Leere Felder entfallen ersatzlos; übrig bleiben 14 «–», und die sind
+  echte Zeitbereiche. Ebenfalls weg: die Spalte «Benutzer» im Einsatztagebuch und das
+  «(demo-editor)» hinter jedem Statuswechsel – wer was geklickt hat, beantwortet das
+  Audit-Log, das ohnehin daneben exportiert wird. Die Herkunftszeilen von Reko und
+  Rapport («Erfasst von … (Feld)») bleiben, das ist keine Bedienspur.
+  Dazu Wortarbeit: «Eingesetztes Personal» heisst «Personal», «{Name} freigegeben» heisst
+  «{Name} vom Einsatz abgezogen», und die Reaktionszeiten stehen durchgehend als `h:mm`.
+  Unter dem Strich: 12 Seiten werden zu 10.
+
+- **One «Drucken» sheet instead of three buttons, on the key `D`.** Thermodruck, the A4
+  Statusdruck and the file exports (Bericht-PDF, Lageblatt, Audit-XLSX) were three separate
+  footer entries that each answered the same question – *how does this get onto paper?* They
+  are now one footer sheet with three columns, opened from the footer, from `Cmd/Ctrl+K` or
+  with **`D`**. The mobile bottom bar loses its separate "Thermo" entry for the same reason.
+  ⚠️ **`D` was already bound, to «Seitenpanel auf Detail schalten»** – and that binding was
+  dead: it was gated on the panel already being open, and the panel has had only `detail` and
+  `collapsed` since the map mode went, so it set `detail` on something that was already
+  `detail`. Nothing is lost except the muscle memory of anyone who kept pressing it. `I` / `\`
+  still toggles the side panel, `K` still switches it to the map.
+
+- **The Kanban search finds an Auftrag by its name.** `matchesIncidentQuery` only ever saw the
+  incident, and an incident carries a `groupId`, not the route's name – so typing the name of a
+  route matched nothing, on the board and on every other surface that filters incidents. Both
+  search helpers now take the group lookup, so the route name is part of what a card matches on.
+
+- **The display top bar answers `s` and `/`**, with the `S` hint on the field, the same two keys
+  as the board – somebody who walks from the KP over to the wall screen does not have to learn a
+  second habit. It stays silent while a field has the caret or a dialog is open: on a screen
+  running unattended, a stray keystroke must do nothing at all.
+
+- **`/display/board` is the board, not a second design of it.** The wall screen used to render
+  its own card, so it silently lagged behind the one on the board: no Reko person, no Rapport
+  marker, no crew or material names, no Melder, no Abholung, resources at the bottom and the
+  Auftrag above the Meldung. It now renders the same card as the command post with the controls
+  taken off, in the same order, and its detail shows the crew's Funkmeldungen – which reached
+  the board while the wall beside it stayed silent. The shared Viewer-Link board was a third
+  rendering again, showing only vehicles; it is the same card now too.
+  **The wall no longer follows the operator's «Ansicht».** Kompakt exists so an operator can fit
+  more cards on a board they *work* in; a wall exists to be read from across the room. The
+  preset is per device and the display page has no control to change it, so a wall PC left on
+  Kompakt showed nothing but addresses and nobody standing in front of it could put that right.
+
+- **«Feld meldet beendet» moves the card to BEENDET / RÜCKFAHRT and stops there.** It used to
+  open the whole completion flow – material decisions, gates, a dialog – which asked an operator
+  to finish an incident whose crew is still driving home. Rückfahrt *is* the state the field
+  just reported, so the move alone is the honest answer: the question is answered by the card
+  being in that column, which is also why the answer now survives a reload. A crew that needs a
+  lift back reports an **Abholung**, and that arrives as its own banner rather than as another
+  prompt about this incident.
+
+- **The incident detail has one action bar, and the ⋯ menu is gone.** The menu had been reduced
+  to a single «Löschen» – a button behind a button – and it opened downwards into the board
+  footer, where it was clipped. Every action now sits on one footer bar; in the 420 px side
+  panel the icons stand alone and the label arrives on hover. **Abholung** is a banner beside
+  the Feld-Meldung instead of a chip in the title row, both above «Status ändern» in the modal
+  and directly under the tabs in the panel. «Abholung erledigt» no longer raises a success toast
+  – the operator pressed the button and confirmed it; only a failure has something to say.
+
+- **The card reads as three sections, and shows one time instead of two.** Kopf/Meldung,
+  Ressourcen and Reko, separated by two rules and one 12 px rhythm, with the rule belonging to
+  whichever block opens a section – so a section that renders nothing cannot leave a line above
+  nothing. Einsatzart and the time share a row, and the time row now shows **only the mode that
+  is actually selected**: picking «In diesem Status» used to print the start time beside it,
+  answering a question nobody asked and crowding out the Einsatzart. The start time is one click
+  away in the dropdown, which lists every mode's value anyway.
+
+- **The board runs to the window edge.** The right edge no longer reserves an empty column for
+  the reopen tabs: both are positioned out of flow, the way the Personen-Leiste's tab on the
+  left always was. The detail opener sits in the top corner rather than beside the sidebar
+  chevron.
+
+- **Ein Wort pro Sache – die deutschen Bezeichnungen sind vereinheitlicht.** Material was called
+  four different things (Mittel / Material / Gerät / Einheiten) while «Mittel» was *also* the
+  label for medium priority, so one word meant both a resource and an urgency. Sharpest case: a
+  dialog headed «Material vor Ort oder ins Magazin?» over a body reading «Entscheide pro
+  Mittel». **Material** is now the category, **Mittel** is priority only, and a single countable
+  item is a **Gerät** – «3 Geräte noch vor Ort» is what a crew says.
+  In the same pass: «Einsatz» named both the whole thing and one of its seven columns, so a card
+  could be an Einsatz in Einsatz – the column is **«Im Einsatz»** now. Aufgebot and Alarm are
+  separated (the footer's «Alarm» is the *inbound* intake link, the opposite direction). Five
+  names for the Reko report collapse to **Reko-Bericht**, and Personal / Personen / BESATZUNG to
+  **Mannschaft**. About 20 strings gained real plural rules, replacing «Fahrzeug(e)» and
+  «1 Trupps» – including a typo inside one, which rendered «Einsatze» in exactly the branch
+  operators see. French mirrors every change.
+
+- **Die Kartenränder bedeuten überall dasselbe.** Two screens hang on the same wall and
+  disagreed: the coloured left edge of a card meant **priority** on the board and the share
+  board, but **status** on the status display – the same stripe, two meanings, side by side in a
+  command post. The edge is priority everywhere now. The status page loses nothing: rows stay
+  grouped by status in board order, each group header names it in words and carries the board
+  column's tint, and every row gets a status dot in that colour, so a row scrolled away from its
+  header still says which column it is in. Low priority was also grey on two surfaces and green
+  on all the others; there is one colour table now.
+
+- **Spaltenköpfe sind wieder Grossbuchstaben, aber leiser.** The board's column headers had been
+  set in caps deliberately; a cleanup removed it. They are back – as small spaced caps in muted
+  grey, not at card-title size. A column header names a place, a card header names an Einsatz,
+  and when both were drawn the same the eye stopped finding the column boundaries.
+
+### Fixed
+
+- **Fünf Fehler im Einsatzbericht, gefunden beim Ausdrucken statt beim Lesen des Codes.**
+  Ein roher Enum stand auf dem Papier («Stromversorgung: available») – das UI übersetzt die
+  Reko-Antworten, der PDF nicht, ein archivierter Bericht hätte irgendwann
+  «emergency_needed» gesagt. Die Status-Aufschlüsselung war nach dem rohen Schlüssel
+  sortiert und damit in einer Reihenfolge, die für den Leser keine ist; sie folgt neu dem
+  Ablauf des Boards. Zwei Spaltenköpfe brachen mitten im Wort («Eingegang / en»); sie
+  heissen «Eingang» und «Ende», und die Spaltenbreiten sind neu gemessen statt geschätzt.
+  `SimpleDocTemplate` polstert seinen Frame mit 6 pt pro Seite, was in der Inhaltsbreite
+  fehlte: jede volle Tabelle war 12 pt breiter als ihr Frame, ragte rechts über die
+  Abschnittslinien hinaus, und eine Zeile, deren Inhalt eine Neuberechnung erzwang, sprang
+  6 pt aus der Labelspalte. Und die Übersichtstabelle behauptete im Docstring zwei Spalten,
+  die sie nie hatte.
+
+- **Die Anwesenheit stimmt jetzt auch in der Antwort, nicht nur im Filter.**
+  `GET /api/personnel/?checked_in_only=true&event_id=…` lieferte genau die anwesenden Personen
+  und schrieb bei jeder einzelnen `checked_in: false` — der Filter war längst auf
+  `event_attendance` umgezogen, das Antwortfeld noch nicht. Die drei Felder
+  `checked_in` / `checked_in_at` / `checked_out_at` werden neu aus der Anwesenheit **des
+  gefragten Ereignisses** aufgelöst, an jeder Stelle, die Personal in einem Ereignis-Kontext
+  ausgibt (Board-Roster und Viewer-Board). Ohne `event_id` sind sie leer, weil Anwesenheit
+  ausserhalb eines Ereignisses keine Aussage ist.
+  ⚠️ Migration `c7e4a1b9f082` **entfernt** dazu die Spalten `personnel.checked_in`,
+  `checked_in_at` und `checked_out_at` samt Check-Constraint und Index. Sie wurden seit dem Tag,
+  an dem `event_attendance` kam, nie mehr geschrieben — es geht nichts verloren, und eine Spalte,
+  die immer «niemand ist da» antwortet, ist schlimmer als keine. Läuft automatisch beim Start.
+
+- **Eine Aushilfe, die man im Fahrer-Dialog erfasst, ist danach auch auf dem Board zu sehen.**
+  Der Check-in lief über einen frisch erzeugten öffentlichen Check-in-Link; scheiterte er, wurde
+  der Fehler in die Konsole geschrieben und die Person trotzdem als Fahrerin gesetzt — die
+  Personalliste blieb «Keine Personen verfügbar». Der Check-in geht neu über die eigene Tür des
+  Editors, und ein Fehlschlag wird gemeldet statt verschwiegen.
+
+- **Der Fahrer-Dialog passt auf einen Laptop-Bildschirm.** Mit offenem «Person hinzufügen» wuchs
+  er über den unteren Rand und legte sich über die Fussleiste; auf 1440×760 war der Titel oben
+  abgeschnitten und «Schliessen» unten nicht mehr erreichbar. Er ist neu auf die Fensterhöhe
+  begrenzt, die Personenliste scrollt darin.
+
+- **Die Check-in-Antworten führen die Tags mit.** `tags` war im Schema deklariert und wurde nie
+  gefüllt, also kam jede Person aus dem Check-in ohne ihr «F» zurück.
+
+- **The selection outline stopped vanishing on exactly the cards that matter most.** Selection
+  was drawn as a ring, and the `priority-high-pulse` animation sets `box-shadow` in its
+  keyframes, which wipes out every `ring-*` and `shadow-*` utility – so on a high-priority card
+  you could not see which one you had selected. It is a full-strength neutral outline now.
+  Hovering a card no longer strips its priority colours either, and low priority closes its left
+  border instead of making it transparent, which had punched a light gap into the card outline.
+
+- **Folding a column scrolls it back into view in both directions.** Unfolding worked, folding
+  did not: the folded strip and the open column are two different elements, so the ref that
+  survived the toggle pointed at the unmounted one. The scroll is done by DOM query now.
+
+- **A toast is usable over a dialog.** Radix locks the page with `pointer-events: none` on
+  `<body>`, sonner portals into `<body>` and set no value of its own – so a toast raised while a
+  modal was open was drawn on top of it (z-index 999999999 against 50) and could be neither
+  dismissed nor clicked. Its action button was unreachable at the exact moment it was offered.
+
+- **Meldung und Notizen wachsen wieder mit ihrem Text.** `DENSE_CONTROL`'s `h-7` was beating the
+  textarea's own field-sizing, so a long Meldung was typed into a one-line box. In the same
+  pass: the Funkmeldung rows keep one height whether they are toggled or not (the block no
+  longer jumps as answers come in), the Einsatzort icons sit on the line, and the address
+  suggestions stopped rendering at body size.
+
+- **Ein zugeklapptes Seitenpanel bleibt zugeklappt.** `usePersistedState` tracked "has the
+  stored value been read" in a ref: the read effect flipped the flag synchronously, the write
+  effect ran in the same flush and persisted the fallback *over* the stored value, and
+  StrictMode's second read picked that up – so a sidebar you closed came back open. Covered by a
+  regression test that runs under an explicit `StrictMode`.
+
+- **Die Glocke behauptet nicht mehr, alles sei in Ordnung, wenn sie den Server nicht erreicht.**
+  A failed notification fetch was indistinguishable from an empty list, so the panel said «Alles
+  ist in Ordnung» while the backend was unreachable. The honest answer is "I cannot tell", and
+  that is what it says now – with one sticky toast instead of the dozen a minute a failing poll
+  would otherwise raise on top of an outage.
+
+- **Reko-Gefahren verschwinden nicht mehr fünf Sekunden nach dem Aktualisieren.** The two board
+  load paths each carried their own copy of the danger derivation and the polling one had lost
+  Brandgefahr: a Reko whose only hazard was fire showed its chips on a manual refresh and dropped
+  them at the next poll – on the card, the wall display and the mobile warning triangle. One
+  derivation feeds both now. A card whose danger *changed* (Einsturz → Brandgefahr) also kept
+  showing the old chip, because the repaint check compared how many dangers there were rather
+  than which. Same class of bug fixed for a renamed Reko person, the Nachbarhilfe note and the
+  vehicle call signs, all of which are drawn on the card and none of which were compared.
+
+- **Ein 3-px-Zucken auf einer Karte gilt nicht mehr als Umsortieren.** The board wrote a new
+  order to the server for a mouse twitch. "Did anything actually move?" is now answered before
+  anything is saved.
+
+- **Die Wandanzeige zeigt wieder alle Spalten.** Below 1800 px the display board's column width
+  floor pushed columns off-screen – 508 px of them at 1280, so BEENDET/RÜCKFAHRT and
+  ABGESCHLOSSEN were simply not there. A wall screen has no mouse, so scrolling sideways was
+  never a recovery. Cards get narrower instead; nothing changes at 1920. In the same pass: any
+  banner (stale data, truncation) used to push the bottom chrome exactly its own height off the
+  screen, and a fresh kiosk profile had no way to pick an Ereignis – the picker lives on
+  `/display`, not in the wall header, because a control that changes what a whole room is
+  watching should not sit one stray click from the board.
+
+- **Ein Viewer stolpert nicht mehr über den Rapport.** Anyone opening an incident with a
+  read-only account got «Rapport konnte nicht geladen werden.» plus two error toasts, every
+  time: the detail always mounted the Schadenplatz-Rapport section, whose endpoint is
+  editor-only because it holds citizen data. The Reko report, the Funkmeldungen and the Verlauf
+  stay visible – those are open to any signed-in user.
+
+- **Eine auswärtige Adresse zeigt ihren Ort, nicht zweimal ihre Strasse.** A raw address came out
+  as «Bahnhofstrasse 12, Bahnhofstrasse»: the formatter took the component after the street as
+  the town, but the geocoder puts the house number first when there is one. For a Nachbarhilfe
+  incident the town is the one thing that has to be right. Two more defects fell out of it – the
+  country test never matched the multilingual «Schweiz/Suisse/Svizzera/Svizra», so the whole
+  string leaked onto the card, and an address with no town repeated the street. Known limit,
+  written down in both copies: a canton without districts whose name differs from its town
+  (Carouge GE, Baar ZG) still shows the canton.
+
+- **Enter tut wieder das, was das fokussierte Element bedeutet.** Merely *resting* the pointer on
+  a card made the board eat `Enter` – with the Karte link focused, Enter opened the hovered card
+  instead of following the link. On a dense board the pointer is over a card most of the time, so
+  Enter was effectively dead for the whole keyboard UI. Related: map shortcuts fired underneath
+  open menus and dialogs (`l` toggled Labels while the menu's own typeahead moved the selection),
+  and `b` toggled the notification sidebar under an open user menu. And the command palette
+  advertised `D` twice – the side-panel command it named has no key bound to it any more, so the
+  stale hint is gone while the command stays.
+
+- **Ein Doppelklick kann ein Ereignis nicht mehr zweimal löschen.** Measured: a double-click on
+  «Dauerhaft löschen» fired two deletes, and on «Archivieren» two archives. Delete takes every
+  incident under the event with it and has no undo. The confirm button now disables with a
+  spinner on the first click, Cancel disables with it, and the dialog refuses to close while the
+  request is out – otherwise Esc dismisses it and the whole thing can be fired again.
+
+- **Eine grosse Mannschaft begräbt die Karten unter sich nicht mehr.** A card with 30 crew
+  measured 771 px, so its own header scrolled away and every card below it became unreachable.
+  Crew and material cap at six chips with a «+N weitere» that opens the detail: 771 px → 355 px.
+  Four more things in the same pass: the sidebars claimed «0/0 verfügbar» while still loading
+  (asserting there is no crew and no material) and blanked the list on a search that matched
+  nothing while the footer still read «10/17» – both are now honest, with a named empty state
+  and a reset; a fresh station's material sidebar was just an empty box and now points into the
+  settings; the Auftrag row on a card crammed 107 px of text into 49 px with no way to recover
+  it by hovering, and takes two lines now; and the footer strip dropped Rapporte, Drucken,
+  Übungs-Steuerung and Ansicht off its right edge whenever the notification sidebar was open –
+  whatever does not fit moves into an overflow menu, verified from 1024 to 2560 px.
+
+- **Vier Stellen in der Dokumentation, die einem Selbst-Hoster einen Abend oder einen Fehlkauf
+  gekostet hätten.** The in-app help said the thermal printer is **58 mm** – it is **80 mm**
+  (48 characters in Font A, verified on the machine), and a station buying from that sentence
+  would have bought a printer that wraps every line. The same help described a six-column
+  workflow ending in an «Archiv» that does not exist: there are **seven** columns, and
+  archiving happens on the *Ereignis*, not on a single incident. It also still documented a
+  «Meldung» switch and a map mode in the side panel, both of which the «Ansicht» menu and the
+  separate map page replaced. And [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) called the
+  Viewer, Check-In and Reko tokens "long-lived" when all three last **24 hours**, gave the login
+  token 24 h when it is **8 h**, and omitted the two 30-day tokens (Alarm and Feld) entirely –
+  that is the table somebody reads to decide who gets which link, so it now lists every token
+  with its real lifetime.
+
+- **Die Testsuite ruft nicht mehr den produktiven GPS-Server an.** Anybody running `pytest` with
+  a populated `backend/.env` was making live requests to the station's Traccar box on every run.
+  The suite now blocks real outbound sockets outright, so a test can neither depend on the GPS
+  server being up nor add load to it.
+
 ## [0.5.0] – 2026-08-08
 
 > ⚠️ **Operator action for anyone running the Divera webhook without a secret.** It now answers

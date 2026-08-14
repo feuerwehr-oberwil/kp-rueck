@@ -1,0 +1,316 @@
+{
+  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers, et la démo tourne en allemand. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
+  "meta": {
+    "title": "KP Rück – le tableau d’intervention du poste de commandement",
+    "description": "KP Rück reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé.",
+    "ogTitle": "KP Rück – le tableau d’intervention du poste de commandement",
+    "ogDescription": "Reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé."
+  },
+  "nav": {
+    "aria": "Navigation principale",
+    "features": "Fonctions",
+    "contact": "Contact",
+    "demo": "Démo",
+    "githubAria": "KP Rück sur GitHub",
+    "languageAria": "Langue"
+  },
+  "hero": {
+    "eyebrow": "Open source&nbsp;· Suisse",
+    "h1": "Le tableau d’intervention du poste de commandement.",
+    "lede": "KP Rück reproduit sous forme numérique le tableau magnétique du PC arrière :\n      <strong>interventions, personnel, véhicules et matériel</strong> sur un seul tableau –\n      en direct sur chaque appareil.",
+    "cta": "Ouvrir la démo",
+    "ctaNote": "Sans compte – choisir un rôle et commencer (interface en allemand)",
+    "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
+    "frameAlt": "Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite"
+  },
+  "fit": {
+    "whoLabel": "Pour qui",
+    "who": [
+      "Sapeurs-pompiers de milice",
+      "Corps locaux",
+      "Centres de renfort",
+      "Sapeurs-pompiers professionnels"
+    ],
+    "whatLabel": "Pour quoi",
+    "what": [
+      "Interventions courantes",
+      "Intempéries",
+      "Plusieurs événements à la fois"
+    ],
+    "note": "Né du service opérationnel réel des\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a>\n        – éprouvé sur le terrain et développé en continu."
+  },
+  "tenet": {
+    "eyebrow": "La mesure de toute chose",
+    "quote": "«&nbsp;Quand le réseau tombe, c’est le <em>papier</em> qui conduit&nbsp;»",
+    "expl": "Un tableau qui devient noir à la première coupure de courant n’est pas un document de\n        conduite. D’où une redondance à plusieurs niveaux – <strong>chaque niveau fonctionne\n        sans celui du dessus</strong>.",
+    "stages": [
+      {
+        "n": "Niveau 1",
+        "h3": "Plusieurs appareils au même état",
+        "p": "Tablettes, écrans de projection et téléphones sont reliés en direct au même tableau.\n            Si un appareil tombe ou se fige, un autre continue – il n’y a rien à sauver et rien\n            à reporter."
+      },
+      {
+        "n": "Niveau 2",
+        "h3": "Une deuxième instance à la caserne",
+        "p": "KP Rück peut en plus tourner localement. La synchronisation intégrée tient à jour\n            événements, interventions, personnel, véhicules, matériel et réglages entre le cloud\n            et la base de données locale. La carte vient de votre propre serveur de tuiles, et\n            l’imprimante est de toute façon sur le réseau local."
+      },
+      {
+        "n": "Niveau 3",
+        "h3": "Le papier conduit",
+        "p": "L’état du tableau part toutes les quelques minutes sur l’imprimante thermique, la\n            feuille de situation sur simple pression. Si tout tombe, la dernière feuille devient\n            le tableau. Au redémarrage, <strong>une seule</strong> personne reporte dans\n            l’application ce qui a été fait à la main."
+      }
+    ]
+  },
+  "incident": {
+    "eyebrow": "De l’alarme au rapport",
+    "h2": "Un événement, un tableau.",
+    "lede": "Voilà à quoi ressemble une nuit d’intempéries au PC – ce qui se passe sur le tableau se\n        retrouve ensuite dans le rapport d’intervention.",
+    "entries": [
+      {
+        "time": "21:14",
+        "tag": "Réception",
+        "h3": "Les annonces arrivent.",
+        "p": "Par le formulaire d’annonce, par téléphone ou par l’interface ouverte depuis le\n            système d’alarme (p.&nbsp;ex. Divera). L’aide à la conduite reprend l’annonce d’un\n            clic – elle devient une intervention sur le tableau."
+      },
+      {
+        "time": "21:19",
+        "tag": "Engagement",
+        "h3": "Effectif et véhicules sont attribués.",
+        "p": "Personnel, véhicules et matériel se glissent sur l’intervention. Le système aide la direction\n            d’intervention à repérer et à rendre visibles les doubles affectations, les ressources\n            manquantes ou les contradictions. Qui arrive s’annonce lui-même par code QR."
+      },
+      {
+        "time": "21:26",
+        "tag": "Carte",
+        "h3": "Qui est où.",
+        "p": "Toutes les interventions sur une carte, et les véhicules avec leur position GPS en\n            option. Dès qu’un véhicule arrive sur les lieux, le tableau propose lui-même le\n            changement de statut."
+      },
+      {
+        "time": "21:48",
+        "tag": "Reconnaissance",
+        "h3": "La reconnaissance annonce en retour.",
+        "p": "Elle remplit le formulaire sur son propre téléphone – photos comprises. L’annonce est\n            rattachée à la bonne intervention, au lieu de se perdre dans un groupe de discussion."
+      },
+      {
+        "time": "23:30",
+        "tag": "Tableau",
+        "h3": "Tout le monde voit le même tableau.",
+        "p": "Le projecteur au PC, la tablette sur la table et le téléphone du fourrier montrent le\n            même état – sans que personne n’ait à appuyer sur «&nbsp;actualiser&nbsp;»."
+      },
+      {
+        "time": "06:40",
+        "tag": "Rapport",
+        "h3": "Le rapport d’intervention s’écrit tout seul.",
+        "p": "Journal d’intervention et temps de réaction naissent en cours de route et deviennent\n            un PDF. On corrige par une nouvelle entrée, pas à la gomme – la nuit reste ainsi\n            documentée."
+      }
+    ]
+  },
+  "shots": {
+    "eyebrow": "Tiré de la démo",
+    "h2": "Voilà à quoi cela ressemble.",
+    "lede": "Toutes les images proviennent de la démo publique. Cliquez sur\n        «&nbsp;Ouvrir la démo&nbsp;» et vous serez devant le même tableau.",
+    "note": "Les captures d’écran sont en allemand : la démo publique l’est, et elles en viennent – des images reconstituées seraient une affirmation plutôt qu’une preuve.",
+    "items": [
+      {
+        "alt": "Vue projecteur : toutes les phases d’intervention côte à côte sur un écran",
+        "title": "Vue projecteur",
+        "sub": "Pour le mur du PC dans la pénombre : toutes les phases côte à côte, sans éléments de commande"
+      },
+      {
+        "alt": "Vue Statut : véhicules, interventions, personnel et matériel côte à côte, chacun avec sa disponibilité et son affectation",
+        "title": "Statut",
+        "sub": "Véhicules, interventions, personnel et matériel côte à côte – qui est libre, qui est engagé, qui est où"
+      },
+      {
+        "alt": "Vue carte : interventions par priorité, positions des véhicules et affectations",
+        "title": "Carte",
+        "sub": "Toutes les interventions par priorité, avec les positions des véhicules et les affectations entre les deux"
+      },
+      {
+        "alt": "Statut des véhicules : véhicules avec indicatif radio, conducteur, destination et statut",
+        "title": "Véhicules",
+        "sub": "Indicatif radio, conducteur, destination et statut de chaque véhicule d’un coup d’œil"
+      },
+      {
+        "alt": "Formulaire d’annonce : adresse, annonce, priorité, type d’intervention et indications sur l’annonceur",
+        "title": "Formulaire d’annonce",
+        "sub": "Saisir de façon structurée les annonces téléphoniques et les personnes qui se présentent – par lien ou code QR, sans compte"
+      },
+      {
+        "alt": "Formulaire de reconnaissance : intervention, «&nbsp;je suis sur place&nbsp;» et dangers à cocher",
+        "title": "Formulaire de reconnaissance",
+        "sub": "Sur le téléphone privé de la reconnaissance : s’annoncer sur place, cocher les dangers, joindre des photos"
+      },
+      {
+        "alt": "Missions : plusieurs interventions regroupées en une tournée",
+        "title": "Missions",
+        "sub": "Plusieurs interventions comme une seule tournée – avec l’effectif, les moyens et un ordre que le tableau optimise selon la distance"
+      },
+      {
+        "alt": "Commande d’exercice : générer des interventions isolées ou ciblées, automatisme et simulation de terrain",
+        "title": "Exercice",
+        "sub": "Injecter des situations d’exercice au lieu de les inventer – proprement séparées du cas réel"
+      }
+    ]
+  },
+  "change": {
+    "eyebrow": "Le changement",
+    "h2": "Ce qui change.",
+    "lede": "Rien de tout cela n’est cassé aujourd’hui – le tableau magnétique fonctionne depuis des\n        décennies. KP Rück prend les mêmes places, simplement sans recopier.",
+    "headToday": "Aujourd’hui",
+    "headWith": "Avec KP Rück",
+    "rows": [
+      {
+        "today": "Tableau magnétique au mur",
+        "with": "Tableau numérique sur chaque appareil"
+      },
+      {
+        "today": "Notes téléphoniques sur des bouts de papier",
+        "with": "Un formulaire d’annonce rattaché à l’intervention"
+      },
+      {
+        "today": "Liste Excel pour l’effectif et les véhicules",
+        "with": "Une vue en direct qui se tient à jour toute seule"
+      },
+      {
+        "today": "Groupe WhatsApp pour les retours",
+        "with": "Des annonces structurées avec photos"
+      },
+      {
+        "today": "Rapport après l’intervention",
+        "with": "Le rapport naît pendant l’intervention"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Étendue des fonctions",
+    "h2": "Ce qu’il y a dedans.",
+    "lede": "Né d’événements et d’exercices réels, pas d’une liste de fonctions. Tout ce qui vient de\n        l’extérieur – alarme, GPS, imprimante – est <strong>facultatif</strong> : KP Rück\n        fonctionne aussi entièrement sans ces raccordements.",
+    "groups": [
+      {
+        "h3": "Tableau &amp; engagement",
+        "items": [
+          "<strong>Les colonnes sont les phases de l’intervention</strong> – les cartes se déplacent de gauche à droite",
+          "Attribuer personnel, véhicules et matériel, avec avertissement en cas de double affectation",
+          "Le matériel resté sur place – quel moyen se trouve sur quelle intervention, et depuis quand",
+          "Priorités, durées et délais visibles par intervention",
+          "Missions : plusieurs interventions comme une tournée pour une équipe, ordre optimisé selon la distance d’une pression",
+          "Enregistrement par code QR – qui arrive s’annonce lui-même",
+          "Vue projecteur pour le mur du PC – les mêmes cartes d’intervention que sur le tableau, sans les éléments de commande",
+          "Palette de commandes et raccourcis clavier pour aller vite"
+        ]
+      },
+      {
+        "h3": "Alarme &amp; annonces",
+        "items": [
+          "<strong>Interface ouverte</strong> – n’importe quel système d’engagement peut ouvrir des interventions",
+          "Peut reprendre les alarmes de Divera <span class=\"opt\">facultatif</span>",
+          "Formulaire d’annonce par lien ou QR, pour le téléphone et pour les gens qui se présentent",
+          "Réception dans un pool, reprise d’un clic",
+          "Alarmer l’effectif depuis le tableau <span class=\"opt\">facultatif</span>",
+          "Annonces de reconnaissance avec photos, directement depuis le téléphone privé"
+        ]
+      },
+      {
+        "h3": "Carte &amp; véhicules",
+        "items": [
+          "Toutes les interventions par priorité et par statut sur une carte",
+          "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
+          "Proposition de statut dès qu’un véhicule arrive sur les lieux",
+          "Les affectations comme une ligne – quel véhicule appartient à quelle intervention",
+          "Tuiles cartographiques aussi depuis votre propre serveur à la caserne"
+        ]
+      },
+      {
+        "h3": "Après &amp; exploitation",
+        "items": [
+          "<strong>Rapport d’intervention en PDF</strong> avec journal d’intervention et temps de réaction",
+          "Un procès-verbal continu qui ne fait que s’allonger et n’est jamais écrasé",
+          "Les rapports encore ouverts en liste courante – quelle intervention terminée n’en a pas encore",
+          "<strong>Espace d’administration propre</strong> à chaque corps : effectif, parc de véhicules, listes de matériel, types d’intervention et priorités",
+          "Import et export en Excel",
+          "Impression thermique à la caserne via un agent d’impression dédié <span class=\"opt\">facultatif</span>",
+          "Rôles : modifier ou seulement suivre, interface sombre pour le PC dans la pénombre",
+          "Mode exercice avec générateur et courses simulées, proprement séparé du cas réel"
+        ]
+      }
+    ]
+  },
+  "sibling": {
+    "eyebrow": "Projet apparenté",
+    "h2": "KP Rück garde la vue d’ensemble à l’arrière. KP Front conduit à l’avant.",
+    "p": "<strong>KP Front</strong> reproduit sous forme numérique la carte de situation et la table\n          de conduite sur les lieux : signes conventionnels, plans d’objet et surveillance PR, même\n          sans réseau. Application distincte, même écriture – les deux peuvent se transmettre des\n          alarmes, mais n’ont pas besoin l’une de l’autre.",
+    "cta": "Découvrir KP Front"
+  },
+  "faq": {
+    "eyebrow": "Questions &amp; réponses",
+    "h2": "Les questions les plus fréquentes.",
+    "items": [
+      {
+        "q": "Pourquoi changer ?",
+        "a": "Plus de doubles affectations. Plus d’annonce qui se perd dans un groupe de discussion.\n          Moins de trafic radio pour des questions dont la réponse est déjà sur le tableau. Tout\n          le monde voit le même tableau de la situation au même moment – et le rapport\n          d’intervention est déjà là à la rentrée, au lieu du week-end suivant."
+      },
+      {
+        "q": "À qui appartiennent les données ?",
+        "a": "À vous. Chaque corps exploite son propre KP Rück – sur sa propre machine à la caserne ou\n          dans le cloud. Vous décidez où se trouvent les données d’intervention, l’effectif et le\n          parc de véhicules ; rien ne part chez un fabricant ou chez des tiers."
+      },
+      {
+        "q": "Combien cela coûte-t-il ?",
+        "a": "Rien. KP Rück est open source (AGPL) – <strong>pas de licence, pas d’abonnement,\n          pas de coût par appareil</strong>. Restent vos propres frais d’exploitation : un petit\n          serveur ou une machine à la caserne."
+      },
+      {
+        "q": "Que faut-il pour l’exploiter ?",
+        "a": "Moins qu’on ne le croit. Un petit mini-PC ou serveur à la caserne suffit, l’installation\n          prend quelques heures. Ensuite, le système tourne largement tout seul, et les mises à\n          jour tiennent en un geste. Il faut quelqu’un qui l’installe une fois – dans le corps, à\n          la commune, ou une connaissance de l’informatique. Et si vous n’avez personne :\n          écrivez-nous, nous aidons à l’installation."
+      },
+      {
+        "q": "Peut-on l’adapter à nos procédures ?",
+        "a": "Oui. Chaque corps a son propre espace d’administration : types d’intervention,\n          priorités, effectif, parc de véhicules et listes de matériel y sont librement réglables,\n          l’import et l’export passent par Excel. Et comme tout le code est sur\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tout le reste peut être construit – par vous-mêmes ou sur mandat."
+      },
+      {
+        "q": "Comment commencer ?",
+        "a": "Par la <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode\n          exercice est proprement séparé du cas réel. Et si cela convient : écrivez-nous, nous\n          aidons à l’installation."
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "h2": "Dites-nous ce que vous en pensez.",
+    "p": "Vous voulez essayer KP Rück chez vous ? Quelque chose manque, ou ne fonctionne pas\n          comme vous l’attendiez ? Écrivez-nous – nous lisons tout.",
+    "alt": "Pour les questions et les idées ouvertes, il y a les\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/discussions\" target=\"_blank\" rel=\"noopener\">discussions GitHub</a>.",
+    "bug": {
+      "t": "Signaler une erreur",
+      "s": "Que s’est-il passé, et qu’attendiez-vous ? Les captures d’écran se glissent directement dans le formulaire."
+    },
+    "idea": {
+      "t": "Proposer quelque chose",
+      "s": "Il manque un geste qui fait partie de vos procédures ? Décrivez le cas, pas la solution."
+    },
+    "mail": {
+      "t": "Écrire directement",
+      "s": "Sans compte GitHub, ou si quelque chose ne doit pas être public – également pour «&nbsp;nous aimerions l’essayer chez nous&nbsp;»."
+    },
+    "form": {
+      "honeypot": "Merci de laisser ce champ vide",
+      "name": "Nom",
+      "namePlaceholder": "Qui écrit ?",
+      "mail": "E-mail",
+      "mailPlaceholder": "Pour que nous puissions répondre",
+      "message": "Message",
+      "messagePlaceholder": "De quoi s’agit-il ?",
+      "send": "Envoyer le message",
+      "sending": "Envoi en cours …",
+      "ok": "Merci – le message est arrivé. Nous revenons vers vous.",
+      "error": "Cela n’a pas fonctionné. Écrivez directement à bastian.eichenberger@feuerwehr-oberwil.ch."
+    }
+  },
+  "lightbox": {
+    "close": "Fermer",
+    "prev": "Image précédente",
+    "next": "Image suivante",
+    "zoom": "Agrandir"
+  },
+  "footer": {
+    "origin": "Né du service opérationnel des <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a> –\n      parce qu’en intervention nous avons vu revenir les mêmes sources d’erreur : doubles\n      affectations, informations éparpillées et erreurs de recopie à la main.\n      Chaque corps exploite son propre KP Rück, avec son effectif, ses véhicules et ses données.",
+    "demo": "Démo",
+    "contact": "Contact"
+  }
+}

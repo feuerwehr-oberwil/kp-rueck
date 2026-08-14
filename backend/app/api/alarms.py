@@ -64,7 +64,7 @@ async def receive_alarm(
     if alarm.source in RESERVED_ALARM_SOURCES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"source '{alarm.source}' is reserved — pick your own slug for this sender",
+            detail=f"source '{alarm.source}' is reserved – pick your own slug for this sender",
         )
 
     try:

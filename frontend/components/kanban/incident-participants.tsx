@@ -9,15 +9,18 @@
  * surfaces that record, so the question asked weeks later — "who was at the
  * Kellerbrand" — has an answer on the incident itself.
  *
- * Loaded lazily on first expand: it is history, nobody needs it on every card
- * open, and an extra request per detail view would be paid on every board click.
+ * Always expanded, and loaded when it mounts. It lives in the Verlauf tab,
+ * which is itself the "show me the history" click — a second toggle inside it
+ * was one more thing to find at 02:00 for no information gained. The tab does
+ * not mount until it is in front, so a board click still pays nothing.
  */
 
 import { useCallback, useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { ChevronDown, History, Loader2, Package, Search, Truck, User } from "lucide-react"
+import { History, Loader2, Package, Search, Truck, User } from "lucide-react"
 
 import { apiClient, type ApiIncidentParticipant } from "@/lib/api-client"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatClockTime } from "@/lib/incident-time"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { cn } from "@/lib/utils"
@@ -33,16 +36,12 @@ function participantIcon(p: ApiIncidentParticipant) {
 
 export function IncidentParticipants({
   incidentId,
-  /** Completed incidents open expanded — there, this IS the crew list. */
-  defaultOpen = false,
   className,
 }: {
   incidentId: string
-  defaultOpen?: boolean
   className?: string
 }) {
   const t = useTranslations("kanban.participants")
-  const [open, setOpen] = useState(defaultOpen)
   const [participants, setParticipants] = useState<ApiIncidentParticipant[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -62,38 +61,28 @@ export function IncidentParticipants({
     }
   }, [incidentId])
 
-  // Refetch when the incident changes under a panel that stays mounted.
+  // Refetch when the incident changes under a panel that stays mounted, and on
+  // every mount: the tab can sit open on a running incident for an hour, and a
+  // crew list that quietly stopped updating is worse than one that takes a
+  // moment to appear.
   useEffect(() => {
     setParticipants(null)
     setFailed(false)
-  }, [incidentId])
-
-  // Refetch on every open, not just the first: the panel can sit expanded on a
-  // running incident for an hour, and a crew list that quietly stopped updating
-  // is worse than one that takes a moment to appear.
-  useEffect(() => {
-    if (open) void load()
+    void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, incidentId])
+  }, [incidentId])
 
   return (
     <div className={cn("rounded-lg border border-border", className)}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/50"
-      >
+      <div className="flex w-full items-center gap-2 px-3 py-2">
         <History className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
         <span className="flex-1 text-sm font-semibold">{t("title")}</span>
         {participants !== null && (
           <span className="text-xs tabular-nums text-muted-foreground">{participants.length}</span>
         )}
-        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
-      </button>
+      </div>
 
-      {open && (
-        <div className="border-t border-border px-3 py-2">
+      <div className="border-t border-border px-3 py-2">
           {loading && (
             <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -113,7 +102,10 @@ export function IncidentParticipants({
 
           {!loading && !failed && participants && participants.length > 0 && (
             <ul className="space-y-1 py-1">
-              {participants.map((p) => {
+              {/* EL first (decision 23). Only a person carries is_leader, so the
+                  Einsatzleiter lands on row 1 and the first_assigned_at order the
+                  API returns survives underneath. */}
+              {sortCrewByLeader(participants, (p) => p.is_leader).map((p) => {
                 const Icon = participantIcon(p)
                 const from = formatClockTime(new Date(p.first_assigned_at))
                 const to = p.last_released_at ? formatClockTime(new Date(p.last_released_at)) : null
@@ -138,8 +130,7 @@ export function IncidentParticipants({
               })}
             </ul>
           )}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

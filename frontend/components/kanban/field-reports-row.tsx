@@ -1,0 +1,448 @@
+'use client'
+
+/**
+ * The KP's settable field reports (plan 25, decision 28, §18.19 — plan 26 §5.2).
+ *
+ * This was three toggles: Angekommen, Einsatz beendet, Abholung. The first two
+ * are gone as *controls*. Status belongs to the columns — `Einsatz` and
+ * `Abgeschlossen` — and a second settable control for the same fact is a second
+ * truth to keep in step. What matters is that the field can **tell** the KP, so
+ * both reports now read as entries in the Meldungen thread below, timestamped
+ * and attributed, next to the crew's own sentences. The nudge stays: "Feld
+ * meldet beendet — nach Abgeschlossen verschieben?" is exactly the shape this
+ * change is after, the field informs and the KP decides.
+ *
+ * Abholung keeps its control, and deliberately: it has no column to be moved
+ * into, and clearing it is a real KP action (the chip does the same job on the
+ * card and in the Restliste).
+ *
+ * **"Reko vor Ort" joins it here, and ONLY here** (plan 26, decision 15). The
+ * Reko block used to render its own "vor Ort seit …" line; that line is gone,
+ * not linked, because a fact displayed in two places is a fact that will
+ * disagree with itself. Same reason it is a control and not just a reading: over
+ * the radio is how "Reko meldet: vor Ort" usually arrives, and until now it had
+ * nowhere to land. Accepted price: the Reko block alone no longer says whether
+ * Reko is on site.
+ *
+ * **Provenance is never faked**: a KP write leaves the personnel columns NULL
+ * and the audit-log entry carries the operator, so "im KP erfasst" is a real
+ * state and not a guess dressed up as a crew report.
+ */
+
+import { useCallback, useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { Binoculars, CarTaxiFront, Flag, Loader2, MapPin, MessageSquare } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
+import type { ApiFieldReportUpdate } from '@/lib/api/types'
+import { useOperations, type Operation } from '@/lib/contexts/operations-context'
+import { usePersonnel } from '@/lib/contexts/personnel-context'
+import { getActiveLocale } from '@/lib/i18n-messages'
+import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
+
+interface FieldReportsRowProps {
+  operation: Operation
+  canEdit?: boolean
+  /**
+   * Which of the two settable Funkmeldungen this mount shows.
+   *
+   * They belong to different questions, and since the detail split Reko off
+   * into a tab of its own they belong to different tabs: «Reko vor Ort» is part
+   * of the reconnaissance, «Abholung nötig» is what the Schadenplatz still
+   * needs. Default is both, for any mount that wants the pair.
+   */
+  only?: readonly Row[]
+}
+
+type Row = 'rekoArrived' | 'pickup'
+
+export function FieldReportsRow({ operation, canEdit = true, only }: FieldReportsRowProps) {
+  const t = useTranslations('feld.kp')
+  const { refreshOperations } = useOperations()
+  const { personnel } = usePersonnel()
+  const [saving, setSaving] = useState<Row | null>(null)
+  const [note, setNote] = useState(operation.pickupNote ?? '')
+
+  const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
+
+  const save = useCallback(
+    async (row: Row, update: ApiFieldReportUpdate) => {
+      setSaving(row)
+      try {
+        await apiClient.setIncidentFieldReport(operation.id, update)
+        await refreshOperations()
+      } catch (error) {
+        console.error('Failed to save field report:', error)
+        toast.error(t('saveFailed'))
+      } finally {
+        setSaving(null)
+      }
+    },
+    [operation.id, refreshOperations, t],
+  )
+
+  /** "Reko meldet: vor Ort" — a different table, the same gesture. */
+  const saveRekoArrived = useCallback(
+    async (at: string | null | undefined) => {
+      setSaving('rekoArrived')
+      try {
+        await apiClient.setRekoArrived(operation.id, at)
+        await refreshOperations()
+      } catch (error) {
+        console.error('Failed to save reko arrival:', error)
+        toast.error(t('saveFailed'))
+      } finally {
+        setSaving(null)
+      }
+    },
+    [operation.id, refreshOperations, t],
+  )
+
+  /**
+   * "vom Feld, Muster Hans, 23:14" versus "im KP erfasst, 23:14".
+   *
+   * `personnelId === null` with a timestamp present IS the KP case — that is
+   * the whole provenance rule, read straight off the absence of the FK.
+   */
+  const provenance = (at: Date | null | undefined, personnelId: string | null | undefined): string | null => {
+    if (!at) return null
+    const time = at.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
+    if (!personnelId) return t('fromKp', { time })
+    return t('fromField', { name: nameById.get(personnelId) ?? t('unknownPerson'), time })
+  }
+
+  type ReportRow = {
+    key: Row
+    icon: React.ReactNode
+    label: string
+    at: Date | null | undefined
+    on: boolean
+    by: string | null | undefined
+    /** Overrides `provenance()` where the channel is not readable off a
+     *  personnel FK — the Reko arrival lives on `reko_reports`, and the board
+     *  carries the answer as a flag rather than an id it would have to resolve. */
+    line?: string | null
+    onToggle: (checked: boolean) => void
+    onTimeChange: (time: string) => void
+  }
+
+  const rows: ReportRow[] = ([
+    {
+      key: 'rekoArrived',
+      icon: <Binoculars className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />,
+      label: t('rekoArrived'),
+      at: operation.rekoArrivedAt,
+      on: Boolean(operation.rekoArrivedAt),
+      by: null,
+      line: operation.rekoArrivedAt
+        ? operation.rekoArrivedByKp
+          ? t('fromKp', { time: formatMessageTime(operation.rekoArrivedAt) })
+          : // No name to show: the arrival is reported by whoever holds the Reko
+            // link, and inventing one would be the guessed attribution the
+            // provenance rule exists to prevent.
+            t('fromReko', { time: formatMessageTime(operation.rekoArrivedAt) })
+        : null,
+      onToggle: checked => saveRekoArrived(checked ? undefined : null),
+      onTimeChange: time => {
+        const next = applyTimeEdit(operation.rekoArrivedAt, time)
+        if (next) saveRekoArrived(next.toISOString())
+      },
+    },
+    {
+      key: 'pickup',
+      icon: <CarTaxiFront className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />,
+      label: t('pickup'),
+      at: operation.pickupRequestedAt,
+      on: Boolean(operation.pickupNeeded),
+      by: operation.pickupRequestedBy,
+      onToggle: checked => save('pickup', { pickup_needed: checked, pickup_note: checked ? note || null : null }),
+      onTimeChange: time => {
+        const next = applyTimeEdit(operation.pickupRequestedAt, time)
+        if (next) save('pickup', { pickup_needed: true, pickup_note: note || null, pickup_requested_at: next.toISOString() })
+      },
+    },
+  ] as ReportRow[]).filter(row => !only || only.includes(row.key))
+
+  // Same shape as Nachbarhilfe and «Am Warten» on the Übersicht: a label, a
+  // switch, and the field that qualifies it underneath while it is on. The
+  // bordered card with its own explanatory sentence made two settable rows look
+  // like a form of their own — the sentence lives on as the heading's `title`.
+  return (
+    <div className="space-y-1">
+      {/* The heading earns its place only over a GROUP. Above a single row it
+          repeats what the row's own label says — «Funkmeldungen / Reko vor Ort»
+          is one line of chrome for one line of content. */}
+      {rows.length > 1 && (
+        <p
+          title={t('reportsDescription')}
+          className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+        >
+          {t('reportsTitle')}
+        </p>
+      )}
+
+      {/* Space separates the rows, not rules. Under a single row — which is what
+          both real mounts render — a rule is a line with nothing on the far side
+          of it, and it read as a divider belonging to whatever came next. */}
+      <div className="space-y-2">
+        {rows.map(row => {
+          const line = row.line !== undefined ? row.line : provenance(row.at, row.by)
+          return (
+            <div key={row.key}>
+              {/* One row unit — `min-h-8`, the height of the time input — in
+                  every state. The `h-8` input exists only while the row is on,
+                  so without a floor the line was 20px off and 32px on, and
+                  everything below it jumped by 12px the moment somebody flipped
+                  the switch. The floor is also what makes the two rows the same
+                  height as each other: they are meant to be interchangeable
+                  blocks, and «Reko vor Ort» and «Abholung nötig» sit in
+                  different tabs of the same panel. */}
+              <div className="flex min-h-8 items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  {row.icon}
+                  {/* `text-sm` on the box, not just the label: the icon is
+                      centred against this box, and a larger inherited font would
+                      stretch it and leave the glyph sitting high.
+                      `truncate` is what keeps the floor a fixed height at 420px:
+                      the provenance appears with the toggle, and a long one
+                      («vom Feld, …») would otherwise wrap onto a second line and
+                      move the content below all over again. The full sentence
+                      stays reachable on hover. */}
+                  <div
+                    className="min-w-0 truncate text-sm"
+                    title={line ? `${row.label} – ${line}` : row.label}
+                  >
+                    <span>{row.label}</span>
+                    {line && <span className="ml-2 text-xs text-muted-foreground">{line}</span>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {row.on && (
+                    <Input
+                      type="time"
+                      aria-label={t('timeLabel', { what: row.label })}
+                      value={toTimeInput(row.at)}
+                      disabled={!canEdit || saving === row.key}
+                      onChange={e => row.onTimeChange(e.target.value)}
+                      className="h-8 w-[7.5rem] text-xs"
+                    />
+                  )}
+                  {saving === row.key ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Switch
+                      aria-label={row.label}
+                      checked={row.on}
+                      disabled={!canEdit}
+                      onCheckedChange={row.onToggle}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* The one thing that may still grow the row, and it is a control
+                  the operator asked for by flipping the switch — exactly one
+                  more row unit (4px + `h-7`), never a ragged amount.
+                  The «Wartet seit …» line that used to sit under it is gone: a
+                  pickup that is on always renders `PickupBadge` as a banner at
+                  the top of the same detail, which says the same duration, so
+                  this was the third copy of one timestamp (banner, provenance,
+                  line) and 20px of the jump. */}
+              {row.key === 'pickup' && row.on && (
+                <div className="mt-1 pl-6">
+                  <Input
+                    placeholder={t('pickupNotePlaceholder')}
+                    value={note}
+                    disabled={!canEdit}
+                    onChange={e => setNote(e.target.value)}
+                    onBlur={() => {
+                      if ((note || '') !== (operation.pickupNote ?? '')) {
+                        save('pickup', { pickup_needed: true, pickup_note: note || null })
+                      }
+                    }}
+                    className="h-7 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Meldungen vom Feld" — everything the crew told the KP about one
+ * Schadenplatz, in one thread.
+ *
+ * Three kinds of entry, chronological: **Angekommen**, **Einsatz beendet** and
+ * the Freitext-Meldungen. The first two used to be toggles above (§18.19) —
+ * they are information, not a switch an operator flips, because the status
+ * itself lives in the columns. Until this thread existed a `field_message`
+ * became a notification and an audit-log entry and appeared on the incident
+ * nowhere at all: the bell is dismissible, and once dismissed the sentence was
+ * gone from every surface an operator looks at.
+ *
+ * The two reports are read straight off the incident rather than out of the
+ * timeline feed: the board already carries `fieldArrivedAt` / `fieldArrivedBy`
+ * and their beendet twins, and they are what the `/feld` action writes. One
+ * fewer thing that can be missing because a feed request failed.
+ *
+ * Newest **last**, like every message thread anybody has ever read — the
+ * Verlauf tab is the newest-first surface, and it carries the same entries
+ * interleaved with status changes and assignments.
+ */
+export function FieldMessageThread({
+  operation,
+  events,
+  isLoading,
+  failed,
+  onRetry,
+}: {
+  operation: Operation
+  events: ApiIncidentTimelineEvent[] | null
+  isLoading: boolean
+  failed: boolean
+  onRetry: () => void
+}) {
+  const t = useTranslations('feld.kp')
+  const { personnel } = usePersonnel()
+  const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
+
+  const entries = useMemo<ThreadEntry[]>(() => {
+    const rows: ThreadEntry[] = (events ?? [])
+      .filter(event => event.event_type === 'field_message' && event.message)
+      .map(event => ({
+        at: new Date(event.timestamp),
+        // `source === 'kp'` is the dictated one; a message with no actor name
+        // cannot be attributed either way and reads as the KP's own note.
+        fromField: event.source !== 'kp' && Boolean(event.actor_name),
+        who: event.actor_name ?? null,
+        message: event.message ?? '',
+      }))
+
+    // Provenance rule, unchanged and read the same way everywhere: a personnel
+    // FK means the crew tapped it, its absence means the KP wrote it down —
+    // unless the GPS automation stamped it (§18.24), which is a third thing and
+    // must be worded as one. "im KP erfasst" about a machine's inference names
+    // an operator who did nothing.
+    const report = (
+      at: Date | null | undefined,
+      by: string | null | undefined,
+      label: string,
+      byAutomation = false,
+    ) => {
+      if (!at) return
+      rows.push({
+        at,
+        fromField: Boolean(by),
+        byAutomation: byAutomation && !by,
+        who: by ? (nameById.get(by) ?? t('unknownPerson')) : null,
+        label,
+      })
+    }
+    report(
+      operation.fieldArrivedAt,
+      operation.fieldArrivedBy,
+      t('arrived'),
+      operation.fieldArrivedByAutomation,
+    )
+    report(operation.fieldCompleteReportedAt, operation.fieldCompleteReportedBy, t('complete'))
+
+    return rows.sort((a, b) => a.at.getTime() - b.at.getTime())
+  }, [
+    events,
+    nameById,
+    operation.fieldArrivedAt,
+    operation.fieldArrivedBy,
+    operation.fieldArrivedByAutomation,
+    operation.fieldCompleteReportedAt,
+    operation.fieldCompleteReportedBy,
+    t,
+  ])
+
+  return (
+    <div className="rounded-lg border border-border p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <Label className="text-sm font-semibold">{t('messagesTitle')}</Label>
+        {entries.length > 0 && (
+          <span className="ml-auto text-xs tabular-nums text-muted-foreground">{entries.length}</span>
+        )}
+      </div>
+
+      {isLoading && entries.length === 0 && (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        </p>
+      )}
+
+      {failed && (
+        <p className="text-xs text-destructive">
+          {t('messagesLoadFailed')}{' '}
+          <button type="button" onClick={onRetry} className="underline">
+            {t('messagesRetry')}
+          </button>
+        </p>
+      )}
+
+      {!isLoading && !failed && entries.length === 0 && (
+        <p className="text-xs italic text-muted-foreground/60">{t('messagesEmpty')}</p>
+      )}
+
+      {entries.length > 0 && (
+        <ol className="space-y-2">
+          {entries.map((entry, index) => (
+            <li key={`${entry.at.toISOString()}:${index}`} className="text-sm">
+              <p className="text-xs text-muted-foreground">
+                {/* Provenance, the same rule for all kinds: a name for a crew
+                    report, "im KP erfasst" for a dictated one, "automatisch
+                    (GPS)" for one the automation inferred. */}
+                {entry.fromField && entry.who
+                  ? t('fromField', { name: entry.who, time: formatMessageTime(entry.at) })
+                  : entry.byAutomation
+                    ? t('fromAutomation', { time: formatMessageTime(entry.at) })
+                    : t('fromKp', { time: formatMessageTime(entry.at) })}
+              </p>
+              {entry.label ? (
+                <p className="flex items-center gap-1.5 font-medium">
+                  {entry.label === t('arrived') ? (
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Flag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  )}
+                  {entry.label}
+                </p>
+              ) : (
+                <p className="break-words">{entry.message}</p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
+function formatMessageTime(at: Date): string {
+  return at.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * One line of the thread. `label` is a report (Angekommen / Einsatz beendet),
+ * `message` is what somebody wrote — never both.
+ */
+interface ThreadEntry {
+  at: Date
+  fromField: boolean
+  /** Neither the crew nor the KP: the GPS automation stamped it (§18.24). */
+  byAutomation?: boolean
+  who: string | null
+  label?: string
+  message?: string
+}

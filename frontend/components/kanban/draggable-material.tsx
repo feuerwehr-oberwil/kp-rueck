@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
-import { type Material } from "@/lib/contexts/operations-context"
+import { type Material, useOperations } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
 import { RESOURCE_STATE_ICON_CLASSES, materialResourceState } from "@/lib/resource-status"
-import { Check, Minus, Infinity as InfinityIcon } from 'lucide-react'
+import { Check, Minus, Infinity as InfinityIcon, MapPin } from 'lucide-react'
 
 interface DraggableMaterialProps {
   material: Material
@@ -19,9 +19,16 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
   const t = useTranslations('kanban')
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  // "zugewiesen" and "steht noch in einem fremden Keller" are different facts,
+  // and only the second one sends somebody driving in the morning. The rapport
+  // has recorded it for a while; until now nothing on the board said it.
+  const { materialOnSite } = useOperations()
+  const onSite = materialOnSite.get(material.id)
 
   const isConsumable = material.consumable
-  const canDrag = !disabled && (isConsumable || material.status === "available")
+  // Busy material drags too — the drop asks (move / doppelt belegen / abbrechen)
+  // rather than the sidebar silently refusing. Same reasoning as the crew list.
+  const canDrag = !disabled
 
   useEffect(() => {
     const element = ref.current
@@ -83,7 +90,28 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
             {material.name}
           </span>
         </div>
+
+        {onSite && (
+          <span
+            className="flex shrink-0 items-center gap-1 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground"
+            title={t('material.onSiteTitle', {
+              address: onSite.address ?? '–',
+              since: formatSince(onSite.since),
+            })}
+          >
+            <MapPin className="h-2.5 w-2.5" />
+            {t('material.onSite')}
+          </span>
+        )}
       </div>
     </Card>
   )
+}
+
+/** "20:41" — the tooltip's «seit», or an em dash when the rapport carried none. */
+function formatSince(value: string | null): string {
+  if (!value) return '–'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '–'
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }

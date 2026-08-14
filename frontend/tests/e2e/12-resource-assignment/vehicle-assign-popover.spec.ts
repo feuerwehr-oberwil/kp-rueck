@@ -183,8 +183,10 @@ test.describe('Vehicle assignment popover', () => {
   });
 });
 
+// The «Zugewiesene Ressourcen» heading is gone — the resource blocks carry
+// their own labels. «Fahrzeuge (n)» is the one this spec is about anyway.
 function detailModal(page: import('@playwright/test').Page) {
   return page
     .locator('[role="dialog"][data-slot="dialog-content"][data-state="open"]')
-    .filter({ hasText: 'Zugewiesene Ressourcen' });
+    .filter({ hasText: /Fahrzeuge \(\d+\)/ });
 }

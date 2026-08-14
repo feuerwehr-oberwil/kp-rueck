@@ -13,12 +13,22 @@ interface QuickAddPersonnelProps {
   onPersonAdded: (newPerson?: { id: string; name: string; checked_in: boolean }) => Promise<void>
   /** Optional token for auto-check-in after creation */
   checkInToken?: string
+  /** Optional Ereignis for auto-check-in on the board, where there is no token.
+   *  Somebody is being added because they are standing in front of the operator —
+   *  adding them and leaving them absent is the wrong default in exactly that moment.
+   *  Also the documented route for Nachbarhilfe and Zivilschutz. */
+  checkInEventId?: string
   /** Optional guard: return true if a person with this name already exists.
    *  Prevents creating indistinguishable same-name duplicates at check-in. */
   isNameTaken?: (name: string) => boolean
 }
 
-export function QuickAddPersonnel({ onPersonAdded, checkInToken, isNameTaken }: QuickAddPersonnelProps) {
+export function QuickAddPersonnel({
+  onPersonAdded,
+  checkInToken,
+  checkInEventId,
+  isNameTaken,
+}: QuickAddPersonnelProps) {
   const t = useTranslations('incidents.quickAdd')
   const tCommon = useTranslations('incidents.common')
   const [showAddForm, setShowAddForm] = useState(false)
@@ -49,10 +59,15 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken, isNameTaken }: 
       }
       const createdPerson = await apiClient.createPersonnel(newPerson)
 
-      // Auto-check-in the new person if token is provided
-      if (checkInToken && createdPerson.id) {
+      // Auto-check-in the new person, through whichever door this mount has.
+      const willCheckIn = !!(checkInToken || checkInEventId)
+      if (willCheckIn && createdPerson.id) {
         try {
-          await apiClient.checkInPersonnel(createdPerson.id, checkInToken)
+          if (checkInToken) {
+            await apiClient.checkInPersonnel(createdPerson.id, checkInToken)
+          } else if (checkInEventId) {
+            await apiClient.checkInPersonnelForEvent(createdPerson.id, checkInEventId)
+          }
         } catch (checkInError) {
           console.error('Failed to auto-check-in new person:', checkInError)
           // Don't fail the whole operation if check-in fails
@@ -65,7 +80,7 @@ export function QuickAddPersonnel({ onPersonAdded, checkInToken, isNameTaken }: 
       await onPersonAdded({
         id: createdPerson.id,
         name: createdPerson.name,
-        checked_in: !!checkInToken // Will be checked in if token was provided
+        checked_in: willCheckIn
       })
     } catch (error) {
       console.error('Failed to add person:', error)

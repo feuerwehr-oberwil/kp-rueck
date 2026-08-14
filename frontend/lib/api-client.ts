@@ -27,6 +27,7 @@ import {
   type ApiEventStats,
   type ApiPersonnel,
   type ApiPersonnelListItem,
+  type ApiCheckInStats,
   type ApiPersonnelCreate,
   type ApiPersonnelUpdate,
   type ApiVehicle,
@@ -59,13 +60,18 @@ import {
   type ApiIncidentTimelineResponse,
   type ApiIncidentParticipantsResponse,
   type ApiRekoReportCreate,
+  type ApiRekoReportUpdate,
+  type ApiRekoArrivedState,
   type ApiRekoReportResponse,
   type ApiRekoFormResponse,
   type ApiEventRekoSummariesResponse,
+  type ApiViewerRekoSummary,
   type ApiExcelImportPreview,
   type ApiExcelImportResult,
   type ApiEmergencyTemplate,
   type ApiTrainingLocation,
+  type ApiSimulatedRapport,
+  type ApiSimulatedRapportBulk,
   type ApiDiveraEmergency,
   type ApiDiveraEmergencyListResponse,
   type ApiDiveraSyncPreview,
@@ -74,26 +80,136 @@ import {
   type ApiDiveraMemberPreview,
   type ApiDiveraPollingStatus,
   type ApiIntegrations,
+  type ApiDeployment,
   type SendDiveraAlarmOptions,
   type ApiRekoDashboardPersonnelListResponse,
   type ApiRekoDashboardAssignmentsResponse,
   type ApiAvailableRekoPersonnelResponse,
+  type ApiFeldPersonnelListResponse,
+  type ApiFeldAssignmentsResponse,
+  type ApiFieldReportState,
+  type ApiFieldReportUpdate,
+  type ApiSchadenplatzRapport,
+  type ApiRapportUpdate,
+  type ApiMaterialReturnResponse,
+  type ApiRapportPhotosResponse,
+  type ApiEventRestliste,
 } from './api/types'
 
-/** Read-only payload behind a share token (board/map/status displays). */
+/**
+ * The share-link view of an incident — the situation, never the Melder.
+ *
+ * Mirrors the backend's `schemas.ViewerIncident`: `contact`, `contact_phone`
+ * and `internal_notes` are not in the payload, and neither is the workflow
+ * bookkeeping (rapport flags, `pickup_note`, field/user ids). `pickup_needed` /
+ * `pickup_requested_at` are the exception and are here on purpose: a crew that
+ * cannot get itself back is the situation, and the flag names nobody. Built
+ * with `Pick` on purpose — a field is in the share payload only if it is named
+ * here, and adding one to `ApiIncident` cannot leak it onto a wall by itself.
+ */
+export type ApiViewerIncident = Pick<
+  ApiIncident,
+  | 'id'
+  | 'event_id'
+  | 'title'
+  | 'type'
+  | 'priority'
+  | 'status'
+  | 'location_address'
+  | 'location_display'
+  | 'location_lat'
+  | 'location_lng'
+  | 'description'
+  | 'source'
+  | 'nachbarhilfe'
+  | 'nachbarhilfe_note'
+  | 'am_warten'
+  | 'am_warten_note'
+  | 'zu_fuss'
+  | 'pickup_needed'
+  | 'pickup_requested_at'
+  | 'group_id'
+  | 'group_position'
+  | 'created_at'
+  | 'updated_at'
+  | 'completed_at'
+  | 'status_changed_at'
+  | 'assigned_vehicles'
+  | 'has_completed_reko'
+  | 'reko_arrived_at'
+> & {
+  /** Never sent — the operator behind a card is not part of a shared situation.
+   *  Declared (as absent) so the mappers that read it stay honest and compile. */
+  created_by?: null
+}
+
+/** Roster row on a shared display: enough to name and sort a person, no more.
+ *  Availability is derived from this event's assignments, so the raw status
+ *  column and the external account id (`divera_user_id`) stay behind. */
+export type ApiViewerPersonnel = Pick<ApiPersonnel, 'id' | 'name' | 'role' | 'role_sort_order' | 'tags'> & {
+  divera_user_id?: null
+}
+
+/** Material panel row on a shared display. */
+export type ApiViewerMaterial = Pick<
+  ApiMaterialResource,
+  'id' | 'name' | 'type' | 'location' | 'location_sort_order' | 'consumable' | 'group_id'
+>
+
+/** Which resource sits on which incident — never who put it there, or when.
+ *  `is_leader` rides along: the crew's names are already in the payload, and it
+ *  only marks which of them leads (the display sorts the crew leader-first). */
+export type ApiViewerAssignment = Pick<
+  ApiAssignment,
+  'id' | 'resource_type' | 'resource_id' | 'driver_stay' | 'is_leader'
+>
+
+/** Reko / driver / Magazin roles for the event. */
+export type ApiViewerSpecialFunction = Pick<
+  ApiEventSpecialFunctionResponse,
+  'personnel_id' | 'function_type' | 'vehicle_id' | 'vehicle_name'
+>
+
+/** A resource an Auftrag owns, as the shared board names it. */
+export type ApiViewerGroupAssignment = Pick<
+  ApiGroupAssignment,
+  'id' | 'resource_type' | 'resource_id' | 'unassigned_at' | 'driver_stay' | 'is_leader'
+>
+
+/** An Auftrag as a display draws it: name, colour, stops, progress and the
+ *  resources it owns. No `created_by`, no `assigned_by` on the rows, and no
+ *  Funkdurchsage bookkeeping — a display never makes an announcement. */
+export type ApiViewerGroup = Pick<
+  ApiIncidentGroup,
+  'id' | 'event_id' | 'name' | 'color' | 'notes' | 'position' | 'created_at' | 'updated_at' | 'stop_ids' | 'progress'
+> & {
+  created_by?: null
+  assignments: ApiViewerGroupAssignment[]
+}
+
+/** Read-only payload behind a share token (board/map/status displays).
+ *
+ * Every row is the narrow `ApiViewer*` shape, not the board's own — the token in
+ * the URL is the only gate here, so what rides along is an allowlist on both
+ * sides of the wire (`backend/app/schemas/viewer.py`). */
 export interface ApiViewerData {
   event: ApiEvent
-  incidents: ApiIncident[]
-  personnel: ApiPersonnel[]
-  materials: ApiMaterialResource[]
+  incidents: ApiViewerIncident[]
+  personnel: ApiViewerPersonnel[]
+  materials: ApiViewerMaterial[]
+  /** Full rows: a vehicle carries no personal data, and the fleet panel is what
+   *  a status display is read for. */
   vehicles: ApiVehicle[]
   vehicle_positions: ApiVehiclePosition[]
   /** Present when the public viewer endpoint exposes Auftrag data. */
-  groups?: ApiIncidentGroup[]
+  groups?: ApiViewerGroup[]
   /** incident_id → assignments; lets the displays derive event-scoped
    *  availability (assigned vs. available) like the logged-in board. */
-  assignments?: Record<string, ApiAssignment[]>
-  special_functions?: ApiEventSpecialFunctionResponse[]
+  assignments?: Record<string, ApiViewerAssignment[]>
+  special_functions?: ApiViewerSpecialFunction[]
+  /** incident_id → what the Reko reported, for incidents with a submitted
+   *  report. Photos are not in there: the photo route needs the login. */
+  reko_summaries?: Record<string, ApiViewerRekoSummary>
 }
 
 /**
@@ -340,6 +456,39 @@ class ApiClient {
     })
   }
 
+  /**
+   * URL of the station logo used on printed exports — an <img src>, not a fetch:
+   * the backend answers with image bytes, and 404 (no logo set) is a normal answer
+   * the <img> reports through onError rather than an exception nobody asked for.
+   *
+   * The cache-buster is what makes a replaced logo visible immediately; the browser
+   * would otherwise keep showing the old one from the in-memory image cache.
+   */
+  getReportLogoUrl(cacheBuster?: string | number): string {
+    const suffix = cacheBuster === undefined ? '' : `?v=${cacheBuster}`
+    return `${this.getBaseUrl()}/api/settings/branding/logo${suffix}`
+  }
+
+  async uploadReportLogo(file: File): Promise<{ size: number }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await fetch(this.getReportLogoUrl(), {
+      method: 'PUT',
+      credentials: 'include',
+      body: formData,
+      signal: AbortSignal.timeout(60000),
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null)
+      throw new Error(detail?.detail || `Upload fehlgeschlagen (${response.status})`)
+    }
+    return response.json()
+  }
+
+  async deleteReportLogo(): Promise<void> {
+    await this.request<void>('/api/settings/branding/logo', { method: 'DELETE' })
+  }
+
   // Event endpoints
   async getEvents(includeArchived: boolean = false): Promise<ApiEventListResponse> {
     const params = new URLSearchParams()
@@ -352,6 +501,16 @@ class ApiClient {
 
   async getEvent(eventId: string, options?: { skipToast?: boolean }): Promise<ApiEvent> {
     return this.request<ApiEvent>(`/api/events/${eventId}`, options)
+  }
+
+  /**
+   * The Restliste (§6, V-8): what is still open in this Ereignis.
+   *
+   * Three counts, each carrying the incidents behind it — the count is only the
+   * way in, because nobody clicks twenty-three cards individually.
+   */
+  async getEventRestliste(eventId: string): Promise<ApiEventRestliste> {
+    return this.request<ApiEventRestliste>(`/api/events/${eventId}/restliste`)
   }
 
   async createEvent(data: ApiEventCreate): Promise<ApiEvent> {
@@ -774,6 +933,9 @@ class ApiClient {
     incident_id: string | null
     incident_title: string | null
     incident_location_address: string | null
+    /** Server-computed short label for the deployment (home city stripped,
+     *  falls back to the incident title). Null when the vehicle is idle. */
+    incident_location_display?: string | null
     incident_status: string | null
     incident_assigned_at: string | null
     assignment_duration_minutes: number | null
@@ -908,9 +1070,61 @@ class ApiClient {
     )
   }
 
-  async getCheckInStats(token: string): Promise<{ total_available: number; checked_in: number; checked_out: number }> {
-    return this.request<{ total_available: number; checked_in: number; checked_out: number }>(
+  // --- The same three routes through the board's door -----------------------
+  // Same endpoints, same rows; the difference is that these carry the editor's
+  // cookie and name the Ereignis explicitly, because only the token knows it
+  // otherwise. Kept as separate methods rather than an optional argument so a
+  // call site cannot accidentally send neither (which the backend refuses).
+
+  /** Roll-call list for the board: the whole roster, including unavailable people. */
+  async getEventCheckInList(eventId: string): Promise<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }> {
+    return this.request<{ personnel: ApiPersonnelListItem[]; event_id: string; event_name: string }>(
+      `/api/personnel/check-in/list?event_id=${encodeURIComponent(eventId)}&include_unavailable=true`
+    )
+  }
+
+  async checkInPersonnelForEvent(personnelId: string, eventId: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(
+      `/api/personnel/check-in/${personnelId}/in?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'POST' }
+    )
+  }
+
+  async checkOutPersonnelForEvent(personnelId: string, eventId: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(
+      `/api/personnel/check-in/${personnelId}/out?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'POST' }
+    )
+  }
+
+  /**
+   * Back to «nicht anwesend» — removes the attendance row entirely. Board only;
+   * this is a correction of the record, not something a crew reports about itself.
+   */
+  async clearPersonnelAttendance(personnelId: string, eventId: string): Promise<ApiPersonnel> {
+    return this.request<ApiPersonnel>(
+      `/api/personnel/check-in/${personnelId}?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'DELETE' }
+    )
+  }
+
+  /** "Alle abmelden" — everyone still present goes to `gegangen`. Board only. */
+  async checkOutAllPersonnel(eventId: string): Promise<ApiPersonnel[]> {
+    return this.request<ApiPersonnel[]>(
+      `/api/personnel/check-in/event/${encodeURIComponent(eventId)}/out-all`,
+      { method: 'POST' }
+    )
+  }
+
+  async getCheckInStats(token: string): Promise<ApiCheckInStats> {
+    return this.request<ApiCheckInStats>(
       `/api/personnel/check-in/stats?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  async getEventCheckInStats(eventId: string): Promise<ApiCheckInStats> {
+    return this.request<ApiCheckInStats>(
+      `/api/personnel/check-in/stats?event_id=${encodeURIComponent(eventId)}`
     )
   }
 
@@ -965,11 +1179,78 @@ class ApiClient {
     })
   }
 
+  /** The board's door onto the same route (plan 26 §5.1) — no token, the session
+   *  identifies the operator. The report lands in the same table and the same
+   *  list as a crew-filed one; only its provenance columns differ. */
+  async createRekoReportAsEditor(
+    incidentId: string,
+    data: ApiRekoReportUpdate,
+    submit = true,
+  ): Promise<ApiRekoReportResponse> {
+    return this.request<ApiRekoReportResponse>(`/api/reko/?submit=${submit ? 'true' : 'false'}`, {
+      method: 'POST',
+      body: JSON.stringify({ ...data, incident_id: incidentId }),
+    })
+  }
+
+  /** Amend an existing report — a crew's included, without filing a second one.
+   *  The endpoint has accepted a session since it was written; it simply never
+   *  had a caller. Without `token` this is the KP door and stamps the operator. */
+  async updateRekoReport(
+    reportId: string,
+    data: ApiRekoReportUpdate,
+    options?: { submit?: boolean; token?: string },
+  ): Promise<ApiRekoReportResponse> {
+    return this.request<ApiRekoReportResponse>(
+      `/api/reko/${reportId}?submit=${options?.submit ? 'true' : 'false'}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+        headers: options?.token ? { 'X-Reko-Token': options.token } : undefined,
+      },
+    )
+  }
+
+  /** "Reko meldet: vor Ort" as the KP hears it. Omit `arrivedAt` for "now",
+   *  pass a time for a message logged late, pass `null` to clear a mis-hear. */
+  async setRekoArrived(incidentId: string, arrivedAt?: string | null): Promise<ApiRekoArrivedState> {
+    return this.request<ApiRekoArrivedState>(`/api/incidents/${incidentId}/reko-arrived`, {
+      method: 'POST',
+      body: JSON.stringify(arrivedAt === undefined ? {} : { arrived_at: arrivedAt }),
+    })
+  }
+
   async uploadRekoPhoto(incidentId: string, token: string, file: File): Promise<{ filename: string }> {
+    return this.uploadPhotoFile<{ filename: string }>(`/api/reko/${incidentId}/photos`, file, {
+      'X-Reko-Token': token,
+    })
+  }
+
+  /** The board's door onto the same upload — the WhatsApp-photo case. No token:
+   *  the session identifies the operator. `reportId` when amending an existing
+   *  report, omitted while creating one (the photo then lands in the draft the
+   *  save submits). */
+  async uploadRekoPhotoAsEditor(
+    incidentId: string,
+    file: File,
+    reportId?: string,
+  ): Promise<{ filename: string }> {
+    const query = reportId ? `?report_id=${encodeURIComponent(reportId)}` : ''
+    return this.uploadPhotoFile<{ filename: string }>(`/api/reko/${incidentId}/photos${query}`, file)
+  }
+
+  /**
+   * The multipart photo POST, shared by every photo door.
+   *
+   * `request()` is JSON-only, and a phone photo needs its own timeout and its
+   * own error unwrapping (file size, quota, invalid type all come back as a
+   * German `detail` the user has to see). One copy of that, not one per door.
+   */
+  private async uploadPhotoFile<T>(path: string, file: File, headers: Record<string, string> = {}): Promise<T> {
     const formData = new FormData()
     formData.append('file', file)
 
-    const url = `${this.getBaseUrl()}/api/reko/${incidentId}/photos`
+    const url = `${this.getBaseUrl()}${path}`
 
     // Create AbortController for timeout
     const controller = new AbortController()
@@ -979,9 +1260,7 @@ class ApiClient {
       const response = await fetch(url, {
         method: 'POST',
         credentials: 'include',  // Include auth cookies
-        headers: {
-          'X-Reko-Token': token
-        },
+        headers,
         body: formData,
         signal: controller.signal,
       })
@@ -1017,6 +1296,12 @@ class ApiClient {
       method: 'DELETE',
       headers: { 'X-Reko-Token': token },
     })
+  }
+
+  /** Board door, see `uploadRekoPhotoAsEditor`. */
+  async deleteRekoPhotoAsEditor(incidentId: string, filename: string, reportId?: string): Promise<void> {
+    const query = reportId ? `?report_id=${encodeURIComponent(reportId)}` : ''
+    await this.request(`/api/reko/${incidentId}/photos/${filename}${query}`, { method: 'DELETE' })
   }
 
   async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {
@@ -1136,6 +1421,23 @@ class ApiClient {
 
     if (!response.ok) {
       throw new Error(`Report export failed: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
+  // Einsätze — one wide row per Schadenplatz (XLSX, plan 25 §7). Somebody
+  // still retypes it into the billing system by hand; it just does not need
+  // that name on it.
+  async exportEventEinsaetze(eventId: string): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/einsaetze.xlsx`
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Einsaetze export failed: ${response.statusText}`)
     }
 
     return response.blob()
@@ -1314,14 +1616,76 @@ class ApiClient {
   }
 
   /** Field crew reports the incident finished ("Einsatz beendet") — sets an
-   *  informational badge for the operator; does NOT change status. */
+   *  informational badge for the operator; does NOT change status.
+   *
+   *  `pickupNeeded` is the follow-up the field gets ("Kommt ihr selbst
+   *  zurück?"): omit it and the backend preselects it from the situation — a
+   *  crew that walked there or whose vehicle drove on is usually stranded. */
   async simulateFieldComplete(
     eventId: string,
-    incidentId: string
+    incidentId: string,
+    options?: { pickupNeeded?: boolean; pickupNote?: string }
   ): Promise<ApiIncident> {
     return this.request<ApiIncident>(`/api/training/events/${eventId}/simulate/field-complete/${incidentId}`, {
       method: 'POST',
+      body: JSON.stringify({
+        pickup_needed: options?.pickupNeeded ?? null,
+        pickup_note: options?.pickupNote ?? null,
+      }),
     })
+  }
+
+  /** Inject "Rapport eingetroffen": one filled and submitted Schadenplatz-Rapport. */
+  async simulateRapport(eventId: string, incidentId: string): Promise<ApiSimulatedRapport> {
+    return this.request<ApiSimulatedRapport>(
+      `/api/training/events/${eventId}/simulate/rapport/${incidentId}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** Inject "Rapporte eingetroffen": 80 % of the missing ones arrive at once.
+   *  The remaining fifth stays missing on purpose — those gaps are the
+   *  Restliste, and finding them is the exercise. */
+  async simulateRapportsBulk(eventId: string): Promise<ApiSimulatedRapportBulk> {
+    return this.request<ApiSimulatedRapportBulk>(`/api/training/events/${eventId}/simulate/rapport`, {
+      method: 'POST',
+    })
+  }
+
+  /** Inject "Meldung vom Feld": a chip or a typed sentence reaches the KP. */
+  async simulateFieldMessage(eventId: string, incidentId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/training/events/${eventId}/simulate/field-message/${incidentId}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** Inject "Angekommen": the crew reports it is on the Schadenplatz. Stamps
+   *  `arrived_at` on the Schadenplatz-Rapport through the same CRUD the `/feld`
+   *  button uses. A second call never moves an arrival that is already
+   *  reported — the message says so instead. */
+  async simulateFieldArrived(eventId: string, incidentId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/training/events/${eventId}/simulate/arrived/${incidentId}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** Inject "Abholung nötig" / "Abholung erledigt" on its own — the crew that
+   *  asks for a lift an hour after "Einsatz beendet", or reports the bus has
+   *  been. Omit `note` and the backend derives one from the situation. */
+  async simulatePickup(
+    eventId: string,
+    incidentId: string,
+    options?: { needed?: boolean; note?: string }
+  ): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/training/events/${eventId}/simulate/pickup/${incidentId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ needed: options?.needed ?? true, note: options?.note ?? null }),
+      }
+    )
   }
 
   // Divera 24/7 Integration
@@ -1516,6 +1880,190 @@ class ApiClient {
     )
   }
 
+  // Feld (/feld) — the login-less field surface. One global link per Ereignis;
+  // the token names the event, the endpoints check the assignment.
+  async generateFeldLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
+    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
+      `/api/feld/generate-link?event_id=${encodeURIComponent(eventId)}`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async getFeldPersonnel(token: string): Promise<ApiFeldPersonnelListResponse> {
+    return this.request<ApiFeldPersonnelListResponse>(
+      `/api/feld/personnel?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  async getFeldAssignments(personnelId: string, token: string): Promise<ApiFeldAssignmentsResponse> {
+    return this.request<ApiFeldAssignmentsResponse>(
+      `/api/feld/assignments/${personnelId}?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  // The four field actions. Every one is token + assignment gated server-side;
+  // none of them writes an assignment, which is what keeps /feld out of the
+  // board's conflict model.
+  private feldQuery(incidentId: string, action: string, personnelId: string, token: string): string {
+    return (
+      `/api/feld/incidents/${incidentId}/${action}` +
+      `?token=${encodeURIComponent(token)}&personnel_id=${encodeURIComponent(personnelId)}`
+    )
+  }
+
+  /** "Angekommen". Idempotent — a second tap does not move the timestamp. */
+  async feldReportArrived(incidentId: string, personnelId: string, token: string): Promise<ApiFieldReportState> {
+    return this.request<ApiFieldReportState>(this.feldQuery(incidentId, 'arrived', personnelId, token), {
+      method: 'POST',
+    })
+  }
+
+  /** "Einsatz beendet". Does NOT close the card — that stays the KP's call. */
+  async feldReportComplete(incidentId: string, personnelId: string, token: string): Promise<ApiFieldReportState> {
+    return this.request<ApiFieldReportState>(this.feldQuery(incidentId, 'complete', personnelId, token), {
+      method: 'POST',
+    })
+  }
+
+  /** "Abholung nötig" / "abgeholt" — also the answer to the beendet follow-up. */
+  async feldReportPickup(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    needed: boolean,
+    note?: string | null
+  ): Promise<ApiFieldReportState> {
+    return this.request<ApiFieldReportState>(this.feldQuery(incidentId, 'pickup', personnelId, token), {
+      method: 'POST',
+      body: JSON.stringify({ needed, note: note ?? null }),
+    })
+  }
+
+  /** Freitext-Meldung an den KP — a chip or a typed sentence. */
+  async feldSendMessage(incidentId: string, personnelId: string, token: string, message: string): Promise<void> {
+    await this.request<void>(this.feldQuery(incidentId, 'message', personnelId, token), {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
+  }
+
+  /** The KP twin (decision 28): the same three reports, dictated over the radio. */
+  async setIncidentFieldReport(incidentId: string, update: ApiFieldReportUpdate): Promise<ApiFieldReportState> {
+    return this.request<ApiFieldReportState>(`/api/incidents/${incidentId}/field-report`, {
+      method: 'POST',
+      body: JSON.stringify(update),
+    })
+  }
+
+  // The Schadenplatz-Rapport, from both doors. Same CRUD module underneath, so
+  // the four calls below are two pairs of the same thing with a different
+  // identity — which is exactly what lets one form component mount twice.
+
+  /** The Rapport as the crew sees it. Prefilled when nothing has been filed yet. */
+  async getFeldRapport(incidentId: string, personnelId: string, token: string): Promise<ApiSchadenplatzRapport> {
+    return this.request<ApiSchadenplatzRapport>(this.feldQuery(incidentId, 'rapport', personnelId, token))
+  }
+
+  /** Autosave (`is_draft: true`) or file it (`false`). */
+  async saveFeldRapport(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    update: ApiRapportUpdate
+  ): Promise<ApiSchadenplatzRapport> {
+    return this.request<ApiSchadenplatzRapport>(this.feldQuery(incidentId, 'rapport', personnelId, token), {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    })
+  }
+
+  /** The same Rapport from the board — the radio-message case. */
+  async getIncidentRapport(incidentId: string): Promise<ApiSchadenplatzRapport> {
+    return this.request<ApiSchadenplatzRapport>(`/api/incidents/${incidentId}/rapport`)
+  }
+
+  async saveIncidentRapport(incidentId: string, update: ApiRapportUpdate): Promise<ApiSchadenplatzRapport> {
+    return this.request<ApiSchadenplatzRapport>(`/api/incidents/${incidentId}/rapport`, {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    })
+  }
+
+  // Rapport photos, from both doors (§6.1). The crew photographs the cellar; the
+  // KP attaches the photo that arrived by WhatsApp. Same storage, same files —
+  // but a feld token never opens the Reko photo endpoints and vice versa.
+
+  async uploadFeldPhoto(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    file: File
+  ): Promise<ApiRapportPhotosResponse> {
+    return this.uploadPhotoFile<ApiRapportPhotosResponse>(
+      this.feldQuery(incidentId, 'photos', personnelId, token),
+      file
+    )
+  }
+
+  async deleteFeldPhoto(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    filename: string
+  ): Promise<ApiRapportPhotosResponse> {
+    return this.request<ApiRapportPhotosResponse>(
+      this.feldQuery(incidentId, `photos/${encodeURIComponent(filename)}`, personnelId, token),
+      { method: 'DELETE' }
+    )
+  }
+
+  /**
+   * The `<img src>` for a rapport photo on `/feld` — an absolute URL, because it
+   * goes into markup rather than through `request()`.
+   *
+   * The board's `GET /api/photos/...` needs a session cookie and `/feld` has
+   * none, so it answered every field photo with a 401. This is the same
+   * two-step (event token + assigned personnel) as every other feld call.
+   */
+  feldPhotoUrl(incidentId: string, personnelId: string, token: string, filename: string): string {
+    return (
+      this.getBaseUrl() +
+      this.feldQuery(incidentId, `photos/${encodeURIComponent(filename)}`, personnelId, token)
+    )
+  }
+
+  async uploadRapportPhoto(incidentId: string, file: File): Promise<ApiRapportPhotosResponse> {
+    return this.uploadPhotoFile<ApiRapportPhotosResponse>(`/api/incidents/${incidentId}/rapport/photos`, file)
+  }
+
+  async deleteRapportPhoto(incidentId: string, filename: string): Promise<ApiRapportPhotosResponse> {
+    return this.request<ApiRapportPhotosResponse>(
+      `/api/incidents/${incidentId}/rapport/photos/${encodeURIComponent(filename)}`,
+      { method: 'DELETE' }
+    )
+  }
+
+  /**
+   * "Material zurück – freigeben" (decision 17): what the board MAY release.
+   *
+   * A read. The releasing itself goes through `unassignResource`, one unit at a
+   * time — a field form must not silently write assignments, and the decision
+   * stays with the operator.
+   */
+  async getRapportMaterialReturn(
+    incidentId: string,
+    options: { includeDraft?: boolean } = {},
+  ): Promise<ApiMaterialReturnResponse> {
+    // `includeDraft` is the completion gate's flag and nobody else's (§18.23):
+    // that dialog only PREFILLS and the operator still confirms, while this
+    // endpoint's other caller releases assignments on one click and must not
+    // reach a half-typed checklist by accident. Server-side default is strict.
+    const query = options.includeDraft ? '?include_draft=true' : ''
+    return this.request<ApiMaterialReturnResponse>(`/api/incidents/${incidentId}/rapport/material-return${query}`)
+  }
+
   async getAvailableRekoPersonnel(incidentId: string): Promise<ApiAvailableRekoPersonnelResponse> {
     return this.request<ApiAvailableRekoPersonnelResponse>(
       `/api/reko-dashboard/incidents/${incidentId}/available-reko`
@@ -1631,6 +2179,16 @@ class ApiClient {
     })
   }
 
+  /**
+   * The Abholliste (decision 25): the material half of the Restliste on paper.
+   *
+   * The existing print-job path on purpose — it is a driving list, not a fourth
+   * document format.
+   */
+  async queueAbhollistePrint(eventId: string): Promise<ApiPrintJob> {
+    return this.request<ApiPrintJob>(`/api/print/abholliste/${eventId}/`, { method: 'POST' })
+  }
+
   async queueTestPrint(): Promise<ApiPrintJob> {
     return this.request<ApiPrintJob>('/api/print/test/', {
       method: 'POST',
@@ -1693,6 +2251,22 @@ class ApiClient {
     return this.request<void>(url, {
       method: 'DELETE',
     })
+  }
+
+  /**
+   * What this deployment is allowed to do to the outside world.
+   *
+   * Public, and read at runtime rather than baked in at build time: the same image runs in
+   * production and on staging, so the role can only come from the server it is talking to.
+   * Returns null when the backend cannot be reached — the caller then assumes production,
+   * which changes nothing on screen.
+   */
+  async getDeployment(): Promise<ApiDeployment | null> {
+    try {
+      return await this.request<ApiDeployment>('/api/deployment', { skipToast: true })
+    } catch {
+      return null
+    }
   }
 
   // Demo Mode

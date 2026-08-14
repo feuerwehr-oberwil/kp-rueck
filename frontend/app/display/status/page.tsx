@@ -7,21 +7,24 @@ import { Loader2, Binoculars, Package2, Infinity as InfinityIcon } from "lucide-
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
-import { ageLevel, columns } from "@/lib/kanban-utils"
+import { ageLevel, columns, STATUS_ACCENT } from "@/lib/kanban-utils"
 import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
-import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_EDGE_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { RESOURCE_STATE_DOT_CLASSES, materialResourceState, personResourceState } from "@/lib/resource-status"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material } from "@/lib/contexts/materials-context"
 import { type IncidentGroup } from "@/lib/types/groups"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { apiClient, type ApiViewerData } from "@/lib/api-client"
 import { buildSituationData, viewerGroupsToIncidentGroups, type SituationData } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
+import { useDisplaySearch } from "@/lib/contexts/display-search-context"
+import { filterIncidents } from "@/lib/incident-search"
 import { cn } from "@/lib/utils"
 
 const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
@@ -29,23 +32,23 @@ const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "ret
 /** Per-device fold state for this display (see useCollapsedSections). */
 const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
 
-const STATUS_BORDER: Record<string, string> = {
-  incoming: "border-l-slate-500",
-  reko: "border-l-emerald-500",
-  reko_done: "border-l-teal-500",
-  enroute: "border-l-blue-500",
-  active: "border-l-orange-500",
-  returning: "border-l-sky-500",
-}
-
-const STATUS_BG: Record<string, string> = {
-  incoming: "bg-muted/30",
-  reko: "bg-muted/30",
-  reko_done: "bg-muted/30",
-  enroute: "bg-muted/30",
-  active: "bg-muted/30",
-  returning: "bg-muted/30",
-}
+/**
+ * How an incident row says what it is.
+ *
+ * The left edge used to mean STATUS here while it meant PRIORITY on both card
+ * surfaces — and these screens hang next to each other. The edge is priority
+ * now, everywhere; status keeps three cues of its own on this page and loses
+ * none:
+ *
+ *  1. POSITION — the rows are grouped by status, in board order (STATUS_ORDER).
+ *  2. The section HEADER, which names the status in words and carries the
+ *     board column's own tint (`colDef.color`). Words, not just colour.
+ *  3. A status DOT on every row, in the board column's colour, so a row that
+ *     has scrolled away from its header still says which column it is in. It
+ *     replaces the priority dot that stood here: priority is on the edge now,
+ *     and two dots for two dimensions is how the confusion started.
+ */
+const ROW_SURFACE = "bg-muted/30"
 
 /** Short display label for an incident location (falls back to the type).
  *  Server-computed (locationDisplay) — final on first paint, no reformat flash. */
@@ -125,18 +128,66 @@ function TokenStatusView({ token }: { token: string }) {
     <div className="flex h-full flex-col">
       <DisplayStaleBanner lastRefresh={lastRefresh} />
       <div className="min-h-0 flex-1">
-        <SituationBoard {...data} detailGroups={detailGroups} />
+        <SituationBoard {...data} detailGroups={detailGroups} viewerToken={token} />
       </div>
     </div>
   )
 }
 
-function SituationBoard({ stats, vehicleStatus, operations, personnel, materials, detailGroups }: SituationData & {
+function SituationBoard({
+  stats,
+  vehicleStatus: allVehicles,
+  operations: allOperations,
+  personnel: allPersonnel,
+  materials: allMaterials,
+  detailGroups,
+  viewerToken,
+}: SituationData & {
   /** Token mode only: payload-derived Aufträge for the detail dialog. */
   detailGroups?: IncidentGroup[]
+  /** Token mode only: the share token, which the Reko photos need to load. */
+  viewerToken?: string
 }) {
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
+
+  // The top bar's search narrows all four panels at once: incidents through the
+  // board's own predicate, and people, vehicles and material by the names one
+  // would actually type. Everything downstream reads the narrowed lists, so the
+  // section counts say how many rows are really there — a filtered panel with
+  // an unfiltered count is a panel that argues with itself.
+  const { query } = useDisplaySearch()
+  const needle = query.trim().toLowerCase()
+  // Typing the name of an Auftrag must find its stops — on the board they carry
+  // the route's colour, so «Sturmtour Nord» is how one talks about them. Token
+  // mode has no groups context, so the payload's routes stand in for it.
+  const { groups } = useGroups()
+  const groupNames = useMemo(
+    () => new Map((detailGroups ?? groups).map((g) => [g.id, g.name])),
+    [detailGroups, groups],
+  )
+  const operations = useMemo(
+    () => filterIncidents(allOperations, query, allMaterials, groupNames),
+    [allOperations, query, allMaterials, groupNames],
+  )
+  const personnel = useMemo(
+    () => (!needle ? allPersonnel : allPersonnel.filter((p) =>
+      p.name.toLowerCase().includes(needle) || (p.role ?? "").toLowerCase().includes(needle))),
+    [allPersonnel, needle],
+  )
+  const materials = useMemo(
+    () => (!needle ? allMaterials : allMaterials.filter((m) =>
+      m.name.toLowerCase().includes(needle) || (m.category ?? "").toLowerCase().includes(needle))),
+    [allMaterials, needle],
+  )
+  const vehicleStatus = useMemo(
+    () => (!needle ? allVehicles : allVehicles.filter((v) =>
+      v.name.toLowerCase().includes(needle)
+      || (v.type ?? "").toLowerCase().includes(needle)
+      // A vehicle is often looked up by who is driving it.
+      || (v.driverName ?? "").toLowerCase().includes(needle))),
+    [allVehicles, needle],
+  )
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   // Every section folds; all of them start open. A big station scrolls forever
   // otherwise — but nothing folds itself away without someone deciding so.
@@ -386,6 +437,12 @@ function SituationBoard({ stats, vehicleStatus, operations, personnel, materials
         personnelOverride={personnel}
         materialsOverride={materials}
         groupsOverride={detailGroups}
+        viewerToken={viewerToken}
+        // Token mode passes `detailGroups`; only the logged-in display can read
+        // the report endpoints at all. Which of them it then gets is the modal's
+        // call: the Schadenplatz-Rapport is editor-gated over citizen PII, so a
+        // viewer sees Reko-Bericht, Funkmeldungen and Verlauf and not that one.
+        showReports={!detailGroups}
       />
     </div>
   )
@@ -443,23 +500,30 @@ function VehicleRow({ vehicle: v, onClick }: { vehicle: VehicleWithStatus; onCli
 }
 
 function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick: () => void }) {
+  const tk = useTranslations('kanban')
   const statusId = columns.find((c) => c.status.includes(op.status))?.id || "incoming"
   const locationLabel = incidentLocationLabel(op)
+  const statusLabel = tk(`columns.${statusId}`)
   return (
     <div
       className={cn(
-        "px-3 xl:px-4 py-2.5 xl:py-3 rounded-md border-l-3 cursor-pointer transition-colors hover:bg-muted/60",
-        STATUS_BORDER[statusId],
-        STATUS_BG[statusId],
+        // border-l-4 like both card surfaces: same edge, same width, same
+        // meaning. High and medium colour it; low closes it (see priority.ts).
+        "px-3 xl:px-4 py-2.5 xl:py-3 rounded-md border-l-4 cursor-pointer transition-colors hover:bg-muted/60",
+        ROW_SURFACE,
+        PRIORITY_EDGE_CLASSES[(op.priority ?? "low") as Priority],
       )}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0">
-          <div className={cn(
-            "w-2.5 h-2.5 xl:w-3 xl:h-3 rounded-full mt-1 shrink-0",
-            PRIORITY_DOT_CLASSES[(op.priority ?? "low") as Priority]
-          )} />
+          <div
+            className={cn(
+              "w-2.5 h-2.5 xl:w-3 xl:h-3 rounded-full mt-1 shrink-0",
+              STATUS_ACCENT[statusId].dot,
+            )}
+            title={statusLabel}
+          />
           <div className="min-w-0">
             <p className="text-sm xl:text-base font-semibold leading-tight truncate" title={locationLabel}>{locationLabel}</p>
             <p className="text-[11px] xl:text-xs text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>

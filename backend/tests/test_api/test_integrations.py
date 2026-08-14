@@ -58,3 +58,47 @@ async def test_integrations_with_divera_and_traccar(editor_client: AsyncClient, 
 
     assert body["vehicles"]["provider"] == "traccar"
     assert "gps-tracking" in body["vehicles"]["capabilities"]
+
+
+# ==========================================================================================
+# Deployment role — the block has to be visible to an API caller, not only in the UI.
+# ==========================================================================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_integrations_reports_production_role_by_default(editor_client: AsyncClient):
+    resp = await editor_client.get("/api/integrations")
+    body = resp.json()
+
+    assert body["deployment"]["role"] == "production"
+    assert body["deployment"]["label"] is None
+    assert body["deployment"]["blocked_domains"] == []
+    for domain in ("alarms", "alerting", "personnel", "vehicles"):
+        assert body[domain]["blocked"] is False
+        assert body[domain]["blocked_reason"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_integrations_reports_blocked_domains_on_staging(editor_client: AsyncClient, monkeypatch):
+    """Configured AND blocked at the same time — they answer different questions."""
+    monkeypatch.setattr(settings, "divera_access_key", "TEST-KEY", raising=False)
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "staging")
+
+    resp = await editor_client.get("/api/integrations")
+    body = resp.json()
+
+    assert body["deployment"]["role"] == "staging"
+    assert body["deployment"]["label"] == "Staging – Übungssystem"
+    assert sorted(body["deployment"]["blocked_domains"]) == ["alerting", "sync"]
+
+    assert body["alerting"]["configured"] is True
+    assert body["alerting"]["display_name"] == "DIVERA 24/7"
+    assert body["alerting"]["blocked"] is True
+    assert "gesperrt" in body["alerting"]["blocked_reason"]
+
+    # Inbound alarms, roster sync and GPS are wanted on staging and stay open.
+    for domain in ("alarms", "personnel", "vehicles"):
+        assert body[domain]["blocked"] is False
+        assert body[domain]["blocked_reason"] is None

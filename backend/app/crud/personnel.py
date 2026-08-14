@@ -1,7 +1,7 @@
 """Personnel CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import and_, select
@@ -12,40 +12,87 @@ from ..models import EventAttendance, Personnel, User
 from ..services.audit import calculate_changes, log_action
 
 
-async def get_all_personnel(
-    db: AsyncSession, checked_in_only: bool = False, event_id: uuid.UUID | None = None
-) -> list[Personnel]:
+def to_personnel_schema(person: Personnel, attendance: EventAttendance | None) -> schemas.Personnel:
+    """Serialise a roster row together with its attendance at ONE Ereignis.
+
+    The single place the three attendance fields of ``schemas.Personnel`` are ever
+    filled. They used to be read straight off the personnel row by
+    ``from_attributes``, which is why ``/api/personnel/?checked_in_only=true`` could
+    return exactly the people who were present and stamp every one of them
+    ``checked_in: false`` — the filter had been moved to ``event_attendance``, the
+    response field had not. Passing ``None`` says "no Ereignis was asked about", which
+    is the only case where "not present" is an answer rather than an omission.
     """
-    Get all personnel, optionally filtered by event-specific check-in status.
+    return schemas.Personnel(
+        id=person.id,
+        name=person.name,
+        role=person.role,
+        role_sort_order=person.role_sort_order,
+        status=person.status,
+        tags=person.tags,
+        divera_user_id=person.divera_user_id,
+        checked_in=bool(attendance is not None and attendance.checked_in),
+        checked_in_at=attendance.checked_in_at if attendance else None,
+        checked_out_at=attendance.checked_out_at if attendance else None,
+        created_at=person.created_at,
+        updated_at=person.updated_at,
+    )
+
+
+async def get_all_personnel(db: AsyncSession) -> list[Personnel]:
+    """Every roster row as an ORM object, for callers that work on the rows themselves.
+
+    Deliberately knows nothing about events or attendance: an ORM ``Personnel`` carries
+    no answer to "is this person here?", and a getter that accepted an ``event_id``
+    while returning rows that cannot express one is how this went wrong. Anything that
+    serialises personnel for a client wants ``list_personnel_with_attendance``.
+    """
+    result = await db.execute(
+        select(Personnel).order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def list_personnel_with_attendance(
+    db: AsyncSession, checked_in_only: bool = False, event_id: uuid.UUID | None = None
+) -> list[schemas.Personnel]:
+    """
+    Get all personnel with their attendance at ``event_id`` resolved.
 
     Args:
         db: Database session
-        checked_in_only: If True, only return checked-in personnel
-        event_id: If provided with checked_in_only, filter by event-specific attendance
+        checked_in_only: If True, only return people currently checked in
+        event_id: The Ereignis whose attendance is reported (and filtered on)
 
     Returns:
-        List of personnel
+        Serialised personnel; ``checked_in``/``checked_in_at``/``checked_out_at``
+        describe ``event_id`` and are all-empty when none was given.
     """
-    query = select(Personnel)
+    if event_id is None:
+        if checked_in_only:
+            # Attendance is per Ereignis and lives in `event_attendance`. Without an
+            # event there is nothing to filter on, and the whole roster would be the
+            # wrong answer to "only the people who are here".
+            return []
+        rows = await get_all_personnel(db)
+        return [to_personnel_schema(person, None) for person in rows]
 
-    if checked_in_only and event_id:
-        # Event-specific check-in filtering
-        query = query.join(
-            EventAttendance,
-            and_(
-                EventAttendance.personnel_id == Personnel.id,
-                EventAttendance.event_id == event_id,
-                EventAttendance.checked_in,
-            ),
-        )
-    elif checked_in_only:
-        # Legacy: fallback to global checked_in field if no event_id provided
-        query = query.where(Personnel.checked_in)
+    join_on = and_(
+        EventAttendance.personnel_id == Personnel.id,
+        EventAttendance.event_id == event_id,
+    )
+    query = select(Personnel, EventAttendance)
+    if checked_in_only:
+        query = query.join(EventAttendance, and_(join_on, EventAttendance.checked_in))
+    else:
+        # Outer join: somebody who never checked in has no attendance row at all, and
+        # that is a report about them, not a reason to drop them from the roster.
+        query = query.outerjoin(EventAttendance, join_on)
 
     query = query.order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
 
     result = await db.execute(query)
-    return list(result.scalars().all())
+    return [to_personnel_schema(person, attendance) for person, attendance in result.all()]
 
 
 async def get_personnel(db: AsyncSession, personnel_id: uuid.UUID) -> Personnel | None:
@@ -118,7 +165,7 @@ async def update_personnel(
     for field, value in update_data.items():
         setattr(personnel, field, value)
 
-    personnel.updated_at = datetime.utcnow()
+    personnel.updated_at = datetime.now(UTC)
 
     # Capture after state
     after_state = {

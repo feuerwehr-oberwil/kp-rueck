@@ -11,7 +11,7 @@ Covers POST /api/alarms:
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
@@ -479,3 +479,63 @@ async def test_manual_attach_carries_provenance(
     incident = (await db_session.execute(select(Incident).where(Incident.id == body["id"]))).scalar_one()
     assert incident.source == "leitstelle"
     assert incident.source_ref == "A-2026-001"
+
+
+# ============================================
+# Cross-repo payload compatibility (KP Front parity)
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_accepts_kp_fronts_fields(client: AsyncClient, webhook_secret: str):
+    """One payload has to work against both apps.
+
+    `POST /api/alarms` exists in KP Rück and KP Front with the same path and the same
+    purpose, and used to take incompatible payloads: Front required `source_id` and accepted
+    `type`/`priority`/`started_at`, Rück made `source_id` optional and accepted `number`.
+    A relay written against one got a 422 or silent field loss from the other, while the
+    reserved-slug lists were kept carefully in sync — so it looked unified and was not.
+    """
+    response = await _post(
+        client,
+        alarm_payload(type="brandbekaempfung", priority="high", started_at="2026-08-11T09:00:00Z"),
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_sender_that_classifies_the_alarm_beats_the_keyword_guess(
+    client: AsyncClient, db_session: AsyncSession, webhook_secret: str, auto_attach_event
+):
+    """A Leitstelle that says what kind of call it is knows more than our title matcher.
+
+    "FEUER Dachstockbrand" infers brandbekaempfung/high on its own, so the test asks for the
+    opposite of what inference would produce — otherwise it would pass without the hint being
+    read at all.
+    """
+    response = await _post(client, alarm_payload(type="oelwehr", priority="low"))
+    assert response.status_code == 200
+    incident_id = response.json()["auto_attached_incident_id"]
+    assert incident_id is not None, "needs the auto-attach event to reach the incident"
+
+    incident = await db_session.get(Incident, UUID(incident_id))
+    assert incident is not None
+    assert incident.type == "oelwehr"
+    assert incident.priority == "low"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_nonsense_type_falls_back_to_inference_instead_of_losing_the_alarm(
+    client: AsyncClient, db_session: AsyncSession, webhook_secret: str, auto_attach_event
+):
+    """The hints are hints. A typo in an optional field must not drop an alarm on the floor."""
+    response = await _post(client, alarm_payload(type="not_a_real_type", priority="URGENT"))
+    assert response.status_code == 200
+    incident_id = response.json()["auto_attached_incident_id"]
+
+    incident = await db_session.get(Incident, UUID(incident_id))
+    assert incident is not None
+    assert incident.type == "brandbekaempfung"  # inferred from "FEUER Dachstockbrand"

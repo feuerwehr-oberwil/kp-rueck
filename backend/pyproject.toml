@@ -70,7 +70,11 @@ target-version = "py312"
 #          which is the same failure as an always-red gate: it teaches people that the
 #          marker means nothing. Worth doing as its own reviewed pass — the 8 directives
 #          already in the tree became plain comments so no orphaned markers are left behind.
-select = ["E", "F", "I", "N", "W", "UP", "B", "ASYNC", "SIM", "C4", "PIE", "LOG", "S", "RUF"]
+#   DTZ003 – `datetime.utcnow()`. Naive UTC: it returns a datetime with no tzinfo, so it
+#          silently means "local" to anything that later formats or compares it. The visible
+#          case was the printed Einsatzzettel showing the wrong time. All 35 call sites now
+#          use `datetime.now(UTC)`; the rule keeps the 36th from being written.
+select = ["E", "F", "I", "N", "W", "UP", "B", "ASYNC", "SIM", "C4", "PIE", "LOG", "S", "RUF", "DTZ003"]
 # UP042: the schema enums are `class X(str, Enum)`. StrEnum would be the modern form, but it
 # changes what `str(X.member)` returns ("value" instead of "X.member"), and those enums are
 # serialised into API responses. Deliberate deferral, not an oversight.

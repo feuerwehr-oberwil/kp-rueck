@@ -1,10 +1,16 @@
 <!doctype html>
+<!-- Built from site/index.template.html + site/content/de.json.
+     Edits here are lost on the next `node site/build.mjs`. -->
 <html lang="de">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>KP Rück – Einsatzboard für den Kommandoposten</title>
 <meta name="description" content="KP Rück bildet die Magnettafel im rückwärtigen Kommandoposten digital ab: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, quelloffen und selbst gehostet.">
+<link rel="canonical" href="https://kp-rueck.ch/">
+<link rel="alternate" hreflang="de-CH" href="https://kp-rueck.ch/">
+<link rel="alternate" hreflang="fr-CH" href="https://kp-rueck.ch/fr/">
+<link rel="alternate" hreflang="x-default" href="https://kp-rueck.ch/">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Crect x='3.5' y='10.5' width='7' height='11' rx='2' fill='%23e8392b'/%3E%3Crect x='12.5' y='10.5' width='7' height='11' rx='2' fill='%23ffffff'/%3E%3Crect x='21.5' y='10.5' width='7' height='11' rx='2' fill='%23b8c4d3'/%3E%3C/svg%3E">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KP Rück – Einsatzboard für den Kommandoposten">
@@ -57,6 +63,7 @@
     <nav aria-label="Hauptnavigation">
       <a href="#funktionen">Funktionen</a>
       <a href="#kontakt">Kontakt</a>
+      <span class="langs" role="group" aria-label="Sprache"><a class="lang on" href="./" hreflang="de" lang="de" aria-current="page"><abbr title="Deutsch">DE</abbr></a><a class="lang" href="fr/" hreflang="fr" lang="fr"><abbr title="Français">FR</abbr></a></span>
       <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener" aria-label="KP Rück auf GitHub"><svg class="ico"><use href="#i-gh"/></svg></a>
       <a class="cta" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo</a>
     </nav>
@@ -91,6 +98,7 @@
           <li>Milizfeuerwehren</li>
           <li>Ortsfeuerwehren</li>
           <li>Stützpunktfeuerwehren</li>
+          <li>Berufsfeuerwehren</li>
         </ul>
       </div>
       <div class="fit-row">
@@ -314,10 +322,11 @@
         <ul class="flist">
           <li><strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-Drop von links nach rechts</li>
           <li>Personal, Fahrzeuge und Material zuteilen, mit Warnung bei Doppelbelegung</li>
+          <li>Material, das vor Ort geblieben ist – welches Mittel an welchem Einsatz steht, und seit wann</li>
           <li>Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar</li>
           <li>Aufträge: mehrere Einsätze als eine Route an einen Trupp, Reihenfolge auf Knopfdruck nach Distanz optimiert</li>
           <li>QR-Check-in – wer eintrifft, meldet sich selbst an</li>
-          <li>Beamer-Ansicht für die Wand im KP</li>
+          <li>Beamer-Ansicht für die Wand im KP – dieselben Einsatzkarten wie am Board, nur ohne Bedienelemente</li>
           <li>Befehlspalette und Tastaturkürzel für die schnelle Hand</li>
         </ul>
       </div>
@@ -347,6 +356,7 @@
         <ul class="flist">
           <li><strong>Einsatzbericht als PDF</strong> mit Einsatztagebuch und Reaktionszeiten</li>
           <li>Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird</li>
+          <li>Offene Rapporte als laufende Liste – welcher abgeschlossene Einsatz noch keinen hat</li>
           <li><strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten</li>
           <li>Import und Export als Excel</li>
           <li>Thermodruck im Magazin über einen eigenen Druck-Agenten <span class="opt">optional</span></li>
@@ -455,7 +465,7 @@
             <span class="way-t">Direkt schreiben</span>
             <span class="way-s">Ohne GitHub-Konto, oder wenn etwas nicht öffentlich stehen soll – auch für «wir würden das gerne bei uns ausprobieren».</span>
             <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
-            <input type="hidden" name="subject" value="KP Rück – Landingpage">
+            <input type="hidden" name="subject" value="KP Rück – Landingpage (de)">
             <p class="hp"><label>Dieses Feld bitte leer lassen
               <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
             <div class="f-fields">
@@ -547,8 +557,7 @@
         .catch(function () {
           send.disabled = false;
           note.className = 'f-note err';
-          note.textContent = 'Das hat nicht geklappt. Schreib bitte direkt an '
-            + 'bastian.eichenberger@feuerwehr-oberwil.ch.';
+          note.textContent = 'Das hat nicht geklappt. Schreib bitte direkt an bastian.eichenberger@feuerwehr-oberwil.ch.';
         });
     });
   })();

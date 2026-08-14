@@ -24,6 +24,20 @@ from app.models import EmergencyTemplate, Event, Incident, TrainingLocation
 # ============================================
 
 
+@pytest.fixture(autouse=True)
+def isolate_photo_storage(tmp_path, monkeypatch):
+    """Keep simulated photos out of the repo's data directory.
+
+    Both photo-carrying injects (Reko report and Schadenplatz-Rapport) push real
+    pool JPEGs through ``PhotoStorageService``; without this every test run
+    leaves a directory of them behind in ``backend/data/photos``. Tests that
+    need to *read* the files back point the pool at the same ``tmp_path``.
+    """
+    from app.services.photo_storage import photo_storage
+
+    monkeypatch.setattr(photo_storage, "photos_dir", tmp_path / "photos")
+
+
 @pytest_asyncio.fixture
 async def training_event(db_session: AsyncSession) -> Event:
     """Create a training event."""
@@ -770,9 +784,13 @@ async def reko_incident(db_session: AsyncSession, training_event: Event) -> Inci
     return incident
 
 
-@pytest.fixture
-def stub_photo_pool(tmp_path, monkeypatch):
-    """Stubbed offline pool + temp photo storage; forces 2 photos per report."""
+def _install_photo_pool(tmp_path, monkeypatch, incident_type: str):
+    """Stub the offline pool + photo storage; forces 2 photos per report.
+
+    Takes the incident type because the pool is per type on disk — the Reko
+    inject exercises a Brand, the Rapport inject an Elementarereignis, and a
+    pool built for the wrong type would silently yield no photos at all.
+    """
     import io
 
     from PIL import Image
@@ -780,7 +798,7 @@ def stub_photo_pool(tmp_path, monkeypatch):
     from app.services import training_photos
     from app.services.photo_storage import photo_storage
 
-    pool = tmp_path / "pool" / "brandbekaempfung"
+    pool = tmp_path / "pool" / incident_type
     pool.mkdir(parents=True)
     for i in range(1, 4):
         img = Image.new("RGB", (64, 48), (200, 30, 30))
@@ -793,6 +811,12 @@ def stub_photo_pool(tmp_path, monkeypatch):
     monkeypatch.setattr(training_photos, "_PHOTO_COUNT_WEIGHTS", (0, 0, 1))
     monkeypatch.setattr(photo_storage, "photos_dir", photos_dir)
     return photos_dir
+
+
+@pytest.fixture
+def stub_photo_pool(tmp_path, monkeypatch):
+    """The pool as the Reko inject sees it (`reko_incident` is a Brand)."""
+    return _install_photo_pool(tmp_path, monkeypatch, "brandbekaempfung")
 
 
 @pytest.mark.asyncio
@@ -852,3 +876,658 @@ async def test_simulate_reko_without_pool_still_succeeds(
     response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/reko/{reko_incident.id}")
     assert response.status_code == 200
     assert response.json()["photos_json"] == []
+
+
+# ============================================
+# Schadenplatz-Rapport injects (plan 25, §16)
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def rapport_incident(db_session: AsyncSession, training_event: Event) -> Incident:
+    """A finished Schadenplatz with a crew, a leader of record and material.
+
+    Completed on purpose: that is the state the bulk inject picks up, and the
+    state in which `IncidentAssignment.is_leader` has been cleared from every
+    row — so the leader can only come from `Incident.leader_personnel_id`
+    through the resolver (decision 29).
+    """
+    from app.models import IncidentAssignment, Material, Personnel
+
+    leader = Personnel(id=uuid4(), name="Muster Hans", role="Offizier", status="available")
+    helper = Personnel(id=uuid4(), name="Muster Anna", role="Soldat", status="available")
+    pump = Material(id=uuid4(), name="Tauchpumpe Gr.", type="Tauchpumpen", location="MoWa", status="available")
+    binder = Material(
+        id=uuid4(),
+        name="Ölbindemittel",
+        type="Ölwehr",
+        location="Magazin",
+        status="available",
+        consumable=True,
+    )
+    db_session.add_all([leader, helper, pump, binder])
+    await db_session.flush()
+
+    incident = Incident(
+        id=uuid4(),
+        event_id=training_event.id,
+        title="Wasser im Keller MFH",
+        type="elementarereignis",
+        priority="medium",
+        status="complete",
+        completed_at=datetime.now(UTC),
+        location_address="Mühlemattstrasse 12, 4104 Oberwil",
+        description="Ca. 20 cm Wasser im Keller.",
+        leader_personnel_id=leader.id,
+    )
+    db_session.add(incident)
+    await db_session.flush()
+    for resource_type, resource in (
+        ("personnel", leader),
+        ("personnel", helper),
+        ("material", pump),
+        ("material", binder),
+    ):
+        db_session.add(
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=incident.id,
+                resource_type=resource_type,
+                resource_id=resource.id,
+            )
+        )
+    await db_session.commit()
+    await db_session.refresh(incident)
+    return incident
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize(
+    "path",
+    [
+        "simulate/rapport/{incident}",
+        "simulate/field-message/{incident}",
+        "simulate/arrived/{incident}",
+        "simulate/pickup/{incident}",
+    ],
+)
+async def test_rapport_injects_only_touch_training_events(
+    editor_client: AsyncClient, db_session: AsyncSession, live_event: Event, path: str
+):
+    """A live Ereignis is not a rehearsal — every inject refuses it."""
+    incident = Incident(
+        id=uuid4(),
+        event_id=live_event.id,
+        title="Wasser im Keller",
+        type="elementarereignis",
+        priority="low",
+        status="complete",
+        completed_at=datetime.now(UTC),
+    )
+    db_session.add(incident)
+    await db_session.commit()
+
+    url = f"/api/training/events/{live_event.id}/{path.format(incident=incident.id)}"
+    response = await editor_client.post(url)
+    assert response.status_code == 400
+
+    bulk = await editor_client.post(f"/api/training/events/{live_event.id}/simulate/rapport")
+    assert bulk.status_code == 400
+
+    field_complete = await editor_client.post(
+        f"/api/training/events/{live_event.id}/simulate/field-complete/{incident.id}"
+    )
+    assert field_complete.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_rapport_files_a_real_rapport(
+    editor_client: AsyncClient, training_event: Event, rapport_incident: Incident
+):
+    """The inject goes through the shared upsert, so the result IS a rapport.
+
+    Asserted through the KP-parity GET rather than by re-checking columns: if it
+    reads back as a submitted rapport there, it obeys exactly the rules a
+    crew-filed one obeys.
+    """
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/rapport/{rapport_incident.id}"
+    )
+    assert response.status_code == 200
+    inject = response.json()
+    assert inject["incident_id"] == str(rapport_incident.id)
+    # 70/30 between the EL and another assigned person — both are Muster names,
+    # and neither is the editor: a simulated rapport comes from the field.
+    assert inject["filed_by"] in {"Muster Hans", "Muster Anna"}
+
+    rapport = (await editor_client.get(f"/api/incidents/{rapport_incident.id}/rapport")).json()
+    assert rapport["exists"] is True
+    assert rapport["is_draft"] is False
+    assert rapport["submitted_at"] is not None
+    # Frozen at submit (decision 6) — a later board edit cannot change it.
+    assert rapport["cost_snapshot_json"]
+    assert rapport["kurzbericht"]
+    assert len(rapport["materials"]) == 2
+    assert rapport["created_by_name"] in {"Muster Hans", "Muster Anna"}
+    assert rapport["created_in_kp"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_rapport_never_leaves_a_consumable_on_site(
+    editor_client: AsyncClient, training_event: Event, rapport_incident: Incident
+):
+    """Decision 26: a consumable that was used is gone. Rate 0 %, always."""
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/rapport/{rapport_incident.id}"
+    )
+    assert response.status_code == 200
+
+    rapport = (await editor_client.get(f"/api/incidents/{rapport_incident.id}/rapport")).json()
+    consumables = [row for row in rapport["materials"] if row["consumable"]]
+    assert consumables, "fixture must contain a consumable for this to mean anything"
+    assert all(row["left_on_site"] is False for row in consumables)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_rapport_never_leaves_a_phone_without_a_name(
+    editor_client: AsyncClient, training_event: Event, rapport_incident: Incident
+):
+    """§18.31: the owner block is Name + Telefon, and the number needs an owner.
+
+    The KFZ line this test used to guard went with the free-text box: a plate has
+    no field left to live in, and inventing one on the strength of an exercise
+    would be a schema decision taken by a simulator.
+    """
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/rapport/{rapport_incident.id}"
+    )
+    assert response.status_code == 200
+
+    rapport = (await editor_client.get(f"/api/incidents/{rapport_incident.id}/rapport")).json()
+    if rapport["owner_phone"]:
+        assert rapport["owner_name"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_bulk_rapport_covers_80_percent_and_leaves_gaps(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event
+):
+    """80 %, rounded down: five completed Schadenplätze leave one for the Restliste."""
+    incidents = []
+    for index in range(5):
+        incident = Incident(
+            id=uuid4(),
+            event_id=training_event.id,
+            title=f"Wasser im Keller {index}",
+            type="elementarereignis",
+            priority="low",
+            status="complete",
+            completed_at=datetime.now(UTC),
+            location_address=f"Musterstrasse {index}, 4104 Oberwil",
+        )
+        db_session.add(incident)
+        incidents.append(incident)
+    await db_session.commit()
+
+    response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/rapport")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["candidates"] == 5
+    assert data["covered"] == 4
+    assert data["skipped"] == 1
+    assert len(data["rapports"]) == 4
+
+    # The gap is real, not just a counter: exactly one incident is still without
+    # a rapport, which is what the Restliste shows at 02:00.
+    from sqlalchemy import select
+
+    from app.models import SchadenplatzReport
+
+    filed = (
+        (await db_session.execute(select(SchadenplatzReport.incident_id).where(SchadenplatzReport.is_draft.is_(False))))
+        .scalars()
+        .all()
+    )
+    assert len({i.id for i in incidents} - set(filed)) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_bulk_rapport_skips_incidents_that_already_have_one(
+    editor_client: AsyncClient, training_event: Event, rapport_incident: Incident
+):
+    """A filed rapport is never overwritten — the bulk fills gaps, nothing else."""
+    first = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/rapport/{rapport_incident.id}")
+    assert first.status_code == 200
+
+    response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/rapport")
+    assert response.status_code == 200
+    assert response.json()["candidates"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_field_complete_stamps_provenance_and_rings_the_bell(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+):
+    """The direct attribute write is gone: it now goes through the parity endpoint.
+
+    Which means an exercise finally rehearses the bell — and the audit entry
+    that carries the operator, since a KP write leaves the personnel FK NULL
+    (decision 28).
+    """
+    from sqlalchemy import select
+
+    from app.models import AuditLog, Notification
+
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}",
+        json={"pickup_needed": False},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["field_complete_reported_at"] is not None
+    # Informational only — closing stays the operator's board action.
+    assert data["status"] == "active"
+
+    notification = (
+        (
+            await db_session.execute(
+                select(Notification).where(
+                    Notification.incident_id == active_incident.id,
+                    Notification.type == "field_complete",
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert notification is not None
+
+    entry = (
+        (
+            await db_session.execute(
+                select(AuditLog).where(
+                    AuditLog.resource_id == active_incident.id,
+                    AuditLog.action_type == "field_complete",
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert entry is not None
+    assert entry.user_id is not None
+    await db_session.refresh(active_incident)
+    assert active_incident.field_complete_reported_by is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_field_complete_asks_the_abholung_follow_up(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+):
+    """ "Kommt ihr selbst zurück?" — preselected by the situation, overridable."""
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}",
+        json={"pickup_needed": True, "pickup_note": "Trupp wartet an der Hauptstrasse"},
+    )
+    assert response.status_code == 200
+    assert response.json()["pickup_needed"] is True
+
+    await db_session.refresh(active_incident)
+    assert active_incident.pickup_note == "Trupp wartet an der Hauptstrasse"
+    assert active_incident.pickup_requested_at is not None
+
+    # And the crew tapping "abgeholt" clears it again.
+    cleared = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}",
+        json={"pickup_needed": False},
+    )
+    assert cleared.status_code == 200
+    await db_session.refresh(active_incident)
+    assert active_incident.pickup_needed is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_field_message_reaches_the_kp(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+):
+    """The generic channel: a chip or a sentence, as a `field_message` bell entry."""
+    from sqlalchemy import select
+
+    from app.models import Notification
+
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/field-message/{active_incident.id}"
+    )
+    assert response.status_code == 200
+    assert response.json()["message"]
+
+    notification = (
+        (
+            await db_session.execute(
+                select(Notification).where(
+                    Notification.incident_id == active_incident.id,
+                    Notification.type == "field_message",
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert notification is not None
+    assert "Meldung vom Feld" in notification.message
+
+
+# ============================================
+# "Angekommen" und die Abholung als eigene Meldungen
+# ============================================
+#
+# The two field reports an exercise could not produce until now. Both go
+# through `crud/feld.py` — the same call the `/feld` button and the KP-parity
+# endpoint make — so what the KP sees in a drill is what it will see at 02:00.
+
+
+@pytest_asyncio.fixture
+async def crewed_incident(db_session: AsyncSession, training_event: Event) -> Incident:
+    """An incident being worked, with a leader of record and a second person.
+
+    A crew is what makes the provenance assertions mean anything: with nobody
+    assigned the simulator honestly falls back to the editor ("im KP erfasst").
+    """
+    from app.models import IncidentAssignment, Personnel
+
+    leader = Personnel(id=uuid4(), name="Muster Hans", role="Offizier", status="available")
+    helper = Personnel(id=uuid4(), name="Muster Anna", role="Soldat", status="available")
+    db_session.add_all([leader, helper])
+    await db_session.flush()
+
+    incident = Incident(
+        id=uuid4(),
+        event_id=training_event.id,
+        title="Wasser im Keller MFH",
+        type="elementarereignis",
+        priority="medium",
+        status="active",
+        location_address="Mühlemattstrasse 12, 4104 Oberwil",
+        description="Ca. 20 cm Wasser im Keller.",
+        leader_personnel_id=leader.id,
+        zu_fuss=True,
+    )
+    db_session.add(incident)
+    await db_session.flush()
+    for person in (leader, helper):
+        db_session.add(
+            IncidentAssignment(
+                id=uuid4(),
+                incident_id=incident.id,
+                resource_type="personnel",
+                resource_id=person.id,
+            )
+        )
+    await db_session.commit()
+    await db_session.refresh(incident)
+    return incident
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_arrived_stamps_the_rapport_and_rings_the_bell(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, crewed_incident: Incident
+):
+    """ "Angekommen" writes the Rapport row, the bell and the Journal entry.
+
+    The column is the one a crew's own tap writes — `arrived_at` on
+    `schadenplatz_reports`, with the arrival's own `arrived_by_personnel_id` —
+    because the inject calls `record_arrival`, not a training-only write.
+    """
+    from sqlalchemy import select
+
+    from app.models import AuditLog, Notification, SchadenplatzReport
+
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/arrived/{crewed_incident.id}"
+    )
+    assert response.status_code == 200
+    assert response.json()["message"].startswith("Angekommen: Mühlemattstrasse 12")
+
+    report = (
+        (
+            await db_session.execute(
+                select(SchadenplatzReport).where(SchadenplatzReport.incident_id == crewed_incident.id)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert report is not None
+    assert report.arrived_at is not None
+    # From the field, not from the KP: the crew's name is on the arrival.
+    assert report.arrived_by_personnel_id is not None
+    assert report.arrived_by_user_id is None
+    # A crew that has arrived has not filed anything yet.
+    assert report.is_draft is True
+
+    notification = (
+        (
+            await db_session.execute(
+                select(Notification).where(
+                    Notification.incident_id == crewed_incident.id,
+                    Notification.type == "field_arrived",
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert notification is not None
+    assert "Angekommen" in notification.message
+    assert any(name in notification.message for name in ("Muster Hans", "Muster Anna"))
+
+    entry = (
+        (
+            await db_session.execute(
+                select(AuditLog).where(
+                    AuditLog.resource_id == crewed_incident.id,
+                    AuditLog.action_type == "field_arrived",
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert entry is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_arrived_never_moves_an_existing_arrival(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, crewed_incident: Incident
+):
+    """`only_if_unset`, exactly as the field button: a second tap does nothing."""
+    from sqlalchemy import select
+
+    from app.models import SchadenplatzReport
+
+    url = f"/api/training/events/{training_event.id}/simulate/arrived/{crewed_incident.id}"
+    assert (await editor_client.post(url)).status_code == 200
+
+    report = (
+        (
+            await db_session.execute(
+                select(SchadenplatzReport).where(SchadenplatzReport.incident_id == crewed_incident.id)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert report is not None
+    first = report.arrived_at
+
+    again = await editor_client.post(url)
+    assert again.status_code == 200
+    assert "bereits gemeldet" in again.json()["message"]
+
+    await db_session.refresh(report)
+    assert report.arrived_at == first
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_pickup_raises_and_clears_the_warning(
+    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, crewed_incident: Incident
+):
+    """The Trupp asks for a lift later — and reports the bus arrived (decision 24).
+
+    Both halves matter: an exercise that can only raise the warning leaves the
+    Restliste with a Trupp that never gets picked up.
+    """
+    from sqlalchemy import select
+
+    from app.models import Notification
+
+    url = f"/api/training/events/{training_event.id}/simulate/pickup/{crewed_incident.id}"
+    needed = await editor_client.post(url, json={"needed": True})
+    assert needed.status_code == 200
+    assert "Abholung nötig" in needed.json()["message"]
+
+    await db_session.refresh(crewed_incident)
+    assert crewed_incident.pickup_needed is True
+    # zu Fuss vor Ort — the note the simulator derives from the situation.
+    assert crewed_incident.pickup_note == "Trupp zu Fuss vor Ort"
+    assert crewed_incident.pickup_requested_at is not None
+    # Filed by the crew, so the personnel FK is set (a KP write leaves it NULL).
+    assert crewed_incident.pickup_requested_by is not None
+
+    warning = (
+        (
+            await db_session.execute(
+                select(Notification).where(
+                    Notification.incident_id == crewed_incident.id,
+                    Notification.type == "field_pickup",
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert warning is not None
+    assert warning.severity == "warning"
+
+    done = await editor_client.post(url, json={"needed": False})
+    assert done.status_code == 200
+    assert "Abholung erledigt" in done.json()["message"]
+
+    await db_session.refresh(crewed_incident)
+    assert crewed_incident.pickup_needed is False
+    assert crewed_incident.pickup_note is None
+    assert crewed_incident.pickup_requested_by is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_pickup_on_a_live_event_is_refused(
+    editor_client: AsyncClient, db_session: AsyncSession, live_event: Event
+):
+    """The training guard on the two new routes, asserted against a live Ereignis.
+
+    A training-generated field report reaching a live incident is the worst
+    failure this feature has, so it is checked here as well as in the shared
+    parametrised guard above — including the unknown-event 404.
+    """
+    incident = Incident(
+        id=uuid4(),
+        event_id=live_event.id,
+        title="Wasser im Keller",
+        type="elementarereignis",
+        priority="low",
+        status="active",
+    )
+    db_session.add(incident)
+    await db_session.commit()
+
+    for path in ("arrived", "pickup"):
+        live = await editor_client.post(f"/api/training/events/{live_event.id}/simulate/{path}/{incident.id}")
+        assert live.status_code == 400
+        assert live.json()["detail"] == "Only available for training events"
+
+        unknown = await editor_client.post(f"/api/training/events/{uuid4()}/simulate/{path}/{incident.id}")
+        assert unknown.status_code == 404
+
+    # Nothing was written on the way out.
+    await db_session.refresh(incident)
+    assert incident.pickup_needed is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_arrived_and_pickup_refuse_a_viewer(
+    viewer_client: AsyncClient, training_event: Event, crewed_incident: Incident
+):
+    """Injects are the Übungsleiter's, not a spectator's."""
+    for path in ("arrived", "pickup"):
+        response = await viewer_client.post(
+            f"/api/training/events/{training_event.id}/simulate/{path}/{crewed_incident.id}"
+        )
+        assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_rapport_attaches_pool_photos(
+    editor_client: AsyncClient,
+    training_event: Event,
+    rapport_incident: Incident,
+    tmp_path,
+    monkeypatch,
+):
+    """A simulated rapport carries scene photos, like the simulated Reko does.
+
+    Read back through the KP-parity GET: if the photos are on the rapport there,
+    they went on through the same door a crew's upload uses.
+    """
+    import re
+
+    photos_dir = _install_photo_pool(tmp_path, monkeypatch, rapport_incident.type)
+
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/rapport/{rapport_incident.id}"
+    )
+    assert response.status_code == 200
+    assert response.json()["photos"] == 2
+
+    rapport = (await editor_client.get(f"/api/incidents/{rapport_incident.id}/rapport")).json()
+    assert len(rapport["photos"]) == 2
+    for filename in rapport["photos"]:
+        assert re.match(r"^[0-9a-f-]{36}\.jpg$", filename)
+        assert (photos_dir / str(rapport_incident.id) / filename).exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_simulate_rapport_without_a_pool_still_files(
+    editor_client: AsyncClient,
+    training_event: Event,
+    rapport_incident: Incident,
+    tmp_path,
+    monkeypatch,
+):
+    """A brigade that stripped the bundled pool gets a rapport without photos."""
+    from app.services import training_photos
+    from app.services.photo_storage import photo_storage
+
+    monkeypatch.setattr(training_photos, "POOL_DIR", tmp_path / "missing-pool")
+    monkeypatch.setattr(photo_storage, "photos_dir", tmp_path / "photos")
+
+    response = await editor_client.post(
+        f"/api/training/events/{training_event.id}/simulate/rapport/{rapport_incident.id}"
+    )
+    assert response.status_code == 200
+    assert response.json()["photos"] == 0

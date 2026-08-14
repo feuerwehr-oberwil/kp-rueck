@@ -1,4 +1,4 @@
-import { LucideIcon, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
+import { LucideIcon, Binoculars, MessageCircle, User, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { getTileBaseUrl } from '@/lib/env'
 import { translateOutsideReact } from '@/lib/i18n-messages'
@@ -61,6 +61,21 @@ export function resolveWhatsAppMessage(
 }
 
 /**
+ * The vehicles nobody is driving yet, in the order they are listed. Shared by the
+ * checklist popover and the "Bereitschaft" badge so the two can never disagree
+ * about how much of the fleet is still missing a driver.
+ */
+export function findVehiclesWithoutDriver(
+  vehicles: { id: string; name: string }[],
+  specialFunctions: { function_type: string; vehicle_id: string | null }[]
+): { vehicleId: string; vehicleName: string }[] {
+  const driven = new Set(
+    specialFunctions.filter((f) => f.function_type === 'driver' && f.vehicle_id).map((f) => f.vehicle_id)
+  )
+  return vehicles.filter((v) => !driven.has(v.id)).map((v) => ({ vehicleId: v.id, vehicleName: v.name }))
+}
+
+/**
  * Generate checklist tasks with current state.
  *
  * Link-sharing rows (check-in, Reko, Alarm) adapt their action: when a thermal
@@ -87,6 +102,14 @@ export function generateChecklistTasks(params: {
   onShowTileSetup: () => void
   onTestPrint: () => void
   onOpenFallbackSettings: () => void
+  /** Opens the Fahrzeuge sheet, where a driver is set per vehicle. */
+  onOpenVehicles: () => void
+  /** Starts a run through every vehicle that still has no driver. */
+  onAssignDrivers: () => void
+  /** How many vehicles still have nobody driving them — 0 hides the run button. */
+  vehiclesWithoutDriver: number
+  /** Opens the Appell — the board's own roll-call, where the count on this row is made. */
+  onOpenAttendance: () => void
 }): ChecklistTaskState[] {
   const printerAvailable = params.printerEnabled && params.printerAgentOnline
 
@@ -122,7 +145,17 @@ export function generateChecklistTasks(params: {
         count: params.checkedInPersonnel,
         details: translateOutsideReact('checklist.tasks.personnel-checkin.details', { count: params.checkedInPersonnel })
       },
-      actionButtons: [linkAction(params.onCopyCheckInLink, params.onPrintCheckInLink)]
+      // Two ways in, because there are two situations: hand the crew a link, or tick the
+      // names yourself when the phones are not an option.
+      actionButtons: [
+        linkAction(params.onCopyCheckInLink, params.onPrintCheckInLink),
+        {
+          label: translateOutsideReact('checklist.actions.openAttendance'),
+          icon: Users,
+          variant: 'outline',
+          onClick: params.onOpenAttendance
+        }
+      ]
     },
 
     // 3. Share Reko link — share link or print QR
@@ -147,7 +180,10 @@ export function generateChecklistTasks(params: {
       actionButtons: [linkAction(params.onCopyAlarmLink, params.onPrintAlarmLink)]
     },
 
-    // 5. Assign reconnaissance officers (bullet reminder, no action)
+    // 5. Assign reconnaissance officers — the Reko-Modus on the map is where
+    //    a checked-in person is marked as Reko *and* handed their first
+    //    addresses, so the row links straight into it rather than describing
+    //    where to look.
     {
       id: 'assign-reko',
       title: translateOutsideReact('checklist.tasks.assign-reko.title'),
@@ -158,10 +194,21 @@ export function generateChecklistTasks(params: {
       metadata: {
         count: params.rekoOfficers,
         details: translateOutsideReact('checklist.tasks.assign-reko.details', { count: params.rekoOfficers })
-      }
+      },
+      actionButtons: [
+        {
+          label: translateOutsideReact('checklist.actions.openRekoMode'),
+          icon: Binoculars,
+          variant: 'outline',
+          href: '/map?mode=reko'
+        }
+      ]
     },
 
-    // 6. Assign drivers (bullet reminder, no action)
+    // 6. Assign drivers — the row's own promise is "alle Fahrzeuge benötigen einen
+    //    Fahrer", so the first button walks every driverless vehicle in one pass
+    //    rather than making the operator find each one. The Fahrzeuge sheet stays
+    //    alongside it for looking at the fleet rather than working through it.
     {
       id: 'assign-drivers',
       title: translateOutsideReact('checklist.tasks.assign-drivers.title'),
@@ -173,10 +220,31 @@ export function generateChecklistTasks(params: {
         count: params.driverAssignments,
         total: params.totalVehicles,
         details: translateOutsideReact('checklist.tasks.assign-drivers.details', { count: params.driverAssignments, total: params.totalVehicles })
-      }
+      },
+      actionButtons: [
+        ...(params.vehiclesWithoutDriver > 0
+          ? [
+              {
+                label: translateOutsideReact('checklist.actions.assignDrivers'),
+                icon: User,
+                variant: 'outline' as const,
+                onClick: params.onAssignDrivers
+              }
+            ]
+          : []),
+        {
+          label: translateOutsideReact('checklist.actions.openVehicles'),
+          icon: Truck,
+          variant: 'outline',
+          onClick: params.onOpenVehicles
+        }
+      ]
     },
 
-    // 7. Assign magazin staff (bullet reminder, no action)
+    // 7. Assign magazin staff. Deliberately NO action: a Magaziner is marked by
+    //    right-clicking a checked-in person in the crew sidebar, which is not a
+    //    destination anything can navigate to. A button that opened "somewhere
+    //    near it" would be worse than the sentence.
     {
       id: 'assign-magazin',
       title: translateOutsideReact('checklist.tasks.assign-magazin.title'),
@@ -306,7 +374,7 @@ export async function summarizeEventChecklist(
   eventId: string
 ): Promise<{ completed: number; total: number; allComplete: boolean }> {
   const [attendance, specialFunctions, vehicles, printerStatus, settings] = await Promise.all([
-    apiClient.getEventAttendance(eventId).catch(() => []),
+    apiClient.getEventCheckInList(eventId).catch(() => ({ personnel: [] })),
     apiClient.getEventSpecialFunctions(eventId).catch(() => []),
     apiClient.getVehicles().catch(() => []),
     apiClient.getPrinterStatus().catch(() => null),
@@ -323,7 +391,7 @@ export async function summarizeEventChecklist(
   const noop = () => {}
   const tasks = generateChecklistTasks({
     eventId,
-    checkedInPersonnel: attendance.filter((a) => a.checked_in).length,
+    checkedInPersonnel: attendance.personnel.filter((p) => p.checked_in).length,
     totalVehicles: vehicles.length,
     driverAssignments: specialFunctions.filter((f) => f.function_type === 'driver').length,
     rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
@@ -341,6 +409,10 @@ export async function summarizeEventChecklist(
     onShowTileSetup: noop,
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
+    onOpenVehicles: noop,
+    onAssignDrivers: noop,
+    vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
+    onOpenAttendance: noop,
   })
 
   // Shares the validation used by the checklist component's reader, so a value

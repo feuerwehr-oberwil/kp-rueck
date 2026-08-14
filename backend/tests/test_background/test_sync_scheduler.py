@@ -339,6 +339,62 @@ class TestStartSyncScheduler:
             assert sync_scheduler.last_interval_minutes == 5
 
 
+class TestDeploymentRoleBlocksSync:
+    """A staging instance holds production's `railway_database_url` and must not use it."""
+
+    def test_scheduler_does_not_start_when_the_role_blocks_sync(self, monkeypatch):
+        monkeypatch.setenv("DEPLOYMENT_ROLE", "staging")
+        with patch("app.background.sync_scheduler.AsyncIOScheduler") as MockScheduler:
+            start_sync_scheduler()
+
+            MockScheduler.assert_not_called()
+            assert sync_scheduler.scheduler is None
+
+    def test_railway_url_is_ignored_at_the_service_seam(self, monkeypatch):
+        """Belt and braces: even a manually triggered sync finds no URL to write to.
+
+        The scheduler not starting only stops the periodic job. The seam every sync path
+        passes through is SyncService.get_railway_database_url, so that is where the URL has
+        to disappear — otherwise `POST /api/sync/to-railway` still reaches production.
+        """
+        import asyncio
+
+        from app.services.sync_service import SyncService
+
+        service = SyncService(db=MagicMock())
+        service._railway_database_url = "postgresql://user:pw@production.example.com/kprueck"
+
+        monkeypatch.setenv("DEPLOYMENT_ROLE", "staging")
+        assert asyncio.run(service.get_railway_database_url()) == ""
+        assert asyncio.run(service.get_railway_engine()) is None
+
+        # ...and the ordinary deployment is untouched.
+        monkeypatch.setenv("DEPLOYMENT_ROLE", "production")
+        assert asyncio.run(service.get_railway_database_url()).endswith("/kprueck")
+
+    def test_a_misspelt_role_refuses_rather_than_guessing(self, monkeypatch):
+        """Not "start anyway": a role we cannot read is a startup failure, not a default."""
+        from app.environment import DeploymentRoleError
+
+        monkeypatch.setenv("DEPLOYMENT_ROLE", "stagging")
+        with patch("app.background.sync_scheduler.AsyncIOScheduler") as MockScheduler:
+            with pytest.raises(DeploymentRoleError):
+                start_sync_scheduler()
+
+            MockScheduler.assert_not_called()
+
+    def test_the_production_role_leaves_sync_running(self, monkeypatch):
+        monkeypatch.setenv("DEPLOYMENT_ROLE", "production")
+        with patch("app.background.sync_scheduler.AsyncIOScheduler") as MockScheduler:
+            mock_instance = MagicMock()
+            MockScheduler.return_value = mock_instance
+
+            start_sync_scheduler()
+
+            MockScheduler.assert_called_once()
+            mock_instance.start.assert_called_once()
+
+
 # ============================================
 # stop_sync_scheduler Tests
 # ============================================

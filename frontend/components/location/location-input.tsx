@@ -16,10 +16,9 @@ import { useState, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
 import dynamic from "next/dynamic"
 import { Label } from "@/components/ui/label"
-import { SearchInput } from "@/components/ui/search-input"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { searchAddress, geocodeAddress } from "@/lib/geocoding"
@@ -44,6 +43,10 @@ interface LocationInputProps {
   geocodeInitialAddress?: boolean
   /** Show error styling for validation feedback */
   error?: boolean
+  /** Row layout for the 420px side panel: the label sits left of the field
+   *  instead of above it, and the map/coordinate buttons shrink to match. Same
+   *  control either way — see components/kanban/detail-field.tsx. */
+  dense?: boolean
 }
 
 export function LocationInput({
@@ -56,6 +59,7 @@ export function LocationInput({
   autoFocus = false,
   geocodeInitialAddress = true,
   error = false,
+  dense = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
@@ -73,8 +77,14 @@ export function LocationInput({
   const [stationCenter, setStationCenter] = useState<[number, number] | null>(null)
   const [countryCodes, setCountryCodes] = useState<string | null>(null)
 
+  // Which result the keyboard is on. -1 = none, and Enter then commits the typed
+  // text as freetext — the board is operated at speed, and reaching for the mouse
+  // to confirm an address the geocoder does not know is the slow path.
+  const [activeIndex, setActiveIndex] = useState(-1)
+
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
   const initialAddressRef = useRef(address)
   const addressChangedRef = useRef(false)
   const geocodeInputsRef = useRef({ address, latitude, longitude, onCoordinatesChange })
@@ -108,30 +118,25 @@ export function LocationInput({
     setIsMounted(true)
   }, [])
 
-  // Track the trigger button for autoFocus
-  const triggerButtonRef = useRef<HTMLButtonElement>(null)
+  // Is the operator typing in the field right now? While they are, the input
+  // holds their query; the rest of the time it holds the committed address —
+  // there is only one field, so it has to be both.
+  const [editing, setEditing] = useState(false)
 
-  // Auto-focus: open the popover and focus the search input when autoFocus is true
+  useEffect(() => {
+    if (!editing) setAddressSearchQuery(address ?? "")
+  }, [address, editing])
+
+  // Auto-focus: focus the address field when autoFocus is true. The focus
+  // handler opens the suggestion list; a short delay lets the modal render.
   useEffect(() => {
     if (autoFocus && isMounted && !disabled) {
-      // Open the popover after a short delay to let the modal render
       const timer = setTimeout(() => {
-        setAddressSearchOpen(true)
+        searchInputRef.current?.focus()
       }, 150)
       return () => clearTimeout(timer)
     }
   }, [autoFocus, isMounted, disabled])
-
-  // Focus search input when popover opens
-  useEffect(() => {
-    if (addressSearchOpen && searchInputRef.current) {
-      // Small delay to ensure the input is visible
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus()
-      }, 50)
-      return () => clearTimeout(timer)
-    }
-  }, [addressSearchOpen])
 
   // Sync coordinate input with props
   useEffect(() => {
@@ -159,10 +164,12 @@ export function LocationInput({
 
     if (addressSearchQuery.length < 3) {
       setAddressResults([])
+      setActiveIndex(-1)
       return
     }
 
     setIsSearching(true)
+    setActiveIndex(-1)
     searchTimeoutRef.current = setTimeout(async () => {
       // Pass the station's coordinates to prioritize results near it
       const results = await searchAddress(addressSearchQuery, {
@@ -197,8 +204,58 @@ export function LocationInput({
   const handleAddressSelect = (result: SearchResult) => {
     onAddressChange(result.formattedAddress)
     onCoordinatesChange(result.lat, result.lon)
+    setEditing(false)
     setAddressSearchOpen(false)
-    setAddressSearchQuery("")
+    setAddressSearchQuery(result.formattedAddress)
+    setActiveIndex(-1)
+  }
+
+  /** Take the typed text as the address, without coordinates. The geocoder does
+   *  not know every Flurname, every Baustellenzufahrt or every "hinter dem
+   *  Schulhaus", and an operator must never be blocked by that. */
+  const commitFreetext = (value: string) => {
+    const text = value.trim()
+    if (!text) return
+    onAddressChange(text)
+    setEditing(false)
+    setAddressSearchOpen(false)
+    setAddressSearchQuery(text)
+    setActiveIndex(-1)
+  }
+
+  const handleAddressKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Tab") {
+      // Close and let the natural tab order take over.
+      setAddressSearchOpen(false)
+      return
+    }
+    if (event.key === "Escape") {
+      // Back to whatever is committed — Escape discards a half-typed address,
+      // it does not commit one.
+      setAddressSearchOpen(false)
+      setEditing(false)
+      setAddressSearchQuery(address ?? "")
+      return
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (addressResults.length === 0) return
+      event.preventDefault()
+      setAddressSearchOpen(true)
+      setActiveIndex((current) => {
+        const next = event.key === "ArrowDown" ? current + 1 : current - 1
+        if (next < 0) return addressResults.length - 1
+        if (next >= addressResults.length) return 0
+        return next
+      })
+      return
+    }
+    if (event.key === "Enter") {
+      // Inside a form, Enter must pick the address rather than submit it.
+      event.preventDefault()
+      const picked = addressResults[activeIndex >= 0 ? activeIndex : 0]
+      if (picked) handleAddressSelect(picked)
+      else commitFreetext(addressSearchQuery)
+    }
   }
 
   const handleCoordinatePaste = (value: string) => {
@@ -257,93 +314,131 @@ export function LocationInput({
     longitude <= 180
 
   return (
-    <div className="space-y-4">
+    <div className={cn(dense ? "space-y-1" : "space-y-4")}>
       {/* Address Input with Autocomplete */}
-      <div className="min-h-[40px]">
-        <div className="flex items-center gap-1">
-          <Label htmlFor="location_address" className="text-sm font-semibold text-muted-foreground">
-            {t('locationInput.addressLabel')}
+      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "min-h-[40px]")}>
+        <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
+          <Label
+            htmlFor="location_address"
+            className={cn(
+              dense
+                ? "text-xs font-normal text-muted-foreground"
+                : "text-sm font-semibold text-muted-foreground",
+            )}
+          >
+            {dense ? t('locationInput.addressLabelShort') : t('locationInput.addressLabel')}
           </Label>
           <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
         </div>
-        <div className="flex items-start gap-2 mt-2">
-          <Popover
-            open={addressSearchOpen}
-            onOpenChange={(open) => {
-              // Pre-fill the search input with the current address when opening,
-              // so the user can edit it (e.g. change a house number) instead of
-              // starting from an empty field.
-              if (open) {
-                setAddressSearchQuery(address ?? "")
-              }
-              setAddressSearchOpen(open)
-            }}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                ref={triggerButtonRef}
-                variant="outline"
-                role="combobox"
-                aria-expanded={addressSearchOpen}
-                aria-invalid={error}
-                className={cn(
-                  "flex-1 justify-between",
-                  error && "border-destructive focus:ring-destructive"
-                )}
-                disabled={disabled}
-              >
-                <span className="truncate">
-                  {address || t('locationInput.addressPlaceholder')}
-                </span>
-                <MapPin className="ml-2 size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[500px] p-0" align="start">
+        {/* items-CENTER, not items-start: the two icon buttons belong on the
+            field's own line. Nothing in this row ever grows taller than the
+            input — the suggestion list is portalled and the coordinate drawer
+            is a SIBLING of this row further down, not a child — so centring
+            here cannot push either of them out of place. */}
+        <div className={cn("flex items-center gap-2", dense ? "min-w-0 flex-1" : "mt-2")}>
+          {/* One field, not two. The input IS the search box: what you type is
+              what the geocoder gets, and what is committed is what the field
+              shows afterwards. The old shape put a read-only combobox button in
+              the form and a *second* «Adresse suchen…» input inside its popover,
+              which meant the field the operator aimed at was never the field
+              they typed into. */}
+          <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
+            <PopoverAnchor asChild>
+              <div ref={anchorRef} className="relative flex-1">
+                <MapPin className={cn(
+                  "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
+                  dense ? "left-1.5 size-3.5" : "left-3",
+                )} />
+                <Input
+                  id="location_address"
+                  ref={searchInputRef}
+                  role="combobox"
+                  aria-expanded={addressSearchOpen}
+                  aria-autocomplete="list"
+                  aria-controls="location-options"
+                  aria-invalid={error}
+                  autoComplete="off"
+                  disabled={disabled}
+                  placeholder={t('locationInput.addressPlaceholder')}
+                  value={addressSearchQuery}
+                  onChange={(e) => {
+                    setEditing(true)
+                    setAddressSearchQuery(e.target.value)
+                    setAddressSearchOpen(true)
+                  }}
+                  onFocus={(e) => {
+                    setEditing(true)
+                    setAddressSearchOpen(true)
+                    e.target.select()
+                  }}
+                  onBlur={() => {
+                    setEditing(false)
+                    // Leaving the field with text nobody committed: take it as
+                    // freetext rather than silently throwing it away. Skipped
+                    // while the list is open, because that blur is a click on a
+                    // result — and that result must win, not the half-typed
+                    // query behind it.
+                    if (!addressSearchOpen && addressSearchQuery.trim() !== (address ?? "").trim()) {
+                      commitFreetext(addressSearchQuery)
+                    }
+                  }}
+                  onKeyDown={handleAddressKeyDown}
+                  className={cn(
+                    "pl-9",
+                    // Transparent border + constant padding: focusing must not
+                    // move the text the operator just clicked on.
+                    dense &&
+                      "h-7 rounded-md border border-transparent bg-transparent px-2 pl-7 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
+                    error && "border-destructive focus-visible:ring-destructive"
+                  )}
+                />
+              </div>
+            </PopoverAnchor>
+            <PopoverContent
+              // Trigger width as the FLOOR, not the size: in the side panel the
+              // field is ~250px wide, and an address list that narrow truncates
+              // exactly the part that distinguishes two streets of the same name.
+              className="w-(--radix-popover-trigger-width) min-w-[340px] p-0"
+              align="start"
+              // The field keeps the keyboard the whole time — this is one input
+              // with a list under it, not a panel you tab into.
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              onCloseAutoFocus={(e) => e.preventDefault()}
+              // Clicking back into the input is not "outside": without this the
+              // list closes on pointer-down and reopens on focus, which flickers.
+              onInteractOutside={(e) => {
+                if (anchorRef.current?.contains(e.target as Node)) e.preventDefault()
+              }}
+            >
               <div className="flex flex-col">
-                <div className="p-2 border-b">
-                  <SearchInput
-                    ref={searchInputRef}
-                    placeholder={t('locationInput.searchPlaceholder')}
-                    value={addressSearchQuery}
-                    onValueChange={setAddressSearchQuery}
-                    onFocus={(e) => e.target.select()}
-                    onKeyDown={(e) => {
-                      // Close popover on Tab and let natural tab order take over
-                      if (e.key === 'Tab') {
-                        setAddressSearchOpen(false)
-                        // Don't prevent default - let the browser handle tab navigation naturally
-                      }
-                    }}
-                    className="h-9"
-                  />
-                </div>
-                {/* data-testid is the contract for the E2E page object: the popover also
-                    contains the search box, whose clear («X») button is a <button> ABOVE this
-                    list. Selecting options as "any button in the popover" therefore grabbed the
-                    clear button and wiped the query instead of committing an address. */}
-                <div data-testid="location-options" className="overflow-y-auto overscroll-contain max-h-[260px]">
+                {/* data-testid is the contract for the E2E page object: an option is
+                    either a geocoded result row or the «…» übernehmen freetext
+                    fallback, and clicking either commits the address. */}
+                <div id="location-options" data-testid="location-options" className="overflow-y-auto overscroll-contain max-h-[260px]">
+                  {/* One type scale for the whole dropdown: an option title is
+                      text-sm, everything secondary (coordinates, hints, status
+                      lines) is text-xs. The popover itself sets no font size,
+                      so anything unsized in here inherits the 16px body text
+                      and renders LARGER than the result rows it sits next to —
+                      which is what made the list look oversized. */}
                   {isSearching && (
-                    <div className="p-4 text-sm text-muted-foreground text-center">
+                    <div className="px-3 py-2.5 text-xs text-muted-foreground text-center">
                       {t('locationInput.searching')}
                     </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length >= 3 && (
                     <div className="py-1">
-                      <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+                      <div className="px-3 py-2 text-xs text-muted-foreground text-center">
                         {t('locationInput.noResults')}
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          onAddressChange(addressSearchQuery.trim())
-                          setAddressSearchOpen(false)
-                          setAddressSearchQuery("")
-                        }}
+                        onClick={() => commitFreetext(addressSearchQuery)}
                         className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-muted transition-colors cursor-pointer border-t"
                       >
                         <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{t('locationInput.useFreetext', { query: addressSearchQuery.trim() })}</div>
+                          <div className="truncate text-sm font-medium">{t('locationInput.useFreetext', { query: addressSearchQuery.trim() })}</div>
                           <div className="text-xs text-muted-foreground">
                             {t('locationInput.freetextNote')}
                           </div>
@@ -352,22 +447,27 @@ export function LocationInput({
                     </div>
                   )}
                   {!isSearching && addressResults.length === 0 && addressSearchQuery.length < 3 && (
-                    <div className="p-4 text-sm text-muted-foreground text-center">
+                    <div className="px-3 py-2.5 text-xs text-muted-foreground text-center">
                       {t('locationInput.minChars')}
                     </div>
                   )}
                   {!isSearching && addressResults.length > 0 && (
                     <div className="py-1">
-                      {addressResults.map((result) => (
+                      {addressResults.map((result, index) => (
                         <button
                           key={result.id}
                           type="button"
                           onClick={() => handleAddressSelect(result)}
-                          className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-muted transition-colors cursor-pointer"
+                          onMouseEnter={() => setActiveIndex(index)}
+                          aria-selected={index === activeIndex}
+                          className={cn(
+                            "w-full flex items-start gap-2 px-3 py-2 text-left transition-colors cursor-pointer hover:bg-muted",
+                            index === activeIndex && "bg-muted",
+                          )}
                         >
                           <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{result.formattedAddress}</div>
+                            <div className="truncate text-sm font-medium">{result.formattedAddress}</div>
                             <div className="text-xs text-muted-foreground truncate">
                               {result.lat.toFixed(6)}, {result.lon.toFixed(6)}
                             </div>
@@ -384,27 +484,29 @@ export function LocationInput({
           {/* Map Picker Button - excluded from tab order for cleaner form navigation */}
           <Button
             type="button"
-            variant="outline"
-            size="icon"
+            variant={dense ? "ghost" : "outline"}
+            size={dense ? "icon-xs" : "icon"}
+            className={cn(dense && "size-7")}
             onClick={() => setMapPickerOpen(true)}
             disabled={disabled}
             title={t('locationInput.pickOnMap')}
             tabIndex={-1}
           >
-            <Map className="size-4" />
+            <Map className={dense ? "size-3.5" : "size-4"} />
           </Button>
 
           {/* Show Coordinates Button - excluded from tab order for cleaner form navigation */}
           <Button
             type="button"
-            variant={showCoordinates ? "default" : "outline"}
-            size="icon"
+            variant={showCoordinates ? "default" : dense ? "ghost" : "outline"}
+            size={dense ? "icon-xs" : "icon"}
+            className={cn(dense && "size-7")}
             onClick={() => setShowCoordinates(!showCoordinates)}
             disabled={disabled}
             title={t('locationInput.enterCoordinates')}
             tabIndex={-1}
           >
-            <Navigation className="size-4" />
+            <Navigation className={dense ? "size-3.5" : "size-4"} />
           </Button>
         </div>
       </div>
@@ -421,7 +523,10 @@ export function LocationInput({
         <div className="overflow-hidden">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-muted-foreground">
+              <Label className={cn(
+                "text-muted-foreground",
+                dense ? "text-xs font-normal" : "text-sm font-semibold",
+              )}>
                 {t('locationInput.coordinatesLabel')}
               </Label>
               {hasValidCoordinates && !coordinateError && (
@@ -441,6 +546,7 @@ export function LocationInput({
                 disabled={disabled || !showCoordinates}
                 aria-invalid={!!coordinateError}
                 className={cn(
+                  dense && "h-7",
                   coordinateWarning && !coordinateError && "border-warning"
                 )}
               />
@@ -450,7 +556,8 @@ export function LocationInput({
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
+                  size={dense ? "icon-xs" : "icon"}
+                  className={cn(dense && "size-7")}
                   onClick={handleSwapCoordinates}
                   disabled={disabled || !showCoordinates}
                   title={t('locationInput.swapLatLng')}
@@ -465,7 +572,8 @@ export function LocationInput({
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
+                  size={dense ? "icon-xs" : "icon"}
+                  className={cn(dense && "size-7")}
                   onClick={handleClearLocation}
                   disabled={disabled || !showCoordinates}
                   title={t('locationInput.clearLocation')}

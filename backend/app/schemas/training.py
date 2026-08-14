@@ -258,3 +258,63 @@ class SimulateVehicleBreakdownResponse(BaseModel):
 
     vehicle_name: str
     message: str
+
+
+class SimulateFieldCompleteRequest(BaseModel):
+    """The follow-up "Einsatz beendet" asks in the field (decision 24).
+
+    ``pickup_needed=None`` is the default and means *die Lage entscheidet*: the
+    simulator rolls it from the situation — a crew that walked there or whose
+    vehicle drove on is usually stranded. The Übungsleiter can always override
+    by sending the answer explicitly, which is the same choice the crew has on
+    `/feld`.
+    """
+
+    pickup_needed: bool | None = None
+    pickup_note: str | None = None
+
+
+class SimulatePickupRequest(BaseModel):
+    """ "Abholung nötig" / "abgeholt" as a standalone report (decision 24).
+
+    The crew that asks for a pickup an hour after "Einsatz beendet" — or calls
+    in that the bus has been and gone — is a report of its own, not a follow-up
+    question. ``note=None`` lets the simulator derive one from the situation
+    (zu Fuss / kein Fahrzeug), the same way the completion inject does.
+    """
+
+    needed: bool = True
+    note: str | None = None
+
+
+class SimulateRapportResponse(BaseModel):
+    """One simulated Schadenplatz-Rapport, as the console reports it back."""
+
+    incident_id: UUID
+    incident_title: str
+    # The person the rapport was filed by — the Einsatzleiter most of the time
+    # (decision 22). None when the incident had nobody assigned and the KP had
+    # to enter it, which is the honest provenance for that case.
+    filed_by: str | None = None
+    # How many of the board's vehicles the simulated crew confirmed were there.
+    vehicles_present: int = 0
+    materials_ticked: int = 0
+    # Scene photos the simulated crew attached, from the same offline pool the
+    # simulated Reko reports use. 0 most of the time — a real crew rarely does.
+    photos: int = 0
+    message: str
+
+
+class SimulateBulkRapportResponse(BaseModel):
+    """The bulk inject: 80 % of the rapports arrive, the rest stay missing.
+
+    ``skipped`` is not a failure count — the gaps are the exercise. They are
+    what the Restliste exists to surface, and finding them is the skill being
+    trained.
+    """
+
+    candidates: int
+    covered: int
+    skipped: int
+    rapports: list[SimulateRapportResponse] = []
+    message: str

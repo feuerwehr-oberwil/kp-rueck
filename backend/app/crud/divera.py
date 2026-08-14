@@ -1,6 +1,6 @@
 """Divera emergency CRUD operations."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -66,7 +66,10 @@ async def create_alarm_emergency(
         address=alarm.address,
         latitude=alarm.lat,
         longitude=alarm.lng,
-        raw_payload_json=alarm.model_dump(),
+        # mode="json", not the default: the payload now carries `started_at`, and a raw
+        # datetime is not JSON-serialisable — psycopg's JSONB encoder raises and the whole
+        # alarm 500s. Everything in here has to survive a round trip through the column.
+        raw_payload_json=alarm.model_dump(mode="json"),
     )
 
     db.add(emergency)
@@ -214,7 +217,7 @@ async def attach_emergency_to_event(
         .where(models.DiveraEmergency.id == emergency_id)
         .values(
             attached_to_event_id=event_id,
-            attached_at=datetime.utcnow(),
+            attached_at=datetime.now(UTC),
             created_incident_id=incident_id,
         )
     )
@@ -266,7 +269,7 @@ async def archive_divera_emergency(
         .where(models.DiveraEmergency.id == emergency_id)
         .values(
             is_archived=True,
-            archived_at=datetime.utcnow(),
+            archived_at=datetime.now(UTC),
         )
     )
     await db.commit()

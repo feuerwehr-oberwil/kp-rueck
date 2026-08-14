@@ -1,7 +1,7 @@
 """Vehicle CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import select
@@ -89,7 +89,7 @@ async def update_vehicle(
     for field, value in update_data.items():
         setattr(vehicle, field, value)
 
-    vehicle.updated_at = datetime.utcnow()
+    vehicle.updated_at = datetime.now(UTC)
 
     # Capture after state
     after_state = {
@@ -133,7 +133,7 @@ async def delete_vehicle(
 
     # Soft delete: mark as 'unavailable'
     vehicle.status = "unavailable"
-    vehicle.updated_at = datetime.utcnow()
+    vehicle.updated_at = datetime.now(UTC)
 
     # Log deletion
     await log_action(

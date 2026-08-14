@@ -7,6 +7,7 @@ same pool and share the same auto-attach and inference logic.
 """
 
 import re
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -42,6 +43,20 @@ class AlarmIn(BaseModel):
     lng: float | None = Field(default=None, ge=-180, le=180)
     # Sender reference number shown in the pool (like Divera's "E-123").
     number: str | None = Field(default=None, max_length=50)
+
+    # --- Fields KP Front's `POST /api/alarms` already accepted --------------------------
+    # Same path, same purpose, two incompatible payloads: a relay written against one app
+    # got a 422 or silent data loss from the other. These three are accepted here so ONE
+    # payload works against both. All optional, so nothing that sends today breaks.
+    #
+    # They are hints, not commands: an unknown `type` or an out-of-range `priority` falls
+    # back to the keyword inference instead of failing the alarm. A dispatch system that
+    # knows better than our keywords should be able to say so; a dispatch system with a
+    # typo should not be able to drop an alarm on the floor.
+    type: str | None = Field(default=None, max_length=50)
+    priority: str | None = Field(default=None, max_length=20)
+    # When the alarm went off at the sender, as opposed to when it reached us.
+    started_at: datetime | None = None
 
     @field_validator("source")
     @classmethod

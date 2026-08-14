@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
+import { apiClient } from "@/lib/api-client"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop } from "@/lib/kanban-utils"
@@ -97,6 +98,15 @@ export function useIncidentStatusWorkflow({
   const [rekoAssignmentReturnStatus, setRekoAssignmentReturnStatus] = useState<OperationStatus | null>(null)
   const [assignmentReturn, setAssignmentReturn] = useState<AssignmentReturn | null>(null)
   const [materialDecisions, setMaterialDecisions] = useState<Record<string, "magazin" | "vorort">>({})
+  // What the Schadenplatz-Rapport already answered, per material id, plus who
+  // answered it. The crew ticked "vor Ort verblieben" unit by unit at the
+  // scene; asking the same question again at completion is asking somebody who
+  // was not there to overrule somebody who was.
+  const [materialAnswers, setMaterialAnswers] = useState<Record<string, "magazin" | "vorort">>({})
+  const [materialRapportBy, setMaterialRapportBy] = useState<string | null>(null)
+  // Was that rapport filed, or is it still a draft the crew never submitted?
+  // The gate reads both (§18.23) and must say which it is reading.
+  const [materialRapportIsDraft, setMaterialRapportIsDraft] = useState(false)
 
   // Moving a card into a working column auto-clears «Am Warten» (see
   // `updateOperation`). The gates below move FIRST and ask afterwards, so
@@ -300,25 +310,97 @@ export function useIncidentStatusWorkflow({
   }, [materialDecisionOperationId, materialDecisionReturnStatus, revertTo])
 
   const materialDecisionOperation = operationById(materialDecisionOperationId)
-  useEffect(() => setMaterialDecisions({}), [materialDecisionOperationId])
+
+  // Prefill the gate from a submitted rapport instead of asking from scratch.
+  // The fetch lives here rather than in `promptMaterialDecision` so the trigger
+  // stays synchronous — the gate must open the instant the card moves, and the
+  // crew's answers land in it a moment later rather than delaying it.
+  useEffect(() => {
+    setMaterialDecisions({})
+    setMaterialAnswers({})
+    setMaterialRapportBy(null)
+    setMaterialRapportIsDraft(false)
+    if (!materialDecisionOperationId) return
+
+    let cancelled = false
+    void (async () => {
+      try {
+        // `includeDraft` (§18.23): a crew that filled the checklist and never
+        // pressed *Rapport abschliessen* on a phone in the rain has answered
+        // the question anyway, and asking the operator from scratch is exactly
+        // the complaint. Nothing is auto-applied — the operator still confirms,
+        // which is what makes reading a draft safe here. The release list in
+        // the incident detail does NOT pass it: its click releases assignments.
+        const data = await apiClient.getRapportMaterialReturn(materialDecisionOperationId, { includeDraft: true })
+        if (cancelled) return
+        const answers: Record<string, "magazin" | "vorort"> = {}
+        // `returned` also carries the units nobody answered — those are still
+        // open questions and must stay unmarked, or the gate would claim the
+        // crew said "Magazin" about a unit it never looked at.
+        for (const unit of data.returned) {
+          if (unit.answered && unit.material_id) answers[unit.material_id] = "magazin"
+        }
+        // `left_on_site` needs no `answered` check: saying where a unit stays
+        // IS the answer. `used: null` next to `left_on_site: true` is the crew
+        // answering one question and not the other, not an untouched row.
+        for (const unit of data.left_on_site) {
+          if (unit.material_id) answers[unit.material_id] = "vorort"
+        }
+        setMaterialAnswers(answers)
+        const hasAnswers = Object.keys(answers).length > 0
+        setMaterialRapportBy(hasAnswers ? data.rapport_by : null)
+        setMaterialRapportIsDraft(hasAnswers && data.rapport_is_draft)
+      } catch (error) {
+        // A gate that fails open is right here: no prefill, ask everything, the
+        // way it worked before the rapport existed.
+        console.error("Failed to load rapport material answers:", error)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [materialDecisionOperationId])
 
   const materialDecisionItems = useMemo(() => {
     if (!materialDecisionOperation) return []
-    return materialDecisionOperation.groupId
+    const rows = materialDecisionOperation.groupId
       ? getGroupResources(materialDecisionOperation.groupId).materials.map((material) => ({
           id: material.resourceId,
           assignmentId: material.assignmentId,
         }))
       : materialDecisionOperation.materials.map((id) => ({ id, assignmentId: null }))
-  }, [getGroupResources, materialDecisionOperation])
+
+    return rows.map((row) => {
+      // A consumable has no "vor Ort" state at all — it was used or it was not,
+      // and either way it does not come back (decision 26). So it is never an
+      // open question, and it must not be one of the answers the operator is
+      // asked to give.
+      const consumable = Boolean(materials.find((material) => material.id === row.id)?.consumable)
+      const answer = consumable ? "magazin" : materialAnswers[row.id]
+      return {
+        ...row,
+        consumable,
+        answer: answer ?? null,
+        source: consumable ? ("consumable" as const) : answer ? ("rapport" as const) : null,
+      }
+    })
+  }, [getGroupResources, materialAnswers, materialDecisionOperation, materials])
+
+  /** How many units the operator genuinely still has to decide. */
+  const materialDecisionOpenCount = materialDecisionItems.filter((item) => item.source === null).length
+
+  /** The operator's own click wins; the rapport answers what they left alone. */
+  const materialChoice = useCallback(
+    (item: { id: string; answer: "magazin" | "vorort" | null }): "magazin" | "vorort" =>
+      materialDecisions[item.id] ?? item.answer ?? "magazin",
+    [materialDecisions],
+  )
 
   const resolveMaterialDecision = useCallback(() => {
     if (!materialDecisionOperation) return { returned: [] as string[], kept: [] as string[] }
-    const returnedItems = materialDecisionItems.filter(
-      (item) => (materialDecisions[item.id] ?? "magazin") === "magazin",
-    )
+    const returnedItems = materialDecisionItems.filter((item) => materialChoice(item) === "magazin")
     const kept = materialDecisionItems
-      .filter((item) => (materialDecisions[item.id] ?? "magazin") === "vorort")
+      .filter((item) => materialChoice(item) === "vorort")
       .map((item) => item.id)
 
     for (const item of returnedItems) {
@@ -331,7 +413,7 @@ export function useIncidentStatusWorkflow({
     setMaterialDecisionOperationId(null)
     setMaterialDecisionReturnStatus(null)
     return { returned: returnedItems.map((item) => item.id), kept }
-  }, [materialDecisionItems, materialDecisionOperation, materialDecisions, removeMaterial, unassignGroupResource])
+  }, [materialChoice, materialDecisionItems, materialDecisionOperation, removeMaterial, unassignGroupResource])
 
   const returningVehicleOperation = operationById(returningVehicleOperationId)
   const effectiveReturningVehicleOperation = returningVehicleOperation
@@ -392,6 +474,13 @@ export function useIncidentStatusWorkflow({
     cancelMaterialDecision,
     materialDecisionItems,
     materialDecisions,
+    /** Who filed the rapport the prefilled answers come from; null when none did. */
+    materialRapportBy,
+    /** …and whether that rapport is still a draft, which the dialog must say. */
+    materialRapportIsDraft,
+    /** Units the operator genuinely still has to decide (0 = a pure confirmation). */
+    materialDecisionOpenCount,
+    materialChoice,
     setMaterialDecision: (materialId: string, decision: "magazin" | "vorort") => {
       setMaterialDecisions((current) => ({ ...current, [materialId]: decision }))
     },
@@ -674,27 +763,62 @@ export function IncidentStatusWorkflowDialogs({
               {tMat("title")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {controller.materialDecisionOperation && tMat.rich("description", {
-                location: operationLabel(controller.materialDecisionOperation),
-                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-              })}
+              {controller.materialDecisionOperation && tMat.rich(
+                // A rapport that answered everything turns this from a decision
+                // into a confirmation, and the text has to say so — otherwise the
+                // operator reads "entscheide pro Mittel" over answers that are
+                // already made and starts checking work somebody else did.
+                controller.materialRapportBy
+                  ? controller.materialDecisionOpenCount === 0
+                    ? "descriptionFromRapport"
+                    : "descriptionPartialRapport"
+                  : "description",
+                {
+                  location: operationLabel(controller.materialDecisionOperation),
+                  count: controller.materialDecisionOpenCount,
+                  hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                },
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {controller.materialRapportBy && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <ClipboardCheck className="h-3.5 w-3.5 flex-shrink-0" />
+              {/* "Rapport" vs "Rapport-Entwurf" (§18.23): the gate reads a
+                  draft too now, and an operator weighing a half-finished
+                  answer has to know it is half-finished. */}
+              {tMat(controller.materialRapportIsDraft ? "rapportSourceDraft" : "rapportSource", {
+                name: controller.materialRapportBy,
+              })}
+            </p>
+          )}
           {controller.materialDecisionOperation && (
             <div className="max-h-64 space-y-1.5 overflow-y-auto py-1">
-              {controller.materialDecisionItems.map(({ id: materialId }) => {
-                const choice = controller.materialDecisions[materialId] ?? "magazin"
+              {controller.materialDecisionItems.map((item) => {
+                const materialId = item.id
+                const choice = controller.materialChoice(item)
                 const name = controller.materials.find((material) => material.id === materialId)?.name ?? materialId
                 return (
                   <div key={materialId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium" title={name}>{name}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium" title={name}>{name}</span>
+                      {item.source && (
+                        <span className="block text-xs text-muted-foreground">
+                          {tMat(item.source === "consumable" ? "consumableHint" : "answeredHint")}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex flex-shrink-0 gap-1">
                       <Button size="xs" variant={choice === "magazin" ? "default" : "outline"} onClick={() => controller.setMaterialDecision(materialId, "magazin")}>
                         {tMat("toMagazinShort")}
                       </Button>
-                      <Button size="xs" variant={choice === "vorort" ? "default" : "outline"} onClick={() => controller.setMaterialDecision(materialId, "vorort")}>
-                        {tMat("onSiteShort")}
-                      </Button>
+                      {/* A consumable has no "vor Ort" state — offering the button
+                          would offer a state the backend refuses to store. */}
+                      {!item.consumable && (
+                        <Button size="xs" variant={choice === "vorort" ? "default" : "outline"} onClick={() => controller.setMaterialDecision(materialId, "vorort")}>
+                          {tMat("onSiteShort")}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )
@@ -712,7 +836,9 @@ export function IncidentStatusWorkflowDialogs({
               ].filter(Boolean).join(" · ")
               toast.success(returned.length ? tDash("materialReturned") : tMat("leftOnSite"), { description })
             }}>
-              {tMat("confirm")}
+              {controller.materialRapportBy && controller.materialDecisionOpenCount === 0
+                ? tMat("confirmRapport")
+                : tMat("confirm")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

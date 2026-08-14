@@ -197,7 +197,7 @@ describe("AuftraegeSheet — viewer", () => {
     expect(screen.queryByRole("button", { name: /Neuer Auftrag/ })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
     expect(screen.getByTitle("Karte")).toBeInTheDocument()
-    expect(screen.queryByText("Stop hinzufügen")).not.toBeInTheDocument()
+    expect(screen.queryByText("Stopp hinzufügen")).not.toBeInTheDocument()
     expect(screen.queryByTitle("Fahrzeug zuweisen")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Status wählen")).not.toBeInTheDocument()
   })

@@ -5,7 +5,13 @@ Digitaler Ersatz für die Magnettafel im Kommandoposten. Verwalten Sie Einsätze
 ## Ansichten
 
 ### Kanban-Board (`G K`)
-Hauptansicht beim Laden der App. Zeigt alle Einsätze in Status-Spalten (Eingegangen → Archiv). Links die Personal-Seitenleiste, rechts Material und Fahrzeuge.
+Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (Eingegangen → Abgeschlossen). Links die Personal-Seitenleiste, rechts Material und Fahrzeuge.
+
+**Die Ansicht bleibt, wie man sie eingestellt hat.** Zugeklappte Seitenleisten, das Seitenpanel und eine weggeklickte Einrichtungs-Checkliste überstehen einen Reload – pro Gerät gemerkt, wie die übrigen Anzeige-Einstellungen.
+
+**«3 Geräte vor Ort» am Kopf der Material-Leiste.** Material, das ein Trupp irgendwo stehen liess, ist auf dem Board sonst unsichtbar – es ist weder frei noch erkennbar im Gebrauch. Die Aufklappliste nennt Gerät, Adresse und seit wann, das Älteste zuoberst; ein Klick öffnet den zugehörigen Einsatz. Sie erscheint nur, wenn wirklich etwas draussen steht.
+
+**«Rapporte» in der Fusszeile.** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
 
 ### Kartenansicht (`G M`)
 Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot).
@@ -22,7 +28,7 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 **Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen – siehe [Tastaturkürzel](#tastaturkürzel).
 
 ### Seitenpanel (Kanban)
-Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel. Wechseln Sie zwischen **Details** (Einsatzbearbeitung) und **Karte** (Mini-Übersicht).
+Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **Details** des ausgewählten Einsatzes (Einsatzbearbeitung). Mit `I` bzw. `\` ein- und ausklappen. Eine Mini-Karte im Panel gibt es nicht mehr – die Karte ist eine eigene Seite (`G M`), und `K` öffnet den ausgewählten Einsatz dort.
 
 **Klick-Verhalten:**
 - **Einfach-Klick**: Zeigt Einsatz-Details im Seitenpanel
@@ -41,10 +47,10 @@ Diese Dokumentationsseite.
 
 **Audit-Export:** Einstellungen → Import/Export → Event auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll wird im Hintergrund automatisch aufgeräumt (Standard-Aufbewahrung 90 Tage, im Demo-Modus 7 Tage), damit die Tabelle nicht unbegrenzt wächst.
 
-**Drucken (PDF):** Footer → "Drucken" öffnet Druckvorschau mit Optionen:
-- Einsätze nach Status filtern
-- Karten-Übersicht (zeigt alle Einsatzorte auf einer Karte)
-- Fahrzeugstatus einblenden
+**Drucken & Export:** Footer → "Drucken" oder Taste `D` öffnet **ein** Slide-up mit drei Spalten – alles, was auf Papier oder in eine Datei geht, an einer Stelle:
+- **Thermodruck** – Board-Snapshot auf den [Thermodrucker](#thermodrucker)
+- **Status drucken (A4)** – Druckvorschau mit Optionen: Einsätze nach Status filtern, Karten-Übersicht (zeigt alle Einsatzorte auf einer Karte), Fahrzeugstatus einblenden
+- **Export** – Bericht (PDF), Lageblatt (A4) und Audit (XLSX) als Datei auf dieses Gerät
 
 ---
 
@@ -58,7 +64,11 @@ Für Kommandoposten mit mehreren Bildschirmen gibt es spezielle Anzeige-Seiten u
 Vollbild-Karte ohne Seitenleiste. Zeigt alle Einsatzorte, GPS-Fahrzeugpositionen und animierte Zuweisungslinien (Fahrzeug → Einsatz). Ideal für einen zentralen Lagebildschirm.
 
 ### Board (`/display/board`)
-Kanban-Board ohne Bearbeitungsmöglichkeiten. Alle 6 Status-Spalten werden gleichmässig auf die Fensterbreite skaliert.
+Kanban-Board ohne Bearbeitungsmöglichkeiten. Alle 7 Status-Spalten werden gleichmässig auf die Fensterbreite skaliert – auch auf einem schmalen Wandschirm bleibt keine Spalte draussen. **Abgeschlossen** ist standardmässig zugeklappt.
+
+Es ist **dieselbe Einsatzkarte wie im Kommandoposten**, nur ohne Bedienelemente – gleiche Blöcke, gleiche Reihenfolge, inklusive Reko-Person, Rapport-Zeichen, Mannschaft und Material mit Namen, Melder und offener Abholung. Das Detail zeigt zusätzlich die Funkmeldungen des Trupps.
+
+Die Wand folgt dabei **nicht** der «Ansicht» des Bedieners: *Kompakt* gibt es, damit man an einem Board, an dem man arbeitet, mehr Karten unterbringt – eine Wand soll aus fünf Metern lesbar sein. Die Anzeige-Seite hat keinen Schalter dafür, deshalb zeigt sie immer die volle Karte.
 
 ### Status (`/display/status`)
 Vier-Spalten-Übersicht: Fahrzeuge, Einsätze (gruppiert nach Status), Personal (gruppiert nach Rolle) und Material (gruppiert nach Standort). Zeigt bei zugewiesenen Ressourcen den Einsatzort an. Skaliert auf grösseren Bildschirmen automatisch hoch.
@@ -81,7 +91,9 @@ Unter Einstellungen → Kartenstil kann zwischen verschiedenen Kartenstilen gewe
 
 ## Suche
 
-Die Suchleiste (`/`) durchsucht alle Einsätze nach Adresse, Typ und Meldungstext. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
+Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Meldungstext und **Auftragsname** – wer nach der Route sucht, findet ihre Stops. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
+
+Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist.
 
 ---
 
@@ -132,11 +144,19 @@ Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" akt
 
 ### Telefon / Walk-in-Abzeichen
 
-Alarme, die über den [Alarm-Link](#alarm-link-telefon--walk-in) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
+Alarme, die über den [Alarm-Link](#alarm-link-telefon-walk-in) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
 
-### Meldung anzeigen
+### Ansicht – was auf den Karten steht
 
-Im Footer gibt es einen "Meldung" Schalter. Aktiviert zeigt er den vollständigen Meldungstext direkt auf jeder Einsatzkarte an - praktisch für schnellen Überblick ohne jeden Einsatz zu öffnen.
+Im Footer sitzt das Menü **Ansicht**. Es bestimmt, welche Blöcke eine Einsatzkarte zeigt: Einsatzart, Zeiten, Meldung, Melder, Mannschaft, Fahrzeuge, Material, Auftrag und Reko – neun Schalter, dazu drei Vorlagen als Startpunkt:
+
+- **Kompakt** – nur der Kopf der Karte (möglichst viele Einsätze auf den Schirm)
+- **Standard** – alles ausser dem Melder
+- **Alles** – zusätzlich Melder und Telefonnummer
+
+Eine Vorlage setzt alle neun Schalter; danach ändert ein einzelner Schalter nur sich selbst, nichts springt zurück. **Adresse, Priorität und alle Warnhinweise** (Abholung, Rapport, Meldung vom Feld) lassen sich nicht abschalten.
+
+Die Einstellung gilt **pro Gerät** und überlebt einen Reload – zwei Arbeitsplätze am selben Ereignis dürfen sich unterscheiden, und ein Klick hier malt niemand anderem das Board um. Die Anzeige-Seiten unter `/display` folgen ihr nicht: eine Wand soll aus fünf Metern lesbar sein und zeigt immer die volle Karte.
 
 ### Karten-Icon
 
@@ -176,7 +196,11 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 5. Reko-Formular ausfüllen, Fotos hochladen
 6. Basierend auf Bericht: Disponieren oder Abschliessen
 
-**Wo das Reko-Ergebnis landet:** Im Einsatz-Detail – auch in den Anzeige-Ansichten unter `/display` – steht unter **Reko-Ergebnis** die Beurteilung, die Gefahren, der Personal- und Zeitbedarf, der Lagetext **und die hochgeladenen Fotos**. Ein Klick auf ein Bild öffnet es in voller Grösse. Die Bilder liegen hinter der Anmeldung; über einen Freigabelink ohne Login sind sie nicht sichtbar.
+**Wo das Reko-Ergebnis landet:** Im Einsatz-Detail – auch in den Anzeige-Ansichten unter `/display` – steht unter **Reko-Ergebnis** die Beurteilung, die Gefahren, der Personal- und Zeitbedarf, der Lagetext **und die hochgeladenen Fotos**. Ein Klick auf ein Bild öffnet es in voller Grösse. Die Bilder sind auch über einen Freigabelink sichtbar – ohne Login, für alle, die den Link haben. Sichtbar werden dabei nur Fotos aus **abgeschickten** Reko-Berichten des verlinkten Ereignisses; Fotos eines Entwurfs und Fotos aus dem Schadenplatz-Rapport bleiben hinter der Anmeldung. Wer den Link weitergibt, gibt die Reko-Fotos mit.
+
+**Ohne Handy draussen:** Meldet der Offizier über Funk statt über den Link, wird
+derselbe Bericht im KP erfasst – siehe
+[Alles vom KP aus erfassen](#alles-vom-kp-aus-erfassen-wenn-die-telefone-ausfallen).
 
 **Reko-Status auf Karten:**
 - Kein Icon: Keine Reko-Aktivität
@@ -204,35 +228,113 @@ Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **
 
 ### Personal Check-In
 
-QR-Code scannen → Person als anwesend markieren.
+QR-Code scannen → Person als anwesend markieren. Wer kein Handy dabei hat oder
+nicht scannen kann, wird im **Appell** vom KP aus angemeldet – siehe unten.
+
+### Alles vom KP aus erfassen (wenn die Telefone ausfallen)
+
+Jeder Link ohne Anmeldung – Check-In, Reko, Feld, Alarm – ist ein **Eingangskanal,
+nicht der Ort, an dem die Daten wohnen**. Alles, was ein Trupp draussen eintippen
+kann, kann der KP am Board genauso erfassen. Das ist kein Komfort, sondern der
+Normalfall: kein Empfang im Keller, leerer Akku, Handschuhe, oder eine Mannschaft,
+die um 02:00 keine App öffnet – dann diktiert der Trupp über Funk, und der KP ist
+das einzige Eingabegerät, das das System noch hat.
+
+**Appell (Anwesenheit).** Fuss­zeile → *Check-In* → Zeile **Anwesenheit** →
+«Appell öffnen» (auch über die Ereignis-Checkliste erreichbar).
+
+- Eine Zeile pro Person, alphabetisch und **stabil** – die Liste sortiert sich
+  beim Abhaken nicht um. Klick auf die Zeile schaltet weiter:
+  *nicht anwesend → anwesend → gegangen*.
+- «Gegangen» ist eine Aussage, keine Abwesenheit: wer um 20:40 heimgegangen ist,
+  ist nicht dasselbe wie jemand, der nie da war. Der Ereignisbericht liest den
+  Unterschied.
+- Kopfzeile: `{anwesend} anwesend · {gegangen} gegangen · {total} Mannschaft`.
+- **«Alle abmelden»** setzt am Ende des Ereignisses alle Anwesenden auf
+  «gegangen». Zuteilungen bleiben bestehen, andere Ereignisse werden nicht berührt.
+- Wer noch einem Einsatz zugeteilt ist, bekommt beim Abmelden eine Rückfrage –
+  danach wird abgemeldet, die Zuteilung bleibt. Das Board ist die Stelle, die sie
+  auflösen kann; ein hartes Verbot würde zwingen, zum Abmelden die Ansicht zu wechseln.
+- Wer als *nicht verfügbar* geführt ist, erscheint ausgegraut mit Grund.
+- **«Person hinzufügen»** im Appell legt die Person an **und meldet sie direkt an**.
+
+> **Nachbarhilfe und Zivilschutz können sich nicht selbst anmelden.** Der Check-In
+> zeigt nur den eigenen Bestand, und Sichtbarkeit kommt aus den Zuteilungen. Der
+> vorgesehene Weg ist: im Appell (oder in der Seitenleiste) über **«Person
+> hinzufügen»** erfassen und anschliessend dem Einsatz zuteilen. Das ist kein
+> Fehler und kein fehlendes Feature – es ist der Arbeitsweg.
+
+**Reko-Bericht über Funk.** Im Einsatz-Detail, Block *Reko*:
+**«Reko-Bericht erfassen»** – auch bei einem Einsatz, bei dem noch nie jemand
+draussen war. Es ist dasselbe Formular wie auf dem Reko-Link, nur mit anderem
+Absender. Ein bereits vom Trupp eingereichter Bericht wird mit
+**«Reko-Bericht ergänzen»** im selben Datensatz nachgeführt, nicht als zweiter
+Bericht daneben. Fotos gibt es hier bewusst nicht: ein Funkspruch bringt keine mit.
+
+**«Reko vor Ort» über Funk.** Im Einsatz-Detail, Block *Funkmeldungen* – dieselbe
+Zeile, in der auch «Angekommen», «Einsatz beendet» und «Abholung nötig» stehen.
+Die Uhrzeit ist frei setzbar (eine fünf Minuten später notierte Meldung gehört
+fünf Minuten zurück) und wieder löschbar (ein missverstandener Funkspruch wird
+korrigiert, nicht ergänzt).
+
+**«Telefonisch gemeldet».** Im Dialog *Neuer Einsatz* bei Kontakt/Melder – und
+nachträglich im Einsatz-Detail korrigierbar, weil die realistische Reihenfolge
+«erst eintippen, dann merken, dass es ein Anruf war» ist. Der Einsatz bekommt
+dasselbe blaue [Telefon-Abzeichen](#telefon-walk-in-abzeichen) wie eine Meldung
+über den Alarm-Link.
+
+**Woran man sieht, welcher Weg es war.** Gedruckte und exportierte Unterlagen
+(Lageblatt, Ereignisbericht-PDF, Einsätze-Export, Thermo-Board-Snapshot) schreiben
+**«(Feld)»** neben eine Erfassung vom Feld und **«(Funkmeldung)»** neben eine im KP
+erfasste. Ein Bericht, den der Trupp eingereicht und der KP ergänzt hat, zeigt
+beide Zeilen. Beim Normalfall – jemand meldet sich selbst an – steht bewusst nichts.
+
+**Grenzen, die man kennen sollte:**
+
+- Der Check-In-Link ist **anonym**: wer den QR-Code hat, kann jede Person anmelden,
+  und diese Erfassung trägt keinen Namen. Nur eine Erfassung am Board ist einer
+  Person zugeordnet.
+- **«Telefonisch gemeldet» ist eine Behauptung, kein Nachweis** – es heisst, dass
+  eine Bedienperson es so gesagt hat. Für die Statistik ist das kein Herkunftsbeleg.
+- Das Board kennt **drei** Zustände, der Check-In auf dem Handy **zwei**: Wer dort
+  «gegangen» ist, erscheint einfach als nicht angemeldet und ist mit einem Tipp
+  wieder da. «Ich bin gegangen» tippt niemand – deshalb wird das im KP festgehalten.
+- Der Reko-Block sagt nicht mehr, ob die Reko vor Ort ist; diese Information steht
+  jetzt genau an einer Stelle, in den *Funkmeldungen*.
 
 ### Mehrere Einsätze gleichzeitig
 
-- Mit `↑`/`↓` zwischen Einsätzen wechseln
+- Mit `S` oder `/` die richtige Karte suchen statt sie zu suchen
 - Prioritäten helfen beim Überblick (Rot = dringend)
 - Alters-Badges zeigen, welche Einsätze lange offen sind
-- Seitenpanel für Karte + Details nutzen (auf breiten Bildschirmen)
+- Seitenpanel für die Details nutzen (auf breiten Bildschirmen), Karte auf `G M`
+- Im offenen Detail-Dialog wechseln `←`/`→` zwischen den Reitern
 
 ---
 
 ## Einsatz-Workflow
 
-Einsätze durchlaufen 6 Phasen: **Eingegangen** → **Reko** → **Disponiert** → **Einsatz** → **Beendet** → **Archiv**
+Einsätze durchlaufen 7 Spalten: **Eingegangen** → **Reko** → **Reko abgeschlossen** → **Disponiert / Anfahrt** → **Im Einsatz** → **Beendet / Rückfahrt** → **Abgeschlossen**
 
-| Phase | Beschreibung |
+| Spalte | Beschreibung |
 |-------|-------------|
 | Eingegangen | Neu gemeldet, Details erfassen |
-| Reko | Erkundung vor Ort (optional) |
-| Disponiert | Ressourcen zugewiesen, unterwegs |
-| Einsatz | Aktive Arbeitsphase |
-| Beendet | Rückfahrt zur Basis |
-| Archiv | Beendet, Personal & Fahrzeuge automatisch freigegeben |
+| Reko | Erkundung vor Ort läuft (optional) |
+| Reko abgeschlossen | Reko-Bericht liegt vor, Entscheid steht aus |
+| Disponiert / Anfahrt | Ressourcen zugewiesen, Trupp unterwegs |
+| Im Einsatz | Aktive Arbeitsphase |
+| Beendet / Rückfahrt | Arbeit fertig, Trupp fährt zurück |
+| Abgeschlossen | Erledigt, Personal & Fahrzeuge automatisch freigegeben. Die Spalte lässt sich einklappen. |
+
+Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **Ereignis** als Ganzes (`G E`).
 
 **Verschieben:** Karte in neue Spalte ziehen, oder `>` / `<` Tasten nutzen.
 
 **Reihenfolge innerhalb einer Spalte:** Karten lassen sich innerhalb derselben Spalte per Drag & Drop sortieren. Die manuelle Reihenfolge bleibt erhalten und wird auch nach einem Reload bzw. auf anderen Geräten gleich angezeigt (sie springt nicht mehr in die ursprüngliche Reihenfolge zurück).
 
 **Spalten überspringen:** Erlaubt. Nicht jeder Einsatz braucht Reko.
+
+**Meldung vom Feld «Einsatz beendet»:** Der Hinweis auf der Karte bzw. im Detail schiebt den Einsatz mit einem Klick nach **Beendet / Rückfahrt** – und hört dort auf. Er startet **nicht** den Abschluss (Materialabfrage, Rückfragen): der Trupp fährt gerade heim, das ist genau diese Spalte. Abgeschlossen wird nachher, wie sonst auch. Braucht der Trupp eine Mitfahrgelegenheit, meldet er eine **Abholung** – die erscheint als eigenes Band im Einsatz-Detail, gleich neben der Feld-Meldung.
 
 ---
 
@@ -336,7 +438,7 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 ### Global
 | Shortcut | Aktion |
 |----------|--------|
-| `Cmd/Ctrl+K` | Befehlspalette öffnen/schliessen |
+| `Cmd/Ctrl+K` oder `?` | Befehlspalette öffnen/schliessen |
 | `G K` | Kanban-Board |
 | `G M` | Kartenansicht |
 | `G E` | Ereignisse |
@@ -350,6 +452,7 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 | `N` | Neuer Einsatz |
 | `A` | Aufträge (Routen) öffnen/schliessen |
 | `S` / `/` | Suche fokussieren |
+| `D` | Drucken & Export öffnen/schliessen |
 | `R` / `F5` | Aktualisieren |
 | `F` | Fahrzeugstatus |
 
@@ -372,8 +475,7 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 | `Q` / `[` | Personal-Seitenleiste ein/aus |
 | `W` / `]` | Material-Seitenleiste ein/aus |
 | `I` / `\` | Seitenpanel ein/aus |
-| `D` | Seitenpanel: Details anzeigen |
-| `K` | Seitenpanel: Karte anzeigen |
+| `K` | Ausgewählten Einsatz auf der Kartenseite öffnen (nur bei offenem Seitenpanel) |
 | `B` | Benachrichtigungen |
 | `P` | Personal suchen |
 | `M` | Material suchen |
@@ -425,7 +527,11 @@ Im öffentlichen Demo-Modus erhält jeder Editor-Login (`demo-editor`) eine **pe
 
 ### Viewer-Link (Nur-Lesen)
 
-Für Personen ohne Login: Footer → "Viewer" generiert einen Link mit 24h Gültigkeit. Zeigt Kanban-Board und Karte ohne Bearbeitungsmöglichkeit. Aktualisiert automatisch alle 5 Sekunden.
+Für Personen ohne Login: Footer → "Viewer" generiert einen Link mit 24h Gültigkeit. Zeigt Kanban-Board und Karte ohne Bearbeitungsmöglichkeit – dieselbe Einsatzkarte wie der Kommandoposten. Aktualisiert automatisch alle 5 Sekunden.
+
+**Der Link zeigt neu auch das Reko-Ergebnis**: relevant ja/nein, Gefahren, Aufwandschätzung, Kurzbericht **und die Fotos vom Schadenplatz**. Vorher stand dort nur, *dass* eine Reko stattgefunden hat – was den Link für die Gemeinde oder eine Nachbarwehr wenig wert machte.
+
+> **Wer den Link hat, sieht das.** Bewusst **nicht** enthalten: das Feld «Weitere Bemerkungen» (freier Text, in dem regelmässig Anwohner namentlich vorkommen), **wer** den Bericht erfasst hat, und die Fotos eines noch nicht eingereichten Entwurfs. Fotos aus dem Schadenplatz-Rapport bleiben ebenfalls hinter der Anmeldung. Der Link gilt für **ein** Ereignis: ein weitergegebener Link öffnet nichts aus einem anderen. Entsprechend überlegt weitergeben.
 
 ### Alarm-Link (Telefon / Walk-in)
 
@@ -498,7 +604,7 @@ Die lokale Instanz läuft unter `http://localhost:3000`.
 
 ## Thermodrucker
 
-Druckt Einsatzzettel und Board-Snapshots auf einem 58mm ESC/POS Thermodrucker (z. B. Epson TM-T20).
+Druckt Einsatzzettel und Board-Snapshots auf einem **80 mm** ESC/POS Thermodrucker (z. B. Epson TM-T20III oder kompatibel). Die Formatierung ist fix auf 80 mm ausgelegt – 48 Zeichen pro Zeile in Schrift A; auf einem 58-mm-Gerät bricht jede Zeile um.
 
 ### Aufbau
 
@@ -516,7 +622,7 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 | Auftrag | Auslöser | Inhalt |
 |---------|----------|--------|
 | **Einsatzzettel** | Automatisch bei Status "Disponiert"/"Einsatz", oder Rechtsklick → "Einsatzzettel drucken" | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
-| **Board-Snapshot** | "Thermo"-Button im Footer → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
+| **Board-Snapshot** | Footer → "Drucken" (oder Taste `D`) → Spalte **Thermodruck** → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
 | **QR-Code-Zettel** | In den Slide-ups Check-In / Reko / Viewer / Alarm → Drucker-Symbol | Titel, Kurzbeschreibung und scannbarer QR-Code des Links – zum Verteilen auf Papier |
 
 ### QR-Code-Zettel
@@ -525,7 +631,7 @@ Jedes Link-Slide-up (Personal Check-In, Reko Dashboard, Viewer-Link, Alarm-Link)
 
 ### Board-Snapshot Optionen
 
-Beim Klick auf "Thermo" öffnet sich ein Auswahldialog:
+Die Spalte **Thermodruck** im Drucken-Slide-up hat dazu drei Schalter:
 
 - **Beendete Einsätze** – auch archivierte Einsätze einbeziehen (Standard: aus)
 - **Fahrzeug-Status** – Verfügbarkeit aller Fahrzeuge anzeigen (Standard: ein)

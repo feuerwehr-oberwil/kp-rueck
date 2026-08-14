@@ -17,6 +17,7 @@ import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getTileBaseUrl } from '@/lib/env'
 import {
   generateChecklistTasks,
+  findVehiclesWithoutDriver,
   ChecklistTaskState,
   isTaskComplete,
   isFallbackReady,
@@ -27,6 +28,7 @@ import {
   DEFAULT_WHATSAPP_MESSAGE_1,
   DEFAULT_WHATSAPP_MESSAGE_2,
 } from '@/lib/checklist-tasks'
+import { useOperations } from '@/lib/contexts/operations-context'
 import { cn, copyToClipboard } from '@/lib/utils'
 import { isBooleanRecord, readJson, writeJson } from '@/lib/utils/safe-storage'
 
@@ -36,9 +38,23 @@ interface EventSetupChecklistProps {
   onDismiss: () => void
   onAllTasksComplete?: () => void
   onChecklistLoaded?: () => void
+  /** Opens the Fahrzeuge sheet — the one place a driver is assigned per vehicle. */
+  onOpenVehicles?: () => void
+  /** Opens the Appell — where the count on the check-in row is actually made. */
+  onOpenAttendance?: () => void
 }
 
-export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, onChecklistLoaded }: EventSetupChecklistProps) {
+export function EventSetupChecklist({
+  eventId,
+  onDismiss,
+  onAllTasksComplete,
+  onChecklistLoaded,
+  onOpenVehicles,
+  onOpenAttendance,
+}: EventSetupChecklistProps) {
+  // The driver prompt is queued through the context, not opened here — it is mounted in
+  // the root layout, so it survives this popover being dismissed.
+  const { promptDriversForVehicles } = useOperations()
   const t = useTranslations('checklist.setup')
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
@@ -173,7 +189,7 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
 
       const [attendance, specialFunctions, vehicles, settings, printerStatus, mapTilesAvailable] =
         await Promise.all([
-          apiClient.getEventAttendance(eventId).catch(() => []),
+          apiClient.getEventCheckInList(eventId).catch(() => ({ personnel: [] })),
           apiClient.getEventSpecialFunctions(eventId).catch(() => []),
           apiClient.getVehicles().catch(() => []),
           apiClient.getAllSettings().catch(() => ({})),
@@ -188,9 +204,10 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
 
       const updatedTasks = generateChecklistTasks({
         eventId,
-        checkedInPersonnel: attendance.filter((a) => a.checked_in).length,
+        checkedInPersonnel: attendance.personnel.filter((p) => p.checked_in).length,
         totalVehicles: vehicles.length,
         driverAssignments: specialFunctions.filter((f) => f.function_type === 'driver').length,
+        vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
         rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
         magazinStaff: specialFunctions.filter((f) => f.function_type === 'magazin').length,
         mapTilesAvailable,
@@ -207,6 +224,22 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
         onTestPrint: handleTestPrint,
         onOpenFallbackSettings: () => {
           window.location.href = '/settings?section=fallback'
+        },
+        // A step that names a modal should open it. Closing the popover first,
+        // because the sheet it opens sits behind it.
+        onOpenVehicles: () => {
+          onDismiss()
+          onOpenVehicles?.()
+        },
+        // Hand the whole run over at once: the prompt lives in the root layout, so it
+        // outlives this popover closing underneath it.
+        onAssignDrivers: () => {
+          onDismiss()
+          promptDriversForVehicles(findVehiclesWithoutDriver(vehicles, specialFunctions))
+        },
+        onOpenAttendance: () => {
+          onDismiss()
+          onOpenAttendance?.()
         },
       })
 
@@ -289,8 +322,9 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
         <div className="space-y-1">
           {sortedTasks.map((task) => {
             const isCompleted = isTaskComplete(task, overrides)
-            const action = task.actionButtons?.[0]
-            const ActionIcon = action?.icon
+            // Every button, not just the first — a row that offers two ways in (share
+            // the link *or* tick the names yourself) silently lost the second one here.
+            const actions = task.actionButtons ?? []
 
             return (
               <div
@@ -333,9 +367,9 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
                   )}
                 </div>
 
-                {/* Action — clicks here must NOT toggle the row */}
+                {/* Actions — clicks here must NOT toggle the row */}
                 <div
-                  className="flex-shrink-0"
+                  className="flex flex-shrink-0 items-center gap-1.5"
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 >
@@ -359,26 +393,35 @@ export function EventSetupChecklist({ eventId, onDismiss, onAllTasksComplete, on
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  ) : !isCompleted && action && ActionIcon ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-3 text-xs"
-                      onClick={action.onClick || undefined}
-                      asChild={!!action.href}
-                    >
-                      {action.href ? (
-                        <a href={action.href}>
-                          <ActionIcon className="size-3.5" />
-                          {action.label}
-                        </a>
-                      ) : (
-                        <>
-                          <ActionIcon className="size-3.5" />
-                          {action.label}
-                        </>
-                      )}
-                    </Button>
+                  ) : !isCompleted ? (
+                    actions.map((action) => {
+                      const ActionIcon = action.icon
+                      if (!ActionIcon) return null
+                      return (
+                        <Button
+                          key={action.label}
+                          // Deliberately not action.variant: the renderer has always drawn
+                          // these outline, and honouring the field would restyle every row.
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 text-xs"
+                          onClick={action.onClick || undefined}
+                          asChild={!!action.href}
+                        >
+                          {action.href ? (
+                            <a href={action.href}>
+                              <ActionIcon className="size-3.5" />
+                              {action.label}
+                            </a>
+                          ) : (
+                            <>
+                              <ActionIcon className="size-3.5" />
+                              {action.label}
+                            </>
+                          )}
+                        </Button>
+                      )
+                    })
                   ) : null}
                 </div>
               </div>

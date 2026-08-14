@@ -10,12 +10,18 @@
  */
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useNotifications } from "@/lib/contexts/notification-context"
+import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
+import { RemovableChip } from "@/components/ui/removable-chip"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { Card } from "@/components/ui/card"
-import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench, ArrowLeft } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -50,6 +56,9 @@ import { toast } from "sonner"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
+// The board's shortcut hook owns the canonical "should this keystroke reach the
+// page?" rules; the map answers the same questions and reuses them.
+import { isActivationTarget, isOverlayOpen, isTypingTarget } from "@/lib/hooks/use-kanban-shortcuts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { useTranslations } from "next-intl"
@@ -66,6 +75,24 @@ const MapView = dynamic(() => import("@/components/map-view"), {
   ),
 })
 
+/**
+ * The resource chips in the incident rail. Same `RemovableChip` the kanban card
+ * and the wall board use, same secondary tint — the rail had been hand-rolling
+ * `<Badge>` with a third set of variants (vehicles secondary, Geräte outline),
+ * so the same TLF looked like two different things depending on which surface
+ * you were looking at. `max-w-full` on top of the shared classes because the
+ * rail is 320px and a long Gerätename has to ellipsise rather than push the
+ * card sideways.
+ */
+const RAIL_CHIP = "text-xs px-1.5 py-0.5 font-normal max-w-full"
+
+/** «Bastian Eichenberger» → «B.E». Tolerates single-word and empty names, which
+ *  the previous inline version indexed into unguarded. */
+function crewInitials(name: string): string {
+  const [first = "", second = ""] = name.trim().split(/\s+/)
+  if (!first) return name
+  return `${first[0]}.${second[0] ?? ""}`
+}
 
 export default function MapPage() {
   const t = useTranslations('map')
@@ -86,7 +113,7 @@ export default function MapPage() {
     assignVehicleToOperation,
     assignRekoPersonToOperation,
     removeReko,
-    requestVehicleConflict,
+    requestResourceConflict,
     deleteOperation
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
@@ -284,6 +311,18 @@ export default function MapPage() {
     setColorBy((current) => (current === 'reko' ? preRekoColorByRef.current : current))
   }
 
+  // `?mode=reko` — the Setup-Checkliste's "Reko-Modus öffnen" links here rather
+  // than telling the operator where to look. Once only: leaving the mode must
+  // not be undone by a re-render, and the URL is not the state.
+  const rekoDeepLinkRef = useRef(false)
+  useEffect(() => {
+    if (rekoDeepLinkRef.current || searchParams.get('mode') !== 'reko') return
+    rekoDeepLinkRef.current = true
+    enterRekoMode()
+    // `enterRekoMode` is re-created every render; the URL is what decides here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   // Create a new Auftrag from the panel and select it for planning.
   const handleCreatePlanningGroup = async (name: string, color: string) => {
     const created = await createGroup({ name, color })
@@ -305,14 +344,17 @@ export default function MapPage() {
       ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
   }, [selectedIncidentId])
 
+  /**
+   * «Details anzeigen» hands the incident back to the board.
+   *
+   * The detail belongs where the work is: next to the columns, in the panel or
+   * the modal the board already owns. Opening a second copy of it on top of the
+   * map meant two surfaces mounting the same forms — and the operator ending up
+   * on the map with a rapport open and no board behind it.
+   */
   const handleDetailsClick = useCallback((incident: Incident) => {
-    // Find the corresponding operation
-    const operation = operations.find(op => op.id === incident.id)
-    if (operation) {
-      setSelectedOperationId(operation.id)
-      setDetailModalOpen(true)
-    }
-  }, [operations])
+    router.push(`/?highlight=${incident.id}&detail=1`)
+  }, [router])
 
   // Zoom in on a vehicle by its 1-5 shortcut number
   const focusVehicleByNumber = (vehicleNumber: number) => {
@@ -363,6 +405,26 @@ export default function MapPage() {
     unassignGroupResource,
   })
 
+  // The bell's «angekommen» / «beendet» button works here too — the map is a
+  // full operating surface, and the move has to run through this page's own
+  // workflow gates rather than a second copy of them.
+  //
+  // Depends on `requestCompletion`, NOT on the workflow object: that object is
+  // rebuilt on every render, so depending on it re-registered the handler every
+  // render — and registering is a setState in the notification context, which
+  // renders again. That loop froze the whole Karte page, back button included.
+  const { registerFieldActionHandler } = useNotifications()
+  const { requestCompletion } = statusWorkflow
+  useEffect(() => {
+    if (!isEditor) return
+    registerFieldActionHandler((incidentId, kind) => {
+      storeFieldNudgeConfirmation(incidentId, kind)
+      if (kind === "complete") requestCompletion(incidentId)
+      else changeStatusToTop(incidentId, "active")
+    })
+    return () => registerFieldActionHandler(null)
+  }, [isEditor, registerFieldActionHandler, requestCompletion, changeStatusToTop])
+
   const handleAssignRouteResource = (
     resourceType: 'crew' | 'vehicles' | 'materials',
     groupId: string,
@@ -402,9 +464,10 @@ export default function MapPage() {
       return
     }
 
-    requestVehicleConflict({
-      vehicleId,
-      vehicleName: vehicle.name,
+    requestResourceConflict({
+      resourceType: "vehicle",
+      resourceId: vehicleId,
+      resourceName: vehicle.name,
       targetOperationId: groupId,
       conflicts: [
         ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
@@ -439,9 +502,10 @@ export default function MapPage() {
       return
     }
 
-    requestVehicleConflict({
-      vehicleId,
-      vehicleName,
+    requestResourceConflict({
+      resourceType: "vehicle",
+      resourceId: vehicleId,
+      resourceName: vehicleName,
       targetOperationId: operationId,
       conflicts: groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
       customResolve: async (action) => {
@@ -716,10 +780,13 @@ export default function MapPage() {
         }
       }
 
-      // Ignore if typing in input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
+      // Ignore if typing in a field, and stand down while an overlay is up.
+      // Every overlay on this page is modal (detail modal, Ressourcen- and
+      // Auftrag-Dialoge, the Ansicht/Modus menus), so an open one owns the
+      // keyboard outright — without this, `l` both walked the open menu's
+      // typeahead and toggled the marker labels behind it.
+      if (isTypingTarget(e.target)) return
+      if (isOverlayOpen()) return
 
       // Handle g-prefix navigation
       if (gPrefixActive) {
@@ -776,9 +843,14 @@ export default function MapPage() {
         setResetZoomTrigger((prev) => prev + 1)
         setSelectedIncidentId(null)
       }
-      // 'e' or 'Enter' key to open details for selected incident
-      else if ((((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) || e.key === 'Enter') && selectedIncidentId) {
-        // Only use 'e' if no modifier keys (Enter always works)
+      // 'e' or 'Enter' key to open details for selected incident. Enter is the
+      // activation key of whatever has focus, so it only means "open details"
+      // while focus is not on a button or link — same rule as the board.
+      else if (
+        (((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey) ||
+          (e.key === 'Enter' && !isActivationTarget(e.target))) &&
+        selectedIncidentId
+      ) {
         e.preventDefault()
         const incident = incidents.find(inc => inc.id === selectedIncidentId)
         if (incident) {
@@ -832,6 +904,19 @@ export default function MapPage() {
         {/* Top header is desktop-only — mobile uses the bottom navbar. */}
         <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
+            {/* Arrived from the board with an incident in hand — say how to go
+                back, in words. The nav icons top right can do it too, but a
+                labelled way back belongs where the eye already is, and the
+                incident travels along so the board lands on the same card. */}
+            {highlightParam && (
+              <Link
+                href={`/?highlight=${highlightParam}`}
+                className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+              >
+                <ArrowLeft className="size-3.5" />
+                {t('page.backToBoard')}
+              </Link>
+            )}
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
             <Badge variant="secondary" className="hidden sm:inline-flex">
               {t('page.activeBadge', { count: activeIncidents.length })}
@@ -847,7 +932,11 @@ export default function MapPage() {
                   {isMounted && currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
                 </span>
               </div>
-              <PageNavigation currentPage="map" hasSelectedEvent={!!selectedEvent} />
+              <PageNavigation
+                currentPage="map"
+                hasSelectedEvent={!!selectedEvent}
+                selectedIncidentId={selectedIncidentId}
+              />
             </div>
           )}
 
@@ -1096,6 +1185,10 @@ export default function MapPage() {
                 ) : (
                   activeIncidents.map((incident) => {
                     const isExpanded = selectedIncidentId === incident.id
+                    // The list runs on the `useIncidents()` adapter shape, which
+                    // carries neither the pickup flags nor who the Einsatzleiter
+                    // is. Both live on the Operation, one lookup away.
+                    const operation = operationsById.get(incident.id)
                     return (
                       <Card
                         key={incident.id}
@@ -1126,6 +1219,24 @@ export default function MapPage() {
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     {incident.title}
                                   </p>
+                                )}
+                                {/* Abholung (decision 24). The pickup is a
+                                    driving job and whoever assigns it is looking
+                                    at where things are, so the rail carries the
+                                    same chip the board does — and, like there,
+                                    it IS the «Abholung erledigt» button:
+                                    completing the incident already released the
+                                    crew, so this chip is the only thing left
+                                    saying they are standing at the kerb.
+                                    Not gated on status, for the same reason. */}
+                                {operation?.pickupNeeded && (
+                                  <PickupBadge
+                                    requestedAt={operation.pickupRequestedAt}
+                                    note={operation.pickupNote}
+                                    incidentId={incident.id}
+                                    canEdit={isEditor}
+                                    className="mt-1.5"
+                                  />
                                 )}
                               </div>
                             </div>
@@ -1174,14 +1285,14 @@ export default function MapPage() {
                             <div className="flex items-start gap-2">
                               <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                               <div className="flex flex-wrap gap-1.5 flex-1">
-                                {incident.assigned_vehicles.map((vehicle, idx) => (
-                                  <Badge
-                                    key={idx}
+                                {incident.assigned_vehicles.map((vehicle) => (
+                                  <RemovableChip
+                                    key={vehicle.name}
                                     variant="secondary"
-                                    className="text-xs"
+                                    className={RAIL_CHIP}
                                   >
-                                    {vehicle.name}
-                                  </Badge>
+                                    <span>{vehicle.name}</span>
+                                  </RemovableChip>
                                 ))}
                               </div>
                             </div>
@@ -1192,14 +1303,22 @@ export default function MapPage() {
                             <div className="flex items-start gap-2">
                               <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                               <div className="flex flex-wrap gap-1.5 flex-1">
-                                {incident.assigned_personnel.map((person, idx) => (
-                                  <Badge
-                                    key={idx}
+                                {/* Initials, because the rail is 320px wide and
+                                    a full crew of names would push everything
+                                    else below the fold — but the full name is
+                                    on the chip's tooltip, and the «EL» mark
+                                    rides along so the one person you would ring
+                                    is not reduced to two ambiguous letters. */}
+                                {incident.assigned_personnel.map((person) => (
+                                  <RemovableChip
+                                    key={person.name}
                                     variant="secondary"
-                                    className="text-xs"
+                                    className={RAIL_CHIP}
+                                    title={person.name}
                                   >
-                                    {person.name.split(" ")[0][0]}.{person.name.split(" ")[1]?.[0] || ""}
-                                  </Badge>
+                                    <LeaderBadge isLeader={operation?.leaderName === person.name} />
+                                    <span>{crewInitials(person.name)}</span>
+                                  </RemovableChip>
                                 ))}
                               </div>
                             </div>
@@ -1210,14 +1329,20 @@ export default function MapPage() {
                             <div className="flex items-start gap-2">
                               <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                               <div className="flex flex-wrap gap-1.5 flex-1">
-                                {incident.assigned_materials.map((material, idx) => (
-                                  <Badge
-                                    key={idx}
-                                    variant="outline"
-                                    className="text-xs"
+                                {/* Was hard-cut at 15 characters, which turned
+                                    «Tauchpumpe gross» into «Tauchpumpe gro»
+                                    with nothing to say it had been cut. The
+                                    chip ellipsises instead, and the full name
+                                    is on the tooltip. */}
+                                {incident.assigned_materials.map((material) => (
+                                  <RemovableChip
+                                    key={material.material_id}
+                                    variant="secondary"
+                                    className={RAIL_CHIP}
+                                    title={material.name}
                                   >
-                                    {material.name.substring(0, 15)}
-                                  </Badge>
+                                    <span className="min-w-0 truncate">{material.name}</span>
+                                  </RemovableChip>
                                 ))}
                               </div>
                             </div>
@@ -1279,13 +1404,18 @@ export default function MapPage() {
           rekoPersonnelNames={routeAssign ? [] : rekoPersonnelNames}
           onAssignPerson={routeAssign
             ? (personId) => void assignGroupResource(routeAssign.groupId, 'personnel', personId)
-            : assignPersonToOperation}
+            : ((personId: string, personName: string, operationId: string) =>
+              // force: the dialog has its own «Doppelbelegung? Trotzdem zuweisen»
+              // confirm with the label of where the person already is. Asking
+              // again through the shared prompt would be the same question twice.
+              assignPersonToOperation(personId, personName, operationId, true))}
           onAssignVehicle={routeAssign
             ? (vehicleId) => assignVehicleToGroupWithConflict(routeAssign.groupId, vehicleId)
             : assignVehicleToIncidentWithConflict}
           onAssignMaterial={routeAssign
             ? (materialId) => void assignGroupResource(routeAssign.groupId, 'material', materialId)
-            : assignMaterialToOperation}
+            : ((materialId: string, operationId: string) =>
+              assignMaterialToOperation(materialId, operationId, true))}
           onRemovePerson={routeAssign
             ? (_operationId, personName) => {
                 const assignment = routeGroupResources?.personnel.find((person) => person.name === personName)

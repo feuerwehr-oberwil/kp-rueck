@@ -396,3 +396,46 @@ answer for the deployment where an external check has none.
 
 On Railway the distinction collapses: no internet means no application at all, so the external
 check and the real question are the same thing.
+
+---
+
+## 8. What the system stores about people who are not members
+
+Almost everything in the database is about the brigade: the roster, who was assigned where,
+which vehicle went out. Two things are not, and an operator should know about them before a
+storm rather than after one.
+
+**The Melder.** An incident carries a `contact` — the name and phone number of whoever reported
+it. That has always been there, it comes from the dispatch, and it is what the board dials back.
+
+**The Eigentümer-/Halterblock of the Schadenplatz-Rapport.** New with `/feld`. When a crew fills
+its rapport at a Schadenplatz it can record the name, street, town and — where a vehicle is
+involved — the plate and model of the **owner**: a private person who is not a member and never
+agreed to anything. This is the paper `fahrzeugrapport.pdf` block, digitised; it exists because
+the invoice that gets written weeks later needs it.
+
+The lifecycle is deliberately the simplest one that can be explained in a sentence:
+
+- It **lives with the incident and dies with it.** Deleting the Ereignis (or the incident)
+  deletes the owner data with it. There is no separate retention sweep and no configurable
+  number of days, because a second rule is a rule somebody has to remember.
+- It is **included in the exports** — the event report PDF and the Kostenpflicht sheet — which
+  is what those exports are for. Treat those files the way the station already treats the filled
+  paper slips.
+- The station's existing practice for the paper slips governs. The app does not invent a second
+  one.
+
+**The `/feld` QR is an event-scoped credential that reaches this data.** Anyone who scans the
+poster can pick a name from the list and see — and file — the rapports of the Schadenplätze that
+person is assigned to, owner block included. That is the same exposure the paper slips have (a
+filled slip on a table is readable by whoever walks past), but it travels further, so:
+
+- take the posters down when the Ereignis is closed, the way the check-in posters already come
+  down;
+- the Einsatzzettel carries the same token — its second QR opens `/feld` with that Schadenplatz
+  already selected — so **slips get collected at the end of an Ereignis** rather than left in
+  vehicles;
+- the token expires by itself after 30 days.
+
+Neither the token nor the owner block is written to the application log or to telemetry, and a
+test asserts it — the failure worth preventing is somebody adding a debug line during a storm.

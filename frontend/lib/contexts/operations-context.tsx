@@ -1,9 +1,10 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
+import { apiClient, ApiError, type ApiDangersAssessment, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { getIncidentRefLabel } from "@/lib/incident-types"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { isValidUUID } from "@/lib/utils/validation"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
@@ -17,6 +18,7 @@ import {
   decideCooldownClearAction,
   decidePollTickAction,
   decideRemoteUpdateAction,
+  shouldStartPollingOnMount,
 } from "@/lib/sync-cooldown"
 import {
   findRecentRemoval,
@@ -66,6 +68,35 @@ export interface RekoSummary {
   photos: string[]
 }
 
+/** Just the checkboxes — the `/api/viewer/data` payload drops `other_notes`,
+ *  so the shared derivation below must not insist on it. */
+type RekoDangerFlags = Omit<ApiDangersAssessment, "other_notes">
+
+/**
+ * The danger chips a completed Reko puts on a card, in reading order.
+ *
+ * ONE derivation, deliberately: the board's two load paths each carried their
+ * own copy and they drifted — the poll path forgot `fire_danger`, so a Reko
+ * whose only danger was Brandgefahr showed its chips after a manual refresh and
+ * lost them again ~5s later, on the card, the wall display and the mobile
+ * warning triangle alike.
+ *
+ * `fire` is kept for reports written before the Reko form dropped it: the form
+ * only ever writes `fire_danger` now, and hard-codes `fire: false` (a burning
+ * building doesn't need a scout).
+ */
+export function rekoDangerTypes(dangers: RekoDangerFlags | null | undefined): string[] {
+  if (!dangers) return []
+  const dangerTypes: string[] = []
+  if (dangers.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
+  if (dangers.fire_danger) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fireDanger'))
+  if (dangers.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
+  if (dangers.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
+  if (dangers.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
+  if (dangers.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
+  return dangerTypes
+}
+
 export interface Operation {
   id: string
   location: string
@@ -98,9 +129,45 @@ export interface Operation {
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
-  /** Set when the field crew reported the incident finished (training). Drives the
+  /** True when an operator logged the arrival off a radio message rather than
+   *  the crew tapping it on `/reko`. Read straight through to the Feldmeldungen
+   *  row, which is the one place "vor Ort" is shown at all (plan 26 §5.2). */
+  rekoArrivedByKp?: boolean
+  /** Set when the field crew reported the incident finished. Drives the
    *  "Feld meldet: beendet" card badge; the operator still closes it manually. */
   fieldCompleteReportedAt?: Date | null
+  /** Who reported it — null means the KP took it over the radio. Provenance is
+   *  never faked, so the absence of an id IS the "im KP erfasst" case. */
+  fieldCompleteReportedBy?: string | null
+  /** "Angekommen" from /feld. */
+  fieldArrivedAt?: Date | null
+  /** Who reported it — null means the KP took it over the radio. */
+  fieldArrivedBy?: string | null
+  /** …or the GPS automation stamped it (§18.24): an assigned vehicle was
+   *  confirmed at the address and the automation advanced the incident. Its own
+   *  provenance — the thread must not word a machine's inference as a person's
+   *  report, in either direction. */
+  fieldArrivedByAutomation?: boolean
+  /** "Abholung nötig": finished here, but the crew cannot get back on its own.
+   *  Survives the card moving to `complete` — completing releases the personnel
+   *  while they are still standing at the address, which is the whole point. */
+  pickupNeeded?: boolean
+  pickupNote?: string
+  pickupRequestedAt?: Date | null
+  pickupRequestedBy?: string | null
+  /** A Schadenplatz-Rapport has been FILED for this incident (not a draft).
+   *  Drives the card chip, and the muted "kein Rapport" marker once a card
+   *  reaches `complete` without one — a marker, never a block (decision 10). */
+  hasSchadenplatzRapport?: boolean
+  /** A rapport row exists but is still a DRAFT — somebody started and walked
+   *  away. Mutually exclusive with the flag above; the detail's Rapport tab
+   *  tells the two apart because at 02:00 they read very differently. */
+  hasSchadenplatzRapportDraft?: boolean
+  /** The incident has been disponiert at least once — ever, not right now
+   *  (§18.27). It is what decides whether the Schadenplatz-Rapport exists for
+   *  this card; read it through `rapportApplies` in `lib/rapport-visibility`,
+   *  never on its own, so an already-filed rapport can never be hidden. */
+  hasBeenDispatched?: boolean
   rekoSummary: RekoSummary | null
   assignedReko: { id: string; name: string } | null
   /** Name of the crew member marked Einsatzleiter for THIS incident, or null.
@@ -148,7 +215,7 @@ interface OperationsContextType {
    * when it failed and was rolled back — callers that chain a follow-up
    * action (e.g. "remove from incident, then make driver") must check it. */
   removeCrew: (operationId: string, crewName: string) => Promise<boolean>
-  removeMaterial: (operationId: string, materialId: string) => void
+  removeMaterial: (operationId: string, materialId: string) => Promise<boolean>
   /** Same result contract as removeCrew. */
   removeVehicle: (operationId: string, vehicleName: string) => Promise<boolean>
   removeReko: (operationId: string) => void
@@ -164,31 +231,59 @@ interface OperationsContextType {
   changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   getNextOperationId: () => string
-  assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
+  assignPersonToOperation: (personId: string, personName: string, operationId: string, force?: boolean) => void
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
-  assignMaterialToOperation: (materialId: string, operationId: string) => void
+  assignMaterialToOperation: (materialId: string, operationId: string, force?: boolean) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
-  /** Set when a vehicle is assigned to an incident but has no driver yet, so the UI
-   * can prompt for driver selection. The user may dismiss the prompt to leave the
+  /** The vehicle the driver prompt is currently asking about — the head of a queue,
+   * so a single assignment and a walk through every driverless vehicle are the same
+   * mechanism. Set when a vehicle is assigned to an incident but has no driver yet,
+   * or by promptDriversForVehicles. The user may dismiss the prompt to leave the
    * vehicle without a driver. Cleared via clearVehicleNeedingDriver. */
-  vehicleNeedingDriver: { vehicleId: string; vehicleName: string } | null
+  vehicleNeedingDriver: { vehicleId: string; vehicleName: string; incidentId?: string } | null
+  /** Queue a run of vehicles for the driver prompt — used by the setup checklist to
+   * walk every driverless vehicle in one pass instead of one trip per vehicle. */
+  promptDriversForVehicles: (vehicles: { vehicleId: string; vehicleName: string }[]) => void
+  /** Drop the current vehicle and ask about the next one, if any. */
+  advanceVehicleNeedingDriver: () => void
+  /** Stop the run entirely — what dismissing the prompt means. */
   clearVehicleNeedingDriver: () => void
-  /** Set when a vehicle is being assigned to an incident while it is still
+  /** Set when a resource is being assigned to an incident while it is still
    * assigned to one or more other incidents. The UI prompts the operator to
-   * either move the vehicle (remove from the others) or keep the double
-   * booking. Resolved via resolveVehicleConflict / cancelVehicleConflict. */
-  vehicleConflict:
+   * either move it (remove from the others) or keep the double booking;
+   * dismissing leaves everything where it is. Resolved via
+   * resolveResourceConflict / cancelResourceConflict.
+   *
+   * It covers all three resource kinds, not just vehicles. It used to be
+   * vehicle-only, and the other two silently no-oped instead: assigning a person
+   * or a unit of material that was already on another incident simply returned,
+   * which meant even the assignment dialog's own «Doppelbelegung? Trotzdem
+   * zuweisen» did nothing at all. A person and a Tauchpumpe are as single and as
+   * physical as a TLF — the operator has to be asked, not ignored. */
+  resourceConflict:
     | {
-        vehicleId: string
-        vehicleName: string
+        resourceType: "personnel" | "vehicle" | "material"
+        resourceId: string
+        /** Display name; also the key crew/vehicle lists are held under. */
+        resourceName: string
         targetOperationId: string
         conflicts: { operationId: string; operationLabel: string }[]
         customResolve?: (action: "move" | "keep") => Promise<void> | void
       }
     | null
-  resolveVehicleConflict: (action: "move" | "keep") => void
-  cancelVehicleConflict: () => void
-  requestVehicleConflict: (conflict: NonNullable<OperationsContextType["vehicleConflict"]>) => void
+  /** Material a crew left standing at a Schadenplatz, keyed on material id.
+   *
+   * "zugewiesen" and "steht noch im Keller" are not the same fact, and only the
+   * second one sends somebody driving in the morning. The rapport has known this
+   * since §18.35 (`left_on_site`) but only the Restliste and the printed
+   * Abholliste ever read it, so the board itself — the surface an operator
+   * actually watches — showed a pump in a stranger's cellar exactly like a pump
+   * on a truck. Read from the same `/restliste` endpoint the Abholliste prints,
+   * so there is one computation of "what is still out there", not two. */
+  materialOnSite: Map<string, { incidentId: string; address: string | null; since: string | null }>
+  resolveResourceConflict: (action: "move" | "keep") => void
+  cancelResourceConflict: () => void
+  requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
   deleteOperation: (operationId: string) => Promise<void>
 }
 
@@ -197,6 +292,27 @@ interface OperationsContextType {
  *  `incoming` / `reko` / `reko_done`: an incident can legitimately sit parked in
  *  those while it waits for capacity or for the Reko to report back. */
 const AM_WARTEN_CLEARING_STATUSES: OperationStatus[] = ["enroute", "active", "returning", "complete"]
+
+/** The Restliste's material half, indexed for the board.
+ *
+ * Untracked entries ("Weiteres Material" the crew named by hand) carry no
+ * material id and are skipped: they are on the Abholliste like everything else,
+ * but the sidebar has no row to mark for a thing the station never owned.
+ */
+function toMaterialOnSite(
+  restliste: ApiEventRestliste | null,
+): Map<string, { incidentId: string; address: string | null; since: string | null }> {
+  const map = new Map<string, { incidentId: string; address: string | null; since: string | null }>()
+  for (const unit of restliste?.material_on_site ?? []) {
+    if (!unit.material_id) continue
+    map.set(unit.material_id, {
+      incidentId: unit.incident_id,
+      address: unit.location_address ?? unit.incident_title ?? null,
+      since: unit.since,
+    })
+  }
+  return map
+}
 
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
 
@@ -232,11 +348,22 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   const [incidentTotal, setIncidentTotal] = useState<number | null>(null)
-  // When a vehicle is assigned to an incident with no driver yet, hold it here so the
-  // UI can open driver assignment. Null when there's nothing to prompt for.
-  const [vehicleNeedingDriver, setVehicleNeedingDriver] = useState<{ vehicleId: string; vehicleName: string } | null>(null)
-  const clearVehicleNeedingDriver = useCallback(() => setVehicleNeedingDriver(null), [])
-  const [vehicleConflict, setVehicleConflict] = useState<OperationsContextType["vehicleConflict"]>(null)
+  // Vehicles waiting for a driver, oldest first. A single vehicle assigned without a
+  // driver is a queue of one; the setup checklist queues every driverless vehicle so
+  // the operator makes one pass instead of one trip per vehicle. Empty when there is
+  // nothing to prompt for.
+  const [driverPromptQueue, setDriverPromptQueue] = useState<
+    { vehicleId: string; vehicleName: string; incidentId?: string }[]
+  >([])
+  const vehicleNeedingDriver = driverPromptQueue[0] ?? null
+  const promptDriversForVehicles = useCallback(
+    (vehicles: { vehicleId: string; vehicleName: string }[]) => setDriverPromptQueue(vehicles),
+    []
+  )
+  const advanceVehicleNeedingDriver = useCallback(() => setDriverPromptQueue((queue) => queue.slice(1)), [])
+  const clearVehicleNeedingDriver = useCallback(() => setDriverPromptQueue([]), [])
+  const [resourceConflict, setResourceConflict] = useState<OperationsContextType["resourceConflict"]>(null)
+  const [materialOnSite, setMaterialOnSite] = useState<OperationsContextType["materialOnSite"]>(new Map())
 
   // Refs for debouncing and cooldowns. One debounce timer + pending-merge
   // buffer PER incident (a single shared timer made rapid edits to two
@@ -421,7 +548,19 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
+      rekoArrivedByKp: incident.reko_arrived_by_kp ?? false,
       fieldCompleteReportedAt: incident.field_complete_reported_at ? new Date(incident.field_complete_reported_at) : null,
+      fieldCompleteReportedBy: incident.field_complete_reported_by ?? null,
+      fieldArrivedAt: incident.field_arrived_at ? new Date(incident.field_arrived_at) : null,
+      fieldArrivedBy: incident.field_arrived_by ?? null,
+      fieldArrivedByAutomation: incident.field_arrived_by_automation ?? false,
+      pickupNeeded: incident.pickup_needed ?? false,
+      pickupNote: incident.pickup_note || "",
+      pickupRequestedAt: incident.pickup_requested_at ? new Date(incident.pickup_requested_at) : null,
+      pickupRequestedBy: incident.pickup_requested_by ?? null,
+      hasSchadenplatzRapport: incident.has_schadenplatz_rapport ?? false,
+      hasSchadenplatzRapportDraft: incident.has_schadenplatz_rapport_draft ?? false,
+      hasBeenDispatched: incident.has_been_dispatched ?? false,
       rekoSummary: null,
       assignedReko: null,
       leaderName: null,
@@ -448,13 +587,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // Fetch all data in parallel. skipStateUpdate keeps the raw personnel/material
       // list off the UI — we write reconciled, event-scoped state below in one go,
       // avoiding a flicker where every person briefly reads as "available".
-      const [incidentPage, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
+      const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
         apiClient.getIncidentsWithTotal(selectedEvent.id),
         refreshPersonnel({ skipStateUpdate: true }),
         refreshMaterials({ skipStateUpdate: true }),
         apiClient.getAllSettings().catch(() => ({ home_city: "" })),
         apiClient.getVehicles(),
+        // Never fatal: a board that cannot say which pump is still in a cellar is
+        // still a board.
+        apiClient.getEventRestliste(selectedEvent.id).catch(() => null),
       ])
+      setMaterialOnSite(toMaterialOnSite(restliste))
       const apiIncidents = incidentPage.incidents
       setIncidentTotal(incidentPage.total)
 
@@ -530,15 +673,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         ops.forEach(op => {
           const summary = rekoSummaries.summaries[op.id]
           if (summary?.has_completed_reko) {
-            const dangerTypes: string[] = []
-            if (summary.dangers_json) {
-              if (summary.dangers_json.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
-              if (summary.dangers_json.fire_danger) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fireDanger'))
-              if (summary.dangers_json.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
-              if (summary.dangers_json.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
-              if (summary.dangers_json.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
-              if (summary.dangers_json.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
-            }
+            const dangerTypes = rekoDangerTypes(summary.dangers_json)
             op.hasCompletedReko = true
             op.rekoSummary = {
               isRelevant: summary.is_relevant ?? false,
@@ -655,13 +790,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
         // Fetch all data in parallel. See refreshOperations for why we suppress
         // intermediate personnel/material writes.
-        const [incidentPage, personnelList, materialsList, settings, vehiclesList] = await Promise.all([
+        const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
           apiClient.getIncidentsWithTotal(eventId),
           refreshPersonnel({ skipStateUpdate: true }),
           refreshMaterials({ skipStateUpdate: true }),
           apiClient.getAllSettings().catch(() => ({ home_city: "" })),
           apiClient.getVehicles(),
+          apiClient.getEventRestliste(eventId).catch(() => null),
         ])
+        setMaterialOnSite(toMaterialOnSite(restliste))
         const apiIncidents = incidentPage.incidents
         setIncidentTotal(incidentPage.total)
 
@@ -748,14 +885,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           ops.forEach(op => {
             const summary = rekoSummaries.summaries[op.id]
             if (summary?.has_completed_reko) {
-              const dangerTypes: string[] = []
-              if (summary.dangers_json) {
-                if (summary.dangers_json.fire) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.fire'))
-                if (summary.dangers_json.explosion) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.explosion'))
-                if (summary.dangers_json.collapse) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.collapse'))
-                if (summary.dangers_json.chemical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.chemical'))
-                if (summary.dangers_json.electrical) dangerTypes.push(translateOutsideReact('notifications.operations.dangerTypes.electrical'))
-              }
+              const dangerTypes = rekoDangerTypes(summary.dangers_json)
               op.hasCompletedReko = true
               op.rekoSummary = {
                 isRelevant: summary.is_relevant ?? false,
@@ -1007,6 +1137,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       }
     })
 
+    // If the socket is already down when this effect runs, start polling NOW —
+    // see `shouldStartPollingOnMount` for what this cost when it was missing.
+    // Verified in a browser: two windows, clear a pickup in one, and before
+    // this the badge stayed in the other while `sync-version` visibly changed
+    // underneath it.
+    if (shouldStartPollingOnMount(wsClient.getStatus())) startPolling()
+
     return () => {
       document.removeEventListener('visibilitychange', handleWake)
       unsubscribeIncidentUpdate()
@@ -1118,14 +1255,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const removeMaterial = (operationId: string, materialId: string) => {
+  /** Returns whether the release actually landed — the "move" branch of a
+   *  double-booking waits on it, like it already did for crew and vehicles. */
+  const removeMaterial = (operationId: string, materialId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
-    if (!operation) return
+    if (!operation) return Promise.resolve(false)
 
     const assignmentId = operation.materialAssignments.get(materialId)
     if (!assignmentId) {
       console.warn(`No assignment ID found for material ${materialId}`)
-      return
+      return Promise.resolve(false)
     }
 
     armAssignmentCooldown()
@@ -1153,7 +1292,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     if (isLoaded) {
-      apiClient.unassignResource(operationId, assignmentId)
+      return apiClient.unassignResource(operationId, assignmentId)
+        .then(() => true)
         .catch(err => {
           console.error("Failed to unassign material:", err)
           toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removeMaterialFailedDescription') })
@@ -1165,13 +1305,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               mats.map((m) => (m.id === material.id ? { ...m, status: materialStatusSnapshot } : m))
             )
           }
+          return false
         })
         .finally(() => {
           releaseAssignmentCooldown()
         })
-    } else {
-      releaseAssignmentCooldown(3000)
     }
+    releaseAssignmentCooldown(3000)
+    return Promise.resolve(true)
   }
 
   const updateOperation = (operationId: string, updates: Partial<Operation>) => {
@@ -1209,6 +1350,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     // When completing an operation, auto-release personnel and vehicles (backend does this too)
     const isCompletingOperation = normalizedUpdates.status === "complete"
+    // ...and the other direction: leaving `complete` gives the crew back. The
+    // backend undoes the release inside the same transaction as the status
+    // change (`_undo_completion_release`), so the card is right on the server
+    // the moment the PATCH returns — but the optimistic state above emptied it
+    // when it was completed, and nothing local knows what was there. Refetch.
+    //
+    // This is the fix for the Abbrechen in every completion gate: the gate moves
+    // the card first and asks afterwards, so cancelling it is a reopen.
+    const isReopeningOperation = Boolean(
+      normalizedUpdates.status && normalizedUpdates.status !== "complete" && currentOp?.status === "complete",
+    )
 
     setOperations((ops) =>
       ops.map((op) => {
@@ -1285,9 +1437,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.amWarten !== undefined) apiUpdates.am_warten = batchedUpdates.amWarten
         if (batchedUpdates.amWartenNote !== undefined) apiUpdates.am_warten_note = batchedUpdates.amWartenNote
         if (batchedUpdates.zuFuss !== undefined) apiUpdates.zu_fuss = batchedUpdates.zuFuss
+        // Provenance correction (plan 26 decision 8). Only the two an editor may
+        // claim travel: a card that arrived from Divera keeps its own slug, and
+        // sending it back would be a 422 on an unrelated edit.
+        if (batchedUpdates.source === 'operator' || batchedUpdates.source === 'intake') {
+          apiUpdates.source = batchedUpdates.source
+        }
 
         try {
           await apiClient.updateIncident(operationId, apiUpdates)
+          if (isReopeningOperation) await refreshOperations()
         } catch (err) {
           console.error("Failed to update operation:", err)
           if (ApiError.isConflictError(err)) {
@@ -1429,6 +1588,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           // Attach to an Auftrag at creation when the caller preset a group
           // (streamlined "+ Stop" flow) — backend stamps group_position.
           group_id: operation.groupId ?? null,
+          // "Telefonisch gemeldet" on the new-emergency modal. Anything else the
+          // caller might carry (a webhook slug on a copied operation) is not an
+          // editor's to claim, so it collapses to the operator default.
+          source: operation.source === 'intake' ? ('intake' as const) : ('operator' as const),
         }
 
         const apiIncident = await apiClient.createIncident(incidentData)
@@ -1504,17 +1667,41 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const assignPersonToOperation = async (personId: string, personName: string, operationId: string) => {
+  /** The other incidents a resource is currently on, as prompt-ready rows. */
+  const collectConflicts = (holds: (op: Operation) => boolean, targetOperationId: string) =>
+    operations
+      .filter(op => op.id !== targetOperationId && holds(op))
+      .map(op => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) }))
+
+  const assignPersonToOperation = async (personId: string, personName: string, operationId: string, force = false) => {
     const operation = operations.find(op => op.id === operationId)
     const person = personnel.find(p => p.id === personId)
 
-    // Block silently double-booking someone who's "assigned" — EXCEPT people
-    // busy in a special function (reko/driver/magazin). Those are surfaced in the
-    // crew dialog (badge) and assigned only through an explicit confirm, so let
-    // them through here instead of silently no-oping the confirmed assignment.
-    const hasSpecialFunction = person?.isReko || person?.isDriver || person?.isMagazin
-    if (!operation || !person || (person.status === "assigned" && !hasSpecialFunction) || operation.crew.includes(personName)) {
+    if (!operation || !person || operation.crew.includes(personName)) {
       return
+    }
+
+    // Somebody already on another incident is a question for the operator, not a
+    // silent no-op. It *was* a silent no-op — `person.status === "assigned"`
+    // returned right here — which is why even the assignment dialog's own
+    // «Doppelbelegung? Trotzdem zuweisen» did nothing: the confirm called
+    // straight back into this function, which refused it again without a word.
+    //
+    // Special functions (Reko/Fahrer/Magazin) are deliberately not a conflict:
+    // they are event-scoped, hold no incident, and are already surfaced with a
+    // badge where they are picked.
+    if (!force) {
+      const conflicts = collectConflicts(op => op.crew.includes(personName), operationId)
+      if (conflicts.length > 0) {
+        setResourceConflict({
+          resourceType: "personnel",
+          resourceId: personId,
+          resourceName: personName,
+          targetOperationId: operationId,
+          conflicts,
+        })
+        return
+      }
     }
 
     // B6: warn (don't block) when re-assigning someone we just took off another incident.
@@ -1643,13 +1830,31 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const assignMaterialToOperation = async (materialId: string, operationId: string) => {
+  const assignMaterialToOperation = async (materialId: string, operationId: string, force = false) => {
     const operation = operations.find(op => op.id === operationId)
     const material = materials.find(m => m.id === materialId)
 
     const isConsumable = material?.consumable
-    if (!operation || !material || (!isConsumable && material.status === "assigned") || operation.materials.includes(materialId)) {
+    if (!operation || !material || operation.materials.includes(materialId)) {
       return
+    }
+
+    // A consumable is not a single physical thing — several incidents can draw
+    // from the same Bindemittel, so it never conflicts. Everything else does,
+    // and used to be dropped in silence by a `status === "assigned"` guard right
+    // here (see the same story in assignPersonToOperation).
+    if (!isConsumable && !force) {
+      const conflicts = collectConflicts(op => op.materials.includes(materialId), operationId)
+      if (conflicts.length > 0) {
+        setResourceConflict({
+          resourceType: "material",
+          resourceId: materialId,
+          resourceName: material.name,
+          targetOperationId: operationId,
+          conflicts,
+        })
+        return
+      }
     }
 
     armAssignmentCooldown()
@@ -1717,11 +1922,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     // A vehicle is a single physical asset — if it's still assigned elsewhere,
     // ask the operator whether to move it here or keep the double booking,
     // rather than silently double-booking it.
-    const conflicts = operations
-      .filter(op => op.id !== operationId && op.vehicles.includes(vehicleName))
-      .map(op => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) }))
+    const conflicts = collectConflicts(op => op.vehicles.includes(vehicleName), operationId)
     if (conflicts.length > 0) {
-      setVehicleConflict({ vehicleId, vehicleName, targetOperationId: operationId, conflicts })
+      setResourceConflict({
+        resourceType: "vehicle",
+        resourceId: vehicleId,
+        resourceName: vehicleName,
+        targetOperationId: operationId,
+        conflicts,
+      })
       return
     }
 
@@ -1777,7 +1986,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               .find((op) => op.id === operationId)
               ?.vehicles.includes(vehicleName)
             if (!hasDriver && stillAssigned) {
-              setVehicleNeedingDriver({ vehicleId, vehicleName })
+              // Carrying the incident is what lets the prompt offer to take the
+              // vehicle back off it when nobody is found to drive it.
+              setDriverPromptQueue([{ vehicleId, vehicleName, incidentId: operationId }])
             }
           } catch (err) {
             console.error("Failed to check vehicle driver state:", err)
@@ -1848,43 +2059,57 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return Promise.resolve(true)
   }
 
-  const resolveVehicleConflict = async (action: "move" | "keep") => {
-    const conflict = vehicleConflict
+  const resolveResourceConflict = async (action: "move" | "keep") => {
+    const conflict = resourceConflict
     if (!conflict) return
-    setVehicleConflict(null)
+    setResourceConflict(null)
 
     if (conflict.customResolve) {
       await conflict.customResolve(action)
       return
     }
 
+    const { resourceType, resourceId, resourceName, targetOperationId } = conflict
+
     if (action === "move") {
-      // Remove the vehicle from every other incident before assigning it
-      // here — and WAIT for the removals: toasting "verschoben" before they
-      // were confirmed left the vehicle double-booked on failure despite the
-      // user explicitly choosing "move".
+      // Remove it from every other incident before assigning it here — and WAIT
+      // for the removals: toasting "verschoben" before they were confirmed left
+      // the resource double-booked on failure despite the operator explicitly
+      // choosing "move".
       const results = await Promise.all(
-        conflict.conflicts.map((c) => removeVehicle(c.operationId, conflict.vehicleName))
+        conflict.conflicts.map((c) =>
+          resourceType === "vehicle"
+            ? removeVehicle(c.operationId, resourceName)
+            : resourceType === "personnel"
+              ? removeCrew(c.operationId, resourceName)
+              : removeMaterial(c.operationId, resourceId)
+        )
       )
       if (results.some((ok) => !ok)) {
-        // removeVehicle already rolled back and toasted the failed ones.
-        toast.error(translateOutsideReact('notifications.operations.vehicleNotMovedTitle', { name: conflict.vehicleName }), {
-          description: translateOutsideReact('notifications.operations.vehicleNotMovedDescription'),
+        // The remove already rolled back and toasted the failed ones.
+        toast.error(translateOutsideReact('notifications.operations.resourceNotMovedTitle', { name: resourceName }), {
+          description: translateOutsideReact('notifications.operations.resourceNotMovedDescription'),
         })
         return
       }
       const labels = conflict.conflicts.map(c => `"${c.operationLabel}"`).join(", ")
-      toast.info(translateOutsideReact('notifications.operations.vehicleMovedTitle', { name: conflict.vehicleName }), {
-        description: translateOutsideReact('notifications.operations.vehicleMovedDescription', { labels }),
+      toast.info(translateOutsideReact('notifications.operations.resourceMovedTitle', { name: resourceName }), {
+        description: translateOutsideReact('notifications.operations.resourceMovedDescription', { labels }),
       })
     }
 
-    await performVehicleAssign(conflict.vehicleId, conflict.vehicleName, conflict.targetOperationId)
+    if (resourceType === "vehicle") {
+      await performVehicleAssign(resourceId, resourceName, targetOperationId)
+    } else if (resourceType === "personnel") {
+      await assignPersonToOperation(resourceId, resourceName, targetOperationId, true)
+    } else {
+      await assignMaterialToOperation(resourceId, targetOperationId, true)
+    }
   }
 
-  const cancelVehicleConflict = useCallback(() => setVehicleConflict(null), [])
-  const requestVehicleConflict = useCallback((conflict: NonNullable<OperationsContextType["vehicleConflict"]>) => {
-    setVehicleConflict(conflict)
+  const cancelResourceConflict = useCallback(() => setResourceConflict(null), [])
+  const requestResourceConflict = useCallback((conflict: NonNullable<OperationsContextType["resourceConflict"]>) => {
+    setResourceConflict(conflict)
   }, [])
 
   // Undo a delete: restore the soft-deleted incident and reconcile the board.
@@ -2025,11 +2250,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         assignMaterialToOperation,
         assignVehicleToOperation,
         vehicleNeedingDriver,
+        promptDriversForVehicles,
+        advanceVehicleNeedingDriver,
         clearVehicleNeedingDriver,
-        vehicleConflict,
-        resolveVehicleConflict,
-        cancelVehicleConflict,
-        requestVehicleConflict,
+        resourceConflict,
+        materialOnSite,
+        resolveResourceConflict,
+        cancelResourceConflict,
+        requestResourceConflict,
         deleteOperation,
       }}
     >
@@ -2088,7 +2316,10 @@ export function useIncidents() {
       assigned_at: new Date(),
       driver_stay: op.vehicleDriverStay.get(name) || false,
     })),
-    assigned_personnel: op.crew.map((name) => ({
+    // EL first (decision 23), sorted here rather than at the render site: this
+    // adapter shape carries no leader flag, so the map's crew badges
+    // (`app/map/page.tsx`) have no way to work it out for themselves.
+    assigned_personnel: sortCrewByLeader(op.crew, op.leaderName).map((name) => ({
       assignment_id: "",
       personnel_id: "",
       name,

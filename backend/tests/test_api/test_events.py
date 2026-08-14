@@ -8,15 +8,16 @@ Tests cover:
 - Incident count tracking
 """
 
-from datetime import UTC
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, User
+from app.models import AuditLog, Event, Incident, User
 
 
 @pytest_asyncio.fixture
@@ -37,8 +38,6 @@ async def test_event(db_session: AsyncSession) -> Event:
 @pytest_asyncio.fixture
 async def archived_event(db_session: AsyncSession) -> Event:
     """Create an archived test event."""
-    from datetime import datetime
-
     event = Event(
         id=uuid4(),
         name="Archived Event",
@@ -379,6 +378,28 @@ async def test_archive_event_success(editor_client: AsyncClient, test_event: Eve
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_archive_event_is_idempotent(editor_client: AsyncClient, db_session: AsyncSession, test_event: Event):
+    """Archiving twice must not move `archived_at`.
+
+    The timestamp is when the Ereignis was closed, and the archive list is sorted and read by
+    it. A second archive — a double-click, a retried request, two operators on the same card
+    — used to overwrite it with "now", silently rewriting that answer with no trace.
+    """
+    first = await editor_client.post(f"/api/events/{test_event.id}/archive")
+    assert first.status_code == 200
+    archived_at = first.json()["archived_at"]
+    assert archived_at is not None
+
+    second = await editor_client.post(f"/api/events/{test_event.id}/archive")
+    assert second.status_code == 200
+    assert second.json()["archived_at"] == archived_at
+
+    stored = await db_session.scalar(select(Event.archived_at).where(Event.id == test_event.id))
+    assert stored == datetime.fromisoformat(archived_at)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_archive_event_not_found(editor_client: AsyncClient):
     """Test archiving a non-existent event."""
     response = await editor_client.post(f"/api/events/{uuid4()}/archive")
@@ -482,6 +503,64 @@ async def test_delete_event_success(editor_client: AsyncClient, archived_event: 
     response = await editor_client.get("/api/events/?include_archived=true")
     event_ids = [e["id"] for e in response.json()["events"]]
     assert str(archived_event.id) not in event_ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_delete_event_is_recorded_in_the_audit_log(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    archived_event: Event,
+    test_editor: User,
+):
+    """Deleting an Ereignis is the one destructive action with no Undo — it has to leave a record.
+
+    The cascade itself is intended and the dialog says so ("dauerhaft", plus the incident
+    count). But `events.py` wrote nothing to the audit log, so every incident under the event
+    — with its assignments, Rapporte, status transitions and notifications — could vanish with
+    no trace of who did it or what went with it. An incident deletion at least has restore;
+    this has nothing.
+
+    The entry must also SURVIVE the cascade, which it does because `audit_log.resource_id`
+    carries no foreign key.
+    """
+    doomed = Incident(
+        id=uuid4(),
+        title="Wasser im Keller, Hauptstrasse 4",
+        type="elementarereignis",
+        priority="medium",
+        location_address="Hauptstrasse 4",
+        status="incoming",
+        event_id=archived_event.id,
+        created_by=test_editor.id,
+    )
+    db_session.add(doomed)
+    await db_session.commit()
+
+    response = await editor_client.delete(f"/api/events/{archived_event.id}")
+    assert response.status_code == 204
+
+    entry = (
+        (
+            await db_session.execute(
+                select(AuditLog)
+                .where(AuditLog.resource_type == "event")
+                .where(AuditLog.action_type == "delete")
+                .where(AuditLog.resource_id == archived_event.id)
+            )
+        )
+        .scalars()
+        .one()
+    )
+    assert entry.user_id == test_editor.id
+    assert entry.changes_json is not None
+    assert entry.changes_json["name"] == "Archived Event"
+    assert entry.changes_json["incident_count"] == 1
+    # The titles matter more than the ids: after the cascade the ids resolve to nothing.
+    assert entry.changes_json["incidents"] == [{"id": str(doomed.id), "title": "Wasser im Keller, Hauptstrasse 4"}]
+
+    # And the incident really is gone — this test must not be read as "delete got softer".
+    assert await db_session.get(Incident, doomed.id) is None
 
 
 @pytest.mark.asyncio

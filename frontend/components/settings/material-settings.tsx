@@ -82,9 +82,12 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
     onClose: closeDialog,
   });
 
+  // Load once on mount. The loaders are plain functions re-created on every
+  // render, so listing them as deps would refetch on every render.
   useEffect(() => {
     loadMaterials();
     loadGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadGroups = async () => {
@@ -707,7 +710,7 @@ function MaterialGroupSettings({
                 <TableCell className="font-medium">{group.name}</TableCell>
                 <TableCell>
                   <span className="px-2 py-1 rounded text-xs bg-accent text-accent-foreground">
-                    {group.location || '—'}
+                    {group.location || '–'}
                   </span>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">

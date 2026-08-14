@@ -4,51 +4,24 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Send, Loader2, Binoculars, MapPin, Check } from 'lucide-react'
+import { AlertCircle, Loader2, Binoculars, MapPin, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
-import PhotoUpload from './photo-upload'
+import {
+  EMPTY_REKO_FORM,
+  RekoReportForm,
+  type RekoFormData,
+} from '@/components/reko/reko-report-form'
 import { telHref } from '@/lib/phone'
 import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
 
-interface RekoFormData {
-  is_relevant: boolean | null
-  dangers_json: ApiDangersAssessment
-  effort_json: ApiEffortEstimation
-  power_supply: string
-  photos_json: string[]
-  summary_text: string
-  additional_notes: string
-}
-
-const INITIAL_FORM_DATA: RekoFormData = {
-  is_relevant: null,
-  dangers_json: {
-    fire: false,
-    fire_danger: false,
-    explosion: false,
-    collapse: false,
-    chemical: false,
-    electrical: false,
-    other_notes: ''
-  },
-  effort_json: {
-    personnel_count: null,
-    vehicles_needed: [],
-    equipment_needed: [],
-    estimated_duration_hours: null
-  },
-  power_supply: 'unknown',
-  photos_json: [],
-  summary_text: '',
-  additional_notes: ''
-}
+// The field page is the SHELL: the token, the incident header, the arrival
+// ping, the localStorage draft and the 30 s autosave. The fields themselves are
+// `RekoReportForm`, which the board's incident detail mounts too — one component
+// and two mounts, because a second form drifts and the KP path is then the one
+// that quietly loses a field (plan 26 §5.1).
+const INITIAL_FORM_DATA: RekoFormData = EMPTY_REKO_FORM
 
 export default function RekoForm() {
   const searchParams = useSearchParams()
@@ -82,22 +55,9 @@ export default function RekoForm() {
   const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
-  const [relevantMissing, setRelevantMissing] = useState(false)
   // Constant until the backend returns the event's training_flag on the Reko form
   // response (see the NOTE in the loader below); the dummy generator stays hidden.
   const isTraining = false
-  // Local text mirror for the duration field: a controlled number input coerces
-  // "0"/"0." to falsy and clears the field mid-typing, so we keep the raw string
-  // and sync it back only when the stored number changes elsewhere (quick-fill).
-  const [durationText, setDurationText] = useState('')
-  useEffect(() => {
-    const num = formData.effort_json.estimated_duration_hours
-    const parsed = durationText.trim() === '' ? null : parseFloat(durationText)
-    if (num !== parsed && !(num === null && Number.isNaN(parsed))) {
-      setDurationText(num === null || num === undefined ? '' : String(num))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.effort_json.estimated_duration_hours])
 
   // LocalStorage key for this specific reko form
   const localStorageKey = incidentId ? `reko-form-${incidentId}` : null
@@ -375,14 +335,9 @@ export default function RekoForm() {
     }
   }, [formData, incidentId, token, isSaving])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-
-    if (formData.is_relevant === null) {
-      setRelevantMissing(true)
-      return
-    }
-
+  // The "Einsatz relevant?" requirement lives in the shared field set, which
+  // refuses to call this until it is answered — the same rule on both mounts.
+  async function handleSubmit() {
     if (!incidentId || !token) return
 
     // Set the ref synchronously so any in-flight auto-save closure bails out.
@@ -420,14 +375,6 @@ export default function RekoForm() {
     }
   }
 
-  function updateFormData<K extends keyof RekoFormData>(
-    key: K,
-    value: RekoFormData[K]
-  ) {
-    if (key === 'is_relevant') setRelevantMissing(false)
-    setFormData(prev => ({ ...prev, [key]: value }))
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -446,7 +393,7 @@ export default function RekoForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <div className="space-y-5">
       {/* Training Mode Dummy Data Generator */}
       <RekoDummyGenerator
         isTraining={isTraining}
@@ -509,236 +456,30 @@ export default function RekoForm() {
         )}
       </Button>
 
-      {/* Section 1: Basic Confirmation */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-1">
-          <Label className="text-sm font-medium text-muted-foreground tracking-wide">
-            {t('relevantQuestion')}
-          </Label>
-          <span className="text-destructive" aria-hidden="true">*</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            type="button"
-            variant={formData.is_relevant === true ? 'default' : 'outline'}
-            onClick={() => updateFormData('is_relevant', true)}
-            size="lg"
-            className="text-base"
-          >
-            {t('yes')}
-          </Button>
-          <Button
-            type="button"
-            variant={formData.is_relevant === false ? 'default' : 'outline'}
-            onClick={() => updateFormData('is_relevant', false)}
-            size="lg"
-            className="text-base"
-          >
-            {t('no')}
-          </Button>
-        </div>
-        {relevantMissing && (
-          <p className="text-xs text-destructive">{t('relevantRequired')}</p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Section 2: Dangers Assessment */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
-          {t('dangers')}
-        </Label>
-
-        <div className="space-y-2">
-          {(['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).map((key) => (
-            <label
-              key={key}
-              htmlFor={`danger-${key}`}
-              className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary transition-colors"
-            >
-              <Checkbox
-                id={`danger-${key}`}
-                checked={formData.dangers_json[key as keyof ApiDangersAssessment] as boolean}
-                onCheckedChange={(checked) => updateFormData('dangers_json', {
-                  ...formData.dangers_json,
-                  [key]: checked === true
-                })}
-                className="h-5 w-5"
-              />
-              <span className="text-sm">{t(`dangerLabels.${key}`)}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="pt-2">
-          <Label htmlFor="danger-other" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('otherDangers')}</Label>
-          <Textarea
-            id="danger-other"
-            value={formData.dangers_json.other_notes || ''}
-            onChange={(e) => updateFormData('dangers_json', {
-              ...formData.dangers_json,
-              other_notes: e.target.value
-            })}
-            placeholder={t('otherDangersPlaceholder')}
-            rows={2}
-          />
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Section 3: Effort Assessment */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
-          {t('effort')}
-        </Label>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="personnel-count" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('personnelCount')}</Label>
-            <Input
-              id="personnel-count"
-              type="number"
-              inputMode="numeric"
-              min="0"
-              value={formData.effort_json.personnel_count || ''}
-              onChange={(e) => updateFormData('effort_json', {
-                ...formData.effort_json,
-                personnel_count: e.target.value ? parseInt(e.target.value) : null
-              })}
-              placeholder={t('personnelPlaceholder')}
-              className="h-11"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="duration" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('duration')}</Label>
-            <Input
-              id="duration"
-              type="text"
-              inputMode="decimal"
-              value={durationText}
-              onChange={(e) => {
-                // Accept decimals like "0.5"; keep the raw text so a leading "0"
-                // (or a lone "0.") survives instead of being coerced away.
-                let raw = e.target.value.replace(',', '.').replace(/[^\d.]/g, '')
-                const dot = raw.indexOf('.')
-                if (dot !== -1) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, '')
-                setDurationText(raw)
-                const parsed = raw === '' || raw === '.' ? null : parseFloat(raw)
-                updateFormData('effort_json', {
-                  ...formData.effort_json,
-                  estimated_duration_hours: parsed !== null && !Number.isNaN(parsed) ? parsed : null,
-                })
-              }}
-              placeholder={t('durationPlaceholder')}
-              className="h-11"
-            />
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Section 4: Power Supply */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
-          {t('powerSupply')}
-        </Label>
-        <div className="grid grid-cols-2 gap-2">
-          {(['unknown', 'available', 'unavailable', 'emergency_needed'] as const).map((value) => (
-            <Button
-              key={value}
-              type="button"
-              variant={formData.power_supply === value ? 'default' : 'outline'}
-              onClick={() => updateFormData('power_supply', value)}
-              className="text-sm"
-            >
-              {t(`powerLabels.${value}`)}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Photo Upload */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
-          {t('photos')}
-        </Label>
-        <PhotoUpload
-          photos={formData.photos_json}
-          incidentId={incidentId!}
-          token={token!}
-          onPhotosChange={(update) =>
-            setFormData(prev => ({ ...prev, photos_json: update(prev.photos_json) }))
-          }
-        />
-      </div>
-
-      <Separator />
-
-      {/* Summary */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium text-muted-foreground tracking-wide">
-          {t('summary')}
-        </Label>
-
-        <div>
-          <Label htmlFor="summary" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('summaryShort')}</Label>
-          <Textarea
-            id="summary"
-            value={formData.summary_text}
-            onChange={(e) => updateFormData('summary_text', e.target.value)}
-            placeholder={t('summaryPlaceholder')}
-            rows={3}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="notes" className="text-sm font-semibold text-muted-foreground mb-1.5 block">{t('notes')}</Label>
-          <Textarea
-            id="notes"
-            value={formData.additional_notes}
-            onChange={(e) => updateFormData('additional_notes', e.target.value)}
-            placeholder={t('notesPlaceholder')}
-            rows={2}
-          />
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="pt-4 space-y-3">
-        <Button
-          type="submit"
-          disabled={isSubmitting || isSaving}
-          className="w-full h-14"
-          size="lg"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              {t('submitting')}
-            </>
-          ) : (
-            <>
-              <Send className="h-5 w-5" />
-              {t('submit')}
-            </>
-          )}
-        </Button>
-
-        {/* Auto-save indicator */}
-        <p className="text-xs text-center text-muted-foreground">
-          {lastSaved ? (
-            <>{t('savedAt', { time: lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}</>
-          ) : (
-            <>{t('autoSave')}</>
-          )}
-        </p>
-      </div>
-    </form>
+      {/* The field set itself — the SAME component the board's incident detail
+          mounts, with a different transport and identity (plan 26 §5.1). The
+          shell above (header, arrival ping, dummy generator) is what differs;
+          the fields must not. */}
+      <RekoReportForm
+        incidentId={incidentId!}
+        value={formData}
+        onChange={setFormData}
+        mount="feld"
+        isSubmitting={isSubmitting}
+        busy={isSaving}
+        onSubmit={handleSubmit}
+        photos={{
+          upload: async (file) => (await apiClient.uploadRekoPhoto(incidentId!, token!, file)).filename,
+          remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
+        }}
+        footer={
+          <p className="text-xs text-center text-muted-foreground">
+            {lastSaved
+              ? t('savedAt', { time: lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })
+              : t('autoSave')}
+          </p>
+        }
+      />
+    </div>
   )
 }

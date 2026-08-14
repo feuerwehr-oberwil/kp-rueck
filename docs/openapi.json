@@ -46,6 +46,26 @@
         }
       }
     },
+    "/api/deployment": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Deployment Info",
+        "description": "What this instance is allowed to do to the outside world (see app/environment.py).\n\nUnauthenticated on purpose. The band that says *Staging – Übungssystem* has to be on the\nlogin screen and on the public phone forms too — the tab you mistake at 02:00 is usually\nthe one you have not logged into yet. It exposes a role name and nothing else.\n\nThe same answer is embedded in ``/api/integrations`` per domain; this is the small public\nversion the frontend shell asks for on every page.",
+        "operationId": "deployment_info_api_deployment_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/demo/status": {
       "get": {
         "tags": [
@@ -343,16 +363,6 @@
         "description": "Execute Excel import with specified mode.\n\nModes:\n- replace: Delete all existing data, insert new\n- merge: Update existing by name, add new (treated as replace for now)\n- append: Keep existing, add new",
         "operationId": "execute_excel_import_api_admin_import_execute_post",
         "parameters": [
-          {
-            "name": "mode",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "replace",
-              "title": "Mode"
-            }
-          },
           {
             "name": "authorization",
             "in": "header",
@@ -2290,7 +2300,7 @@
           "divera"
         ],
         "summary": "Send Test Alarm",
-        "description": "Send a setup test alarm (push only) to a single Divera member.\n\nUsed from Settings to verify the Divera connection. Same gating as a real\nalarm minus the incident/training checks. Targets the chosen Divera user\ndirectly, so it works before any local personnel are linked.",
+        "description": "Send a setup test alarm (push only) to a single Divera member.\n\nUsed from Settings to verify the Divera connection. Same gating as a real\nalarm minus the incident/training checks. Targets the chosen Divera user\ndirectly, so it works before any local personnel are linked.\n\nGoes through the AlarmProvider seam rather than calling the Divera client\ndirectly, so the one place that can refuse to alert (deployment role) covers\nthe test button too — a test alarm is a real push to a real phone.",
         "operationId": "send_test_alarm_api_divera_test_alarm_post",
         "parameters": [
           {
@@ -2824,6 +2834,82 @@
         }
       }
     },
+    "/api/events/{event_id}/restliste": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Get Event Restliste",
+        "description": "What is still open in this Ereignis (§6, V-8).\n\nThree counts — Schadenplätze without a rapport, units still on site, Trupps\nwaiting for a pickup — each carrying the incidents behind it, because the\ncount is only the way in. This is where somebody at 02:00 finds the gaps;\nnobody clicks twenty-three cards individually. It is the operational\ncounterpart of there being no acceptance step (decision 10).",
+        "operationId": "get_event_restliste_api_events__event_id__restliste_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventRestliste"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events/{event_id}/archive": {
       "post": {
         "tags": [
@@ -3132,6 +3218,80 @@
         "summary": "Export Event Lageblatt",
         "description": "Generate the Lageblatt PDF — the paper-fallback snapshot of the current board.\n\nOne row per incident in the layout of the cantonal Führungsformular\n(Elementarschaden FWI BL/BS) plus empty rows for handwritten continuation\nwhen the digital board is unavailable.\n\nRaises:\n    404: Event not found\n    500: Generation failed",
         "operationId": "export_event_lageblatt_api_exports_events__event_id__lageblatt_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/exports/events/{event_id}/einsaetze.xlsx": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Export Event Einsaetze",
+        "description": "Generate the Einsätze workbook — one wide row per Schadenplatz.\n\nEverything one Schadenplatz's rapport recorded, on one line: Einsatz-Nr.,\nAdresse, Beginn/Ende/Dauer, the (possibly corrected) head count, the\nvehicles the crew ticked, the Eigentümer-/Halterdaten, the material answers,\nthe Kurzbericht and who filed it.\n\nIt matches no external format on purpose (plan 25, decision 21): somebody\nretypes this into the billing system by hand, so the sheet is optimised for\nbeing read while retyping. Schadenplätze **without** a rapport still get a\nrow — the gaps have to be visible, there is no acceptance step by design.\n\nRaises:\n    404: Event not found\n    500: Generation failed",
+        "operationId": "export_event_einsaetze_api_exports_events__event_id__einsaetze_xlsx_get",
         "parameters": [
           {
             "name": "event_id",
@@ -3947,6 +4107,671 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/field-report": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Field Report",
+        "description": "The three field reports of one Schadenplatz, as `/feld` returns them.",
+        "operationId": "get_field_report_api_incidents__incident_id__field_report_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Set Field Report",
+        "description": "The KP twin of the `/feld` field actions (decision 28).\n\nThe normal case is a radio message: the crew has no signal, no phone or no\nhands and dictates. A field surface whose data can only arrive through that\nsurface would make the KP a spectator to its own board — so *everything* a\ncrew can tap here, an operator can enter, through the **same CRUD module**\n(`crud/feld.py`). Two thin routers, one implementation.\n\nSet or clear any of the three: a field present in the body with a value sets\nit, present as `null` clears it, absent leaves it alone. Without that\ndistinction an operator correcting the pickup note would wipe the arrival.\n\n**Provenance is never faked.** This path leaves `field_complete_reported_by`\nand `pickup_requested_by` NULL — they are personnel FKs and no operator is\nthe crew — and puts the user in the audit-log entry instead.",
+        "operationId": "set_field_report_api_incidents__incident_id__field_report_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FieldReportUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/reko-arrived": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Set Reko Arrived",
+        "description": "\"Reko meldet: vor Ort\" over the radio (plan 26 §5.2, decision 15).\n\nThe KP twin of `POST /api/reko/{incident_id}/arrived`, which is a form-token\nroute and therefore had nowhere to put a message that arrived by radio. It\nreuses `crud.mark_reko_arrived`'s body with the token lookup replaced, fires\nthe same notification and broadcasts the same two WebSocket events — **a\nboard watching for a field message must not be able to tell the difference\nin anything except the provenance line.**\n\nIdempotent, correctable and clearable: absent `arrived_at` means \"now\" and\nleaves an existing arrival alone, an explicit one lands at the time the\nmessage was actually given (five minutes ago, over the radio), and `null`\nclears it, because a mis-heard call is corrected rather than amended.\n\nThe arrival is displayed and written in exactly ONE place, the detail's\nFeldmeldungen row. Do not add a second control for it somewhere else.",
+        "operationId": "set_reko_arrived_api_incidents__incident_id__reko_arrived_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RekoArrivedUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RekoArrivedState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/rapport": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Incident Rapport",
+        "description": "The Schadenplatz-Rapport from the board — the same prefill as `/feld` (§4).\n\nKP parity is a hard requirement, not a convenience (decision 28): the normal\ncase is a radio message, and an editor must be able to create a rapport for\nan incident that never had any field contact, fill every field, tick the\nchecklist and submit it. **One CRUD module, two thin routers** — the board's\ndetail section renders the same form component over this pair.\n\nEditor-gated rather than `CurrentUser`: the response carries the owner block,\nwhich is the first citizen PII in kp-rueck (§9).",
+        "operationId": "get_incident_rapport_api_incidents__incident_id__rapport_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Save Incident Rapport",
+        "description": "The KP twin of the `/feld` upsert, over the same CRUD (decision 28).\n\n**Provenance is never faked.** This path stamps `*_by_user_id`, leaves the\npersonnel columns NULL, and every output prints \"(Funkmeldung)\". A mixed\nreport — crew filed, KP amended — shows both lines, which is why the two\npairs exist rather than one resolved author.",
+        "operationId": "save_incident_rapport_api_incidents__incident_id__rapport_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RapportUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/rapport/photos": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Upload Rapport Photo",
+        "description": "The KP twin of the `/feld` photo upload — the WhatsApp-photo case (§6.1).\n\nA crew with no signal sends the picture over whatever channel works and the\noperator attaches it here. Same CRUD, same storage, same files on disk;\nprovenance stays honest — this stamps the user, not a personnel row.",
+        "operationId": "upload_rapport_photo_api_incidents__incident_id__rapport_photos_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_rapport_photo_api_incidents__incident_id__rapport_photos_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportPhotosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/rapport/photos/{filename}": {
+      "delete": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Delete Rapport Photo",
+        "description": "Detach a photo from the board side.",
+        "operationId": "delete_rapport_photo_api_incidents__incident_id__rapport_photos__filename__delete",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportPhotosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/rapport/material-return": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Rapport Material Return",
+        "description": "\"Material zurück – freigeben\" (decision 17): what the board may release.\n\nA read only. The releasing itself goes through the existing per-assignment\nrelease — a field form must not silently write assignments, and the decision\nstays with the operator.\n\n``left_on_site`` is returned separately and is **not** in the release set;\nconsumables are in neither (decision 26). ``left_on_site_named`` carries the\n\"Weiteres Material\" the crew left behind (§18.35) — names with no assignment\nunder them, so there is nothing to release and the list says so rather than\nletting an operator read silence as \"nothing is left there\".\n\nAlso the source of truth for the completion gate's prefill (§18): the same\nanswers, plus who filed them, so \"Material vor Ort oder ins Magazin?\" arrives\nalready answered instead of asking the crew's question a second time.\n\n**The two callers differ in exactly one flag (§18.23).** The release list in\nthe incident detail is submitted-only (the default): its click releases\nassignments, and doing that off a half-typed checklist is how a pump gets\nfreed while it is still running in a cellar. The completion gate passes\n``include_draft=true``: it only prefills a dialog the operator confirms, and\na crew that filled the checklist without pressing *Rapport abschliessen* on\na phone in the rain is the normal case — throwing its answers away is the\nthing this parameter exists to stop. ``rapport_is_draft`` tells the caller\nwhich it got, so a draft is never quoted as a filed rapport.",
+        "operationId": "get_rapport_material_return_api_incidents__incident_id__rapport_material_return_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "include_draft",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also answer from a rapport that is still a draft. For the completion gate's prefill only.",
+              "default": false,
+              "title": "Include Draft"
+            },
+            "description": "Also answer from a rapport that is still a draft. For the completion gate's prefill only."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialReturnResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/history": {
       "get": {
         "tags": [
@@ -4109,7 +4934,7 @@
           "incidents"
         ],
         "summary": "Get Incident Timeline",
-        "description": "Get the merged event timeline for an incident.\n\nCombines status transitions and resource assignments (assign + unassign)\ninto a single chronologically sorted list. Used by the timeline popover\nin the kanban operation detail modal.",
+        "description": "Get the merged event timeline for an incident.\n\nCombines status transitions, resource assignments (assign + unassign) and\nthe field's Freitext-Meldungen into a single chronologically sorted list.\nIt is the whole content of the \"Verlauf\" tab in the operation detail, and\nthe source of the message thread shown next to the Feldmeldungen.",
         "operationId": "get_incident_timeline_api_incidents__incident_id__timeline_get",
         "parameters": [
           {
@@ -5944,7 +6769,7 @@
           "personnel"
         ],
         "summary": "List Personnel",
-        "description": "List all personnel.\n\nUse checked_in_only=true with event_id to show only personnel checked in for a specific event.",
+        "description": "List all personnel.\n\nPass `event_id` to have `checked_in`/`checked_in_at`/`checked_out_at` describe that\nEreignis; without it they are empty, because attendance has no meaning outside one.\nAdd `checked_in_only=true` to get only the people who are currently present.",
         "operationId": "list_personnel_api_personnel__get",
         "parameters": [
           {
@@ -6115,7 +6940,7 @@
           "personnel"
         ],
         "summary": "Get Personnel",
-        "description": "Get single personnel by ID.",
+        "description": "Get single personnel by ID (roster data; no Ereignis, so no attendance).",
         "operationId": "get_personnel_api_personnel__personnel_id__get",
         "parameters": [
           {
@@ -6496,19 +7321,45 @@
           "personnel-checkin"
         ],
         "summary": "List Personnel For Checkin",
-        "description": "Get list of personnel for check-in interface with event information.\n\nRequires valid token (no user authentication).\nExcludes unavailable personnel.",
+        "description": "Get list of personnel for check-in interface with event information.\n\nTwo doors: the check-in token (phone) or a logged-in session with an explicit\n`event_id` (board). Reading the roll-call is not an edit, so a viewer may do it.\nUnavailable personnel are hidden unless asked for.",
         "operationId": "list_personnel_for_checkin_api_personnel_check_in_list_get",
         "parameters": [
           {
             "name": "token",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "Access token from QR code",
               "title": "Token"
             },
             "description": "Access token from QR code"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires a session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires a session)"
           },
           {
             "name": "checked_in_only",
@@ -6521,6 +7372,50 @@
               "title": "Checked In Only"
             },
             "description": "Only show checked-in personnel"
+          },
+          {
+            "name": "include_unavailable",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "List unavailable personnel too (board roll-call shows them disabled)",
+              "default": false,
+              "title": "Include Unavailable"
+            },
+            "description": "List unavailable personnel too (board roll-call shows them disabled)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "responses": {
@@ -6553,7 +7448,7 @@
           "personnel-checkin"
         ],
         "summary": "Check In",
-        "description": "Check in a person (mark as present for the event).\n\nRequires valid token (no user authentication).\nBroadcasts real-time update via WebSocket.",
+        "description": "Check in a person (mark as present for the event).\n\nEither a valid check-in token or an editor session with `event_id`.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_in_api_personnel_check_in__personnel_id__in_post",
         "parameters": [
           {
@@ -6569,13 +7464,71 @@
           {
             "name": "token",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "description": "Access token",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access token from the check-in link",
               "title": "Token"
             },
-            "description": "Access token"
+            "description": "Access token from the check-in link"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires an editor session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "responses": {
@@ -6608,7 +7561,7 @@
           "personnel-checkin"
         ],
         "summary": "Check Out",
-        "description": "Check out a person from the event (mark as left).\n\nRequires valid token (no user authentication).\nBroadcasts real-time update via WebSocket.",
+        "description": "Check out a person from the event (mark as left).\n\nEither a valid check-in token or an editor session with `event_id`.\nAn assigned person is refused through the phone (it has no way to release the\nassignment) and allowed through the board, which warns first and leaves the\nassignment standing.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_out_api_personnel_check_in__personnel_id__out_post",
         "parameters": [
           {
@@ -6624,13 +7577,71 @@
           {
             "name": "token",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "description": "Access token",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access token from the check-in link",
               "title": "Token"
             },
-            "description": "Access token"
+            "description": "Access token from the check-in link"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires an editor session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "responses": {
@@ -6657,25 +7668,251 @@
         }
       }
     },
+    "/api/personnel/check-in/{personnel_id}": {
+      "delete": {
+        "tags": [
+          "personnel-checkin"
+        ],
+        "summary": "Clear Attendance",
+        "description": "Back to \"nicht anwesend\" — the third step of the board's roll-call cycle.\n\nDeliberately editor-only and board-only. A crew member's phone can say they\narrived and that they left; \"I was never here\" is a correction of the record,\nwhich belongs to whoever keeps it. Idempotent: clearing a person who has no\nattendance row simply reports them absent.",
+        "operationId": "clear_attendance_api_personnel_check_in__personnel_id__delete",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event whose attendance row is removed",
+              "title": "Event Id"
+            },
+            "description": "Event whose attendance row is removed"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/personnel/check-in/event/{event_id}/out-all": {
+      "post": {
+        "tags": [
+          "personnel-checkin"
+        ],
+        "summary": "Check Out All",
+        "description": "Send everyone still present at this Ereignis home (\"Alle abmelden\").\n\nBoard only, deliberately: the phone is a self-report and nobody checks thirty-four\nother people out from it. That asymmetry is the direction the parity rule does not\npolice — a route with no field twin is fine, a *field* route with no board twin is\nthe hole this plan closes.\n\nAlready-departed rows keep their own departure time, nobody gains a row they never\nhad, and no assignment is released.",
+        "operationId": "check_out_all_api_personnel_check_in_event__event_id__out_all_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                  },
+                  "title": "Response Check Out All Api Personnel Check In Event  Event Id  Out All Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/personnel/check-in/stats": {
       "get": {
         "tags": [
           "personnel-checkin"
         ],
         "summary": "Get Checkin Stats",
-        "description": "Get check-in statistics for the event.\n\nRequires valid token.\nReturns counts of checked-in, available, and total personnel.",
+        "description": "Get check-in statistics for the event.\n\nEither a valid check-in token or a session with `event_id`.\n\n`left` is the third number the board's roll-call header needs: people who came and\nthen went, which is not the same fact as never having come. `checked_out` is kept\nas it was — \"not currently present\" — so the phone's reading of it does not move.",
         "operationId": "get_checkin_stats_api_personnel_check_in_stats_get",
         "parameters": [
           {
             "name": "token",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "description": "Access token",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access token from the check-in link",
               "title": "Token"
             },
-            "description": "Access token"
+            "description": "Access token from the check-in link"
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Event ID (board, requires a session)",
+              "title": "Event Id"
+            },
+            "description": "Event ID (board, requires a session)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "responses": {
@@ -6942,6 +8179,82 @@
             }
           }
         },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/print/abholliste/{event_id}/": {
+      "post": {
+        "tags": [
+          "print"
+        ],
+        "summary": "Queue Abholliste Print",
+        "description": "The Abholliste — the material half of the Restliste, on paper (decision 25).\n\nAddress · unit · since when, one line each: the sheet somebody takes along\nthe next morning. It goes through the **existing print-job path** rather\nthan becoming a fourth document format, because it is a driving list, not a\nreport.\n\nMaterial left on site is a *different day's* job and stays separate from the\nTrupp-Abholung flag: a pump running in a cellar and three people standing in\nthe rain are two problems, and merging them into one sheet would lose that.",
+        "operationId": "queue_abholliste_print_api_print_abholliste__event_id___post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -8718,7 +10031,7 @@
           "reko"
         ],
         "summary": "Submit Reko Report",
-        "description": "Submit or update Reko report.\n\nUse submit=false for draft saves (auto-save).\nUse submit=true for final submission.",
+        "description": "Submit or update Reko report.\n\nUse submit=false for draft saves (auto-save).\nUse submit=true for final submission.\n\n**One route, two doors** (plan 26 §5.1, decision 11). A field crew sends the\nincident's form token; the board sends none and is identified by its session.\nThe alternative — a `…-by-editor` twin — would be two handlers that have to\nbe kept in step forever, which is the drift this is here to prevent. Neither\na token nor a session is still a 401.\n\nA token that is *present but wrong* stays a 400 no matter who is logged in,\nexactly as before: a leaked link must not become a way to write into another\nincident, and that guarantee has to survive the auth change.",
         "operationId": "submit_reko_report_api_reko__post",
         "parameters": [
           {
@@ -8732,6 +10045,38 @@
               "title": "Submit"
             },
             "description": "Mark as submitted (not draft)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "requestBody": {
@@ -8774,7 +10119,7 @@
           "reko"
         ],
         "summary": "Update Report",
-        "description": "Update existing Reko report (e.g., add more photos after submission).\n\nRequires either the incident's form token (X-Reko-Token header) or a\nlogged-in user — recon reports feed operator decisions and the printed\nslip, so they must not be rewritable by anyone who can reach the API.",
+        "description": "Update existing Reko report (e.g., add more photos after submission).\n\nRequires either the incident's form token (X-Reko-Token header) or a\nlogged-in user — recon reports feed operator decisions and the printed\nslip, so they must not be rewritable by anyone who can reach the API.\n\nThis is how the KP amends a crew-filed report (plan 26 §5.1): what came in\nover the radio afterwards is added to the same row instead of filing a second\none, and the report then carries **both** provenance sides —\n``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the\noperator — which is what a mixed report has to be able to print.",
         "operationId": "update_report_api_reko__report_id__patch",
         "parameters": [
           {
@@ -9302,7 +10647,7 @@
           "reko"
         ],
         "summary": "Upload Photo",
-        "description": "Upload photo to Reko report.\n\nRequires X-Reko-Token header for authentication.\nPhotos are compressed, resized, and stored as JPEG files.\n\nArgs:\n    incident_id: Incident UUID\n    file: Uploaded image file\n    x_reko_token: Form access token (from header)\n    db: Database session\n\nReturns:\n    { \"filename\": \"uuid.jpg\" }",
+        "description": "Upload photo to Reko report.\n\n**One route, two doors**, the same shape `POST /api/reko/` has: a field crew\nsends the incident's form token, the board sends none and is identified by\nits session. The board door is the WhatsApp case — the crew has no signal at\nthe Schadenplatz and sends the picture over whatever channel works, so the\noperator has to be able to attach it to the report they are transcribing.\n\nPhotos are compressed, resized, and stored as JPEG files.\n\nArgs:\n    incident_id: Incident UUID\n    file: Uploaded image file\n    x_reko_token: Form access token (from header), for the field door\n    report_id: The report to attach to, for the board door when amending\n    db: Database session\n\nReturns:\n    { \"filename\": \"uuid.jpg\" }",
         "operationId": "upload_photo_api_reko__incident_id__photos_post",
         "parameters": [
           {
@@ -9316,12 +10661,70 @@
             }
           },
           {
+            "name": "report_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Session door only: attach to this existing report instead of the operator's draft.",
+              "title": "Report Id"
+            },
+            "description": "Session door only: attach to this existing report instead of the operator's draft."
+          },
+          {
             "name": "x-reko-token",
             "in": "header",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Reko-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
             }
           }
         ],
@@ -9363,7 +10766,7 @@
           "reko"
         ],
         "summary": "Delete Photo",
-        "description": "Delete photo from Reko report.\n\nRequires X-Reko-Token header for authentication.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename to delete\n    x_reko_token: Form access token (from header)\n    db: Database session\n\nReturns:\n    { \"success\": true }",
+        "description": "Delete photo from Reko report.\n\nSame two doors as the upload: the incident's form token, or a session.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename to delete\n    x_reko_token: Form access token (from header), for the field door\n    report_id: The report the photo hangs on, for the board door when amending\n    db: Database session\n\nReturns:\n    { \"success\": true }",
         "operationId": "delete_photo_api_reko__incident_id__photos__filename__delete",
         "parameters": [
           {
@@ -9386,12 +10789,70 @@
             }
           },
           {
+            "name": "report_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Session door only: the report the photo hangs on, when amending an existing one.",
+              "title": "Report Id"
+            },
+            "description": "Session door only: the report the photo hangs on, when amending an existing one."
+          },
+          {
             "name": "x-reko-token",
             "in": "header",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "X-Reko-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
             }
           }
         ],
@@ -9938,13 +11399,841 @@
         }
       }
     },
+    "/api/feld/generate-link": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Generate Feld Link",
+        "description": "Generate the `/feld` link with QR code (editor only).\n\nOne global link per Ereignis — no per-incident and no per-vehicle links.\nLong-lived (30 days), because it goes on a printed poster.",
+        "operationId": "generate_feld_link_api_feld_generate_link_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event ID for the field surface",
+              "title": "Event Id"
+            },
+            "description": "Event ID for the field surface"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Generate Feld Link Api Feld Generate Link Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/personnel": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "List Feld Personnel",
+        "description": "The person picker: everyone with an assignment in this event.\n\nToken only — no login. Deliberately not the roster: a person with no\nassignment has nothing to file, and listing them would produce an empty page\nwith no explanation instead of the \"melde dich beim KP\" sentence.",
+        "operationId": "list_feld_personnel_api_feld_personnel_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldPersonnelListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/assignments/{personnel_id}": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Feld Assignments",
+        "description": "\"Meine Einsatzstellen\" — this person's Schadenplätze in this event.\n\nEach row carries the rapport state, the two field timestamps, and the\nEinsatzleiter of that incident (decision 22): the EL is briefed before any\nform opens, never enforced.",
+        "operationId": "get_feld_assignments_api_feld_assignments__personnel_id__get",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldAssignmentsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/arrived": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report Arrived",
+        "description": "\"Angekommen\" — the crew is at the Schadenplatz.\n\nUpserts the Schadenplatz-Rapport row (that is why `is_draft` defaults to\nTrue: a row exists long before any form does) and stamps `arrived_at`.\n\n**Idempotent.** A second tap does nothing — a crew re-opening the page and\nhitting the big button again must not move a timestamp the KP has acted on.",
+        "operationId": "report_arrived_api_feld_incidents__incident_id__arrived_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/complete": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report Field Complete",
+        "description": "\"Einsatz beendet\" — the crew has finished here.\n\nStamps `field_complete_reported_at` + `field_complete_reported_by` and\n**does not change `Incident.status`**: closing a Schadenplatz stays the\noperator's decision, which is the rule the column's own comment states.\n\nThe client asks the Abholung follow-up (\"Kommt ihr selbst zurück?\")\nimmediately afterwards and sends the answer to `/pickup` — deliberately a\nsecond call, so the *beendet* report reaches the KP even if the crew walks\naway from the question.",
+        "operationId": "report_field_complete_api_feld_incidents__incident_id__complete_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/pickup": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report Pickup",
+        "description": "\"Abholung nötig\" / \"abgeholt\" (decision 24).\n\n`needed=true` is the *\"Wir müssen abgeholt werden\"* half of the follow-up\nthat \"Einsatz beendet\" asks; `needed=false` is *\"Wir fahren selbst\"* and,\nlater, the crew tapping *abgeholt*.\n\nNot a status: a Schadenplatz can be finished and still have three people\nstanding in the rain, which is precisely why the flag outlives the card\nmoving to `complete`.",
+        "operationId": "report_pickup_api_feld_incidents__incident_id__pickup_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldPickupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/rapport": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Rapport",
+        "description": "The Schadenplatz-Rapport, **prefilled if it does not exist yet** (§4).\n\nA GET that computes and does not write: opening the form must not create a\nrow, or \"kein Rapport\" would stop meaning anything the moment somebody\nlooked. The material checklist is re-reconciled against the board on every\ncall — a unit assigned after the draft started appears unticked, one the\nboard took away keeps its row only if the crew already answered for it.",
+        "operationId": "get_rapport_api_feld_incidents__incident_id__rapport_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is filing",
+              "title": "Personnel Id"
+            },
+            "description": "Who is filing"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Save Rapport",
+        "description": "Upsert the Rapport. `is_draft: true` is the 30 s autosave, `false` files it.\n\nOne row per Schadenplatz (decision 3): whoever files first creates it,\nanyone else assigned amends the same row, and the form shows \"zuletzt\nbearbeitet von X\" so the next person knows. Filing freezes\n`cost_snapshot_json` — a later board edit cannot change a filed rapport.\n\nStill writes no assignment. The material checklist records two ticks against\nthe board's units; releasing what came back is the board's own one-click\naction (decision 17).",
+        "operationId": "save_rapport_api_feld_incidents__incident_id__rapport_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is filing",
+              "title": "Personnel Id"
+            },
+            "description": "Who is filing"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RapportUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchadenplatzRapport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/photos": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Upload Photo",
+        "description": "A photo of the Schadenplatz, onto the Schadenplatz-Rapport.\n\nSame storage as the Reko form (`services/photo_storage.py`), same files —\nbut **the two doors stay separate**, reading included: `GET /api/photos/...`\nis session-authenticated and `/feld` has no session, so the read-back lives\nnext to this handler (``serve_feld_photo`` below) behind the same two-step.\n`validate_form_token` is deliberately not widened to accept feld tokens:\ncoupling two doors for the sake of one handler is how a token type stops\nmeaning anything. This handler runs the ordinary feld two-step like every\nother endpoint here.\n\nKeeps ``PHOTO_UPLOAD`` rather than the looser ``FELD`` limit — an upload is\norders of magnitude more expensive than a poll.",
+        "operationId": "upload_photo_api_feld_incidents__incident_id__photos_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is uploading",
+              "title": "Personnel Id"
+            },
+            "description": "Who is uploading"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_photo_api_feld_incidents__incident_id__photos_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportPhotosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/photos/{filename}": {
+      "delete": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Delete Photo",
+        "description": "Remove a photo again — the mis-tapped shutter, from the phone that took it.",
+        "operationId": "delete_photo_api_feld_incidents__incident_id__photos__filename__delete",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is deleting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is deleting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportPhotosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Serve Feld Photo",
+        "description": "Read a rapport photo back on `/feld` — the crew looking at what it shot.\n\n`GET /api/photos/{incident}/{file}` (`api/reko.py`) is the board's read path\nand requires a session; `/feld` has none, which is why the phone got a\nbroken image where its own photo should be. The answer is NOT to drop the\ncredential from that endpoint — a rapport photo can be a citizen's cellar.\nIt is the same two-step every other handler in this module runs, so a photo\nis readable exactly by someone who holds the event's link AND is assigned to\nthat Schadenplatz.\n\n``photos_json`` is checked as well as the disk: the assignment says which\nincident you may look at, the report says which files belong to it. Neither\nalone is enough — `get_photo_path` only proves a file exists on disk under\nthat incident's directory.",
+        "operationId": "serve_feld_photo_api_feld_incidents__incident_id__photos__filename__get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is looking",
+              "title": "Personnel Id"
+            },
+            "description": "Who is looking"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/message": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report Message",
+        "description": "Freitext-Meldung an den KP — a configurable chip or a typed sentence.\n\nBecomes a `field_message` notification (how the KP sees it now) **and** an\naudit-log entry (how it survives into the Journal once somebody dismisses\nthe bell). The chips themselves are station config, not translation — see\n`feld.message_chips` in `services/settings.py`.",
+        "operationId": "report_message_api_feld_incidents__incident_id__message_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/photos/{incident_id}/{filename}": {
       "get": {
         "tags": [
           "photos"
         ],
         "summary": "Serve Photo",
-        "description": "Serve photo file with authentication and authorization.\n\nSECURITY: Requires authentication to prevent unauthorized access to photos\nthat may contain sensitive operational information.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    current_user: Authenticated user\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 401: If not authenticated\n    HTTPException 403: If user doesn't have access to incident\n    HTTPException 404: If photo not found",
+        "description": "Serve photo file with authentication and authorization.\n\nSECURITY: two doors, and they are not equally wide.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\nEverything that is not one of those two doors is a 404, never a 403: a share\nlink must not be usable to confirm that a photo of another event exists.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 401: If neither door opens\n    HTTPException 404: If the photo is not found, or out of the token's reach",
         "operationId": "serve_photo_api_photos__incident_id___filename__get",
         "parameters": [
           {
@@ -9965,6 +12254,24 @@
               "type": "string",
               "title": "Filename"
             }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Viewer share token, when there is no session",
+              "title": "Token"
+            },
+            "description": "Viewer share token, when there is no session"
           },
           {
             "name": "authorization",
@@ -10077,6 +12384,205 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/branding/logo": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Get Report Logo",
+        "description": "The station logo as a PNG, or 404 when none is set.",
+        "operationId": "get_report_logo_api_settings_branding_logo_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Upload Report Logo",
+        "description": "Upload/replace the station logo (editor only). Returns the stored size in bytes.",
+        "operationId": "upload_report_logo_api_settings_branding_logo_put",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_report_logo_api_settings_branding_logo_put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Upload Report Logo Api Settings Branding Logo Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Delete Report Logo",
+        "description": "Remove the station logo (editor only). Idempotent.",
+        "operationId": "delete_report_logo_api_settings_branding_logo_delete",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -12412,7 +14918,7 @@
           "training"
         ],
         "summary": "Simulate Field Complete",
-        "description": "Field crew reports the incident finished (\"Einsatz beendet\").\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.",
+        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nThis used to write ``incident.field_complete_reported_at`` by hand, which\nmeant a training run stamped no provenance and rang no bell — the one thing\nthe exercise is supposed to rehearse. It now goes through the **KP-parity\nendpoint** (`POST /api/incidents/{id}/field-report`), so the simulated and\nthe real operator path are byte-for-byte the same code, audit entry and\nnotification included.\n\nThe Abholung answer (decision 24) is preselected by the situation — a crew\nthat walked there or whose vehicle drove on is usually stranded — and the\nÜbungsleiter can always override it by sending it explicitly.",
         "operationId": "simulate_field_complete_api_training_events__event_id__simulate_field_complete__incident_id__post",
         "parameters": [
           {
@@ -12468,6 +14974,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SimulateFieldCompleteRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -12898,6 +15421,443 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateInjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/rapport/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Rapport",
+        "description": "Inject \"Rapport eingetroffen\": one filled and submitted Schadenplatz-Rapport.\n\nTrains the KP side of plan 25 — the badge, the return list, the Restliste,\nthe Einsätze export — without forty phones in the room. The content\nfollows ``RAPPORT_SIM_PROFILE``: realistically patchy, because chasing the\ngaps is the skill being trained.",
+        "operationId": "simulate_rapport_api_training_events__event_id__simulate_rapport__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateRapportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/rapport": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Rapports Bulk",
+        "description": "Inject \"Rapporte eingetroffen\": 80 % of the missing ones arrive at once.\n\nTwenty-three Schadenplätze would otherwise be twenty-three clicks. The\nremaining fifth is **deliberate and rounded down**, so a gap always stays:\nthose are why the Restliste exists, and finding them is the exercise.\n\nCandidates are the completed Schadenplätze without a *submitted* rapport —\nthe same set the Restliste calls \"ohne Rapport\", drafts included, since a\ndraft is somebody who started and walked away rather than a filed rapport.",
+        "operationId": "simulate_rapports_bulk_api_training_events__event_id__simulate_rapport_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateBulkRapportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/field-message/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Field Message",
+        "description": "Inject \"Meldung vom Feld\": a chip or a typed sentence reaches the KP.\n\nThe generic channel, using the station's configurable `feld.message_chips`\n(decision 20). It overlaps \"Feld fordert Verstärkung\" on purpose — that one\nstays as the specific inject; this one is what a crew actually taps, and it\nlands as a `field_message` notification plus a Journal entry.",
+        "operationId": "simulate_field_message_api_training_events__event_id__simulate_field_message__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateInjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/arrived/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Field Arrived",
+        "description": "Inject \"Angekommen\": the crew reports it is on the Schadenplatz.\n\nThe fifth field report, and the last one an exercise could not produce. It\nstamps ``schadenplatz_reports.arrived_at`` through ``crud.feld.record_arrival``\n— the same call the `/feld` button and the KP-parity endpoint make — so the\nKP sees the arrival badge, the bell entry and the Rapport row exactly as it\nwould in an Ernstfall.\n\n``only_if_unset=True``, the same as the field tap: a second click never\nmoves a time the KP has already acted on, and the arrival the GPS automation\nstamped keeps its own provenance.",
+        "operationId": "simulate_field_arrived_api_training_events__event_id__simulate_arrived__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateInjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/simulate/pickup/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Pickup",
+        "description": "Inject \"Abholung nötig\" / \"Abholung erledigt\" on its own (decision 24).\n\nUntil now a pickup could only be simulated bundled with \"Einsatz beendet\",\nwhich is the one moment a real crew often does *not* know yet: the vehicle\ndrives on half an hour later, and only then do three people need a lift. The\nother half — \"der Bus war da\" — had no way in at all, so an exercise could\nraise the warning but never clear it.\n\nGoes through ``crud.feld.record_pickup``, so the Restliste, the map and the\nwarning bell behave exactly as they do for a crew tapping on `/feld`.",
+        "operationId": "simulate_pickup_api_training_events__event_id__simulate_pickup__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SimulatePickupRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -13850,7 +16810,7 @@
           "viewer"
         ],
         "summary": "Get Viewer Data",
-        "description": "Get read-only event data for viewer.\n\nNo authentication required - uses token validation.\nReturns event info and all incidents for the event.",
+        "description": "Get read-only event data for viewer.\n\nNo authentication required — the token in the URL is the only gate, so the\npayload is an ALLOWLIST, not the board's own response models. Every row is\nre-serialised through the narrow `schemas.Viewer*` shapes (`schemas/viewer.py`\ndocuments what each one drops and why): a shared link carries the situation —\naddress, Meldung, status, who and what is on it — and never the Melder's name\nor phone number, the internal notes, or the operator/user ids behind them.",
         "operationId": "get_viewer_data_api_viewer_data_get",
         "parameters": [
           {
@@ -14243,6 +17203,42 @@
               }
             ],
             "title": "Number"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
           }
         },
         "type": "object",
@@ -14649,6 +17645,11 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": "replace"
           }
         },
         "type": "object",
@@ -14730,6 +17731,20 @@
         ],
         "title": "Body_preview_excel_import_api_admin_import_preview_post"
       },
+      "Body_upload_photo_api_feld_incidents__incident_id__photos_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_photo_api_feld_incidents__incident_id__photos_post"
+      },
       "Body_upload_photo_api_reko__incident_id__photos_post": {
         "properties": {
           "file": {
@@ -14743,6 +17758,34 @@
           "file"
         ],
         "title": "Body_upload_photo_api_reko__incident_id__photos_post"
+      },
+      "Body_upload_rapport_photo_api_incidents__incident_id__rapport_photos_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_rapport_photo_api_incidents__incident_id__rapport_photos_post"
+      },
+      "Body_upload_report_logo_api_settings_branding_logo_put": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_report_logo_api_settings_branding_logo_put"
       },
       "BulkAttachEmergenciesRequest": {
         "properties": {
@@ -14924,6 +17967,31 @@
         "title": "ClientError",
         "description": "A bounded report of a frontend error. All fields optional/length-capped."
       },
+      "ConcurrentEditor": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "in_kp": {
+            "type": "boolean",
+            "title": "In Kp",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "at"
+        ],
+        "title": "ConcurrentEditor",
+        "description": "\"Frey Marc bearbeitet diesen Rapport gerade\" (§3).\n\nVisibility, **not a lock**: a real lock in the field is worse than the\nproblem it solves. Present only when the last save was somebody else inside\nthe last five minutes."
+      },
       "ConsentUpdate": {
         "properties": {
           "consent": {
@@ -14985,6 +18053,38 @@
         "type": "object",
         "title": "DangersAssessment",
         "description": "Structured danger checklist."
+      },
+      "DeploymentRole": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "blocked_domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Domains"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "DeploymentRole",
+        "description": "What this instance is allowed to do to the outside world (see app/environment.py)."
       },
       "DiveraAlarmRecipient": {
         "properties": {
@@ -15896,6 +18996,50 @@
         "title": "EventResponse",
         "description": "Schema for event responses."
       },
+      "EventRestliste": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "incident_total": {
+            "type": "integer",
+            "title": "Incident Total",
+            "default": 0
+          },
+          "missing_rapport": {
+            "items": {
+              "$ref": "#/components/schemas/RestlisteIncident"
+            },
+            "type": "array",
+            "title": "Missing Rapport",
+            "default": []
+          },
+          "material_on_site": {
+            "items": {
+              "$ref": "#/components/schemas/RestlisteUnit"
+            },
+            "type": "array",
+            "title": "Material On Site",
+            "default": []
+          },
+          "open_pickups": {
+            "items": {
+              "$ref": "#/components/schemas/RestlisteIncident"
+            },
+            "type": "array",
+            "title": "Open Pickups",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id"
+        ],
+        "title": "EventRestliste",
+        "description": "The three open counts of one Ereignis (§6, V-8).\n\nAll three are lists rather than numbers, because the count is only the way\nin: nobody clicks twenty-three cards individually, so each one has to be\nclickable through to the incidents behind it."
+      },
       "EventSpecialFunctionCreate": {
         "properties": {
           "personnel_id": {
@@ -16215,6 +19359,679 @@
         ],
         "title": "ExcelImportResult",
         "description": "Result of Excel import operation."
+      },
+      "FeldAssignment": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "incident_title": {
+            "type": "string",
+            "title": "Incident Title"
+          },
+          "incident_type": {
+            "type": "string",
+            "title": "Incident Type"
+          },
+          "incident_status": {
+            "type": "string",
+            "title": "Incident Status"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "crew": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Crew",
+            "default": []
+          },
+          "vehicles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Vehicles",
+            "default": []
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/FeldMaterialLine"
+            },
+            "type": "array",
+            "title": "Materials",
+            "default": []
+          },
+          "reko": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeldReko"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "is_active_assignment": {
+            "type": "boolean",
+            "title": "Is Active Assignment",
+            "default": true
+          },
+          "rapport_state": {
+            "type": "string",
+            "enum": [
+              "none",
+              "draft",
+              "submitted"
+            ],
+            "title": "Rapport State",
+            "default": "none"
+          },
+          "has_been_dispatched": {
+            "type": "boolean",
+            "title": "Has Been Dispatched",
+            "default": false
+          },
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "arrived_by_automation": {
+            "type": "boolean",
+            "title": "Arrived By Automation",
+            "default": false
+          },
+          "field_complete_reported_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported At"
+          },
+          "pickup_needed": {
+            "type": "boolean",
+            "title": "Pickup Needed",
+            "default": false
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          },
+          "leader_personnel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Personnel Id"
+          },
+          "leader_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "incident_title",
+          "incident_type",
+          "incident_status"
+        ],
+        "title": "FeldAssignment",
+        "description": "One Schadenplatz a person is (or was) assigned to in this event.\n\nSince §18.22 the row also carries the **briefing**: the Meldung, the Melder,\nwhat the board dispatched (crew, vehicles, material) and what the Reko\nfound. It rides on this response rather than on a per-incident endpoint of\nits own for the same reason ``message_chips`` does — a crew on the edge of\ncoverage taps a row and must get a screen, not a second round trip — and\nbecause the list row itself shows a condensed form of the same facts.\n\nReleased assignments are included in ``crew`` / ``vehicles`` / ``materials``\non purpose, exactly like the row itself survives its own release: completing\nan incident releases everything while the crew is still standing at the\naddress filing, and a briefing that empties out underneath them at 02:00 is\nworse than one that names a vehicle which has already driven off."
+      },
+      "FeldAssignmentsResponse": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "personnel_name": {
+            "type": "string",
+            "title": "Personnel Name"
+          },
+          "personnel_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel Role"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "event_name": {
+            "type": "string",
+            "title": "Event Name"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/FeldAssignment"
+            },
+            "type": "array",
+            "title": "Assignments"
+          },
+          "message_chips": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Message Chips",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "personnel_name",
+          "event_id",
+          "event_name",
+          "assignments"
+        ],
+        "title": "FeldAssignmentsResponse",
+        "description": "Response for \"meine Einsatzstellen\"."
+      },
+      "FeldMaterialLine": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FeldMaterialLine",
+        "description": "One line of the briefing's material list: a name and how many of it.\n\nGrouped by NAME rather than listed per assignment — \"Tauchpumpe ×2\" is what\na crew reads off a slip, while the per-unit rows (keyed on the assignment,\nwith their two ticks) are the *rapport's* job and live in\n``RapportMaterialRow``. Two lists, two questions: this one says what came\nwith you, that one asks what you did with it."
+      },
+      "FeldMessageRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "FeldMessageRequest",
+        "description": "Freitext-Meldung an den KP — a chip or a typed sentence."
+      },
+      "FeldPersonnel": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "incident_count": {
+            "type": "integer",
+            "title": "Incident Count",
+            "default": 0
+          },
+          "open_count": {
+            "type": "integer",
+            "title": "Open Count",
+            "default": 0
+          },
+          "missing_rapport_count": {
+            "type": "integer",
+            "title": "Missing Rapport Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "name"
+        ],
+        "title": "FeldPersonnel",
+        "description": "One row of the `/feld` person picker.\n\nThe list holds exactly the people with an assignment in this event, active or\nalready released — not the roster. Someone with nothing to file would\notherwise land on an empty page with no explanation."
+      },
+      "FeldPersonnelListResponse": {
+        "properties": {
+          "personnel": {
+            "items": {
+              "$ref": "#/components/schemas/FeldPersonnel"
+            },
+            "type": "array",
+            "title": "Personnel"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "event_name": {
+            "type": "string",
+            "title": "Event Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel",
+          "event_id",
+          "event_name"
+        ],
+        "title": "FeldPersonnelListResponse",
+        "description": "Response for the `/feld` person picker."
+      },
+      "FeldPickupRequest": {
+        "properties": {
+          "needed": {
+            "type": "boolean",
+            "title": "Needed"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "needed"
+        ],
+        "title": "FeldPickupRequest",
+        "description": "The Abholung answer from `/feld`.\n\n``needed=False`` is the crew tapping *abgeholt*, and it is also the\n*\"Wir fahren selbst\"* half of the follow-up that \"Einsatz beendet\" asks\n(decision 24)."
+      },
+      "FeldReko": {
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "dangers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dangers",
+            "default": []
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "submitted_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By Name"
+          }
+        },
+        "type": "object",
+        "title": "FeldReko",
+        "description": "What the Reko found here — the only *submitted* report, flattened.\n\nA draft Reko is somebody still typing and is deliberately absent: the field\nbriefing must not quote half a sentence back at the next crew as fact.\n``dangers`` carries the keys of ``DangersAssessment`` that are true, so the\nphone renders the same badges the board does instead of a second wording."
+      },
+      "FieldReportState": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "arrived_by_personnel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived By Personnel Id"
+          },
+          "arrived_by_automation": {
+            "type": "boolean",
+            "title": "Arrived By Automation",
+            "default": false
+          },
+          "arrived_in_kp": {
+            "type": "boolean",
+            "title": "Arrived In Kp",
+            "default": false
+          },
+          "field_complete_reported_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported At"
+          },
+          "field_complete_reported_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported By"
+          },
+          "pickup_needed": {
+            "type": "boolean",
+            "title": "Pickup Needed",
+            "default": false
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          },
+          "pickup_requested_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "FieldReportState",
+        "description": "The three field reports of one Schadenplatz.\n\nReturned identically by `/api/feld/...` and by the editor twin, because they\nare one CRUD module underneath. ``*_by`` is a personnel id and is populated\n**only** for a field write — a KP write leaves it NULL and puts the user in\nthe audit log (decision 28). That asymmetry is the provenance rule; do not\n\"fix\" it by filling in the operator."
+      },
+      "FieldReportUpdate": {
+        "properties": {
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "field_complete_reported_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported At"
+          },
+          "pickup_needed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Needed"
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          }
+        },
+        "type": "object",
+        "title": "FieldReportUpdate",
+        "description": "The KP twin's payload: set **or clear** any of the three (decision 28).\n\nEvery field is optional and the handler acts only on the ones actually\npresent (``model_fields_set``), so ``null`` means \"clear this\" and absence\nmeans \"leave it alone\". Without that distinction an operator correcting the\npickup note would silently wipe the arrival time."
       },
       "FunctionType": {
         "type": "string",
@@ -16730,6 +20547,15 @@
             "type": "string",
             "format": "uuid",
             "title": "Event Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "operator",
+              "intake"
+            ],
+            "title": "Source",
+            "default": "operator"
           }
         },
         "type": "object",
@@ -17349,6 +21175,11 @@
             ],
             "title": "Reko Arrived At"
           },
+          "reko_arrived_by_kp": {
+            "type": "boolean",
+            "title": "Reko Arrived By Kp",
+            "default": false
+          },
           "field_complete_reported_at": {
             "anyOf": [
               {
@@ -17360,6 +21191,102 @@
               }
             ],
             "title": "Field Complete Reported At"
+          },
+          "field_complete_reported_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported By"
+          },
+          "field_arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Arrived At"
+          },
+          "field_arrived_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Arrived By"
+          },
+          "field_arrived_by_automation": {
+            "type": "boolean",
+            "title": "Field Arrived By Automation",
+            "default": false
+          },
+          "has_schadenplatz_rapport": {
+            "type": "boolean",
+            "title": "Has Schadenplatz Rapport",
+            "default": false
+          },
+          "has_schadenplatz_rapport_draft": {
+            "type": "boolean",
+            "title": "Has Schadenplatz Rapport Draft",
+            "default": false
+          },
+          "has_been_dispatched": {
+            "type": "boolean",
+            "title": "Has Been Dispatched",
+            "default": false
+          },
+          "pickup_needed": {
+            "type": "boolean",
+            "title": "Pickup Needed",
+            "default": false
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          },
+          "pickup_requested_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested By"
           },
           "location_display": {
             "anyOf": [
@@ -17487,6 +21414,28 @@
               }
             ],
             "title": "Resource Name"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
           }
         },
         "type": "object",
@@ -17495,7 +21444,7 @@
           "timestamp"
         ],
         "title": "IncidentTimelineEvent",
-        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name"
+        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp')"
       },
       "IncidentTimelineResponse": {
         "properties": {
@@ -17734,6 +21683,15 @@
               }
             ],
             "title": "Group Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "operator",
+              "intake"
+            ],
+            "title": "Source",
+            "default": "operator"
           }
         },
         "type": "object",
@@ -17772,6 +21730,9 @@
             },
             "type": "array",
             "title": "Known Providers"
+          },
+          "deployment": {
+            "$ref": "#/components/schemas/DeploymentRole"
           }
         },
         "type": "object",
@@ -18214,6 +22175,118 @@
         "type": "object",
         "title": "MaterialGroupUpdate",
         "description": "Schema for updating a material group."
+      },
+      "MaterialReturnResponse": {
+        "properties": {
+          "returned": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialReturnUnit"
+            },
+            "type": "array",
+            "title": "Returned",
+            "default": []
+          },
+          "left_on_site": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialReturnUnit"
+            },
+            "type": "array",
+            "title": "Left On Site",
+            "default": []
+          },
+          "left_on_site_named": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Left On Site Named",
+            "default": []
+          },
+          "rapport_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rapport By"
+          },
+          "rapport_submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rapport Submitted At"
+          },
+          "rapport_is_draft": {
+            "type": "boolean",
+            "title": "Rapport Is Draft",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "MaterialReturnResponse",
+        "description": "Everything the board needs to stop asking the crew's question twice.\n\nThe two lists are the release view (decision 17). The attribution is what the\ncompletion gate puts over the answers it prefilled — \"aus dem Rapport von\nMuster Hans\" — so the operator confirms somebody's word instead of a dialog\nthat decided by itself."
+      },
+      "MaterialReturnUnit": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used"
+          },
+          "answered": {
+            "type": "boolean",
+            "title": "Answered",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id",
+          "material_id",
+          "name"
+        ],
+        "title": "MaterialReturnUnit",
+        "description": "One row of \"Material zurück – freigeben\" (decision 17).\n\nThe board is *offered* the units the crew did not mark as left on site and\nclicks; `/feld` never writes an assignment itself. Units marked *vor Ort\nverblieben* come back in ``left_on_site`` and are NOT in the release set;\nconsumables are in neither list — a consumable that was used is gone."
       },
       "MaterialUpdate": {
         "properties": {
@@ -18856,10 +22929,15 @@
           "reko_submitted",
           "reko_arrived",
           "training_emergency",
-          "vehicle_arrived"
+          "vehicle_arrived",
+          "rapport_submitted",
+          "field_arrived",
+          "field_complete",
+          "field_message",
+          "field_pickup"
         ],
         "title": "NotificationType",
-        "description": "Notification types."
+        "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
       },
       "Personnel": {
         "properties": {
@@ -18966,7 +23044,7 @@
           "updated_at"
         ],
         "title": "Personnel",
-        "description": "Full personnel schema with database fields."
+        "description": "Full personnel schema with database fields.\n\nNOTE on the three attendance fields: attendance is a fact about a person *at an\nEreignis*, and it lives in `event_attendance`. There is no attendance column on the\npersonnel row to fall back on any more, so these must be filled in explicitly by\n``crud.personnel.to_personnel_schema`` from the attendance row of the event that was\nasked about. Without an event there is no answer, and the honest one is \"not present\"."
       },
       "PersonnelActivity": {
         "properties": {
@@ -19192,6 +23270,11 @@
             ],
             "title": "Role"
           },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "available"
+          },
           "tags": {
             "anyOf": [
               {
@@ -19209,6 +23292,30 @@
           "checked_in": {
             "type": "boolean",
             "title": "Checked In"
+          },
+          "checked_in_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked In At"
+          },
+          "checked_out_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked Out At"
           },
           "is_assigned": {
             "type": "boolean",
@@ -19452,7 +23559,8 @@
           "assignment",
           "board",
           "test",
-          "qr_code"
+          "qr_code",
+          "abholliste"
         ],
         "title": "PrintJobType",
         "description": "Print job type enumeration."
@@ -19721,6 +23829,22 @@
             },
             "type": "array",
             "title": "Capabilities"
+          },
+          "blocked": {
+            "type": "boolean",
+            "title": "Blocked",
+            "default": false
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
           }
         },
         "type": "object",
@@ -19829,6 +23953,599 @@
         "title": "PublicIncidentCreate",
         "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and\noperator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later\nby an editor on the board. Validators mirror ``IncidentBase``."
       },
+      "RapportExtraMaterialRow": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RapportExtraMaterialRow",
+        "description": "One entry of \"Weiteres gebrauchtes Material\" (§18.35).\n\nA **name and one tick**, and the asymmetry with the checklist above is the\npoint:\n\n* there is no ``used`` here, because listing something on this line already\n  means it was used — a second tick would only ever be ticked;\n* there is no id here, and there must not be one (decision 18). The\n  catalogue is offered as a multi-select so nobody spells \"Tauchpumpe TP-4\"\n  from memory, but picking a name is not picking a unit and `/feld` never\n  writes an assignment. Anything typed by hand is equally valid.\n\n``left_on_site`` is the one thing nothing else in the system knows: an\nimprovised pump left in a cellar is a device standing at an address. It\ntherefore reaches the Restliste and the Abholliste — but never \"Material\nzurück – freigeben\", which releases *assignments*, and a name has none."
+      },
+      "RapportExtraMaterialUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RapportExtraMaterialUpdate",
+        "description": "One entry, as the form sends it back. Same shape, names only."
+      },
+      "RapportExtraPersonnelRow": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RapportExtraPersonnelRow",
+        "description": "Somebody on no roster of this station: a neighbouring brigade, the Werkhof.\n\n**Names, never ids** — the same rule the extra material follows (decision 18).\n`/feld` writes no attendance and no personnel row; it records who was standing\nthere. The note is free text rather than an \"Einheit\" column because it also\nhas to carry \"kam um 21:00\" or \"nur Verkehrsdienst\"."
+      },
+      "RapportExtraPersonnelUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "RapportExtraPersonnelUpdate"
+      },
+      "RapportMaterialRow": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "material_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Material Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "consumable": {
+            "type": "boolean",
+            "title": "Consumable",
+            "default": false
+          },
+          "used": {
+            "type": "boolean",
+            "title": "Used",
+            "default": true
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site",
+            "default": false
+          },
+          "on_board": {
+            "type": "boolean",
+            "title": "On Board",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id",
+          "material_id",
+          "name"
+        ],
+        "title": "RapportMaterialRow",
+        "description": "One material unit on the checklist (decision 14).\n\nKeyed on the **assignment**, not the material: the same pump assigned twice\nis two units on the slip, and the assignment id is also what the board's\n\"Material zurück – freigeben\" list releases against.\n\n``used`` is a plain bool defaulting to **true** (§18.32). It used to be\nnullable, with `null` meaning \"die Crew hat nicht geantwortet\"; a three-state\ncontrol is too fiddly for a thumb on a phone, and the unit was sent to this\nSchadenplatz in the first place — \"gebraucht\" is the common case and the crew\nonly unticks the exceptions, exactly like the vehicle list. ``left_on_site``\nis likewise a plain bool: not ticking it means the unit came back."
+      },
+      "RapportMaterialUpdate": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assignment Id"
+          },
+          "used": {
+            "type": "boolean",
+            "title": "Used",
+            "default": true
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id"
+        ],
+        "title": "RapportMaterialUpdate",
+        "description": "The two ticks, as the form sends them back."
+      },
+      "RapportPersonnelRow": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "default": true
+          },
+          "on_board": {
+            "type": "boolean",
+            "title": "On Board",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "name"
+        ],
+        "title": "RapportPersonnelRow",
+        "description": "One name on the crew checklist — the crew confirms *who*, not how many.\n\nThe people checked in at the Ereignis, with the ones the board has on this\nincident arriving ticked. A number could answer neither of the two questions\nthe KP has the morning after: was somebody there that nobody aufgeboten, and\ndid somebody leave that nobody tracked. Both directions are corrections the\ncrew is the only party able to make — the same argument the vehicle list\nsettled in §18.33.\n\nKeyed on the **person**, not on an assignment: somebody who came along was\nnever assigned, so there is no assignment to key the row on."
+      },
+      "RapportPersonnelUpdate": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "default": true
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id"
+        ],
+        "title": "RapportPersonnelUpdate",
+        "description": "The one tick, as the form sends it back.\n\n``name`` travels so a person who has meanwhile left the roll-call can still be\nrecorded as present — the row would otherwise have nothing to be called."
+      },
+      "RapportPhotosResponse": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "photos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photos",
+            "default": []
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "RapportPhotosResponse",
+        "description": "What both photo doors answer: the rapport's photo list after the write.\n\nThe whole list rather than just the one filename, so a client that lost a\nresponse (a phone at the edge of coverage retrying an upload) re-syncs from\nthe next answer instead of accumulating a duplicate."
+      },
+      "RapportPrefill": {
+        "properties": {
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "incident_ref": {
+            "type": "string",
+            "title": "Incident Ref"
+          },
+          "leader_personnel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Personnel Id"
+          },
+          "leader_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Name"
+          },
+          "melder_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Melder Name"
+          },
+          "melder_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Melder Phone"
+          },
+          "board_personnel_count": {
+            "type": "integer",
+            "title": "Board Personnel Count",
+            "default": 0
+          },
+          "material_name_suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Material Name Suggestions",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_ref"
+        ],
+        "title": "RapportPrefill",
+        "description": "What the board knows, computed on every GET and never written (§4).\n\nThese are defaults and orientation, never authoritative once the crew has\ntouched the form. The board's head count stays on the response after a\ncorrection as well — that is what lets the form (and the export) say\n\"vom Board: 6\" next to a corrected 8."
+      },
+      "RapportUpdate": {
+        "properties": {
+          "is_draft": {
+            "type": "boolean",
+            "title": "Is Draft",
+            "default": true
+          },
+          "materials": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportMaterialUpdate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Materials"
+          },
+          "vehicles": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportVehicleUpdate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicles"
+          },
+          "personnel": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportPersonnelUpdate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel"
+          },
+          "extra_materials": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportExtraMaterialUpdate"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Materials"
+          },
+          "extra_personnel": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RapportExtraPersonnelUpdate"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Personnel"
+          },
+          "kurzbericht": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kurzbericht"
+          },
+          "handed_over_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handed Over To"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "owner_phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Phone"
+          },
+          "personnel_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 999.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel Count"
+          }
+        },
+        "type": "object",
+        "title": "RapportUpdate",
+        "description": "The upsert payload. ``is_draft=False`` is the submit.\n\nEvery field is optional and only the ones actually present are written\n(``model_fields_set``), for the same reason the field-report twin works that\nway: an autosave that carries half the form must not blank the other half."
+      },
+      "RapportVehicleRow": {
+        "properties": {
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vehicle Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "default": true
+          },
+          "on_board": {
+            "type": "boolean",
+            "title": "On Board",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "vehicle_id",
+          "name"
+        ],
+        "title": "RapportVehicleRow",
+        "description": "One vehicle on the checklist — the crew confirms *which*, not how many.\n\n**The whole fleet, not only the assigned vehicles (§18.33).** The board is\nroutinely behind reality on a storm night: a vehicle drives along without\nanybody assigning it, and one that was assigned never rolls. So every vehicle\nthe station has gets a row, the assigned ones arrive ticked, and the crew's\njob is to correct both directions rather than to retype the fleet. Same\nreasoning as the \"Weiteres Material\" list next to it.\n\nKeyed on the **vehicle**, therefore, not on an assignment: a vehicle that was\nnever dispatched has no assignment to key on.\n\n``present`` has no third state: the list carries the board's own answer\nalready, so \"keine Angabe\" would only mean \"did not correct it\"."
+      },
+      "RapportVehicleUpdate": {
+        "properties": {
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vehicle Id"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "vehicle_id"
+        ],
+        "title": "RapportVehicleUpdate",
+        "description": "The one tick, as the form sends it back."
+      },
+      "RekoArrivedState": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "arrived_reported_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived Reported By User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "RekoArrivedState",
+        "description": "What the board shows in the Feldmeldungen row after the write.\n\nThe provenance is the *absence* of the user FK, read the same way everywhere:\nNULL means a crew tapped \"Ich bin vor Ort\" on `/reko`, set means an operator\nlogged the radio message. Never a resolved \"who\" — a User is not a Personnel."
+      },
+      "RekoArrivedUpdate": {
+        "properties": {
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          }
+        },
+        "type": "object",
+        "title": "RekoArrivedUpdate",
+        "description": "\"Reko meldet: vor Ort\" as the KP hears it (plan 26 §5.2).\n\nThree shapes, and the difference between the last two is the point:\n\n* field **absent** — \"now\", and idempotent: an arrival already on the row is\n  left where it is, exactly as a crew's second tap is.\n* field **set** — that time. A radio message logged five minutes late has to\n  land at the right time or the board's waiting clocks lie.\n* field **null** — clear it. A mis-heard call is corrected, not amended, and\n  clearing takes the provenance with it: \"nobody has reported it\" is not a\n  KP report."
+      },
       "RekoDashboardAssignment": {
         "properties": {
           "incident_id": {
@@ -19858,6 +24575,17 @@
               }
             ],
             "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
           },
           "location_lat": {
             "anyOf": [
@@ -20131,17 +24859,23 @@
             "title": "Incident Id"
           },
           "token": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Token"
           }
         },
         "type": "object",
         "required": [
-          "incident_id",
-          "token"
+          "incident_id"
         ],
         "title": "RekoReportCreate",
-        "description": "Schema for creating Reko report."
+        "description": "Schema for creating Reko report.\n\n``token`` is optional since plan 26 §5.1: the same route is also the board's\ndoor. A field crew sends the incident's form token; an editor sends none and\nis identified by the session cookie instead. Neither is still a 401 — one\nroute, two doors, never a `…-by-editor` twin that drifts (decision 11)."
       },
       "RekoReportResponse": {
         "properties": {
@@ -20331,6 +25065,42 @@
               }
             ],
             "title": "Submitted By Personnel Name"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "updated_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By User Id"
+          },
+          "arrived_reported_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived Reported By User Id"
           }
         },
         "type": "object",
@@ -20519,6 +25289,408 @@
         "title": "RekoSummary",
         "description": "Lightweight Reko report summary for bulk loading (used in kanban board)."
       },
+      "RestlisteIncident": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "rapport_state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "draft",
+                  "submitted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rapport State"
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "status"
+        ],
+        "title": "RestlisteIncident",
+        "description": "One Schadenplatz on the Restliste, in the shape both lists need."
+      },
+      "RestlisteUnit": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "incident_title": {
+            "type": "string",
+            "title": "Incident Title"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "assignment_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Id"
+          },
+          "material_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "tracked": {
+            "type": "boolean",
+            "title": "Tracked",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "incident_title",
+          "name"
+        ],
+        "title": "RestlisteUnit",
+        "description": "One material unit still standing at an address — an Abholliste line.\n\nAddress · unit · since when, which is exactly the sheet somebody takes along\nthe next morning (decision 25). Material left on site is a **different day's**\njob and stays separate from the Trupp-Abholung flag.\n\nTwo kinds of line, one list (§18.35). Most rows are a **tracked unit**: an\nopen material assignment, with the ids the board can act on. The rest are\nentries from \"Weiteres gebrauchtes Material\" — improvised or borrowed things\nthe board never had, carrying a name and nothing else. Both are a device\nstanding at an address, so both belong on the sheet somebody drives out with;\nonly the first can be released, which is what ``tracked`` says."
+      },
+      "SchadenplatzRapport": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "exists": {
+            "type": "boolean",
+            "title": "Exists",
+            "default": false
+          },
+          "is_draft": {
+            "type": "boolean",
+            "title": "Is Draft",
+            "default": true
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/RapportMaterialRow"
+            },
+            "type": "array",
+            "title": "Materials",
+            "default": []
+          },
+          "vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/RapportVehicleRow"
+            },
+            "type": "array",
+            "title": "Vehicles",
+            "default": []
+          },
+          "personnel": {
+            "items": {
+              "$ref": "#/components/schemas/RapportPersonnelRow"
+            },
+            "type": "array",
+            "title": "Personnel",
+            "default": []
+          },
+          "extra_personnel": {
+            "items": {
+              "$ref": "#/components/schemas/RapportExtraPersonnelRow"
+            },
+            "type": "array",
+            "title": "Extra Personnel",
+            "default": []
+          },
+          "photos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photos",
+            "default": []
+          },
+          "extra_materials": {
+            "items": {
+              "$ref": "#/components/schemas/RapportExtraMaterialRow"
+            },
+            "type": "array",
+            "title": "Extra Materials",
+            "default": []
+          },
+          "kurzbericht": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kurzbericht"
+          },
+          "handed_over_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handed Over To"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "owner_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Phone"
+          },
+          "personnel_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel Count"
+          },
+          "personnel_count_corrected": {
+            "type": "boolean",
+            "title": "Personnel Count Corrected",
+            "default": false
+          },
+          "cost_snapshot_json": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Snapshot Json"
+          },
+          "arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived At"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "created_in_kp": {
+            "type": "boolean",
+            "title": "Created In Kp",
+            "default": false
+          },
+          "updated_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By Name"
+          },
+          "updated_in_kp": {
+            "type": "boolean",
+            "title": "Updated In Kp",
+            "default": false
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "concurrent_editor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConcurrentEditor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prefill": {
+            "$ref": "#/components/schemas/RapportPrefill"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "prefill"
+        ],
+        "title": "SchadenplatzRapport",
+        "description": "The Schadenplatz-Rapport as both doors return it."
+      },
       "Setting": {
         "properties": {
           "key": {
@@ -20569,6 +25741,43 @@
         ],
         "title": "SettingUpdate",
         "description": "Schema for updating setting."
+      },
+      "SimulateBulkRapportResponse": {
+        "properties": {
+          "candidates": {
+            "type": "integer",
+            "title": "Candidates"
+          },
+          "covered": {
+            "type": "integer",
+            "title": "Covered"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "rapports": {
+            "items": {
+              "$ref": "#/components/schemas/SimulateRapportResponse"
+            },
+            "type": "array",
+            "title": "Rapports",
+            "default": []
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates",
+          "covered",
+          "skipped",
+          "message"
+        ],
+        "title": "SimulateBulkRapportResponse",
+        "description": "The bulk inject: 80 % of the rapports arrive, the rest stay missing.\n\n``skipped`` is not a failure count — the gaps are the exercise. They are\nwhat the Restliste exists to surface, and finding them is the skill being\ntrained."
       },
       "SimulateCheckinRequest": {
         "properties": {
@@ -20645,6 +25854,35 @@
         "title": "SimulateDiveraRequest",
         "description": "Schema for injecting a simulated Divera alarm into the pool."
       },
+      "SimulateFieldCompleteRequest": {
+        "properties": {
+          "pickup_needed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Needed"
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          }
+        },
+        "type": "object",
+        "title": "SimulateFieldCompleteRequest",
+        "description": "The follow-up \"Einsatz beendet\" asks in the field (decision 24).\n\n``pickup_needed=None`` is the default and means *die Lage entscheidet*: the\nsimulator rolls it from the situation — a crew that walked there or whose\nvehicle drove on is usually stranded. The Übungsleiter can always override\nby sending the answer explicitly, which is the same choice the crew has on\n`/feld`."
+      },
       "SimulateInjectResponse": {
         "properties": {
           "message": {
@@ -20658,6 +25896,80 @@
         ],
         "title": "SimulateInjectResponse",
         "description": "Generic result of a trainer inject (reinforcement request etc.)."
+      },
+      "SimulatePickupRequest": {
+        "properties": {
+          "needed": {
+            "type": "boolean",
+            "title": "Needed",
+            "default": true
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "SimulatePickupRequest",
+        "description": "\"Abholung nötig\" / \"abgeholt\" as a standalone report (decision 24).\n\nThe crew that asks for a pickup an hour after \"Einsatz beendet\" — or calls\nin that the bus has been and gone — is a report of its own, not a follow-up\nquestion. ``note=None`` lets the simulator derive one from the situation\n(zu Fuss / kein Fahrzeug), the same way the completion inject does."
+      },
+      "SimulateRapportResponse": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "incident_title": {
+            "type": "string",
+            "title": "Incident Title"
+          },
+          "filed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filed By"
+          },
+          "vehicles_present": {
+            "type": "integer",
+            "title": "Vehicles Present",
+            "default": 0
+          },
+          "materials_ticked": {
+            "type": "integer",
+            "title": "Materials Ticked",
+            "default": 0
+          },
+          "photos": {
+            "type": "integer",
+            "title": "Photos",
+            "default": 0
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "incident_title",
+          "message"
+        ],
+        "title": "SimulateRapportResponse",
+        "description": "One simulated Schadenplatz-Rapport, as the console reports it back."
       },
       "SimulateVehicleBreakdownResponse": {
         "properties": {
@@ -21527,6 +26839,17 @@
               }
             ],
             "title": "Incident Location Address"
+          },
+          "incident_location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Location Display"
           },
           "incident_status": {
             "anyOf": [

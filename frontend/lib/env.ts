@@ -106,10 +106,17 @@ export function buildContentSecurityPolicy(env: CspEnvironment = {}): string {
   // Runtime first, then the build-time overrides. Each contributes both its https origin (the
   // API calls) and the matching wss origin (the Socket.IO upgrade).
   const backendOrigins: string[] = []
+  // The http half on its own, for `img-src`: the backend serves the rapport/Reko photos as
+  // ordinary files, and an `<img src>` is governed by img-src, not connect-src. Naming the
+  // backend in one and not the other is exactly how a photo came back as a broken-image icon
+  // in local development with no network error and no 401 to point at — Chrome refused the
+  // subresource before it was ever requested. The ws entries have no business in img-src.
+  const backendImageOrigins: string[] = []
   for (const raw of [env.apiUrl, env.publicApiUrl]) {
     const origin = publicBackendOrigin(raw)
     if (!origin) continue
     backendOrigins.push(origin, asWebsocketOrigin(origin))
+    backendImageOrigins.push(origin)
   }
   const wsOverride = publicWebsocketOrigin(env.publicWsUrl)
   if (wsOverride) backendOrigins.push(wsOverride)
@@ -140,8 +147,21 @@ export function buildContentSecurityPolicy(env: CspEnvironment = {}): string {
       : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     // Styles: self + inline (Tailwind CSS)
     "style-src 'self' 'unsafe-inline'",
-    // Images: self + data URIs + blob + map tile servers
-    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080",
+    // Images: self + data URIs + blob + the backend (photos) + map tile servers
+    `img-src ${[
+      ...new Set([
+        "'self'",
+        'data:',
+        'blob:',
+        'http://localhost:8000',
+        ...backendImageOrigins,
+        'https://*.tile.openstreetmap.org',
+        'https://tile.openstreetmap.org',
+        'https://*.basemaps.cartocdn.com',
+        'https://server.arcgisonline.com',
+        'http://localhost:8080',
+      ]),
+    ].join(' ')}`,
     // Fonts: self + data URIs
     "font-src 'self' data:",
     // Connect: self + API + WebSocket + map tiles + local tile server

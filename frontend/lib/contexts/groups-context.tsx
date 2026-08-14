@@ -13,6 +13,7 @@ import {
 } from "@/lib/api-client"
 import type { GroupAssignment, GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
+import { shouldStartPollingOnMount } from "@/lib/sync-cooldown"
 import { isValidUUID, randomId } from "@/lib/utils/validation"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useAuth } from "./auth-context"
@@ -285,7 +286,9 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     })
 
     // If the socket is already down when this effect runs, start polling now.
-    if (wsClient.getStatus() !== "connected") startPolling()
+    // Shared with operations-context, which was missing it — see
+    // `shouldStartPollingOnMount`.
+    if (shouldStartPollingOnMount(wsClient.getStatus())) startPolling()
 
     return () => {
       cancelled = true

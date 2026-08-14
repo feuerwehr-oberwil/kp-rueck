@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from ..auth.dependencies import CurrentUser
 from ..config import settings
+from ..environment import blocked_domains, blocked_reason, deployment_role, deployment_role_label
 from ..services import alerting
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
@@ -29,6 +30,23 @@ class ProviderCapability(BaseModel):
     display_name: str | None = None
     configured: bool = False
     capabilities: list[str] = Field(default_factory=list)
+    #: True when the deployment role refuses this domain outright. Orthogonal to ``configured``:
+    #: a staging copy is fully configured for alerting and still will not send. Reported here so
+    #: an API caller sees the block, not only somebody looking at the UI.
+    blocked: bool = False
+    #: German sentence naming why, when ``blocked``.
+    blocked_reason: str | None = None
+
+
+class DeploymentRole(BaseModel):
+    """What this instance is allowed to do to the outside world (see app/environment.py)."""
+
+    role: str
+    #: Short German label for a non-production role ("Staging – Übungssystem"), else None.
+    label: str | None = None
+    #: Effect domains this role refuses, including domains that are not provider domains
+    #: (``sync``). Empty on production.
+    blocked_domains: list[str] = Field(default_factory=list)
 
 
 class KnownProvider(BaseModel):
@@ -75,6 +93,8 @@ class IntegrationsResponse(BaseModel):
     )
     # Every provider this build knows about, configured or not — see KnownProvider.
     known_providers: list[KnownProvider] = Field(default_factory=list)
+    # What this instance may do to the outside world, whatever the database says.
+    deployment: DeploymentRole = Field(default_factory=lambda: DeploymentRole(role="production"))
 
 
 def integrations() -> IntegrationsResponse:
@@ -95,6 +115,8 @@ def integrations() -> IntegrationsResponse:
             display_name=provider.display_name if provider else None,
             configured=provider is not None,
             capabilities=["push", "sms", "call", "mail"] if provider else [],
+            blocked=bool(blocked_reason("alerting")),
+            blocked_reason=blocked_reason("alerting"),
         ),
         personnel=ProviderCapability(
             provider="divera" if divera else None,
@@ -152,6 +174,11 @@ def integrations() -> IntegrationsResponse:
                 capabilities=["gps-tracking", "status-automation"],
             ),
         ],
+        deployment=DeploymentRole(
+            role=deployment_role(),
+            label=deployment_role_label(),
+            blocked_domains=list(blocked_domains()),
+        ),
     )
 
 

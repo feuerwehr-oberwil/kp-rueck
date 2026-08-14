@@ -100,6 +100,7 @@ class EscposOutput:
             from escpos.printer import Network
 
             from formatters import (
+                format_abholliste,
                 format_assignment_slip,
                 format_board_snapshot,
                 format_qr_code_slip,
@@ -118,6 +119,7 @@ class EscposOutput:
             "board": format_board_snapshot,
             "test": format_test_print,
             "qr_code": format_qr_code_slip,
+            "abholliste": format_abholliste,
         }
         render = renderers.get(job.kind)
         if render is None:

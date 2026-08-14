@@ -6,8 +6,34 @@ import {
   isSupportedLocale,
   loadMessages,
 } from './i18n-messages'
+import de from '@/messages/de.json'
 import fr from '@/messages/fr.json'
 import itMessages from '@/messages/it.json'
+
+const catalogues: Record<string, object> = { de, fr, it: itMessages }
+
+// Every leaf of a catalogue as path → string. Mirrors leafPaths() in
+// i18n-messages.ts, kept separate on purpose: a test that imports the very
+// function it checks would agree with any bug that function has.
+const leaves = (node: unknown, prefix = '', out = new Map<string, string>()): Map<string, string> => {
+  if (Array.isArray(node)) node.forEach((item, i) => leaves(item, `${prefix}[${i}]`, out))
+  else if (node !== null && typeof node === 'object') {
+    for (const [key, value] of Object.entries(node)) leaves(value, prefix ? `${prefix}.${key}` : key, out)
+  } else out.set(prefix, String(node))
+  return out
+}
+
+// The NAMES a message interpolates, as a set. Deliberately not a count: an ICU
+// plural repeats `{count}` once per branch, and French may reach for `#` in a
+// branch where German spelled the argument out. Which names must be supplied is
+// the contract; how often each is written is style.
+//
+// The `[},]` tail is what separates an ARGUMENT from prose: `{count, plural, …}`
+// and `{name}` are arguments, while the `{dem Einsatz …}` inside a plural branch
+// is just text that happens to start with a word. Without it every translated
+// plural branch reads as a renamed placeholder and the check cries wolf.
+const placeholders = (value: string): string[] =>
+  [...new Set([...value.matchAll(/\{(\w+)\s*[},]/g)].map((m) => m[1]))].sort()
 
 // The i18n contract: German is the source of truth, every other catalogue is a
 // deep-partial overlay merged over it. A missing key ANYWHERE must fall back to
@@ -35,10 +61,45 @@ describe('locale catalogues', () => {
     }
   })
 
-  it('offers exactly the locales that have translations in the picker', () => {
+  it('offers exactly the locales that are COMPLETE, not merely started', () => {
     expect(AVAILABLE_LOCALES).toContain(DEFAULT_LOCALE)
-    expect(AVAILABLE_LOCALES.includes('fr')).toBe(Object.keys(fr).length > 0)
-    expect(AVAILABLE_LOCALES.includes('it')).toBe(Object.keys(itMessages).length > 0)
+    for (const locale of SUPPORTED_LOCALES) {
+      if (locale === DEFAULT_LOCALE) continue
+      expect(AVAILABLE_LOCALES.includes(locale)).toBe(
+        leaves(catalogues[locale]).size === leaves(catalogues[DEFAULT_LOCALE]).size
+      )
+    }
+  })
+
+  // The picker gate is «covers every German key». These three assertions are what
+  // «covered» has to mean for a locale that is switched on, checked for the locales
+  // actually offered — a still-empty stub is governed by the test above instead.
+  describe.each(AVAILABLE_LOCALES.filter((l) => l !== DEFAULT_LOCALE))('%s is complete', (locale) => {
+    const german = leaves(catalogues[DEFAULT_LOCALE])
+    const translated = leaves(catalogues[locale])
+
+    it('translates every German key and invents none', () => {
+      expect([...translated.keys()].sort()).toEqual([...german.keys()].sort())
+    })
+
+    it('has no empty string — a key resolving to "" is worse than a missing one', () => {
+      const blanks = [...translated].filter(([, value]) => !value.trim()).map(([path]) => path)
+      expect(blanks).toEqual([])
+    })
+
+    // A dropped or renamed {placeholder} does not throw, it renders the literal
+    // «{count}» into an operator's screen. Only a comparison against German finds it.
+    it('keeps every ICU placeholder German uses, per key', () => {
+      const drifted = [...german]
+        .map(([path, source]) => ({
+          path,
+          expected: placeholders(source),
+          actual: placeholders(translated.get(path) ?? ''),
+        }))
+        .filter(({ expected, actual }) => expected.join() !== actual.join())
+        .map(({ path, expected, actual }) => `${path}: expected ${expected}, got ${actual}`)
+      expect(drifted).toEqual([])
+    })
   })
 })
 

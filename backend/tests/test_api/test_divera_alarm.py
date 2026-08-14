@@ -77,6 +77,13 @@ def configured_key(monkeypatch):
     yield
 
 
+@pytest.fixture
+def staging_role(monkeypatch):
+    """A deployment whose role forbids alerting — e.g. a copy of the production database."""
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "staging")
+    yield
+
+
 # ============================================
 # Endpoint gating
 # ============================================
@@ -126,6 +133,101 @@ async def test_alarm_blocked_in_demo_mode(
         json={"personnel_ids": [str(uuid4())]},
     )
     assert resp.status_code == 403
+
+
+# ============================================
+# Deployment role — the lock the copied database cannot undo
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_refused_by_deployment_role_despite_enabled_setting(
+    editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key, staging_role
+):
+    """THE point of DEPLOYMENT_ROLE.
+
+    Staging starts as a 1:1 copy of production, so `alerting.enabled` arrives set to true and
+    the provider is fully configured. It must still refuse — loudly, naming the reason — and
+    no request may reach the provider.
+    """
+    await _enable_alarm(db_session)
+    person = await _make_person(db_session, "Linked", divera_user_id=999001)
+    await _assign(db_session, alarm_incident, person)
+
+    with patch.object(divera_alarm, "send_alarm", new=AsyncMock()) as mock_send:
+        resp = await editor_client.post(
+            f"/api/divera/incidents/{alarm_incident.id}/alarm",
+            json={"personnel_ids": [str(person.id)]},
+        )
+
+    assert resp.status_code == 403
+    assert "gesperrt" in resp.json()["detail"]
+    assert "Staging" in resp.json()["detail"]
+    mock_send.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_test_alarm_refused_by_deployment_role(
+    editor_client: AsyncClient, db_session, configured_key, staging_role
+):
+    """The setup test button is a real push to a real phone — it goes through the same seam."""
+    await _enable_alarm(db_session)
+
+    with patch.object(divera_alarm, "send_alarm", new=AsyncMock()) as mock_send:
+        resp = await editor_client.post("/api/divera/test-alarm", json={"divera_user_id": 999001})
+
+    assert resp.status_code == 403
+    assert "gesperrt" in resp.json()["detail"]
+    mock_send.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_is_not_a_silent_success_when_refused(
+    editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key, staging_role
+):
+    """A refusal that looked like a send would be worse than no lock at all."""
+    await _enable_alarm(db_session)
+    person = await _make_person(db_session, "Linked", divera_user_id=999001)
+    await _assign(db_session, alarm_incident, person)
+
+    with patch.object(divera_alarm, "send_alarm", new=AsyncMock()):
+        resp = await editor_client.post(
+            f"/api/divera/incidents/{alarm_incident.id}/alarm",
+            json={"personnel_ids": [str(person.id)]},
+        )
+
+    assert resp.status_code != 200
+    assert "success" not in resp.json()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_alarm_sends_normally_under_the_production_role(
+    editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key, monkeypatch
+):
+    """The other half of the guarantee: the ordinary deployment is untouched by any of this.
+
+    (A misspelt role has no test here because it cannot get this far — the process refuses to
+    start on one; see tests/test_environment.py.)
+    """
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "production")
+    await _enable_alarm(db_session)
+    person = await _make_person(db_session, "Linked", divera_user_id=999001)
+    await _assign(db_session, alarm_incident, person)
+
+    mock_send = AsyncMock(return_value={"id": 7, "count_recipients": 1})
+    with patch.object(divera_alarm, "send_alarm", new=mock_send):
+        resp = await editor_client.post(
+            f"/api/divera/incidents/{alarm_incident.id}/alarm",
+            json={"personnel_ids": [str(person.id)]},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    mock_send.assert_called_once()
 
 
 @pytest.mark.asyncio

@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { List, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Search, MonitorDown, Plus, ChevronRight } from 'lucide-react'
+import { Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Search, MonitorDown, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -63,7 +63,8 @@ export function MobileBottomNavigation({
     {
       id: 'kanban',
       label: t('incidents'),
-      icon: List,
+      // Same glyph as the desktop nav's board entry — see page-navigation.tsx.
+      icon: Columns3,
       href: '/',
       disabled: !hasSelectedEvent,
     },

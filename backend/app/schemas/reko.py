@@ -45,10 +45,16 @@ class RekoReportBase(BaseModel):
 
 
 class RekoReportCreate(RekoReportBase):
-    """Schema for creating Reko report."""
+    """Schema for creating Reko report.
+
+    ``token`` is optional since plan 26 §5.1: the same route is also the board's
+    door. A field crew sends the incident's form token; an editor sends none and
+    is identified by the session cookie instead. Neither is still a 401 — one
+    route, two doors, never a `…-by-editor` twin that drifts (decision 11).
+    """
 
     incident_id: UUID
-    token: str
+    token: str | None = None
 
 
 class RekoReportUpdate(RekoReportBase):
@@ -74,6 +80,12 @@ class RekoReportResponse(RekoReportBase):
     photos_json: list[str] = []
     submitted_by_personnel_id: UUID | None = None
     submitted_by_personnel_name: str | None = None
+    # Provenance (§5.3). The personnel FK above is the field side; these three are
+    # the KP side, and a mixed report carries both. NULL on all three means the
+    # report arrived through the form link, which is the normal case.
+    created_by_user_id: UUID | None = None
+    updated_by_user_id: UUID | None = None
+    arrived_reported_by_user_id: UUID | None = None
 
     @field_validator("photos_json", mode="before")
     @classmethod
@@ -82,6 +94,36 @@ class RekoReportResponse(RekoReportBase):
         if v is None:
             return []
         return v
+
+
+class RekoArrivedUpdate(BaseModel):
+    """ "Reko meldet: vor Ort" as the KP hears it (plan 26 §5.2).
+
+    Three shapes, and the difference between the last two is the point:
+
+    * field **absent** — "now", and idempotent: an arrival already on the row is
+      left where it is, exactly as a crew's second tap is.
+    * field **set** — that time. A radio message logged five minutes late has to
+      land at the right time or the board's waiting clocks lie.
+    * field **null** — clear it. A mis-heard call is corrected, not amended, and
+      clearing takes the provenance with it: "nobody has reported it" is not a
+      KP report.
+    """
+
+    arrived_at: datetime | None = None
+
+
+class RekoArrivedState(BaseModel):
+    """What the board shows in the Feldmeldungen row after the write.
+
+    The provenance is the *absence* of the user FK, read the same way everywhere:
+    NULL means a crew tapped "Ich bin vor Ort" on `/reko`, set means an operator
+    logged the radio message. Never a resolved "who" — a User is not a Personnel.
+    """
+
+    incident_id: UUID
+    arrived_at: datetime | None = None
+    arrived_reported_by_user_id: UUID | None = None
 
 
 class RekoSummary(BaseModel):
@@ -97,7 +139,7 @@ class RekoSummary(BaseModel):
     effort_json: EffortEstimation | None = None
     summary_text: str | None = None
     # Filenames only — served through /api/photos/{incident_id}/{filename},
-    # which stays behind the login.
+    # which takes a session or, event-scoped, a viewer share token.
     photos_json: list[str] = []
     submitted_at: datetime | None = None
     submitted_by_personnel_name: str | None = None
@@ -109,6 +151,48 @@ class RekoSummary(BaseModel):
         if v is None:
             return []
         return v
+
+
+class ViewerRekoDangers(BaseModel):
+    """The danger checklist without its free-text note (see ViewerRekoSummary)."""
+
+    fire: bool = False
+    fire_danger: bool = False
+    explosion: bool = False
+    collapse: bool = False
+    chemical: bool = False
+    electrical: bool = False
+
+
+class ViewerRekoSummary(BaseModel):
+    """What a share link may show of a Reko result — deliberately narrower than RekoSummary.
+
+    The /viewer/data endpoint has no session behind it: the token in the URL is
+    the only gate, and a URL gets forwarded. So this drops
+
+    * ``other_notes`` on the dangers — free text the Reko dictated about the
+      site, which can name people who live there;
+    * the submitter's name and the submission time — nothing on the display
+      renders them, and who reported it is not part of the situation.
+
+    ``photos_json`` **is** carried, and that is a deliberate widening of the
+    boundary: a picture of the damage is the most useful part of a Reko result,
+    and the detail dialog on the share board drew an empty grid without it.
+    /api/photos/{incident}/{file} therefore takes the same viewer token as a
+    second door, scoped to the token's own event and to files a submitted report
+    lists (see ``serve_photo``). Filenames only — the URL is built client-side.
+
+    What is left is what the card and the detail dialog actually draw.
+    """
+
+    is_relevant: bool | None = None
+    dangers_json: ViewerRekoDangers | None = None
+    summary_text: str | None = None
+    # Flattened out of effort_json: the display reads these two numbers and
+    # nothing else from the effort estimation.
+    personnel_count: int | None = None
+    estimated_duration_hours: float | None = None
+    photos_json: list[str] = []
 
 
 class EventRekoSummariesResponse(BaseModel):
@@ -148,6 +232,10 @@ class RekoDashboardAssignment(BaseModel):
     incident_type: str
     incident_status: str
     location_address: str | None = None
+    # Server-computed short label (home city stripped), so the dashboard paints
+    # the final string on first render instead of reformatting once its settings
+    # arrive.
+    location_display: str | None = None
     location_lat: str | None = None
     location_lng: str | None = None
     assignment_id: UUID | None = None

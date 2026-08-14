@@ -8,6 +8,7 @@ import { Truck, Users, ChevronUp, ChevronDown, Minus, FileCheck, AlertTriangle }
 import { type Operation } from "@/lib/contexts/operations-context"
 import { columns } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
+import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
@@ -62,6 +63,23 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation }: MobileIn
             <h3 className="font-semibold text-base truncate leading-tight">
               {formatLocation(operation.location)}
             </h3>
+          )}
+
+          {/* Abholung (decision 24). Same chip as the board and the wall, and
+              like there it is NOT gated on status: completing a card releases
+              the crew while they are still standing at the address.
+              `compact` because this is the scan list — the waiting time is one
+              tap away in the detail sheet. Read-only: clearing a pickup erases
+              the only record of how long they stood there, and the phone is a
+              viewing surface, so the KP clears it from the board. */}
+          {operation.pickupNeeded && (
+            <PickupBadge
+              variant="compact"
+              requestedAt={operation.pickupRequestedAt}
+              note={operation.pickupNote}
+              canEdit={false}
+              className="mt-1.5"
+            />
           )}
 
           {/* Type + Status */}
@@ -129,6 +147,12 @@ export const MobileIncidentCard = memo(MobileIncidentCardBase, (prevProps, nextP
     prevProps.operation.crew.length === nextProps.operation.crew.length &&
     prevProps.operation.vehicles.length === nextProps.operation.vehicles.length &&
     prevProps.operation.hasCompletedReko === nextProps.operation.hasCompletedReko &&
-    prevProps.operation.rekoSummary?.hasDangers === nextProps.operation.rekoSummary?.hasDangers
+    prevProps.operation.rekoSummary?.hasDangers === nextProps.operation.rekoSummary?.hasDangers &&
+    // The pickup chip is rendered above, so it has to be compared here too —
+    // a memo that ignores it leaves an amber chip on screen after the KP
+    // cleared it (or never shows one that just arrived).
+    prevProps.operation.pickupNeeded === nextProps.operation.pickupNeeded &&
+    prevProps.operation.pickupNote === nextProps.operation.pickupNote &&
+    prevProps.operation.pickupRequestedAt?.getTime() === nextProps.operation.pickupRequestedAt?.getTime()
   )
 })

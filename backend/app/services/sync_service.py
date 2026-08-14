@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
+from app.environment import is_domain_blocked
 from app.logging_config import get_logger
 from app.models import Event, Incident, Material, Personnel, Setting, SyncLog, Vehicle
 from app.schemas import Delta, SyncDirection, SyncResult, SyncStatus
@@ -41,7 +42,16 @@ class SyncService:
         self._conflict_buffer: int | None = None
 
     async def get_railway_database_url(self) -> str:
-        """Get Railway database URL from settings."""
+        """Get Railway database URL from settings — empty when the deployment role forbids sync.
+
+        This is the seam every sync path passes through (health check, delta read, push, pull,
+        manual trigger), so one refusal here covers all of them. It has to be here and not in
+        the settings store because the setting is part of what a copied database brings along:
+        a staging instance restored from production would otherwise hold a working connection
+        string to production and push into it.
+        """
+        if is_domain_blocked("sync"):
+            return ""
         if self._railway_database_url is None:
             from app.services.settings import get_setting_value
 

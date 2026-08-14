@@ -5,7 +5,9 @@ draws from. These tests lock the contract that a dispatch about, say,
 a kitchen fire never produces a Reko summary about a dachstock fire.
 """
 
+import random
 import re
+from uuid import uuid4
 
 from app.seed_training import EMERGENCY_TEMPLATES
 from app.services.training_simulation_data import (
@@ -16,6 +18,9 @@ from app.services.training_simulation_data import (
     _get_elementar_subcategory,
     _reconcile_with_summary,
     _resolve_summary_pool,
+    classify_material_bucket,
+    derive_scenario,
+    generate_rapport_data,
     generate_reko_report_data,
     generate_summary,
     vary_dispatch_numbers,
@@ -468,3 +473,159 @@ class TestDispatchLinkedSummary:
             if summary.startswith("Gemeldet"):
                 seen_correction = True
         assert seen_confirm and seen_correction, "both confirm and correction branches should occur"
+
+
+class TestRapportGeneration:
+    """The Schadenplatz-Rapport profile (plan 25 §16.1).
+
+    Seeded RNG throughout: these are rules, not distributions, and a test that
+    passes four times out of five is worse than no test.
+    """
+
+    UNITS = [
+        {"assignment_id": uuid4(), "name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "consumable": False},
+        {"assignment_id": uuid4(), "name": "Motorsäge Gr.", "type": "Sägen", "consumable": False},
+        {"assignment_id": uuid4(), "name": "Anhänger", "type": "Sonstiges", "consumable": False},
+        {"assignment_id": uuid4(), "name": "Ölbindemittel", "type": "Ölwehr", "consumable": True},
+        {"assignment_id": uuid4(), "name": "Rettungsplattform", "type": "Sonstiges", "consumable": False},
+    ]
+
+    # Keyed on the vehicle since §18.33 — the checklist covers the whole fleet,
+    # so an assignment id is not the identity of a row any more. The inject only
+    # ever answers about the vehicles the board actually dispatched.
+    VEHICLES = [
+        {"vehicle_id": uuid4(), "name": "TLF 1"},
+        {"vehicle_id": uuid4(), "name": "MTW"},
+    ]
+
+    def _generate(self, seed: int, incident_type: str = "elementarereignis", title: str = "Wasser im Keller"):
+        return generate_rapport_data(
+            incident_type=incident_type,
+            title=title,
+            description="Ca. 30 cm Wasser im Keller.",
+            materials=self.UNITS,
+            vehicles=self.VEHICLES,
+            board_personnel_count=4,
+            rng=random.Random(seed),
+        )
+
+    def test_consumables_are_never_left_on_site(self):
+        """Decision 26: a consumable that was used is gone. 0 %, always."""
+        consumable_id = self.UNITS[3]["assignment_id"]
+        for seed in range(300):
+            ticks = {row["assignment_id"]: row for row in self._generate(seed).get("materials", [])}
+            assert ticks[consumable_id]["left_on_site"] is False
+
+    def test_the_owner_block_is_a_name_and_sometimes_a_phone(self):
+        """§18.31: two fields, and the phone roll is nested inside the name roll.
+
+        A number without a name is not a shape a crew produces, so it must never
+        be generated — while a name without a number is the everyday one and has
+        to appear often enough that both branches are exercised.
+        """
+        named = 0
+        phoned = 0
+        for seed in range(300):
+            data = self._generate(seed)
+            if data.get("owner_phone"):
+                assert data.get("owner_name"), "a phone number with nobody attached to it"
+                phoned += 1
+            if data.get("owner_name"):
+                named += 1
+        # 60 % of runs name somebody, 55 % of those leave a number.
+        assert 140 < named < 230
+        assert 60 < phoned < 140
+
+    def test_the_material_tick_has_only_two_answers(self):
+        """§18.32 removed "keine Angabe"; there is no control that produces it."""
+        for seed in range(200):
+            for row in self._generate(seed).get("materials", []):
+                assert row["used"] in (True, False)
+
+    def test_material_buckets_follow_the_keyword_table(self):
+        """Type AND name are matched, with the documented fallback for the rest."""
+        assert classify_material_bucket("Tauchpumpen", "Tauchpumpe Gr.", False) == "stays"
+        assert classify_material_bucket("Sägen", "Motorsäge Gr.", False) == "goes_home"
+        assert classify_material_bucket("Elektrowerkzeug", "Trennschleifer", False) == "goes_home"
+        assert classify_material_bucket("Sonstiges", "Anhänger", False) == "trailer"
+        assert classify_material_bucket("Ölwehr", "Ölbindemittel", True) == "consumable"
+        # Nothing matched: the fallback, never a crash and never an enum.
+        assert classify_material_bucket("Sonstiges", "Rettungsplattform", False) == "unknown"
+
+    def test_scenario_follows_the_incident_when_it_says_so(self):
+        """Generator-internal flavour: it picks the phrase bank, it is never stored."""
+        rng = random.Random(1)
+        assert derive_scenario("Wasser im Keller", None, rng) == "wasserschaden"
+        assert derive_scenario("Baum auf Fahrbahn", None, rng) == "sturmschaden"
+        assert derive_scenario("Schneebruch Vordach", None, rng) == "schneebruch"
+        # Nothing to go on: weighted random, but always one of the four.
+        assert derive_scenario("Einsatz", None, rng) in {
+            "wasserschaden",
+            "sturmschaden",
+            "schneebruch",
+            "anderes",
+        }
+
+    def test_the_scenario_never_reaches_the_payload(self):
+        """There is no Schadensart field any more, and this must not grow one back."""
+        for seed in range(50):
+            data = self._generate(seed)
+            assert "damage_type" not in data
+            assert "damage_type_other" not in data
+
+    def test_the_vehicle_checklist_is_answered_and_mostly_confirmed(self):
+        """Prefilled ticked, so the only thing a crew adds is the rare No."""
+        unticked = 0
+        for seed in range(300):
+            rows = self._generate(seed)["vehicles"]
+            assert {row["vehicle_id"] for row in rows} == {unit["vehicle_id"] for unit in self.VEHICLES}
+            unticked += sum(1 for row in rows if row["present"] is False)
+        # 10 % per vehicle over 600 rows — often enough to train on, rare enough
+        # that it stays a signal.
+        assert 20 < unticked < 110
+
+    def test_extra_material_is_a_list_and_sometimes_stays_on_site(self):
+        """§18.35 — an exercise that never leaves a borrowed pump behind never
+        exercises the morning after.
+
+        So the generator has to produce both the entries and, often enough, the
+        *vor Ort verblieben* tick that puts one on the Restliste and the
+        Abholliste. Names only, one tick each, and never a `used` flag: listing
+        a thing here already says it was used.
+        """
+        with_entries = 0
+        left_behind = 0
+        for seed in range(300):
+            entries = self._generate(seed).get("extra_materials")
+            if not entries:
+                continue
+            with_entries += 1
+            assert 1 <= len(entries) <= 2
+            assert len({entry["name"] for entry in entries}) == len(entries)
+            for entry in entries:
+                assert set(entry) == {"name", "left_on_site"}
+                assert isinstance(entry["name"], str) and entry["name"]
+                assert isinstance(entry["left_on_site"], bool)
+            left_behind += sum(1 for entry in entries if entry["left_on_site"])
+        # 15 % of rapports name something, a quarter of those entries stay.
+        assert 20 < with_entries < 80
+        assert left_behind > 0
+
+    def test_the_head_count_is_sent_only_when_the_crew_changed_it(self):
+        """10 % — the `korrigiert` marker has to stay a signal (§16.1)."""
+        corrected = sum(1 for seed in range(300) if "personnel_count" in self._generate(seed))
+        assert 10 < corrected < 70
+
+    def test_no_times_are_generated_at_all_any_more(self):
+        """There is no Beginn/Ende field left to fill; the outputs derive it."""
+        for seed in range(50):
+            data = self._generate(seed)
+            assert "work_started_at" not in data
+            assert "work_ended_at" not in data
+
+    def test_every_rapport_is_submitted_with_a_kurzbericht(self):
+        """100 % Kurzbericht, and the inject always files rather than drafts."""
+        for seed in range(50):
+            data = self._generate(seed)
+            assert data["is_draft"] is False
+            assert data["kurzbericht"]

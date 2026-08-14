@@ -1,12 +1,13 @@
 """Resource assignment CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
 from sqlalchemy import and_, select
 from sqlalchemy import update as update_stmt
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -94,7 +95,16 @@ async def assign_resource(
         assigned_by=current_user.id,
     )
     db.add(assignment)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        # The SELECT ... FOR UPDATE above cannot serialise the FIRST assignment: there are no
+        # rows yet, so it locks nothing and two concurrent transactions both read an empty
+        # result and both insert. `uq_assignments_active_resource` is what actually decides,
+        # and the loser lands here. Same outcome the check above produces, so say the same
+        # thing — the resource IS on the incident, the caller just did not win the insert.
+        await db.rollback()
+        raise ValueError("Resource already assigned to this incident") from exc
 
     # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
 
@@ -163,6 +173,10 @@ async def update_assignment(
             # for this incident until someone explicitly hands it back.
             if incident is not None:
                 incident.leader_manual = True
+                # The most deliberate choose-site there is, so it stamps the
+                # leader of record directly — `sync_auto_leader` does not run on
+                # this branch (it would immediately undo the pin).
+                incident.leader_personnel_id = assignment.resource_id
             # Single-holder, guarded by a partial unique index, so the old holder
             # has to be demoted in the SAME transaction — writing the new one
             # first would hit the index instead of replacing the role. Not
@@ -203,6 +217,8 @@ async def unassign_resource(
     assignment_id: uuid.UUID,
     current_user: User,
     request: Request | None,
+    *,
+    stamp_leader_of_record: bool = True,
 ) -> bool:
     """
     Release resource from incident.
@@ -213,6 +229,10 @@ async def unassign_resource(
     operations (incident completion auto-release); a commit here would let a
     crash mid-completion leave status=complete with crew still assigned and
     no StatusTransition/audit row (audit H3).
+
+    ``stamp_leader_of_record=False`` is for the bulk release only — see
+    ``auto_release_incident_resources``. A single release IS a leader change
+    (the EL drives off, the next person takes over) and must move the record.
     """
     result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment_id))
     assignment = result.scalar_one_or_none()
@@ -227,7 +247,7 @@ async def unassign_resource(
     # Left alone, an incident finishes with every single person on it flagged as
     # having led it, which is exactly the record "Bisher im Einsatz" is there to
     # get right.
-    assignment.unassigned_at = datetime.utcnow()
+    assignment.unassigned_at = datetime.now(UTC)
     assignment.is_leader = False
 
     # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
@@ -248,7 +268,7 @@ async def unassign_resource(
     # one — unless an operator picked deliberately, in which case it stays gone
     # until they pick again.
     if assignment.resource_type == "personnel":
-        await sync_auto_leader(db, assignment.incident_id)
+        await sync_auto_leader(db, assignment.incident_id, stamp_leader_of_record=stamp_leader_of_record)
 
     return True
 
@@ -259,19 +279,19 @@ async def update_resource_status(db: AsyncSession, resource_type: str, resource_
         person = (await db.execute(select(Personnel).where(Personnel.id == resource_id))).scalar_one_or_none()
         if person:
             person.status = new_status
-            person.updated_at = datetime.utcnow()
+            person.updated_at = datetime.now(UTC)
 
     elif resource_type == "vehicle":
         vehicle = (await db.execute(select(Vehicle).where(Vehicle.id == resource_id))).scalar_one_or_none()
         if vehicle:
             vehicle.status = new_status
-            vehicle.updated_at = datetime.utcnow()
+            vehicle.updated_at = datetime.now(UTC)
 
     elif resource_type == "material":
         material = (await db.execute(select(Material).where(Material.id == resource_id))).scalar_one_or_none()
         if material:
             material.status = new_status
-            material.updated_at = datetime.utcnow()
+            material.updated_at = datetime.now(UTC)
 
 
 async def get_incident_assignments(db: AsyncSession, incident_id: uuid.UUID) -> list[IncidentAssignment]:
@@ -367,7 +387,7 @@ async def auto_release_incident_resources(
     current_user: User,
     request: Request | None,
     exclude_materials: bool = True,
-) -> None:
+) -> list[dict[str, Any]]:
     """
     Automatically release resources when incident completed.
 
@@ -380,15 +400,179 @@ async def auto_release_incident_resources(
         request: HTTP request for audit logging
         exclude_materials: If True, only release personnel and vehicles (keep materials assigned)
                           Default: True (materials may be left on site)
+
+    Returns the rows it closed, in the shape ``StatusTransition.released_assignments_json``
+    stores — the completing caller stamps them on the transition so that reopening
+    the incident can undo exactly this release and nothing else. Callers that are
+    not a status transition may ignore the return value.
+
+    Freezes the Einsatzleiter of record FIRST, then releases with the stamp
+    switched off. Both halves matter:
+
+    * The crew leaves one row at a time and every release promotes whoever is
+      still there, so a stamping cascade would walk the record through the whole
+      crew and leave it on whoever happened to go last. That is the same bug the
+      comment in ``unassign_resource`` describes, one level up.
+    * Nothing else can answer the question afterwards: the flag is gone from
+      every row by the time this returns.
+
+    The guard lives here rather than at the call sites so a future bulk-release
+    caller cannot forget it — this function *is* "the crew is done here", and a
+    bulk release is never a leader decision.
     """
+    incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if incident is not None:
+        active_leader_id = await db.scalar(
+            select(IncidentAssignment.resource_id).where(
+                IncidentAssignment.incident_id == incident_id,
+                IncidentAssignment.resource_type == "personnel",
+                IncidentAssignment.unassigned_at.is_(None),
+                IncidentAssignment.is_leader.is_(True),
+            )
+        )
+        # Only ever overwritten by a real answer: an incident finishing with
+        # nobody flagged keeps whatever the last genuine choice was.
+        if active_leader_id is not None:
+            incident.leader_personnel_id = active_leader_id
+            await db.flush()
+
     assignments = await get_incident_assignments(db, incident_id)
 
+    released: list[dict[str, Any]] = []
     for assignment in assignments:
         # Skip materials if exclude_materials is True
         if exclude_materials and assignment.resource_type == "material":
             continue
 
-        await unassign_resource(db, assignment.id, current_user, request)
+        # Read the flag BEFORE the release clears it — restoring a crew without
+        # its Einsatzleiter puts the card back minus the one thing the operator
+        # is most likely to look for.
+        was_leader = assignment.is_leader
+        if await unassign_resource(db, assignment.id, current_user, request, stamp_leader_of_record=False):
+            released.append({"kind": "incident", "id": str(assignment.id), "was_leader": was_leader})
+
+    return released
+
+
+async def restore_released_assignments(
+    db: AsyncSession,
+    entries: list[Any] | None,
+    current_user: User | None,
+    request: Request | None,
+) -> int:
+    """Undo the release a completion performed — the other half of the record above.
+
+    Re-opens the listed rows (``unassigned_at`` back to NULL) and gives the
+    Einsatzleiter flag back to whoever carried it. Flushes only; the caller owns
+    the commit, so the reopen and the restore land in one transaction and a crash
+    between them is impossible.
+
+    A row is skipped when the resource has since been assigned somewhere else.
+    An undo seconds after the completion finds nothing reassigned and restores
+    everything; a reopen an hour later must not silently put a person back on two
+    incidents at once behind the operator's back. The skip is deliberate and
+    quiet — the board shows what came back, and what did not is visibly on the
+    other incident.
+
+    Only ``kind == "incident"`` entries are this module's business; the Auftrag's
+    shared rows live in another table and are restored by the group twin.
+
+    Returns the number of rows restored.
+    """
+    wanted = parse_released_entries(entries, "incident")
+    if not wanted:
+        return 0
+
+    result = await db.execute(select(IncidentAssignment).where(IncidentAssignment.id.in_(wanted)))
+    rows = list(result.scalars().all())
+
+    restored = 0
+    touched_incident_ids: set[uuid.UUID] = set()
+    for assignment in rows:
+        if assignment.unassigned_at is None:
+            continue  # already active — nothing to undo
+        conflict = await db.scalar(
+            select(IncidentAssignment.id).where(
+                IncidentAssignment.resource_type == assignment.resource_type,
+                IncidentAssignment.resource_id == assignment.resource_id,
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+        )
+        if conflict is not None:
+            continue
+        assignment.unassigned_at = None
+        assignment.is_leader = False  # claimed below, once the incident is known to be free
+        restored += 1
+        touched_incident_ids.add(assignment.incident_id)
+        await log_action(
+            db=db,
+            action_type="assign",
+            resource_type=f"{assignment.resource_type}_assignment",
+            resource_id=assignment.id,
+            user=current_user,
+            changes={"reason": "completion_undone"},
+            request=request,
+        )
+
+    if not restored:
+        return 0
+    await db.flush()
+
+    # Give the pin back — but never to a second holder. Somebody may have been
+    # assigned and promoted while the incident sat in Abgeschlossen; the partial
+    # unique index would reject the row and, worse, an operator's deliberate pick
+    # must not lose to an undo.
+    for incident_id in touched_incident_ids:
+        existing_leader = await db.scalar(
+            select(IncidentAssignment.id).where(
+                IncidentAssignment.incident_id == incident_id,
+                IncidentAssignment.resource_type == "personnel",
+                IncidentAssignment.unassigned_at.is_(None),
+                IncidentAssignment.is_leader.is_(True),
+            )
+        )
+        if existing_leader is not None:
+            continue
+        former_leader = next(
+            (
+                assignment
+                for assignment in rows
+                if assignment.incident_id == incident_id
+                and assignment.unassigned_at is None
+                and assignment.resource_type == "personnel"
+                and wanted.get(assignment.id)
+            ),
+            None,
+        )
+        if former_leader is not None:
+            former_leader.is_leader = True
+        else:
+            # The EL is on another incident now — derive one from who did come
+            # back rather than showing a crew with nobody in charge. Stamping is
+            # off: the completion already froze the leader of record, and this is
+            # not a fresh human decision.
+            await sync_auto_leader(db, incident_id, stamp_leader_of_record=False)
+
+    await db.flush()
+    return restored
+
+
+def parse_released_entries(entries: list[Any] | None, kind: str) -> dict[uuid.UUID, bool]:
+    """``released_assignments_json`` → ``{assignment_id: was_leader}`` for one kind.
+
+    Tolerant by design: the column is JSONB written by an older release of this
+    code as much as by this one, and a row it cannot parse must be skipped rather
+    than turn a reopen into a 500.
+    """
+    parsed: dict[uuid.UUID, bool] = {}
+    for entry in entries or []:
+        if not isinstance(entry, dict) or entry.get("kind") != kind:
+            continue
+        try:
+            parsed[uuid.UUID(str(entry.get("id")))] = bool(entry.get("was_leader"))
+        except (TypeError, ValueError):
+            continue
+    return parsed
 
 
 _RESOURCE_TYPE_LABELS = {"personnel": "Person", "vehicle": "Fahrzeug", "material": "Material"}
@@ -505,7 +689,7 @@ async def transfer_assignments(
 
         # Mark old assignment as unassigned (same reasoning as unassign_resource:
         # the role does not travel on a released row).
-        assignment.unassigned_at = datetime.utcnow()
+        assignment.unassigned_at = datetime.now(UTC)
         assignment.is_leader = False
 
     # Log transfer action
@@ -574,7 +758,12 @@ async def _reko_personnel_ids(db: AsyncSession, event_id: uuid.UUID | None) -> s
     return {row[0] for row in rows.all()}
 
 
-async def sync_auto_leader(db: AsyncSession, incident_id: uuid.UUID) -> None:
+async def sync_auto_leader(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    *,
+    stamp_leader_of_record: bool = True,
+) -> None:
     """Keep the Einsatzleiter on the highest-ranking person present.
 
     An incident that nobody has explicitly assigned a leader to still has one in
@@ -587,6 +776,17 @@ async def sync_auto_leader(db: AsyncSession, incident_id: uuid.UUID) -> None:
     breaks a tie. The moment an operator picks someone by hand,
     ``Incident.leader_manual`` is set and this stops touching it — a human
     decision must not be undone by the next person to arrive.
+
+    Every pick here is a genuine one — somebody joined, somebody left, a pin was
+    handed back — so it also stamps ``Incident.leader_personnel_id``, the leader
+    of record that outlives the assignment rows. Stamping is the DEFAULT on
+    purpose: a call site added later gets the right behaviour without knowing
+    this exists, and the one exception (the completion cascade, which walks the
+    whole crew and would end on whoever left last) opts out explicitly in
+    ``auto_release_incident_resources``. Do not invert this.
+
+    A pick with no candidates never clears the record: an incident whose crew
+    has all gone home still had a leader.
 
     Flushes only; the caller owns the transaction.
     """
@@ -635,5 +835,7 @@ async def sync_auto_leader(db: AsyncSession, incident_id: uuid.UUID) -> None:
     )
     if winner is not None:
         winner.is_leader = True
+        if stamp_leader_of_record:
+            incident.leader_personnel_id = winner.resource_id
 
     await db.flush()

@@ -16,7 +16,15 @@ class NotificationSeverity(str, Enum):
 
 
 class NotificationType(str, Enum):
-    """Notification types."""
+    """Notification types.
+
+    Must stay in sync with the ``valid_notification_type`` CHECK constraint on
+    ``models.Notification`` — this enum is the response model, so a type the DB
+    happily stores but this enum does not know is not a missing bell entry: it
+    is a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``
+    response and blanks the operator's bell. That is exactly how the five
+    ``/feld`` types (plan 25) went missing.
+    """
 
     TIME_OVERDUE = "time_overdue"
     NO_PERSONNEL = "no_personnel"
@@ -28,6 +36,12 @@ class NotificationType(str, Enum):
     REKO_ARRIVED = "reko_arrived"
     TRAINING_EMERGENCY = "training_emergency"
     VEHICLE_ARRIVED = "vehicle_arrived"
+    # Field reporting (/feld, plan 25)
+    RAPPORT_SUBMITTED = "rapport_submitted"
+    FIELD_ARRIVED = "field_arrived"
+    FIELD_COMPLETE = "field_complete"
+    FIELD_MESSAGE = "field_message"
+    FIELD_PICKUP = "field_pickup"
 
 
 class NotificationResponse(BaseModel):
@@ -194,10 +208,15 @@ class NotificationSettingsUpdate(BaseModel):
     @field_validator("database_size_limit_gb", "photo_size_limit_gb")
     @classmethod
     def validate_size_limits(cls, v: int | None) -> int | None:
-        """Validate size limits are reasonable."""
+        """Validate size limits are reasonable.
+
+        0 disables the alarm — that is the value `_check_event_size_alerts`
+        reads as "do not measure, do not warn". Rejecting it (the old `< 1`)
+        left an operator no way to switch a disk alarm off once it was set.
+        """
         if v is not None:
-            if v < 1:
-                raise ValueError("Size limit must be at least 1 GB")
+            if v < 0:
+                raise ValueError("Size limit must not be negative")
             if v > 100:
                 raise ValueError("Size limit should not exceed 100 GB")
         return v

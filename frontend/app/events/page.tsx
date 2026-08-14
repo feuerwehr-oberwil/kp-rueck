@@ -20,17 +20,45 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Archive, ArchiveRestore, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, Download } from 'lucide-react'
+import { Plus, Archive, ArchiveRestore, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, ReceiptText, Download } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import { EventRestliste } from '@/components/events/event-restliste'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
+
+/**
+ * Mirror of the backend slug (`slugify_event_name`, api/exports.py): lowercase,
+ * umlauts transliterated, every other run of non-alphanumerics collapsed to "-".
+ * The downloads name themselves client-side, so the two have to agree.
+ */
+function slugifyEventName(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'ereignis'
+  )
+}
+
+/** Hand a fetched blob to the browser as a download, then clean up the object URL. */
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+}
 
 export default function EventsPage() {
   const t = useTranslations('events')
@@ -48,11 +76,29 @@ export default function EventsPage() {
   const [newEventTraining, setNewEventTraining] = useState(false)
   const [newEventAutoAttachDivera, setNewEventAutoAttachDivera] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
+  // Archive and delete run against the same button the operator just clicked, and
+  // delete takes every incident under the event with it — so both get the same
+  // in-flight guard the create button already has (disabled + spinner), and the
+  // confirmation cannot be dismissed while the request is out.
+  const [isArchiving, setIsArchiving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [reportLoadingId, setReportLoadingId] = useState<string | null>(null)
   const [auditLoadingId, setAuditLoadingId] = useState<string | null>(null)
+  const [einsaetzeLoadingId, setEinsaetzeLoadingId] = useState<string | null>(null)
   const [gPrefixActive, setGPrefixActive] = useState(false)
   const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // One fetch for the whole page: every event card's Restliste asks the same
+  // question (may I offer the Abholliste?), and the answer is a station setting.
+  const [printerEnabled, setPrinterEnabled] = useState(false)
+
+  useEffect(() => {
+    apiClient.getPrinterStatus()
+      .then((status) => setPrinterEnabled(status.enabled))
+      // No printer API (Railway, agent-less deployment) is not an error here —
+      // it is simply a board that does not print.
+      .catch(() => setPrinterEnabled(false))
+  }, [])
 
   // Separate active and archived events
   const { activeEvents, archivedEvents } = useMemo(() => {
@@ -104,14 +150,27 @@ export default function EventsPage() {
     router.push('/')
   }
 
+  /**
+   * Restliste → the card itself (plan 25, §6). A count that cannot be opened is
+   * a number to write down by hand, which is exactly the work this replaces —
+   * so every row lands on the board with that Schadenplatz highlighted.
+   */
+  const handleOpenIncident = (event: Event, incidentId: string) => {
+    setSelectedEvent(event)
+    router.push(`/?highlight=${encodeURIComponent(incidentId)}`)
+  }
+
   const handleArchive = async () => {
-    if (!targetEvent) return
+    if (!targetEvent || isArchiving) return
+    setIsArchiving(true)
     try {
       await archiveEvent(targetEvent.id)
       setShowArchiveDialog(false)
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to archive event:', error)
+    } finally {
+      setIsArchiving(false)
     }
   }
 
@@ -124,13 +183,16 @@ export default function EventsPage() {
   }
 
   const handleDelete = async () => {
-    if (!targetEvent) return
+    if (!targetEvent || isDeleting) return
+    setIsDeleting(true)
     try {
       await deleteEvent(targetEvent.id)
       setShowDeleteDialog(false)
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to delete event:', error)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -138,21 +200,8 @@ export default function EventsPage() {
     setReportLoadingId(event.id)
     try {
       const blob = await apiClient.exportEventReport(event.id)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      // Mirror backend slug: lowercase, umlauts transliterated, non-alnum -> "-"
-      const slug = event.name
-        .toLowerCase()
-        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'ereignis'
       const date = new Date().toISOString().slice(0, 10)
-      a.download = `einsatzbericht-${slug}-${date}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      downloadBlob(blob, `einsatzbericht-${slugifyEventName(event.name)}-${date}.pdf`)
     } catch (err) {
       // German first, technical detail second. `apiClient` ALWAYS throws an Error, so the
       // old `err instanceof Error ? err.message : t(…)` never reached the translation — the
@@ -170,21 +219,8 @@ export default function EventsPage() {
     setAuditLoadingId(event.id)
     try {
       const blob = await apiClient.exportEventAudit(event.id)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      // Mirror backend slug: lowercase, umlauts transliterated, non-alnum -> "-"
-      const slug = event.name
-        .toLowerCase()
-        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'ereignis'
       const date = new Date().toISOString().slice(0, 10)
-      a.download = `audit-${slug}-${date}.xlsx`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      downloadBlob(blob, `audit-${slugifyEventName(event.name)}-${date}.xlsx`)
     } catch (err) {
       // Same reasoning as the report export above.
       toast.error(t('page.auditExportFailed'), {
@@ -195,9 +231,30 @@ export default function EventsPage() {
     }
   }
 
+  /**
+   * Einsätze (plan 25, §7): one wide row per Schadenplatz — including the ones
+   * without a rapport, so the gaps stay visible. Somebody retypes it into the
+   * billing system by hand; it just does not need that name on it.
+   */
+  const handleEinsaetzeExport = async (event: Event) => {
+    setEinsaetzeLoadingId(event.id)
+    try {
+      const blob = await apiClient.exportEventEinsaetze(event.id)
+      const date = new Date().toISOString().slice(0, 10)
+      downloadBlob(blob, `einsaetze-${slugifyEventName(event.name)}-${date}.xlsx`)
+    } catch (err) {
+      toast.error(t('page.einsaetzeExportFailed'), {
+        description: err instanceof Error ? err.message : undefined,
+      })
+    } finally {
+      setEinsaetzeLoadingId(null)
+    }
+  }
+
   // Compact export control: one button, both formats in a dropdown.
   const renderExportMenu = (event: Event) => {
-    const busy = reportLoadingId === event.id || auditLoadingId === event.id
+    const busy =
+      reportLoadingId === event.id || auditLoadingId === event.id || einsaetzeLoadingId === event.id
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -218,6 +275,10 @@ export default function EventsPage() {
           <DropdownMenuItem onClick={() => handleAuditExport(event)} className="cursor-pointer">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             {t('page.exportAudit')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleEinsaetzeExport(event)} className="cursor-pointer">
+            <ReceiptText className="mr-2 h-4 w-4" />
+            {t('page.exportEinsaetze')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -405,6 +466,17 @@ export default function EventsPage() {
                               <div>{t('page.lastActivity', { date: new Date(event.last_activity_at).toLocaleString('de-CH') })}</div>
                             </div>
 
+                            {/* The Restliste (plan 25, §6/V-8): what is still
+                                open, with a way into each incident. Active
+                                events only — an archived Ereignis has no gaps
+                                left to chase. Renders nothing when there is
+                                nothing open. */}
+                            <EventRestliste
+                              eventId={event.id}
+                              onOpenIncident={(incidentId) => handleOpenIncident(event, incidentId)}
+                              printerEnabled={printerEnabled}
+                            />
+
                             <div className="mt-4 flex gap-2">
                               <Button
                                 className="flex-1"
@@ -565,7 +637,7 @@ export default function EventsPage() {
         </Dialog>
 
       {/* Archive Confirmation Dialog */}
-      <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+      <Dialog open={showArchiveDialog} onOpenChange={(open) => { if (!open && isArchiving) return; setShowArchiveDialog(open) }}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('archiveDialog.title')}</DialogTitle>
@@ -577,10 +649,11 @@ export default function EventsPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
+            <Button variant="outline" onClick={() => setShowArchiveDialog(false)} disabled={isArchiving}>
               {t('archiveDialog.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleArchive}>
+            <Button variant="destructive" onClick={handleArchive} disabled={isArchiving}>
+              {isArchiving && <Loader2 className="size-4 animate-spin" />}
               {t('archiveDialog.confirm')}
             </Button>
           </DialogFooter>
@@ -588,7 +661,7 @@ export default function EventsPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <Dialog open={showDeleteDialog} onOpenChange={(open) => { if (!open && isDeleting) return; setShowDeleteDialog(open) }}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
@@ -603,10 +676,11 @@ export default function EventsPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting}>
               {t('deleteDialog.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting && <Loader2 className="size-4 animate-spin" />}
               {t('deleteDialog.confirm')}
             </Button>
           </DialogFooter>

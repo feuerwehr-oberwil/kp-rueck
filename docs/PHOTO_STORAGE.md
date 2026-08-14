@@ -156,7 +156,7 @@ Response:
 ### Photo Serving
 ```http
 GET /api/photos/{incident_id}/{filename}
-  (requires an authenticated session — 401 otherwise)
+  (an authenticated session, OR ?token=<viewer share token> — 401 otherwise)
 
 Response:
   Image file (image/jpeg)
@@ -177,7 +177,9 @@ Response:
 
 ### Access Control
 - **Upload**: Requires valid form token (generated per incident)
-- **Viewing**: **Authenticated.** `GET /api/reko/photos/{id}` requires a logged-in user, writes an audit entry (`action_type="view_photo"`), and responds `Cache-Control: private, max-age=3600`. Reko photos are never public — see `backend/app/api/reko.py`.
+- **Viewing**: **A session, or an event-scoped viewer token.** `GET /api/photos/{incident}/{file}` writes an audit entry (`action_type="view_photo"`, with `changes.via = "session" | "viewer_token"`) and responds `Cache-Control: private, max-age=3600`.
+  A **viewer share token** (`/display/board?token=…`, 24 h, one event) also opens this route, but only for a photo that (a) belongs to an incident in that token's event AND (b) is listed by a **submitted** Reko report. Anything else answers `404`, never `403`, so a forwarded link cannot probe which photos exist. A Schadenplatz-Rapport photo sitting in the same directory on disk is NOT reachable this way, and neither are the photos of a draft Reko.
+  **So Reko photos are not "never public": anybody holding a share link sees them.** Decide with that in mind who gets the link — see `_viewer_token_may_see_photo` in `backend/app/api/reko.py`.
 - **Deletion**: Requires valid form token (same as upload)
 
 ### File Validation

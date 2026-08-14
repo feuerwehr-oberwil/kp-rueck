@@ -429,9 +429,14 @@ export function NotificationSettingsCard() {
             <Input
               id="database-limit"
               type="number"
+              min={0}
               defaultValue={settings.database_size_limit_gb}
               onBlur={(e) => {
-                const val = parseInt(e.target.value)
+                // Leeres Feld = 0 = Alarm aus. `parseInt('')` ergibt NaN, und der
+                // NaN-Guard machte das Leeren damit zum Nichts-Tun — ein einmal
+                // gesetztes Limit liess sich gar nicht mehr abschalten.
+                const raw = e.target.value.trim()
+                const val = raw === '' ? 0 : parseInt(raw)
                 if (!isNaN(val) && val !== settings.database_size_limit_gb) {
                   updateSetting('database_size_limit_gb', val)
                 }
@@ -445,9 +450,12 @@ export function NotificationSettingsCard() {
             <Input
               id="photo-limit"
               type="number"
+              min={0}
               defaultValue={settings.photo_size_limit_gb}
               onBlur={(e) => {
-                const val = parseInt(e.target.value)
+                // Wie oben: leer = 0 = aus.
+                const raw = e.target.value.trim()
+                const val = raw === '' ? 0 : parseInt(raw)
                 if (!isNaN(val) && val !== settings.photo_size_limit_gb) {
                   updateSetting('photo_size_limit_gb', val)
                 }

@@ -15,6 +15,7 @@ from sqlalchemy.pool import QueuePool
 from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
 from ..database import audit_engine, engine, get_db
+from ..environment import blocked_domains, deployment_role, deployment_role_label
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Event
 from ..websocket_manager import ws_manager
@@ -201,6 +202,24 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
         }
 
     return health_status
+
+
+@router.get("/api/deployment", response_model=None)
+async def deployment_info() -> dict[str, Any]:
+    """What this instance is allowed to do to the outside world (see app/environment.py).
+
+    Unauthenticated on purpose. The band that says *Staging – Übungssystem* has to be on the
+    login screen and on the public phone forms too — the tab you mistake at 02:00 is usually
+    the one you have not logged into yet. It exposes a role name and nothing else.
+
+    The same answer is embedded in ``/api/integrations`` per domain; this is the small public
+    version the frontend shell asks for on every page.
+    """
+    return {
+        "role": deployment_role(),
+        "label": deployment_role_label(),
+        "blocked_domains": list(blocked_domains()),
+    }
 
 
 @router.get("/api/demo/status", response_model=None)

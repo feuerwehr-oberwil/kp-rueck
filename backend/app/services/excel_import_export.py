@@ -2,16 +2,32 @@
 
 import asyncio
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any, Literal
 
 import openpyxl
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
+from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Material, Personnel, Vehicle
+from .audit_export_service import EventReportData
+from .pdf_report_service import (
+    LOCAL_TZ,
+    WorkWindow,
+    board_personnel_count,
+    extra_material_rows,
+    format_extra_material,
+    material_checklist_rows,
+    material_left_on_site_names,
+    material_used_label,
+    rapport_by_incident,
+    rapport_filing_lines,
+    rapport_work_windows,
+    vehicle_present_names,
+)
 
 # Column definitions
 PERSONNEL_COLUMNS = [
@@ -342,3 +358,162 @@ def _build_export_workbook(
     wb.save(output)
     output.seek(0)
     return output
+
+
+# ---------------------------------------------------------------------------
+# Einsätze export (plan 25, §7 / decision 21)
+#
+# One wide row per Schadenplatz. It matches **no** external format on purpose:
+# somebody retypes this into the billing system by hand, and that system is
+# archaic enough that mirroring its layout buys nothing — so the sheet optimises
+# for being *read while retyping*: human headers, everything about one
+# Schadenplatz on one line, and no derived person-hours column (nothing
+# downstream asked for one; `cost_snapshot_json` keeps the per-person from/to if
+# that ever changes). It just does not need that name on it: the crew filling
+# the slip is recording an Einsatz, not writing an invoice.
+# ---------------------------------------------------------------------------
+
+# (header, column width), in the reading order of the paper slip.
+EINSAETZE_COLUMNS: list[tuple[str, int]] = [
+    ("Einsatz-Nr.", 11),
+    ("Adresse", 34),
+    ("Beginn", 17),
+    ("Ende", 17),
+    ("Dauer", 9),
+    ("Personal", 9),
+    ("Personal korrigiert", 20),
+    ("Fahrzeuge", 34),
+    # Two columns since §18.31, matching the two inputs the form asks for. The
+    # phone is its own column for the same reason it is its own field: whoever
+    # writes the invoices sorts and dials it, and it cannot do either from
+    # inside a paragraph.
+    ("Eigentümer / Halter", 46),
+    ("Eigentümer / Halter Telefon", 22),
+    ("Material gebraucht", 46),
+    ("Material vor Ort verblieben", 34),
+    ("Weiteres Material", 28),
+    ("Kurzbericht", 60),
+    ("Erfasst von", 44),
+]
+
+
+def _local_dt(value: datetime | None) -> str:
+    """``DD.MM.YYYY HH:MM`` in Swiss local time, or empty.
+
+    This sheet is read by a person with a wall clock, not by a machine — hence
+    local time here where the audit export uses ISO 8601.
+    """
+    if value is None:
+        return ""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(LOCAL_TZ).strftime("%d.%m.%Y %H:%M")
+
+
+def format_duration(start: datetime | None, end: datetime | None) -> str:
+    """``h:mm`` between the two Tätigkeit timestamps, or empty.
+
+    Computed, never stored, so it always agrees with the Beginn/Ende on its own
+    row — which are themselves derived from the board (`rapport_work_windows`).
+    """
+    if start is None or end is None:
+        return ""
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=UTC)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=UTC)
+    minutes = int((end - start).total_seconds() // 60)
+    if minutes < 0:
+        return ""
+    return f"{minutes // 60}:{minutes % 60:02d}"
+
+
+def _corrected_cell(corrected: bool, board_value: int) -> str:
+    """``Ja (Board: 6)`` — the flag plus the number the crew disagreed with.
+
+    The divergence is itself information (decision 5): it says the board was
+    behind reality, and a corrected count without the board's own number next
+    to it is just a number.
+    """
+    return f"Ja (Board: {board_value})" if corrected else ""
+
+
+def build_einsaetze_workbook(data: EventReportData) -> BytesIO:
+    """One row per Schadenplatz, including the ones **without** a rapport.
+
+    A missing rapport is a blank row carrying its address, never a missing row:
+    there is no acceptance step by design (decision 10), so the gaps have to be
+    visible to whoever writes the invoices.
+    """
+    wb = Workbook()
+    wb.remove(wb.active)
+    ws = wb.create_sheet("Einsätze")
+
+    for col_num, (header, width) in enumerate(EINSAETZE_COLUMNS, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="left", vertical="top")
+        ws.column_dimensions[cell.column_letter].width = width
+    ws.freeze_panes = "A2"
+
+    reports = rapport_by_incident(data)
+    # Beginn/Ende are derived from the board once for the whole sheet — the crew
+    # no longer types them, and this walks the already-loaded assignments and
+    # transitions rather than querying per row.
+    windows = rapport_work_windows(data)
+
+    for row_num, (index, incident) in enumerate(enumerate(data.incidents, 1), 2):
+        report = reports.get(incident.id)
+
+        values: list[Any]
+        if report is None:
+            values = [index, incident.location_address or "", *[""] * (len(EINSAETZE_COLUMNS) - 2)]
+        else:
+            window = windows.get(incident.id, WorkWindow(None, None))
+            values = [
+                index,
+                incident.location_address or "",
+                _local_dt(window.started_at),
+                _local_dt(window.ended_at),
+                format_duration(window.started_at, window.ended_at),
+                report.personnel_count if report.personnel_count is not None else "",
+                _corrected_cell(report.personnel_count_corrected, board_personnel_count(data, incident.id)),
+                # The vehicles the crew ticked, by name: which ones were there is
+                # the question the billing side actually asks, and a number
+                # answers it for nobody.
+                ", ".join(vehicle_present_names(report)),
+                report.owner_name or "",
+                report.owner_phone or "",
+                # Every unit with its own answer, "nicht gebraucht" included
+                # (decision 16). There is no third state any more (§18.32): the
+                # tick is prefilled ja and the crew unticks the exceptions.
+                # Consumables carry no left-on-site state at all, which is why
+                # that lives in its own column (decision 26).
+                "; ".join(
+                    f"{row.get('name') or '?'}: {material_used_label(row.get('used'))}"
+                    for row in material_checklist_rows(report)
+                ),
+                ", ".join(material_left_on_site_names(report)),
+                # Every "Weiteres Material" entry with its own on-site answer
+                # (§18.35). It stays in its own column rather than joining the
+                # one left of it: these are names the crew wrote, not units the
+                # board dispatched, and a billing reader must be able to tell
+                # the two apart at a glance.
+                ", ".join(format_extra_material(row) for row in extra_material_rows(report)),
+                report.kurzbericht or "",
+                " · ".join(rapport_filing_lines(data, report)),
+            ]
+
+        for col_num, value in enumerate(values, 1):
+            cell = ws.cell(row=row_num, column=col_num, value=value)
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+async def export_einsaetze_excel(data: EventReportData) -> BytesIO:
+    """Build the Einsätze workbook off the event loop (audit H4)."""
+    return await asyncio.to_thread(build_einsaetze_workbook, data)

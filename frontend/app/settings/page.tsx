@@ -37,6 +37,7 @@ import {
   WHATSAPP_INCIDENT_TEMPLATE_KEY,
   DEFAULT_WHATSAPP_INCIDENT_TEMPLATE,
 } from '@/lib/message-template';
+import { FELD_MESSAGE_CHIPS_KEY, DEFAULT_FELD_MESSAGE_CHIPS } from '@/lib/pickup';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -101,6 +102,7 @@ import { PrinterSettings } from '@/components/settings/printer-settings';
 import { FallbackSettings } from '@/components/settings/fallback-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
+import { BrandingSettings } from '@/components/settings/branding-settings';
 import { TelemetrySettings } from '@/components/settings/telemetry-settings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
@@ -640,6 +642,7 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     ))}
+                    <BrandingSettings readOnly={!isEditor} />
                   </div>
                 </DemoLock>
               )}
@@ -781,6 +784,52 @@ export default function SettingsPage() {
               isEditor={isEditor}
               saving={saving}
             />
+            {/* /feld Meldungs-Chips (plan 25, decision 20). Station config, NOT
+                i18n: a brigade rewords them without a translation round — the
+                same reasoning that puts the message templates above on this
+                page instead of in de.json. One chip per line. */}
+            {(() => {
+              const key = FELD_MESSAGE_CHIPS_KEY;
+              const fallback = DEFAULT_FELD_MESSAGE_CHIPS;
+              const value = settings[key] !== undefined ? settings[key] : fallback;
+              const isCurrentlySaving = saving === key;
+              return (
+                <Card className="p-6 space-y-4">
+                  <div>
+                    <h3 className="font-medium">{t('page.alerting.feldChipsTitle')}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">{t('page.alerting.feldChipsDescription')}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-sm font-semibold text-muted-foreground">
+                        {t('page.alerting.feldChipsLabel')}
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="text-muted-foreground"
+                        disabled={!isEditor || isCurrentlySaving || value === fallback}
+                        onClick={() => updateSetting(key, fallback)}
+                      >
+                        {t('common.reset')}
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={value}
+                      rows={5}
+                      className="text-xs"
+                      onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
+                      onBlur={(e) => {
+                        if (e.target.value !== (serverSettings[key] ?? fallback)) {
+                          updateSetting(key, e.target.value);
+                        }
+                      }}
+                      disabled={!isEditor || isCurrentlySaving}
+                    />
+                  </div>
+                </Card>
+              );
+            })()}
             </DemoLock>
           </div>
         );

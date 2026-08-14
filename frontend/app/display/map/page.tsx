@@ -7,7 +7,7 @@ import dynamic from "next/dynamic"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { apiClient, type ApiIncident, type ApiViewerData } from "@/lib/api-client"
+import { apiClient, type ApiViewerIncident, type ApiViewerData } from "@/lib/api-client"
 import type { Incident } from "@/lib/types/incidents"
 import type { AssignedVehicle, StatusGroup, IncidentStatus } from "@/lib/types/incidents"
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
@@ -353,8 +353,12 @@ function AuthenticatedDisplayMap({
   const { operations } = useOperations()
   const { groups } = useGroups()
 
+  // One refresh when the display map mounts. `refreshIncidents` is the
+  // operations context's callback and changes identity with the selected event,
+  // so listing it would turn this into a refetch-on-context-change effect.
   useEffect(() => {
     refreshIncidents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // id → Operation lookup for the read-only Auftrag route overlay (stops are
@@ -403,17 +407,25 @@ function AuthenticatedDisplayMap({
         gpsAvailable={gpsAvailable}
       />
 
+      {/* The logged-in map, so the report endpoints answer. The modal still
+          drops the Schadenplatz-Rapport for a viewer — it is editor-gated over
+          citizen PII. */}
       <IncidentDetailModal
         operation={detailOperation}
         open={!!detailOperation}
         onOpenChange={(open) => { if (!open) onCloseDetail() }}
+        showReports
       />
     </div>
   )
 }
 
-/** Map the token payload's API incident onto the domain Incident MapView wants. */
-function apiIncidentToIncident(a: ApiIncident): Incident {
+/** Map the token payload's API incident onto the domain Incident MapView wants.
+ *  Typed on `ApiViewerIncident`, not `ApiIncident`: the share payload is a
+ *  deliberate subset (no contact, no internal notes), so the narrower type is
+ *  what actually arrives — and reading a field that is not in it must not
+ *  compile. */
+function apiIncidentToIncident(a: ApiViewerIncident): Incident {
   return {
     id: a.id,
     event_id: a.event_id,
@@ -563,6 +575,7 @@ function TokenDisplayMap({
         personnelOverride={situation?.personnel ?? []}
         materialsOverride={situation?.materials ?? []}
         groupsOverride={groups}
+        viewerToken={token}
       />
       </div>
     </div>

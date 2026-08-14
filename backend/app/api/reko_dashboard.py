@@ -15,6 +15,7 @@ from ..crud import incidents as incidents_crud
 from ..crud import reko_dashboard as crud
 from ..database import get_db
 from ..models import IncidentAssignment, Personnel
+from ..services import incident_display
 from ..services.tokens import generate_reko_dashboard_token, validate_reko_dashboard_token
 from ..websocket_manager import broadcast_assignment_update, broadcast_incident_update
 
@@ -100,11 +101,19 @@ async def get_reko_assignments(
         raise HTTPException(status_code=404, detail="Personnel not found")
 
     assignments = await crud.get_reko_assignments_for_personnel(db, event_id, personnel_id)
+    # One read for the whole list, not one per row.
+    home_city = await incident_display.get_home_city(db)
 
     return schemas.RekoDashboardAssignmentsResponse(
         personnel_id=personnel_id,
         personnel_name=personnel.name,
-        assignments=[schemas.RekoDashboardAssignment(**a) for a in assignments],
+        assignments=[
+            schemas.RekoDashboardAssignment(
+                **a,
+                location_display=incident_display.location_display(a.get("location_address"), home_city),
+            )
+            for a in assignments
+        ],
     )
 
 

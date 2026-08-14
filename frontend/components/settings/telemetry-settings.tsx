@@ -134,7 +134,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
    *  the direct one has just failed or the deployer has switched outbound off. */
   const copyReport = async () => {
     try {
-      await navigator.clipboard.writeText(`${message.trim() || '—'}\n\n--\n${techBlock}\n`)
+      await navigator.clipboard.writeText(`${message.trim() || '–'}\n\n--\n${techBlock}\n`)
       toast.success(t('copied'))
     } catch {
       toast.error(t('copyFailed'))

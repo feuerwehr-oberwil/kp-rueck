@@ -3,6 +3,7 @@ import {
   decideCooldownClearAction,
   decidePollTickAction,
   decideRemoteUpdateAction,
+  shouldStartPollingOnMount,
 } from "./sync-cooldown";
 
 describe("decideRemoteUpdateAction", () => {
@@ -63,3 +64,21 @@ describe("decideCooldownClearAction", () => {
     ).toBe("fetch");
   });
 });
+
+describe("shouldStartPollingOnMount", () => {
+  it("starts the poller when the socket is already down at mount", () => {
+    // The regression: both live contexts start polling from a status
+    // TRANSITION, and a socket that was down before the effect subscribed —
+    // or that never connects — never produces one. `operations-context` was
+    // missing this check, so the board had no refresh path at all: the
+    // Aufträge kept polling (their context had it), the stale-data banner kept
+    // being reset, and only the incidents went cold.
+    expect(shouldStartPollingOnMount("disconnected")).toBe(true)
+    expect(shouldStartPollingOnMount("error")).toBe(true)
+    expect(shouldStartPollingOnMount("connecting")).toBe(true)
+  })
+
+  it("leaves it to the socket while the socket is up", () => {
+    expect(shouldStartPollingOnMount("connected")).toBe(false)
+  })
+})

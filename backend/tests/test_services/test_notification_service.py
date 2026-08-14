@@ -11,7 +11,7 @@ Tests notification evaluation, settings management, and notification lifecycle i
 
 import json
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -45,6 +45,7 @@ from app.services.notification_service import (
     get_notification_settings,
     save_notification_settings,
 )
+from app.services.storage_usage import BYTES_PER_GB, StorageUsage
 
 # ============================================
 # Fixtures
@@ -639,16 +640,160 @@ class TestCheckDataQualityAlerts:
 
 
 class TestCheckEventSizeAlerts:
-    """Tests for _check_event_size_alerts function."""
+    """Tests for _check_event_size_alerts — the disk-space alarm.
+
+    Storage is faked at the measurement seam (`get_storage_usage`) so the threshold logic can
+    be tested without filling a disk; `test_storage_usage.py` covers the measurement itself.
+    """
+
+    @staticmethod
+    def _usage(database_gb: float | None, photo_gb: float | None) -> StorageUsage:
+        return StorageUsage(
+            database_bytes=None if database_gb is None else int(database_gb * BYTES_PER_GB),
+            photo_bytes=None if photo_gb is None else int(photo_gb * BYTES_PER_GB),
+        )
 
     @pytest.mark.asyncio
-    async def test_event_size_alerts_returns_empty(
-        self, db_session: AsyncSession, notif_event: Event, default_settings: NotificationSettings
-    ):
-        """Test event size alerts (currently placeholder)."""
-        # This is a placeholder function that returns empty list
-        notifications = await _check_event_size_alerts(db_session, notif_event.id, default_settings)
+    async def test_no_alert_below_limits(self, db_session: AsyncSession, notif_event: Event):
+        """Under both limits, nothing is raised."""
+        settings = NotificationSettings(database_size_limit_gb=5, photo_size_limit_gb=5)
+
+        with patch(
+            "app.services.storage_usage.get_storage_usage",
+            AsyncMock(return_value=self._usage(4.9, 0.2)),
+        ):
+            notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+
         assert notifications == []
+
+    @pytest.mark.asyncio
+    async def test_database_over_limit_alerts(self, db_session: AsyncSession, notif_event: Event):
+        """Database above its limit warns, and names the measured size in German."""
+        settings = NotificationSettings(database_size_limit_gb=5, photo_size_limit_gb=20)
+
+        with patch(
+            "app.services.storage_usage.get_storage_usage",
+            AsyncMock(return_value=self._usage(6.5, 0.1)),
+        ):
+            notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+
+        assert len(notifications) == 1
+        assert notifications[0].type == "event_size_limit"
+        assert notifications[0].severity == "warning"
+        assert notifications[0].event_id == notif_event.id
+        assert notifications[0].message == "Datenbank: 6,5 GB belegt – Limit von 5 GB überschritten"
+
+    @pytest.mark.asyncio
+    async def test_photo_storage_over_limit_alerts(self, db_session: AsyncSession, notif_event: Event):
+        """Photo storage is measured separately from the database."""
+        settings = NotificationSettings(database_size_limit_gb=50, photo_size_limit_gb=2)
+
+        with patch(
+            "app.services.storage_usage.get_storage_usage",
+            AsyncMock(return_value=self._usage(1.0, 3.25)),
+        ):
+            notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+
+        assert len(notifications) == 1
+        assert notifications[0].message.startswith("Foto-Speicher: 3,2 GB belegt")
+
+    @pytest.mark.asyncio
+    async def test_both_over_limit_alert_separately(self, db_session: AsyncSession, notif_event: Event):
+        """Both over their limit gives two distinct warnings, not one merged one."""
+        settings = NotificationSettings(database_size_limit_gb=1, photo_size_limit_gb=1)
+
+        with patch(
+            "app.services.storage_usage.get_storage_usage",
+            AsyncMock(return_value=self._usage(2.0, 2.0)),
+        ):
+            notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+
+        assert {n.message.split(":")[0] for n in notifications} == {"Datenbank", "Foto-Speicher"}
+
+    @pytest.mark.asyncio
+    async def test_limit_zero_means_off(self, db_session: AsyncSession, notif_event: Event):
+        """A limit of 0 disables that alarm — it must not read as «always exceeded»."""
+        settings = NotificationSettings(database_size_limit_gb=0, photo_size_limit_gb=3)
+
+        with patch(
+            "app.services.storage_usage.get_storage_usage",
+            AsyncMock(return_value=self._usage(500.0, 0.1)),
+        ):
+            notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+
+        assert notifications == []
+
+    @pytest.mark.asyncio
+    async def test_both_limits_zero_skips_measurement(self, db_session: AsyncSession, notif_event: Event):
+        """With both limits off, no measurement is taken at all."""
+        settings = NotificationSettings(database_size_limit_gb=0, photo_size_limit_gb=0)
+        measure = AsyncMock(return_value=self._usage(999.0, 999.0))
+
+        with patch("app.services.storage_usage.get_storage_usage", measure):
+            notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+
+        assert notifications == []
+        measure.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_unmeasurable_storage_stays_silent(self, db_session: AsyncSession, notif_event: Event):
+        """An unreadable measurement must neither alarm nor report a false all-clear."""
+        settings = NotificationSettings(database_size_limit_gb=1, photo_size_limit_gb=1)
+
+        with patch(
+            "app.services.storage_usage.get_storage_usage",
+            AsyncMock(return_value=self._usage(None, None)),
+        ):
+            notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+
+        assert notifications == []
+
+    @pytest.mark.asyncio
+    async def test_growing_size_does_not_re_fire(self, db_session: AsyncSession, notif_event: Event):
+        """The measured size grows between polls; the bell must still ring only once.
+
+        This is the regression that matters operationally: the size is part of the message,
+        so an exact-message dedup would treat every 10 s poll as a brand-new warning.
+        """
+        settings = NotificationSettings(database_size_limit_gb=1, photo_size_limit_gb=0)
+
+        for measured_gb in (1.2, 1.3, 1.4):
+            with patch(
+                "app.services.storage_usage.get_storage_usage",
+                AsyncMock(return_value=self._usage(measured_gb, None)),
+            ):
+                notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+            await _deduplicate_and_save(db_session, notifications, notif_event.id)
+
+        result = await db_session.execute(
+            select(Notification)
+            .where(Notification.event_id == notif_event.id)
+            .where(Notification.type == "event_size_limit")
+        )
+        saved = list(result.scalars().all())
+        assert len(saved) == 1
+        assert "1,2 GB" in saved[0].message
+
+    @pytest.mark.asyncio
+    async def test_database_and_photo_warnings_do_not_suppress_each_other(
+        self, db_session: AsyncSession, notif_event: Event
+    ):
+        """Prefix-based dedup must still keep the two subsystems apart."""
+        settings = NotificationSettings(database_size_limit_gb=1, photo_size_limit_gb=1)
+
+        with patch(
+            "app.services.storage_usage.get_storage_usage",
+            AsyncMock(return_value=self._usage(2.0, 2.0)),
+        ):
+            notifications = await _check_event_size_alerts(db_session, notif_event.id, settings)
+        await _deduplicate_and_save(db_session, notifications, notif_event.id)
+
+        result = await db_session.execute(
+            select(Notification)
+            .where(Notification.event_id == notif_event.id)
+            .where(Notification.type == "event_size_limit")
+        )
+        assert len(list(result.scalars().all())) == 2
 
 
 # ============================================

@@ -11,5 +11,12 @@
     "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/",
     "healthcheckTimeout": 300
+  },
+  "environments": {
+    "staging": {
+      "deploy": {
+        "sleepApplication": true
+      }
+    }
   }
 }

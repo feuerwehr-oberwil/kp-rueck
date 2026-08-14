@@ -6,7 +6,7 @@ group holds only route metadata. Progress is derived, never stored.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import func, select, update
@@ -151,7 +151,7 @@ async def update_group(
     changes = group_update.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(group, field, value)
-    group.updated_at = datetime.utcnow()
+    group.updated_at = datetime.now(UTC)
 
     if changes:
         await log_action(
@@ -188,7 +188,7 @@ async def record_announcement(
     if group is None:
         return None
 
-    group.last_announced_at = datetime.utcnow()
+    group.last_announced_at = datetime.now(UTC)
     group.last_announced_fingerprint = announcement.fingerprint
     group.last_announced_stop_id = announcement.stop_id
     group.last_announced_full = announcement.full
@@ -213,7 +213,7 @@ async def soft_delete_group(
     if group is None:
         return None
 
-    group.deleted_at = datetime.utcnow()
+    group.deleted_at = datetime.now(UTC)
 
     assignments_result = await db.execute(
         select(IncidentGroupAssignment).where(

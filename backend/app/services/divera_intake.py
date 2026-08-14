@@ -165,13 +165,46 @@ def infer_priority_from_text(title: str, text: str | None = None) -> schemas.Inc
     return schemas.IncidentPriority.LOW
 
 
+def _sender_hint(emergency: models.DiveraEmergency, key: str) -> str | None:
+    """Read a `type`/`priority` hint the generic sender supplied, if it sent one.
+
+    Generic alarms (`POST /api/alarms`) keep their whole payload in `raw_payload_json`, so
+    these need no columns of their own. Divera's raw payload uses different keys, so it never
+    matches here and keeps using the inference — which is what it did before.
+    """
+    payload = emergency.raw_payload_json
+    if not isinstance(payload, dict):
+        return None
+    value = payload.get(key)
+    return value.strip().lower() if isinstance(value, str) and value.strip() else None
+
+
 def incident_create_from_emergency(emergency: models.DiveraEmergency, event_id: uuid.UUID) -> schemas.IncidentCreate:
-    """Derive the IncidentCreate payload for attaching an emergency to an event."""
+    """Derive the IncidentCreate payload for attaching an emergency to an event.
+
+    A sender that names `type`/`priority` wins over our keyword inference — a Leitstelle
+    classifying the call knows more than our title matcher does. An unrecognised value falls
+    back to inference rather than raising: a typo in an optional hint must never cost an alarm.
+    """
+    type_hint = _sender_hint(emergency, "type")
+    priority_hint = _sender_hint(emergency, "priority")
+
+    incident_type = (
+        schemas.IncidentType(type_hint)
+        if type_hint in {t.value for t in schemas.IncidentType}
+        else detect_incident_type(emergency.title)
+    )
+    priority = (
+        schemas.IncidentPriority(priority_hint)
+        if priority_hint in {p.value for p in schemas.IncidentPriority}
+        else infer_priority_from_text(emergency.title, emergency.text)
+    )
+
     return schemas.IncidentCreate(
         event_id=event_id,
         title=emergency.title,
-        type=detect_incident_type(emergency.title),
-        priority=infer_priority_from_text(emergency.title, emergency.text),
+        type=incident_type,
+        priority=priority,
         location_address=emergency.address,
         location_lat=str(emergency.latitude) if emergency.latitude else None,
         location_lng=str(emergency.longitude) if emergency.longitude else None,
@@ -225,8 +258,12 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         return None
 
     data = incident_create_from_emergency(emergency, event.id)
+    incident_data = data.model_dump()
+    # The editor schema's `source` only ever carries what an operator may claim
+    # ("operator"/"intake"); the sending system names itself below.
+    incident_data.pop("source")
     incident = models.Incident(
-        **data.model_dump(),
+        **incident_data,
         created_by=None,
         # Alarm provenance flows onto the board card
         source=emergency.source or "divera",

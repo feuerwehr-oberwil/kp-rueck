@@ -48,3 +48,28 @@ export interface ApiTrainingLocation {
   longitude: number | null
   is_active: boolean
 }
+
+/** One simulated Schadenplatz-Rapport, as the Übungssteuerung reports it back
+ *  (plan 25 §16). `filed_by` is null when the incident had nobody assigned and
+ *  the KP had to enter it — the honest provenance for that case. */
+export interface ApiSimulatedRapport {
+  incident_id: string
+  incident_title: string
+  filed_by: string | null
+  /** How many of the incident's vehicles the simulated crew confirmed as present. */
+  vehicles_present: number
+  materials_ticked: number
+  /** Scene photos the simulated crew attached — 0 most of the time, like a real one. */
+  photos: number
+  message: string
+}
+
+/** The bulk inject. `skipped` is not a failure count: those gaps are the
+ *  Restliste, and finding them is the exercise. */
+export interface ApiSimulatedRapportBulk {
+  candidates: number
+  covered: number
+  skipped: number
+  rapports: ApiSimulatedRapport[]
+  message: string
+}

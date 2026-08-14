@@ -96,8 +96,11 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
     onClose: closeDialog,
   });
 
+  // Load once on mount. `loadPersonnel` is a plain function re-created on every
+  // render, so listing it as a dep would refetch on every render.
   useEffect(() => {
     loadPersonnel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadPersonnel = async () => {

@@ -102,7 +102,7 @@ export function VehicleTrails({
             }}
           >
             <Tooltip sticky>
-              <span className="text-xs">{trail.device_name} — letzte {minutes} Min.</span>
+              <span className="text-xs">{trail.device_name} – letzte {minutes} Min.</span>
             </Tooltip>
           </Polyline>
         )

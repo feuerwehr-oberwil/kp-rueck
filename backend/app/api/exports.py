@@ -22,6 +22,8 @@ from ..services.audit_export_service import (
     export_event_audit_excel,
     get_safe_filename,
 )
+from ..services.branding import get_report_logo
+from ..services.excel_import_export import export_einsaetze_excel
 from ..services.lageblatt_service import build_lageblatt_pdf
 from ..services.pdf_report_service import build_event_report_pdf
 from ..services.settings import get_setting_value
@@ -176,12 +178,14 @@ async def export_event_report(
         data = await collect_event_report_data(db, event_id)
         funkrufname = await get_setting_value(db, "funkrufname", "")
         home_city = await get_setting_value(db, "home_city", "")
+        logo = await get_report_logo(db)
         pdf_bytes = await asyncio.to_thread(
             build_event_report_pdf,
             data,
             current_user.username,
             funkrufname,
             home_city,
+            logo,
         )
 
         # Audit-log the export (same pattern as the Excel export).
@@ -261,6 +265,57 @@ async def export_event_lageblatt(
 
     except Exception as e:
         logger.error("Lageblatt generation failed for event %s: %s", event_id, e, exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED
+        ) from e
+
+
+@router.get("/events/{event_id}/einsaetze.xlsx")
+@limiter.limit(RateLimits.EXPORT)
+async def export_event_einsaetze(
+    request: Request,
+    event_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> StreamingResponse:
+    """Generate the Einsätze workbook — one wide row per Schadenplatz.
+
+    Everything one Schadenplatz's rapport recorded, on one line: Einsatz-Nr.,
+    Adresse, Beginn/Ende/Dauer, the (possibly corrected) head count, the
+    vehicles the crew ticked, the Eigentümer-/Halterdaten, the material answers,
+    the Kurzbericht and who filed it.
+
+    It matches no external format on purpose (plan 25, decision 21): somebody
+    retypes this into the billing system by hand, so the sheet is optimised for
+    being read while retyping. Schadenplätze **without** a rapport still get a
+    row — the gaps have to be visible, there is no acceptance step by design.
+
+    Raises:
+        404: Event not found
+        500: Generation failed
+    """
+    event_result = await db.execute(select(Event).where(Event.id == event_id))
+    event = event_result.scalar_one_or_none()
+
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Event {event_id} not found")
+
+    try:
+        data = await collect_event_report_data(db, event_id)
+        excel_buffer = await export_einsaetze_excel(data)
+
+        date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+        filename = f"einsaetze-{slugify_event_name(event.name)}-{date_str}.xlsx"
+
+        return StreamingResponse(
+            excel_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logger.error("Einsätze export failed for event %s: %s", event_id, e, exc_info=True)
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorMessages.EXPORT_FAILED

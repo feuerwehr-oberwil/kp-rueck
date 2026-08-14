@@ -22,10 +22,28 @@ export interface ApiPersonnelListItem {
   id: string
   name: string
   role?: string | null
+  /** available | unavailable — the board greys out the latter, the phone never sees it. */
+  status?: string
   tags?: string[] | null
   checked_in: boolean
+  /** Set once the person has ever been present at this Ereignis. */
+  checked_in_at?: string | null
+  /** Set when they left. Together with `checked_in` this is what separates the board's
+   *  "gegangen" from "nicht anwesend"; the phone stays two-state and ignores both. */
+  checked_out_at?: string | null
   /** Whether assigned to any incident in this event */
   is_assigned?: boolean
+}
+
+export interface ApiCheckInStats {
+  /** Everybody the roll-call offers — the Mannschaft. */
+  total_available: number
+  /** Present right now. */
+  checked_in: number
+  /** Simply not present, whether they came and went or never came. */
+  checked_out: number
+  /** Came and went. "Gegangen" is a statement, not an absence. */
+  left: number
 }
 
 export interface ApiPersonnelCreate {

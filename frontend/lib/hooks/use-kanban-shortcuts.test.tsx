@@ -109,6 +109,7 @@ beforeEach(() => {
     onToggleRightSidebar: vi.fn(),
     onToggleSidePanel: vi.fn(),
     onSidePanelDetail: vi.fn(),
+    onTogglePrint: vi.fn(),
     onSidePanelMap: vi.fn(),
     onToggleNotifications: vi.fn(),
   } as unknown as KanbanShortcutsActions;
@@ -120,7 +121,6 @@ const baseState = (
   overrides: Partial<KanbanShortcutsState> = {},
 ): KanbanShortcutsState => ({
   modalOpen: false,
-  sidePanelOpen: false,
   hoveredOperationId: null,
   operations: [],
   vehicleTypes: [],
@@ -156,6 +156,23 @@ describe("useKanbanShortcuts", () => {
       );
       expect(document.activeElement).not.toBe(input);
       document.body.removeChild(input);
+    });
+
+    it("stands down while a dropdown menu is open", () => {
+      // Menus are unmanaged Radix state, so `modalOpen` cannot see them — but
+      // an open one owns the keyboard (typeahead, arrows, Enter).
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      const menu = document.createElement("div");
+      menu.setAttribute("role", "menu");
+      menu.setAttribute("data-state", "open");
+      document.body.appendChild(menu);
+
+      press("n");
+      expect(actions.onOpenNewEmergency).not.toHaveBeenCalled();
+
+      menu.remove();
+      press("n");
+      expect(actions.onOpenNewEmergency).toHaveBeenCalledTimes(1);
     });
 
     it("forwards keys to gPrefix.handleKey and short-circuits when consumed", () => {
@@ -288,6 +305,34 @@ describe("useKanbanShortcuts", () => {
       expect(actions.onOpenDetail).toHaveBeenCalledWith(op);
     });
 
+    it("Enter opens the hovered op only when nothing activatable has focus", () => {
+      const op = baseOp();
+      renderHook(() =>
+        useKanbanShortcuts(
+          baseState({ hoveredOperationId: op.id, operations: [op] }),
+          actions,
+        ),
+      );
+
+      // A focused button owns Enter — the board must not take it, or the whole
+      // keyboard UI dies while the pointer merely rests over a card.
+      const button = document.createElement("button");
+      document.body.appendChild(button);
+      const fromButton = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      button.dispatchEvent(fromButton);
+      expect(actions.onOpenDetail).not.toHaveBeenCalled();
+      expect(fromButton.defaultPrevented).toBe(false);
+      button.remove();
+
+      const bare = press("Enter");
+      expect(actions.onOpenDetail).toHaveBeenCalledWith(op);
+      expect(bare.defaultPrevented).toBe(true);
+    });
+
     it("'Delete' stages the hovered op for delete confirmation", () => {
       const op = baseOp();
       renderHook(() =>
@@ -374,22 +419,68 @@ describe("useKanbanShortcuts", () => {
   });
 
   describe("side panel view switching", () => {
-    it("'d' and 'k' switch view ONLY when side panel is open", () => {
-      const { rerender } = renderHook(
-        ({ open }: { open: boolean }) =>
-          useKanbanShortcuts(baseState({ sidePanelOpen: open }), actions),
-        { initialProps: { open: false } },
+    it("'k' opens the Karte with the side panel COLLAPSED", () => {
+      // The binding used to require an open side panel — a leftover from when
+      // `k` switched the panel into a map mode. It navigates to /map now, which
+      // has nothing to do with the panel, so a collapsed panel must not eat it.
+      renderHook(() =>
+        useKanbanShortcuts(baseState(), actions),
       );
-      press("d");
       press("k");
-      expect(actions.onSidePanelDetail).not.toHaveBeenCalled();
-      expect(actions.onSidePanelMap).not.toHaveBeenCalled();
+      expect(actions.onSidePanelMap).toHaveBeenCalledTimes(1);
+    });
 
-      rerender({ open: true });
-      press("d");
+    it("'k' opens the Karte with the side panel OPEN", () => {
+      renderHook(() =>
+        useKanbanShortcuts(baseState(), actions),
+      );
       press("k");
-      expect(actions.onSidePanelDetail).toHaveBeenCalled();
-      expect(actions.onSidePanelMap).toHaveBeenCalled();
+      expect(actions.onSidePanelMap).toHaveBeenCalledTimes(1);
+    });
+
+    it("'k' stands down while typing or under an open menu", () => {
+      renderHook(() =>
+        useKanbanShortcuts(baseState(), actions),
+      );
+
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "k", bubbles: true }));
+      expect(actions.onSidePanelMap).not.toHaveBeenCalled();
+      input.remove();
+
+      const menu = document.createElement("div");
+      menu.setAttribute("role", "menu");
+      menu.setAttribute("data-state", "open");
+      document.body.appendChild(menu);
+      press("k");
+      expect(actions.onSidePanelMap).not.toHaveBeenCalled();
+      menu.remove();
+
+      press("k");
+      expect(actions.onSidePanelMap).toHaveBeenCalledTimes(1);
+    });
+
+    it("'k' stands down while a modal is open", () => {
+      renderHook(() =>
+        useKanbanShortcuts(baseState({ modalOpen: true }), actions),
+      );
+      press("k");
+      expect(actions.onSidePanelMap).not.toHaveBeenCalled();
+    });
+
+    it("'d' prints — it no longer switches the panel view", () => {
+      // The old binding fired only while the panel was already open, and the
+      // panel's only other mode is `collapsed`, so it set `detail` on something
+      // that was already `detail`. The key belongs to the Drucken-Sheet now, and
+      // since the hook no longer knows about panel state at all, it cannot
+      // depend on it: pressing twice must print twice.
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      press("d");
+      press("d");
+
+      expect(actions.onSidePanelDetail).not.toHaveBeenCalled();
+      expect(actions.onTogglePrint).toHaveBeenCalledTimes(2);
     });
   });
 

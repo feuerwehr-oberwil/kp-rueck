@@ -301,6 +301,31 @@ async def test_update_notification_settings_invalid_value(editor_client: AsyncCl
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_size_limit_zero_switches_the_disk_alarm_off(editor_client: AsyncClient):
+    """0 must be storable: it is how an operator turns a disk alarm off.
+
+    The validator used to reject anything below 1 GB, so a limit could be set
+    but never unset — while the service reads 0 as "do not measure, do not
+    warn". Negative values stay rejected.
+    """
+    response = await editor_client.patch(
+        "/api/notifications/settings/",
+        json={"database_size_limit_gb": 0, "photo_size_limit_gb": 0},
+    )
+    assert response.status_code == 200
+    assert response.json()["database_size_limit_gb"] == 0
+    assert response.json()["photo_size_limit_gb"] == 0
+
+    assert (
+        await editor_client.patch(
+            "/api/notifications/settings/",
+            json={"database_size_limit_gb": -1},
+        )
+    ).status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_update_notification_settings_material_threshold(editor_client: AsyncClient):
     """Test updating material depletion thresholds."""
     update_data = {
@@ -492,3 +517,78 @@ async def test_settings_persistence(editor_client: AsyncClient):
     data = response2.json()
     assert data["fatigue_hours"] == 8
     assert data["live_eingegangen_min"] == 30
+
+
+# ============================================
+# Notification type coverage
+# ============================================
+#
+# The response model enum and the DB CHECK constraint are two lists of the same
+# thing. When they drift, the failure is NOT "one bell entry is missing": FastAPI
+# validates the whole list response, so a single unknown type turns
+# GET /api/notifications/ into a 500 and the operator's bell goes empty. That is
+# exactly what the five /feld types did after plan 25.
+
+
+def _model_notification_types() -> set[str]:
+    """The types the `notifications` table actually accepts, read off the CHECK."""
+    import re
+
+    from app.models import Notification as NotificationModel
+
+    for constraint in NotificationModel.__table__.constraints:
+        if getattr(constraint, "name", None) == "valid_notification_type":
+            return set(re.findall(r"'([a-z_]+)'", str(constraint.sqltext)))
+    raise AssertionError("valid_notification_type CHECK constraint not found on notifications")
+
+
+def test_notification_type_enum_covers_check_constraint():
+    """Every type the DB stores must be serialisable, or the whole GET 500s."""
+    from app.schemas.notifications import NotificationType
+
+    schema_types = {member.value for member in NotificationType}
+    assert _model_notification_types() <= schema_types
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize(
+    ("notification_type", "severity"),
+    [
+        ("rapport_submitted", "info"),
+        ("field_arrived", "info"),
+        ("field_complete", "info"),
+        ("field_message", "info"),
+        ("field_pickup", "warning"),
+    ],
+)
+async def test_field_notifications_reach_the_kp(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_incident: Incident,
+    notification_type: str,
+    severity: str,
+):
+    """A /feld report must come back over the API, not blow the response up."""
+    notification = Notification(
+        id=uuid4(),
+        type=notification_type,
+        severity=severity,
+        message=f"Feldmeldung {notification_type}",
+        incident_id=test_incident.id,
+        event_id=test_event.id,
+        created_at=datetime.now(UTC),
+        dismissed=False,
+    )
+    db_session.add(notification)
+    await db_session.commit()
+
+    response = await editor_client.get(f"/api/notifications/?event_id={test_event.id}")
+    assert response.status_code == 200
+    payload = response.json()
+    match = next((n for n in payload if n["id"] == str(notification.id)), None)
+    assert match is not None
+    assert match["type"] == notification_type
+    assert match["severity"] == severity
+    assert match["incident_id"] == str(test_incident.id)

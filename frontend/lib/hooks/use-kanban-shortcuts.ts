@@ -18,8 +18,6 @@ interface VehicleType {
 export interface KanbanShortcutsState {
   /** True when any modal/dialog/sheet is open — disables every shortcut. */
   modalOpen: boolean
-  /** True when the side panel is showing (enables D/K view switch shortcuts). */
-  sidePanelOpen: boolean
   /** Currently-hovered operation, if any — actions that need a target read this. */
   hoveredOperationId: string | null
   operations: Operation[]
@@ -63,15 +61,24 @@ export interface KanbanShortcutsActions {
   onToggleRightSidebar: () => void
   /** Toggle the side panel collapsed/detail. */
   onToggleSidePanel: () => void
-  /** Switch side panel to Detail view (no-op if collapsed). */
+  /** Switch side panel to Detail view. No key binds to it — `d` used to, and
+   *  now opens the Drucken-Sheet; it is reachable from the command palette
+   *  only, which is why that entry advertises no shortcut. */
   onSidePanelDetail: () => void
+  /** Opens/closes the one Drucken-Sheet (Thermodruck, Status drucken, Export). */
+  onTogglePrint: () => void
   /** Switch side panel to Map view (no-op if collapsed). */
   onSidePanelMap: () => void
   /** Toggle the notification sidebar. */
   onToggleNotifications: () => void
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
+/**
+ * True when the event target is a field somebody is typing into — a bare `s`
+ * must never be eaten out of one. Exported because every other keyboard
+ * surface (the map, the wall display) needs exactly this rule.
+ */
+export function isTypingTarget(target: EventTarget | null): boolean {
   if (target instanceof HTMLInputElement) return true
   if (target instanceof HTMLTextAreaElement) return true
   if (target instanceof HTMLSelectElement) return true
@@ -79,6 +86,55 @@ function isTypingTarget(target: EventTarget | null): boolean {
   if (target.isContentEditable) return true
   const role = target.getAttribute("role")
   return role === "combobox" || role === "listbox" || role === "option"
+}
+
+/**
+ * Elements for which Enter (or Space) is already the activation key. A
+ * page-level Enter shortcut must stand down for these, or focusing a button
+ * and pressing Enter does nothing.
+ */
+const ACTIVATABLE_SELECTOR = [
+  "a[href]",
+  "button",
+  "summary",
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="tab"]',
+  '[role="switch"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+].join(", ")
+
+/** True when Enter on this target already means "activate me". */
+export function isActivationTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return !!target.closest(ACTIVATABLE_SELECTOR)
+}
+
+/**
+ * True while a Radix dropdown/context menu is open. An open menu owns the
+ * keyboard — it has its own typeahead, arrows and Enter — so a page shortcut
+ * firing underneath makes one keystroke do two things.
+ */
+export function isMenuOpen(): boolean {
+  return !!document.querySelector('[role="menu"][data-state="open"]')
+}
+
+/**
+ * `isMenuOpen` plus dialogs. For surfaces whose overlays are all modal; the
+ * board deliberately does NOT use this, because its footer sheets are
+ * non-modal dialogs whose own toggle key must stay live (see `modalOpen`).
+ */
+export function isOverlayOpen(): boolean {
+  return (
+    isMenuOpen() ||
+    !!document.querySelector(
+      '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+    )
+  )
 }
 
 // Matched by physical key position (e.Code), so Shift+1/2/3 works on every
@@ -116,7 +172,6 @@ export function useKanbanShortcuts(
 ): void {
   const {
     modalOpen,
-    sidePanelOpen,
     hoveredOperationId,
     operations,
     vehicleTypes,
@@ -139,6 +194,10 @@ export function useKanbanShortcuts(
 
       if (isTypingTarget(e.target)) return
       if (modalOpen) return
+      // An open menu (UserMenu, a card's context menu) is not covered by
+      // `modalOpen` — it is unmanaged Radix state — and it owns the keyboard
+      // while it is up.
+      if (isMenuOpen()) return
 
       // g-prefix navigation owns its own state machine.
       if (gPrefix.handleKey(e)) return
@@ -227,6 +286,11 @@ export function useKanbanShortcuts(
         actions.onToggleAuftraege()
         return
       }
+      if ((e.key === "d" || e.key === "D") && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        actions.onTogglePrint()
+        return
+      }
 
       // Sidebars
       if (e.key === "[" || e.key === "q" || e.key === "Q") {
@@ -244,22 +308,18 @@ export function useKanbanShortcuts(
         actions.onToggleSidePanel()
         return
       }
-      if (
-        (e.key === "d" || e.key === "D") &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        sidePanelOpen
-      ) {
-        e.preventDefault()
-        actions.onSidePanelDetail()
-        return
-      }
-      if (
-        (e.key === "k" || e.key === "K") &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        sidePanelOpen
-      ) {
+      // `d` used to be «Seitenpanel auf Detail schalten», gated on the panel
+      // already being open — and the panel has only had `detail` and `collapsed`
+      // since the map mode was dropped, so the guard meant it only ever fired
+      // when the mode was already `detail`. A key that could not change anything.
+      // It now opens the Drucken-Sheet; the palette entry for the panel stays,
+      // where clicking it from a collapsed panel does still do something.
+      //
+      // `k` carried the same leftover gate: it once switched the panel into a
+      // map mode, so it required an open panel. It navigates to /map now, which
+      // is nothing to do with the panel — with the panel folded the key did
+      // nothing at all, silently, while the palette advertised it. Ungated.
+      if ((e.key === "k" || e.key === "K") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         actions.onSidePanelMap()
         return
@@ -270,10 +330,15 @@ export function useKanbanShortcuts(
         return
       }
 
-      // Detail modal
+      // Detail modal. `E` is a shortcut like any other; Enter is not — it is
+      // the activation key of whatever has focus. Taking it unconditionally
+      // killed every focused button and link on the board, because on a dense
+      // board the pointer rests over a card nearly all the time. Enter only
+      // opens the hovered card when nothing that Enter already means something
+      // to has focus.
       if (
         ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey) ||
-        e.key === "Enter"
+        (e.key === "Enter" && !isActivationTarget(e.target))
       ) {
         if (hoveredOperationId) {
           const operation = operations.find((op) => op.id === hoveredOperationId)
@@ -316,7 +381,6 @@ export function useKanbanShortcuts(
     return () => window.removeEventListener("keydown", handleKeyPress)
   }, [
     modalOpen,
-    sidePanelOpen,
     hoveredOperationId,
     operations,
     vehicleTypes,

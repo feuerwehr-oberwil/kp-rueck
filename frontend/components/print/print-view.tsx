@@ -3,11 +3,20 @@
 import { forwardRef } from "react"
 import { useTranslations } from "next-intl"
 import type { Operation, Person, Material } from "@/lib/contexts/operations-context"
-import type { ApiVehicle } from "@/lib/api-client"
+import type { ApiPersonnelListItem, ApiVehicle } from "@/lib/api-client"
+import type { GroupResources } from "@/lib/types/groups"
 import { translateOutsideReact } from "@/lib/i18n-messages"
-import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatClockTime as formatTime } from "@/lib/incident-time"
+import { columns } from "@/lib/kanban-utils"
+import { isLocated } from "@/lib/utils/route-geo"
+import { toResourceState, type ResourceState } from "@/lib/resource-status"
+import { attendanceState, summarizeAttendance } from "@/components/kanban/attendance-modal"
+import {
+  selectMaterialOnSite,
+  type MaterialOnSiteLocation,
+} from "@/components/kanban/material-on-site-panel"
 import dynamic from "next/dynamic"
 
 // Dynamically import Leaflet components (no SSR)
@@ -25,6 +34,16 @@ export interface PrintOptions {
   includeMap: boolean
 }
 
+/** The Auftrag an incident belongs to, resolved by the hub (the print view
+ *  itself stays free of context lookups). A stop owns no resources — the route
+ *  does — so they ride along or a grouped stop prints with no crew at all. */
+export interface PrintAuftrag {
+  name: string
+  stopPos: number
+  stopTotal: number
+  resources: GroupResources
+}
+
 interface PrintViewProps {
   eventName: string
   operations: Operation[]
@@ -33,21 +52,48 @@ interface PrintViewProps {
   materials: Material[]
   options: PrintOptions
   vehicleDrivers?: Map<string, string> // vehicle name -> driver name
+  /** The event roll-call, which is the only source that knows who has GONE
+   *  home; the board's personnel list only knows who is on it right now. */
+  attendance?: ApiPersonnelListItem[]
+  /** incident id → its Auftrag context and the route's resources. */
+  auftraege?: Map<string, PrintAuftrag>
+  /** material id → the Schadenplatz it is still standing at (`/restliste`). */
+  materialOnSite?: ReadonlyMap<string, MaterialOnSiteLocation>
 }
 
 // Reko danger types with a print.view.danger.* label (others fall back to the raw key).
 const DANGER_KEYS = ["fire", "explosion", "collapse", "chemical", "electrical", "radiation", "water", "traffic"]
 
-// Column display order (labels come from the print.view.statusHeading messages).
-const STATUS_ORDER: Record<string, number> = {
-  incoming: 1,
-  reko: 2,
-  reko_done: 3,
-  enroute: 4,
-  active: 5,
-  returning: 6,
-  complete: 7,
+// Column display order. Derived from the board's own columns — the only
+// ordering of statuses that exists — so a new column cannot silently desync
+// the printed sheet from the board it is a snapshot of.
+const STATUS_ORDER: string[] = columns.map((column) => column.id)
+
+function statusRank(status: string): number {
+  const index = STATUS_ORDER.indexOf(status)
+  return index === -1 ? STATUS_ORDER.length : index
 }
+
+/** In-use first, then free, then everything that is out. Same three-state model
+ *  personnel, vehicles and material share on the board (`resource-status`). */
+const RESOURCE_STATE_RANK: Record<ResourceState, number> = {
+  assigned: 0,
+  available: 1,
+  maintenance: 2,
+  unavailable: 3,
+}
+
+/** What one line of the printed roster says. */
+type RosterState = "assigned" | "available" | "left"
+
+interface RosterRow {
+  id: string
+  name: string
+  role: string
+  state: RosterState
+}
+
+const ROSTER_RANK: Record<RosterState, number> = { assigned: 0, available: 1, left: 2 }
 
 function formatDateTime(date: Date): string {
   return date.toLocaleString("de-CH", {
@@ -59,9 +105,52 @@ function formatDateTime(date: Date): string {
   })
 }
 
+/**
+ * Crew, vehicles and materials as they actually stand at this incident: its own
+ * assignments plus the ones its Auftrag owns. Mirrors the WhatsApp formatter —
+ * a grouped stop carries nothing itself, so without this it prints empty.
+ */
+function effectiveResources(op: Operation, auftrag: PrintAuftrag | undefined) {
+  if (!auftrag) {
+    return {
+      crew: op.crew,
+      leaderName: op.leaderName,
+      vehicles: op.vehicles,
+      driverStay: op.vehicleDriverStay,
+      materials: op.materials,
+    }
+  }
+  const driverStay = new Map(op.vehicleDriverStay ?? [])
+  for (const vehicle of auftrag.resources.vehicles) {
+    if (vehicle.driverStay !== undefined) driverStay.set(vehicle.name, vehicle.driverStay)
+  }
+  return {
+    crew: [...op.crew, ...auftrag.resources.personnel.map((p) => p.name)],
+    leaderName: auftrag.resources.personnel.find((p) => p.isLeader)?.name ?? op.leaderName,
+    vehicles: [...op.vehicles, ...auftrag.resources.vehicles.map((v) => v.name)],
+    driverStay,
+    materials: [...op.materials, ...auftrag.resources.materials.map((m) => m.resourceId)],
+  }
+}
+
 export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
-  ({ eventName, operations, personnel, vehicles, materials, options, vehicleDrivers }, ref) => {
+  (
+    {
+      eventName,
+      operations,
+      personnel,
+      vehicles,
+      materials,
+      options,
+      vehicleDrivers,
+      attendance,
+      auftraege,
+      materialOnSite,
+    },
+    ref
+  ) => {
     const t = useTranslations("print.view")
+    const tAttendance = useTranslations("kanban.attendance")
 
     // Filter operations based on options
     const filteredOperations = options.includeCompleted
@@ -80,26 +169,94 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
       {} as Record<string, Operation[]>
     )
 
-    // Sort statuses by their defined order
+    // Sort statuses by the board's column order
     const sortedStatuses = Object.keys(operationsByStatus).sort(
-      (a, b) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99)
+      (a, b) => statusRank(a) - statusRank(b)
     )
 
-    // Filter personnel (only checked-in / available + assigned)
-    const filteredPersonnel = personnel.filter(
-      (p) => p.status === "available" || p.status === "assigned"
+    // One continuous number per incident, in the order they are printed — that
+    // number is also the marker on the map, so a pin can be looked up in the
+    // list without counting columns.
+    const numbering = new Map<string, number>()
+    for (const status of sortedStatuses) {
+      for (const op of operationsByStatus[status]) numbering.set(op.id, numbering.size + 1)
+    }
+
+    // The printed roster. The roll-call is authoritative when we have it: it is
+    // the only list that knows the difference between "never came" (not printed)
+    // and "was here and went home" (printed, as «gegangen» — the sheet exists to
+    // answer who is still here).
+    const personById = new Map(personnel.map((p) => [p.id, p]))
+    const rosterRows: RosterRow[] = attendance?.length
+      ? attendance
+          .map((item): RosterRow | null => {
+            const state = attendanceState(item)
+            if (state === "absent") return null
+            const person = personById.get(String(item.id))
+            const inUse = person ? person.status === "assigned" : item.is_assigned === true
+            return {
+              id: String(item.id),
+              name: item.name,
+              role: person?.role ?? item.role ?? "",
+              state: state === "left" ? "left" : inUse ? "assigned" : "available",
+            }
+          })
+          .filter((row): row is RosterRow => row !== null)
+      : personnel
+          .filter((p) => p.status === "available" || p.status === "assigned")
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            role: p.role,
+            state: p.status === "assigned" ? "assigned" : "available",
+          }))
+    rosterRows.sort(
+      (a, b) => ROSTER_RANK[a.state] - ROSTER_RANK[b.state] || a.name.localeCompare(b.name, "de")
+    )
+    const presentCount = rosterRows.filter((row) => row.state !== "left").length
+    const attendanceSummary = attendance?.length ? summarizeAttendance(attendance) : null
+
+    // Vehicles and materials, in-use first (see RESOURCE_STATE_RANK).
+    const sortedVehicles = [...vehicles].sort(
+      (a, b) =>
+        RESOURCE_STATE_RANK[toResourceState(a.status)] - RESOURCE_STATE_RANK[toResourceState(b.status)] ||
+        a.name.localeCompare(b.name, "de")
     )
 
     // Filter materials
-    const filteredMaterials = materials.filter(
-      (m) => m.status === "available" || m.status === "assigned"
-    )
+    const filteredMaterials = materials
+      .filter((m) => m.status === "available" || m.status === "assigned")
+      .sort(
+        (a, b) =>
+          RESOURCE_STATE_RANK[toResourceState(a.status)] - RESOURCE_STATE_RANK[toResourceState(b.status)] ||
+          a.name.localeCompare(b.name, "de")
+      )
 
-    // Get material names by ID
+    // What of ours is still standing at a Schadenplatz. Same selector the board
+    // panel uses, so the two can never disagree.
+    const onSiteEntries = materialOnSite ? selectMaterialOnSite(materialOnSite, materials) : []
+
+    // Get material names by ID, marking the units that never came back.
     const getMaterialNames = (materialIds: string[]) => {
       return materialIds
-        .map((id) => materials.find((m) => m.id === id)?.name ?? id)
+        .map((id) => {
+          const name = materials.find((m) => m.id === id)?.name ?? id
+          return materialOnSite?.has(id) ? `${name} (${t("vorOrt")})` : name
+        })
         .join(", ")
+    }
+
+    const vehicleStatusLabel = (status: string): string => {
+      switch (toResourceState(status)) {
+        case "assigned":
+          return t("inUse")
+        case "available":
+          return t("available")
+        case "maintenance":
+          return t("maintenance")
+        default:
+          return t("unavailable")
+      }
     }
 
     return (
@@ -113,13 +270,21 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
           </div>
         </div>
 
-        {/* Map Overview */}
+        {/* Map Overview — its own A4 page. `breakAfter` is set inline rather than
+            via a utility class so it cannot be lost to a purge, and the heading
+            sits inside the same break-inside-avoid block as the map so it can
+            never be orphaned at the foot of the page before it. */}
         {options.includeMap && filteredOperations.length > 0 && (
-          <div className="mb-4 page-break-inside-avoid">
+          <div
+            className="mb-4 page-break-inside-avoid"
+            // Nothing to map = no map = no reason to spend a sheet of paper on
+            // the "keine Koordinaten" box.
+            style={filteredOperations.some(isLocated) ? { breakAfter: "page" } : undefined}
+          >
             <h2 className="font-bold border-b border-black mb-2 text-sm">
               {t("mapOverview")}
             </h2>
-            <PrintableMapInner operations={filteredOperations} />
+            <PrintableMapInner operations={filteredOperations} numbering={numbering} />
           </div>
         )}
 
@@ -132,16 +297,64 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               {/* Caps come from CSS, not the source string — the message block stays
                   title-case like every other status block (decision of 2026-07-21). */}
               <h2 className="font-bold border-b border-black mb-2 text-sm uppercase">
-                {status in STATUS_ORDER ? t(`statusHeading.${status}`) : status.toUpperCase()} ({statusOps.length})
+                {STATUS_ORDER.includes(status) ? t(`statusHeading.${status}`) : status.toUpperCase()} ({statusOps.length})
               </h2>
 
               {/* Card-style layout for each incident */}
-              {statusOps.map((op, idx) => (
+              {statusOps.map((op) => {
+                const auftrag = auftraege?.get(op.id)
+                const { crew, leaderName, vehicles: opVehicles, driverStay, materials: opMaterials } =
+                  effectiveResources(op, auftrag)
+
+                // The exception states, on one scannable line. Each of these
+                // changes what the operator has to DO about the incident, which
+                // is why they sit above the resource columns rather than in them.
+                const flags: string[] = []
+                if (auftrag) {
+                  flags.push(
+                    t("auftrag", { name: auftrag.name, pos: auftrag.stopPos, total: auftrag.stopTotal })
+                  )
+                }
+                if (op.amWarten) {
+                  flags.push(op.amWartenNote ? `${t("amWarten")}: ${op.amWartenNote}` : t("amWarten"))
+                }
+                if (op.pickupNeeded) {
+                  const since = op.pickupRequestedAt ? ` (${t("since", { time: formatTime(op.pickupRequestedAt) })})` : ""
+                  flags.push(`${t("abholung")}${since}${op.pickupNote ? `: ${op.pickupNote}` : ""}`)
+                }
+                if (op.zuFuss) flags.push(t("zuFuss"))
+                if (op.nachbarhilfe) {
+                  flags.push(op.nachbarhilfeNote ? `${t("nachbarhilfe")}: ${op.nachbarhilfeNote}` : t("nachbarhilfe"))
+                }
+                if (op.source === "intake") flags.push(t("phoneReported"))
+
+                // «Wer war draussen, was hat er gesehen» on one line: the Reko's
+                // name (with the time it got there), then what it reported.
+                const arrival = op.rekoArrivedAt ? t("onSiteSince", { time: formatTime(op.rekoArrivedAt) }) : null
+                const rekoWho = op.assignedReko
+                  ? arrival ? `${op.assignedReko.name} (${arrival})` : op.assignedReko.name
+                  : arrival
+                const rekoBits = [
+                  rekoWho,
+                  op.rekoSummary?.hasDangers && op.rekoSummary.dangerTypes.length > 0
+                    ? op.rekoSummary.dangerTypes
+                        .map((d) => (DANGER_KEYS.includes(d) ? t(`danger.${d}`) : d))
+                        .join(", ")
+                    : null,
+                  op.rekoSummary?.personnelCount
+                    ? t("persCount", { count: op.rekoSummary.personnelCount })
+                    : null,
+                  op.rekoSummary?.estimatedDuration
+                    ? t("durationHours", { count: op.rekoSummary.estimatedDuration })
+                    : null,
+                ].filter((bit): bit is string => Boolean(bit))
+
+                return (
                 <div key={op.id} className="border border-gray-400 mb-2 p-2 page-break-inside-avoid">
                   {/* Header row */}
                   <div className="flex justify-between items-start border-b border-gray-300 pb-1 mb-1">
                     <div className="font-bold text-sm">
-                      {idx + 1}. {(op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) || getIncidentTypeLabel(op.incidentType)}
+                      {numbering.get(op.id)}. {getIncidentLocationLabel(op)}
                     </div>
                     <div className="text-right text-[10px]">
                       <span className={op.priority === "high" ? "font-bold" : ""}>
@@ -152,61 +365,70 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     </div>
                   </div>
 
+                  {flags.length > 0 && (
+                    <div className="mb-1 font-semibold">{flags.join(" · ")}</div>
+                  )}
+
                   {/* Two column layout */}
                   <div className="flex gap-4">
                     {/* Left column */}
                     <div className="flex-1">
                       <div className="mb-1">
-                        <span className="font-semibold">{t("typ")}:</span> {op.incidentType}
+                        <span className="font-semibold">{t("typ")}:</span> {getIncidentTypeLabel(op.incidentType)}
                       </div>
-                      {op.crew.length > 0 && (
+                      {crew.length > 0 && (
                         <div className="mb-1">
-                          <span className="font-semibold">{t("personal")}:</span> {op.crew.join(", ")}
+                          {/* EL first (decision 23) — a printed sheet has no board behind it. */}
+                          <span className="font-semibold">{t("personal")}:</span>{" "}
+                          {sortCrewByLeader(crew, leaderName)
+                            .map((name) => (leaderName && name === leaderName ? `${t("leaderPrefix")} ${name}` : name))
+                            .join(", ")}
                         </div>
                       )}
-                      {op.vehicles.length > 0 && (
+                      {opVehicles.length > 0 && (
                         <div className="mb-1">
                           <span className="font-semibold">{t("fahrzeuge")}:</span>{" "}
-                          {op.vehicles.map((vName) => {
+                          {opVehicles.map((vName) => {
                             const driverName = vehicleDrivers?.get(vName)
                             const callsign = op.vehicleCallsigns.get(vName)
-                            const parts = [vName]
-                            if (callsign) parts[0] = `${vName} · ${callsign}`
-                            if (driverName) return `${parts[0]} (${t("driverPrefix")}: ${driverName})`
-                            return parts[0]
+                            const stays = driverStay?.get(vName)
+                            const head = callsign ? `${vName} · ${callsign}` : vName
+                            const detail: string[] = []
+                            if (driverName) detail.push(`${t("driverPrefix")}: ${driverName}`)
+                            if (stays !== undefined) detail.push(stays ? t("driverStays") : t("driverReturns"))
+                            return detail.length > 0 ? `${head} (${detail.join(", ")})` : head
                           }).join(", ")}
                         </div>
                       )}
-                      {op.materials.length > 0 && (
+                      {opMaterials.length > 0 && (
                         <div className="mb-1">
-                          <span className="font-semibold">{t("material")}:</span> {getMaterialNames(op.materials)}
+                          <span className="font-semibold">{t("material")}:</span> {getMaterialNames(opMaterials)}
                         </div>
                       )}
                     </div>
 
                     {/* Right column */}
                     <div className="flex-1">
-                      {op.contact && (
+                      {(op.contact || op.contactPhone) && (
                         <div className="mb-1">
                           <span className="font-semibold">{t("kontakt")}:</span> {op.contact}
+                          {op.contactPhone && (
+                            <>
+                              {op.contact ? " · " : " "}
+                              <span className="font-semibold">{t("telPrefix")}</span> {op.contactPhone}
+                            </>
+                          )}
                         </div>
                       )}
-                      {op.hasCompletedReko && op.rekoSummary && (
+                      {rekoBits.length > 0 && (
                         <div className="mb-1">
-                          <span className="font-semibold">{t("reko")}:</span>{" "}
-                          {op.rekoSummary.hasDangers && op.rekoSummary.dangerTypes.length > 0 && (
-                            <span>
-                              {op.rekoSummary.dangerTypes
-                                .map((d) => (DANGER_KEYS.includes(d) ? t(`danger.${d}`) : d))
-                                .join(", ")}
-                            </span>
-                          )}
-                          {op.rekoSummary.personnelCount && (
-                            <span> | {t("persCount", { count: op.rekoSummary.personnelCount })}</span>
-                          )}
-                          {op.rekoSummary.estimatedDuration && (
-                            <span> | {t("durationHours", { count: op.rekoSummary.estimatedDuration })}</span>
-                          )}
+                          <span className="font-semibold">{t("reko")}:</span> {rekoBits.join(" | ")}
+                        </div>
+                      )}
+                      {op.rekoSummary?.summaryText && (
+                        <div className="mb-1">
+                          <span className="font-semibold">{t("lagebeurteilung")}:</span>{" "}
+                          {op.rekoSummary.summaryText}
                         </div>
                       )}
                     </div>
@@ -224,17 +446,23 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     </div>
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           )
         })}
 
         {/* Personnel Manifest */}
-        {options.includePersonnel && filteredPersonnel.length > 0 && (
+        {options.includePersonnel && rosterRows.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
             <h2 className="font-bold border-b border-black mb-2 text-sm">
-              {t("personalHeading", { count: filteredPersonnel.length })}
+              {t("personalHeading", { count: presentCount })}
             </h2>
+            {attendanceSummary && (
+              <div className="mb-1 text-[10px]">
+                {tAttendance("summary", attendanceSummary)}
+              </div>
+            )}
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b border-gray-400">
@@ -244,13 +472,13 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                 </tr>
               </thead>
               <tbody>
-                {filteredPersonnel.map((person) => (
-                  <tr key={person.id} className="border-b border-gray-200">
+                {rosterRows.map((row) => (
+                  <tr key={row.id} className="border-b border-gray-200">
                     <td className="p-1">
-                      {person.status === "assigned" ? t("inUse") : t("available")}
+                      {row.state === "assigned" ? t("inUse") : row.state === "left" ? t("gegangen") : t("available")}
                     </td>
-                    <td className="p-1">{person.name}</td>
-                    <td className="p-1">{person.role}</td>
+                    <td className="p-1">{row.name}</td>
+                    <td className="p-1">{row.role}</td>
                   </tr>
                 ))}
               </tbody>
@@ -259,10 +487,10 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
         )}
 
         {/* Vehicle Status */}
-        {options.includeVehicles && vehicles.length > 0 && (
+        {options.includeVehicles && sortedVehicles.length > 0 && (
           <div className="mb-4 page-break-inside-avoid">
             <h2 className="font-bold border-b border-black mb-2 text-sm">
-              {t("fahrzeugeHeading", { count: vehicles.length })}
+              {t("fahrzeugeHeading", { count: sortedVehicles.length })}
             </h2>
             <table className="w-full text-xs border-collapse">
               <thead>
@@ -274,14 +502,41 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                 </tr>
               </thead>
               <tbody>
-                {vehicles.map((vehicle) => (
+                {sortedVehicles.map((vehicle) => (
                   <tr key={vehicle.id} className="border-b border-gray-200">
-                    <td className="p-1">
-                      {vehicle.status === "assigned" ? t("inUse") : vehicle.status === "available" ? t("available") : vehicle.status}
-                    </td>
+                    <td className="p-1">{vehicleStatusLabel(vehicle.status)}</td>
                     <td className="p-1">{vehicle.name}</td>
                     <td className="p-1">{vehicle.type}</td>
                     <td className="p-1">{vehicle.radio_call_sign || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Material still standing at a Schadenplatz. Above the inventory on
+            purpose: "what has not come home" is the sharper question, and it is
+            the one somebody reads off this sheet when the Einsatz winds down. */}
+        {options.includeMaterials && onSiteEntries.length > 0 && (
+          <div className="mb-4 page-break-inside-avoid">
+            <h2 className="font-bold border-b border-black mb-2 text-sm">
+              {t("materialOnSiteHeading", { count: onSiteEntries.length })}
+            </h2>
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-400">
+                  <th className="text-left p-1">{t("materialCol")}</th>
+                  <th className="text-left p-1">{t("schadenplatzCol")}</th>
+                  <th className="text-left p-1">{t("seitCol")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {onSiteEntries.map((entry) => (
+                  <tr key={entry.materialId} className="border-b border-gray-200">
+                    <td className="p-1">{entry.name}</td>
+                    <td className="p-1">{entry.address ?? t("unknownAddress")}</td>
+                    <td className="p-1">{entry.since ? formatTime(entry.since) : "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -307,7 +562,11 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                 {filteredMaterials.map((material) => (
                   <tr key={material.id} className="border-b border-gray-200">
                     <td className="p-1">
-                      {material.status === "assigned" ? t("inUse") : t("available")}
+                      {materialOnSite?.has(material.id)
+                        ? t("vorOrt")
+                        : material.status === "assigned"
+                          ? t("inUse")
+                          : t("available")}
                     </td>
                     <td className="p-1">{material.name}</td>
                     <td className="p-1">{material.category}</td>

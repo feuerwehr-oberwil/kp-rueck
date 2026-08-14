@@ -7,6 +7,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 from app.database import get_db
+from app.environment import blocked_reason, is_domain_blocked
 from app.logging_config import get_logger
 from app.services.settings import get_setting_value
 from app.services.sync_service import create_sync_service
@@ -106,6 +107,14 @@ def start_sync_scheduler() -> None:
     Uses config default interval on startup, then dynamically adjusts based on database settings.
     """
     global scheduler, last_interval_minutes
+
+    # A deployment whose role blocks sync must not be able to write into the system it was
+    # copied FROM: `railway_database_url` arrives in that copy still pointing at production.
+    # SyncService ignores the URL as well (the effect seam); not starting the job here just
+    # means nothing wakes up every two minutes to be told no.
+    if is_domain_blocked("sync"):
+        logger.warning("Sync scheduler not started: %s", blocked_reason("sync"))
+        return
 
     # Always start scheduler - Railway URL will be checked from database at runtime
     # Initialize with config default (will be updated on first sync if database setting differs)

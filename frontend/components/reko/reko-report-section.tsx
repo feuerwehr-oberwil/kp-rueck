@@ -1,14 +1,43 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+/**
+ * The Reko block of the incident detail — a **read AND write** surface since
+ * plan 26 §5.1.
+ *
+ * It used to be a renderer and nothing else: it could display a recon report
+ * faithfully and produce none of it. `POST /api/reko/` took a per-incident form
+ * token and had no user path, so an editor could not file one at all — and the
+ * normal case is a radio message, because the crew has no signal in the cellar,
+ * no free hands, or simply will not open an app at 02:00.
+ *
+ * It **expands in place**, collapsed until needed, the same shape
+ * `SchadenplatzRapportSection` has one column over. Deliberately not a dialog:
+ * that would be a modal over a modal, and it would hide the Feldmeldungen the
+ * operator is reading from while dictating.
+ *
+ * "Reko-Bericht erfassen" appears on an incident that has **no report and never
+ * had field contact** — the create-from-nothing case, which is this phase's
+ * acceptance criterion. With a report present the button amends the existing one
+ * (`PATCH`) instead of filing a second, so a crew's authorship survives and the
+ * row carries both provenance lines.
+ *
+ * The "vor Ort seit …" line this section used to render is **gone** (decision
+ * 15), not moved and not linked. `arrived_at` is displayed and written in
+ * exactly one place now, the Feldmeldungen row — a fact shown twice is a fact
+ * that will eventually disagree with itself. Accepted price: this block alone no
+ * longer says whether Reko is on site.
+ */
+
+import { useState, useEffect, useCallback, useMemo, Fragment, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, AlertTriangle, Users, Zap, Loader2, Binoculars, FileText, ChevronDown, History, MapPin, CheckCheck } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Loader2, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
+import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { wsClient } from '@/lib/websocket-client'
@@ -18,25 +47,46 @@ interface RekoReportSectionProps {
   /** Editor-only: archive the incident (status → complete). When provided and the
       latest report is "nicht relevant", a "Einsatz abschliessen" button is shown. */
   onRequestComplete?: () => void
+  /** Whether this mount may write. False on the phone, which is viewing-first. */
+  canEdit?: boolean
+  /**
+   * `split` puts the filed reports in one column and the entry surface in the
+   * other — the modal has the width, and in a two-column reading «was gemeldet
+   * wurde» and «was ich erfasse» stop pushing each other down the page. The
+   * panel stays stacked; 420px has no second column to give.
+   */
+  layout?: 'stacked' | 'split'
+  /**
+   * Rendered at the top of the DATA column — the Funkmeldung «Reko vor Ort».
+   * It belongs beside the reports it is about, not across both columns above
+   * them, where it read as a heading for the entry surface as well.
+   */
+  dataSlot?: ReactNode
 }
 
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
 
-export default function RekoReportSection({ incidentId, onRequestComplete }: RekoReportSectionProps) {
+export default function RekoReportSection({
+  incidentId,
+  onRequestComplete,
+  canEdit = false,
+  layout = 'stacked',
+  dataSlot,
+}: RekoReportSectionProps) {
+  const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
-  const [arrivedAt, setArrivedAt] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [formData, setFormData] = useState<RekoFormData>(EMPTY_REKO_FORM)
 
   const loadReports = useCallback(async () => {
     try {
       const data = await apiClient.getIncidentRekoReports(incidentId)
       // Filter out drafts, only show submitted reports (newest first)
       setReports(data.filter(r => !r.is_draft))
-      // Check if there's a draft with arrived_at (reko personnel is on site)
-      const draftWithArrival = data.find(r => r.is_draft && r.arrived_at)
-      setArrivedAt(draftWithArrival?.arrived_at || null)
     } catch (error) {
       console.error('Failed to load Reko reports:', error)
     } finally {
@@ -70,6 +120,65 @@ export default function RekoReportSection({ incidentId, onRequestComplete }: Rek
     }
   }, [loadReports, incidentId])
 
+  const latestReport: ApiRekoReportResponse | undefined = reports[0]
+  const previousReports = reports.slice(1)
+
+  /**
+   * The board's photo door (§6.1, same case the Schadenplatz-Rapport already
+   * covers): the crew has no signal at the Schadenplatz and sends the picture
+   * over WhatsApp, so the operator attaches it to the report they are
+   * transcribing. No token — the session is the credential, and the default
+   * read path (`GET /api/photos/…`) is the session-authenticated one.
+   */
+  const photoTransport = useMemo(
+    () => ({
+      upload: async (file: File) =>
+        (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, latestReport?.id)).filename,
+      remove: (filename: string) =>
+        apiClient.deleteRekoPhotoAsEditor(incidentId, filename, latestReport?.id),
+    }),
+    [incidentId, latestReport?.id],
+  )
+
+  /** Open the form: amending starts from what is already there. */
+  function startEditing() {
+    setFormData(toRekoFormData(latestReport))
+    setIsEditing(true)
+  }
+
+  async function handleSave() {
+    setIsSaving(true)
+    try {
+      // The report's own fields; no token, the session is the identity. Photos
+      // travel too: the upload already attached them server-side, and sending
+      // the list keeps a photo removed in the open form removed on save.
+      const payload = {
+        is_relevant: formData.is_relevant,
+        dangers_json: formData.dangers_json,
+        effort_json: formData.effort_json,
+        power_supply: formData.power_supply,
+        photos_json: formData.photos_json,
+        summary_text: formData.summary_text,
+        additional_notes: formData.additional_notes,
+      }
+      if (latestReport) {
+        // An amendment, not a second report: the crew keeps its authorship and
+        // the operator is added next to it (§5.3).
+        await apiClient.updateRekoReport(latestReport.id, payload)
+      } else {
+        await apiClient.createRekoReportAsEditor(incidentId, payload)
+      }
+      await loadReports()
+      setIsEditing(false)
+      toast.success(t('saved'))
+    } catch (error) {
+      console.error('Failed to save Reko report:', error)
+      toast.error(t('saveFailed'))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-4">
@@ -78,58 +187,101 @@ export default function RekoReportSection({ incidentId, onRequestComplete }: Rek
     )
   }
 
-  if (reports.length === 0) {
-    // Check if REKO personnel has arrived but not yet submitted
-    if (arrivedAt) {
-      const arrivedDate = new Date(arrivedAt)
-      return (
-        <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
-          <MapPin className="h-4 w-4" />
-          <p className="text-sm">
-            {t('onSiteSince', { time: arrivedDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}
-          </p>
-        </div>
-      )
-    }
-    return (
-      <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
-        <FileText className="h-4 w-4" />
-        <p className="text-sm">{t('noReport')}</p>
-      </div>
-    )
-  }
-
-  const latestReport = reports[0]
-  const previousReports = reports.slice(1)
-
   return (
-    <div className="space-y-2">
-      {/* Latest Report - Full display */}
-      <RekoReportCard
-        report={latestReport}
-        incidentId={incidentId}
-        onRequestComplete={onRequestComplete}
-      />
+    <div className={cn(split ? "grid grid-cols-2 gap-6" : "space-y-2")}>
+      <div className="space-y-2">
+      {dataSlot}
+      {latestReport ? (
+        <>
+          {/* Latest Report - Full display */}
+          <RekoReportCard
+            report={latestReport}
+            incidentId={incidentId}
+            onRequestComplete={onRequestComplete}
+          />
 
-      {/* Previous Reports - Collapsible */}
-      {previousReports.length > 0 && (
-        <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-          <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50" tabIndex={-1}>
-            <History className="h-3 w-3" />
-            <span>{t('previousReports', { count: previousReports.length })}</span>
-            <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", historyOpen && "rotate-180")} />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-1 pt-1">
-            {previousReports.map((report) => (
-              <RekoReportCardCompact
-                key={report.id}
-                report={report}
-                incidentId={incidentId}
-              />
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
+          {/* Previous Reports - Collapsible */}
+          {previousReports.length > 0 && (
+            <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50" tabIndex={-1}>
+                <History className="h-3 w-3" />
+                <span>{t('previousReports', { count: previousReports.length })}</span>
+                <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", historyOpen && "rotate-180")} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 pt-1">
+                {previousReports.map((report) => (
+                  <RekoReportCardCompact
+                    key={report.id}
+                    report={report}
+                    incidentId={incidentId}
+                  />
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </>
+      ) : (
+        // While stacked, the placeholder gives way to the form opening below
+        // it; side by side the columns are independent, and an empty column
+        // that says nothing reads as a rendering fault.
+        (split || !isEditing) && (
+          <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
+            <FileText className="h-4 w-4 shrink-0" />
+            <p className="text-sm">{t('noReport')}</p>
+          </div>
+        )
       )}
+
+      </div>
+
+      {/* The editing surface. In place, not a dialog — a modal over the incident
+          detail would hide the Feldmeldungen the operator is dictating from.
+          Its own column when there is one, so a long report and a long form do
+          not queue up behind each other. */}
+      <div className={cn(split && "border-l border-border pl-6", !split && "space-y-2")}>
+      {canEdit && (
+        isEditing ? (
+          // No card in the split layout: the column IS the frame, and a border
+          // inside a border inside the modal is two frames around one form.
+          <div className={cn("space-y-3", split ? "" : "rounded-lg border border-border p-4")}>
+            <div className="flex items-center gap-2">
+              <Binoculars className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="text-sm font-semibold text-muted-foreground">
+                {latestReport ? t('amendTitle') : t('createTitle')}
+              </span>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                className="ml-auto"
+                disabled={isSaving}
+                onClick={() => setIsEditing(false)}
+              >
+                <X className="size-3.5" />
+                {t('cancel')}
+              </Button>
+            </div>
+            {/* Says out loud which channel this is, so nothing about the
+                resulting report reads as a crew report. */}
+            <p className="text-xs text-muted-foreground">{t('radioHint')}</p>
+            <RekoReportForm
+              incidentId={incidentId}
+              value={formData}
+              onChange={setFormData}
+              photos={photoTransport}
+              mount="kp"
+              isSubmitting={isSaving}
+              onSubmit={handleSave}
+            />
+          </div>
+        ) : (
+          <Button type="button" size="xs" variant="outline" onClick={startEditing}>
+            {latestReport ? <Pencil className="size-3.5" /> : <Plus className="size-3.5" />}
+            {latestReport ? t('amend') : t('create')}
+          </Button>
+        )
+      )}
+      </div>
     </div>
   )
 }
@@ -140,6 +292,21 @@ interface RekoReportCardProps {
   onRequestComplete?: () => void
 }
 
+/**
+ * A report timestamp, to the minute. Nobody reads a Reko-Bericht to the second,
+ * and `toLocaleString()`'s default seconds were what pushed the provenance
+ * footer onto a second line as soon as the submitter's name stood next to it.
+ */
+function formatStamp(iso: string): string {
+  return new Date(iso).toLocaleString('de-CH', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCardProps) {
   const t = useTranslations('reko.reportSection')
   function getPhotoUrl(filename: string): string {
@@ -147,126 +314,162 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
     return `${apiUrl}/api/photos/${incidentId}/${filename}`
   }
 
+  /**
+   * The numbered facts, as `{ label, value }` pairs rather than pre-composed
+   * «Label: Wert» strings. They render as a two-column definition grid: in a
+   * wrapping row every value started at whatever x the previous string happened
+   * to end at, and no two lines agreed on anything. One label column and one
+   * value column let the eye run straight down the values.
+   *
+   * «Zusätzliche Notizen» is the last pair and not a separately styled
+   * paragraph — it is a label and a value like the rest, and one emphasis rule
+   * for all of them beats a bold label here and a plain one there.
+   */
+  const facts: { label: string; value: string }[] = []
+  if (report.effort_json?.personnel_count) {
+    facts.push({
+      label: t('personnelLabel'),
+      value: t('personnelValue', { count: report.effort_json.personnel_count }),
+    })
+  }
+  if (report.effort_json?.estimated_duration_hours) {
+    facts.push({
+      label: t('durationLabel'),
+      value: t('durationValue', { hours: report.effort_json.estimated_duration_hours }),
+    })
+  }
+  if (report.effort_json?.vehicles_needed?.length) {
+    facts.push({ label: t('vehiclesLabel'), value: report.effort_json.vehicles_needed.join(', ') })
+  }
+  if (report.effort_json?.equipment_needed?.length) {
+    facts.push({ label: t('equipmentLabel'), value: report.effort_json.equipment_needed.join(', ') })
+  }
+  if (report.power_supply && report.power_supply !== 'unknown') {
+    facts.push({
+      label: t('powerSupply'),
+      value:
+        report.power_supply === 'available' ? t('powerAvailable')
+        : report.power_supply === 'unavailable' ? t('powerUnavailable')
+        : t('powerEmergencyNeeded'),
+    })
+  }
+  if (report.additional_notes) {
+    facts.push({ label: t('additionalNotes'), value: report.additional_notes })
+  }
+
+  const dangers = report.dangers_json
+  const dangerLabels: string[] = []
+  if (dangers?.fire) dangerLabels.push(t('dangerBadges.fire'))
+  if (dangers?.fire_danger) dangerLabels.push(t('dangerBadges.fire_danger'))
+  if (dangers?.explosion) dangerLabels.push(t('dangerBadges.explosion'))
+  if (dangers?.collapse) dangerLabels.push(t('dangerBadges.collapse'))
+  if (dangers?.chemical) dangerLabels.push(t('dangerBadges.chemical'))
+  if (dangers?.electrical) dangerLabels.push(t('dangerBadges.electrical'))
+  const hasDangers = dangerLabels.length > 0 || !!dangers?.other_notes
+
   return (
     <div className="rounded-lg border">
-      <div className="p-4">
-        <div className="flex items-center gap-3 mb-4">
+      <div className="p-3">
+        {/* The verdict. Its bottom border does the job the standalone
+            <Separator/> used to do one full row lower down.
+
+            One leading system across the card: `snug` for the finding, which is
+            prose and has to read well, `tight` for everything that is a label,
+            a chip or a value. The verdict used to reserve a 24px line box for a
+            16px word and pushed its own rule down with it. */}
+        <div className="flex items-center gap-2 border-b pb-2 mb-3">
           {report.is_relevant ? (
-            <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
+            <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
           ) : (
-            <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           )}
-          <div className="flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium">
-                {report.is_relevant ? t('relevant') : t('notNeeded')}
-              </span>
-              <div className="flex items-center gap-2">
-                {report.submitted_by_personnel_name && (
-                  <Badge variant="secondary" className="gap-1">
-                    <Binoculars className="h-3 w-3" />
-                    {report.submitted_by_personnel_name}
-                  </Badge>
-                )}
-                {/* Reko reported the incident not relevant — let the operator close it
-                    straight from the Reko-Meldung card. */}
-                {!report.is_relevant && onRequestComplete && (
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    onClick={onRequestComplete}
-                  >
-                    <CheckCheck className="size-3.5" />
-                    {t('completeIncident')}
-                  </Button>
-                )}
-              </div>
-            </div>
+          <span className="font-medium leading-tight">
+            {report.is_relevant ? t('relevant') : t('notNeeded')}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            {report.submitted_by_personnel_name && (
+              <Badge variant="secondary" className="gap-1">
+                <Binoculars className="h-3 w-3" />
+                {report.submitted_by_personnel_name}
+              </Badge>
+            )}
+            {/* Reko reported the incident not relevant — let the operator close it
+                straight from the Reko-Meldung card. */}
+            {!report.is_relevant && onRequestComplete && (
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={onRequestComplete}
+              >
+                <CheckCheck className="size-3.5" />
+                {t('completeIncident')}
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="space-y-4">
-          <Separator />
+        <div className="space-y-3">
+          {/* The finding leads, one size above the facts around it — it is the
+              sentence somebody reads to decide what to send, and it used to sit
+              below four headings. Same treatment the display's own Reko block
+              gives it, so wall and board read alike. */}
+          {report.summary_text && (
+            <p className="text-base leading-snug">{report.summary_text}</p>
+          )}
 
-          {/* Dangers */}
-          {report.dangers_json && (
-            report.dangers_json.fire ||
-            report.dangers_json.fire_danger ||
-            report.dangers_json.explosion ||
-            report.dangers_json.collapse ||
-            report.dangers_json.chemical ||
-            report.dangers_json.electrical ||
-            report.dangers_json.other_notes
-          ) && (
-            <div>
-              <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                {t('dangers')}
-              </h5>
-              <div className="flex flex-wrap gap-2">
-                {report.dangers_json.fire && <Badge variant="destructive">{t('dangerBadges.fire')}</Badge>}
-                {report.dangers_json.fire_danger && <Badge variant="destructive">{t('dangerBadges.fire_danger')}</Badge>}
-                {report.dangers_json.explosion && <Badge variant="destructive">{t('dangerBadges.explosion')}</Badge>}
-                {report.dangers_json.collapse && <Badge variant="destructive">{t('dangerBadges.collapse')}</Badge>}
-                {report.dangers_json.chemical && <Badge variant="destructive">{t('dangerBadges.chemical')}</Badge>}
-                {report.dangers_json.electrical && <Badge variant="destructive">{t('dangerBadges.electrical')}</Badge>}
+          {/* Dangers — label and chips share the row; the word stays, so nothing
+              here is a bare icon.
+
+              Warning-toned outline chips, not solid `destructive` pills: a
+              saturated red block was the brightest object on the card and it
+              outshouted the finding above it, which is the sentence somebody
+              reads to decide what to send. The board card and the wall card
+              already render this same danger list as outline badges, and the
+              display's own Reko block already tints it warning — this is those
+              two put together, so one danger looks like one danger wherever it
+              is read. The note below is a fact, not an aside, and reads in the
+              foreground like every other value on the card. */}
+          {hasDangers && (
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4 text-warning-foreground" />
+                  {t('dangers')}
+                </span>
+                {dangerLabels.map((label) => (
+                  <Badge
+                    key={label}
+                    variant="outline"
+                    className="border-warning/40 bg-warning/10 text-warning-foreground"
+                  >
+                    {label}
+                  </Badge>
+                ))}
               </div>
-              {report.dangers_json.other_notes && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  {report.dangers_json.other_notes}
-                </p>
+              {dangers?.other_notes && (
+                <p className="text-sm leading-tight">{dangers.other_notes}</p>
               )}
             </div>
           )}
 
-          {/* Effort */}
-          {report.effort_json && (
-            report.effort_json.personnel_count ||
-            report.effort_json.estimated_duration_hours ||
-            report.effort_json.vehicles_needed?.length > 0 ||
-            report.effort_json.equipment_needed?.length > 0
-          ) && (
-            <div>
-              <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                {t('effort')}
-              </h5>
-              <div className="text-sm space-y-1">
-                {report.effort_json.personnel_count && (
-                  <p>{t('personnel', { count: report.effort_json.personnel_count })}</p>
-                )}
-                {report.effort_json.estimated_duration_hours && (
-                  <p>{t('duration', { hours: report.effort_json.estimated_duration_hours })}</p>
-                )}
-                {report.effort_json.vehicles_needed && report.effort_json.vehicles_needed.length > 0 && (
-                  <p>{t('vehicles', { list: report.effort_json.vehicles_needed.join(', ') })}</p>
-                )}
-                {report.effort_json.equipment_needed && report.effort_json.equipment_needed.length > 0 && (
-                  <p>{t('equipment', { list: report.effort_json.equipment_needed.join(', ') })}</p>
-                )}
-              </div>
-            </div>
+          {/* Effort, power and notes — one definition grid, muted label column,
+              foreground value column. */}
+          {facts.length > 0 && (
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-sm leading-tight">
+              {facts.map(({ label, value }) => (
+                <Fragment key={label}>
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="min-w-0">{value}</dd>
+                </Fragment>
+              ))}
+            </dl>
           )}
 
-          {/* Power Supply */}
-          {report.power_supply && report.power_supply !== 'unknown' && (
-            <div>
-              <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
-                <Zap className="h-4 w-4 text-muted-foreground" />
-                {t('powerSupply')}
-              </h5>
-              <p className="text-sm">
-                {report.power_supply === 'available' && t('powerAvailable')}
-                {report.power_supply === 'unavailable' && t('powerUnavailable')}
-                {report.power_supply === 'emergency_needed' && t('powerEmergencyNeeded')}
-              </p>
-            </div>
-          )}
-
-          {/* Photos */}
+          {/* Photos. Its heading is a label like every other label on the card:
+              plain and muted, not the one bold thing in the box. */}
           {report.photos_json && report.photos_json.length > 0 && (
             <div>
-              <h5 className="font-medium text-sm mb-2">{t('photosCount', { count: report.photos_json.length })}</h5>
+              <h5 className="text-xs text-muted-foreground mb-1.5">{t('photosCount', { count: report.photos_json.length })}</h5>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {report.photos_json.map((filename, index) => (
                   <a
@@ -296,29 +499,15 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             </div>
           )}
 
-          {/* Summary - show text directly without label */}
-          {report.summary_text && (
-            <div>
-              <p className="text-sm">{report.summary_text}</p>
-            </div>
-          )}
-
-          {/* Additional Notes */}
-          {report.additional_notes && (
-            <div>
-              <h5 className="font-medium text-sm mb-2">{t('additionalNotes')}</h5>
-              <p className="text-sm text-muted-foreground">{report.additional_notes}</p>
-            </div>
-          )}
-
-          {/* Metadata */}
-          <div className="text-xs text-muted-foreground border-t pt-2 mt-4">
+          {/* Provenance, one wrapping row: two timestamps are one line's worth
+              of information. */}
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground border-t pt-2">
             {report.submitted_by_personnel_name && (
-              <p>{t('rekoBy', { name: report.submitted_by_personnel_name })}</p>
+              <span>{t('rekoBy', { name: report.submitted_by_personnel_name })}</span>
             )}
-            <p>{t('submittedAt', { date: new Date(report.submitted_at).toLocaleString('de-CH') })}</p>
+            <span>{t('submittedAt', { date: formatStamp(report.submitted_at) })}</span>
             {report.updated_at !== report.submitted_at && (
-              <p>{t('updatedAt', { date: new Date(report.updated_at).toLocaleString('de-CH') })}</p>
+              <span>{t('updatedAt', { date: formatStamp(report.updated_at) })}</span>
             )}
           </div>
         </div>
@@ -366,8 +555,10 @@ function RekoReportCardCompact({ report }: RekoReportCardProps) {
                 {report.submitted_by_personnel_name}
               </span>
             )}
+            {/* Same warning tone the current report's card uses — the history
+                row was the last place a Reko danger still read as red. */}
             {hasDangers && (
-              <span className="flex items-center gap-1 text-destructive">
+              <span className="flex items-center gap-1 text-warning-foreground">
                 <AlertTriangle className="h-3 w-3" />
                 {t('dangers')}
               </span>

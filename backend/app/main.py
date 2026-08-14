@@ -30,6 +30,7 @@ from .api.diag import router as diag_router
 from .api.divera import router as divera_router
 from .api.events import router as events_router
 from .api.exports import router as exports_router
+from .api.feld import router as feld_router
 from .api.groups import router as groups_router
 from .api.health import router as health_router
 from .api.help import router as help_router
@@ -72,14 +73,22 @@ from .background import (
 from .config import settings
 from .database import engine, get_db
 from .ensure_accounts import ensure_dev_bypass_user
+from .environment import blocked_domains, deployment_role
 from .middleware.audit import AuditMiddleware
 from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.request_id import RequestIDMiddleware, get_request_id, request_id_var
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
+from .services.alerting import AlarmBlockedError
 from .services.settings import initialize_default_settings
 from .websocket_manager import set_divera_poll_callback, ws_manager
 from .websocket_manager import sio as socket_server
+
+# Read the deployment role once, here, at import — the same place and the same moment a missing
+# or weak SECRET_KEY aborts (`config.py`). A DEPLOYMENT_ROLE the build cannot read raises here
+# and the process never starts, so no request can ever be served by an instance whose idea of
+# what it may do to the outside world is a guess. Unset is fine and silent: that is production.
+deployment_role()
 
 
 async def _setup_divera_polling():
@@ -147,6 +156,14 @@ async def _setup_divera_polling():
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events."""
     logger.info("Starting application...")
+
+    # Say out loud what this instance is allowed to do to the outside world. An unreadable role
+    # never gets this far — it is refused at import, below.
+    blocked = blocked_domains()
+    if blocked:
+        logger.warning("Deployment role %r blocks: %s", deployment_role(), ", ".join(blocked))
+    else:
+        logger.info("Deployment role: %s", deployment_role())
 
     # Schema is managed by Alembic ONLY (start.sh / start-dev.sh run
     # `alembic upgrade head` before boot). A create_all here would silently
@@ -387,6 +404,19 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 
+async def alarm_blocked_handler(request: Request, exc: Exception) -> JSONResponse:
+    """A deployment role refused to alert. 403, with the German reason, in ONE place.
+
+    Registered here rather than caught per route so that every present and future caller of
+    the AlarmProvider seam is covered without growing its own check.
+    """
+    logger.warning("Outbound alerting refused on %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
+app.add_exception_handler(AlarmBlockedError, alarm_blocked_handler)
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Log unhandled exceptions with traceback + request ID, return a generic 500.
 
@@ -500,6 +530,7 @@ app.include_router(materials_router, prefix=settings.api_v1_prefix)
 app.include_router(material_groups_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_dashboard_router, prefix=settings.api_v1_prefix)
+app.include_router(feld_router, prefix=settings.api_v1_prefix)
 app.include_router(photos_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)
 app.include_router(special_functions_router, prefix=settings.api_v1_prefix)

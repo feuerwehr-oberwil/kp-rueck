@@ -155,7 +155,7 @@ export default function GlobalError({
                 ? `Automatischer Neustart in ${secondsLeft} s …`
                 : 'Wird neu geladen …'
               : `KP Rück konnte nicht geladen werden. Zuerst neu laden. Bleibt der
-                 Fehler nach dem Neuladen bestehen, lokale Daten zurücksetzen — dabei
+                 Fehler nach dem Neuladen bestehen, lokale Daten zurücksetzen – dabei
                  gehen nur Einstellungen dieses Geräts verloren, keine Einsatzdaten.`}
           </p>
 

@@ -17,6 +17,7 @@ import { Users, Truck, Package, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import type { GroupResources } from "@/lib/types/groups"
 
 /**
@@ -91,7 +92,8 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
         />
         <div className="flex flex-wrap gap-2">
           {resources.personnel.length > 0 ? (
-            resources.personnel.map((p) => (
+            // EL first (decision 23) — the route's leader heads the route's crew.
+            sortCrewByLeader(resources.personnel, (p) => Boolean(p.isLeader)).map((p) => (
               <RemovableChip
                 key={p.assignmentId}
                 variant="secondary"

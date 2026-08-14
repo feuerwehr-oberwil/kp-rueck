@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { DemoBanner } from '@/components/demo-banner'
+import { DeploymentBanner } from '@/components/deployment-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
 import { IncidentTruncationBanner } from '@/components/incident-truncation-banner'
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
@@ -17,7 +18,7 @@ interface AppShellProps {
 // Camera) or after the keyboard closes: the bottom of the screen stays
 // unpainted (black) and taps land offset until the user reloads. Native body
 // scroll is the mode Safari handles correctly, so these routes opt out.
-const DOCUMENT_FLOW_ROUTES = ['/reko', '/reko-dashboard', '/alarm', '/check-in']
+const DOCUMENT_FLOW_ROUTES = ['/reko', '/reko-dashboard', '/alarm', '/check-in', '/feld']
 
 /**
  * AppShell wraps the main content. The notification sidebar renders as a flex
@@ -36,6 +37,7 @@ export function AppShell({ children }: AppShellProps) {
   if (isDocumentFlow) {
     return (
       <>
+        <DeploymentBanner />
         <DemoBanner />
         <StaleDataBanner />
         <IncidentTruncationBanner />

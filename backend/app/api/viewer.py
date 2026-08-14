@@ -15,6 +15,7 @@ from ..crud import groups as groups_crud
 from ..crud import incidents as incidents_crud
 from ..crud import materials as materials_crud
 from ..crud import personnel as personnel_crud
+from ..crud import reko as reko_crud
 from ..crud import special_functions as special_functions_crud
 from ..crud import vehicles as vehicles_crud
 from ..database import get_db
@@ -93,8 +94,12 @@ async def get_viewer_data(
     """
     Get read-only event data for viewer.
 
-    No authentication required - uses token validation.
-    Returns event info and all incidents for the event.
+    No authentication required — the token in the URL is the only gate, so the
+    payload is an ALLOWLIST, not the board's own response models. Every row is
+    re-serialised through the narrow `schemas.Viewer*` shapes (`schemas/viewer.py`
+    documents what each one drops and why): a shared link carries the situation —
+    address, Meldung, status, who and what is on it — and never the Melder's name
+    or phone number, the internal notes, or the operator/user ids behind them.
     """
     event_id = validate_viewer_token(token)
     if not event_id:
@@ -113,7 +118,7 @@ async def get_viewer_data(
     # plus materials/vehicles and live GPS. Assignments + special functions let
     # the client derive event-scoped availability (assigned vs. available) —
     # the raw Personnel.status field never reflects incident assignments.
-    personnel = await personnel_crud.get_all_personnel(db, checked_in_only=True, event_id=event_id)
+    personnel = await personnel_crud.list_personnel_with_attendance(db, checked_in_only=True, event_id=event_id)
     materials = await materials_crud.get_all_materials(db)
     vehicles = await vehicles_crud.get_all_vehicles(db)
     vehicle_positions = await _viewer_vehicle_positions()
@@ -122,17 +127,47 @@ async def get_viewer_data(
         db, await special_functions_crud.get_event_special_functions(db, event_id)
     )
 
+    # What the Reko reported, one bulk query for the whole event (the same one
+    # the logged-in board uses) — never one per incident. Only submitted reports
+    # come back with has_completed_reko; the drafts and the incidents without a
+    # Reko are dropped here instead of shipping empty objects.
+    reko_summaries = await reko_crud.get_reko_summaries_by_event(db, event_id)
+    viewer_reko_summaries = {
+        str(incident_id): schemas.ViewerRekoSummary(
+            is_relevant=summary["is_relevant"],
+            dangers_json=summary["dangers_json"],
+            summary_text=summary["summary_text"],
+            personnel_count=(summary["effort_json"] or {}).get("personnel_count"),
+            estimated_duration_hours=(summary["effort_json"] or {}).get("estimated_duration_hours"),
+            photos_json=summary["photos_json"] or [],
+        ).model_dump(mode="json")
+        for incident_id, summary in reko_summaries.items()
+        if summary["has_completed_reko"]
+    }
+
     return {
         "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
-        "incidents": [i.model_dump(mode="json") for i in await incident_display.incidents_with_display(db, incidents)],
-        "groups": [group.model_dump(mode="json") for group in groups],
-        "personnel": [schemas.Personnel.model_validate(p).model_dump(mode="json") for p in personnel],
-        "materials": [schemas.Material.model_validate(m).model_dump(mode="json") for m in materials],
+        "incidents": [
+            schemas.ViewerIncident.model_validate(i).model_dump(mode="json")
+            for i in await incident_display.incidents_with_display(db, incidents)
+        ],
+        "groups": [schemas.ViewerGroup.model_validate(group).model_dump(mode="json") for group in groups],
+        "personnel": [schemas.ViewerPersonnel.model_validate(p).model_dump(mode="json") for p in personnel],
+        "materials": [schemas.ViewerMaterial.model_validate(m).model_dump(mode="json") for m in materials],
+        # Full rows on purpose: a vehicle carries no personal data, and its
+        # radio call sign is drawn next to it on a card (see schemas/viewer.py).
         "vehicles": [schemas.Vehicle.model_validate(v).model_dump(mode="json") for v in vehicles],
         "vehicle_positions": vehicle_positions,
         "assignments": {
-            str(incident_id): [a.model_dump(mode="json") for a in assignment_list]
+            str(incident_id): [
+                schemas.ViewerAssignment.model_validate(a).model_dump(mode="json") for a in assignment_list
+            ]
             for incident_id, assignment_list in assignments.items()
         },
-        "special_functions": [sf.model_dump(mode="json") for sf in special_functions],
+        "special_functions": [
+            schemas.ViewerSpecialFunction.model_validate(sf).model_dump(mode="json") for sf in special_functions
+        ],
+        # incident_id → Reko result. Photo FILENAMES ride along; the same token
+        # opens /api/photos for this event only (ViewerRekoSummary, serve_photo).
+        "reko_summaries": viewer_reko_summaries,
     }

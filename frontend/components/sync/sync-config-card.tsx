@@ -23,9 +23,11 @@ export function SyncConfigCard() {
   const [conflictBuffer, setConflictBuffer] = useState<number>(5)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Load config on mount
+  // Load config on mount. `loadConfig` is a plain function re-created on every
+  // render, so listing it as a dep would refetch on every render.
   useEffect(() => {
     loadConfig()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadConfig = async () => {

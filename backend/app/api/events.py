@@ -4,12 +4,13 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import events as crud
+from ..crud import feld as feld_crud
 from ..database import get_db
 from ..utils.errors import ErrorMessages
 
@@ -84,6 +85,26 @@ async def get_event(
     }
 
     return schemas.EventResponse.model_validate(event_dict)
+
+
+@router.get("/{event_id}/restliste", response_model=schemas.EventRestliste)
+async def get_event_restliste(
+    event_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> schemas.EventRestliste:
+    """What is still open in this Ereignis (§6, V-8).
+
+    Three counts — Schadenplätze without a rapport, units still on site, Trupps
+    waiting for a pickup — each carrying the incidents behind it, because the
+    count is only the way in. This is where somebody at 02:00 finds the gaps;
+    nobody clicks twenty-three cards individually. It is the operational
+    counterpart of there being no acceptance step (decision 10).
+    """
+    event = await crud.get_event_by_id(db, event_id)
+    if not event:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    return schemas.EventRestliste(**await feld_crud.event_restliste(db, event_id))
 
 
 @router.post("/", response_model=schemas.EventResponse, status_code=status.HTTP_201_CREATED)
@@ -197,6 +218,7 @@ async def delete_event(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
+    request: Request,
 ) -> None:
     """
     Permanently delete an event (editor only).
@@ -204,7 +226,7 @@ async def delete_event(
     Event must be archived first before it can be deleted.
     """
     try:
-        success = await crud.delete_event(db, event_id)
+        success = await crud.delete_event(db, event_id, current_user, request)
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     except ValueError as e:

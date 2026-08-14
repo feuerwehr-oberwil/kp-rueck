@@ -128,10 +128,12 @@ class Personnel(Base):
     # removed. Do not add new readers.
     divera_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
-    # Check-in tracking
-    checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
-    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Check-in tracking lives in `event_attendance`, NOT here. This table used to carry
+    # checked_in / checked_in_at / checked_out_at; they were superseded one day after they
+    # landed and never written again, but `schemas.Personnel` kept reading them through
+    # `from_attributes`, so the roster answered "nobody is checked in" for an event full of
+    # people. Dropped in migration c7e4a1b9f082 rather than commented — a column that only
+    # ever returns false is worse than no column, because it answers.
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -143,12 +145,6 @@ class Personnel(Base):
             "status IN ('available', 'unavailable')",
             name="valid_personnel_status",
         ),
-        # Check-in only allowed if not unavailable
-        CheckConstraint(
-            "(checked_in = false) OR (checked_in = true AND status != 'unavailable')",
-            name="valid_checkin_status",
-        ),
-        Index("idx_personnel_checked_in", "checked_in"),
         Index("idx_personnel_status", "status"),
         Index("idx_personnel_role_sort_order", "role_sort_order"),
     )
@@ -280,6 +276,16 @@ class EventAttendance(Base):
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Provenance: which channel wrote this row. A user FK means an operator ticked the name on
+    # the board ("Funkmeldung"); NULL means it came in through the login-less check-in link,
+    # which carries no identity at all. Never inferred in either direction — the personnel side
+    # and the user side are separate columns on purpose (plan 26 decision 6).
+    checked_in_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    checked_out_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -366,6 +372,35 @@ class Incident(Base):
     assigned_vehicles: list[Any]
     has_completed_reko: bool
     reko_arrived_at: datetime | None
+    # Which channel reported that arrival: True when an operator logged it from a
+    # radio message (`arrived_reported_by_user_id` set), False when the crew tapped
+    # "Ich bin vor Ort" on `/reko`. Batched onto the incident the same way the
+    # timestamp is, because the detail's Feldmeldungen row is the ONE place the
+    # arrival is shown (decision 15) and it must say which channel it came through
+    # without a second round trip.
+    reko_arrived_by_kp: bool
+    has_schadenplatz_rapport: bool
+    # The same query's other answer: a rapport row exists but is still a draft.
+    # Kept as its own flag rather than derived, because "nobody filed" and
+    # "somebody started and walked away" are different states on the board.
+    has_schadenplatz_rapport_draft: bool
+    # Has this incident ever been disponiert (reached `enroute` or anything past
+    # it)? Answered from `status_transitions`, batched for the whole board — see
+    # `services.incident_dispatch`. It is what decides whether the
+    # Schadenplatz-Rapport exists for this card at all: a Schadenplatz nobody
+    # was ever sent to has nothing to report on.
+    has_been_dispatched: bool
+    # "Angekommen" from /feld. It lives on schadenplatz_reports (one row per incident),
+    # so the board's list query batches it onto the incident the same way reko_arrived_at
+    # is batched — the detail's "Feldmeldungen" row needs it without a second round trip.
+    field_arrived_at: datetime | None
+    # Who reported the arrival — NULL when the KP took it over the radio, which is
+    # the provenance rule itself and not a missing lookup (decision 28).
+    field_arrived_by: UUID | None
+    # …or NULL because the GPS automation stamped it (§18.24). A third
+    # provenance, carried as its own flag rather than folded into the NULL: the
+    # board must not word a machine's inference as "im KP erfasst".
+    field_arrived_by_automation: bool
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
@@ -419,12 +454,51 @@ class Incident(Base):
     # Purely informational: it surfaces a badge on the card so the operator can
     # decide to close the incident — it does NOT change status on its own.
     field_complete_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Who reported "Einsatz beendet" from the field. The timestamp column
+    # (field_complete_reported_at) already existed but had no writer outside the
+    # training simulator; /feld is its first real one.
+    field_complete_reported_by: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # "Abholung nötig": the crew is finished and cannot get back on its own —
+    # zu Fuss, or the vehicle drove on. Shaped after am_warten / nachbarhilfe
+    # (bool + note), with provenance added because at 02:00 the operationally
+    # decisive fact is *how long* they have been waiting.
+    # NOT a status, and deliberately NOT cleared by completing the incident:
+    # crud/incidents.py releases the personnel on `complete` while they are
+    # still standing at the address, which is precisely when this must survive.
+    pickup_needed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    pickup_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pickup_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pickup_requested_by: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
 
     # True once a human has picked the Einsatzleiter here. Until then the board
     # keeps the role on the highest-ranking person present and re-picks whenever
     # the crew changes; one manual choice stops that for good, because an
     # operator's decision must not be silently overwritten by the next arrival.
     leader_manual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Leader OF RECORD: who led this Schadenplatz, kept beyond the crew's
+    # release. `is_leader` lives on the assignment row and is cleared when that
+    # row is released — and completing an incident releases the crew ONE AT A
+    # TIME, each release promoting the next person (crud/assignments.py), so
+    # once an incident is done the assignment rows can no longer answer "who was
+    # Einsatzleiter here". That is exactly the state an incident is in when a
+    # crew opens /feld to file its rapport, when the event report PDF is built
+    # and when the Lageblatt is printed.
+    #
+    # Written only when a leader is genuinely CHOSEN (manual pick, or the
+    # automatic pick on a crew change), and frozen from the then-active leader
+    # right before the completion cascade starts. Never written by the
+    # promotions that cascade produces, and never cleared by a release.
+    # Read through `services.incident_leader` — active `is_leader` assignment
+    # first, this column as the fallback.
+    leader_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Relationships
     creator: Mapped[Optional["User"]] = relationship(
@@ -438,6 +512,9 @@ class Incident(Base):
     )
     status_transitions: Mapped[list["StatusTransition"]] = relationship(
         "StatusTransition", back_populates="incident", cascade="all, delete-orphan"
+    )
+    schadenplatz_report: Mapped[Optional["SchadenplatzReport"]] = relationship(
+        "SchadenplatzReport", back_populates="incident", cascade="all, delete-orphan", uselist=False
     )
 
     __table_args__ = (
@@ -600,7 +677,23 @@ class IncidentAssignment(Base):
 
     __table_args__ = (
         CheckConstraint("resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"),
-        UniqueConstraint("incident_id", "resource_type", "resource_id", "unassigned_at", name="unique_assignment"),
+        # One ACTIVE assignment per resource per incident. This used to be a plain
+        # UniqueConstraint over (incident_id, resource_type, resource_id, unassigned_at),
+        # which enforced nothing where it mattered: active rows carry unassigned_at = NULL,
+        # and in SQL NULL != NULL, so any number of active duplicates satisfied it. A double
+        # click — or two editors on the same resource — inserted the person twice and the
+        # board showed them twice on one incident. `assign_resource` takes SELECT ... FOR
+        # UPDATE first, but that locks the rows it finds, and on the first assignment there
+        # are none to lock, so both transactions saw an empty result and both inserted.
+        # Partial unique index over the active rows only, exactly as the group twin below.
+        Index(
+            "uq_assignments_active_resource",
+            "incident_id",
+            "resource_type",
+            "resource_id",
+            unique=True,
+            postgresql_where=sa_text("unassigned_at IS NULL"),
+        ),
         Index("idx_assignments_incident", "incident_id"),
         Index("idx_assignments_resource", "resource_type", "resource_id"),
         Index("idx_assignments_resource_id", "resource_id"),
@@ -724,6 +817,29 @@ class RekoReport(Base):
     )
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # --- Provenance (plan 26 §5.3) ---
+    # `submitted_by_personnel_id` above stays the field-side answer and is never
+    # written by the board. These three are the KP side: the operator who typed a
+    # dictated Reko report, amended a crew's, or logged "Reko meldet: vor Ort" off
+    # the radio. Exactly one side of a pair is populated per write — a User is
+    # never guessed to be a Personnel (decision 6) — and a mixed report (crew
+    # filed, KP amended) legitimately carries both, which is why the amendment
+    # gets its own column rather than overwriting the creator.
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # The arrival's OWN author, for the same reason the Schadenplatz-Rapport keeps
+    # `arrived_by_user_id` apart from its created_by pair: the KP can now create a
+    # report before anybody is on site, so reading the arrival off the creator
+    # would render a crew's later "vor Ort" as a radio message. Clearing the
+    # arrival clears this too — "nobody has reported it" is not a KP report.
+    arrived_reported_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="reko_reports")
     submitted_by_personnel: Mapped[Optional["Personnel"]] = relationship("Personnel")
@@ -732,6 +848,163 @@ class RekoReport(Base):
         Index("idx_reko_incident", "incident_id"),
         Index("idx_reko_token", "token"),
     )
+
+
+# ============================================
+# SCHADENPLATZ REPORTS
+# ============================================
+
+
+class SchadenplatzReport(Base):
+    """Field report for one Schadenplatz — the digital fahrzeugrapport.pdf.
+
+    Exactly one row per incident (see the unique constraint): several crews on one
+    Schadenplatz amend the same report rather than filing competing ones. Who last
+    touched it is recorded and surfaced everywhere the report is shown.
+    """
+
+    __tablename__ = "schadenplatz_reports"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # --- Einsatzdaten ---
+    # There is deliberately no Beginn/Ende Tätigkeit here. The two timestamps were
+    # asked of the crew and then never disagreed with the board: the window is
+    # already implied by the arrival, the status transitions and the field's
+    # "beendet" message, so every output derives it instead
+    # (`services.pdf_report_service.rapport_work_windows`). Typing in the rain what
+    # the board already knows is the one cost a field form must not have.
+    # Material checklist. One entry per material unit that was assigned to this
+    # incident, carried over from incident_assignments on first open:
+    #   {"assignment_id": ..., "material_id": ..., "name": "Tauchpumpe TP-4",
+    #    "used": true, "left_on_site": false}
+    # `used` is a plain bool, **defaulting to true** (§18.32): the unit was sent to
+    # this Schadenplatz, so "it was used" is the common case and the crew only
+    # unticks the exceptions — exactly how the vehicle list works. It used to be
+    # three-state (`null` = keine Angabe); a tri-state control was too fiddly for a
+    # thumb in the rain, and reading the answer twice ("nein" vs "nichts gesagt")
+    # was worth less than a tick that is actually hit correctly. Legacy nulls were
+    # rewritten to true by migration `f2a7c4d1e903`.
+    materials_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    # Material that was never on the board — improvised or borrowed. One entry per
+    # item, **names never ids** (decision 18): the catalogue is offered as a
+    # multi-select so the crew does not spell "Tauchpumpe TP-4" from memory, but
+    # picking a name is not picking a unit and `/feld` never writes an assignment.
+    #   [{"name": "Tauchpumpe vom Werkhof", "left_on_site": true}, ...]
+    # There is no `used` flag here and there must not be one (§18.35): naming
+    # something on this list already means it was used. The one question nothing
+    # else answers is whether it is still standing at the address, and that answer
+    # has to be per entry — which is why this stopped being the comma-separated
+    # `extra_material_note` and became a list. Migration `b4f1c07a92de` carried the
+    # old strings over, every entry `left_on_site=false`, the state they implicitly
+    # had. Free text stays: an entry whose name is in no catalogue is still valid.
+    extra_materials_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+
+    # --- Kurzbericht (one box; the paper's Lage/Tätigkeit/Geräte are its hint) ---
+    kurzbericht: Mapped[str | None] = mapped_column(Text, nullable=True)
+    handed_over_to: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- Eigentümer-/Halterdaten (citizen PII) ---
+    # Name and phone, the two fields the incident already carries for the Melder
+    # (§18.31). §18.10 collapsed five paper columns into one free-text box, and
+    # the box was right about four of them (Strasse, Ort, Kennzeichen, Typ) and
+    # wrong about the fifth: a phone number written inside a paragraph cannot be
+    # dialled. These are deliberately the SAME two shapes as
+    # ``Incident.contact`` / ``Incident.contact_phone`` — same nullability, same
+    # column types, same "the phone is its own field so it can be a tel: link"
+    # reasoning. Everything else about the property still belongs in the
+    # Kurzbericht, which is where a crew was already writing it.
+    owner_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    owner_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # --- Mannschaft und Fahrzeuge, as the crew confirms them ---
+    # Both are checklists the crew ticks, the same shape as the material one.
+    #
+    # `personnel_count` is DERIVED from `personnel_json` + `extra_personnel_json`
+    # since the crew stopped typing it: a number answered neither "war jemand
+    # dabei, den niemand aufgeboten hat?" nor "ist jemand früher gegangen?", and
+    # every output that prints it wanted the names anyway. The column stays
+    # because five outputs and a billing workflow read it, and it can now never
+    # disagree with the list it comes from. `personnel_count_corrected` still says
+    # the crew's answer differs from the board's.
+    personnel_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    personnel_count_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Crew checklist over the people checked in at this Ereignis, keyed on the
+    # person (same reasoning as the vehicles — somebody who came along was never
+    # assigned, so an assignment id cannot be the identity of the row):
+    #   {"personnel_id": ..., "name": "Meier Andrea", "present": true}
+    # The people the board has on this incident arrive ticked, the rest unticked.
+    personnel_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    # People who are on no roster of this station — a neighbouring brigade's crew,
+    # somebody from the Werkhof. **Names never ids** (same rule as the extra
+    # material): the check-in list is not a place to invent personnel rows, and
+    # `/feld` writes no attendance.
+    #   [{"name": "Bräm Urs", "note": "FW Allschwil, ab 21:00"}, ...]
+    # The note is deliberately free text rather than an "Einheit" field: it also
+    # has to carry "kam später", "nur Verkehrsdienst" and whatever else the crew
+    # needs to say about somebody the board never knew.
+    extra_personnel_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    # Vehicle checklist over the WHOLE fleet (§18.33), keyed on the vehicle rather
+    # than on an assignment, because a vehicle that came along without ever being
+    # on the board has no assignment to key on:
+    #   {"vehicle_id": ..., "name": "TLF 1", "present": true}
+    # The vehicles the board has assigned arrive ticked, the rest unticked; the
+    # crew ticks what also drove and unticks what did not.
+    vehicles_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    # Frozen at submit: [{"kind": "personnel", "name": ..., "from": ..., "to": ...}, ...]
+    cost_snapshot_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+
+    # --- Field actions that predate the form ---
+    # Set by "Angekommen" on /feld. Independent of RekoReport.arrived_at, which
+    # belongs to the reconnaissance flow and answers a different question.
+    arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The arrival's OWN author. Phase 1 read this off the created_by pair, which
+    # was exact only while an arrival was the only thing that could create the
+    # row; the KP can now create a rapport first, and a crew arriving afterwards
+    # would then be rendered as "im KP erfasst". Same rule as every other pair
+    # here: exactly one side per write, never guess a Personnel from a User.
+    arrived_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    arrived_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    photos_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+
+    # --- Provenance ---
+    created_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    # Set instead of the personnel columns when an editor filed or amended the report
+    # from the board — the radio-message case. Exactly one side of the pair is
+    # populated per write, and every output says which: "(Feld)" vs "(Funkmeldung)".
+    # Never guess a Personnel row from a User; they are different people often enough
+    # that a wrong attribution on a billing document is worse than no attribution.
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Defaults to True, the opposite of RekoReport.is_draft: a row is created the
+    # moment someone taps "Angekommen" — before any form exists — so the row's
+    # default state must be "not yet filed".
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    incident: Mapped["Incident"] = relationship("Incident", back_populates="schadenplatz_report")
+
+    __table_args__ = (UniqueConstraint("incident_id", name="uq_schadenplatz_report_incident"),)
 
 
 # ============================================
@@ -753,6 +1026,21 @@ class StatusTransition(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     user_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What THIS transition released, so leaving the status again can put it back.
+    #
+    # Only completion writes it: moving to `complete` auto-releases the whole crew
+    # and every vehicle (`auto_release_incident_resources`), plus the Auftrag's
+    # shared resources when this was the last stop. Reopening the incident used to
+    # leave all of that released — the board came back with an empty card. Undoing
+    # a release needs to know WHICH rows that particular completion closed, and
+    # nothing else in the schema can answer it: `unassigned_at` is a timestamp
+    # shared with every ordinary release, and by the time the incident reopens the
+    # `is_leader` flag is gone from every row.
+    #
+    # Shape: [{"kind": "incident"|"group", "id": "<assignment uuid>",
+    #          "was_leader": bool}, ...]. Cleared when consumed, so a second
+    # reopen cannot replay a restore that already happened.
+    released_assignments_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="status_transitions")
@@ -878,7 +1166,12 @@ class Notification(Base):
             "type IN ("
             "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
             "'missing_location', 'event_size_limit', 'reko_submitted', 'reko_arrived', "
-            "'training_emergency', 'vehicle_arrived'"
+            "'training_emergency', 'vehicle_arrived', "
+            # Field reporting (/feld). 'field_pickup' is the only warning of the five —
+            # a crew waiting to be collected is the one field event that is time-critical
+            # for the KP; the rest are info.
+            "'rapport_submitted', 'field_arrived', 'field_complete', 'field_message', "
+            "'field_pickup'"
             ")",
             name="valid_notification_type",
         ),
@@ -979,7 +1272,8 @@ class PrintJob(Base):
     __tablename__ = "print_jobs"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    job_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'assignment', 'board', 'test', or 'qr_code'
+    # 'assignment', 'board', 'test', 'qr_code' or 'abholliste'
+    job_type: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
@@ -1004,7 +1298,10 @@ class PrintJob(Base):
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     __table_args__ = (
-        CheckConstraint("job_type IN ('assignment', 'board', 'test', 'qr_code')", name="valid_print_job_type"),
+        CheckConstraint(
+            "job_type IN ('assignment', 'board', 'test', 'qr_code', 'abholliste')",
+            name="valid_print_job_type",
+        ),
         CheckConstraint(
             "status IN ('pending', 'printing', 'completed', 'failed', 'expired')",
             name="valid_print_job_status",

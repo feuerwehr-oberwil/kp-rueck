@@ -55,12 +55,15 @@ export function PrinterSettings() {
   // Pending "reset the done bar" timer, so a quick re-run can cancel it.
   const testResetTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Load once on mount. The loaders are plain functions re-created on every
+  // render, so listing them as deps would refetch on every render.
   useEffect(() => {
     loadSettings();
     loadPrinterStatus();
     return () => {
       if (testResetTimerRef.current) clearTimeout(testResetTimerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadSettings = async () => {

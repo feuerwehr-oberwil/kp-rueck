@@ -768,3 +768,47 @@ async def test_reorder_incidents_ignores_foreign_ids(
     # Index 0 and 2 in the request → positions 0 and 2; the stray uuid at index 1 is skipped.
     assert by_id[str(three_incidents[1].id)] == 0
     assert by_id[str(three_incidents[0].id)] == 2
+
+
+# ============================================
+# Participants roll-up ("Bisher im Einsatz")
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_participants_still_names_the_leader_after_completion(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident
+):
+    """The one view whose job is "who was here" must survive the crew going home.
+
+    Completing an incident releases every assignment, and releasing clears
+    ``is_leader``. Rolling the raw flag up therefore left a finished incident
+    with nobody flagged as having led it — see plan 25, decision 29.
+    """
+    from app.models import Personnel
+
+    leader = Personnel(id=uuid4(), name="Offi Olivia", role="Offizier", status="available")
+    hand = Personnel(id=uuid4(), name="Mann Milo", role="Mannschaft", status="available")
+    db_session.add_all([leader, hand])
+    await db_session.commit()
+
+    for person in (hand, leader):
+        response = await editor_client.post(
+            f"/api/incidents/{test_incident.id}/assign",
+            json={"resource_type": "personnel", "resource_id": str(person.id)},
+        )
+        assert response.status_code in (200, 201), response.text
+
+    # The Offizier outranks the Mannschaft, so the board auto-picks them.
+    participants = (await editor_client.get(f"/api/incidents/{test_incident.id}/participants")).json()
+    assert [p["name"] for p in participants["participants"] if p["is_leader"]] == ["Offi Olivia"]
+
+    response = await editor_client.post(
+        f"/api/incidents/{test_incident.id}/status",
+        json={"from_status": test_incident.status, "to_status": "complete"},
+    )
+    assert response.status_code == 200, response.text
+
+    participants = (await editor_client.get(f"/api/incidents/{test_incident.id}/participants")).json()
+    assert [p["name"] for p in participants["participants"] if p["is_leader"]] == ["Offi Olivia"]

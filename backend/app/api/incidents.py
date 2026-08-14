@@ -5,7 +5,18 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -15,11 +26,17 @@ from .. import models, schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings
 from ..crud import events as events_crud
+from ..crud import feld as feld_crud
 from ..crud import incidents as crud
+from ..crud import reko as reko_crud
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..services import incident_display
+from ..services.audit import log_action
+from ..services.incident_leader import effective_leader_ids
+from ..services.notification_service import create_reko_arrived_notification
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_group_update, broadcast_incident_update
+from ..websocket_manager import broadcast_group_update, broadcast_incident_update, broadcast_reko_update
 
 logger = logging.getLogger(__name__)
 
@@ -379,6 +396,304 @@ async def update_status(
     return incident_response
 
 
+@router.get("/{incident_id}/field-report", response_model=schemas.FieldReportState)
+async def get_field_report(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> schemas.FieldReportState:
+    """The three field reports of one Schadenplatz, as `/feld` returns them."""
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    return schemas.FieldReportState(**await feld_crud.field_report_state(db, incident))
+
+
+@router.post("/{incident_id}/field-report", response_model=schemas.FieldReportState)
+async def set_field_report(
+    incident_id: uuid.UUID,
+    payload: schemas.FieldReportUpdate,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.FieldReportState:
+    """The KP twin of the `/feld` field actions (decision 28).
+
+    The normal case is a radio message: the crew has no signal, no phone or no
+    hands and dictates. A field surface whose data can only arrive through that
+    surface would make the KP a spectator to its own board — so *everything* a
+    crew can tap here, an operator can enter, through the **same CRUD module**
+    (`crud/feld.py`). Two thin routers, one implementation.
+
+    Set or clear any of the three: a field present in the body with a value sets
+    it, present as `null` clears it, absent leaves it alone. Without that
+    distinction an operator correcting the pickup note would wipe the arrival.
+
+    **Provenance is never faked.** This path leaves `field_complete_reported_by`
+    and `pickup_requested_by` NULL — they are personnel FKs and no operator is
+    the crew — and puts the user in the audit-log entry instead.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+
+    actor = feld_crud.FieldActor(user=current_user)
+    provided = payload.model_fields_set
+
+    if "arrived_at" in provided:
+        await feld_crud.record_arrival(db, incident, actor=actor, at=payload.arrived_at, request=request)
+
+    if "field_complete_reported_at" in provided:
+        await feld_crud.record_field_complete(
+            db, incident, actor=actor, at=payload.field_complete_reported_at, request=request
+        )
+
+    if "pickup_needed" in provided and payload.pickup_needed is not None:
+        await feld_crud.record_pickup(
+            db,
+            incident,
+            actor=actor,
+            needed=payload.pickup_needed,
+            note=payload.pickup_note,
+            at=payload.pickup_requested_at,
+            request=request,
+        )
+    elif "pickup_note" in provided and incident.pickup_needed:
+        # Editing only the note of an open pickup. The waiting time is the
+        # operationally decisive fact at 02:00, so `pickup_requested_at` stays.
+        await feld_crud.record_pickup(db, incident, actor=actor, needed=True, note=payload.pickup_note, request=request)
+
+    return schemas.FieldReportState(**await feld_crud.field_report_state(db, incident))
+
+
+@router.post("/{incident_id}/reko-arrived", response_model=schemas.RekoArrivedState)
+async def set_reko_arrived(
+    incident_id: uuid.UUID,
+    payload: schemas.RekoArrivedUpdate,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.RekoArrivedState:
+    """ "Reko meldet: vor Ort" over the radio (plan 26 §5.2, decision 15).
+
+    The KP twin of `POST /api/reko/{incident_id}/arrived`, which is a form-token
+    route and therefore had nowhere to put a message that arrived by radio. It
+    reuses `crud.mark_reko_arrived`'s body with the token lookup replaced, fires
+    the same notification and broadcasts the same two WebSocket events — **a
+    board watching for a field message must not be able to tell the difference
+    in anything except the provenance line.**
+
+    Idempotent, correctable and clearable: absent `arrived_at` means "now" and
+    leaves an existing arrival alone, an explicit one lands at the time the
+    message was actually given (five minutes ago, over the radio), and `null`
+    clears it, because a mis-heard call is corrected rather than amended.
+
+    The arrival is displayed and written in exactly ONE place, the detail's
+    Feldmeldungen row. Do not add a second control for it somewhere else.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+
+    clear = "arrived_at" in payload.model_fields_set and payload.arrived_at is None
+    try:
+        report = await reko_crud.set_reko_arrived_by_user(
+            db, incident_id, user=current_user, at=payload.arrived_at, clear=clear
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND) from e
+
+    await log_action(
+        db=db,
+        action_type="reko_arrived_cleared" if clear else "reko_arrived",
+        resource_type="incident",
+        resource_id=incident_id,
+        user=current_user,
+        changes={"arrived_at": report.arrived_at.isoformat() if report and report.arrived_at else None},
+        request=request,
+    )
+    await db.commit()
+
+    arrived_at = report.arrived_at if report else None
+
+    # The same notification the field path fires. `arrived_by_name` stays None:
+    # no operator is the Reko crew, and naming one would be exactly the guessed
+    # attribution the provenance rule forbids (decision 6).
+    if arrived_at is not None and incident.event_id:
+        await create_reko_arrived_notification(
+            db=db,
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            incident_title=incident.title or incident.location_address or "Unbekannt",
+            arrived_by_name=None,
+            incident_address=incident.location_address,
+        )
+
+    background_tasks.add_task(
+        broadcast_incident_update,
+        {"id": str(incident_id), "reko_arrived_at": arrived_at.isoformat() if arrived_at else None},
+        "update",
+    )
+    background_tasks.add_task(
+        broadcast_reko_update,
+        {"incident_id": str(incident_id)},
+        "arrived",
+    )
+
+    return schemas.RekoArrivedState(
+        incident_id=incident_id,
+        arrived_at=arrived_at,
+        arrived_reported_by_user_id=report.arrived_reported_by_user_id if report else None,
+    )
+
+
+@router.get("/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)
+async def get_incident_rapport(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.SchadenplatzRapport:
+    """The Schadenplatz-Rapport from the board — the same prefill as `/feld` (§4).
+
+    KP parity is a hard requirement, not a convenience (decision 28): the normal
+    case is a radio message, and an editor must be able to create a rapport for
+    an incident that never had any field contact, fill every field, tick the
+    checklist and submit it. **One CRUD module, two thin routers** — the board's
+    detail section renders the same form component over this pair.
+
+    Editor-gated rather than `CurrentUser`: the response carries the owner block,
+    which is the first citizen PII in kp-rueck (§9).
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    actor = feld_crud.FieldActor(user=current_user)
+    return schemas.SchadenplatzRapport(**await feld_crud.get_rapport(db, incident, actor=actor))
+
+
+@router.put("/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)
+async def save_incident_rapport(
+    incident_id: uuid.UUID,
+    payload: schemas.RapportUpdate,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.SchadenplatzRapport:
+    """The KP twin of the `/feld` upsert, over the same CRUD (decision 28).
+
+    **Provenance is never faked.** This path stamps `*_by_user_id`, leaves the
+    personnel columns NULL, and every output prints "(Funkmeldung)". A mixed
+    report — crew filed, KP amended — shows both lines, which is why the two
+    pairs exist rather than one resolved author.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    actor = feld_crud.FieldActor(user=current_user)
+    return schemas.SchadenplatzRapport(
+        **await feld_crud.save_rapport(db, incident, actor=actor, payload=payload, request=request)
+    )
+
+
+@router.post("/{incident_id}/rapport/photos", response_model=schemas.RapportPhotosResponse)
+@limiter.limit(RateLimits.PHOTO_UPLOAD)
+async def upload_rapport_photo(
+    incident_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+    file: UploadFile = File(...),
+) -> schemas.RapportPhotosResponse:
+    """The KP twin of the `/feld` photo upload — the WhatsApp-photo case (§6.1).
+
+    A crew with no signal sends the picture over whatever channel works and the
+    operator attaches it here. Same CRUD, same storage, same files on disk;
+    provenance stays honest — this stamps the user, not a personnel row.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    actor = feld_crud.FieldActor(user=current_user)
+    photos = await feld_crud.add_photo(db, incident, actor=actor, file=file, request=request)
+    return schemas.RapportPhotosResponse(
+        incident_id=incident.id,
+        photos=photos,
+        filename=photos[-1] if photos else None,
+    )
+
+
+@router.delete("/{incident_id}/rapport/photos/{filename}", response_model=schemas.RapportPhotosResponse)
+@limiter.limit(RateLimits.PHOTO_UPLOAD)
+async def delete_rapport_photo(
+    incident_id: uuid.UUID,
+    filename: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.RapportPhotosResponse:
+    """Detach a photo from the board side."""
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    actor = feld_crud.FieldActor(user=current_user)
+    photos = await feld_crud.remove_photo(db, incident, actor=actor, filename=filename, request=request)
+    return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
+
+
+@router.get("/{incident_id}/rapport/material-return", response_model=schemas.MaterialReturnResponse)
+async def get_rapport_material_return(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+    include_draft: bool = Query(
+        False,
+        description="Also answer from a rapport that is still a draft. For the completion gate's prefill only.",
+    ),
+) -> schemas.MaterialReturnResponse:
+    """ "Material zurück – freigeben" (decision 17): what the board may release.
+
+    A read only. The releasing itself goes through the existing per-assignment
+    release — a field form must not silently write assignments, and the decision
+    stays with the operator.
+
+    ``left_on_site`` is returned separately and is **not** in the release set;
+    consumables are in neither (decision 26). ``left_on_site_named`` carries the
+    "Weiteres Material" the crew left behind (§18.35) — names with no assignment
+    under them, so there is nothing to release and the list says so rather than
+    letting an operator read silence as "nothing is left there".
+
+    Also the source of truth for the completion gate's prefill (§18): the same
+    answers, plus who filed them, so "Material vor Ort oder ins Magazin?" arrives
+    already answered instead of asking the crew's question a second time.
+
+    **The two callers differ in exactly one flag (§18.23).** The release list in
+    the incident detail is submitted-only (the default): its click releases
+    assignments, and doing that off a half-typed checklist is how a pump gets
+    freed while it is still running in a cellar. The completion gate passes
+    ``include_draft=true``: it only prefills a dialog the operator confirms, and
+    a crew that filled the checklist without pressing *Rapport abschliessen* on
+    a phone in the rain is the normal case — throwing its answers away is the
+    thing this parameter exists to stop. ``rapport_is_draft`` tells the caller
+    which it got, so a draft is never quoted as a filed rapport.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    returned, left = await feld_crud.material_return_units(db, incident, include_draft=include_draft)
+    rapport_by, submitted_at, is_draft = await feld_crud.material_return_attribution(
+        db, incident, include_draft=include_draft
+    )
+    return schemas.MaterialReturnResponse(
+        returned=[schemas.MaterialReturnUnit(**unit) for unit in returned],
+        left_on_site=[schemas.MaterialReturnUnit(**unit) for unit in left],
+        left_on_site_named=await feld_crud.material_left_on_site_named(db, incident, include_draft=include_draft),
+        rapport_by=rapport_by,
+        rapport_submitted_at=submitted_at,
+        rapport_is_draft=is_draft,
+    )
+
+
 @router.get("/{incident_id}/history", response_model=list[schemas.StatusTransitionResponse])
 async def get_status_history(
     incident_id: uuid.UUID,
@@ -450,9 +765,19 @@ async def get_incident_participants(
         )
         reko_ids = {row[0] for row in reko_rows.all()}
 
+    # Who led it. `is_leader` is cleared when an assignment is released, so rolling
+    # the raw flag up leaves a completed incident with nobody flagged — in the one
+    # view whose entire job is to answer "who was here" long after it closed.
+    # Resolve it the way every other reader does.
+    active_leader_ids = {
+        a.resource_id for a in assignments if a.resource_type == "personnel" and a.is_leader and a.unassigned_at is None
+    }
+    leader_ids = effective_leader_ids(incident, active_leader_ids)
+
     rolled: dict[tuple[str, uuid.UUID], schemas.IncidentParticipant] = {}
     for a in assignments:
         key = (a.resource_type, a.resource_id)
+        is_leader = a.resource_type == "personnel" and a.resource_id in leader_ids
         existing = rolled.get(key)
         if existing is None:
             rolled[key] = schemas.IncidentParticipant(
@@ -463,11 +788,11 @@ async def get_incident_participants(
                 last_released_at=a.unassigned_at,
                 stints=1,
                 is_reko=a.resource_type == "personnel" and a.resource_id in reko_ids,
-                is_leader=a.is_leader,
+                is_leader=is_leader,
             )
             continue
         existing.stints += 1
-        existing.is_leader = existing.is_leader or a.is_leader
+        existing.is_leader = existing.is_leader or is_leader
         # A single still-open stint makes the whole participation still open,
         # whatever order the rows arrived in.
         if existing.last_released_at is not None:
@@ -487,9 +812,10 @@ async def get_incident_timeline(
 ) -> schemas.IncidentTimelineResponse:
     """Get the merged event timeline for an incident.
 
-    Combines status transitions and resource assignments (assign + unassign)
-    into a single chronologically sorted list. Used by the timeline popover
-    in the kanban operation detail modal.
+    Combines status transitions, resource assignments (assign + unassign) and
+    the field's Freitext-Meldungen into a single chronologically sorted list.
+    It is the whole content of the "Verlauf" tab in the operation detail, and
+    the source of the message thread shown next to the Feldmeldungen.
     """
     # Verify incident exists
     incident = await crud.get_incident(db, incident_id)
@@ -511,6 +837,23 @@ async def get_incident_timeline(
         .where(models.IncidentAssignment.incident_id == incident_id)
     )
     assignments = assignments_result.all()
+
+    # Freitext-Meldungen from the field. They have no table of their own — see
+    # `crud/feld.record_field_message`, which writes them as an append-only
+    # audit-log entry plus a notification. That was exactly the problem: the
+    # notification is dismissible and the audit log is not rendered anywhere on
+    # the incident, so what a crew radioed in was visible nowhere afterwards.
+    # Reading them back here is what puts them in the incident's own history.
+    messages_result = await db.execute(
+        select(models.AuditLog, models.User)
+        .outerjoin(models.User, models.AuditLog.user_id == models.User.id)
+        .where(
+            models.AuditLog.resource_type == "incident",
+            models.AuditLog.resource_id == incident_id,
+            models.AuditLog.action_type == "field_message",
+        )
+    )
+    field_messages = messages_result.all()
 
     # Bulk-fetch resource names so we don't N+1 query
     personnel_ids = {a.resource_id for a, _ in assignments if a.resource_type == "personnel"}
@@ -586,6 +929,24 @@ async def get_incident_timeline(
                 )
             )
 
+    for entry, user in field_messages:
+        changes = entry.changes_json or {}
+        text = changes.get("message")
+        if not text:
+            continue
+        # Provenance, never faked: a crew member's name when the message came
+        # through /feld, the operator's when it was typed in the KP.
+        personnel_name = changes.get("personnel_name")
+        events.append(
+            schemas.IncidentTimelineEvent(
+                event_type="field_message",
+                timestamp=entry.timestamp,
+                actor_name=personnel_name or _actor(user),
+                message=str(text),
+                source=changes.get("source"),
+            )
+        )
+
     events.sort(key=lambda e: e.timestamp)
 
     # Collapse near-duplicate events: same payload within a short time window
@@ -595,6 +956,12 @@ async def get_incident_timeline(
     last_seen: dict[tuple[str, str | None, str | None, str | None, str | None, str | None], datetime] = {}
     deduped: list[schemas.IncidentTimelineEvent] = []
     for event in events:
+        # Messages are never deduplicated. They are human input, they are the
+        # one kind of entry here nobody can reconstruct from board state, and a
+        # crew tapping the same chip twice is itself information.
+        if event.event_type == "field_message":
+            deduped.append(event)
+            continue
         payload_key = (
             event.event_type,
             event.from_status,

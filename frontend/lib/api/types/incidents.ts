@@ -21,6 +21,11 @@ export type IncidentType =
 
 export type IncidentPriority = 'low' | 'medium' | 'high'
 
+/** The two provenances an editor may claim from the board: "operator" = typed in
+ *  at the KP, "intake" = the operator took the call and says so. `ApiIncident.source`
+ *  stays a plain string, because a card can also carry a delivering system's slug. */
+export type EditorIncidentSource = 'operator' | 'intake'
+
 export type IncidentStatus =
   | 'incoming'
   | 'reko'
@@ -77,8 +82,39 @@ export interface ApiIncident {
   has_completed_reko: boolean
   /** When reko personnel arrived on site (before submitting) */
   reko_arrived_at: string | null
+  /** True when an operator logged "Reko meldet: vor Ort" from a radio message
+   *  rather than the crew tapping it on `/reko`. The Feldmeldungen row is the
+   *  one place the arrival is shown (plan 26, decision 15) — and it says which
+   *  channel it came through. */
+  reko_arrived_by_kp?: boolean
   /** When the field crew reported the incident finished (operator decides to close) */
   field_complete_reported_at: string | null
+  /** Who reported it. null = the KP took it over the radio — provenance is
+   *  never faked, so "im KP erfasst" is the absence of a personnel id. */
+  field_complete_reported_by?: string | null
+  /** "Angekommen" from /feld (lives on the Schadenplatz-Rapport row). */
+  field_arrived_at?: string | null
+  /** Who reported the arrival. null = im KP erfasst. */
+  field_arrived_by?: string | null
+  /** True when the GPS automation stamped the arrival (§18.24) — its own
+   *  provenance, never a person and never "im KP erfasst". */
+  field_arrived_by_automation?: boolean
+  /** A submitted Schadenplatz-Rapport exists (the "kein Rapport" marker reads
+   *  this; it lands with the form in phase 2). */
+  has_schadenplatz_rapport?: boolean
+  has_schadenplatz_rapport_draft?: boolean
+  /** The incident has been disponiert at least once — `enroute` or anything
+   *  past it, ever, not right now. False means the Schadenplatz-Rapport does
+   *  not exist for this card (§18.27). */
+  has_been_dispatched?: boolean
+  /** "Abholung nötig": the crew is finished and cannot get back on its own.
+   *  NOT a status, and deliberately NOT cleared when the card is completed —
+   *  that transition releases the personnel while they are still standing at
+   *  the address, which is exactly when this has to survive. */
+  pickup_needed?: boolean
+  pickup_note?: string | null
+  pickup_requested_at?: string | null
+  pickup_requested_by?: string | null
   /** Server-computed short label for location_address (home city stripped).
    *  "" when the address is only the home city; null/absent when no address. */
   location_display?: string | null
@@ -102,6 +138,10 @@ export interface ApiIncidentCreate {
   nachbarhilfe_note?: string | null
   /** Attach the new incident to an Auftrag (incident group) on creation. */
   group_id?: string | null
+  /** "Telefonisch gemeldet": the operator took the call and says so. Only these
+   *  two are accepted here — "divera" and webhook slugs write `source` on their
+   *  own path and a board request naming one is a 422. */
+  source?: EditorIncidentSource
 }
 
 export interface ApiIncidentUpdate {
@@ -121,6 +161,9 @@ export interface ApiIncidentUpdate {
   am_warten?: boolean
   am_warten_note?: string | null
   zu_fuss?: boolean
+  /** Correctable after the fact: the realistic order is "type it in, then
+   *  realise it was a phone call". Both directions. */
+  source?: EditorIncidentSource
 }
 
 export interface ApiStatusTransition {
@@ -134,7 +177,7 @@ export interface ApiStatusTransition {
 }
 
 export interface ApiIncidentTimelineEvent {
-  event_type: 'status_change' | 'assignment'
+  event_type: 'status_change' | 'assignment' | 'field_message'
   timestamp: string
   actor_name: string | null
   // status_change fields
@@ -145,6 +188,10 @@ export interface ApiIncidentTimelineEvent {
   assignment_action?: 'assigned' | 'unassigned' | null
   resource_type?: 'personnel' | 'vehicle' | 'material' | null
   resource_name?: string | null
+  // field_message fields — the crew's own words, and which door they came
+  // through ('feld' = the field surface, 'kp' = typed from a radio message).
+  message?: string | null
+  source?: string | null
 }
 
 export interface ApiIncidentTimelineResponse {

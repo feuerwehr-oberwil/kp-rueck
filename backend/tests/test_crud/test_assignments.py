@@ -16,6 +16,8 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import assignments as assignment_crud
@@ -23,6 +25,7 @@ from app.models import (
     Event,
     EventSpecialFunction,
     Incident,
+    IncidentAssignment,
     Material,
     Personnel,
     User,
@@ -273,6 +276,102 @@ class TestAssignResource:
                 current_user=test_user,
                 request=mock_request,
             )
+
+    async def test_database_refuses_a_second_active_row_for_the_same_resource(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """The double-click race: the DATABASE has to refuse it, not just the application.
+
+        `assign_resource` takes SELECT ... FOR UPDATE before inserting, which reads like it
+        serialises concurrent callers — but it locks the rows it finds, and on the first
+        assignment there are none. Two transactions therefore both saw an empty result and
+        both inserted, and the board showed the same vehicle twice on one incident.
+
+        The old `unique_assignment` covered unassigned_at, which is NULL on exactly the rows
+        that matter, and NULL != NULL — so it permitted unlimited active duplicates. This
+        writes the second row directly, the way a lost race does, and asserts the partial
+        index stops it.
+        """
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        db_session.add(
+            IncidentAssignment(
+                incident_id=test_incident.id,
+                resource_type="vehicle",
+                resource_id=test_vehicle.id,
+                assigned_by=test_user.id,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            await db_session.flush()
+        await db_session.rollback()
+
+    async def test_a_released_resource_can_be_assigned_again(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """The index must constrain ACTIVE rows only — releasing and re-assigning is normal.
+
+        A crew leaves a Schadenplatz and comes back an hour later; the incident then holds two
+        rows for one vehicle, one released and one active. A unique index over all rows would
+        reject that, which is why this one carries `WHERE unassigned_at IS NULL`.
+        """
+        first = await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        await assignment_crud.unassign_resource(
+            db=db_session,
+            assignment_id=first.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        await db_session.commit()
+
+        again = await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="vehicle",
+            resource_id=test_vehicle.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        assert again.unassigned_at is None
+
+        rows = (
+            (
+                await db_session.execute(
+                    select(IncidentAssignment).where(
+                        IncidentAssignment.incident_id == test_incident.id,
+                        IncidentAssignment.resource_id == test_vehicle.id,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 2, "the released row must stay as history"
+        assert sum(1 for row in rows if row.unassigned_at is None) == 1
 
     async def test_assign_resource_already_assigned_elsewhere_allowed(
         self,

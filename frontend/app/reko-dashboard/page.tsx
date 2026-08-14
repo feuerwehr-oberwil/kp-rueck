@@ -343,6 +343,10 @@ export default function RekoDashboardPage() {
         ) : (
           assignments.map(assignment => {
             const isHistorical = !assignment.is_active_assignment
+            // Server label first (final on first paint), client formatting only
+            // as the fallback for a payload that predates it.
+            const address = assignment.location_display
+              ?? formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity())
             return (
               <div
                 key={assignment.assignment_id || assignment.incident_id}
@@ -357,9 +361,9 @@ export default function RekoDashboardPage() {
                   <h3 className={`font-medium ${isHistorical ? 'text-muted-foreground' : ''}`}>
                     {assignment.incident_title}
                   </h3>
-                  {formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity()) && (
+                  {address && (
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      {formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity())}
+                      {address}
                     </p>
                   )}
                   {assignment.has_completed_reko && (

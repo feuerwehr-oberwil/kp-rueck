@@ -208,10 +208,14 @@ export function UserMenu({
     }
   };
 
+  // One health poll for the whole mount. `checkConnection` is a plain function
+  // re-created on every render; listing it as a dep would tear down and rebuild
+  // the 30s interval on every render.
   useEffect(() => {
     checkConnection();
     const interval = setInterval(checkConnection, 30000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!isAuthenticated || !user) {

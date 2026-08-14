@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import httpx
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -26,6 +27,7 @@ from app.models import (
     User,
     Vehicle,
 )
+from app.traccar import traccar_client
 
 # Test database URL - use a separate test database. Default targets the host-mapped
 # port; override via env when running inside the dev container (where the db service
@@ -139,6 +141,48 @@ def disable_rate_limiting():
     limiter.enabled = False
     yield
     limiter.enabled = True
+
+
+@pytest.fixture(autouse=True)
+def block_outbound_http(monkeypatch):
+    """Fail loudly on any test that opens a real network socket.
+
+    The suite reaches the app in-process through httpx's ASGITransport, which is a
+    different class and is left alone; only the two transports that would open a socket
+    are replaced. So a test that calls out to a live service — the station's production
+    Traccar at `settings.traccar_url` was doing exactly that — now raises here instead of
+    quietly depending on, and adding load to, somebody's running server. Anything that
+    genuinely needs an outbound response mocks its own client.
+    """
+
+    def _blocked(self, request, *args, **kwargs):
+        raise RuntimeError(
+            f"Test attempted a live HTTP request to {request.url}. Outbound network access is "
+            "blocked in the test suite — mock the client at its module seam instead."
+        )
+
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", _blocked)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _blocked)
+
+
+@pytest.fixture(autouse=True)
+def traccar_unconfigured(monkeypatch):
+    """Keep the shared Traccar client unconfigured for the whole suite.
+
+    `TraccarClient` snapshots its credentials at import, so a developer's `backend/.env`
+    (which points at the station's *production* GPS server) made every endpoint that
+    renders a viewer or display payload call that server for real — `api/viewer.py::
+    _viewer_vehicle_positions` was the loudest one. Blanking the singleton's credentials
+    puts it on its documented "GPS is optional" path: callers get [] without an HTTP
+    request, which is also what a station without Traccar sees.
+
+    Only the client instance is touched, not `settings` — the integration registry tests
+    assert on `settings.traccar_*` and keep working. Tests that do want positions patch
+    the `traccar_client` name in their own module, which this does not interfere with.
+    """
+    monkeypatch.setattr(traccar_client, "base_url", "")
+    monkeypatch.setattr(traccar_client, "email", "")
+    monkeypatch.setattr(traccar_client, "password", "")
 
 
 @pytest_asyncio.fixture(scope="session")

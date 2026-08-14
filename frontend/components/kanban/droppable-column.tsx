@@ -5,6 +5,9 @@ import { useTranslations } from "next-intl"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { DraggableOperation } from "./draggable-operation"
+import { type CardViewSettings } from "@/lib/card-view"
+import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { COLUMN_HEADER_CLASS } from "@/lib/kanban-utils"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown } from "lucide-react"
@@ -45,8 +48,12 @@ interface DroppableColumnProps {
   onRemoveVehicle: (operationId: string, vehicleName: string) => void
   onToggleDriverStay?: (operationId: string, vehicleName: string) => void
   onRemoveReko?: (operationId: string) => void
-  onCardClick: (operation: Operation) => void
-  onCardSelect?: (operation: Operation) => void
+  /** A card was clicked. `tab`/`section` are the block that was hit — the card
+   *  routes now (Reko block → Reko tab, a resource row → Übersicht/Ressourcen);
+   *  undefined means "the card as a whole". Plumbing only, see
+   *  draggable-operation.tsx. */
+  onCardClick: (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => void
+  onCardSelect?: (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => void
   onCardHover: (opId: string | null) => void
   highlightedOperationId: string | null
   selectedOperationId?: string | null
@@ -66,8 +73,12 @@ interface DroppableColumnProps {
   onTransfer?: (operationId: string) => void
   /** Editor-only: open the Auftrag picker to distribute an incident into a route. */
   onDistributeToAuftrag?: (operationId: string) => void
-  showMeldung?: boolean
+  /** Which card blocks this device shows — plumbing only, see lib/card-view.ts. */
+  cardView?: CardViewSettings
   printerEnabled?: boolean
+  /** Vehicle name → driver, loaded ONCE on the board and threaded down. Per-card
+   *  it would be one roster fetch per card. */
+  vehicleDrivers?: ReadonlyMap<string, string>
   doubleBookedCrewNames?: Set<string>
   /** False for viewers: cards render without a drag source (read-only board). */
   canDrag?: boolean
@@ -85,8 +96,11 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.highlightedOperationId !== next.highlightedOperationId ||
     prev.selectedOperationId !== next.selectedOperationId ||
     prev.hoveredOperationId !== next.hoveredOperationId ||
-    prev.showMeldung !== next.showMeldung ||
+    // Identity is enough here — the store hands out one stable object per
+    // settings value, and the card runs the field-by-field comparison anyway.
+    prev.cardView !== next.cardView ||
     prev.printerEnabled !== next.printerEnabled ||
+    prev.vehicleDrivers !== next.vehicleDrivers ||
     prev.materials !== next.materials ||
     prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
     prev.canDrag !== next.canDrag ||
@@ -162,8 +176,9 @@ export const DroppableColumn = memo(function DroppableColumn({
   onRequestComplete,
   onTransfer,
   onDistributeToAuftrag,
-  showMeldung,
+  cardView,
   printerEnabled,
+  vehicleDrivers,
   doubleBookedCrewNames,
   canDrag,
   onDragActiveChange,
@@ -173,6 +188,8 @@ export const DroppableColumn = memo(function DroppableColumn({
   const tDash = useTranslations('kanban.dashboard')
   const columnTitle = t(`columns.${column.id}`)
   const ref = useRef<HTMLDivElement>(null)
+  /** The column's outer box — what gets scrolled into view when it expands. */
+  const rootRef = useRef<HTMLDivElement>(null)
   const [isOver, setIsOver] = useState(false)
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
   const isLargeScreen = useIsLargeScreen()
@@ -185,8 +202,16 @@ export const DroppableColumn = memo(function DroppableColumn({
     return localStorage.getItem(`column-collapsed-${column.id}`) === 'open'
   })
 
+  // Only a *click* scrolls; a column that was already open at load must not
+  // yank the board sideways on every mount.
+  const keepInViewRef = useRef(false)
+  const requestKeepInView = () => {
+    keepInViewRef.current = true
+  }
+
   const toggleCollapsible = () => {
     const next = !isCollapsibleOpen
+    requestKeepInView()
     setIsCollapsibleOpen(next)
     localStorage.setItem(`column-collapsed-${column.id}`, next ? 'open' : 'collapsed')
   }
@@ -195,6 +220,26 @@ export const DroppableColumn = memo(function DroppableColumn({
   const isCollapsed = isCollapsibleColumn
     ? !isCollapsibleOpen
     : (isEmpty && !isOver && !isManuallyExpanded && !isLargeScreen)
+
+  // Folding a column changes its width by hundreds of pixels, which shoves every
+  // column after it sideways — so the one you just clicked can end up outside the
+  // scrollport and the click reads as "the column disappeared". «Abgeschlossen»
+  // showed this worst, sitting at the far right, but an empty column folding in
+  // the middle of a wide board does it too.
+  //
+  // BOTH directions, not just opening: closing moves the board just as far.
+  // And a DOM query rather than a ref, because the collapsed strip and the
+  // expanded column are two different elements — the ref that survives the
+  // toggle is whichever one is not mounted. `data-column` is on both.
+  useEffect(() => {
+    if (!keepInViewRef.current) return
+    keepInViewRef.current = false
+    document
+      .querySelector(`[data-column="${column.id}"]`)
+      // `nearest`, not `end`: bring it back only as far as it takes to be
+      // visible, so a column that never left the viewport does not jump.
+      ?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
+  }, [isCollapsed, column.id])
 
   // Reset manual expand when column gets operations (non-collapsible only)
   useEffect(() => {
@@ -228,12 +273,17 @@ export const DroppableColumn = memo(function DroppableColumn({
           column.color,
           isOver && "drop-zone-active w-16"
         )}
-        onClick={() => isCollapsibleColumn ? toggleCollapsible() : setIsManuallyExpanded(true)}
+        onClick={() => {
+          if (isCollapsibleColumn) return toggleCollapsible()
+          requestKeepInView()
+          setIsManuallyExpanded(true)
+        }}
         role="region"
         aria-label={t('column.ariaLabelWithCount', { title: columnTitle, count: operations.length })}
       >
         <div className="flex flex-col items-center gap-2 py-3">
-          <span className="text-xs font-semibold uppercase text-muted-foreground [writing-mode:vertical-lr] [text-orientation:mixed]">
+          {/* Same title as the expanded header, so the same treatment. */}
+          <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-lr] [text-orientation:mixed]")}>
             {columnTitle}
           </span>
           <span className="text-xs text-muted-foreground/60 font-mono">{operations.length}</span>
@@ -243,15 +293,20 @@ export const DroppableColumn = memo(function DroppableColumn({
   }
 
   return (
-    <div data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
+    <div ref={rootRef} data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
       <div className={cn(
-        "mb-2 rounded-lg border border-border px-3 py-3 transition-all",
+        // py-2, not py-3: the header carries one line of text and three small
+        // controls, and every pixel it takes is a pixel off the column body.
+        "mb-2 rounded-lg border border-border px-3 py-2 transition-all",
         column.color
       )}>
         <div className="flex items-center justify-between">
           {/* min-w-0 + truncate: the title is the only part that may give way. A long
               column name must not push the sort/collapse controls off the header. */}
-          <h2 className="min-w-0 truncate text-sm font-bold uppercase tracking-tight text-foreground" title={columnTitle}>{columnTitle}</h2>
+          {/* Treatment from COLUMN_HEADER_CLASS — see there for why caps but quiet.
+              Shared with both display boards so one column cannot look like two
+              different things on two screens. */}
+          <h2 className={cn("min-w-0 truncate", COLUMN_HEADER_CLASS)} title={columnTitle}>{columnTitle}</h2>
           <div className="flex items-center gap-2">
             {onSort && (
               <DropdownMenu>
@@ -318,7 +373,10 @@ export const DroppableColumn = memo(function DroppableColumn({
         {isEmpty && !isOver && (
           <div className="flex items-center justify-center h-32">
             <button
-              onClick={() => setIsManuallyExpanded(false)}
+              onClick={() => {
+                requestKeepInView()
+                setIsManuallyExpanded(false)
+              }}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               {t('column.empty')}
@@ -342,8 +400,8 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onRemoveVehicle={(vehicleName) => onRemoveVehicle(operation.id, vehicleName)}
                 onToggleDriverStay={onToggleDriverStay ? (vehicleName) => onToggleDriverStay(operation.id, vehicleName) : undefined}
                 onRemoveReko={onRemoveReko ? () => onRemoveReko(operation.id) : undefined}
-                onClick={() => onCardClick(operation)}
-                onSelect={() => onCardSelect?.(operation)}
+                onClick={(tab, section) => onCardClick(operation, tab, section)}
+                onSelect={(tab, section) => onCardSelect?.(operation, tab, section)}
                 onHover={onCardHover}
                 isHighlighted={highlightedOperationId === operation.id}
                 isSelected={selectedOperationId === operation.id}
@@ -360,8 +418,9 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onRequestComplete={onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
                 onTransfer={onTransfer ? () => onTransfer(operation.id) : undefined}
                 onDistributeToAuftrag={onDistributeToAuftrag ? () => onDistributeToAuftrag(operation.id) : undefined}
-                showMeldung={showMeldung}
+                cardView={cardView}
                 printerEnabled={printerEnabled}
+                vehicleDrivers={vehicleDrivers}
                 doubleBookedCrewNames={doubleBookedCrewNames}
                 canDrag={canDrag}
                 onDragActiveChange={onDragActiveChange}

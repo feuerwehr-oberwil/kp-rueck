@@ -1,7 +1,7 @@
 """Material CRUD operations."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import select
@@ -92,7 +92,7 @@ async def update_material(
     for field, value in update_data.items():
         setattr(material, field, value)
 
-    material.updated_at = datetime.utcnow()
+    material.updated_at = datetime.now(UTC)
 
     # Capture after state
     after_state = {
@@ -136,7 +136,7 @@ async def delete_material(
 
     # Soft delete: mark as 'unavailable'
     material.status = "unavailable"
-    material.updated_at = datetime.utcnow()
+    material.updated_at = datetime.now(UTC)
 
     # Log deletion
     await log_action(

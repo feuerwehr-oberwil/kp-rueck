@@ -50,6 +50,14 @@ export default [
       "*.config.mjs",
       "*.config.ts",
       "next-env.d.ts",
+      // Throwaway browser probes. They are Node scripts, not app code, and they
+      // live for one debugging session -- but while one exists it fails the
+      // whole lint gate on `no-undef` for `process`/`console`, which turns a
+      // scratch file into a blocked commit.
+      "probe*.mjs",
+      "*-tmp.mjs",
+      "scratch-*.mjs",
+      "tests/e2e/zz-*/**",
     ],
   },
 ];

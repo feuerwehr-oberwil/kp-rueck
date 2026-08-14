@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, RekoReport, StatusTransition
-from ..services.tokens import validate_form_token
+from ..models import Incident, RekoReport, StatusTransition, User
+from ..services.tokens import generate_form_token, validate_form_token
 
 
 async def get_or_create_reko_report(
@@ -110,11 +110,68 @@ async def get_or_create_reko_report(
     return report
 
 
+async def get_or_create_kp_reko_report(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    user: User,
+) -> RekoReport:
+    """The board's door onto the same table (plan 26 §5.1).
+
+    The token version above resolves the *reporting person* from the link; there
+    is no link here, so there is nobody to resolve — the personnel FK stays NULL
+    and the operator lands in ``created_by_user_id`` instead (decision 6). What
+    an editor files is a radio message they transcribed, not a report they made
+    in the field, and the outputs have to be able to say so.
+
+    An operator's own unfinished draft is reused rather than stacked, so a form
+    saved twice is one report; a crew's report is never taken over here — that is
+    an amendment and goes through ``update_reko_report`` with the user, which
+    keeps ``submitted_by_personnel_id`` and adds ``updated_by_user_id``.
+
+    The row still gets a real form token: ``token`` is NOT NULL, it is what the
+    field path keys on, and minting one keeps a KP report indistinguishable from
+    a field one in every way except its provenance columns. It is never handed
+    out — no link is generated from it.
+
+    Raises:
+        ValueError: If the incident does not exist
+    """
+    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    if not incident_result.scalar_one_or_none():
+        raise ValueError("Incident not found")
+
+    existing = await db.execute(
+        select(RekoReport)
+        .where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.created_by_user_id == user.id,
+            RekoReport.is_draft == True,  # noqa: E712
+        )
+        .order_by(RekoReport.submitted_at.desc())
+        .limit(1)
+    )
+    draft = existing.scalar_one_or_none()
+    if draft:
+        return draft
+
+    report = RekoReport(
+        incident_id=incident_id,
+        token=generate_form_token(str(incident_id), "reko"),
+        is_draft=True,
+        created_by_user_id=user.id,
+    )
+    db.add(report)
+    await db.commit()
+    await db.refresh(report)
+    return report
+
+
 async def update_reko_report(
     db: AsyncSession,
     report_id: uuid.UUID,
     update_data: schemas.RekoReportUpdate,
     submit: bool = False,
+    user: User | None = None,
 ) -> RekoReport:
     """
     Update Reko report (supports both draft saves and final submission).
@@ -124,6 +181,10 @@ async def update_reko_report(
         report_id: Report UUID
         update_data: Updated fields
         submit: If True, marks as submitted (not draft)
+        user: The operator, when the write came through the board rather than
+            the form link. Stamps ``updated_by_user_id`` and nothing else — a
+            crew-filed report keeps its ``submitted_by_personnel_id``, so an
+            amended one carries both lines (§5.3).
 
     Returns:
         Updated RekoReport instance
@@ -149,6 +210,9 @@ async def update_reko_report(
     # Mark as submitted if requested
     if submit:
         report.is_draft = False
+
+    if user is not None:
+        report.updated_by_user_id = user.id
 
     report.updated_at = datetime.now(UTC)
 
@@ -237,6 +301,80 @@ async def mark_reko_arrived(
     await db.refresh(report)
 
     return report
+
+
+async def set_reko_arrived_by_user(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    user: User,
+    at: datetime | None,
+    clear: bool,
+) -> RekoReport | None:
+    """ "Reko meldet: vor Ort" over the radio (plan 26 §5.2).
+
+    The same body as ``mark_reko_arrived`` above with the token lookup replaced:
+    same column, same row, same report a crew would have written into — a board
+    watching for the field's message must not be able to tell the difference in
+    anything except the provenance line.
+
+    ``clear=True`` wipes the arrival off *every* report of this incident, because
+    the board reads the earliest one across them: leaving a second row's
+    timestamp behind would make a corrected mis-hear reappear a second later.
+    The user FK goes with it — an arrival nobody has reported is not a KP report.
+
+    Otherwise it is idempotent the way the field tap is: an arrival already on
+    the row stays where it is unless an explicit time is given, so a second radio
+    confirmation does not move a timestamp the KP has already acted on.
+
+    Returns the report carrying the arrival, or ``None`` when a clear found
+    nothing to clear.
+
+    Raises:
+        ValueError: If the incident does not exist
+    """
+    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    if not incident_result.scalar_one_or_none():
+        raise ValueError("Incident not found")
+
+    result = await db.execute(
+        select(RekoReport).where(RekoReport.incident_id == incident_id).order_by(RekoReport.submitted_at.desc())
+    )
+    reports = list(result.scalars().all())
+
+    if clear:
+        cleared = None
+        for report in reports:
+            if report.arrived_at is not None:
+                report.arrived_at = None
+                cleared = report
+            report.arrived_reported_by_user_id = None
+        if cleared is None:
+            return None
+        await db.commit()
+        await db.refresh(cleared)
+        return cleared
+
+    # Prefer the row that already carries an arrival, so a correction edits the
+    # timestamp the board is showing rather than adding a second, earlier one.
+    target = next((report for report in reports if report.arrived_at is not None), None)
+    if target is None:
+        target = next((report for report in reports if report.is_draft), None) or (reports[0] if reports else None)
+    if target is None:
+        target = RekoReport(
+            incident_id=incident_id,
+            token=generate_form_token(str(incident_id), "reko"),
+            is_draft=True,
+            created_by_user_id=user.id,
+        )
+        db.add(target)
+
+    if target.arrived_at is None or at is not None:
+        target.arrived_at = at or datetime.now(UTC)
+        target.arrived_reported_by_user_id = user.id
+
+    await db.commit()
+    await db.refresh(target)
+    return target
 
 
 async def get_reko_summaries_by_event(db: AsyncSession, event_id: uuid.UUID) -> dict[uuid.UUID, dict[str, Any]]:

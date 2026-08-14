@@ -110,6 +110,16 @@ interface AssignRekoDialogProps {
   onOpenChange: (open: boolean) => void
   incidentId: string
   incidentTitle: string
+  /**
+   * A Reko person is now on this incident — **the caller closes the dialog.**
+   *
+   * The dialog used to fire this and then call `onOpenChange(false)` itself,
+   * which was wrong for the status gate: there, closing the dialog *means*
+   * "backed out", and backing out reverts the card to the status it came from.
+   * React batches both calls, so `cancelRekoAssignment` still saw the old
+   * operation id and undid the very move the assignment had just justified —
+   * the card jumped back to «Eingegangen» right after a successful assignment.
+   */
   onAssigned?: () => void
 }
 
@@ -170,6 +180,14 @@ export function AssignRekoDialog({
     }
   }, [open, loadAvailablePersonnel])
 
+  // See `onAssigned`: the caller owns the close. The fallback is for a caller
+  // that passes no handler at all — a dialog that stays open after a successful
+  // assignment would be the worse failure.
+  const finishAssigned = useCallback(() => {
+    if (onAssigned) onAssigned()
+    else onOpenChange(false)
+  }, [onAssigned, onOpenChange])
+
   const handleMarkAndAssign = async (person: Person) => {
     if (!selectedEvent) return
     let roleAssigned = false
@@ -181,8 +199,7 @@ export function AssignRekoDialog({
       })
       roleAssigned = true
       await apiClient.assignRekoPersonnel(incidentId, person.id)
-      onAssigned?.()
-      onOpenChange(false)
+      finishAssigned()
     } catch (err) {
       console.error('Failed to mark/assign Reko personnel:', err)
       if (roleAssigned) {
@@ -210,8 +227,7 @@ export function AssignRekoDialog({
     setAssigning(person.personnel_id)
     try {
       await apiClient.assignRekoPersonnel(incidentId, person.personnel_id)
-      onAssigned?.()
-      onOpenChange(false)
+      finishAssigned()
     } catch (err) {
       console.error('Failed to assign Reko personnel:', err)
       toast.error(t('assignErrorTitle'), { description: t('assignErrorDescription') })
@@ -381,17 +397,39 @@ export function AssignRekoDialog({
             )}
           </div>
 
-          {/* Footer */}
-          <div className="flex justify-between pt-2">
+          {/* Footer.
+              «Person als Reko markieren» belongs here, not only in the empty
+              state: with exactly one Reko person on the Ereignis the list is
+              never empty, so the only way to put a second one on the board was
+              to close this dialog and right-click somebody in the sidebar.
+              And when the incident already HAS its Reko person, the dialog has
+              to offer a way forward — every row is disabled then, and Abbrechen
+              reverts the card to «Eingegangen», which is not what an operator
+              means when the answer to «wer macht die Reko» is already on screen. */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
             {markMode ? (
               <Button variant="ghost" onClick={() => setMarkMode(false)}>
                 <ArrowLeft className="size-4" />
                 {t('back')}
               </Button>
+            ) : personnel.length > 0 ? (
+              // The empty state carries this action as its own primary button;
+              // two of them on screen at once would just be noise.
+              <Button variant="ghost" onClick={() => setMarkMode(true)}>
+                <Binoculars className="size-4" />
+                {t('markExisting')}
+              </Button>
             ) : <span />}
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {tCommon('cancel')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                {tCommon('cancel')}
+              </Button>
+              {!markMode && currentlyAssignedId && (
+                <Button onClick={finishAssigned}>
+                  {t('keepAssigned')}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>

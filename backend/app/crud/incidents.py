@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -11,9 +11,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
-from ..models import Incident, IncidentAssignment, IncidentGroup, RekoReport, StatusTransition, User, Vehicle
+from ..models import (
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    RekoReport,
+    SchadenplatzReport,
+    StatusTransition,
+    User,
+    Vehicle,
+)
 from ..services.audit import calculate_changes, log_action
+from ..services.incident_dispatch import dispatched_incident_ids, is_dispatched
 from . import events as events_crud
+from . import feld as feld_crud
 
 
 class InvalidIncidentGroupError(ValueError):
@@ -152,12 +163,18 @@ async def get_incidents(
             )
 
     # Batch load reko completion status and arrived_at for all incidents
-    reko_query = select(RekoReport.incident_id, RekoReport.is_draft, RekoReport.arrived_at).where(
-        RekoReport.incident_id.in_(incident_ids)
-    )
+    reko_query = select(
+        RekoReport.incident_id,
+        RekoReport.is_draft,
+        RekoReport.arrived_at,
+        RekoReport.arrived_reported_by_user_id,
+    ).where(RekoReport.incident_id.in_(incident_ids))
     reko_result = await db.execute(reko_query)
     incidents_with_completed_reko = set()
     reko_arrived_at_map: dict[uuid.UUID, datetime] = {}
+    # Which channel reported it — carried alongside the timestamp so the detail's
+    # Feldmeldungen row can say "(Funkmeldung)" without a second request.
+    reko_arrived_by_kp: set[uuid.UUID] = set()
     for row in reko_result:
         if not row.is_draft:
             incidents_with_completed_reko.add(row.incident_id)
@@ -166,9 +183,53 @@ async def get_incidents(
             row.incident_id not in reko_arrived_at_map or row.arrived_at < reko_arrived_at_map[row.incident_id]
         ):
             reko_arrived_at_map[row.incident_id] = row.arrived_at
+            if row.arrived_reported_by_user_id is not None:
+                reko_arrived_by_kp.add(row.incident_id)
+            else:
+                reko_arrived_by_kp.discard(row.incident_id)
+
+    # Batch load the /feld arrival ("Angekommen") and whether a rapport exists.
+    # One row per incident (UNIQUE(incident_id)), so this is a plain map.
+    feld_query = select(
+        SchadenplatzReport.incident_id,
+        SchadenplatzReport.arrived_at,
+        SchadenplatzReport.is_draft,
+        SchadenplatzReport.arrived_by_personnel_id,
+        SchadenplatzReport.arrived_by_user_id,
+    ).where(SchadenplatzReport.incident_id.in_(incident_ids))
+    feld_result = await db.execute(feld_query)
+    field_arrived_map: dict[uuid.UUID, tuple[datetime | None, uuid.UUID | None, bool]] = {}
+    submitted_rapports: set[uuid.UUID] = set()
+    # Kept apart rather than derived from each other: "nobody has filed" and
+    # "somebody started and walked away" are different states on the board.
+    draft_rapports: set[uuid.UUID] = set()
+    # Own loop variable: `row` above is a differently-shaped Row and mypy holds
+    # the first binding's type for the whole function.
+    for feld_row in feld_result:
+        field_arrived_map[feld_row.incident_id] = (
+            feld_row.arrived_at,
+            feld_row.arrived_by_personnel_id,
+            feld_crud.is_automation_user(feld_row.arrived_by_user_id),
+        )
+        if feld_row.is_draft:
+            draft_rapports.add(feld_row.incident_id)
+        else:
+            submitted_rapports.add(feld_row.incident_id)
+
+    # Was this Schadenplatz ever disponiert? One query for the whole board, on
+    # the same principle as the flags above — the rapport surfaces read it per
+    # card and a query per card is what a storm night cannot afford.
+    dispatched = await dispatched_incident_ids(db, incidents)
 
     # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
     for incident in incidents:
+        arrival = field_arrived_map.get(incident.id)
+        incident.field_arrived_at = arrival[0] if arrival else None
+        incident.field_arrived_by = arrival[1] if arrival else None
+        incident.field_arrived_by_automation = bool(arrival and arrival[2])
+        incident.has_schadenplatz_rapport = incident.id in submitted_rapports
+        incident.has_schadenplatz_rapport_draft = incident.id in draft_rapports
+        incident.has_been_dispatched = incident.id in dispatched
         # Set status_changed_at from batch-loaded map
         incident.status_changed_at = transitions_map.get(incident.id, incident.created_at)
 
@@ -180,6 +241,7 @@ async def get_incidents(
 
         # Set reko_arrived_at timestamp
         incident.reko_arrived_at = reko_arrived_at_map.get(incident.id)
+        incident.reko_arrived_by_kp = incident.id in reko_arrived_by_kp
 
     return incidents
 
@@ -217,14 +279,40 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 
         # Check for completed reko report and arrived_at
         reko_check = await db.execute(
-            select(RekoReport.id, RekoReport.is_draft, RekoReport.arrived_at)
+            select(
+                RekoReport.id,
+                RekoReport.is_draft,
+                RekoReport.arrived_at,
+                RekoReport.arrived_reported_by_user_id,
+            )
             .where(RekoReport.incident_id == incident.id)
             .order_by(RekoReport.arrived_at.asc().nullslast())
         )
         reko_rows = reko_check.all()
         incident.has_completed_reko = any(not row.is_draft for row in reko_rows)
-        # Get the earliest arrived_at timestamp
-        incident.reko_arrived_at = next((row.arrived_at for row in reko_rows if row.arrived_at), None)
+        # Get the earliest arrived_at timestamp, and which channel reported it
+        arrival_row = next((row for row in reko_rows if row.arrived_at), None)
+        incident.reko_arrived_at = arrival_row.arrived_at if arrival_row else None
+        incident.reko_arrived_by_kp = bool(arrival_row and arrival_row.arrived_reported_by_user_id is not None)
+
+        # The /feld arrival + rapport state (one row per incident).
+        feld_check = await db.execute(
+            select(
+                SchadenplatzReport.arrived_at,
+                SchadenplatzReport.is_draft,
+                SchadenplatzReport.arrived_by_personnel_id,
+                SchadenplatzReport.arrived_by_user_id,
+            ).where(SchadenplatzReport.incident_id == incident.id)
+        )
+        feld_row = feld_check.first()
+        incident.field_arrived_at = feld_row.arrived_at if feld_row else None
+        incident.field_arrived_by = feld_row.arrived_by_personnel_id if feld_row else None
+        incident.field_arrived_by_automation = bool(
+            feld_row and feld_crud.is_automation_user(feld_row.arrived_by_user_id)
+        )
+        incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
+        incident.has_schadenplatz_rapport_draft = bool(feld_row and feld_row.is_draft)
+        incident.has_been_dispatched = await is_dispatched(db, incident)
 
     return incident
 
@@ -242,8 +330,10 @@ async def create_incident(
 
     ``source``/``source_ref`` carry alarm provenance when the incident is
     created from a pool alarm ("divera" or a generic-webhook slug + the
-    alarm's id in that system); dashboard creations keep the "operator"
-    default.
+    alarm's id in that system). It wins over the schema's ``source``, which
+    only ever carries what an editor may claim ("operator"/"intake") and is
+    the modal's "Telefonisch gemeldet" toggle — the pool path builds its
+    payload with the default and names its real sender here.
 
     When ``group_id`` is set (streamlined "add stop"), the new incident is
     appended to the end of that Auftrag (``group_position = max + 1``).
@@ -260,11 +350,14 @@ async def create_incident(
         )
         group_position = (max_pos + 1) if max_pos is not None else 0
 
+    incident_data = incident.model_dump()
+    editor_source = incident_data.pop("source")
+
     db_incident = Incident(
-        **incident.model_dump(),
+        **incident_data,
         created_by=current_user.id,
         group_position=group_position,
-        **({"source": source} if source else {}),
+        source=source or editor_source,
         source_ref=source_ref,
     )
 
@@ -334,6 +427,91 @@ async def create_public_incident(
     return db_incident
 
 
+async def _apply_completion_release(
+    db: AsyncSession,
+    incident: Incident,
+    transition: StatusTransition,
+    current_user: User,
+    request: Request | None,
+) -> None:
+    """Completion's release side effects, recorded on the transition that caused them.
+
+    Releases personnel and vehicles (materials stay — they may be on site) and,
+    when this was the Auftrag's last open stop, the route's shared resources. It
+    freezes the Einsatzleiter of record before releasing anyone: after that call
+    nothing else knows who led the incident.
+
+    Everything it closed is written to ``transition.released_assignments_json``.
+    That record is what makes the move undoable — see ``_undo_completion_release``.
+    """
+    from . import assignments as assignments_crud
+    from . import group_assignments as group_assignments_crud
+
+    released = await assignments_crud.auto_release_incident_resources(
+        db=db,
+        incident_id=incident.id,
+        current_user=current_user,
+        request=request,
+        exclude_materials=True,
+    )
+
+    group_released, group_entries = await group_assignments_crud.auto_release_group_resources_if_last_stop(
+        db=db, incident=incident, current_user=current_user, request=request
+    )
+    incident.group_resources_released = group_released
+
+    transition.released_assignments_json = released + group_entries or None
+
+
+async def _undo_completion_release(
+    db: AsyncSession,
+    incident: Incident,
+    current_user: User,
+    request: Request | None,
+) -> None:
+    """Leaving ``complete`` puts the crew back.
+
+    Completing an incident empties its card — every person and every vehicle is
+    released, and the Auftrag's squad with them on the last stop. Until this
+    existed, reverting the move (the Abbrechen of any completion gate, or simply
+    dragging the card back out of Abgeschlossen) restored the status and nothing
+    else: the incident reappeared with no crew, no vehicles, no Einsatzleiter, and
+    the operator had to rebuild it from memory.
+
+    It runs inside the same transaction as the status change, which is the whole
+    point of doing it here rather than as a second call from the browser: there is
+    no window in which the incident is open again but its crew is still released.
+
+    Only the most recent completion is undone, and only once — its record is
+    cleared as it is consumed, so a later reopen cannot replay it.
+    """
+    from . import assignments as assignments_crud
+    from . import group_assignments as group_assignments_crud
+
+    result = await db.execute(
+        select(StatusTransition)
+        .where(
+            StatusTransition.incident_id == incident.id,
+            StatusTransition.to_status == "complete",
+            StatusTransition.released_assignments_json.isnot(None),
+        )
+        .order_by(StatusTransition.timestamp.desc())
+        .limit(1)
+    )
+    completion = result.scalar_one_or_none()
+    if completion is None:
+        return
+
+    entries = completion.released_assignments_json
+    await assignments_crud.restore_released_assignments(db, entries, current_user, request)
+    group_restored = await group_assignments_crud.restore_released_group_resources(db, entries, current_user, request)
+    completion.released_assignments_json = None
+    # Same flag the release sets: it is what makes the caller broadcast the
+    # Auftrag, and the route's card changed here just as much as it did there.
+    incident.group_resources_released = group_restored > 0
+    await db.flush()
+
+
 async def update_incident(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -368,6 +546,9 @@ async def update_incident(
         "location_address": incident.location_address,
         "description": incident.description,
         "group_id": str(incident.group_id) if incident.group_id else None,
+        # "Telefonisch gemeldet" is a claim, not evidence (plan 26 §11), so a
+        # correction of one has to be readable in the audit trail.
+        "source": incident.source,
     }
 
     old_status = incident.status
@@ -398,7 +579,7 @@ async def update_incident(
         )
         incident.group_position = (max_pos + 1) if max_pos is not None else 0
 
-    incident.updated_at = datetime.utcnow()
+    incident.updated_at = datetime.now(UTC)
 
     # If status changed, create a status transition record
     if incident.status != old_status:
@@ -413,28 +594,11 @@ async def update_incident(
 
         # Entering complete always runs release side effects, even after reopening.
         if incident.status == "complete":
-            incident.completed_at = datetime.utcnow()
-
-            # Automatically release personnel and vehicles (but keep materials)
-            from . import assignments as assignments_crud
-
-            await assignments_crud.auto_release_incident_resources(
-                db=db,
-                incident_id=incident.id,
-                current_user=current_user,
-                request=request,
-                exclude_materials=True,
-            )
-
-            # Route resources belong to the Auftrag: release them only when this
-            # was the last still-open stop of the group.
-            from . import group_assignments as group_assignments_crud
-
-            incident.group_resources_released = await group_assignments_crud.auto_release_group_resources_if_last_stop(
-                db=db, incident=incident, current_user=current_user, request=request
-            )
+            incident.completed_at = datetime.now(UTC)
+            await _apply_completion_release(db, incident, transition, current_user, request)
         elif old_status == "complete":
             incident.completed_at = None
+            await _undo_completion_release(db, incident, current_user, request)
 
     # Capture after state
     after_state = {
@@ -445,6 +609,7 @@ async def update_incident(
         "location_address": incident.location_address,
         "description": incident.description,
         "group_id": str(incident.group_id) if incident.group_id else None,
+        "source": incident.source,
     }
 
     # Calculate changes
@@ -523,34 +688,11 @@ async def update_incident_status(
 
     # Update status
     incident.status = new_status
-    incident.updated_at = datetime.utcnow()
+    incident.updated_at = datetime.now(UTC)
 
-    # Entering complete always runs release side effects, even after reopening.
-    if new_status == "complete" and old_status != "complete":
-        incident.completed_at = datetime.utcnow()
-
-        # Automatically release personnel and vehicles (but keep materials)
-        from . import assignments as assignments_crud
-
-        await assignments_crud.auto_release_incident_resources(
-            db=db,
-            incident_id=incident_id,
-            current_user=current_user,
-            request=request,
-            exclude_materials=True,
-        )
-
-        # Route resources belong to the Auftrag: release them only when this was
-        # the last still-open stop of the group.
-        from . import group_assignments as group_assignments_crud
-
-        incident.group_resources_released = await group_assignments_crud.auto_release_group_resources_if_last_stop(
-            db=db, incident=incident, current_user=current_user, request=request
-        )
-    elif old_status == "complete":
-        incident.completed_at = None
-
-    # Create status transition record
+    # Create status transition record. It is written BEFORE the release below so
+    # the release has a transition to hang its record on — undoing a completion
+    # means undoing exactly what THAT completion closed.
     transition = StatusTransition(
         incident_id=incident.id,
         from_status=old_status,
@@ -559,6 +701,14 @@ async def update_incident_status(
         notes=notes,
     )
     db.add(transition)
+
+    # Entering complete always runs release side effects, even after reopening.
+    if new_status == "complete" and old_status != "complete":
+        incident.completed_at = datetime.now(UTC)
+        await _apply_completion_release(db, incident, transition, current_user, request)
+    elif old_status == "complete":
+        incident.completed_at = None
+        await _undo_completion_release(db, incident, current_user, request)
 
     # Log to audit
     await log_action(
@@ -622,7 +772,7 @@ async def delete_incident(
     # Soft delete (mark deleted). Use ONE `now` for both columns so a later
     # restore can tell whether `completed_at` was stamped as a side effect of
     # the delete (completed_at == deleted_at) versus a pre-existing completion.
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     incident.deleted_at = now
     if not incident.completed_at:
         incident.completed_at = now

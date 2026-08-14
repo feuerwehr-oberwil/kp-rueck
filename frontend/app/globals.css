@@ -182,6 +182,21 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
+  /* Tailwind 4's preflight dropped the browser's `cursor: pointer` on buttons,
+     so every hand-written <button> in the app renders an arrow. `<Button>` sets
+     it in its own variants, which hid the change: the shared component looked
+     right while the 121 raw buttons — the /feld Einsatzstellen cards among them
+     — did not. Restore it once here rather than sprinkling `cursor-pointer`
+     onto each new button forever.
+
+     Disabled controls keep the default arrow: a pointer promises something will
+     happen. `[role="button"]` is included because an element that claims the
+     role has to look the part. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   /* The shell is h-dvh/overflow-hidden, so the page can never scroll — but macOS
      still rubber-bands the whole view on a stray trackpad swipe, which reads as
      the board drifting for no reason. No bounce, no scroll chaining. */
@@ -264,6 +279,40 @@
       scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent)
         transparent;
     }
+  }
+
+  /* The board's two scroll containers reserve their scrollbar's width whether
+     or not the bar is drawn.
+
+     Opening any footer sheet on desktop runs a hand-rolled scroll lock
+     (`app/page.tsx`) that sets `overflow: hidden` on `#kanban-main` and on
+     every column body, so the board cannot scroll away under a panel that is
+     deliberately non-modal. The bars are custom `::-webkit-scrollbar` bars,
+     which on every platform that draws classic scrollbars take real layout
+     width — so hiding them handed 10px back to the content and the whole board
+     jumped sideways the moment a sheet opened, and jumped back when it closed.
+     Two shifts per panel, on the surface whose entire job is to sit still.
+
+     `stable` is the fix rather than compensating padding in the lock, because
+     the lock would then have to know which elements currently *have* a bar: a
+     column with three cards has none, and giving it a gutter only while a sheet
+     is open would shift it the other way. Reserved always = never shifts.
+     Verified in Chrome to survive `overflow: hidden`, which is what the lock
+     sets and what the whole fix depends on.
+
+     **`#kanban-main` is deliberately NOT in this list.** It only ever scrolls
+     HORIZONTALLY (`overflow-x-auto`), and `scrollbar-gutter` reserves the
+     inline-axis gutter — i.e. space for a *vertical* bar that this element can
+     never show. Measured in Chrome: with it, `offsetWidth − clientWidth = 10`
+     and `offsetHeight − clientHeight = 0`. So it bought no stability at all for
+     the bar it actually has, and spent 10px of dead space hard against the
+     right sidebar's divider — which is what made that divider read as a rule
+     floating in an empty gutter rather than as the panel's edge. Removing it
+     was re-checked against the case this whole block exists for: opening a
+     footer sheet still leaves the board's width unchanged, because the sideways
+     jump came from the COLUMN bodies below, and those keep their gutter. */
+  [data-board-scroll] {
+    scrollbar-gutter: stable;
   }
 
   /* Mobile-first responsive utilities */
@@ -787,4 +836,85 @@
 
 .priority-high-pulse {
   animation: priority-pulse 2s ease-in-out infinite;
+}
+
+/* --- Spotlight ------------------------------------------------------------
+   Answers "wo steht die Karte?" after a click on a person or a piece of material
+   in the sidebar. Instead of making one card louder — which on a full board is a
+   contest it loses — the rest of the board steps back for ~1.2s. The dim lifts by
+   itself; the accent ring on the card (see draggable-operation.tsx) stays for the
+   remainder of the highlight.
+
+   It sits on the card SHELL, not the card: the card's own `transition-all` drives
+   hover and selection, and a second opacity transition on the same element made
+   the two stutter against each other. */
+.operation-card-shell {
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+
+#kanban-main[data-spotlight='on'] .operation-card-shell:not(:has(.is-highlighted)) {
+  opacity: 0.3;
+  filter: saturate(0.6);
+}
+
+/* The column headers go with them — otherwise the one bright card floats in a
+   dimmed board with no column to belong to. The column holding it keeps its. */
+#kanban-main[data-spotlight='on'] [data-column]:not(:has(.is-highlighted)) > :first-child {
+  opacity: 0.4;
+}
+
+/* Reduced motion keeps the information (the dim) and drops the fade. */
+@media (prefers-reduced-motion: reduce) {
+  .operation-card-shell {
+    transition: none;
+  }
+}
+
+/* A toast has to stay usable while a dialog is open.
+   Radix locks the page by putting `pointer-events: none` on <body> for as long
+   as a modal is mounted. Sonner portals its stack into <body> and never sets a
+   pointer-events value of its own, so the whole toast layer inherited the lock:
+   the toast was painted ON TOP of the modal (z-index 999999999 against the
+   dialog's 50) and yet could not be clicked — neither its ✕ nor its «Öffnen».
+   A notification you can read, cannot act on and cannot dismiss is worse than
+   no notification at all.
+
+   The container stays transparent to clicks so it never swallows a press aimed
+   at the board behind it; only the toasts themselves, and the «Alle
+   ausblenden» pill, take pointer events back. Clicking them does not close the
+   dialog underneath — see lib/toast-layer.ts, which already teaches every
+   dialog to ignore this layer when deciding what counts as "outside". */
+[data-sonner-toaster] {
+  pointer-events: none;
+}
+
+[data-sonner-toast],
+[data-toast-layer] {
+  pointer-events: auto;
+}
+
+/* The footer toolbar goes UNDER a modal dialog — and only under a modal dialog.
+
+   Its `z-[60]` is deliberate: a footer sheet slides UP into place
+   (`slide-in-from-bottom`), so on the way in the panel passes across the
+   toolbar's strip. At the sheet layer's own z-50 the toolbar keeps it behind
+   itself, which is what makes that read as a drawer opening from underneath.
+
+   A modal dialog's overlay is at that same z-50, and there the toolbar has to
+   lose. Left on top it stayed bright over a dimmed board — so it read as still
+   usable while Radix had just put `pointer-events: none` on <body> and was
+   swallowing every click on it — and it painted over the bottom edge of every
+   88dvh (`modal-h-tall`) dialog on an 800px-high screen.
+
+   The overlay element is the signal, rather than the hand-maintained allowlist
+   of three modals this replaces in app/page.tsx (which is why the other ~20
+   dialogs kept the bright toolbar). It exists exactly while a modal is open,
+   and NOT for a non-modal footer sheet — that one renders a plain div backdrop
+   which already stops at the toolbar. `[data-scroll-locked]` on <body> would
+   have looked like the simpler signal and is wrong: menus and selects lock the
+   body too, so the toolbar would have dimmed on every right-click.
+
+   Deliberately outside @layer, so it beats the `z-*` utility on the element. */
+body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) footer {
+  z-index: 40;
 }

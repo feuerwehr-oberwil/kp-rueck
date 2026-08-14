@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react"
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useIsMobile } from "@/components/ui/use-mobile"
 
@@ -53,6 +53,60 @@ interface FooterSheetProps {
 export function FooterSheet({ open, onOpenChange, children, className, style, shouldPreventClose }: FooterSheetProps) {
   const isMobile = useIsMobile()
   const footerOffset = useFooterOffset(open && !isMobile)
+
+  /**
+   * The click that closes the sheet must not also hit the board.
+   *
+   * A desktop footer sheet is deliberately NON-modal — the footer toolbar stays
+   * usable and the board stays legible behind it — but non-modal also means
+   * nothing absorbs the pointer, so the click that dismissed the sheet went
+   * straight on to open whatever kanban card was underneath. One click, two
+   * actions, and the second one was never asked for.
+   *
+   * It also does the closing. A non-modal Radix dialog leaves the page fully
+   * live — the outside pointerdown was reaching the board and dismissing
+   * nothing, so a click on a card opened the card AND left the sheet standing.
+   * Now the same click closes the sheet and stops there.
+   *
+   * The listener lives for the component's whole life rather than only while
+   * `open`: the closing happens on `pointerdown`, the `click` follows
+   * afterwards, and an `open`-scoped listener would already be gone by then.
+   */
+  const swallowNextClick = useRef(false)
+  const guard = useRef({ open, isMobile, shouldPreventClose, onOpenChange })
+  guard.current = { open, isMobile, shouldPreventClose, onOpenChange }
+
+  useEffect(() => {
+    const isOutside = (target: HTMLElement | null) => {
+      const { open: isOpen, isMobile: onPhone, shouldPreventClose: prevent } = guard.current
+      if (!isOpen || onPhone || !target) return false
+      if (target.closest('[data-slot="sheet-content"]')) return false
+      // The footer toolbar keeps working while a sheet is docked above it —
+      // that is the whole point of the non-modal shape.
+      if (target.closest("footer") || prevent?.(target)) return false
+      return true
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!isOutside(event.target as HTMLElement | null)) return
+      swallowNextClick.current = true
+      guard.current.onOpenChange(false)
+    }
+    const onClick = (event: MouseEvent) => {
+      if (!swallowNextClick.current) return
+      swallowNextClick.current = false
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    document.addEventListener("pointerdown", onPointerDown, true)
+    document.addEventListener("click", onClick, true)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true)
+      document.removeEventListener("click", onClick, true)
+    }
+  }, [])
+
   return (
     <Sheet modal={isMobile} open={open} onOpenChange={onOpenChange}>
       <SheetContent

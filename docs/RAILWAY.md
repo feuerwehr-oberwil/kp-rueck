@@ -206,13 +206,14 @@ almost always one of these refusing a weak or missing value, and the message nam
 | Variable | Value | Notes |
 |---|---|---|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Railway reference, not a literal string. Railway hands out a `postgresql://` URL and the backend rewrites it to `postgresql+asyncpg://` itself (`config.py`), so paste it through unchanged |
-| `SECRET_KEY` | 32-byte hex | Signs check-in, Reko, viewer and alarm-intake tokens. **Required.** |
+| `SECRET_KEY` | 32-byte hex | Signs every public token: check-in, Reko, viewer, alarm-intake and `/feld`. **Required. Keep stable** — changing it invalidates every printed QR and poster |
 | `AUTH_SECRET_KEY` | 32-byte hex | Signs login/refresh JWTs. **Required. Keep stable** — changing it logs everyone out |
 | `ADMIN_SEED_PASSWORD` | 12+ characters | The initial `admin` login, created on first seed. **Required** |
 | `VIEWER_PASSWORD` | 12+ characters | The read-only `viewer` login. **Required** |
 | `PHOTOS_DIR` | `/mnt/data/photos` | Must point inside the mounted volume |
 | `CORS_ORIGINS` | `https://<frontend>` | The frontend's exact origin |
 | `PORT` | `8000` | Railway sets this automatically |
+| `DEPLOYMENT_ROLE` | `production` (default) or `staging` | What this instance may do to the outside world. Leave it unset on the real deployment; see §5.1 |
 
 Optional, per integration: `DIVERA_ACCESS_KEY`, `TRACCAR_*`, `PRINT_AGENT_TOKEN`. See
 [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) and [`PRINT_AGENT.md`](PRINT_AGENT.md).
@@ -234,6 +235,70 @@ never take the board down with it. Same variable and cadence in KP Front.
 
 > `NEXT_PUBLIC_API_URL` must stay **unset** — see the warning in §3.3. The published frontend
 > image is deliberately built without it for the same reason.
+
+### 5.1 A second instance to test on: `DEPLOYMENT_ROLE`
+
+A useful way to try a change before it reaches the people on call is a second instance, running
+the same images, ideally on a copy of the real database — because a copy is the only thing that
+reproduces the data you actually have.
+
+The problem with that copy is that it brings the switches with it. Two settings live in the
+database and both point outward:
+
+| Setting | What it does | In a copy |
+|---|---|---|
+| `alerting.enabled` | master switch for outbound alerting (Ausalarmierung) | arrives already on |
+| `railway_database_url` | where the sync scheduler pushes local changes | arrives pointing at the instance you copied FROM |
+
+Turning them off by hand does not hold: the next copy overwrites them, and anyone tidying the
+settings page re-arms them. So the lock lives in the environment instead, where a database dump
+cannot reach it:
+
+```
+DEPLOYMENT_ROLE=staging
+```
+
+What it changes — and this is the complete list:
+
+1. **Outbound alerting is refused.** Every send goes through one seam, and that seam raises
+   instead of calling the provider — regardless of `alerting.enabled`. The API answers **403**
+   with a German sentence naming the reason, and the buttons in the UI are visibly disabled
+   with the same reason. Never a silent success.
+2. **Sync is refused.** `railway_database_url` reads as empty everywhere, and the periodic sync
+   job is not started. The test instance cannot write into the one it was copied from.
+3. **A permanent band** at the top of every page, including the login screen, reading
+   *Staging – Übungssystem*. The cheapest of the three, and the one that catches the most
+   common mistake — the wrong browser tab at 02:00.
+4. **`GET /api/integrations`** reports `deployment.role`, `deployment.blocked_domains` and a
+   per-domain `blocked` / `blocked_reason`, so the lock is visible to an API caller too. The
+   small public version is `GET /api/deployment`.
+
+Deliberately **not** blocked, because they are the point of having the instance: printing,
+Traccar/GPS reads, inbound alarms, and everything else. Nothing else in the application behaves
+differently — the whole idea is that the second instance rehearses the real one.
+
+Notes:
+
+- **Unset or empty means `production`**, which blocks nothing. That is the case every existing
+  deployment is in, and it keeps working with no variable change.
+- **`production` and `staging` are the only recognised values**; case and surrounding whitespace
+  are ignored, so `Staging` and ` staging ` both work.
+- **Any other value refuses to start.** `DEPLOYMENT_ROLE=stagging` aborts the boot with an error
+  naming the value it got and the values it accepts. This is deliberate: an unset variable means
+  nobody made a claim, so the safe default applies — but a *set* one means somebody intended
+  something specific, and if we cannot tell what, the one reading we must not quietly pick is the
+  one that lifts every lock. You meet that failure as a failed deploy, which costs minutes; the
+  alternative is a test instance that can alarm the station, which costs a callout.
+- There is no value that *unlocks* anything. Whatever you put in this variable you get exactly
+  one of three outcomes: ordinary production behaviour, more refusals, or no process at all.
+- This is a separate axis from `ENVIRONMENT` (§4). A test instance on Railway is still a
+  *production* environment in the hardening sense — mandatory secrets, no auth bypass, no sample
+  data — and that is intended: what gets tested should be the path that runs live.
+- Give the test instance **its own** `SECRET_KEY` and `AUTH_SECRET_KEY`, and its own webhook
+  secrets, so a link copied from one does not work against the other.
+- A copy of a real database is real personal data at a second address, not a test fixture. Give
+  the instance the same access restrictions as the original, refresh the copy rather than letting
+  it age, and do not enable a shared demo login on it.
 
 ---
 
@@ -291,6 +356,70 @@ required, MINOR means new features and automatic migrations, PATCH means fixes.
 
 To roll back, redeploy an earlier deployment from the Railway dashboard. **A database dump from
 a newer version will not restore into an older one** — migrations only run forwards.
+
+### 8.1 Rolling back code leaves the database ahead — and the app will not start
+
+This one has bitten this project, so it is written down rather than learned twice.
+
+`start.sh` runs `alembic upgrade head` on every boot. If a newer version ever ran — even for a
+single deploy, even by accident — its migrations are already applied and `alembic_version`
+holds a revision id that **the older code does not contain**. Roll the code back and the boot
+fails with `Can't locate revision identified by '<id>'`; `set -e` ends the container, the
+health check never passes, and the service serves 502 while the dashboard cheerfully reports
+the last good deployment as "Online".
+
+The symptom looks like a broken rollback. It is a database that is ahead of its code.
+
+**Recovering, in order:**
+
+1. Find the older code's head revision — the one migration file in that version whose id is
+   nobody's `down_revision`.
+2. Decide which way to go:
+   - **Forward** (usually right): redeploy the newer version. The database already matches it.
+   - **Back**: run the *newer* version's `alembic downgrade <older-head>` against the database.
+     Use the migrations' own `downgrade()` functions; do not hand-write `DROP`s. You need a
+     checkout of the newer code to do this, because the older one does not contain the files.
+3. `alembic stamp` is the emergency lever, not the fix: it changes the version pointer without
+   touching the schema, so the database and the pointer disagree afterwards. If you use it to
+   get a service up, write down that the schema is still ahead — the next real upgrade will try
+   to create objects that already exist and fail.
+
+**Prevention:** never let a deployment target a branch that carries migrations the running
+version does not have. That includes "just to see if it builds".
+
+### 8.2 Two Railway settings that do not behave the way they read
+
+- **`railway.json` beats the dashboard.** A value committed in `deploy` cannot be changed in the
+  UI — the file is reapplied on every deploy. To differ per environment, use the schema's
+  top-level `environments` key instead of editing the dashboard:
+
+  ```json
+  {
+    "deploy": { "sleepApplication": false },
+    "environments": {
+      "staging": { "deploy": { "sleepApplication": true } }
+    }
+  }
+  ```
+
+- **The deploy branch is per environment — but only the dashboard can set it.** Two
+  environments of the same project can genuinely watch different branches (verified: staging on
+  `develop`, production on `main`, at the same time). The CLI cannot get you there, and it fails
+  in two different ways:
+
+  | Command | What it does |
+  | --- | --- |
+  | `railway service source connect --branch X --environment Y` | Accepts `--environment` and **ignores** it. A service has one id across every environment, and this writes the branch on the *service* — so pointing staging at another branch **also repoints production**, which then deploys and migrates. |
+  | `railway environment edit --service-config <svc> source.branch X` | Environment-scoped by name, but observed to apply **nothing at all** and report no error. |
+
+  So: set it in the dashboard, and read the result back before trusting it
+  (`railway environment config --environment <name> --json`, look for `source.branch`). To
+  deploy a specific state without touching any branch setting, `railway up --service <s>
+  --environment <e>` uploads the working tree and cannot affect another environment.
+
+  General rule for a shared service: before changing anything, establish whether the setting is
+  per environment or per service, and **verify afterwards** — a CLI flag being accepted is not
+  evidence that it did anything.
 
 ---
 

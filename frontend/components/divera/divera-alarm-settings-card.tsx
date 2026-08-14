@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { apiClient } from "@/lib/api-client"
+import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import type { ApiDiveraMemberPreview } from "@/lib/api/types"
 import {
   ALARM_TITLE_KEY,
@@ -46,7 +47,13 @@ export function DiveraAlarmSettingsCard({
   saving,
 }: Props) {
   const t = useTranslations("divera.alarmSettings")
+  const tBlocked = useTranslations("common.deploymentBlocked")
   const enabled = settings[ENABLED_KEY] === "true"
+  // The master switch AND the test button are dead on a deployment whose role refuses to
+  // alert — the switch because the backend overrules it, the test because a test alarm is a
+  // real push to a real phone. Lock both visibly, with the reason.
+  const alerting = useDeploymentBlock("alerting")
+  const blockedReason = alerting.blocked ? tBlocked("alerting", { label: alerting.label ?? "" }) : null
 
   const templateFields = [
     {
@@ -143,10 +150,20 @@ export function DiveraAlarmSettingsCard({
         </div>
         <Switch
           checked={enabled}
-          disabled={!isEditor || saving === ENABLED_KEY}
+          title={blockedReason ?? undefined}
+          disabled={Boolean(blockedReason) || !isEditor || saving === ENABLED_KEY}
           onCheckedChange={(v) => updateSetting(ENABLED_KEY, v ? "true" : "false")}
         />
       </div>
+
+      {blockedReason && (
+        <p
+          role="note"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
+        >
+          {blockedReason}
+        </p>
+      )}
 
       {enabled && (
         <div className="space-y-4">
@@ -222,7 +239,11 @@ export function DiveraAlarmSettingsCard({
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={handleTest} disabled={!isEditor || isTesting || !testId}>
+              <Button
+                onClick={handleTest}
+                title={blockedReason ?? undefined}
+                disabled={Boolean(blockedReason) || !isEditor || isTesting || !testId}
+              >
                 {isTesting ? <Loader2 className="size-4 animate-spin" /> : <Siren className="size-4" />}
                 {t("sendTest")}
               </Button>

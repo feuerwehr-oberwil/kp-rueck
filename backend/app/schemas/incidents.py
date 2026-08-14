@@ -3,9 +3,20 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+
+# The only two provenances an editor may claim from the board (plan 26 §6).
+# "operator" = typed in at the KP, "intake" = the operator took the call and
+# says so. Everything else that writes `Incident.source` — the Divera adapter,
+# the generic alarm webhooks, the training generator — keeps its own write path
+# and passes the slug as a keyword to `crud.create_incident`; those names are
+# reserved (`schemas.alarms.RESERVED_ALARM_SOURCES`) and a board request naming
+# one is a 422. A card claiming to come from a system that has never heard of it
+# is a worse lie than the one this field exists to fix.
+EditorIncidentSource = Literal["operator", "intake"]
 
 
 class IncidentType(str, Enum):
@@ -122,6 +133,9 @@ class IncidentCreate(IncidentBase):
     """Schema for creating incident."""
 
     event_id: UUID
+    # "Telefonisch gemeldet" on the new-emergency modal. Off by default, because
+    # typing a card on the board IS the operator case.
+    source: EditorIncidentSource = "operator"
 
 
 class PublicIncidentCreate(BaseModel):
@@ -174,6 +188,10 @@ class IncidentUpdate(BaseModel):
     zu_fuss: bool | None = None
     # Attach/detach from an Auftrag (incident group) via a normal PATCH.
     group_id: UUID | None = None
+    # Correctable after the fact (decision 8): the realistic sequence is "type it
+    # in, then realise it was a phone call", so create-only would miss the common
+    # case. Both directions, and only ever between these two values.
+    source: EditorIncidentSource = "operator"
 
 
 class IncidentReorder(BaseModel):
@@ -219,13 +237,74 @@ class IncidentResponse(IncidentBase):
     assigned_vehicles: list[AssignedVehicle] = []
     has_completed_reko: bool = False
     reko_arrived_at: datetime | None = None
+    # True when an operator logged "Reko meldet: vor Ort" from a radio message
+    # rather than the crew tapping it on `/reko`. The Feldmeldungen row is the one
+    # place the arrival is shown (plan 26, decision 15) and it names its channel.
+    reko_arrived_by_kp: bool = False
     # Field crew reported the incident finished; operator decides to close it.
     field_complete_reported_at: datetime | None = None
+    # NULL when the KP took the message over the radio — provenance is never
+    # faked (decision 28), so "im KP erfasst" is the absence of a personnel id,
+    # not a guessed one.
+    field_complete_reported_by: UUID | None = None
+    # "Angekommen" from /feld (batched off schadenplatz_reports).
+    field_arrived_at: datetime | None = None
+    field_arrived_by: UUID | None = None
+    # True when the GPS automation stamped the arrival (§18.24): an assigned
+    # vehicle was confirmed at the address and the automation advanced the
+    # incident. Its own provenance — never a person, never "im KP erfasst".
+    field_arrived_by_automation: bool = False
+    # A *submitted* Schadenplatz-Rapport exists. Same query as the arrival, so
+    # it is free here; the "kein Rapport" card marker that reads it lands with
+    # the form in phase 2.
+    has_schadenplatz_rapport: bool = False
+    # A *draft* one exists — somebody started and walked away. Mutually
+    # exclusive with the flag above: a report row is either filed or it is not,
+    # so exactly one of the two can be true. Do NOT "fix" one to imply the
+    # other; the detail's Rapport tab needs to tell "erfasst" from "Entwurf",
+    # and at 02:00 those two read very differently.
+    has_schadenplatz_rapport_draft: bool = False
+    # The incident has been disponiert at least once — `enroute` or anything
+    # past it, ever, not right now (see `services.incident_dispatch`). Every
+    # rapport surface hangs off this: a Schadenplatz nobody was ever sent to has
+    # nothing to report on, and an empty rapport on it is noise on the card, in
+    # the detail and on the Restliste alike.
+    has_been_dispatched: bool = False
+    # "Abholung nötig" (decision 24): the crew is finished and cannot get back on
+    # its own. NOT a status, and deliberately NOT cleared when the card moves to
+    # `complete` — that transition releases the personnel while they are still
+    # standing at the address, which is exactly when this must survive.
+    pickup_needed: bool = False
+    pickup_note: str | None = None
+    pickup_requested_at: datetime | None = None
+    pickup_requested_by: UUID | None = None
     # Server-computed short label for location_address (home city stripped) so
     # clients can render the final string on first paint — no reformat flash
     # once the home_city setting loads client-side. "" when the address is only
     # the home city; None when there is no address (or on older backends).
     location_display: str | None = None
+
+    @field_validator(
+        "pickup_needed",
+        "has_schadenplatz_rapport",
+        "has_schadenplatz_rapport_draft",
+        "has_been_dispatched",
+        mode="before",
+    )
+    @classmethod
+    def _false_when_unset(cls, value: object) -> object:
+        """None means "not set yet", not "invalid".
+
+        ``Incident.pickup_needed`` carries a Python-side default that SQLAlchemy
+        only applies on flush, so an incident validated straight after
+        construction — which is what the training generator and every
+        create-then-broadcast path does — still has ``None`` on the attribute.
+        The two ``has_schadenplatz_rapport*`` flags and ``has_been_dispatched``
+        are transients the board query attaches, so they are simply absent
+        anywhere else. All of them mean "no", and a 500 on a freshly built card
+        is the wrong way to say it.
+        """
+        return False if value is None else value
 
     @field_serializer("location_lat", "location_lng")
     def serialize_decimal(self, value: str | Decimal | None) -> str | None:
@@ -266,9 +345,10 @@ class IncidentTimelineEvent(BaseModel):
     - status_change → from_status, to_status, notes
     - assignment    → assignment_action ('assigned' | 'unassigned'),
                       resource_type, resource_name
+    - field_message → message, source ('feld' | 'kp')
     """
 
-    event_type: str  # 'status_change' | 'assignment'
+    event_type: str  # 'status_change' | 'assignment' | 'field_message'
     timestamp: datetime
     actor_name: str | None = None
 
@@ -281,6 +361,12 @@ class IncidentTimelineEvent(BaseModel):
     assignment_action: str | None = None
     resource_type: str | None = None
     resource_name: str | None = None
+
+    # field_message fields — the crew's own words, verbatim. `source` says which
+    # door they came through: the field surface, or an operator typing what came
+    # over the radio.
+    message: str | None = None
+    source: str | None = None
 
 
 class IncidentTimelineResponse(BaseModel):

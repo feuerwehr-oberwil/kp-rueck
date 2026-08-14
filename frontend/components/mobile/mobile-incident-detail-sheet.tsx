@@ -28,13 +28,19 @@ import {
   ChevronDown,
   Minus,
   Pencil,
+  Footprints,
 } from "lucide-react"
 import { useOperations, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
+import { RemovableChip } from "@/components/ui/removable-chip"
+import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import { incidentTypeLabels } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
 import { cn, copyToClipboardAsync } from "@/lib/utils"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient, type ApiRekoReportResponse } from "@/lib/api-client"
@@ -65,6 +71,9 @@ export function MobileIncidentDetailSheet({
   isEditor = false,
 }: MobileIncidentDetailSheetProps) {
   const t = useTranslations('incidents')
+  // The resource chips reuse the board's own labels (Funkrufname, Zu Fuss …)
+  // so the phone and the board name the same thing the same way.
+  const tKanban = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const { changeStatusToTop } = useOperations()
   const [isCopyingWhatsApp, setIsCopyingWhatsApp] = useState(false)
@@ -221,6 +230,22 @@ export function MobileIncidentDetailSheet({
         </SheetHeader>
 
         <div className="space-y-5">
+          {/* Abholung (decision 24) — the `banner` variant, the same shape the
+              desktop detail uses, because this sheet is the phone's detail
+              surface. Read-only (`canEdit={false}`): the phone is for looking,
+              and «Abholung erledigt» is irreversible — it erases the waiting
+              time, which is the only record of how long the crew stood there.
+              Not gated on status: completing the card releases the crew while
+              they are still at the address. */}
+          {operation.pickupNeeded && (
+            <PickupBadge
+              variant="banner"
+              requestedAt={operation.pickupRequestedAt}
+              note={operation.pickupNote}
+              canEdit={false}
+            />
+          )}
+
           {/* Status & Time Row */}
           <div className="flex items-center gap-3 flex-wrap">
             {canEdit ? (
@@ -328,18 +353,43 @@ export function MobileIncidentDetailSheet({
                 <Truck className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</span>
               </div>
-              {operation.vehicles.length > 0 ? (
+              {/* «Zu Fuss» is a deliberate state, not an absence: a crew that
+                  walked to the address has to read as such here, exactly as it
+                  does on the board and on the wall. Without it the sheet said
+                  «Keine Fahrzeuge zugewiesen» — the opposite of the truth. So
+                  the empty line is gated on BOTH facts, and the chip leads the
+                  row, in the same order as the board. */}
+              {operation.zuFuss || operation.vehicles.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
+                  {operation.zuFuss && (
+                    <RemovableChip variant="secondary" className="text-sm max-w-full font-normal">
+                      <Footprints className="flex-shrink-0" />
+                      <span>{tKanban('common.zuFuss')}</span>
+                    </RemovableChip>
+                  )}
                   {operation.vehicles.map((vehicleName) => {
                     const driverName = vehicleDrivers.get(vehicleName)
                     const callsign = operation.vehicleCallsigns.get(vehicleName)
+                    const driverStay = operation.vehicleDriverStay?.get(vehicleName)
                     return (
-                      <Badge key={vehicleName} variant="default" className="text-sm">
-                        {vehicleName}{callsign ? ` · ${callsign}` : ''}
-                        {driverName && (
-                          <span className="ml-1 opacity-70">({driverName})</span>
-                        )}
-                      </Badge>
+                      <RemovableChip
+                        key={vehicleName}
+                        variant="secondary"
+                        className="text-sm max-w-full font-normal"
+                        title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
+                      >
+                        <span>
+                          {vehicleName}{callsign ? ` · ${callsign}` : ''}
+                          {driverName && (
+                            <span className="text-muted-foreground"> ({driverName})</span>
+                          )}
+                        </span>
+                        {/* Whether the driver stays with the vehicle — the same
+                            state the board and the wall carry per chip. The
+                            phone shows the state only; the toggle is a control
+                            and stays on the board. */}
+                        <DriverStayGlyph stays={driverStay} />
+                      </RemovableChip>
                     )
                   })}
                 </div>
@@ -356,10 +406,15 @@ export function MobileIncidentDetailSheet({
               </div>
               {operation.crew.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {operation.crew.map((member) => (
-                    <Badge key={member} variant="secondary" className="text-sm">
-                      {member}
-                    </Badge>
+                  {/* EL first (decision 23): the phone is a viewing surface, and
+                      a wrapped badge row is exactly where a name gets lost.
+                      The «EL» mark rides along — sorting alone only helps if
+                      you already know the list is sorted. */}
+                  {sortCrewByLeader(operation.crew, operation.leaderName).map((member) => (
+                    <RemovableChip key={member} variant="secondary" className="text-sm max-w-full font-normal">
+                      <LeaderBadge isLeader={operation.leaderName === member} />
+                      <span>{member}</span>
+                    </RemovableChip>
                   ))}
                 </div>
               ) : (
@@ -376,9 +431,9 @@ export function MobileIncidentDetailSheet({
               {operation.materials.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {operation.materials.map((matId) => (
-                    <Badge key={matId} variant="outline" className="text-sm">
-                      {materials.find(m => m.id === matId)?.name || matId}
-                    </Badge>
+                    <RemovableChip key={matId} variant="secondary" className="text-sm max-w-full font-normal">
+                      <span>{materials.find(m => m.id === matId)?.name || matId}</span>
+                    </RemovableChip>
                   ))}
                 </div>
               ) : (

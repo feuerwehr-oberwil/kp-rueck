@@ -66,7 +66,14 @@ class PersonnelUpdate(BaseModel):
 
 
 class Personnel(PersonnelBase):
-    """Full personnel schema with database fields."""
+    """Full personnel schema with database fields.
+
+    NOTE on the three attendance fields: attendance is a fact about a person *at an
+    Ereignis*, and it lives in `event_attendance`. There is no attendance column on the
+    personnel row to fall back on any more, so these must be filled in explicitly by
+    ``crud.personnel.to_personnel_schema`` from the attendance row of the event that was
+    asked about. Without an event there is no answer, and the honest one is "not present".
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -111,8 +118,13 @@ class PersonnelListItem(BaseModel):
     id: UUID
     name: str
     role: str | None = None
+    status: str = "available"
     tags: list[str] | None = None
     checked_in: bool
+    # The board's roll-call distinguishes "never came" from "came and went", which needs
+    # both stamps; the phone ignores them and stays two-state on purpose.
+    checked_in_at: datetime | None = None
+    checked_out_at: datetime | None = None
     is_assigned: bool = False  # Whether assigned to any incident in this event
 
 

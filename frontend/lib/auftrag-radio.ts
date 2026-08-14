@@ -11,6 +11,7 @@ import type { Material, Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { toStopMirrorStatus } from "@/lib/kanban-utils"
+import { sortCrewByLeader } from "@/lib/crew-order"
 import {
   auftragFullAnnouncement,
   auftragShortAnnouncement,
@@ -50,11 +51,14 @@ export function routeDeployment(
     ...resources.materials.map((material) => materialById.get(material.resourceId)),
   ].filter((material): material is Material => Boolean(material))
 
+  // A stop owns no people, so for a grouped incident the EL comes off the
+  // route; a standalone incident carries its own.
+  const leader = resources.personnel.find((person) => person.isLeader)?.name ?? operation.leaderName ?? null
+
   return {
-    crew: [...operation.crew, ...resources.personnel.map((person) => person.name)],
-    // A stop owns no people, so for a grouped incident the EL comes off the
-    // route; a standalone incident carries its own.
-    leader: resources.personnel.find((person) => person.isLeader)?.name ?? operation.leaderName ?? null,
+    // EL first (decision 23): read out first is read down first.
+    crew: sortCrewByLeader([...operation.crew, ...resources.personnel.map((person) => person.name)], leader),
+    leader,
     vehicles: [...operation.vehicles, ...resources.vehicles.map((vehicle) => vehicle.name)].map((name) => ({
       name,
       stay: stay.get(name),

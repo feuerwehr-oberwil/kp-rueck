@@ -5,12 +5,19 @@ in the layout of the cantonal Führungsformular. 404 for unknown events, 401
 for unauthenticated requests.
 """
 
+import io
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
+from pypdf import PdfReader
 
-from app.models import Event, Incident
+from app.models import Event, Incident, Personnel, RekoReport, SchadenplatzReport, User
+
+
+def _extract_text(pdf_bytes: bytes) -> str:
+    return "\n".join(page.extract_text() for page in PdfReader(io.BytesIO(pdf_bytes)).pages)
 
 
 class TestLageblattAuth:
@@ -63,3 +70,268 @@ class TestLageblattService:
         pdf = build_lageblatt_pdf(data, home_city="Oberwil")
         assert pdf[:4] == b"%PDF"
         assert EMPTY_ROWS >= 5
+
+
+class TestLageblattRapportRows:
+    """The Schadenplatz-Rapport's own family of detail rows (plan 25, §7).
+
+    The Lageblatt is what the KP prints when the screens die, so the field's
+    answers — Tätigkeit, übergeben an, Fahrzeuge, Material vor Ort — and a
+    crew still waiting for a pickup have to be on it.
+    """
+
+    def _pdf_text(self, event: Event, incident: Incident, report=None, transitions=()) -> str:
+        from app.services.audit_export_service import EventReportData
+        from app.services.lageblatt_service import build_lageblatt_pdf
+
+        data = EventReportData(
+            event=event,
+            incidents=[incident],
+            assignments=[],
+            transitions=list(transitions),
+            reko_reports=[],
+            incident_map={incident.id: incident},
+            schadenplatz_reports=[report] if report is not None else [],
+        )
+        return _extract_text(build_lageblatt_pdf(data, home_city="Oberwil"))
+
+    @pytest.mark.asyncio
+    async def test_rapport_rows_render(self, db_session, test_event: Event, test_incident: Incident):
+        report = SchadenplatzReport(
+            id=uuid4(),
+            incident_id=test_incident.id,
+            arrived_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
+            handed_over_to="Hauswart Meier",
+            vehicles_json=[
+                {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "TLF 1", "present": True},
+                {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "MTW", "present": False},
+            ],
+            materials_json=[
+                {"assignment_id": str(uuid4()), "name": "Tauchpumpe", "used": True, "left_on_site": True},
+                {"assignment_id": str(uuid4()), "name": "Nassauger", "used": None, "left_on_site": False},
+            ],
+            extra_materials_json=[
+                {"name": "Pumpe vom Nachbarn", "left_on_site": True},
+                {"name": "2 Schaufeln vom Werkhof", "left_on_site": False},
+            ],
+            is_draft=False,
+            created_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+        )
+        text = self._pdf_text(test_event, test_incident, report)
+        assert "Tätigkeit" in text
+        assert "Übergeben an" in text
+        assert "Hauswart Meier" in text
+        # The vehicles by name, and only the ones the crew ticked.
+        assert "TLF 1" in text
+        assert "MTW" not in text
+        assert "Material vor Ort" in text
+        assert "Tauchpumpe" in text
+        # "Weiteres Material" that stayed belongs on the same row (§18.35): the
+        # sheet answers "was liegt noch dort", and a borrowed pump counts. It is
+        # marked, because nobody can release it off a board.
+        assert "Pumpe vom Nachbarn (nicht erfasst)" in text
+        assert "Schaufeln" not in text
+
+    @pytest.mark.asyncio
+    async def test_taetigkeit_is_derived_when_the_rapport_stored_nothing(
+        self, db_session, test_event: Event, test_incident: Incident
+    ):
+        """No arrival and no "beendet": the status transitions carry the window."""
+        from app.models import StatusTransition
+
+        report = SchadenplatzReport(
+            id=uuid4(),
+            incident_id=test_incident.id,
+            is_draft=False,
+            created_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+        )
+        transitions = [
+            StatusTransition(
+                id=uuid4(),
+                incident_id=test_incident.id,
+                from_status="dispatched",
+                to_status="active",
+                timestamp=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
+            ),
+            StatusTransition(
+                id=uuid4(),
+                incident_id=test_incident.id,
+                from_status="active",
+                to_status="returning",
+                timestamp=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
+            ),
+        ]
+        text = self._pdf_text(test_event, test_incident, report, transitions=transitions)
+        assert "Tätigkeit" in text
+        # Swiss local time: 09:30 UTC = 11:30 CEST, 11:10 UTC = 13:10 CEST.
+        assert "11:30" in text
+        assert "13:10" in text
+
+    @pytest.mark.asyncio
+    async def test_consumable_never_reaches_material_vor_ort(
+        self, db_session, test_event: Event, test_incident: Incident
+    ):
+        """Decision 26 — a used consumable is gone, nobody drives out for it."""
+        report = SchadenplatzReport(
+            id=uuid4(),
+            incident_id=test_incident.id,
+            materials_json=[
+                {
+                    "assignment_id": str(uuid4()),
+                    "name": "Ölbindemittel",
+                    "consumable": True,
+                    "used": True,
+                    "left_on_site": True,
+                }
+            ],
+            is_draft=False,
+            created_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+        )
+        text = self._pdf_text(test_event, test_incident, report)
+        assert "Material vor Ort" not in text
+
+    @pytest.mark.asyncio
+    async def test_open_pickup_is_on_the_sheet(self, db_session, test_event: Event, test_incident: Incident):
+        """A crew still standing in the rain belongs on the paper fallback."""
+        test_incident.pickup_needed = True
+        test_incident.pickup_note = "3 Mann Kreuzung"
+        test_incident.pickup_requested_at = datetime(2026, 6, 1, 21, 14, tzinfo=UTC)
+        text = self._pdf_text(test_event, test_incident)
+        assert "Abholung offen" in text
+        assert "3 Mann Kreuzung" in text
+
+    @pytest.mark.asyncio
+    async def test_incident_without_a_rapport_stays_quiet(self, db_session, test_event: Event, test_incident: Incident):
+        text = self._pdf_text(test_event, test_incident)
+        assert "Übergeben an" not in text
+        assert "Abholung offen" not in text
+
+
+class TestLageblattRekoProvenance:
+    """Which channel the Reko came through, on the sheet that replaces the board.
+
+    Plan 26 §7: "(Feld)" for a crew filing, "(Funkmeldung)" for one an operator
+    took over the radio, and both lines when the crew filed and the KP amended.
+    The Lageblatt is the output that matters most here — it is read on the night
+    the phones failed, which is the night the KP typed everything itself.
+    """
+
+    def _pdf_text(
+        self,
+        event: Event,
+        incident: Incident,
+        report: RekoReport,
+        *,
+        personnel: Personnel | None = None,
+        users: tuple[User, ...] = (),
+    ) -> str:
+        from app.services.audit_export_service import EventReportData
+        from app.services.lageblatt_service import build_lageblatt_pdf
+
+        data = EventReportData(
+            event=event,
+            incidents=[incident],
+            assignments=[],
+            transitions=[],
+            reko_reports=[report],
+            incident_map={incident.id: incident},
+            personnel_map={personnel.id: personnel} if personnel else {},
+            user_map={u.id: u for u in users},
+        )
+        return _extract_text(build_lageblatt_pdf(data, home_city="Oberwil"))
+
+    def _report(self, incident: Incident, **kwargs) -> RekoReport:
+        defaults = {
+            "id": uuid4(),
+            "incident_id": incident.id,
+            "token": "test-token",
+            "summary_text": "Keller unter Wasser",
+            "is_draft": False,
+            "submitted_at": datetime(2026, 6, 1, 19, 22, tzinfo=UTC),
+            "updated_at": datetime(2026, 6, 1, 19, 22, tzinfo=UTC),
+        }
+        return RekoReport(**{**defaults, **kwargs})
+
+    @pytest.mark.asyncio
+    async def test_field_filed_report_says_feld(
+        self, test_event: Event, test_incident: Incident, test_personnel: Personnel
+    ):
+        report = self._report(test_incident, submitted_by_personnel_id=test_personnel.id)
+        text = self._pdf_text(test_event, test_incident, report, personnel=test_personnel)
+        assert "Erfasst von" in text
+        assert test_personnel.name in text
+        assert "(Feld)" in text
+        assert "Funkmeldung" not in text
+
+    @pytest.mark.asyncio
+    async def test_kp_filed_report_says_funkmeldung(
+        self, test_event: Event, test_incident: Incident, test_editor: User
+    ):
+        """Dictated over the radio: no personnel FK to guess from (decision 6)."""
+        report = self._report(
+            test_incident,
+            created_by_user_id=test_editor.id,
+            # The KP files and submits in one act — both columns, one line.
+            updated_by_user_id=test_editor.id,
+        )
+        text = self._pdf_text(test_event, test_incident, report, users=(test_editor,))
+        assert "Erfasst im KP durch" in text
+        assert "(Funkmeldung)" in text
+        assert "(Feld)" not in text
+        assert "Ergänzt im KP" not in text
+
+    @pytest.mark.asyncio
+    async def test_mixed_report_prints_both_lines(
+        self,
+        test_event: Event,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_editor: User,
+    ):
+        """§5.3's example: crew filed at 19:22, KP added what came in at 19:41."""
+        report = self._report(
+            test_incident,
+            submitted_by_personnel_id=test_personnel.id,
+            updated_by_user_id=test_editor.id,
+            updated_at=datetime(2026, 6, 1, 19, 41, tzinfo=UTC),
+        )
+        text = self._pdf_text(test_event, test_incident, report, personnel=test_personnel, users=(test_editor,))
+        assert "Erfasst von" in text
+        assert "(Feld)" in text
+        assert "Ergänzt im KP durch" in text
+        assert "(Funkmeldung)" in text
+
+    @pytest.mark.asyncio
+    async def test_arrival_carries_its_own_channel(self, test_event: Event, test_incident: Incident, test_editor: User):
+        """A KP-logged "vor Ort" on a crew's report is a radio message, not a tap."""
+        report = self._report(
+            test_incident,
+            arrived_at=datetime(2026, 6, 1, 19, 10, tzinfo=UTC),
+            arrived_reported_by_user_id=test_editor.id,
+        )
+        text = self._pdf_text(test_event, test_incident, report, users=(test_editor,))
+        assert "Reko vor Ort" in text
+        assert "Vor Ort" in text
+        assert "(Funkmeldung)" in text
+
+    @pytest.mark.asyncio
+    async def test_field_arrival_says_feld_and_a_draft_still_counts(self, test_event: Event, test_incident: Incident):
+        """The crew pinged and has not filed yet — exactly the state paper needs."""
+        report = self._report(
+            test_incident,
+            is_draft=True,
+            summary_text=None,
+            arrived_at=datetime(2026, 6, 1, 19, 10, tzinfo=UTC),
+        )
+        text = self._pdf_text(test_event, test_incident, report)
+        assert "Reko vor Ort" in text
+        assert "(Feld)" in text
+
+    @pytest.mark.asyncio
+    async def test_no_arrival_prints_no_row(self, test_event: Event, test_incident: Incident):
+        report = self._report(test_incident)
+        text = self._pdf_text(test_event, test_incident, report)
+        assert "Reko vor Ort" not in text
