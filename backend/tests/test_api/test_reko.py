@@ -548,6 +548,51 @@ async def test_generate_reko_link_dashboard_token_wrong_event(client: AsyncClien
     assert response.status_code == 401
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_reko_dashboard_assignment_carries_location_display(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_incident: Incident,
+    test_personnel: Personnel,
+):
+    """The dashboard row ships the home-city-stripped label.
+
+    Without it the Reko phone paints the raw address and swaps it once the
+    home_city setting arrives — the flicker the server label exists to prevent.
+    """
+    from app.models import EventSpecialFunction, IncidentAssignment, Setting
+    from app.services.tokens import generate_reko_dashboard_token
+
+    db_session.add(Setting(key="home_city", value="Oberwil, BL"))
+    test_incident.location_address = "Teststrasse 1, 4104 Oberwil"
+    db_session.add(
+        EventSpecialFunction(
+            id=uuid4(),
+            event_id=test_event.id,
+            personnel_id=test_personnel.id,
+            function_type="reko",
+        )
+    )
+    db_session.add(
+        IncidentAssignment(
+            id=uuid4(),
+            incident_id=test_incident.id,
+            resource_type="personnel",
+            resource_id=test_personnel.id,
+        )
+    )
+    await db_session.commit()
+
+    token = generate_reko_dashboard_token(test_event.id)
+    response = await client.get(f"/api/reko-dashboard/assignments/{test_personnel.id}?token={token}")
+    assert response.status_code == 200
+    row = response.json()["assignments"][0]
+    assert row["location_address"] == "Teststrasse 1, 4104 Oberwil"
+    assert row["location_display"] == "Teststrasse 1"
+
+
 # ============================================
 # Photo Upload Tests
 # ============================================

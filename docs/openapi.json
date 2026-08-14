@@ -19457,6 +19457,17 @@
             ],
             "title": "Location Address"
           },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
           "location_lat": {
             "anyOf": [
               {
@@ -24565,6 +24576,17 @@
             ],
             "title": "Location Address"
           },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
           "location_lat": {
             "anyOf": [
               {
@@ -26817,6 +26839,17 @@
               }
             ],
             "title": "Incident Location Address"
+          },
+          "incident_location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Location Display"
           },
           "incident_status": {
             "anyOf": [

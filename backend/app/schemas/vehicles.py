@@ -92,6 +92,9 @@ class VehicleStatusResponse(BaseModel):
     incident_id: UUID | None = None
     incident_title: str | None = None
     incident_location_address: str | None = None
+    # Server-computed short label for the address above (home city stripped),
+    # so the Fahrzeug sheet shows the final deployment line on first paint.
+    incident_location_display: str | None = None
     incident_status: str | None = None
     incident_assigned_at: datetime | None = None
     assignment_duration_minutes: int | None = None

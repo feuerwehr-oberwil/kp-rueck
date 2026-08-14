@@ -48,6 +48,7 @@ from ..crud import feld as crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
+from ..services import incident_display
 from ..services.photo_storage import photo_storage
 from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
 from ..services.tokens import FeldTokenClaims, generate_feld_token, validate_feld_token
@@ -185,6 +186,8 @@ async def get_feld_assignments(
 
     assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
     chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
+    # One read for the whole list, next to the chips read that is already here.
+    home_city = await incident_display.get_home_city(db)
 
     return schemas.FeldAssignmentsResponse(
         personnel_id=person.id,
@@ -192,7 +195,13 @@ async def get_feld_assignments(
         personnel_role=person.role,
         event_id=event.id,
         event_name=event.name,
-        assignments=[schemas.FeldAssignment(**a) for a in assignments],
+        assignments=[
+            schemas.FeldAssignment(
+                **a,
+                location_display=incident_display.location_display(a.get("location_address"), home_city),
+            )
+            for a in assignments
+        ],
         message_chips=chips,
     )
 

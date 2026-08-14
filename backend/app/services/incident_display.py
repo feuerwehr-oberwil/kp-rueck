@@ -20,6 +20,17 @@ async def get_home_city(db: AsyncSession) -> str:
     return await get_setting_value(db, "home_city", "") or ""
 
 
+def location_display(address: str | None, home_city: str) -> str | None:
+    """The label for one address — None when there is no address at all.
+
+    The single formatting path. Payloads that are not an IncidentResponse
+    (`/feld`, the Reko dashboard, vehicle status) fill their own field from
+    here rather than growing a second copy of the rule; read the home city ONCE
+    per request and pass it in.
+    """
+    return format_location_for_display(address, home_city) if address else None
+
+
 def with_location_display(incident: Any, home_city: str) -> schemas.IncidentResponse:
     """Validate to IncidentResponse and fill the location_display label."""
     response = (
@@ -27,9 +38,7 @@ def with_location_display(incident: Any, home_city: str) -> schemas.IncidentResp
         if isinstance(incident, schemas.IncidentResponse)
         else schemas.IncidentResponse.model_validate(incident)
     )
-    response.location_display = (
-        format_location_for_display(response.location_address, home_city) if response.location_address else None
-    )
+    response.location_display = location_display(response.location_address, home_city)
     return response
 
 

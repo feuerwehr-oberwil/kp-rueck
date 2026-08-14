@@ -12,6 +12,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import vehicles as crud
 from ..database import get_db
 from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, Vehicle
+from ..services import incident_display
 from ..websocket_manager import broadcast_vehicle_update
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -163,6 +164,7 @@ async def get_vehicle_status(
     incident_id = None
     incident_title = None
     incident_location_address = None
+    incident_location_display = None
     incident_status = None
     incident_assigned_at = None
     assignment_duration_minutes = None
@@ -174,6 +176,14 @@ async def get_vehicle_status(
         incident_location_address = incident.location_address
         incident_status = incident.status
         incident_assigned_at = assignment.assigned_at
+        # The deployment line the sheet draws. Falls back to the title exactly
+        # like the sheet does — an incident's title usually IS the raw address —
+        # so the label covers both and neither has to be formatted client-side.
+        # Read only for a deployed vehicle: an idle one costs no extra query.
+        incident_location_display = incident_display.location_display(
+            incident_location_address or incident_title,
+            await incident_display.get_home_city(db),
+        )
 
         # Calculate duration in minutes
 
@@ -192,6 +202,7 @@ async def get_vehicle_status(
         incident_id=incident_id,
         incident_title=incident_title,
         incident_location_address=incident_location_address,
+        incident_location_display=incident_location_display,
         incident_status=incident_status,
         incident_assigned_at=incident_assigned_at,
         assignment_duration_minutes=assignment_duration_minutes,

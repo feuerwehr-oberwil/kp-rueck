@@ -507,7 +507,10 @@ function FeldSurface() {
 
   // ------------------------------------------------------------- detail
   if (viewMode === 'detail' && selectedAssignment) {
-    const address = formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
+    // Server label first (final on first paint), client formatting only as the
+    // fallback for a payload that predates it — same as everywhere else.
+    const address = selectedAssignment.location_display
+      ?? formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
     return (
       <div className="min-h-screen bg-background pb-20">
         {/* The address, always on screen. Folded blocks mean a crew can be four
@@ -703,7 +706,8 @@ function FeldSurface() {
           </div>
         ) : (
           assignments.map(assignment => {
-            const address = formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity())
+            const address = assignment.location_display
+              ?? formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity())
             return (
               <button
                 key={assignment.incident_id}

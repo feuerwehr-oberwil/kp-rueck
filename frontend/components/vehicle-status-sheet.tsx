@@ -32,6 +32,8 @@ interface VehicleStatus {
   incident_id: string | null
   incident_title: string | null
   incident_location_address: string | null
+  /** Server-computed deployment label (home city stripped). Null when idle. */
+  incident_location_display?: string | null
   incident_status: string | null
   incident_assigned_at: string | null
   assignment_duration_minutes: number | null
@@ -162,6 +164,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
             incident_id: null,
             incident_title: null,
             incident_location_address: null,
+            incident_location_display: null,
             incident_status: null,
             incident_assigned_at: null,
             assignment_duration_minutes: null,
@@ -310,12 +313,15 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                 const auftragName = auftragByVehicleId.get(vehicle.id)
                 const showDurationWarning = vehicle.assignment_duration_minutes && vehicle.assignment_duration_minutes >= 120
                 // Where the vehicle is: Auftrag name, else home-town-free incident
-                // address (title is usually the raw address, so format it too).
+                // address. The server ships that label already computed
+                // (`incident_location_display`, address or title) so it is final
+                // on first paint; the client formatter is only the fallback.
                 const deploymentLabel = auftragName
                   ? t('vehicleStatus.auftragLabel', { name: auftragName })
-                  : (formatLocationForDisplay(vehicle.incident_location_address || '', getGlobalHomeCity())
-                    || formatLocationForDisplay(vehicle.incident_title || '', getGlobalHomeCity())
-                    || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation')))
+                  : (vehicle.incident_location_display
+                    ?? (formatLocationForDisplay(vehicle.incident_location_address || '', getGlobalHomeCity())
+                      || formatLocationForDisplay(vehicle.incident_title || '', getGlobalHomeCity())))
+                    || (vehicle.status === "unavailable" ? t('vehicleStatus.unavailable') : t('vehicleStatus.readyForOperation'))
 
                 return (
                   <div

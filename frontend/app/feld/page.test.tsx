@@ -286,3 +286,64 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
     expect(document.cookie).not.toContain('inc-weg')
   })
 })
+
+/**
+ * The address comes ready-made from the server.
+ *
+ * `/feld` is login-less, so nothing on this page ever learns the station's home
+ * city — the client-side formatter has no city to strip against and would print
+ * the full address, permanently on this surface and as a first-paint flash on
+ * the logged-in ones. `location_display` is the answer; these assert the page
+ * actually prefers it, and still formats when a payload lacks it.
+ */
+describe('/feld renders the server-computed address label', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    getFeldPersonnel.mockResolvedValue({
+      personnel: [PERSON],
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+    })
+    setParams({ token: 'feld-token' })
+  })
+
+  const withAssignment = (overrides: Partial<ApiFeldAssignment>) => {
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [assignment(overrides)],
+      message_chips: [],
+    })
+  }
+
+  it('shows the short label on the list, not the raw address', async () => {
+    withAssignment({
+      location_address: 'Hauptstrasse 1, 4104 Oberwil',
+      location_display: 'Hauptstrasse 1',
+    })
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByText('Muster Hans'))
+
+    expect(await screen.findByText('Hauptstrasse 1')).toBeInTheDocument()
+    expect(screen.queryByText('Hauptstrasse 1, 4104 Oberwil')).not.toBeInTheDocument()
+  })
+
+  it('falls back to client formatting when the payload has no label', async () => {
+    withAssignment({ location_address: 'Hauptstrasse 1, 4104 Oberwil', location_display: undefined })
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByText('Muster Hans'))
+
+    // No home city known here, so the formatter passes the address through —
+    // the row is never blank.
+    expect(await screen.findByText('Hauptstrasse 1, 4104 Oberwil')).toBeInTheDocument()
+  })
+})

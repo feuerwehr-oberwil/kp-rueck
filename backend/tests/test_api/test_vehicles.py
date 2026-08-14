@@ -510,6 +510,66 @@ async def test_get_vehicle_status_with_incident(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_get_vehicle_status_location_display_strips_home_city(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    vehicle_with_incident_assignment: Vehicle,
+    test_event: "Event",
+    test_incident_for_vehicle: "Incident",
+):
+    """The deployment label comes computed from the server.
+
+    The Fahrzeug sheet used to strip the home city itself, which meant the raw
+    address on first paint and the short one once the settings request landed.
+    """
+    from app.models import Setting
+
+    db_session.add(Setting(key="home_city", value="Oberwil, BL"))
+    test_incident_for_vehicle.location_address = "Hauptstrasse 123, 4104 Oberwil"
+    await db_session.commit()
+
+    response = await editor_client.get(
+        f"/api/vehicles/{vehicle_with_incident_assignment.id}/status?event_id={test_event.id}"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["incident_location_address"] == "Hauptstrasse 123, 4104 Oberwil"
+    assert data["incident_location_display"] == "Hauptstrasse 123"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_vehicle_status_location_display_falls_back_to_title(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    vehicle_with_incident_assignment: Vehicle,
+    test_event: "Event",
+    test_incident_for_vehicle: "Incident",
+):
+    """No address on the incident: the title stands in, formatted the same way.
+
+    The sheet has always fallen back to the title (which usually IS the raw
+    address) — doing that here too is what keeps the client from having to
+    format anything.
+    """
+    from app.models import Setting
+
+    db_session.add(Setting(key="home_city", value="Oberwil"))
+    test_incident_for_vehicle.location_address = None
+    test_incident_for_vehicle.title = "Muehlemattstrasse 4, Oberwil"
+    await db_session.commit()
+
+    response = await editor_client.get(
+        f"/api/vehicles/{vehicle_with_incident_assignment.id}/status?event_id={test_event.id}"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["incident_location_address"] is None
+    assert data["incident_location_display"] == "Muehlemattstrasse 4"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_get_vehicle_status_with_both_driver_and_incident(
     editor_client: AsyncClient,
     db_session: AsyncSession,
@@ -670,6 +730,7 @@ async def test_vehicle_status_response_structure(
         "incident_id",
         "incident_title",
         "incident_location_address",
+        "incident_location_display",
         "incident_status",
         "incident_assigned_at",
         "assignment_duration_minutes",

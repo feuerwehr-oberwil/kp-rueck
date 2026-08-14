@@ -232,6 +232,10 @@ class RekoDashboardAssignment(BaseModel):
     incident_type: str
     incident_status: str
     location_address: str | None = None
+    # Server-computed short label (home city stripped), so the dashboard paints
+    # the final string on first render instead of reformatting once its settings
+    # arrive.
+    location_display: str | None = None
     location_lat: str | None = None
     location_lng: str | None = None
     assignment_id: UUID | None = None

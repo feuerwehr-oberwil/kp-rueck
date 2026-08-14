@@ -32,6 +32,7 @@ from app.models import (
     Notification,
     Personnel,
     SchadenplatzReport,
+    Setting,
     User,
     Vehicle,
 )
@@ -547,6 +548,29 @@ class TestAssignments:
         assert body["personnel_name"] == "Muster Hans"
         assert body["event_name"] == test_event.name
         assert [r["incident_id"] for r in body["assignments"]] == [str(mine.id)]
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_location_display_is_computed_server_side(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # The row ships the home-city-stripped label, so the crew's phone paints
+        # the final address on first render instead of the long one first and the
+        # short one once its settings have loaded.
+        db_session.add(Setting(key="home_city", value="Oberwil"))
+        incident = await _make_incident(db_session, test_event, test_user, "Meine Stelle")
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person)
+
+        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        assert response.status_code == 200
+        row = response.json()["assignments"][0]
+        assert row["location_address"] == "Meine Stelle 1, Oberwil"
+        assert row["location_display"] == "Meine Stelle 1"
 
     @pytest.mark.asyncio
     @pytest.mark.api

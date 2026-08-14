@@ -140,6 +140,9 @@ export interface ApiRekoDashboardAssignment {
   incident_type: string
   incident_status: string
   location_address: string | null
+  /** Server-computed short label for location_address (home city stripped).
+   *  "" when the address is only the home city; null/absent when no address. */
+  location_display?: string | null
   location_lat: string | null
   location_lng: string | null
   /** null for historical (submitted but unassigned) */

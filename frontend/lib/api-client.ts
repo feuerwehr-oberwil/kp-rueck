@@ -933,6 +933,9 @@ class ApiClient {
     incident_id: string | null
     incident_title: string | null
     incident_location_address: string | null
+    /** Server-computed short label for the deployment (home city stripped,
+     *  falls back to the incident title). Null when the vehicle is idle. */
+    incident_location_display?: string | null
     incident_status: string | null
     incident_assigned_at: string | null
     assignment_duration_minutes: number | null

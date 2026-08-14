@@ -114,6 +114,10 @@ class FeldAssignment(BaseModel):
     materials: list[FeldMaterialLine] = []
     reko: FeldReko | None = None
     location_address: str | None = None
+    # Server-computed short label (home city stripped). The crew's phone paints
+    # the address before its settings have loaded, so formatting it client-side
+    # showed the long form first and swapped it a beat later.
+    location_display: str | None = None
     location_lat: str | None = None
     location_lng: str | None = None
     # False once the board released the person — they may still file (and often
