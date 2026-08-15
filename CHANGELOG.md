@@ -277,6 +277,18 @@ will keep holding.
   Der Baustein stammt aus kp-front und ist dort zuerst gelandet – `build.mjs` ist in beiden
   Repos Byte für Byte dasselbe File und bleibt es damit auch.
 
+- **Die Landingpage spricht auch Italienisch und Englisch.** `it` und `en` stehen neu neben
+  Deutsch und Französisch, alle vier zu 197/197 Texten – die Sprachauswahl zeigt eine Sprache
+  erst, wenn sie vollständig ist. Damit steht kp-rueck.ch dort, wo kp-front.ch schon war.
+  Die Fachbegriffe sind von der Schwesterseite übernommen, statt zweimal erfunden zu werden:
+  «Milizfeuerwehr» heisst auch hier *militia fire brigade* und *pompieri di milizia*.
+  ⚠️ Die italienische Seite trägt denselben sichtbaren Hinweis wie die französische: **noch
+  nicht von einer italienischsprachigen Feuerwehrperson gegengelesen**. Der Hinweis kommt weg,
+  sobald das jemand getan hat. Die englische Seite trägt ihn bewusst nicht.
+  Die Screenshots bleiben auf allen Sprachen deutsch – die öffentliche Demo ist es, und sie
+  stammen von dort; nachgestellte Bilder wären eine Behauptung statt ein Beleg. Auch das steht
+  auf der Seite, statt es zu verschweigen.
+
 ### Changed
 
 - **Der Einsatzbericht sieht aus wie der Einsatzrapport aus KP Front.** Eine Nacht kann

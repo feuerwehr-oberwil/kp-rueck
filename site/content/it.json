@@ -1,0 +1,329 @@
+{
+  "notice": "Questa versione italiana non è ancora stata riletta da una persona italofona dei pompieri, e la demo è in tedesco. Un termine che suona male? <a href=\"#kontakt\">Scrivetecelo</a> e lo correggiamo.",
+  "meta": {
+    "title": "KP Rück – il tavolo operativo per il posto di comando",
+    "description": "KP Rück porta in digitale la lavagna magnetica del posto di comando arretrato: interventi, personale, veicoli e materiale su un solo tavolo – in tempo reale su ogni dispositivo, open source e ospitato da voi.",
+    "ogTitle": "KP Rück – il tavolo operativo per il posto di comando",
+    "ogDescription": "Porta in digitale la lavagna magnetica del posto di comando arretrato: interventi, personale, veicoli e materiale su un solo tavolo – in tempo reale su ogni dispositivo, open source e ospitato da voi."
+  },
+  "nav": {
+    "aria": "Navigazione principale",
+    "features": "Funzioni",
+    "contact": "Contatto",
+    "demo": "Demo",
+    "githubAria": "KP Rück su GitHub",
+    "languageAria": "Lingua"
+  },
+  "notFound": {
+    "pageTitle": "Pagina non trovata – KP Rück",
+    "code": "Errore 404",
+    "title": "Questa pagina non esiste.",
+    "body": "Forse un errore di battitura nell’indirizzo, forse un vecchio link.",
+    "home": "Alla pagina iniziale",
+    "demo": "Apri la demo"
+  },
+  "hero": {
+    "eyebrow": "Open source&nbsp;· Svizzera",
+    "h1": "Il tavolo operativo per il posto di comando.",
+    "lede": "KP Rück porta in digitale la lavagna magnetica del posto di comando arretrato: <strong>interventi, personale, veicoli e materiale</strong> su un solo tavolo – in tempo reale su ogni dispositivo.",
+    "cta": "Apri la demo",
+    "ctaNote": "Senza account – scegliete un ruolo e via",
+    "frameAddr": "TAVOLO · MALTEMPO · 17 INTERVENTI ATTIVI",
+    "frameAlt": "Tavolo operativo: colonne dall’arrivo alla chiusura, in mezzo le schede degli interventi, a sinistra il personale, a destra il materiale"
+  },
+  "fit": {
+    "whoLabel": "Per chi",
+    "who": [
+      "Pompieri di milizia",
+      "Corpi locali",
+      "Centri di soccorso",
+      "Pompieri professionisti"
+    ],
+    "whatLabel": "Per cosa",
+    "what": [
+      "Interventi quotidiani",
+      "Situazioni di maltempo",
+      "Più eventi in contemporanea"
+    ],
+    "note": "Nato dall’attività operativa reale dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – lì collaudato e sviluppato di continuo."
+  },
+  "tenet": {
+    "eyebrow": "Il metro",
+    "quote": "«Quando la rete non c’è più, comanda la <em>carta</em>»",
+    "expl": "Un tavolo che si spegne durante un blackout non è uno strumento di condotta. Per questo la ridondanza è integrata su più livelli – <strong>ogni livello funziona senza quello sopra</strong>.",
+    "stages": [
+      {
+        "n": "Livello 1",
+        "h3": "Più dispositivi allo stesso stato",
+        "p": "Tablet, proiezioni a muro e telefoni sono collegati in tempo reale allo stesso tavolo. Se un dispositivo si guasta o si blocca, un altro prosegue – non c’è nulla da recuperare e nulla da riportare."
+      },
+      {
+        "n": "Livello 2",
+        "h3": "Una seconda istanza in rimessa",
+        "p": "KP Rück può girare anche in locale, in parallelo. La sincronizzazione integrata tiene allineati eventi, interventi, personale, veicoli, materiale e impostazioni fra il cloud e la banca dati locale. La mappa arriva dal vostro server di mappe, e la stampante è comunque nella rete locale."
+      },
+      {
+        "n": "Livello 3",
+        "h3": "Comanda la carta",
+        "p": "Lo stato del tavolo va alla stampante termica ogni pochi minuti, il foglio della situazione a comando. Se tutto si ferma, l’ultimo foglio diventa il tavolo. Alla ripartenza <strong>una</strong> sola persona riporta nell’app quanto è stato fatto a mano."
+      }
+    ]
+  },
+  "incident": {
+    "eyebrow": "Dall’allarme al rapporto",
+    "h2": "Un evento, un tavolo.",
+    "lede": "Ecco com’è una notte di maltempo nel posto di comando – quello che succede sul tavolo finisce poi nel rapporto d’intervento.",
+    "entries": [
+      {
+        "time": "21:14",
+        "tag": "Allarme in arrivo",
+        "h3": "Arrivano le segnalazioni.",
+        "p": "Dal modulo di segnalazione, per telefono o tramite l’interfaccia aperta del sistema di allertamento (per esempio Divera). L’ufficiale di picchetto la prende in carico con un clic – la segnalazione diventa un intervento sul tavolo."
+      },
+      {
+        "time": "21:19",
+        "tag": "Assegnazione",
+        "h3": "Squadra e veicoli sono assegnati.",
+        "p": "Personale, veicoli e materiale sull’intervento con il trascinamento. Il sistema aiuta la condotta a riconoscere e rendere visibili doppie assegnazioni, risorse mancanti o contraddizioni. Chi arriva si annuncia da sé con un codice QR."
+      },
+      {
+        "time": "21:26",
+        "tag": "Mappa",
+        "h3": "Chi è dove.",
+        "p": "Tutti gli interventi su una mappa, con i veicoli e, se volete, la loro posizione GPS. Quando un veicolo arriva sul posto, il tavolo propone da sé il cambio di stato."
+      },
+      {
+        "time": "21:48",
+        "tag": "Ricognizione",
+        "h3": "La ricognizione riferisce.",
+        "p": "La squadra di ricognizione compila il modulo dal proprio telefono – foto comprese. La segnalazione resta agganciata all’intervento giusto invece di perdersi nella chat di gruppo."
+      },
+      {
+        "time": "23:30",
+        "tag": "Tavolo",
+        "h3": "Tutti vedono lo stesso tavolo.",
+        "p": "Il proiettore nel posto di comando, il tablet sul tavolo e il telefono del furiere mostrano lo stesso stato – senza che nessuno prema «aggiorna»."
+      },
+      {
+        "time": "06:40",
+        "tag": "Rapporto",
+        "h3": "Il rapporto si scrive da sé.",
+        "p": "Il diario d’intervento e i tempi di reazione nascono strada facendo e diventano un PDF. Si corregge con nuove voci, non con la gomma – così la notte resta documentata."
+      }
+    ]
+  },
+  "shots": {
+    "eyebrow": "Dalla demo",
+    "h2": "Ecco come si presenta.",
+    "lede": "Tutte le immagini sono riprese dalla demo pubblica. Cliccate su «Apri la demo» e siete davanti allo stesso tavolo.",
+    "note": "Le schermate sono in tedesco: lo è la demo pubblica, e da lì provengono – immagini ricostruite sarebbero un’affermazione invece di una prova.",
+    "items": [
+      {
+        "alt": "Vista proiettore: tutte le fasi dell’intervento affiancate su un solo schermo",
+        "title": "Vista proiettore",
+        "sub": "Per la parete del posto di comando in penombra: tutte le fasi affiancate, senza comandi"
+      },
+      {
+        "alt": "Vista stato: veicoli, interventi, personale e materiale affiancati, ciascuno con disponibilità e assegnazione",
+        "title": "Stato",
+        "sub": "Veicoli, interventi, personale e materiale affiancati – chi è libero, chi è impegnato, chi è dove"
+      },
+      {
+        "alt": "Vista mappa: interventi per priorità, posizioni dei veicoli e assegnazioni",
+        "title": "Mappa",
+        "sub": "Tutti gli interventi per priorità, con le posizioni dei veicoli e le assegnazioni fra i due"
+      },
+      {
+        "alt": "Stato dei veicoli: veicoli con nominativo radio, conducente, destinazione e stato",
+        "title": "Veicoli",
+        "sub": "Nominativo radio, conducente, destinazione e stato di ogni veicolo a colpo d’occhio"
+      },
+      {
+        "alt": "Modulo di segnalazione: indirizzo, segnalazione, priorità, tipo d’intervento e dati di chi segnala",
+        "title": "Modulo di segnalazione",
+        "sub": "Raccogliere in modo strutturato le segnalazioni telefoniche e chi si presenta di persona – con un link o un codice QR, senza account"
+      },
+      {
+        "alt": "Modulo di ricognizione: intervento, «sono sul posto» e pericoli da spuntare",
+        "title": "Modulo di ricognizione",
+        "sub": "Sul telefono privato della ricognizione: annunciarsi sul posto, spuntare i pericoli, allegare foto"
+      },
+      {
+        "alt": "Vista campo: il proprio luogo d’intervento con le segnalazioni al posto di comando, la situazione e la squadra",
+        "title": "Campo",
+        "sub": "Ogni squadra vede solo i propri luoghi d’intervento – arrivati, da recuperare, intervento concluso, senza radio"
+      },
+      {
+        "alt": "Incarichi: più interventi raggruppati in un unico itinerario",
+        "title": "Incarichi",
+        "sub": "Più interventi come un solo itinerario – con squadra, mezzi e un ordine che il tavolo ottimizza per distanza"
+      },
+      {
+        "alt": "Comandi esercitazione: generare interventi singoli o mirati, automatismo e simulazione sul campo",
+        "title": "Esercitazione",
+        "sub": "Immettere scenari d’esercitazione invece di inventarli – nettamente separati dal caso reale"
+      }
+    ]
+  },
+  "change": {
+    "eyebrow": "Il passaggio",
+    "h2": "Che cosa cambia.",
+    "lede": "Niente di tutto questo oggi è guasto – la lavagna magnetica funziona da decenni. KP Rück si mette negli stessi punti, solo senza ricopiare.",
+    "headToday": "Oggi",
+    "headWith": "Con KP Rück",
+    "rows": [
+      {
+        "today": "Lavagna magnetica alla parete",
+        "with": "Tavolo digitale su ogni dispositivo"
+      },
+      {
+        "today": "Appunti telefonici su foglietti",
+        "with": "Un modulo di segnalazione agganciato all’intervento"
+      },
+      {
+        "today": "Elenco Excel per squadra e veicoli",
+        "with": "Una panoramica dal vivo che si aggiorna da sé"
+      },
+      {
+        "today": "Gruppo WhatsApp per i riscontri",
+        "with": "Segnalazioni strutturate con foto"
+      },
+      {
+        "today": "Rapporto dopo l’intervento",
+        "with": "Il rapporto nasce durante l’intervento"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Funzionalità",
+    "h2": "Che cosa c’è dentro.",
+    "lede": "Cresciuto su eventi ed esercitazioni reali, non su un elenco di funzioni. Tutto ciò che arriva dall’esterno – allertamento, GPS, stampanti – è <strong>facoltativo</strong>: KP Rück gira anche del tutto senza questi collegamenti.",
+    "groups": [
+      {
+        "h3": "Tavolo &amp; assegnazione",
+        "items": [
+          "<strong>Le colonne sono le fasi dell’intervento</strong> – le schede si spostano da sinistra a destra trascinandole",
+          "Assegnare personale, veicoli e materiale, con avviso in caso di doppia assegnazione",
+          "Materiale rimasto sul posto – quale mezzo si trova a quale intervento, e da quando",
+          "Priorità, tempi di percorrenza e scadenze visibili per ogni intervento",
+          "Incarichi: più interventi come un solo itinerario per una squadra, ordine ottimizzato per distanza con un tasto",
+          "Check-in con codice QR – chi arriva si annuncia da sé",
+          "Vista proiettore per la parete del posto di comando – le stesse schede del tavolo, solo senza comandi",
+          "Palette dei comandi e scorciatoie da tastiera per chi va veloce"
+        ]
+      },
+      {
+        "h3": "Allarmi &amp; segnalazioni",
+        "items": [
+          "<strong>Interfaccia aperta</strong> – qualsiasi sistema di disposizione può aprire interventi",
+          "Può riprendere gli allarmi da Divera <span class=\"opt\">facoltativo</span>",
+          "Modulo di segnalazione via link o QR per il telefono e per chi si presenta di persona",
+          "Gli arrivi finiscono nel serbatoio, presa in carico con un clic",
+          "Allertamento della squadra direttamente dal tavolo <span class=\"opt\">facoltativo</span>",
+          "Segnalazioni di ricognizione con foto, direttamente dal telefono privato della squadra"
+        ]
+      },
+      {
+        "h3": "Mappa &amp; veicoli",
+        "items": [
+          "Tutti gli interventi per priorità e stato su una mappa",
+          "Posizione dei veicoli via GPS <span class=\"opt\">facoltativo</span>",
+          "Proposta di stato non appena un veicolo arriva sul posto",
+          "Assegnazioni come linea – quale veicolo appartiene a quale intervento",
+          "Riquadri di mappa anche dal vostro server in rimessa"
+        ]
+      },
+      {
+        "h3": "Dopo &amp; esercizio",
+        "items": [
+          "<strong>Rapporto d’intervento in PDF</strong> con diario d’intervento e tempi di reazione",
+          "Un protocollo continuo che viene solo integrato e mai sovrascritto",
+          "Rapporti aperti come elenco corrente – quale intervento concluso non ne ha ancora uno",
+          "<strong>Area amministrativa propria</strong> per ogni corpo: squadra, parco veicoli, elenchi del materiale, tipi d’intervento e priorità",
+          "Importazione ed esportazione in Excel",
+          "Stampa termica in rimessa tramite un agente di stampa proprio <span class=\"opt\">facoltativo</span>",
+          "Ruoli: modificare oppure solo leggere, interfaccia scura per il posto di comando in penombra",
+          "Modalità esercitazione con generatore e viaggi simulati, nettamente separata dal caso reale"
+        ]
+      }
+    ]
+  },
+  "sibling": {
+    "eyebrow": "Progetto affine",
+    "h2": "KP Rück tiene la visione d’insieme dietro. KP Front conduce davanti.",
+    "p": "<strong>KP Front</strong> porta in digitale la carta della situazione e il tavolo di condotta sul posto: simboli tattici, piani d’oggetto e sorveglianza della protezione respiratoria, anche senza rete. App propria, stessa impronta – i due possono passarsi gli allarmi, ma nessuno dei due ha bisogno dell’altro.",
+    "cta": "Guarda KP Front"
+  },
+  "faq": {
+    "eyebrow": "Domande &amp; risposte",
+    "h2": "Le domande più frequenti.",
+    "items": [
+      {
+        "q": "Perché cambiare?",
+        "a": "Niente più doppie assegnazioni. Nessuna segnalazione persa nella chat di gruppo. Meno traffico radio per domande che sono comunque sul tavolo. Tutti vedono la stessa situazione nello stesso momento – e il rapporto d’intervento è già pronto al rientro, invece che il fine settimana dopo."
+      },
+      {
+        "q": "A chi appartengono i dati?",
+        "a": "A voi. Ogni corpo pompieri gestisce il proprio KP Rück – sul proprio computer in rimessa oppure nel cloud. Decidete voi dove stanno i dati d’intervento, la squadra e il parco veicoli; nulla va a un fornitore o a terzi."
+      },
+      {
+        "q": "Quanto costa?",
+        "a": "Niente. KP Rück è open source (AGPL) – <strong>nessuna licenza, nessun abbonamento, nessun costo per dispositivo</strong>. Restano i vostri costi d’esercizio: un piccolo server, o un computer in rimessa."
+      },
+      {
+        "q": "Che cosa serve per farlo girare?",
+        "a": "Meno di quanto molti pensino. Basta un piccolo mini-PC o un server in rimessa, e l’installazione richiede poche ore. Poi il sistema gira in gran parte da sé, e gli aggiornamenti sono un gesto solo. Serve qualcuno che lo imposti una volta – nel corpo, in Comune o un’informatica amica. E se non avete nessuno: scriveteci, vi aiutiamo a impostarlo."
+      },
+      {
+        "q": "Possiamo adattarlo ai nostri processi?",
+        "a": "Sì. Ogni corpo ha la propria area amministrativa: tipi d’intervento, priorità, squadra, parco veicoli ed elenchi del materiale si impostano liberamente lì, e importazione ed esportazione passano da Excel. E poiché tutto il codice è su <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>, tutto il resto si può costruire – da voi o su mandato."
+      },
+      {
+        "q": "Come cominciamo?",
+        "a": "Con la <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">demo</a>, senza account – scegliete un ruolo e via. Poi provatelo in un’esercitazione; la modalità esercitazione è nettamente separata dal caso reale. E se vi convince: scriveteci, vi aiutiamo a impostarlo."
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contatto",
+    "h2": "Diteci che cosa ne pensate.",
+    "p": "Volete provare KP Rück da voi? Manca qualcosa, oppure qualcosa non funziona come ve l’aspettate? Scriveteci – leggiamo tutto.",
+    "alt": "Per domande e idee aperte ci sono le <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/discussions\" target=\"_blank\" rel=\"noopener\">discussioni su GitHub</a>.",
+    "bug": {
+      "t": "Segnalare un errore",
+      "s": "Che cosa è successo, e che cosa vi aspettavate? Le schermate si trascinano direttamente nel modulo."
+    },
+    "idea": {
+      "t": "Chiedere qualcosa",
+      "s": "Manca un gesto che da voi fa parte del processo? Descrivete il caso, non la soluzione."
+    },
+    "mail": {
+      "t": "Scrivere direttamente",
+      "s": "Senza account GitHub, o quando qualcosa non deve restare pubblico – anche per «vorremmo provarlo da noi»."
+    },
+    "form": {
+      "honeypot": "Lasciare vuoto questo campo",
+      "name": "Nome",
+      "namePlaceholder": "Chi scrive?",
+      "mail": "E-mail",
+      "mailPlaceholder": "Per poter rispondere",
+      "message": "Messaggio",
+      "messagePlaceholder": "Di che cosa si tratta?",
+      "send": "Invia il messaggio",
+      "sending": "Invio in corso …",
+      "ok": "Grazie – il messaggio è arrivato. Ci facciamo vivi.",
+      "error": "Non ha funzionato. Scrivete direttamente a bastian.eichenberger@feuerwehr-oberwil.ch."
+    }
+  },
+  "lightbox": {
+    "close": "Chiudi",
+    "prev": "Immagine precedente",
+    "next": "Immagine successiva",
+    "zoom": "Ingrandisci"
+  },
+  "footer": {
+    "origin": "Nato nell’attività operativa dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – perché in intervento vedevamo sempre le stesse fonti d’errore: doppie assegnazioni, informazioni sparse ed errori di trascrizione a mano. Ogni corpo pompieri gestisce il proprio KP Rück, con la propria squadra, i propri veicoli e i propri dati.",
+    "demo": "Demo",
+    "contact": "Contatto"
+  }
+}
