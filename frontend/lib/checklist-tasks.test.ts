@@ -26,6 +26,8 @@ function tasks(overrides: Partial<Parameters<typeof generateChecklistTasks>[0]> 
     onPrintRekoLink: noop,
     onCopyAlarmLink: noop,
     onPrintAlarmLink: noop,
+    onCopyFeldLink: noop,
+    onPrintFeldLink: noop,
     onShowTileSetup: noop,
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
@@ -128,6 +130,43 @@ describe('the driver run covers exactly the vehicles nobody is driving', () => {
   it('returns nothing once every vehicle has a driver', () => {
     const driven = vehicles.map(v => ({ function_type: 'driver', vehicle_id: v.id }))
     expect(findVehiclesWithoutDriver(vehicles, driven)).toEqual([])
+  })
+})
+
+describe('the four login-less links are all on the list', () => {
+  // The Feld poster is the one a crew carries out of the door, and it was the one
+  // missing here — the station's paper checklist said «Check-In, Telefonist und
+  // Reko» because this list did. A crew that drove off without it has no way to
+  // file a Schadenplatz-Rapport at all, which is what replaced the paper one.
+  it('offers every link a crew or a caller needs, Feld included', () => {
+    const ids = tasks().map(task => task.id)
+    expect(ids).toEqual(
+      expect.arrayContaining(['personnel-checkin', 'share-reko-link', 'share-alarm-link', 'share-feld-link'])
+    )
+  })
+
+  it('names the Feld row from the catalogue, not from its own key', () => {
+    // The row is built through `translateOutsideReact`, so a key that exists in
+    // the code but not in messages/de.json renders the dotted path on the board.
+    const task = byId('share-feld-link', tasks())
+    expect(task?.title).toBe('Feld-Link teilen')
+    expect(task?.description).not.toContain('checklist.tasks')
+  })
+
+  it('prints the Feld QR when a printer is reachable, and copies the link when it is not', () => {
+    const onPrintFeldLink = vi.fn()
+    const onCopyFeldLink = vi.fn()
+    const args = { onPrintFeldLink, onCopyFeldLink }
+
+    byId('share-feld-link', tasks({ ...args, printerEnabled: true, printerAgentOnline: true }))
+      ?.actionButtons?.[0].onClick?.()
+    expect(onPrintFeldLink).toHaveBeenCalledOnce()
+    expect(onCopyFeldLink).not.toHaveBeenCalled()
+
+    // Agent down: the row must still hand over the link rather than going dead.
+    byId('share-feld-link', tasks({ ...args, printerEnabled: true, printerAgentOnline: false }))
+      ?.actionButtons?.[0].onClick?.()
+    expect(onCopyFeldLink).toHaveBeenCalledOnce()
   })
 })
 

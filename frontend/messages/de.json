@@ -2745,6 +2745,10 @@
         "title": "Alarm-Link teilen",
         "description": "Telefon-/Walk-in-Meldungen ermöglichen"
       },
+      "share-feld-link": {
+        "title": "Feld-Link teilen",
+        "description": "Trupps melden vom Schadenplatz und füllen den Rapport aus"
+      },
       "assign-reko": {
         "title": "Reko-Offiziere bestimmen",
         "details": "{count, plural, one {# Reko-Offizier} other {# Reko-Offiziere}} zugewiesen",
@@ -2805,6 +2809,7 @@
       "checkInCopyLabel": "Check-In Link",
       "rekoCopyLabel": "Reko-Link",
       "alarmCopyLabel": "Alarm-Link",
+      "feldCopyLabel": "Feld-Link",
       "testPrintQueued": "Testdruck eingereiht – warte auf Drucker…",
       "testPrintQueuedDescription": "Der Drucker-Status wird automatisch aktualisiert.",
       "testPrintFailed": "Testdruck konnte nicht gestartet werden",
@@ -2823,6 +2828,8 @@
       "rekoSubtitle": "Reko-Personal sieht Zuweisungen und füllt Formulare aus – ohne Anmeldung.",
       "alarmTitle": "Alarm-Link",
       "alarmSubtitle": "Neue Alarme erfassen (Telefon/Walk-in) – ohne Anmeldung.",
+      "feldTitle": "Feld-Ansicht",
+      "feldSubtitle": "Eigene Schadenplätze, Meldungen an den KP und der Rapport – ohne Anmeldung.",
       "dismiss": "Checkliste ausblenden"
     },
     "priority": {

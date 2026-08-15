@@ -78,9 +78,9 @@ export function findVehiclesWithoutDriver(
 /**
  * Generate checklist tasks with current state.
  *
- * Link-sharing rows (check-in, Reko, Alarm) adapt their action: when a thermal
- * printer is reachable they print the QR, otherwise they copy the link. The
- * WhatsApp row is handled specially by the component (two-message picker).
+ * Link-sharing rows (check-in, Reko, Alarm, Feld) adapt their action: when a
+ * thermal printer is reachable they print the QR, otherwise they copy the link.
+ * The WhatsApp row is handled specially by the component (two-message picker).
  */
 export function generateChecklistTasks(params: {
   eventId: string
@@ -99,6 +99,8 @@ export function generateChecklistTasks(params: {
   onPrintRekoLink: () => void
   onCopyAlarmLink: () => void
   onPrintAlarmLink: () => void
+  onCopyFeldLink: () => void
+  onPrintFeldLink: () => void
   onShowTileSetup: () => void
   onTestPrint: () => void
   onOpenFallbackSettings: () => void
@@ -178,6 +180,24 @@ export function generateChecklistTasks(params: {
       priority: 'recommended',
       completed: false,
       actionButtons: [linkAction(params.onCopyAlarmLink, params.onPrintAlarmLink)]
+    },
+
+    // 5. Share the Feld link — the one the crews carry out of the door, so it is
+    //    the one poster that has to exist BEFORE anybody drives off. It replaced
+    //    the paper Fahrzeugrapport: a Schadenplatz-Rapport is filled in on the
+    //    phone behind this link, and a crew that left without it has no way to
+    //    report anything but the radio.
+    //    ⚠️ An unbound /feld link is a credential for the whole Ereignis, not an
+    //    identity — whoever holds the printed slip can read and write as any crew
+    //    in it. That is why the slips get collected at the end (docs/SETUP.md §7).
+    {
+      id: 'share-feld-link',
+      title: translateOutsideReact('checklist.tasks.share-feld-link.title'),
+      description: translateOutsideReact('checklist.tasks.share-feld-link.description'),
+      icon: Truck,
+      priority: 'recommended',
+      completed: false,
+      actionButtons: [linkAction(params.onCopyFeldLink, params.onPrintFeldLink)]
     },
 
     // 5. Assign reconnaissance officers — the Reko-Modus on the map is where
@@ -406,6 +426,8 @@ export async function summarizeEventChecklist(
     onPrintRekoLink: noop,
     onCopyAlarmLink: noop,
     onPrintAlarmLink: noop,
+    onCopyFeldLink: noop,
+    onPrintFeldLink: noop,
     onShowTileSetup: noop,
     onTestPrint: noop,
     onOpenFallbackSettings: noop,

@@ -238,6 +238,18 @@ will keep holding.
   **Setting a limit to 0 (or clearing the field) switches it off.** Until now the input rejected
   anything below 1 GB, so a limit could be set but never unset.
 
+- **Die Bereitschaftscheckliste verlangt neu auch den Feld-Link.** Sie führte drei
+  anmeldefreie Links auf – Check-In, Reko und Alarm – und liess ausgerechnet den weg, den eine
+  Mannschaft aus dem Magazin mitnimmt. Der `/feld`-Link ist derjenige, hinter dem der
+  Schadenplatz-Rapport ausgefüllt wird; er hat den Papier-Fahrzeugrapport abgelöst. Ein Trupp,
+  der ohne ihn losfährt, kann gar nichts melden ausser über Funk – und niemand merkt es, bis
+  er vor Ort steht. Die Zeile verhält sich wie die drei anderen: **QR drucken**, solange ein
+  Thermodrucker erreichbar ist, sonst **Link kopieren**.
+  ⚠️ Zur Erinnerung, weil dieser Zettel jetzt öfter gedruckt wird: ein ungebundener
+  `/feld`-Link ist ein Zugang zum **ganzen Ereignis**, keine Identität – wer ihn hat, kann als
+  jeder Trupp darin lesen und schreiben. Die gedruckten Zettel gehören am Ende eines
+  Ereignisses eingesammelt ([`docs/SETUP.md`](docs/SETUP.md) §7).
+
 - **Standing lines from the Leitstelle can be dropped before they reach the board.** Divera
   appends the brigade's turnout order to every alarm («Ausrückeordnung: 1. TLF → 2. PIO»); it is
   identical on every incident, so it is noise on the board and in every printout, and it crowds

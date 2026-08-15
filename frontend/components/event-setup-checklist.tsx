@@ -117,6 +117,11 @@ export function EventSetupChecklist({
     subtitle: t('alarmSubtitle'),
     copyLabel: t('alarmCopyLabel'),
   }
+  const feldMeta = {
+    title: t('feldTitle'),
+    subtitle: t('feldSubtitle'),
+    copyLabel: t('feldCopyLabel'),
+  }
 
   const handleCopyCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
   const handlePrintCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'print', checkInMeta)
@@ -124,6 +129,8 @@ export function EventSetupChecklist({
   const handlePrintRekoLink = () => shareLink(() => apiClient.generateRekoDashboardLink(eventId), 'print', rekoMeta)
   const handleCopyAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'copy', alarmMeta)
   const handlePrintAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'print', alarmMeta)
+  const handleCopyFeldLink = () => shareLink(() => apiClient.generateFeldLink(eventId), 'copy', feldMeta)
+  const handlePrintFeldLink = () => shareLink(() => apiClient.generateFeldLink(eventId), 'print', feldMeta)
 
   const handleTestPrint = async () => {
     try {
@@ -220,6 +227,8 @@ export function EventSetupChecklist({
         onPrintRekoLink: handlePrintRekoLink,
         onCopyAlarmLink: handleCopyAlarmLink,
         onPrintAlarmLink: handlePrintAlarmLink,
+        onCopyFeldLink: handleCopyFeldLink,
+        onPrintFeldLink: handlePrintFeldLink,
         onShowTileSetup: handleShowTileSetup,
         onTestPrint: handleTestPrint,
         onOpenFallbackSettings: () => {

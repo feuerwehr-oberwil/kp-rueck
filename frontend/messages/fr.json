@@ -18,6 +18,10 @@
         "title": "Partager le lien d’alarme",
         "description": "Permettre les annonces par téléphone ou au guichet"
       },
+      "share-feld-link": {
+        "title": "Partager le lien terrain",
+        "description": "Les équipes annoncent depuis leur site et remplissent le rapport"
+      },
       "assign-reko": {
         "title": "Désigner les officiers de reconnaissance",
         "details": "{count, plural, one {# officier de reconnaissance attribué} other {# officiers de reconnaissance attribués}}",
@@ -78,6 +82,7 @@
       "checkInCopyLabel": "Lien d’arrivée",
       "rekoCopyLabel": "Lien de reconnaissance",
       "alarmCopyLabel": "Lien d’alarme",
+      "feldCopyLabel": "Lien terrain",
       "testPrintQueued": "Impression de test en file – en attente de l’imprimante…",
       "testPrintQueuedDescription": "L’état de l’imprimante est actualisé automatiquement.",
       "testPrintFailed": "L’impression de test n’a pas pu être lancée",
@@ -96,6 +101,8 @@
       "rekoSubtitle": "Le personnel de reconnaissance voit ses attributions et remplit les formulaires – sans connexion.",
       "alarmTitle": "Lien d’alarme",
       "alarmSubtitle": "Saisir de nouvelles alarmes (téléphone/guichet) – sans connexion.",
+      "feldTitle": "Vue terrain",
+      "feldSubtitle": "Ses propres sites, les annonces au PC et le rapport – sans connexion.",
       "dismiss": "Masquer la liste de contrôle"
     },
     "priority": {
