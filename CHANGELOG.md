@@ -268,10 +268,14 @@ will keep holding.
   Französisch versteckt, und ein Skript zeigt die, die das erste Pfadsegment nennt. Ohne
   JavaScript bleibt Deutsch stehen – die Basissprache der Seite, ein Ausfall kostet also eine
   Übersetzung und nicht die Seite.
-  Sie ist **von Hand geschrieben** und sagt das dort, wo jede andere Seite in `site/` das
-  Gegenteil im Kopf trägt: `build.mjs` baut genau ein Template und ist mit kp-front
-  Byte für Byte identisch. Der Preis ist, dass ihr Text hier steht und nicht in
-  `content/<sprache>.json` – eine dritte Sprache will an beiden Orten nachgeführt werden.
+  Sie wird **gebaut wie jede andere Seite**, aus `site/404.template.html` plus `notFound` in
+  `content/<sprache>.json`: `build.mjs` kennt neu ein zweites Template, `--check` bewacht das
+  Ergebnis mit, und eine weitere Sprache kostet hier gar nichts – sie fällt aus derselben
+  Textdatei mit heraus. Anders als die Landingpage kann diese Seite aber **nicht** pro Sprache
+  in einen Ordner gelegt werden, weil GitHub Pages für jede Adresse dieselbe Datei ausliefert;
+  sie trägt darum alle Sprachen und wählt erst beim Anzeigen.
+  Der Baustein stammt aus kp-front und ist dort zuerst gelandet – `build.mjs` ist in beiden
+  Repos Byte für Byte dasselbe File und bleibt es damit auch.
 
 ### Changed
 

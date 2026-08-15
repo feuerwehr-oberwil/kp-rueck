@@ -14,6 +14,14 @@
     "githubAria": "KP Rück sur GitHub",
     "languageAria": "Langue"
   },
+  "notFound": {
+    "pageTitle": "Page introuvable – KP Rück",
+    "code": "Erreur 404",
+    "title": "Cette page n’existe pas.",
+    "body": "Peut-être une faute de frappe dans l’adresse, peut-être un ancien lien.",
+    "home": "Vers l’accueil",
+    "demo": "Ouvrir la démo"
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· Suisse",
     "h1": "Le tableau d’intervention du poste de commandement.",
