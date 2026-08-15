@@ -1,0 +1,144 @@
+<!doctype html>
+<!--
+  HAND-WRITTEN. Every other .html in site/ carries a "Built from … – edits are lost"
+  banner; this one is the exception, so it says so loudly. `node site/build.mjs` neither
+  writes nor checks this file, and `build.mjs` is byte-identical with kp-front – teaching
+  it a second template is a two-repo change, which this page is not worth on its own.
+  The price is that the text below lives here instead of in content/<language>.json, so
+  a new language has to be added here by hand as well as in content/.
+
+  ⚠️ ABSOLUTE paths, everywhere on this page. GitHub Pages serves this ONE file for EVERY
+  unmatched address, at every depth – /tippfehler, /fr/vieux-lien, /a/b/c – and the browser
+  resolves relative URLs against that address, not against where the file lives. A relative
+  `landing.css` would load on /tippfehler and 404 on /fr/vieux-lien: the error page would
+  itself be broken exactly where somebody has already hit something broken.
+
+  Every language ships inside this one file. German is visible, the rest are `hidden`, and
+  the script at the bottom reveals whichever one the address was already in. With no JS the
+  German one stays – which is the base language of the site anyway, so a failure there costs
+  a translation, not the page.
+-->
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="noindex">
+<title>Seite nicht gefunden – KP Rück</title>
+<!-- The same inline icon index.template.html carries. A `/favicon.svg` would be one more
+     request that 404s on the page whose whole job is to explain a 404. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Crect x='3.5' y='10.5' width='7' height='11' rx='2' fill='%23e8392b'/%3E%3Crect x='12.5' y='10.5' width='7' height='11' rx='2' fill='%23ffffff'/%3E%3Crect x='21.5' y='10.5' width='7' height='11' rx='2' fill='%23b8c4d3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/landing.css">
+
+<style>
+  /* The only new rule this page needs: a 404 has no page below it to scroll into, so the
+     block is centred in what is left between the header and the footer. Everything else
+     (.eyebrow, .btn, .cta-note, .wrap, .top, footer) comes from landing.css and its tokens –
+     no hard-coded hex, so a palette change on the landing page carries this page with it. */
+  .nf-stage { display: flex; align-items: center; min-height: calc(100vh - 210px); }
+  .nf { padding: 40px 0 72px; }
+  .nf[hidden] { display: none; }
+  .nf h1 {
+    font-size: clamp(2.1rem, 5.2vw, 3.2rem); line-height: 1.08; font-weight: 800;
+    letter-spacing: -.04em; margin: 18px 0 0; max-width: 15ch;
+  }
+  .nf .lede { margin-top: 16px; max-width: 46ch; font-size: 17.5px; color: var(--ink-dim); }
+  .nf-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .nf .cta-note { margin-top: 20px; }
+  [data-lang][hidden] { display: none; }
+</style>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-gh" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 16 16">
+    <path d="M4.5 3.1a.7.7 0 0 1 1.05-.6l7.2 4.9a.7.7 0 0 1 0 1.2l-7.2 4.9a.7.7 0 0 1-1.05-.6z"/>
+  </symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="mark" href="/">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#1b2330"/>
+        <rect x="5.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#e8392b"/>
+        <rect x="5.5" y="14" width="6.5" height="5.2" rx="1.5" fill="#e7edf4"/>
+        <rect x="5.5" y="21" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+        <rect x="13.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#ffffff"/>
+        <rect x="13.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+        <rect x="21.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#d8e1ec"/>
+        <rect x="21.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+      </svg>
+      <span>KP Rück</span></a>
+    <nav aria-label="Hauptnavigation">
+      <span class="langs" role="group" aria-label="Sprache"><a class="lang on" href="/" hreflang="de" lang="de" aria-current="page"><abbr title="Deutsch">DE</abbr></a><a class="lang" href="/fr/" hreflang="fr" lang="fr"><abbr title="Français">FR</abbr></a></span>
+      <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener" aria-label="KP Rück auf GitHub"><svg class="ico"><use href="#i-gh"/></svg></a>
+      <a class="cta" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg><span data-lang="de">Demo</span><span data-lang="fr" hidden>Démo</span></a>
+    </nav>
+  </div>
+</header>
+
+<main class="nf-stage">
+  <div class="wrap">
+
+    <section class="nf" lang="de" data-lang="de">
+      <p class="eyebrow">Fehler 404</p>
+      <h1>Diese Seite gibt es nicht.</h1>
+      <p class="lede">Der Link ist alt, oder es hat sich ein Tippfehler eingeschlichen. Die Seite selbst läuft – nur diese eine Adresse führt ins Leere.</p>
+      <div class="nf-acts">
+        <a class="btn btn-primary" href="/">Zur Startseite</a>
+        <a class="btn btn-ghost" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo öffnen</a>
+        <a class="btn btn-ghost" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <p class="cta-note">Kaputter Link auf unserer Seite? <a href="/#kontakt">Sag uns kurz Bescheid.</a></p>
+    </section>
+
+    <section class="nf" lang="fr" data-lang="fr" hidden>
+      <p class="eyebrow">Erreur 404</p>
+      <h1>Cette page n’existe pas.</h1>
+      <p class="lede">Le lien est ancien, ou une faute de frappe s’y est glissée. Le site fonctionne – c’est cette adresse-là qui ne mène nulle part.</p>
+      <div class="nf-acts">
+        <a class="btn btn-primary" href="/fr/">Retour à l’accueil</a>
+        <a class="btn btn-ghost" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Ouvrir la démo</a>
+        <a class="btn btn-ghost" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <p class="cta-note">Un lien cassé chez nous ? <a href="/fr/#kontakt">Dites-le-nous en deux mots.</a></p>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
+      <a href="https://kp-front.ch">KP Front</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  /* Which language the visitor was already in. The server cannot tell us – one file answers
+     every address – so the first path segment does: /fr/vieux-lien → fr. Anything else keeps
+     German, which is already on screen, so a failure here changes nothing. */
+  (function () {
+    var known = ['fr'];
+    var seg = location.pathname.split('/')[1];
+    if (known.indexOf(seg) < 0) return;
+
+    var show = function (el) { el.hidden = el.getAttribute('data-lang') !== seg; };
+    document.querySelectorAll('.nf').forEach(show);
+    document.querySelectorAll('.cta [data-lang]').forEach(show);
+    document.documentElement.lang = seg;
+    document.title = 'Page introuvable – KP Rück';
+
+    document.querySelectorAll('.langs .lang').forEach(function (a) {
+      var on = a.getAttribute('hreflang') === seg;
+      a.classList.toggle('on', on);
+      if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+  })();
+</script>
+</html>
