@@ -257,6 +257,22 @@ will keep holding.
   operator sees cannot quietly change how an alarm is classified. Incidents already on the board
   are left exactly as they are.
 
+- **Eine falsche Adresse auf kp-rueck.ch landet jetzt irgendwo.** Bisher antwortete ein
+  Tippfehler mit GitHubs eigener schwarz-weisser Seite: «file not found», und sonst nichts zu
+  tun. `site/404.html` sagt neu, was los ist, und bietet Startseite, Demo und GitHub an.
+  Zwei Dinge bestimmen die Form. GitHub Pages liefert **eine** Datei für **jede** unbekannte
+  Adresse, in jeder Tiefe – deshalb sind alle Pfade darauf absolut: ein relatives
+  `landing.css` lädt auf `/tippfehler` und fehlt auf `/fr/vieux-lien`, die Fehlerseite wäre
+  also genau dort kaputt, wo jemand schon auf etwas Kaputtes gestossen ist. Und dieselbe Datei
+  muss zweisprachig antworten, also stecken beide Sprachen darin: Deutsch sichtbar,
+  Französisch versteckt, und ein Skript zeigt die, die das erste Pfadsegment nennt. Ohne
+  JavaScript bleibt Deutsch stehen – die Basissprache der Seite, ein Ausfall kostet also eine
+  Übersetzung und nicht die Seite.
+  Sie ist **von Hand geschrieben** und sagt das dort, wo jede andere Seite in `site/` das
+  Gegenteil im Kopf trägt: `build.mjs` baut genau ein Template und ist mit kp-front
+  Byte für Byte identisch. Der Preis ist, dass ihr Text hier steht und nicht in
+  `content/<sprache>.json` – eine dritte Sprache will an beiden Orten nachgeführt werden.
+
 ### Changed
 
 - **Der Einsatzbericht sieht aus wie der Einsatzrapport aus KP Front.** Eine Nacht kann
