@@ -781,6 +781,25 @@
       "stillOnSiteHint": "Reste affecté jusqu’à sa récupération – apparaît dans la liste des restes.",
       "namedTitle": "Autre matériel sur place",
       "namedHint": "Nommé par le groupe, pas attribué depuis le tableau – il n’y a rien à libérer. Figure sur la liste des restes et sur la liste de récupération."
+    },
+    "code": {
+      "title": "Saisir le code",
+      "submit": "Continuer",
+      "wrong": "Code incorrect"
+    },
+    "source": {
+      "reko": "Comme reco",
+      "driver": "Comme chauffeur · {vehicle}",
+      "magazin": "Magasin",
+      "rekoReason": "Assigné en reconnaissance par le PC",
+      "driverReason": "{vehicle} est engagé – tu n'es pas assigné toi-même",
+      "magazinReason": "Du matériel d'ici n'est pas encore rentré"
+    },
+    "reko": {
+      "title": "Saisir la reco",
+      "description": "Le PC t'a assigné ce lieu pour la reconnaissance.",
+      "open": "Ouvrir le formulaire",
+      "failed": "Impossible d'ouvrir le formulaire. Réessaie."
     }
   },
   "help": {

@@ -3370,6 +3370,25 @@
       "stillOnSiteHint": "Bleibt zugeteilt, bis es abgeholt ist – erscheint in der Restliste.",
       "namedTitle": "Weiteres Material vor Ort",
       "namedHint": "Vom Trupp benannt, nicht vom Board zugeteilt – es gibt nichts freizugeben. Steht auf der Restliste und auf der Abholliste."
+    },
+    "code": {
+      "title": "Code eingeben",
+      "submit": "Weiter",
+      "wrong": "Falscher Code"
+    },
+    "source": {
+      "reko": "Als Reko",
+      "driver": "Als Fahrer · {vehicle}",
+      "magazin": "Magazin",
+      "rekoReason": "Vom KP als Reko zugeteilt",
+      "driverReason": "{vehicle} ist disponiert – du bist nicht selbst zugeteilt",
+      "magazinReason": "Material von hier ist noch nicht zurück"
+    },
+    "reko": {
+      "title": "Reko erfassen",
+      "description": "Das KP hat dir diesen Schadenplatz zur Erkundung zugeteilt.",
+      "open": "Formular öffnen",
+      "failed": "Formular konnte nicht geöffnet werden. Nochmals versuchen."
     }
   }
 }

@@ -46,6 +46,9 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     location_lat: null,
     location_lng: null,
     is_active_assignment: true,
+    // The union's default: this row is here because it is the person's own
+    // assignment, which is also the only source that owes a Rapport.
+    source: 'crew',
     rapport_state: 'none',
     arrived_at: null,
     arrived_by_automation: false,

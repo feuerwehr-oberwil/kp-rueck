@@ -19,13 +19,15 @@ import type { ApiFeldAssignment, ApiFeldPersonnel } from '@/lib/api/types'
 const searchParams = vi.hoisted(() => new URLSearchParams())
 const getFeldPersonnel = vi.hoisted(() => vi.fn())
 const getFeldAssignments = vi.hoisted(() => vi.fn())
+const unlockFeld = vi.hoisted(() => vi.fn())
+const claimFeldPerson = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
 }))
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { getFeldPersonnel, getFeldAssignments },
+  apiClient: { getFeldPersonnel, getFeldAssignments, unlockFeld, claimFeldPerson },
 }))
 
 // The detail view is a stack of sections; this test is about which section the
@@ -65,6 +67,9 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     location_lat: null,
     location_lng: null,
     is_active_assignment: true,
+    // The union's default: this row is here because it is the person's own
+    // assignment, which is also the only source that owes a Rapport.
+    source: 'crew',
     rapport_state: 'none',
     arrived_at: null,
     arrived_by_automation: false,
@@ -83,10 +88,31 @@ function setParams(params: Record<string, string>) {
   Object.entries(params).forEach(([key, value]) => searchParams.set(key, value))
 }
 
+/**
+ * A phone that has already been through the door (plan 26): it holds a bound
+ * token and the person it belongs to, so the page skips the code and the
+ * picker entirely — which is what a returning device does in the field.
+ *
+ * Tests about the door itself seed nothing and get the code screen.
+ */
+const seedDevice = () => {
+  // No `path=/feld` here, unlike the real page: jsdom serves these tests from
+  // "/", and a path-scoped cookie would be written and then never read back.
+  document.cookie = 'feld-device-token=bound-token'
+  document.cookie = 'feld-selected-person=p-1'
+}
+
+const forgetDevice = () => {
+  document.cookie = 'feld-device-token=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
+  document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
+  document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
+}
+
 describe('/feld preselect from the Einsatzzettel QR', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    forgetDevice()
+    seedDevice()
     getFeldPersonnel.mockResolvedValue({
       personnel: [PERSON],
       event_id: 'e-1',
@@ -103,22 +129,54 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     })
   })
 
-  it('still asks who you are — a slip never names the person', async () => {
+  it('a slip on a fresh phone opens the code, not a Schadenplatz', async () => {
+    // This used to assert the slip landed on the person picker. Since plan 26
+    // it does not get that far: a link — printed, forwarded or three weeks old
+    // — buys the right to be asked for the Feld-Code and nothing else. The
+    // slip still names no person either, which is the original point, now made
+    // one step earlier.
+    forgetDevice()
     setParams({ token: 'feld-token', incident_id: 'inc-2' })
     renderWithIntl(<FeldPage />)
 
-    // The picker, not a Schadenplatz: the slip was printed before it was known
-    // who would drive.
-    expect(await screen.findByText('Muster Hans')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Code eingeben' })).toBeInTheDocument()
+    expect(screen.queryByText('Muster Hans')).not.toBeInTheDocument()
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
   })
 
-  it('opens the named Schadenplatz once the person is picked', async () => {
+  it('the code binds the device, and the slip then opens its Schadenplatz', async () => {
+    // The whole door in one test: code → pick → bound token stored → and only
+    // then does the slip's incident_id do its job.
+    forgetDevice()
+    unlockFeld.mockResolvedValue({
+      token: 'unlocked-token',
+      personnel: [PERSON],
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+    })
+    claimFeldPerson.mockResolvedValue({ token: 'bound-token', personnel_id: 'p-1' })
     setParams({ token: 'feld-token', incident_id: 'inc-2' })
     const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
 
+    await user.type(await screen.findByRole('textbox'), '4713')
+    await user.click(screen.getByRole('button', { name: 'Weiter' }))
+
+    // The picker only appears after the code — it is what the code buys.
     await user.click(await screen.findByText('Muster Hans'))
+
+    expect(claimFeldPerson).toHaveBeenCalledWith('unlocked-token', 'p-1')
+    // Everything from here on uses the BOUND token, never the link again.
+    // The bound token is what every later call carries — which is the property
+    // that matters. (The cookie it is also written to is `path=/feld`, and jsdom
+    // serves these tests from "/", so asserting on it would only be testing
+    // jsdom's path handling.)
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledWith('p-1', 'bound-token'))
+  })
+
+  it('opens the named Schadenplatz once the person is picked', async () => {
+    setParams({ token: 'feld-token', incident_id: 'inc-2' })
+    renderWithIntl(<FeldPage />)
 
     // Straight into the detail of the incident the slip names — skipping the
     // "meine Einsatzstellen" list it would otherwise land on.
@@ -130,10 +188,7 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     // Visibility is "only mine" and it is enforced server-side; the parameter
     // cannot widen it, and pretending otherwise would be a blank screen.
     setParams({ token: 'feld-token', incident_id: 'inc-fremd' })
-    const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
-
-    await user.click(await screen.findByText('Muster Hans'))
 
     await waitFor(() => expect(screen.getByText('Keller Wasser')).toBeInTheDocument())
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
@@ -141,10 +196,7 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
 
   it('shows the list when there is no incident_id at all', async () => {
     setParams({ token: 'feld-token' })
-    const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
-
-    await user.click(await screen.findByText('Muster Hans'))
 
     await waitFor(() => expect(screen.getByText('Baum Strasse')).toBeInTheDocument())
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
@@ -161,7 +213,8 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
 describe('/feld before the Schadenplatz was disponiert', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    forgetDevice()
+    seedDevice()
     getFeldPersonnel.mockResolvedValue({
       personnel: [PERSON],
       event_id: 'e-1',
@@ -180,10 +233,11 @@ describe('/feld before the Schadenplatz was disponiert', () => {
       message_chips: [],
     })
     setParams({ token: 'feld-token', incident_id: 'inc-1' })
-    const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
-    await user.click(await screen.findByText('Muster Hans'))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Keller Wasser' })).toBeInTheDocument())
+    // Wait for something only the DETAIL renders. The list row carries the same
+    // title as a heading, so waiting on that returned while the page was still
+    // the list and the preselect had not yet opened anything.
+    await waitFor(() => expect(screen.getByTestId('feld-actions')).toBeInTheDocument())
   }
 
   it('says why there is no form, and shows no rapport chip', async () => {
@@ -226,7 +280,8 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
     // The cookies are path-scoped to /feld, and jsdom applies that rule: at the
     // default document URL ("/") they would be written and never read back.
     window.history.pushState({}, '', '/feld')
-    document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    forgetDevice()
+    seedDevice()
     document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
     getFeldPersonnel.mockResolvedValue({
       personnel: [PERSON],
@@ -248,7 +303,6 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
   it('comes back to the Schadenplatz that was open, without a slip in the URL', async () => {
     const user = userEvent.setup()
     const first = renderWithIntl(<FeldPage />)
-    await user.click(await screen.findByText('Muster Hans'))
     await user.click(await screen.findByText('Baum Strasse'))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument())
     first.unmount()
@@ -261,7 +315,6 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
   it('forgets it when the crew leaves via «Zurück»', async () => {
     const user = userEvent.setup()
     const first = renderWithIntl(<FeldPage />)
-    await user.click(await screen.findByText('Muster Hans'))
     await user.click(await screen.findByText('Baum Strasse'))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'Zurück' }))
@@ -299,7 +352,8 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
 describe('/feld renders the server-computed address label', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    forgetDevice()
+    seedDevice()
     document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
     getFeldPersonnel.mockResolvedValue({
       personnel: [PERSON],
@@ -326,10 +380,7 @@ describe('/feld renders the server-computed address label', () => {
       location_address: 'Hauptstrasse 1, 4104 Oberwil',
       location_display: 'Hauptstrasse 1',
     })
-    const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
-
-    await user.click(await screen.findByText('Muster Hans'))
 
     expect(await screen.findByText('Hauptstrasse 1')).toBeInTheDocument()
     expect(screen.queryByText('Hauptstrasse 1, 4104 Oberwil')).not.toBeInTheDocument()
@@ -337,10 +388,7 @@ describe('/feld renders the server-computed address label', () => {
 
   it('falls back to client formatting when the payload has no label', async () => {
     withAssignment({ location_address: 'Hauptstrasse 1, 4104 Oberwil', location_display: undefined })
-    const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
-
-    await user.click(await screen.findByText('Muster Hans'))
 
     // No home city known here, so the formatter passes the address through —
     // the row is never blank.

@@ -29,6 +29,7 @@ import {
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
+import { FeldRekoSection } from '@/components/feld/feld-reko-section'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
@@ -36,7 +37,33 @@ import { getActiveLocale } from '@/lib/i18n-messages'
 import { rapportApplies } from '@/lib/rapport-visibility'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 
-type ViewMode = 'list' | 'assignments' | 'detail'
+/** `code` is the door (plan 26): the link alone opens nothing, so the page asks
+ *  for the four digits before it can even show the picker. A device that has
+ *  already been through it skips straight to `assignments`. */
+type ViewMode = 'code' | 'list' | 'assignments' | 'detail'
+
+/**
+ * The four buckets the feed sorts into, strongest first (plan 26 §3).
+ *
+ * **Fixed order, not a computed score.** The whole design leans on the crew
+ * being able to explain the list in four words — jetzt · Rapport fehlt ·
+ * unterwegs · offen — and bucket 2 is load-bearing: a Schadenplatz somebody has
+ * already left, still owing a Rapport, must never sort below a newer task. That
+ * is the requirement the whole surface exists for.
+ */
+function feedBucket(assignment: ApiFeldAssignment): number {
+  if (assignment.is_active_assignment && assignment.arrived_at) return 0 // jetzt: standing there
+  if (owesRapport(assignment)) return 1 // abgerückt, aber offen
+  if (assignment.is_active_assignment) return 2 // unterwegs
+  return 3
+}
+
+/** Still owes one: the rapport applies here (which already means it is a crew
+ *  row) and nobody has filed it yet. This is bucket 2 of the feed — the reason
+ *  a Schadenplatz somebody has already left stays near the top. */
+function owesRapport(assignment: ApiFeldAssignment): boolean {
+  return assignment.rapport_state !== 'submitted' && assignmentRapportApplies(assignment)
+}
 
 /** Who this phone belongs to, and which Schadenplatz it was last looking at.
  *  Both are per DEVICE, not per session: the page is login-less, a phone locks
@@ -44,6 +71,11 @@ type ViewMode = 'list' | 'assignments' | 'detail'
  *  none of which should cost the crew their place. Path-scoped to `/feld`. */
 const PERSON_COOKIE = 'feld-selected-person'
 const INCIDENT_COOKIE = 'feld-selected-incident'
+/** The device's own token, earned by entering the Feld-Code and naming yourself
+ *  (plan 26, decisions 13 and 18). From here on this is the credential the page
+ *  uses — the token in the URL is spent and never sent again. Storing it is what
+ *  stops the crew re-typing the code every time the tab is dropped. */
+const TOKEN_COOKIE = 'feld-device-token'
 const COOKIE_EXPIRY_DAYS = 7
 
 /**
@@ -117,11 +149,63 @@ function LeaderLine({
 /** Does this row owe a rapport at all? (§18.27) — the one place `/feld` asks,
  *  so the chip and the form section can never disagree with each other. */
 function assignmentRapportApplies(assignment: ApiFeldAssignment): boolean {
+  // Only a `crew` row has a Schadenplatz-Rapport at all (plan 26, decision 11).
+  // A driver parked outside and a Reko trupp that only looked owe nothing, and
+  // the server refuses the write — so the form must not be offered either, or
+  // the page promises something the door will decline.
+  if (assignment.source !== 'crew') return false
   return rapportApplies({
     hasBeenDispatched: assignment.has_been_dispatched,
     status: assignment.incident_status,
     hasReport: assignment.rapport_state !== 'none',
   })
+}
+
+/**
+ * Why this row is in the list — shown only when that is not obvious.
+ *
+ * **Label the exception, not the rule.** An own assignment carries no tag at
+ * all; the absence *is* the statement "this is mine". For a single-role person
+ * every tag would have read the same, which is noise. Driver rows name the
+ * vehicle that brought them in, because otherwise a Schadenplatz nobody
+ * assigned you to is a mystery.
+ */
+function SourceLabel({ assignment }: { assignment: ApiFeldAssignment }) {
+  const t = useTranslations('feld.source')
+  if (assignment.source === 'crew') return null
+
+  const label =
+    assignment.source === 'driver'
+      ? t('driver', { vehicle: assignment.source_vehicle ?? '' })
+      : t(assignment.source)
+
+  const tone =
+    assignment.source === 'driver'
+      ? 'bg-info/15 text-info'
+      : assignment.source === 'reko'
+        ? 'bg-warning/15 text-warning'
+        : 'bg-muted text-muted-foreground'
+
+  return (
+    <span className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${tone}`}>
+      {label}
+    </span>
+  )
+}
+
+/** The plain sentence under a row that explains an unusual source. The label is
+ *  a tag; this is the explanation, and it is what actually makes the union rule
+ *  legible to somebody who never heard of it. */
+function SourceReason({ assignment }: { assignment: ApiFeldAssignment }) {
+  const t = useTranslations('feld.source')
+  if (assignment.source === 'crew') return null
+  return (
+    <p className="mb-1.5 text-xs text-muted-foreground">
+      {assignment.source === 'driver'
+        ? t('driverReason', { vehicle: assignment.source_vehicle ?? '' })
+        : t(`${assignment.source}Reason`)}
+    </p>
+  )
 }
 
 function RapportStateChip({ state }: { state: ApiFeldAssignment['rapport_state'] }) {
@@ -152,7 +236,7 @@ export default function FeldPage() {
 
 function FeldSurface() {
   const searchParams = useSearchParams()
-  const token = searchParams.get('token')
+  const linkToken = searchParams.get('token')
   // The Einsatzzettel's second QR (decision 19): the SAME event token with the
   // incident appended. A shortcut, not a second door — it can only preselect the
   // Schadenplatz, never the person, because the slip is printed before it is
@@ -176,7 +260,20 @@ function FeldSurface() {
   const [loading, setLoading] = useState(true)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [viewMode, setViewMode] = useState<ViewMode>('code')
+  /**
+   * The token this device actually uses.
+   *
+   * Starts as null and becomes, in turn, the unlocked token (the code was
+   * right) and then the bound one (a person was named). The link token from the
+   * URL is never used again after the exchange — that is the whole point of
+   * decision 13: holding the link stops being enough.
+   */
+  const [deviceToken, setDeviceToken] = useState<string | null>(null)
+  const [codeInput, setCodeInput] = useState('')
+  const [codeError, setCodeError] = useState(false)
+  const [unlocking, setUnlocking] = useState(false)
+  const token = deviceToken
   const restoredFromCookie = useRef(false)
   const restoredIncident = useRef(false)
   const preselectApplied = useRef(false)
@@ -194,21 +291,59 @@ function FeldSurface() {
     return () => topLoading.done()
   }, [loadingAssignments])
 
-  const loadPersonnel = useCallback(async () => {
-    if (!token) return
-    setLoading(true)
-    setError(null)
+  /**
+   * Back to the door: forget the device token, the person and the place.
+   *
+   * Two callers, and they are the same event from opposite ends — the crew
+   * handing the phone on ("nicht ich"), and the KP logging every device out
+   * from the board. Either way this device is nobody until it types the code
+   * again, which is exactly what the bound token was for.
+   */
+  const forgetDevice = useCallback(() => {
+    setDeviceToken(null)
+    setSelectedPerson(null)
+    setPersonnel([])
+    setAssignments([])
+    setSelectedIncidentId(null)
+    setSearchTerm('')
+    setViewMode('code')
+    clearCookie(TOKEN_COOKIE)
+    clearCookie(PERSON_COOKIE)
+    clearCookie(INCIDENT_COOKIE)
+    restoredFromCookie.current = false
+    restoredIncident.current = false
+    // The phone is being handed to whoever actually drove. If they scanned a
+    // slip, that slip still names the Schadenplatz — so the preselect gets
+    // another turn for the next person.
+    preselectApplied.current = false
+  }, [])
+
+  /**
+   * Step 2 of the door: trade the link token plus the four digits for an
+   * unlocked one, and get the picker back in the same response.
+   *
+   * A wrong code is a red box and nothing else — no hint about where the code
+   * lives. Whoever is standing here just scanned the poster it is printed on.
+   */
+  const submitCode = useCallback(async () => {
+    if (!linkToken || codeInput.length < 4 || unlocking) return
+    setUnlocking(true)
+    setCodeError(false)
     try {
-      const data = await apiClient.getFeldPersonnel(token)
+      const data = await apiClient.unlockFeld(linkToken, codeInput)
+      setDeviceToken(data.token)
       setPersonnel(data.personnel)
       setEventName(data.event_name)
+      setViewMode('list')
+      setCodeInput('')
     } catch (err) {
-      console.error('Failed to load field personnel:', err)
-      setError(t('invalidCode'))
+      console.error('Feld unlock failed:', err)
+      setCodeError(true)
+      setCodeInput('')
     } finally {
-      setLoading(false)
+      setUnlocking(false)
     }
-  }, [token, t])
+  }, [linkToken, codeInput, unlocking])
 
   /**
    * ``silent`` is what the poll passes: no top loading bar, and a failed
@@ -220,39 +355,95 @@ function FeldSurface() {
    * standing at — the stale list is right far more often than an empty one.
    * A deliberate load (picking a person, coming back to the tab) keeps both.
    */
-  const loadAssignments = useCallback(async (personnelId: string, options?: { silent?: boolean }) => {
-    if (!token) return
+  const loadAssignments = useCallback(async (
+    personnelId: string,
+    options?: { silent?: boolean; token?: string },
+  ) => {
+    const activeToken = options?.token ?? token
+    if (!activeToken) return
     const silent = options?.silent === true
     if (!silent) setLoadingAssignments(true)
     try {
-      const data = await apiClient.getFeldAssignments(personnelId, token)
+      const data = await apiClient.getFeldAssignments(personnelId, activeToken)
       setAssignments(data.assignments)
       setMessageChips(data.message_chips ?? [])
+      setEventName(data.event_name)
+      // A device coming back from its cookie has no picker to have chosen from,
+      // so the person is restored from the response it was going to fetch
+      // anyway — one round trip, not two, and no picker for somebody who has
+      // already said who they are.
+      setSelectedPerson(prev => prev ?? {
+        personnel_id: data.personnel_id,
+        name: data.personnel_name,
+        role: data.personnel_role,
+        incident_count: data.assignments.length,
+        open_count: data.assignments.filter(a => a.is_active_assignment).length,
+        missing_rapport_count: data.assignments.filter(owesRapport).length,
+      })
     } catch (err) {
       console.error('Failed to load field assignments:', err)
+      // 401 means this device was logged out from the board ("alle Geräte
+      // abmelden"). The credential is gone, so the honest move is back to the
+      // code — not an empty list that looks like "you have nothing to do".
+      if (err instanceof Error && err.message.includes('401')) {
+        forgetDevice()
+        return
+      }
       if (!silent) setAssignments([])
     } finally {
       if (!silent) setLoadingAssignments(false)
     }
-  }, [token])
+  }, [token, forgetDevice])
 
+  // The one decision on mount: has this device already been through the door?
+  // A stored token means yes, and it goes straight to the list — the code is
+  // asked once per device, not once per visit.
   useEffect(() => {
-    if (!token) {
+    if (!linkToken) {
       setError(t('missingCode'))
       setLoading(false)
       return
     }
-    loadPersonnel()
-  }, [token, loadPersonnel, t])
+    const storedToken = readCookie(TOKEN_COOKIE)
+    const storedPerson = readCookie(PERSON_COOKIE)
+    if (storedToken && storedPerson) {
+      setDeviceToken(storedToken)
+      setViewMode('assignments')
+      loadAssignments(storedPerson, { token: storedToken })
+    } else {
+      setViewMode('code')
+    }
+    setLoading(false)
+    // Mount only: re-running this on every `loadAssignments` identity change
+    // would drag a crew back out of whatever they had navigated to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkToken, t])
 
+  /**
+   * Step 3 of the door: this device is that person from now on.
+   *
+   * The claim is what turns an unlocked token into a bound one, and it is the
+   * whole of decision 18 — after this the server refuses to let this device act
+   * as anybody else, so the picker is not a security boundary, it is a
+   * convenience on top of one.
+   */
   const handleSelectPerson = useCallback(async (person: ApiFeldPersonnel) => {
-    setSelectedPerson(person)
-    setViewMode('assignments')
-    setAssignments([])
-    setSelectedIncidentId(null)
-    writeCookie(PERSON_COOKIE, person.personnel_id)
-    await loadAssignments(person.personnel_id)
-  }, [loadAssignments])
+    if (!token) return
+    try {
+      const claim = await apiClient.claimFeldPerson(token, person.personnel_id)
+      setDeviceToken(claim.token)
+      writeCookie(TOKEN_COOKIE, claim.token)
+      writeCookie(PERSON_COOKIE, person.personnel_id)
+      setSelectedPerson(person)
+      setViewMode('assignments')
+      setAssignments([])
+      setSelectedIncidentId(null)
+      await loadAssignments(person.personnel_id, { token: claim.token })
+    } catch (err) {
+      console.error('Feld claim failed:', err)
+      setError(t('invalidCode'))
+    }
+  }, [token, loadAssignments, t])
 
   /** Open a Schadenplatz and remember it, so a reload comes back HERE. */
   const openAssignment = useCallback((incidentId: string) => {
@@ -270,20 +461,11 @@ function FeldSurface() {
     clearCookie(INCIDENT_COOKIE)
   }, [])
 
-  // Restore the person from the cookie once the picker has loaded: the crew
-  // scans the poster once and lands on their own list from then on.
-  useEffect(() => {
-    if (restoredFromCookie.current || loading || personnel.length === 0) return
-    const savedId = readCookie(PERSON_COOKIE)
-    if (!savedId) return
-    const person = personnel.find(p => p.personnel_id === savedId)
-    if (person) {
-      restoredFromCookie.current = true
-      handleSelectPerson(person)
-    }
-  }, [personnel, loading, handleSelectPerson])
+  // (The person is no longer restored from the picker: since plan 26 a returning
+  // device holds a *bound* token and the mount effect above uses it directly, so
+  // there is nothing to look up and no picker to look it up in.)
 
-  // ...and then back into the Schadenplatz it was open on. Same one-shot rule as
+  // Back into the Schadenplatz it was open on. Same one-shot rule as
   // the slip preselect below, and for the same reason: the 10 s poll replaces
   // `assignments` continuously, and a restore that fired on every replacement
   // would drag the crew back into the detail view each time they left it.
@@ -366,22 +548,10 @@ function FeldSurface() {
     return () => clearInterval(interval)
   }, [selectedPerson, token, loadAssignments])
 
-  const handleNotMe = () => {
-    setSelectedPerson(null)
-    setViewMode('list')
-    setAssignments([])
-    setSelectedIncidentId(null)
-    setSearchTerm('')
-    clearCookie(PERSON_COOKIE)
-    clearCookie(INCIDENT_COOKIE)
-    restoredFromCookie.current = false
-    restoredIncident.current = false
-    // The phone is being handed to whoever actually drove. If they scanned a
-    // slip, that slip still names the Schadenplatz — so the preselect gets
-    // another turn for the next person.
-    preselectApplied.current = false
-    loadPersonnel()
-  }
+  /** "Nicht ich" — the phone is being handed on. Switching person means a new
+   *  bound token, and a new bound token means the code again: the binding would
+   *  be a polite request rather than a rule if it could be shrugged off here. */
+  const handleNotMe = () => forgetDevice()
 
   const filteredPersonnel = useMemo(() => {
     const sorted = [...personnel].sort((a, b) => a.name.localeCompare(b.name, getActiveLocale()))
@@ -393,6 +563,20 @@ function FeldSurface() {
   const selectedAssignment = useMemo(
     () => assignments.find(a => a.incident_id === selectedIncidentId) ?? null,
     [assignments, selectedIncidentId],
+  )
+
+  /**
+   * The feed: one list, sorted by what is next (plan 26, decision 8).
+   *
+   * Not grouped by role and not tabbed, because most people in the field carry
+   * exactly one role and chrome that organises *many* things is chrome they
+   * never use. The server already ordered within each bucket (still-assigned
+   * first, then the board's own kanban order), so this only applies the four
+   * buckets on top and leaves ties alone.
+   */
+  const feed = useMemo(
+    () => [...assignments].sort((a, b) => feedBucket(a) - feedBucket(b)),
+    [assignments],
   )
 
   /**
@@ -443,6 +627,61 @@ function FeldSurface() {
         <div className="max-w-md text-center">
           <div className="text-destructive text-xl font-semibold mb-2">{t('accessRequired')}</div>
           <div className="text-muted-foreground">{error}</div>
+        </div>
+      </div>
+    )
+  }
+
+  // ---------------------------------------------------------------- code
+  // Four boxes and one button. No explanation of where the code lives: whoever
+  // is standing here scanned the poster it is printed under two seconds ago,
+  // and the one screen somebody reads in the rain is not the place for a
+  // paragraph. The hint appears only when they get it wrong.
+  if (viewMode === 'code') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col justify-center p-6">
+        <div className="mx-auto w-full max-w-xs">
+          <h1 id="feld-code-title" className="mb-8 text-center text-2xl font-semibold">
+            {t('code.title')}
+          </h1>
+
+          {/* Labelled BY the heading rather than carrying a second, invisible
+              copy of the same words — one accessible name, not two. */}
+          <input
+            id="feld-code"
+            aria-labelledby="feld-code-title"
+            // A phone must open the number pad for this, and a browser must not
+            // offer to remember it like a password.
+            inputMode="numeric"
+            autoComplete="off"
+            pattern="[0-9]*"
+            maxLength={4}
+            value={codeInput}
+            autoFocus
+            onChange={event => {
+              setCodeInput(event.target.value.replace(/\D/g, '').slice(0, 4))
+              setCodeError(false)
+            }}
+            onKeyDown={event => {
+              if (event.key === 'Enter') submitCode()
+            }}
+            className={`w-full rounded-xl border-2 bg-muted px-4 py-5 text-center text-4xl font-semibold tracking-[0.4em] tabular-nums outline-none transition-colors ${
+              codeError ? 'border-destructive' : 'border-border focus:border-primary'
+            }`}
+          />
+
+          {codeError && (
+            <p className="mt-3 text-center text-sm font-medium text-destructive">{t('code.wrong')}</p>
+          )}
+
+          <Button
+            size="lg"
+            className="mt-6 w-full"
+            disabled={codeInput.length < 4 || unlocking}
+            onClick={submitCode}
+          >
+            {t('code.submit')}
+          </Button>
         </div>
       </div>
     )
@@ -596,6 +835,22 @@ function FeldSurface() {
                 because it is what the crew fills the Rapport against. */}
             <FeldBriefing assignment={selectedAssignment} folded />
 
+            {/* Section: "Reko erfassen" — only for somebody the KP actually
+                gave a Reko auftrag (plan 26, decision 27). This is the half of
+                the two detail views that a *working* crew never sees: they read
+                the Reko above as briefing and file a Rapport instead.
+
+                The form is the board's own; `/feld` mints the per-incident form
+                token for it rather than widening the feld token, so neither
+                token type learns about the other. */}
+            {token && selectedPerson && selectedAssignment.source === 'reko' && (
+              <FeldRekoSection
+                incidentId={selectedAssignment.incident_id}
+                personnelId={selectedPerson.personnel_id}
+                token={token}
+              />
+            )}
+
             {/* Section: the Schadenplatz-Rapport itself — the paper
                 replacement. The SAME component the board's detail mounts
                 (decision 28); only the transport and the identity differ. */}
@@ -705,7 +960,7 @@ function FeldSurface() {
             <p className="text-sm text-muted-foreground px-2">{t('assignments.empty')}</p>
           </div>
         ) : (
-          assignments.map(assignment => {
+          feed.map(assignment => {
             const address = assignment.location_display
               ?? formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity())
             return (
@@ -720,9 +975,16 @@ function FeldSurface() {
               >
                 <div className="flex items-start justify-between gap-3 mb-1.5">
                   <h3 className="font-medium leading-tight">{assignment.incident_title}</h3>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <SourceLabel assignment={assignment} />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  </div>
                 </div>
                 {address && <p className="text-sm text-muted-foreground mb-1.5">{address}</p>}
+                {/* Why this row is here at all, in a plain sentence — the tag
+                    above is a marker, this is the explanation. Silent for an
+                    own assignment, which needs none. */}
+                <SourceReason assignment={assignment} />
                 {/* The EL briefing on the list, before the form is ever opened. */}
                 <LeaderLine assignment={assignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
                 {/* Meldung, Fahrzeuge, Gefahren — the three facts that decide

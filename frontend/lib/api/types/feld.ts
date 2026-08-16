@@ -9,6 +9,37 @@
 /** 'none' – no rapport row yet · 'draft' – started · 'submitted' – filed. */
 export type ApiFeldRapportState = 'none' | 'draft' | 'submitted'
 
+/**
+ * Why a Schadenplatz is in somebody's list (plan 26 §2.2). The rule itself lives
+ * server-side in `crud/feld/visibility.py`; this is only the shape the phone
+ * receives.
+ *
+ * The page labels the unusual ones and says nothing about `crew` — an own
+ * assignment needs no explanation, and the absence of a label is what reads as
+ * "meins". Only `crew` can owe a Schadenplatz-Rapport.
+ */
+export type ApiFeldSourceKind = 'crew' | 'reko' | 'driver' | 'magazin'
+
+/** The Feld-Code and how many devices redeemed it. Editor only. */
+export interface ApiFeldAccessState {
+  code: string
+  device_count: number
+}
+
+/** What the Feld-Code buys: an unlocked token, and the picker to use it on. */
+export interface ApiFeldUnlockResponse {
+  token: string
+  personnel: ApiFeldPersonnel[]
+  event_id: string
+  event_name: string
+}
+
+/** The bound token. The device stores this and stops using the link token. */
+export interface ApiFeldClaimResponse {
+  token: string
+  personnel_id: string
+}
+
 export interface ApiFeldPersonnel {
   personnel_id: string
   name: string
@@ -73,6 +104,10 @@ export interface ApiFeldAssignment {
   location_lng: string | null
   /** False once the board released the person — they may still file. */
   is_active_assignment: boolean
+  /** Why this row is here. `source_vehicle` is set for driver rows only, so the
+   *  label can name the vehicle that brought the row in. */
+  source: ApiFeldSourceKind
+  source_vehicle?: string | null
   rapport_state: ApiFeldRapportState
   /**
    * The Schadenplatz was disponiert at least once (§18.27). False means the

@@ -95,6 +95,9 @@ import {
   type ApiAvailableRekoPersonnelResponse,
   type ApiFeldPersonnelListResponse,
   type ApiFeldAssignmentsResponse,
+  type ApiFeldAccessState,
+  type ApiFeldUnlockResponse,
+  type ApiFeldClaimResponse,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
   type ApiSchadenplatzRapport,
@@ -1983,14 +1986,67 @@ class ApiClient {
     )
   }
 
-  // Feld (/feld) – the login-less field surface. One global link per Ereignis;
-  // the token names the event, the endpoints check the assignment.
+  // Feld (/feld) – the login-less field surface. One global link per Ereignis.
+  //
+  // Since plan 26 the link alone opens nothing: it is exchanged for an unlocked
+  // token via the Feld-Code (`unlockFeld`), and that for a person-bound one when
+  // somebody names themselves (`claimFeldPerson`). The phone stores the bound
+  // token and stops using the link.
   async generateFeldLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
     return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
       `/api/feld/generate-link?event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',
       }
+    )
+  }
+
+  /** The Feld-Code, and how many devices redeemed it. Editor only. */
+  async getFeldAccess(eventId: string): Promise<ApiFeldAccessState> {
+    return this.request<ApiFeldAccessState>(`/api/feld/access?event_id=${encodeURIComponent(eventId)}`)
+  }
+
+  /** A new code. Logs nobody out — see `revokeFeldDevices` for that. */
+  async regenerateFeldCode(eventId: string): Promise<ApiFeldAccessState> {
+    return this.request<ApiFeldAccessState>(
+      `/api/feld/access/regenerate?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** The emergency brake: every bound device for this Ereignis is logged out. */
+  async revokeFeldDevices(eventId: string): Promise<ApiFeldAccessState> {
+    return this.request<ApiFeldAccessState>(
+      `/api/feld/access/revoke-devices?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** Step 2 of the door: the code buys an unlocked token *and* the picker. */
+  async unlockFeld(token: string, code: string): Promise<ApiFeldUnlockResponse> {
+    return this.request<ApiFeldUnlockResponse>(`/api/feld/unlock?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    })
+  }
+
+  /** Step 3: this device is that person from now on. */
+  async claimFeldPerson(token: string, personnelId: string): Promise<ApiFeldClaimResponse> {
+    return this.request<ApiFeldClaimResponse>(`/api/feld/claim?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: JSON.stringify({ personnel_id: personnelId }),
+    })
+  }
+
+  /** A short-lived form token so the Reko form can mount inside `/feld`. */
+  async mintFeldRekoLink(
+    incidentId: string,
+    personnelId: string,
+    token: string
+  ): Promise<{ incident_id: string; token: string; link: string }> {
+    return this.request<{ incident_id: string; token: string; link: string }>(
+      this.feldQuery(incidentId, 'reko-link', personnelId, token),
+      { method: 'POST' }
     )
   }
 
