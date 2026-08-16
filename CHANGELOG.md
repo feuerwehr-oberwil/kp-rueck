@@ -28,6 +28,47 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **The field surface is one door for everyone in the field** (plan 26). `/feld` used to show a
+  person only the Schadenplätze they were personally assigned to. That rule could not see the
+  people it most needed to: a **driver** holds no assignment row at all — the *vehicle* is
+  assigned and the Ereignis says who drives it — and a **Magazin** person is assigned to nothing
+  anywhere. Both were invisible to the page and absent from its person picker. "Mine" is now the
+  union of four sources — own assignment, Reko auftrag, a vehicle you drive while it is out, and
+  material still on site — resolved in exactly one place so the picker and the authorization
+  check cannot drift apart.
+
+- **A Feld-Code on the door.** The `/feld` link *was* the credential: whoever held the URL could
+  read the whole person picker and write as any crew in the Ereignis. Defensible for a poster
+  inside a locked vehicle hall, indefensible for an Einsatzzettel that leaves in a vehicle and
+  stays valid for thirty days. The link now buys only the right to be asked for four digits; the
+  code is shown on the board and belongs on the printed poster next to the QR. Entering it and
+  naming yourself binds the device to one person, and from then on the server refuses to let it
+  act as anybody else. For a lost phone there is **Alle Geräte abmelden**, deliberately separate
+  from **Neuer Code** — a new code disturbs nobody already in the field, and conflating the two
+  is how the emergency brake gets pulled at 02:00 by mistake.
+
+- **Reko is filed from the crew's own page.** A Reko auftrag appears in the field list and opens
+  the Reko form directly, the way the old per-incident link did.
+
+### Changed
+
+- **Five QR buttons in the board footer became one "Links & QR" sheet**, each row naming who the
+  link is for. Clicking a QR enlarges it — for the recurring case of somebody standing in the KP
+  without the poster — and the enlarged Feld QR carries the code, since the QR alone no longer
+  gets anybody in.
+
+### Fixed
+
+- **A Reko trupp was being asked to file a Schadenplatz-Rapport for a place it had only looked
+  at.** A Reko person is assigned with an ordinary assignment row, and only the event-wide
+  function said otherwise — a statement about the person, not about that Schadenplatz. Rows now
+  record *why* somebody is on an incident, and only a working crew owes a Rapport. Ending an
+  Einsatz and requesting an Abholung are limited the same way; arriving and sending a Meldung are
+  not, because a Reko trupp does both.
+
+
 ## [0.6.0] – 2026-08-16
 
 ### Security
