@@ -58,6 +58,7 @@ from ..auth.dependencies import CurrentEditor
 from ..config import settings
 from ..crud import events as events_crud
 from ..crud import feld as crud
+from ..crud import personnel_checkin as personnel_checkin_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
@@ -549,6 +550,46 @@ async def report_pickup(
         request=request,
     )
     return schemas.FieldReportState(**await crud.field_report_state(db, incident))
+
+
+@router.post("/attendance/{personnel_id}", response_model=schemas.PersonnelCheckInResponse)
+@limiter.limit(RateLimits.FELD)
+async def set_own_attendance(
+    request: Request,
+    personnel_id: uuid.UUID,
+    claims: FeldClaims,
+    present: bool = Query(..., description="true = eingecheckt, false = abgerückt"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.PersonnelCheckInResponse:
+    """Check yourself in or out of the Ereignis (plan 26, decision 10).
+
+    The individual half of `/check-in`, which stays a page in its own right for
+    the shared tablet at the door — one device for many people is a different
+    product from a page built around a per-device "this phone is Marco" cookie.
+
+    `require_access=False`: checking in is what somebody does *before* the KP
+    has given them anything, so requiring an assignment first would refuse
+    exactly the people this exists for. The binding still means a device can
+    only check ITSELF in.
+
+    Reuses the board's own CRUD, so the roll call is one list however it was
+    written — the field surface is not a second attendance record.
+    """
+    person = await require_feld_person(db, claims, personnel_id, require_access=False)
+    event = await _load_event(db, claims.event_id)
+
+    result = (
+        await personnel_checkin_crud.check_in_personnel(db, event.id, person.id, None, request)
+        if present
+        # `allow_assigned`: a crew that is still on a Schadenplatz can still say
+        # it has gone home. The board clears the assignment, not the person.
+        else await personnel_checkin_crud.check_out_personnel(
+            db, event.id, person.id, None, request, allow_assigned=True
+        )
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Person nicht gefunden")
+    return result
 
 
 @router.post("/incidents", response_model=schemas.FeldIncidentCreated, status_code=201)

@@ -48,6 +48,9 @@ class FeldPersonnel(BaseModel):
     open_count: int = 0
     # Of those, the ones without a submitted Schadenplatz-Rapport.
     missing_rapport_count: int = 0
+    # Present at this Ereignis. The picker is the roster since decision 10, so
+    # this is what tells "hier, aber noch ohne Auftrag" apart from "gar nicht da".
+    checked_in: bool = False
 
 
 class FeldPersonnelListResponse(BaseModel):

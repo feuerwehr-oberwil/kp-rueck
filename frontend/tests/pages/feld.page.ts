@@ -108,13 +108,21 @@ export class FeldPage extends BasePage {
     await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 15_000 });
   }
 
-  /** One row of "meine Schadenplätze". */
-  assignmentRow(incidentTitle: string): Locator {
-    return this.page.locator('button').filter({ hasText: incidentTitle }).first();
+  /**
+   * One row of the field list.
+   *
+   * Identify it by its **address**, not its title: since plan 26 a row leads
+   * with `address || incident_title` (the street is what a crew standing on it
+   * matches), so on any incident that has an address the title is nowhere in
+   * the row's DOM.
+   */
+  assignmentRow(label: string): Locator {
+    return this.page.locator('button').filter({ hasText: label }).first();
   }
 
-  async openAssignment(incidentTitle: string) {
-    await this.assignmentRow(incidentTitle).click();
+  /** `label` is the row's address — see `assignmentRow`. */
+  async openAssignment(label: string) {
+    await this.assignmentRow(label).click();
     await expect(this.page.getByRole('button', { name: 'Zurück' })).toBeVisible({ timeout: 15_000 });
   }
 

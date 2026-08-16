@@ -232,11 +232,24 @@ class TestTokenGate:
 
 
 class TestPersonnelList:
-    """GET /api/feld/personnel — the picker, not the roster."""
+    """GET /api/feld/personnel — the picker, which since plan 26 IS the roster.
+
+    It used to be "everyone with an assignment", on the grounds that handing
+    somebody an empty page was worse than leaving them out. That held while the
+    page could only show Schadenplätze; it stopped holding when attendance moved
+    in (decision 10), because a person the Ereignis holds nothing for now gets
+    "eingecheckt · noch kein Auftrag" — which answers the most common question
+    in the field instead of nothing at all.
+
+    The accepted cost is stated plainly: roster enumeration now sits behind the
+    `feld` token. It is not a new class of exposure — the `checkin` token has
+    always permitted exactly this — but it is two exposures behind one door, and
+    the Feld-Code is what holds both.
+    """
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_lists_assigned_and_excludes_everyone_else(
+    async def test_lists_the_roster_with_each_persons_own_counts(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
@@ -255,8 +268,9 @@ class TestPersonnelList:
         body = response.json()
         names = [p["name"] for p in body["personnel"]]
 
-        assert names == ["Frey Marc", "Muster Hans"]  # alphabetical
-        assert "Nie Dabei" not in names
+        # Alphabetical, and the whole roster: somebody with nothing yet is
+        # exactly who needs to find their own name to check in.
+        assert names == ["Frey Marc", "Muster Hans", "Nie Dabei"]
         assert body["event_id"] == str(test_event.id)
         assert body["event_name"] == test_event.name
 
@@ -267,10 +281,14 @@ class TestPersonnelList:
         # A released person still belongs in the picker — they file afterwards.
         assert by_name["Frey Marc"]["incident_count"] == 1
         assert by_name["Frey Marc"]["open_count"] == 0
+        # Nothing for them yet — and no counts pretending otherwise.
+        assert by_name["Nie Dabei"]["incident_count"] == 0
+        assert by_name["Nie Dabei"]["missing_rapport_count"] == 0
+        assert by_name["Nie Dabei"]["checked_in"] is False
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_personnel_from_another_event_are_not_listed(
+    async def test_another_events_work_does_not_leak_into_the_counts(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
@@ -288,7 +306,15 @@ class TestPersonnelList:
 
         response = await client.get(f"/api/feld/personnel?token={generate_feld_token(test_event.id, unlocked=True)}")
         assert response.status_code == 200
-        assert [p["name"] for p in response.json()["personnel"]] == ["Meins Max"]
+        by_name = {p["name"]: p for p in response.json()["personnel"]}
+
+        # The roster is the brigade's, not the Ereignis' — both are listed. What
+        # must NOT cross is the WORK: the counts are per Ereignis, so somebody
+        # busy in another one reads as having nothing here, and the token cannot
+        # be used to see what they are doing elsewhere.
+        assert set(by_name) == {"Meins Max", "Fremd Franz"}
+        assert by_name["Meins Max"]["incident_count"] == 1
+        assert by_name["Fremd Franz"]["incident_count"] == 0
 
 
 class TestAuthorizationStepTwo:

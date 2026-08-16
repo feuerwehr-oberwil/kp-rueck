@@ -37,6 +37,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
+    EventAttendance,
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
@@ -388,11 +389,24 @@ async def get_feld_personnel_for_event(
         return []
 
     visible = await visible_by_personnel(db, event_id)
-    if not visible:
-        return []
 
-    personnel_result = await db.execute(select(Personnel).where(Personnel.id.in_(list(visible))))
+    # The roster, not just the people with work (plan 26, decision 10).
+    #
+    # This used to be "everyone with an assignment", on the grounds that handing
+    # somebody an empty page was worse than leaving them out of the list. That
+    # held while the page could only show Schadenplätze. It stopped holding when
+    # attendance moved in: a person the Ereignis holds nothing for now gets
+    # "eingecheckt · noch kein Auftrag", which answers the most common question
+    # in the field — do they even know I am here — instead of nothing at all.
+    personnel_result = await db.execute(select(Personnel))
     personnel = list(personnel_result.scalars().all())
+
+    attendance_result = await db.execute(
+        select(EventAttendance.personnel_id, EventAttendance.checked_in).where(
+            EventAttendance.event_id == event_id
+        )
+    )
+    attendance = {row[0]: bool(row[1]) for row in attendance_result.all()}
 
     reports = await _rapport_states(db, incident_ids)
     submitted = {incident_id for incident_id, report in reports.items() if not report.is_draft}
@@ -409,7 +423,7 @@ async def get_feld_personnel_for_event(
 
     rows = []
     for person in personnel:
-        sources = visible[person.id]
+        sources = visible.get(person.id, {})
         # Only crew rows can owe a Rapport (decision 11). Counting a driver's or
         # a Reko trupp's Schadenplätze here would put a number on the picker
         # that the person cannot act on when they open it.
@@ -422,6 +436,7 @@ async def get_feld_personnel_for_event(
                 "incident_count": len(sources),
                 "open_count": sum(1 for source in sources.values() if source.is_active),
                 "missing_rapport_count": len(rapport_candidates & owes_rapport),
+                "checked_in": attendance.get(person.id, False),
             }
         )
     # Alphabetical: this is a picker people scan for their own name, not a

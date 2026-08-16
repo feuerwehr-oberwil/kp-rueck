@@ -159,8 +159,9 @@ async function openBoard(page: Page, fixture: FieldFixture) {
  *
  * By street, not by title: the card's heading is `formatLocation(operation.location)`
  * (`components/kanban/draggable-operation.tsx`) and the title appears nowhere on it,
- * so a title filter matches nothing at all. `/feld` is the other way round — its
- * rows are the title — which is why the two sides are located differently here.
+ * so a title filter matches nothing at all. Since plan 26 `/feld` leads with the
+ * address too — a crew standing on a street matches the street — so BOTH sides
+ * are now located the same way, by `street()`.
  */
 function card(page: Page, incident: TestIncident) {
   return page.getByTestId('incident-card').filter({ hasText: street(incident) }).first();
@@ -206,7 +207,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       // The briefing is on the LIST, before the form is ever opened (decision 22).
       await expect(feld.leaderLine(leader.name).first()).toBeVisible();
 
-      await feld.openAssignment(incident.title);
+      await feld.openAssignment(street(incident));
       await expect(feld.rapportStateChip('kein Rapport').first()).toBeVisible();
 
       await feld.fileRapport('Keller ausgepumpt, Wasser stand 20 cm.');
@@ -240,8 +241,8 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     try {
       await feld.pickPerson(crew.name);
 
-      const runningRow = feld.assignmentRow(running.title);
-      const finishedRow = feld.assignmentRow(finished.title);
+      const runningRow = feld.assignmentRow(street(running));
+      const finishedRow = feld.assignmentRow(street(finished));
       await expect(runningRow).toBeVisible({ timeout: SMOKE_TIMEOUT });
       await expect(finishedRow).toBeVisible();
 
@@ -254,7 +255,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       await expect(finishedRow.getByText('Nicht mehr zugeteilt')).toBeVisible();
 
       // …and it is still there in the detail header, where the form opens.
-      await feld.openAssignment(finished.title);
+      await feld.openAssignment(street(finished));
       await expect(feld.leaderLine(leader.name).first()).toBeVisible();
       // The field keeps its explicit "I am done" (§18.17) — a crew on a phone
       // needs a definite moment, and this is where draft-vs-filed earns it.
@@ -277,7 +278,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     const { page: phone, feld } = await fieldPhone(browser, fixture.link, fixture.code);
     try {
       await feld.pickPerson(crew.name);
-      await feld.openAssignment(incident.title);
+      await feld.openAssignment(street(incident));
 
       // «Einsatz beendet» asks first (§18.18) — from the field the report
       // cannot be taken back — and the Abholung follow-up opens by itself
