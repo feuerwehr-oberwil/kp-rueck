@@ -184,7 +184,8 @@
       "management": "Verwaltung",
       "support": "Support",
       "account": "Konto",
-      "logout": "Abmelden"
+      "logout": "Abmelden",
+      "linksAndQr": "Links & QR"
     },
     "pageNav": {
       "main": "Hauptnavigation",

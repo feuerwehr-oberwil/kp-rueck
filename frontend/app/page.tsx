@@ -19,7 +19,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Users, FileText, PanelRight, Loader2 } from 'lucide-react'
+import { Plus, Package, QrCode, MonitorDown, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Users, FileText, PanelRight, Loader2 } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -507,7 +507,7 @@ export default function FireStationDashboard() {
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'links' | 'checkin' | 'reko' | 'display' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'links' | 'checkin' | 'display' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
   // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
@@ -566,7 +566,6 @@ export default function FireStationDashboard() {
   // The store keeps one stable object per value, so `cardView` can go straight
   // into the memoised column/card tree without a useMemo wrapper here.
   const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
-  const [rekoLinkUrl, setRekoLinkUrl] = useState<string | null>(null)
   const [displayToken, setDisplayToken] = useState<string | null>(null)
   const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
@@ -1513,7 +1512,6 @@ export default function FireStationDashboard() {
 
   // Derived state for convenience
   const qrDialogOpen = activeFooterSheet === 'checkin'
-  const rekoQrDialogOpen = activeFooterSheet === 'reko'
   const displaySheetOpen = activeFooterSheet === 'display'
   // One share token, three targets — the sheet toggles which view the QR/URL point at.
   const displayUrl = displayToken
@@ -1614,33 +1612,6 @@ export default function FireStationDashboard() {
 
   // The Reko trupp's link is the field link now — `/reko-dashboard` is gone
   // (plan 26, decision 24) and `/feld` absorbed everything it did.
-  const generateRekoLinkQR = async () => {
-    // Toggle behavior: if already open, just close
-    if (rekoQrDialogOpen) {
-      setActiveFooterSheet(null)
-      return
-    }
-
-    if (!selectedEvent) {
-      toast.error(tCommon('error'), {
-        description: tDash('selectEventFirst'),
-      })
-      return
-    }
-
-    try {
-      const response = await apiClient.generateFeldLink(selectedEvent.id)
-      // Build full URL for QR code
-      const fullUrl = `${window.location.origin}${response.link}`
-      setRekoLinkUrl(fullUrl)
-      setActiveFooterSheet('reko')
-    } catch (error) {
-      console.error('Failed to generate Reko Dashboard link:', error)
-      toast.error(tCommon('error'), {
-        description: tDash('rekoLinkFailed'),
-      })
-    }
-  }
 
   const generateDisplayShare = async () => {
     // Toggle behavior: if already open, just close
@@ -2494,9 +2465,11 @@ export default function FireStationDashboard() {
               moreTitle={(count) => tDash('moreTitle', { count })}
               items={[
                 {
-                  // One pill for every link the board hands out (decision 29).
-                  // Was five — Check-In, Reko, Feld, Anzeige, Alarm — each
-                  // opening its own sheet that did the same three things.
+                  // Every link the board hands out, in one sheet (decision 29).
+                  // Was five pills — Check-In, Reko, Feld, Anzeige, Alarm —
+                  // each opening its own sheet that did the same three things.
+                  // It is three now rather than one, because two of those
+                  // sheets turned out to do MORE than share a link; see below.
                   key: 'links',
                   node: (
                     <ToolbarToggle
@@ -2504,6 +2477,33 @@ export default function FireStationDashboard() {
                       label={tDash('linksAndQr')}
                       active={linksSheetOpen}
                       onActivate={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
+                    />
+                  ),
+                },
+                {
+                  // Not folded in: this sheet also carries the Appell, which is
+                  // the only way into the roll call. A tidier footer is not
+                  // worth losing a feature.
+                  key: 'checkin',
+                  node: (
+                    <ToolbarToggle
+                      icon={QrCode}
+                      label={tDash('checkIn')}
+                      active={qrDialogOpen}
+                      onActivate={generateCheckInQR}
+                    />
+                  ),
+                },
+                {
+                  // Same reason: this one picks WHICH display the token opens
+                  // (Board · Karte · Status), which a link row cannot do.
+                  key: 'display',
+                  node: (
+                    <ToolbarToggle
+                      icon={MonitorDown}
+                      label={tDash('display')}
+                      active={displaySheetOpen}
+                      onActivate={generateDisplayShare}
                     />
                   ),
                 },
@@ -2842,18 +2842,6 @@ export default function FireStationDashboard() {
         />
       )}
 
-      {/* Reko Dashboard QR Code Sheet */}
-      <QrShareSheet
-        open={rekoQrDialogOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'reko' && setActiveFooterSheet(null)}
-        url={rekoLinkUrl}
-        title={tDash('rekoSheetTitle')}
-        description={tDash('rekoSheetDescription')}
-        hint={tDash('rekoSheetHint')}
-        printerEnabled={printerEnabled}
-        isPrinting={isPrintingQR}
-        onPrint={rekoLinkUrl ? () => handlePrintQR(rekoLinkUrl, tDash('rekoSheetTitle'), tDash('rekoSheetHint')) : undefined}
-      />
 
       {/* Feld (Schadenplatz-Rapport) QR Code Sheet — one global link per Ereignis */}
 
@@ -3063,9 +3051,7 @@ export default function FireStationDashboard() {
       <MobileBottomNavigation
         currentPage="kanban"
         hasSelectedEvent={!!selectedEvent}
-        onCheckIn={generateCheckInQR}
-        onReko={generateRekoLinkQR}
-        onDisplay={generateDisplayShare}
+        onLinks={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
         onPersonnel={() => setMobilePersonnelSheetOpen(true)}
         onVehicleStatus={() => setActiveFooterSheet('vehicles')}
         onPrint={() => setActiveFooterSheet(printSheetOpen ? null : 'print')}

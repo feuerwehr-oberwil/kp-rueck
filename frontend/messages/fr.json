@@ -2077,7 +2077,8 @@
       "management": "Administration",
       "support": "Support",
       "account": "Compte",
-      "logout": "Se déconnecter"
+      "logout": "Se déconnecter",
+      "linksAndQr": "Liens & QR"
     },
     "pageNav": {
       "main": "Navigation principale",
