@@ -379,3 +379,69 @@ class TestBoardAssignedRekoReachesTheField:
         feed = await client.get(f"/api/feld/assignments/{person.id}?token={token}")
         row = next(r for r in feed.json()["assignments"] if r["incident_id"] == str(incident_id))
         assert row["source"] == "reko"
+
+
+class TestOwnAttendance:
+    """The individual half of the roll call (plan 26, decision 10).
+
+    `/check-in` stays a page for the shared tablet at the door — one device for
+    many people is a different product from a page built around a per-device
+    "this phone is Marco" cookie. This is the other half: somebody saying "ich
+    bin da" from the vehicle, and — the part that had no home at all — "ich
+    rücke ab".
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_checking_yourself_in_and_out_again(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        person = await _person_on_an_incident(db_session, test_event, test_user)
+        token = await feld_device_token(db_session, test_event.id, person.id)
+
+        assert (await client.post(f"/api/feld/attendance/{person.id}?token={token}&present=true")).status_code == 200
+        feed = await client.get(f"/api/feld/assignments/{person.id}?token={token}")
+        assert feed.json()["checked_in"] is True
+
+        # A crew still standing on a Schadenplatz can say it has gone home; the
+        # board clears the assignment, not the person.
+        assert (await client.post(f"/api/feld/attendance/{person.id}?token={token}&present=false")).status_code == 200
+        feed = await client.get(f"/api/feld/assignments/{person.id}?token={token}")
+        assert feed.json()["checked_in"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_somebody_with_no_assignment_can_still_check_in(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        # The whole point: checking in is what you do BEFORE the KP has given
+        # you anything, so requiring an assignment first would refuse exactly
+        # the people this exists for.
+        newcomer = Personnel(id=uuid.uuid4(), name="Neu Hier", role="Feuerwehrmann", status="available")
+        db_session.add(newcomer)
+        await db_session.commit()
+        token = await feld_device_token(db_session, test_event.id, newcomer.id)
+
+        response = await client.post(f"/api/feld/attendance/{newcomer.id}?token={token}&present=true")
+
+        assert response.status_code == 200
+        feed = await client.get(f"/api/feld/assignments/{newcomer.id}?token={token}")
+        # Present, and honest about having nothing — which is what the page then
+        # says instead of an unexplained empty screen.
+        assert feed.json()["checked_in"] is True
+        assert feed.json()["assignments"] == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_device_cannot_check_somebody_else_in(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        person = await _person_on_an_incident(db_session, test_event, test_user)
+        colleague = Personnel(id=uuid.uuid4(), name="Frey Marc", role="Feuerwehrmann", status="available")
+        db_session.add(colleague)
+        await db_session.commit()
+        token = await feld_device_token(db_session, test_event.id, person.id)
+
+        response = await client.post(f"/api/feld/attendance/{colleague.id}?token={token}&present=true")
+
+        assert response.status_code == 403

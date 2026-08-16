@@ -833,6 +833,13 @@
         "auftrag": "Mandat ouvert – vous avez deux étapes",
         "solo": "Annonce transmise – vous êtes assignés"
       }
+    },
+    "attendance": {
+      "notHereTitle": "Tu n'es pas enregistré",
+      "checkIn": "S'enregistrer",
+      "checkOut": "Je rentre",
+      "here": "Enregistré",
+      "hereNoJob": "Pas encore de mandat"
     }
   },
   "help": {

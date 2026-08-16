@@ -3445,6 +3445,13 @@
         "auftrag": "Auftrag eröffnet – ihr habt jetzt zwei Stops",
         "solo": "Meldung ist beim KP – ihr seid zugeteilt"
       }
+    },
+    "attendance": {
+      "notHereTitle": "Du bist nicht eingecheckt",
+      "checkIn": "Einchecken",
+      "checkOut": "Ich rücke ab",
+      "here": "Eingecheckt",
+      "hereNoJob": "Noch kein Auftrag"
     }
   }
 }

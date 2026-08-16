@@ -369,6 +369,7 @@ async def get_feld_assignments(
 
     assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
     chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
+    checked_in = await crud.is_checked_in(db, event.id, personnel_id)
     # One read for the whole list, next to the chips read that is already here.
     home_city = await incident_display.get_home_city(db)
 
@@ -376,6 +377,7 @@ async def get_feld_assignments(
         personnel_id=person.id,
         personnel_name=person.name,
         personnel_role=person.role,
+        checked_in=checked_in,
         event_id=event.id,
         event_name=event.name,
         assignments=[

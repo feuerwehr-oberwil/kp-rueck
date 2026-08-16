@@ -50,6 +50,9 @@ export interface ApiFeldPersonnel {
   open_count: number
   /** Of those, the ones without a submitted Schadenplatz-Rapport. */
   missing_rapport_count: number
+  /** Present at this Ereignis. The picker is the roster since decision 10, so
+   *  this is what tells "here, nothing yet" from "not here at all". */
+  checked_in?: boolean
 }
 
 export interface ApiFeldPersonnelListResponse {
@@ -136,6 +139,8 @@ export interface ApiFeldAssignmentsResponse {
   personnel_id: string
   personnel_name: string
   personnel_role: string | null
+  /** Present at this Ereignis — drives "Einchecken" vs "Ich rücke ab". */
+  checked_in?: boolean
   event_id: string
   event_name: string
   assignments: ApiFeldAssignment[]

@@ -296,6 +296,11 @@ function FeldSurface() {
   // wet phone it sits one thumb-width from the rest of the header.
   const [confirmNotMe, setConfirmNotMe] = useState(false)
   const [meldenOpen, setMeldenOpen] = useState(false)
+  // Attendance: the individual half of the roll call (decision 10). The door
+  // tablet stays its own page; this is somebody saying "ich bin da" from the
+  // vehicle, and — the part that was missing entirely — "ich rücke ab".
+  const [checkedIn, setCheckedIn] = useState(false)
+  const [attendanceBusy, setAttendanceBusy] = useState(false)
   const token = deviceToken
   const restoredFromCookie = useRef(false)
   const restoredIncident = useRef(false)
@@ -392,6 +397,7 @@ function FeldSurface() {
       setAssignments(data.assignments)
       setMessageChips(data.message_chips ?? [])
       setEventName(data.event_name)
+      setCheckedIn(Boolean(data.checked_in))
       // A device coming back from its cookie has no picker to have chosen from,
       // so the person is restored from the response it was going to fetch
       // anyway — one round trip, not two, and no picker for somebody who has
@@ -602,6 +608,21 @@ function FeldSurface() {
     const interval = setInterval(tick, FELD_POLL_MS)
     return () => clearInterval(interval)
   }, [selectedPerson, token, loadAssignments])
+
+  /** Say you are here, or that you have gone home. */
+  const toggleAttendance = useCallback(async () => {
+    if (!token || !selectedPerson || attendanceBusy) return
+    setAttendanceBusy(true)
+    const next = !checkedIn
+    try {
+      await apiClient.setFeldAttendance(selectedPerson.personnel_id, token, next)
+      setCheckedIn(next)
+    } catch (err) {
+      console.error('Attendance toggle failed:', err)
+    } finally {
+      setAttendanceBusy(false)
+    }
+  }, [token, selectedPerson, checkedIn, attendanceBusy])
 
   /** "Nicht ich" — the phone is being handed on. Switching person means a new
    *  bound token, and a new bound token means the code again: the binding would
@@ -977,12 +998,29 @@ function FeldSurface() {
       />
 
       <div className="max-w-md mx-auto space-y-3 p-4">
+        {/* Not here yet: the one thing worth a full-width button, because it is
+            what somebody arriving does before anything else exists for them. */}
+        {!checkedIn && (
+          <section className="rounded-xl bg-secondary/60 p-4">
+            <p className="mb-3 text-base font-semibold">{t('attendance.notHereTitle')}</p>
+            <Button size="lg" className="w-full" onClick={toggleAttendance} disabled={attendanceBusy}>
+              {t('attendance.checkIn')}
+            </Button>
+          </section>
+        )}
 
         {loadingAssignments ? null : assignments.length === 0 ? (
           <div className="py-12 text-center animate-in fade-in duration-300">
             <div className="h-12 w-12 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
               <Clock className="h-6 w-6 text-muted-foreground" />
             </div>
+            {/* Checked in with nothing to do is NOT the same as being unknown —
+                and saying so is the whole reason the picker may now be the
+                roster (decision 10). It answers the question actually being
+                asked: wissen die überhaupt, dass ich da bin? */}
+            {checkedIn && (
+              <p className="mb-2 text-base font-medium">{t('attendance.hereNoJob')}</p>
+            )}
             {/* Visibility is "only mine" and it is enforced server-side, so a
                 crew redirected by radio genuinely cannot file until the KP
                 assigns them. This sentence is the whole mitigation for that
@@ -1070,6 +1108,19 @@ function FeldSurface() {
               </div>
             )
           })
+        )}
+
+        {/* The other end of the night. Quiet, at the bottom, out of the way of
+            the work — but present, because "ich rücke ab" had no home at all
+            and the KP was left guessing who was still out. */}
+        {checkedIn && (
+          <div className="flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2.5">
+            <span className="size-2 shrink-0 rounded-full bg-success" />
+            <span className="flex-1 text-xs text-muted-foreground">{t('attendance.here')}</span>
+            <Button variant="ghost" size="sm" onClick={toggleAttendance} disabled={attendanceBusy}>
+              {t('attendance.checkOut')}
+            </Button>
+          </div>
         )}
       </div>
 

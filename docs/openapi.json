@@ -12654,6 +12654,72 @@
         }
       }
     },
+    "/api/feld/attendance/{personnel_id}": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Set Own Attendance",
+        "description": "Check yourself in or out of the Ereignis (plan 26, decision 10).\n\nThe individual half of `/check-in`, which stays a page in its own right for\nthe shared tablet at the door — one device for many people is a different\nproduct from a page built around a per-device \"this phone is Marco\" cookie.\n\n`require_access=False`: checking in is what somebody does *before* the KP\nhas given them anything, so requiring an assignment first would refuse\nexactly the people this exists for. The binding still means a device can\nonly check ITSELF in.\n\nReuses the board's own CRUD, so the roll call is one list however it was\nwritten — the field surface is not a second attendance record.",
+        "operationId": "set_own_attendance_api_feld_attendance__personnel_id__post",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "present",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "description": "true = eingecheckt, false = abgerückt",
+              "title": "Present"
+            },
+            "description": "true = eingecheckt, false = abgerückt"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents": {
       "post": {
         "tags": [
@@ -21278,6 +21344,11 @@
             ],
             "title": "Personnel Role"
           },
+          "checked_in": {
+            "type": "boolean",
+            "title": "Checked In",
+            "default": false
+          },
           "event_id": {
             "type": "string",
             "format": "uuid",
@@ -21531,6 +21602,11 @@
             "type": "integer",
             "title": "Missing Rapport Count",
             "default": 0
+          },
+          "checked_in": {
+            "type": "boolean",
+            "title": "Checked In",
+            "default": false
           }
         },
         "type": "object",

@@ -123,3 +123,21 @@ async def revoke_all_claims(db: AsyncSession, event_id: uuid.UUID) -> int:
     )
     await db.commit()
     return int(result.rowcount or 0)
+
+
+async def is_checked_in(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:
+    """Is this person present at this Ereignis?
+
+    The individual half of the roll call, read by `/feld` so the page can offer
+    "Einchecken" to somebody who has not, and "Ich rücke ab" to somebody who
+    has. Same row the door tablet writes — one attendance record, two ways in.
+    """
+    from ...models import EventAttendance
+
+    result = await db.execute(
+        select(EventAttendance.checked_in).where(
+            EventAttendance.event_id == event_id,
+            EventAttendance.personnel_id == personnel_id,
+        )
+    )
+    return bool(result.scalar_one_or_none())

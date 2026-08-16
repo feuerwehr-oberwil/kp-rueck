@@ -101,6 +101,7 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         # credential, and logging every crew out mid-storm is not a field action.
         "POST /access/regenerate": "session",
         "POST /access/revoke-devices": "session",
+        "POST /attendance/{personnel_id}": "token",
         "POST /incidents": "token",
         "POST /incidents/{incident_id}/reko-link": "token",
         "POST /incidents/{incident_id}/arrived": "token",
@@ -127,6 +128,12 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
 # quietly outlive the route it points at; anything after that is prose.
 EXTERNAL_TWINS: dict[str, str] = {
     "POST /api/intake/alarm": "POST /api/incidents/ with source='intake'",
+    "POST /api/feld/attendance/{personnel_id}": (
+        "POST /api/personnel/check-in/{personnel_id}/in — the same attendance row, "
+        "written through the same CRUD. The board twin is the door tablet's own route, "
+        "which is `both` (token or editor session); this one is the individual saying "
+        "it from the vehicle instead of queueing at the tablet."
+    ),
     "POST /api/feld/incidents": (
         "POST /api/incidents/ — the board's own create. Same table, same columns; only "
         "the provenance differs, and `source='feld'` is deliberately NOT in "

@@ -2064,6 +2064,19 @@ class ApiClient {
     )
   }
 
+  /**
+   * Check yourself in or out of the Ereignis from the field (decision 10).
+   *
+   * The individual half of `/check-in`, which stays a page for the shared
+   * tablet at the door. Same attendance row either way — one roll call.
+   */
+  async setFeldAttendance(personnelId: string, token: string, present: boolean): Promise<void> {
+    await this.request<unknown>(
+      `/api/feld/attendance/${personnelId}?token=${encodeURIComponent(token)}&present=${present}`,
+      { method: 'POST' },
+    )
+  }
+
   /** A short-lived form token so the Reko form can mount inside `/feld`. */
   async mintFeldRekoLink(
     incidentId: string,

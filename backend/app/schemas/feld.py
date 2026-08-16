@@ -217,6 +217,9 @@ class FeldAssignmentsResponse(BaseModel):
     personnel_id: UUID
     personnel_name: str
     personnel_role: str | None = None
+    # Present at this Ereignis (decision 10). The field surface carries the
+    # individual half of the roll call; `/check-in` stays the door tablet.
+    checked_in: bool = False
     event_id: UUID
     event_name: str
     assignments: list[FeldAssignment]
