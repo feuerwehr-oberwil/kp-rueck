@@ -60,6 +60,7 @@ import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import type { Incident } from "@/lib/types/incidents"
 
 /** Whether the provenance toggle applies to this card at all.
@@ -385,6 +386,37 @@ export function OperationDetailContent({
     return () => window.cancelAnimationFrame(frame)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openOnTab])
+
+  /**
+   * The Ressourcen block takes drops, so a person or a Gerät can go straight
+   * onto the incident that is already open in the side panel instead of being
+   * carried back to its card. Panel only: the modal covers the very sidebars
+   * the resources are dragged out of, so there is nothing to drop there.
+   *
+   * The payload is the card's own `operation-drop`, which is what buys the
+   * behaviour that matters for free — Doppelbelegung prompt, Reko slot, and a
+   * grouped incident routing the assignment to its Auftrag (see
+   * `applyResourceDrop`). Cards are refused: this block has no `index`, so the
+   * reorder maths in `applyOperationDrop` has nothing to work with.
+   */
+  const [isResourceDropOver, setIsResourceDropOver] = useState(false)
+  useEffect(() => {
+    const element = resourcesRef.current
+    if (!element || layout !== 'panel' || !canEdit) return
+
+    return dropTargetForElements({
+      element,
+      canDrop: ({ source }) =>
+        source.data.type === 'person' ||
+        source.data.type === 'material' ||
+        source.data.type === 'material-group' ||
+        source.data.type === 'driver-vehicle',
+      getData: () => ({ type: 'operation-drop', operationId: operation.id }),
+      onDragEnter: () => setIsResourceDropOver(true),
+      onDragLeave: () => setIsResourceDropOver(false),
+      onDrop: () => setIsResourceDropOver(false),
+    })
+  }, [layout, canEdit, operation.id, tab])
 
   // Shortcut targets that are not on screen: Shift+1/2/3 sets the priority,
   // `0` and `1`..`5` touch "zu Fuss" / the quick-assign fleet — all on
@@ -1025,7 +1057,16 @@ export function OperationDetailContent({
           {/* Ressourcen — Reko, Mannschaft, Fahrzeuge, Material. Reached
               directly by a click on the matching block of a kanban card, which
               is what the ref is for (see the scroll effect above). */}
-          <div ref={resourcesRef} data-detail-section="resources">
+          <div
+            ref={resourcesRef}
+            data-detail-section="resources"
+            className={cn(
+              // The drop ring sits OUTSIDE the block (`ring-offset`) so it reads
+              // as "this whole list takes it" rather than as a field focus.
+              "rounded-lg transition-colors",
+              isResourceDropOver && "ring-2 ring-primary ring-offset-4 ring-offset-background bg-primary/5"
+            )}
+          >
             {/* Reko, as ONE line: who is out looking, since when — and a way
                 through to the rest. The five controls that used to live here
                 (zuweisen/wechseln, the two links, the event-wide transfer) are
