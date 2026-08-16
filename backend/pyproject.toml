@@ -1,6 +1,6 @@
 [project]
 name = "kprueck-backend"
-version = "0.5.0"
+version = "0.6.0"
 description = "FastAPI backend for KP Rück firefighting operations dashboard"
 license = "AGPL-3.0"
 requires-python = ">=3.12"
