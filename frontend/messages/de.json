@@ -3389,6 +3389,19 @@
       "description": "Das KP hat dir diesen Schadenplatz zur Erkundung zugeteilt.",
       "open": "Formular öffnen",
       "failed": "Formular konnte nicht geöffnet werden. Nochmals versuchen."
+    },
+    "access": {
+      "label": "Feld-Code",
+      "devices": "{count, plural, =0 {keine Geräte} one {# Gerät} other {# Geräte}}",
+      "regenerate": "Neu",
+      "revoke": "Abmelden",
+      "regenerated": "Neuer Feld-Code erstellt",
+      "revoked": "Alle Geräte abgemeldet",
+      "failed": "Hat nicht geklappt. Nochmals versuchen.",
+      "regenerateTitle": "Neuen Feld-Code erstellen?",
+      "regenerateDescription": "Neue Geräte brauchen ab sofort den neuen Code. Wer bereits angemeldet ist, arbeitet ungestört weiter – es wird niemand abgemeldet.",
+      "revokeTitle": "Alle Geräte abmelden?",
+      "revokeDescription": "{count, plural, one {# Gerät ist} other {# Geräte sind}} angemeldet. Alle müssen den Code neu eingeben – auch Mannschaften, die gerade unterwegs sind. Ein neuer Code allein meldet niemanden ab."
     }
   }
 }

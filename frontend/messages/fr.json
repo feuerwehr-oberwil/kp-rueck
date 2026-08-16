@@ -800,6 +800,19 @@
       "description": "Le PC t'a assigné ce lieu pour la reconnaissance.",
       "open": "Ouvrir le formulaire",
       "failed": "Impossible d'ouvrir le formulaire. Réessaie."
+    },
+    "access": {
+      "label": "Code terrain",
+      "devices": "{count, plural, =0 {aucun appareil} one {# appareil} other {# appareils}}",
+      "regenerate": "Nouveau",
+      "revoke": "Déconnecter",
+      "regenerated": "Nouveau code terrain créé",
+      "revoked": "Tous les appareils déconnectés",
+      "failed": "Échec. Réessaie.",
+      "regenerateTitle": "Créer un nouveau code terrain ?",
+      "regenerateDescription": "Les nouveaux appareils auront besoin du nouveau code. Les appareils déjà connectés continuent sans interruption – personne n'est déconnecté.",
+      "revokeTitle": "Déconnecter tous les appareils ?",
+      "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les équipes en intervention. Un nouveau code seul ne déconnecte personne."
     }
   },
   "help": {

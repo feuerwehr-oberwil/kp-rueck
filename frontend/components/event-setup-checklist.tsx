@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress'
 import { X, ClipboardCheck, Check, MessageCircle, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
+import { FeldAccessCard } from '@/components/feld/feld-access-card'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getTileBaseUrl } from '@/lib/env'
 import {
@@ -491,6 +492,12 @@ export function EventSetupChecklist({
               </div>
             )
           })}
+          {/* The Feld-Code, under the row that produces the poster.
+              Deliberately outside the task list rather than inside a row: it is
+              not a step to tick off, it is a fact the KP reads out — and since
+              plan 26 the QR alone gets nobody in, so it has to be printed and
+              read next to the link that needs it. */}
+          <FeldAccessCard eventId={eventId} />
         </div>
     </div>
   )
