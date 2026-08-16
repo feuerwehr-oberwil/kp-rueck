@@ -1,4 +1,14 @@
-"""Excel import/export service for bulk data management."""
+"""Excel import/export service for bulk data management.
+
+The downloaded template carries example rows so an operator can see the shape a
+sheet is meant to have. Every one of them is prefixed with `EXAMPLE_ROW_MARKER`
+in its `name` column and is **dropped on import** – a tester looked at a plain
+`Max Mustermann` row and could not tell whether it would be imported, and it was:
+two fictional firefighters, two fictional vehicles and three fictional pumps
+landed on a live board underneath the real roster. Marking the rows only fixes
+that for the operator who reads carefully, so the parser matches the marker too.
+Deleting the example rows and leaving them in place are both correct.
+"""
 
 import asyncio
 import logging
@@ -79,7 +89,35 @@ VEHICLE_STATUSES = ["available", "unavailable"]
 PERSONNEL_STATUSES = ["available", "unavailable"]
 # Material types are no longer hardcoded - validation now accepts any non-empty string
 
+# The prefix every example row in the template carries in its `name` column, and the
+# single place the parser looks for it. It is user-facing German: the operator reads it
+# in their own spreadsheet, and it has to say what to do with the row, not just that the
+# row is special.
+EXAMPLE_ROW_MARKER = "BEISPIEL – Zeile löschen"
+
 logger = logging.getLogger(__name__)
+
+
+def _example_name(name: str) -> str:
+    """The `name` cell of a template example row, marked as an example."""
+    return f"{EXAMPLE_ROW_MARKER}: {name}"
+
+
+def _is_example_row(name: object) -> bool:
+    """True for a row the template shipped as an example – the import skips it.
+
+    Deliberately forgiving: case-folded and stripped, because the row passes through
+    an operator's spreadsheet before it comes back, and a marker that only matched
+    byte-for-byte would let the example through in exactly the files where somebody
+    had been editing around it.
+
+    A sheet whose rows are ALL examples therefore parses as present with zero rows –
+    identical to a header-only sheet, which in `replace` mode clears that table on
+    purpose. It must not read as an *absent* sheet: that is refused with a 409
+    (`admin._refuse_missing_sheets`), and an operator who deleted nothing would have
+    no idea what the refusal wanted from them.
+    """
+    return str(name or "").strip().casefold().startswith(EXAMPLE_ROW_MARKER.casefold())
 
 
 def _cell(value: object) -> str:
@@ -151,7 +189,11 @@ class ParsedImport:
 
 
 def generate_empty_template() -> BytesIO:
-    """Generate empty Excel template with example rows."""
+    """Generate an empty Excel template with example rows.
+
+    Every example row is named through `_example_name`, so it reads as an example in
+    the sheet and is skipped by the parser whether or not the operator deletes it.
+    """
     wb = Workbook()
     wb.remove(wb.active)  # Remove default sheet
 
@@ -163,8 +205,8 @@ def generate_empty_template() -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     # Example rows
-    ws_personnel.append(["Max Mustermann", "Fahrer", "available"])
-    ws_personnel.append(["Anna Schmidt", "", "unavailable"])
+    ws_personnel.append([_example_name("Max Mustermann"), "Fahrer", "available"])
+    ws_personnel.append([_example_name("Anna Schmidt"), "", "unavailable"])
 
     # Vehicles sheet
     ws_vehicles = wb.create_sheet("Vehicles")
@@ -172,8 +214,8 @@ def generate_empty_template() -> BytesIO:
     for cell in ws_vehicles[1]:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    ws_vehicles.append(["TLF 1", "TLF", "1", "available", "Florian 1"])
-    ws_vehicles.append(["DLK 1", "DLK", "2", "available", "Florian 2"])
+    ws_vehicles.append([_example_name("TLF 1"), "TLF", "1", "available", "Florian 1"])
+    ws_vehicles.append([_example_name("DLK 1"), "DLK", "2", "available", "Florian 2"])
 
     # Materials sheet
     ws_materials = wb.create_sheet("Materials")
@@ -182,9 +224,9 @@ def generate_empty_template() -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     # Example with duplicates showing multiple items
-    ws_materials.append(["Tauchpumpe Gr.", "Tauchpumpen", "TLF", ""])
-    ws_materials.append(["Tauchpumpe Kl.", "Tauchpumpen", "TLF", ""])
-    ws_materials.append(["Wassersauger", "Wassersauger", "Pio", ""])
+    ws_materials.append([_example_name("Tauchpumpe Gr."), "Tauchpumpen", "TLF", ""])
+    ws_materials.append([_example_name("Tauchpumpe Kl."), "Tauchpumpen", "TLF", ""])
+    ws_materials.append([_example_name("Wassersauger"), "Wassersauger", "Pio", ""])
 
     # Save to BytesIO
     output = BytesIO()
@@ -225,6 +267,11 @@ def _parse_personnel_sheet(wb: Workbook) -> ParsedSheet:
 
         row_data = dict(zip(expected_headers, row, strict=False))
 
+        # Before any validation: the template's own example row is not the operator's
+        # data and must not be able to fail their import either.
+        if _is_example_row(row_data.get("name")):
+            continue
+
         if not row_data.get("name"):
             raise ExcelImportError(
                 "Spalte 'name' ist leer, jede Zeile braucht einen Namen.", sheet="Personnel", row=row_idx
@@ -264,6 +311,11 @@ def _parse_vehicles_sheet(wb: Workbook) -> ParsedSheet:
             continue
 
         row_data = dict(zip(expected_headers, row, strict=False))
+
+        # See `_is_example_row`: skipped before validation, so a half-edited example
+        # row cannot refuse the whole workbook either.
+        if _is_example_row(row_data.get("name")):
+            continue
 
         for column, required in VEHICLE_COLUMNS:
             if required and not row_data.get(column):
@@ -309,6 +361,11 @@ def _parse_materials_sheet(wb: Workbook) -> ParsedSheet:
 
         row_data = dict(zip(expected_headers, row, strict=False))
 
+        # See `_is_example_row`: skipped before validation, so a half-edited example
+        # row cannot refuse the whole workbook either.
+        if _is_example_row(row_data.get("name")):
+            continue
+
         for column, required in MATERIAL_COLUMNS:
             if required and not row_data.get(column):
                 raise ExcelImportError(f"Spalte '{column}' ist leer (Pflichtfeld).", sheet="Materials", row=row_idx)
@@ -324,6 +381,9 @@ def validate_and_parse_excel(file_bytes: bytes) -> ParsedImport:
 
     A sheet the file does not contain comes back as `ParsedSheet(present=False)`,
     which is NOT the same as a sheet that is there and empty – see `ParsedSheet`.
+
+    Rows still carrying the template's `EXAMPLE_ROW_MARKER` in their name are
+    dropped here and never reach the database – see `_is_example_row`.
 
     Raises ExcelImportError if validation fails; its `message` is safe to return
     to the caller and names the sheet and row.

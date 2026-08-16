@@ -2302,6 +2302,152 @@
         }
       }
     },
+    "/api/divera/groups": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "List Divera Groups",
+        "description": "List the unit's Divera groups — the recipient choices for a Mitteilung.\n\nRead live from Divera (pull/all), like the member list next door.",
+        "operationId": "list_divera_groups_api_divera_groups_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiveraGroupPreview"
+                  },
+                  "title": "Response List Divera Groups Api Divera Groups Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/divera/message": {
+      "post": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Send Divera Message",
+        "description": "Post an informational Mitteilung (not an alarm) to the unit.\n\nThis is the setup checklist's standby message — \"KP-Rück ist aktiv, Telefon\nmitnehmen\" — which used to be a WhatsApp text pasted by hand. It is\ndeliberately NOT an alarm: everybody should read it, nobody should be woken\nby a siren, and no pager is touched.\n\nSame gating as an alarm (provider configured, ``alerting.enabled``, not\ndemo, editor role), because it still lands on every addressed phone. Who\nreceives it is explicit: named groups, or a deliberate «alle» — the request\nschema has no default.",
+        "operationId": "send_divera_message_api_divera_message_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiveraMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiveraMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/test-alarm": {
       "post": {
         "tags": [
@@ -17477,6 +17623,11 @@
         "properties": {
           "resource_type": {
             "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
             "title": "Resource Type"
           },
           "resource_id": {
@@ -17507,6 +17658,11 @@
           },
           "resource_type": {
             "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
             "title": "Resource Type"
           },
           "resource_id": {
@@ -18640,6 +18796,25 @@
         "title": "DiveraEmergencyResponse",
         "description": "Pool alarm response schema (Divera or generic-webhook alarms)."
       },
+      "DiveraGroupPreview": {
+        "properties": {
+          "divera_id": {
+            "type": "integer",
+            "title": "Divera Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "divera_id",
+          "name"
+        ],
+        "title": "DiveraGroupPreview",
+        "description": "One Divera group (Gruppe) a Mitteilung can be addressed at."
+      },
       "DiveraMemberPreview": {
         "properties": {
           "divera_id": {
@@ -18658,6 +18833,112 @@
         ],
         "title": "DiveraMemberPreview",
         "description": "Preview of a single Divera member."
+      },
+      "DiveraMessageRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "groups",
+              "all"
+            ],
+            "title": "Target"
+          },
+          "group_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Group Ids",
+            "default": []
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "target"
+        ],
+        "title": "DiveraMessageRequest",
+        "description": "Request to post a Divera Mitteilung (e.g. the KP's standby message).\n\n``target`` is required and has no default: \"everyone\" is a decision an\noperator makes on purpose, in the confirmation sheet, not something a\nforgotten field does for them."
+      },
+      "DiveraMessageResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "foreign_id": {
+            "type": "string",
+            "title": "Foreign Id"
+          },
+          "divera_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Divera Message Id"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "groups",
+              "all"
+            ],
+            "title": "Target"
+          },
+          "group_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Group Names",
+            "default": []
+          },
+          "simulated": {
+            "type": "boolean",
+            "title": "Simulated",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "foreign_id",
+          "target"
+        ],
+        "title": "DiveraMessageResponse",
+        "description": "Result of a Mitteilung send."
       },
       "DiveraSyncExecute": {
         "properties": {
@@ -20492,6 +20773,11 @@
         "properties": {
           "resource_type": {
             "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
             "title": "Resource Type"
           },
           "resource_id": {
@@ -20522,6 +20808,11 @@
           },
           "resource_type": {
             "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
             "title": "Resource Type"
           },
           "resource_id": {

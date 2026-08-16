@@ -211,16 +211,24 @@ async def test_assign_viewer_forbidden(viewer_client: AsyncClient, test_incident
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_assign_invalid_resource_type(editor_client: AsyncClient, test_incident: Incident):
-    """Test assigning with invalid resource type returns 422."""
+    """A bad resource_type is refused with a message that names the legal values.
+
+    `resource_type` used to be a bare `str` with a hand-written validator, so
+    `docs/openapi.json` – the only API reference a self-hoster has, Swagger being off
+    in production – said "string" and the three legal values were discoverable only by
+    provoking this 422. It is a `Literal` now; this asserts the 422 it produces is at
+    least as useful as the sentence the validator used to write.
+    """
     assignment_data = {
         "resource_type": "invalid_type",
         "resource_id": str(uuid4()),
     }
     response = await editor_client.post(f"/api/incidents/{test_incident.id}/assign", json=assignment_data)
     assert response.status_code == 422
-    # Verify error message mentions resource_type
-    data = response.json()
-    assert "resource_type" in str(data).lower()
+    detail = str(response.json()).lower()
+    assert "resource_type" in detail
+    for legal in ("personnel", "vehicle", "material"):
+        assert legal in detail, detail
 
 
 @pytest.mark.asyncio

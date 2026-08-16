@@ -217,8 +217,12 @@ deployment inherits.)
 You do not type in a roster. There is an Excel round-trip, and it lives at
 **Einstellungen → Daten → Import/Export**:
 
-1. **Vorlage herunterladen** – the empty workbook, with the right sheets, headers and a couple of
-   example rows (`GET /api/admin/import/template`).
+1. **Vorlage herunterladen** – the empty workbook, with the right sheets, headers and a few
+   example rows (`GET /api/admin/import/template`). The examples are labelled
+   `BEISPIEL – Zeile löschen` in the first column and are **ignored on import**, so you can
+   delete them or type your roster underneath them and leave them there; either way they never
+   reach the board. (They used to import, which is how a station ended up with Max Mustermann
+   on the roster.)
 2. Fill in personnel, vehicles and materials. Format rules below – read them once, they are
    short.
 3. **Datei auswählen**, then pick a mode under **Import-Modus wählen** (next heading), then
@@ -227,6 +231,33 @@ You do not type in a roster. There is an Excel round-trip, and it lives at
 
 All four are **editor** rights, not admin – the tab is hidden from viewers and shown to any
 editor. (This guide used to call it "the admin surface"; it never was.)
+
+<details>
+<summary><strong>Driving it from a script instead</strong> (provisioning a station unattended)</summary>
+
+Everything in this guide can be done from a shell. The one thing worth writing down, because it
+costs an unexplainable error otherwise: **the login endpoint is form-encoded, not JSON.** Posting
+JSON gets you `422 {"loc":["body","username"],"msg":"Field required"}`, which reads like the
+field is missing when it is the encoding that is wrong.
+
+```bash
+BASE=http://localhost:8080          # your CORS_ORIGINS
+curl -sc jar -X POST "$BASE/api/auth/login" \
+     -d "username=admin&password=$ADMIN_SEED_PASSWORD"      # -d, not --json
+
+# the session cookie in `jar` then carries every later call
+curl -sb jar "$BASE/api/admin/import/template" -o template.xlsx
+curl -sb jar -X POST "$BASE/api/admin/import/preview" \
+     -F "file=@roster.xlsx" -F "mode=append"
+```
+
+Collection routes need their **trailing slash** – `/api/personnel` answers `307`, and a redirected
+POST arrives without its body, so a scripted write silently does nothing and looks like it worked.
+
+The full contract is [`docs/openapi.json`](openapi.json), committed and regenerated on every
+release. It is the reference to use: Swagger UI is disabled on a production deployment.
+
+</details>
 
 ### The two modes, and the one that eats your roster
 
@@ -279,7 +310,10 @@ quiet case: replacing an 18-person roster with two rows on a board with nothing 
 
 ### What the workbook does and does not enforce
 
-The template is a plain workbook: no instructions sheet, no drop-downs, no cell validation. Excel
+The workbook carries exactly one piece of cleverness, and it is worth knowing: **rows whose name
+starts with `BEISPIEL – Zeile löschen` are dropped on import**, matched ignoring case and
+surrounding spaces. That is the whole of it. Otherwise the template is a plain workbook: no
+instructions sheet, no drop-downs, no cell validation. Excel
 will let you type anything. The importer checks the file on upload and refuses the whole thing
 rather than importing half of it – and it tells you where: *«Excel-Datei konnte nicht verarbeitet
 werden: Vehicles Zeile 7 – ungültiger Status 'einsatzbereit'. Erlaubt: available, unavailable.»*
@@ -297,6 +331,13 @@ rejected.
   and put nothing back, and reported success.
 - **Sheet present with only its header row** – accepted, and it empties that table. That is the
   deliberate way to clear something, which is why the two cases cannot be collapsed into one.
+
+> **The sharp edge, now that the example rows are skipped.** A sheet whose only rows are the
+> untouched examples counts as **empty**, not missing – the examples are dropped, and what is
+> left is a present sheet with nothing in it. So downloading the template, filling in only
+> `Vehicles`, and importing with **Ersetzen** clears your personnel and material tables. It no
+> longer adds two fictional firefighters, but it does not leave those tables alone either. Fill
+> every sheet, or use **Anhängen**.
 
 If you only want to touch one of the three, either use **Anhängen**, or export first
 (**Daten → Export**) and edit the full workbook so the other two sheets carry their current

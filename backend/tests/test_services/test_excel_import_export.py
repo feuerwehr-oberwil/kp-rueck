@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Material, Personnel, User, Vehicle
 from app.services.excel_import_export import (
+    EXAMPLE_ROW_MARKER,
     MATERIAL_COLUMNS,
     PERSONNEL_COLUMNS,
     PERSONNEL_STATUSES,
@@ -244,6 +245,21 @@ class TestGenerateEmptyTemplate:
         # Materials should have 3 example rows + header
         ws_materials = wb["Materials"]
         assert ws_materials.max_row >= 4
+
+    def test_every_example_row_is_marked(self):
+        """No example row may be readable as data by the operator scanning the file.
+
+        A tester asked outright whether `Max Mustermann` would be imported and could
+        not tell from the sheet. Every example row now says what it is, in the first
+        column, in the operator's language.
+        """
+        wb = load_workbook(generate_empty_template())
+
+        for sheet in ("Personnel", "Vehicles", "Materials"):
+            ws = wb[sheet]
+            names = [row[0] for row in ws.iter_rows(min_row=2, values_only=True)]
+            assert names, f"{sheet} has no example rows"
+            assert all(str(name).startswith(EXAMPLE_ROW_MARKER) for name in names), names
 
     def test_buffer_position_at_start(self):
         """Test returned buffer is positioned at start."""
@@ -506,6 +522,75 @@ class TestValidateAndParseExcel:
         assert result.personnel.present is True
         assert result.vehicles == ParsedSheet(present=True, rows=[])
         assert result.materials == ParsedSheet(present=False, rows=[])
+
+    def test_example_rows_are_skipped_and_real_rows_are_not(self):
+        """The template's examples never reach the database, whoever left them there.
+
+        This is the half of the fix that removes the harm: an operator who types their
+        roster underneath the examples and uploads it must not end up with two fictional
+        firefighters, two fictional vehicles and three fictional pumps on the board.
+        """
+        file_bytes = create_valid_excel_bytes(
+            personnel=[
+                {"name": f"{EXAMPLE_ROW_MARKER}: Max Mustermann", "role": "Fahrer", "status": "available"},
+                {"name": "Beatrice Roth", "role": "", "status": "available"},
+            ],
+            vehicles=[
+                {
+                    "name": f"{EXAMPLE_ROW_MARKER}: TLF 1",
+                    "type": "TLF",
+                    "display_order": 1,
+                    "status": "available",
+                    "radio_call_sign": "Florian 1",
+                },
+                {
+                    "name": "MTW Oberwil",
+                    "type": "MTW",
+                    "display_order": 2,
+                    "status": "available",
+                    "radio_call_sign": "Florian 9",
+                },
+            ],
+            materials=[
+                {"name": f"{EXAMPLE_ROW_MARKER}: Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF"},
+                {"name": "Motorsäge", "type": "Werkzeug", "location": "Pio"},
+            ],
+        )
+        result = validate_and_parse_excel(file_bytes)
+
+        assert [row["name"] for row in result.personnel.rows] == ["Beatrice Roth"]
+        assert [row["name"] for row in result.vehicles.rows] == ["MTW Oberwil"]
+        assert [row["name"] for row in result.materials.rows] == ["Motorsäge"]
+
+    def test_example_marker_is_matched_forgivingly(self):
+        """The row travels through the operator's spreadsheet before it comes back.
+
+        Case and stray whitespace are exactly what changes on the way, and a marker
+        that only matched byte-for-byte would let the example through in the files
+        where somebody had been editing around it.
+        """
+        file_bytes = create_valid_excel_bytes(
+            personnel=[
+                {"name": f"  {EXAMPLE_ROW_MARKER}: Max Mustermann  ", "role": "", "status": "available"},
+                {"name": f"{EXAMPLE_ROW_MARKER.upper()}: Anna Schmidt", "role": "", "status": "available"},
+                {"name": f"{EXAMPLE_ROW_MARKER.lower()}: Anna Schmidt", "role": "", "status": "available"},
+            ],
+        )
+        assert validate_and_parse_excel(file_bytes).personnel == ParsedSheet(present=True, rows=[])
+
+    def test_sheet_of_only_example_rows_is_present_not_absent(self):
+        """Untouched examples mean "nothing here", not "no such sheet".
+
+        The two are opposite instructions in `replace` mode: a present-but-empty sheet
+        clears its table, while an absent one is refused with a 409 (`_refuse_missing_sheets`).
+        An operator who deleted nothing at all would have no way to act on that refusal,
+        so the skip must never turn one case into the other.
+        """
+        result = validate_and_parse_excel(generate_empty_template().getvalue())
+
+        assert result.personnel == ParsedSheet(present=True, rows=[])
+        assert result.vehicles == ParsedSheet(present=True, rows=[])
+        assert result.materials == ParsedSheet(present=True, rows=[])
 
     def test_error_carries_sheet_and_row(self):
         """The parser knows the cell – the operator has an 18-row sheet and no idea.
@@ -908,21 +993,21 @@ class TestRoundTrip:
         assert counts["materials"] == len(sample_materials)
 
     @pytest.mark.asyncio
-    async def test_template_is_importable(self, db_session: AsyncSession, excel_user: User):
-        """Test generated template can be imported."""
-        template = generate_empty_template()
-        parsed = validate_and_parse_excel(template.getvalue())
+    async def test_untouched_template_imports_nobody(self, db_session: AsyncSession, excel_user: User):
+        """The template goes through the import without adding a single row.
 
-        # Template has example rows
-        assert len(parsed.personnel.rows) > 0
-        assert len(parsed.vehicles.rows) > 0
-        assert len(parsed.materials.rows) > 0
+        This test used to assert the opposite – that the examples imported – which is
+        precisely how two fictional firefighters, two fictional vehicles and three
+        fictional pumps could land on a station's board.
+        """
+        parsed = validate_and_parse_excel(generate_empty_template().getvalue())
 
-        # Should import without errors
         counts = await import_data(db_session, parsed, "replace", str(excel_user.id))
-        assert counts["personnel"] > 0
-        assert counts["vehicles"] > 0
-        assert counts["materials"] > 0
+        assert counts == {"personnel": 0, "vehicles": 0, "materials": 0}
+
+        for model in (Personnel, Vehicle, Material):
+            rows = (await db_session.execute(select(model))).scalars().all()
+            assert rows == [], f"{model.__name__} got rows from the template"
 
 
 # ============================================

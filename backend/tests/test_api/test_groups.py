@@ -441,6 +441,17 @@ async def test_assign_group_resource_rejects_missing_and_wrong_type(
     )
     assert wrong_type.status_code == 422
 
+    # A resource_type outside the enum, which the committed contract now spells out.
+    # The refusal has to name the three legal values, because for a scripter this 422
+    # used to be the only place they were written down.
+    unknown_type = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "equipment", "resource_id": str(test_vehicle.id)},
+    )
+    assert unknown_type.status_code == 422
+    detail = str(unknown_type.json()).lower()
+    assert all(legal in detail for legal in ("personnel", "vehicle", "material")), detail
+
 
 # ============================================
 # Streamlined incident create with group_id

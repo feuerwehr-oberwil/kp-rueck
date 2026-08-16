@@ -6,6 +6,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+# The three things a resource assignment can point at. Not just a convention: both
+# assignment tables carry a `valid_resource_type` CHECK constraint over exactly these
+# values (`880ce6c5ec4d`, `e7b3c1a9f2d5`), which is why response models may be typed
+# with it – no stored row can be outside the set, so no read can be turned into a 500.
+# Used to be a bare `str` plus a hand-written validator, which meant `docs/openapi.json`
+# – the only API reference a self-hoster has, Swagger being off in production – said
+# "string" and a scripter learned the legal values from a 422.
+ResourceType = Literal["personnel", "vehicle", "material"]
+
 
 class CategorySortOrder(BaseModel):
     """Schema for updating category sort orders."""
