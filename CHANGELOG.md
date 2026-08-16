@@ -52,12 +52,35 @@ will keep holding.
 - **Reko is filed from the crew's own page.** A Reko auftrag appears in the field list and opens
   the Reko form directly, the way the old per-incident link did.
 
+- **A crew can report a Schadenplatz and take it on.** «Neue Meldung» puts what somebody is
+  standing in front of onto the board, with their name on it. If they say they will do it, the
+  crew's Auftrag simply gains a stop — resources belong to the route and already cover it, so
+  nothing is transferred and the job they are on keeps its own status. On a single job, that job
+  and the new one become a route.
+
+- **The roll call reaches the field.** Checking in — and, for the first time anywhere, **ich
+  rücke ab** — from the crew's own page. The tablet at the door keeps its page; this is the
+  individual half, and it writes the same attendance record.
+
+- **Roles are data.** A station can add a Verkehrsdienst without a migration. What a role *does*
+  stays in code — the table lets you name a role, not invent a permission model. Ships with
+  **Telefondienst**, which makes the phone desk a role rather than a page: the same «Meldung»
+  sheet writes down a call, with the Melder, landing as a phone report.
+
 ### Changed
 
-- **Five QR buttons in the board footer became one "Links & QR" sheet**, each row naming who the
-  link is for. Clicking a QR enlarges it — for the recurring case of somebody standing in the KP
-  without the poster — and the enlarged Feld QR carries the code, since the QR alone no longer
-  gets anybody in.
+- **The board footer's QR buttons became one "Links & QR" sheet**, each row naming who the link
+  is for, on desktop and mobile alike. Clicking a QR enlarges it — for the recurring case of
+  somebody standing in the KP without the poster — and the enlarged Feld QR carries the code,
+  since the QR alone no longer gets anybody in. Check-In and Anzeige keep their own buttons:
+  one carries the Appell, the other picks which display to show.
+
+### Removed
+
+- **`/reko-dashboard` is gone.** ⚠️ Its links now 404. It was the same page as the field surface
+  — pick your name, see your rows, open a form — and a Reko trupp uses `/feld` like everybody
+  else now. Nothing else was lost: the four endpoints the board used were never that page's and
+  moved to `/api/reko`.
 
 ### Fixed
 
