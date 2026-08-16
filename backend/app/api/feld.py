@@ -10,10 +10,20 @@ optional:
 1. ``validate_feld_token`` turns the link's token into its claims, else 401.
    A ``checkin`` / ``viewer`` / ``reko_dashboard`` / ``alarm`` token does not
    open this door.
-2. The caller's personnel row must have an ``incident_assignments`` row for an
-   incident in that event — active **or already released** — else 403. This is
-   decision 4 ("visibility is only mine") and it lives in ``crud/feld.py``, not
-   in the UI.
+2. The event must hold something for the caller's personnel row, else 403. This
+   is decision 4 ("visibility is only mine") and it lives in
+   ``crud/feld/visibility.py``, not in the UI.
+
+   Since plan 26 that is a **union of four sources** — an own assignment (active
+   or already released), a Reko auftrag, a vehicle they drive while it is
+   assigned, or the Magazin function where material is still out. A driver holds
+   no personnel row at all, which is exactly why the old single-source rule
+   could not see them.
+
+   Some writes narrow it further: only a ``crew`` claim may file a
+   Schadenplatz-Rapport, and only a ``crew`` claim may end the Einsatz or ask
+   for an Abholung. That is enforced at the door via ``sources=``, not by
+   hiding a section in the UI.
 
 What step 2 is and is not: it decides *which Schadenplätze* a given person may
 see, and it is why a crew's list is their own. It is **not** proof of identity.
@@ -89,7 +99,11 @@ async def require_feld_person(
     claims: FeldTokenClaims,
     personnel_id: uuid.UUID,
 ) -> Personnel:
-    """Step 2, person-scoped: this person must have an assignment in this event.
+    """Step 2, person-scoped: this event must hold something for this person.
+
+    "Something" is the union of the four sources (`crud/feld/visibility.py`), not
+    just a personal assignment — a driver and a Magazin person hold none and
+    still belong here.
 
     A person-bound token may only ever act as its own person — same 403, so a
     personal link cannot be turned into an event-wide one by editing the id in
@@ -101,7 +115,7 @@ async def require_feld_person(
             status_code=403,
             detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
         )
-    if not await crud.person_has_event_assignment(db, claims.event_id, personnel_id):
+    if not await crud.person_has_event_access(db, claims.event_id, personnel_id):
         raise HTTPException(
             status_code=403,
             detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
@@ -150,11 +164,14 @@ async def list_feld_personnel(
     db: AsyncSession = Depends(get_db),
 ) -> schemas.FeldPersonnelListResponse:
     """
-    The person picker: everyone with an assignment in this event.
+    The person picker: everyone this event holds something for.
 
-    Token only — no login. Deliberately not the roster: a person with no
-    assignment has nothing to file, and listing them would produce an empty page
-    with no explanation instead of the "melde dich beim KP" sentence.
+    Token only — no login. Deliberately not the roster: a person the event holds
+    nothing for has nothing to do here, and listing them would produce an empty
+    page with no explanation instead of the "melde dich beim KP" sentence.
+
+    Since plan 26 this includes drivers and Magazin people, who hold no
+    assignment of their own and were therefore invisible to the old query.
     """
     event = await _load_event(db, claims.event_id)
     personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
@@ -224,15 +241,21 @@ async def _authorized_incident(
     claims: FeldTokenClaims,
     personnel_id: uuid.UUID,
     incident_id: uuid.UUID,
+    *,
+    sources: tuple[str, ...] | None = None,
 ) -> tuple[Incident, Personnel]:
     """Both steps at once, for the incident-scoped writes.
 
     The person check runs first so an unassigned caller gets the same 403
     whether or not the incident exists — a public token must not become a way to
     probe the board.
+
+    ``sources`` restricts *which kind of claim* is good enough for this write.
+    The Schadenplatz-Rapport passes ``RAPPORT_SOURCES``, so a driver or a Reko
+    trupp is refused here and not merely shown a page without the form.
     """
     person = await require_feld_person(db, claims, personnel_id)
-    incident = await crud.get_authorized_incident(db, claims.event_id, personnel_id, incident_id)
+    incident = await crud.get_authorized_incident(db, claims.event_id, personnel_id, incident_id, sources=sources)
     if incident is None:
         raise HTTPException(
             status_code=403,
@@ -285,7 +308,7 @@ async def report_arrived(
     **Idempotent.** A second tap does nothing — a crew re-opening the page and
     hitting the big button again must not move a timestamp the KP has acted on.
     """
-    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.ARRIVAL_SOURCES)
     await crud.record_arrival(
         db,
         incident,
@@ -318,7 +341,7 @@ async def report_field_complete(
     second call, so the *beendet* report reaches the KP even if the crew walks
     away from the question.
     """
-    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.WORK_SOURCES)
     await crud.record_field_complete(
         db,
         incident,
@@ -351,7 +374,7 @@ async def report_pickup(
     standing in the rain, which is precisely why the flag outlives the card
     moving to `complete`.
     """
-    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.WORK_SOURCES)
     await crud.record_pickup(
         db,
         incident,
@@ -381,7 +404,7 @@ async def get_rapport(
     call — a unit assigned after the draft started appears unticked, one the
     board took away keeps its row only if the crew already answered for it.
     """
-    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
     return schemas.SchadenplatzRapport(**await crud.get_rapport(db, incident, actor=_actor(person)))
 
 
@@ -407,7 +430,7 @@ async def save_rapport(
     the board's units; releasing what came back is the board's own one-click
     action (decision 17).
     """
-    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
     return schemas.SchadenplatzRapport(
         **await crud.save_rapport(db, incident, actor=_actor(person), payload=payload, request=request)
     )
@@ -438,7 +461,7 @@ async def upload_photo(
     Keeps ``PHOTO_UPLOAD`` rather than the looser ``FELD`` limit — an upload is
     orders of magnitude more expensive than a poll.
     """
-    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
     await _enforce_demo_photo_limits(db, file)
     photos = await crud.add_photo(db, incident, actor=_actor(person), file=file, request=request)
     return schemas.RapportPhotosResponse(
@@ -459,7 +482,7 @@ async def delete_photo(
     db: AsyncSession = Depends(get_db),
 ) -> schemas.RapportPhotosResponse:
     """Remove a photo again — the mis-tapped shutter, from the phone that took it."""
-    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
     photos = await crud.remove_photo(db, incident, actor=_actor(person), filename=filename, request=request)
     return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
 
@@ -489,7 +512,7 @@ async def serve_feld_photo(
     alone is enough — `get_photo_path` only proves a file exists on disk under
     that incident's directory.
     """
-    incident, _person = await _authorized_incident(db, claims, personnel_id, incident_id)
+    incident, _person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
 
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()

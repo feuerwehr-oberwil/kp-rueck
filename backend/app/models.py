@@ -737,6 +737,19 @@ class IncidentAssignment(Base):
     # free. At most one active personnel assignment per incident carries it
     # (enforced by the partial unique index below).
     is_leader: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # WHY this person is on this Schadenplatz — reconnoitring it, or working it.
+    #
+    # Until now the two were the same row: a Reko trupp is assigned exactly like
+    # a crew, and only `event_special_functions` said the person was "a Reko
+    # person" *for the event*. That is a statement about the person, not about
+    # this Schadenplatz, so nothing could tell the two apart per incident — and
+    # `rapport_applies` therefore asked a Reko trupp for a Schadenplatz-Rapport
+    # on a place it had only looked at.
+    #
+    # Set by the path the assignment came in through, never inferred afterwards.
+    # Meaningless for vehicles and material, which are never "reko"; they keep
+    # the default rather than carrying a NULL nobody would know how to read.
+    purpose: Mapped[str] = mapped_column(String(20), nullable=False, default="crew", server_default="crew")
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")
@@ -752,6 +765,7 @@ class IncidentAssignment(Base):
 
     __table_args__ = (
         CheckConstraint("resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"),
+        CheckConstraint("purpose IN ('crew', 'reko')", name="valid_assignment_purpose"),
         # One ACTIVE assignment per resource per incident. This used to be a plain
         # UniqueConstraint over (incident_id, resource_type, resource_id, unassigned_at),
         # which enforced nothing where it mattered: active rows carry unassigned_at = NULL,

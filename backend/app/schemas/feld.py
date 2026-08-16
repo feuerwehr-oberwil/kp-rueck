@@ -22,6 +22,11 @@ from pydantic import BaseModel, ConfigDict, Field
 # 'submitted' – filed
 RapportState = Literal["none", "draft", "submitted"]
 
+# Why a Schadenplatz is in somebody's list. Mirrors the SOURCE_* constants in
+# `crud/feld/visibility.py`, which is where the rule itself lives — this is only
+# the shape the phone receives. Only "crew" can owe a Schadenplatz-Rapport.
+FeldSourceKind = Literal["crew", "reko", "driver", "magazin"]
+
 
 class FeldPersonnel(BaseModel):
     """One row of the `/feld` person picker.
@@ -123,6 +128,16 @@ class FeldAssignment(BaseModel):
     # False once the board released the person — they may still file (and often
     # only file then), so the row stays visible.
     is_active_assignment: bool = True
+    # WHY this row is in the list (plan 26 §2.2): the person's own assignment
+    # ("crew"), a Reko auftrag ("reko"), a vehicle they drive ("driver"), or
+    # material still out and they hold the Magazin function ("magazin").
+    #
+    # The phone labels only the unusual ones — an own assignment needs no
+    # explanation and gets none; the *absence* of a label is what says "meins".
+    # `source_vehicle` is set for driver rows only, so the label can name the
+    # vehicle that brought the row in rather than leaving it a mystery.
+    source: FeldSourceKind = "crew"
+    source_vehicle: str | None = None
     rapport_state: RapportState = "none"
     # The Schadenplatz was disponiert at least once (§18.27). False means the
     # rapport does not exist for this row: no form, no "Kein Rapport" chip, no

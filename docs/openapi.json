@@ -20629,6 +20629,28 @@
             "title": "Is Active Assignment",
             "default": true
           },
+          "source": {
+            "type": "string",
+            "enum": [
+              "crew",
+              "reko",
+              "driver",
+              "magazin"
+            ],
+            "title": "Source",
+            "default": "crew"
+          },
+          "source_vehicle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Vehicle"
+          },
           "rapport_state": {
             "type": "string",
             "enum": [

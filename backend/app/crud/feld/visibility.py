@@ -2,23 +2,42 @@
 
 The event token (step 1) only says *which Ereignis*; it never says *who*.
 Visibility is "only mine" (decision 4) and it is enforced here, server-side,
-never in the UI: a person sees exactly the incidents they are — or **were** —
-assigned to. Released rows count on purpose, because a crew files the rapport
-*after* being released; requiring ``unassigned_at IS NULL`` would lock out
-exactly the moment the form is for.
+never in the UI.
 
-Every later phase mounts on ``person_has_event_assignment`` /
-``get_authorized_incident``; adding an endpoint without one of them is the hole
-this module exists to prevent.
+**"Mine" is a union of four sources** (plan 26 §2.2), because the original rule —
+"you hold a personnel row on this incident" — could not see the people this
+surface now exists for. A driver holds no such row: the *vehicle* is assigned and
+``event_special_functions`` says who drives it. A Magazin person is assigned to
+nothing at all.
+
+    crew     a personal assignment with purpose='crew', active **or released**
+    reko     a personal assignment with purpose='reko', active **or released**
+    driver   a vehicle this person drives, **while** it is assigned
+    magazin  any Schadenplatz with material still out, read-only
+
+Released rows count for crew and reko on purpose, because the rapport is filed
+*after* the crew leaves; requiring ``unassigned_at IS NULL`` would lock out
+exactly the moment the form is for. Driver rows are the opposite: the row exists
+because the vehicle is there, and when the vehicle is released the driver owes
+nothing and the row goes (decision 11).
+
+**Only `crew` can owe a Schadenplatz-Rapport.** Not the driver who parked
+outside, not the trupp that only recced the place. That is why ``purpose`` exists
+on the assignment at all, and it is enforced here rather than hidden in the UI.
+
+Every endpoint mounts on ``person_has_event_access`` / ``get_authorized_incident``;
+adding one without either is the hole this module exists to prevent.
 """
 
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
+    EventSpecialFunction,
     Incident,
     IncidentAssignment,
     Material,
@@ -35,31 +54,183 @@ from .reports import is_automation_user
 # Authorization — step 2
 # ============================================
 
+#: The four ways a Schadenplatz can be "mine", strongest claim first. Order is
+#: load-bearing: when one person reaches the same incident through several
+#: sources, the strongest wins, so somebody who is crew *and* drives the TLF is
+#: crew — and still owes the Rapport.
+SOURCE_CREW = "crew"
+SOURCE_REKO = "reko"
+SOURCE_DRIVER = "driver"
+SOURCE_MAGAZIN = "magazin"
+SOURCE_PRECEDENCE = (SOURCE_CREW, SOURCE_REKO, SOURCE_DRIVER, SOURCE_MAGAZIN)
 
-async def person_has_event_assignment(
+#: Sources whose holder is expected to file the Schadenplatz-Rapport. Exactly
+#: one, and it is a tuple rather than an ``== SOURCE_CREW`` so that the day a
+#: second one qualifies, there is one place to add it.
+RAPPORT_SOURCES = (SOURCE_CREW,)
+
+#: Who may stamp "Angekommen": whoever actually drives out to the place. A Reko
+#: trupp arrives at a Schadenplatz exactly like a crew does.
+ARRIVAL_SOURCES = (SOURCE_CREW, SOURCE_REKO)
+
+#: Who may end the Einsatz or ask for an Abholung — the people doing the work.
+#: A Reko trupp reports what it saw and leaves; it does not close the job, and
+#: it has no material to be collected.
+WORK_SOURCES = (SOURCE_CREW,)
+
+
+@dataclass(frozen=True, slots=True)
+class FeldSource:
+    """Why this person may see this Schadenplatz, and whether it is still live.
+
+    ``vehicle_name`` is set only for ``driver`` rows — it is what lets the field
+    surface say *"Als Fahrer · TLF 1"* instead of leaving somebody to wonder why
+    an incident they were never assigned to is in their list.
+    """
+
+    kind: str
+    is_active: bool
+    vehicle_name: str | None = None
+
+    @property
+    def owes_rapport(self) -> bool:
+        return self.kind in RAPPORT_SOURCES
+
+
+async def visible_by_personnel(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+) -> dict[uuid.UUID, dict[uuid.UUID, FeldSource]]:
+    """The union rule for the whole event: person → {incident: why}.
+
+    **The single place the four sources are resolved.** Every read and every
+    authorization check goes through it — the picker needs it for everybody at
+    once, and a second, single-person implementation is exactly how two copies
+    of an authorization rule drift apart until one of them leaks.
+
+    Five queries for the entire Ereignis regardless of how many people are in
+    it, which is why the single-person helper below can afford to call this and
+    index into the result rather than keeping its own narrower query.
+    """
+    incidents = await _event_incidents(db, event_id)
+    if not incidents:
+        return {}
+    incident_ids = list(incidents)
+    out: dict[uuid.UUID, dict[uuid.UUID, FeldSource]] = {}
+
+    def offer(
+        person_id: uuid.UUID,
+        incident_id: uuid.UUID,
+        kind: str,
+        is_active: bool,
+        vehicle_name: str | None = None,
+    ) -> None:
+        """Record a claim, keeping the strongest one per (person, incident)."""
+        if incident_id not in incidents:
+            return
+        mine = out.setdefault(person_id, {})
+        current = mine.get(incident_id)
+        if current is None or SOURCE_PRECEDENCE.index(kind) < SOURCE_PRECEDENCE.index(current.kind):
+            mine[incident_id] = FeldSource(kind, is_active, vehicle_name)
+        elif current.kind == kind and is_active and not current.is_active:
+            # Same source twice — assigned, released, re-assigned. Active wins.
+            mine[incident_id] = FeldSource(kind, True, vehicle_name or current.vehicle_name)
+
+    # ── crew + reko: personal assignments, active or released ──────────────
+    personal = await db.execute(
+        select(
+            IncidentAssignment.resource_id,
+            IncidentAssignment.incident_id,
+            IncidentAssignment.unassigned_at,
+            IncidentAssignment.purpose,
+        ).where(
+            IncidentAssignment.incident_id.in_(incident_ids),
+            IncidentAssignment.resource_type == "personnel",
+        )
+    )
+    for person_id, incident_id, unassigned_at, purpose in personal.all():
+        # A purpose this release has never heard of — one a LATER release adds —
+        # reads as crew. Today's CHECK constraint makes that unreachable; if it
+        # ever is reached, the safe direction is *more* paperwork, never
+        # silently dropping a Rapport somebody owes.
+        kind = SOURCE_REKO if purpose == SOURCE_REKO else SOURCE_CREW
+        offer(person_id, incident_id, kind, unassigned_at is None)
+
+    # ── driver: vehicles they drive, only while those are assigned ─────────
+    driven = await db.execute(
+        select(EventSpecialFunction.personnel_id, EventSpecialFunction.vehicle_id).where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.function_type == "driver",
+            EventSpecialFunction.vehicle_id.is_not(None),
+        )
+    )
+    drivers_of: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for person_id, vehicle_id in driven.all():
+        drivers_of.setdefault(vehicle_id, []).append(person_id)
+
+    if drivers_of:
+        vehicle_rows = await db.execute(
+            select(IncidentAssignment.incident_id, IncidentAssignment.resource_id, Vehicle.name)
+            .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
+            .where(
+                IncidentAssignment.incident_id.in_(incident_ids),
+                IncidentAssignment.resource_type == "vehicle",
+                IncidentAssignment.resource_id.in_(list(drivers_of)),
+                # Active only — decision 11. A released vehicle takes its
+                # driver's row with it, because the driver owes nothing after.
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+        )
+        for incident_id, vehicle_id, vehicle_name in vehicle_rows.all():
+            for person_id in drivers_of.get(vehicle_id, []):
+                offer(person_id, incident_id, SOURCE_DRIVER, True, vehicle_name)
+
+    # ── magazin: wherever material is still out ────────────────────────────
+    magazin_rows = await db.execute(
+        select(EventSpecialFunction.personnel_id).where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.function_type == "magazin",
+        )
+    )
+    magazin_ids = [row[0] for row in magazin_rows.all()]
+    if magazin_ids:
+        material_rows = await db.execute(
+            select(IncidentAssignment.incident_id)
+            .where(
+                IncidentAssignment.incident_id.in_(incident_ids),
+                IncidentAssignment.resource_type == "material",
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+            .distinct()
+        )
+        material_incidents = [row[0] for row in material_rows.all()]
+        for person_id in magazin_ids:
+            for incident_id in material_incidents:
+                offer(person_id, incident_id, SOURCE_MAGAZIN, True)
+
+    return out
+
+
+async def visible_incidents_for_personnel(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+) -> dict[uuid.UUID, FeldSource]:
+    """Every Schadenplatz of this event that is this person's, and why."""
+    return (await visible_by_personnel(db, event_id)).get(personnel_id, {})
+
+
+async def person_has_event_access(
     db: AsyncSession,
     event_id: uuid.UUID,
     personnel_id: uuid.UUID,
 ) -> bool:
-    """Does this person have ANY assignment on an incident in this event?
+    """Can this person see ANYTHING in this event?
 
-    The incident-less form of step 2, for the endpoints that are scoped to a
-    person rather than to one Schadenplatz. Active or released — see the module
-    docstring.
+    The incident-less form of step 2, for endpoints scoped to a person rather
+    than to one Schadenplatz. Any of the four sources counts.
     """
-    stmt = (
-        select(IncidentAssignment.id)
-        .join(Incident, Incident.id == IncidentAssignment.incident_id)
-        .where(
-            Incident.event_id == event_id,
-            Incident.deleted_at.is_(None),
-            IncidentAssignment.resource_type == "personnel",
-            IncidentAssignment.resource_id == personnel_id,
-        )
-        .limit(1)
-    )
-    result = await db.execute(stmt)
-    return result.first() is not None
+    return bool(await visible_incidents_for_personnel(db, event_id, personnel_id))
 
 
 async def get_authorized_incident(
@@ -67,31 +238,25 @@ async def get_authorized_incident(
     event_id: uuid.UUID,
     personnel_id: uuid.UUID,
     incident_id: uuid.UUID,
+    *,
+    sources: tuple[str, ...] | None = None,
 ) -> Incident | None:
-    """The incident, if this person may see it through a `/feld` token.
+    """The incident, if this person may reach it through a `/feld` token.
 
-    Returns None when the incident is not in this event, is deleted, or the
-    (personnel_id, incident_id) pair has no row in ``incident_assignments``.
-    The caller turns None into a 403 — never into an empty 200, which would
-    leak that the incident exists.
+    Returns None when the incident is not in this event, is deleted, or none of
+    the four sources gives this person a claim on it. The caller turns None into
+    a 403 — never into an empty 200, which would leak that the incident exists.
+
+    ``sources`` narrows the door for writes that only one kind of holder may
+    make: the Schadenplatz-Rapport passes ``RAPPORT_SOURCES`` so that a driver
+    or a Reko trupp cannot file one even by calling the endpoint directly.
+    Hiding the section in the UI is presentation; this is the rule.
     """
-    stmt = (
-        select(Incident)
-        .join(
-            IncidentAssignment,
-            IncidentAssignment.incident_id == Incident.id,
-        )
-        .where(
-            Incident.id == incident_id,
-            Incident.event_id == event_id,
-            Incident.deleted_at.is_(None),
-            IncidentAssignment.resource_type == "personnel",
-            IncidentAssignment.resource_id == personnel_id,
-        )
-        .limit(1)
-    )
-    result = await db.execute(stmt)
-    return result.scalars().first()
+    visible = await visible_incidents_for_personnel(db, event_id, personnel_id)
+    source = visible.get(incident_id)
+    if source is None or (sources is not None and source.kind not in sources):
+        return None
+    return await db.get(Incident, incident_id)
 
 
 # ============================================
@@ -187,38 +352,26 @@ async def get_feld_personnel_for_event(
     db: AsyncSession,
     event_id: uuid.UUID,
 ) -> list[dict[str, Any]]:
-    """The `/feld` person picker: everyone with an assignment in this event.
+    """The `/feld` person picker: everyone this event has something for.
 
-    Deliberately NOT the roster. Someone who was never assigned has nothing to
-    file, and putting them in the list would hand them an empty page instead of
-    the sentence that explains why (§5.2).
+    Deliberately NOT the roster. Someone the event holds nothing for has nothing
+    to do here, and putting them in the list would hand them an empty page
+    instead of the sentence that explains why (§5.2).
+
+    Since plan 26 that is broader than "has an assignment": drivers and Magazin
+    people belong in the picker too, and neither holds a personnel row. They
+    were precisely the people the old query could not see.
     """
     incidents = await _event_incidents(db, event_id)
     incident_ids = list(incidents)
     if not incident_ids:
         return []
 
-    assignments_result = await db.execute(
-        select(
-            IncidentAssignment.resource_id,
-            IncidentAssignment.incident_id,
-            IncidentAssignment.unassigned_at,
-        ).where(
-            IncidentAssignment.incident_id.in_(incident_ids),
-            IncidentAssignment.resource_type == "personnel",
-        )
-    )
-    ever: dict[uuid.UUID, set[uuid.UUID]] = {}
-    active: dict[uuid.UUID, set[uuid.UUID]] = {}
-    for resource_id, incident_id, unassigned_at in assignments_result.all():
-        ever.setdefault(resource_id, set()).add(incident_id)
-        if unassigned_at is None:
-            active.setdefault(resource_id, set()).add(incident_id)
-
-    if not ever:
+    visible = await visible_by_personnel(db, event_id)
+    if not visible:
         return []
 
-    personnel_result = await db.execute(select(Personnel).where(Personnel.id.in_(list(ever))))
+    personnel_result = await db.execute(select(Personnel).where(Personnel.id.in_(list(visible))))
     personnel = list(personnel_result.scalars().all())
 
     reports = await _rapport_states(db, incident_ids)
@@ -234,17 +387,23 @@ async def get_feld_personnel_for_event(
         and incident_id not in submitted
     }
 
-    rows = [
-        {
-            "personnel_id": person.id,
-            "name": person.name,
-            "role": person.role,
-            "incident_count": len(ever[person.id]),
-            "open_count": len(active.get(person.id, set())),
-            "missing_rapport_count": len(ever[person.id] & owes_rapport),
-        }
-        for person in personnel
-    ]
+    rows = []
+    for person in personnel:
+        sources = visible[person.id]
+        # Only crew rows can owe a Rapport (decision 11). Counting a driver's or
+        # a Reko trupp's Schadenplätze here would put a number on the picker
+        # that the person cannot act on when they open it.
+        rapport_candidates = {incident_id for incident_id, source in sources.items() if source.owes_rapport}
+        rows.append(
+            {
+                "personnel_id": person.id,
+                "name": person.name,
+                "role": person.role,
+                "incident_count": len(sources),
+                "open_count": sum(1 for source in sources.values() if source.is_active),
+                "missing_rapport_count": len(rapport_candidates & owes_rapport),
+            }
+        )
     # Alphabetical: this is a picker people scan for their own name, not a
     # workload ranking.
     rows.sort(key=lambda row: str(row["name"]).casefold())
@@ -374,35 +533,26 @@ async def get_feld_assignments_for_personnel(
     event_id: uuid.UUID,
     personnel_id: uuid.UUID,
 ) -> list[dict[str, Any]]:
-    """ "Meine Einsatzstellen" — every incident this person is or was on.
+    """ "Meine Einsatzstellen" — every Schadenplatz this event holds for them.
 
-    Released assignments stay in the list (decision 4 / §2): the rapport is
-    filed after the crew leaves, so dropping them would hide exactly the rows
-    the page exists for.
+    Released crew and Reko assignments stay in the list (decision 4 / §2): the
+    rapport is filed after the crew leaves, so dropping them would hide exactly
+    the rows the page exists for. Driver rows behave the other way round and
+    disappear with their vehicle — see the module docstring.
+
+    Each row carries the ``source`` that put it there, because the field surface
+    has to be able to say *why* an incident nobody assigned you to is in your
+    list, and because only a ``crew`` row may be asked for a Rapport.
     """
     incidents = await _event_incidents(db, event_id)
     incident_ids = list(incidents)
     if not incident_ids:
         return []
 
-    assignments_result = await db.execute(
-        select(
-            IncidentAssignment.incident_id,
-            IncidentAssignment.unassigned_at,
-        ).where(
-            IncidentAssignment.incident_id.in_(incident_ids),
-            IncidentAssignment.resource_type == "personnel",
-            IncidentAssignment.resource_id == personnel_id,
-        )
-    )
-    mine: dict[uuid.UUID, bool] = {}
-    for incident_id, unassigned_at in assignments_result.all():
-        # One person can hold several rows on one incident (assigned, released,
-        # re-assigned). Active wins.
-        mine[incident_id] = mine.get(incident_id, False) or unassigned_at is None
-
-    if not mine:
+    mine_sources = await visible_incidents_for_personnel(db, event_id, personnel_id)
+    if not mine_sources:
         return []
+    mine = {incident_id: source.is_active for incident_id, source in mine_sources.items()}
 
     mine_ids = list(mine)
     reports = await _rapport_states(db, mine_ids)
@@ -419,6 +569,7 @@ async def get_feld_assignments_for_personnel(
         report = reports.get(incident_id)
         leader = leaders.get(incident_id)
         briefing = briefings.get(incident_id, {})
+        source = mine_sources[incident_id]
         rows.append(
             {
                 "incident_id": incident.id,
@@ -438,6 +589,11 @@ async def get_feld_assignments_for_personnel(
                 "location_lat": str(incident.location_lat) if incident.location_lat is not None else None,
                 "location_lng": str(incident.location_lng) if incident.location_lng is not None else None,
                 "is_active_assignment": is_active,
+                # Why this row is here: "crew" | "reko" | "driver" | "magazin".
+                # The phone labels only the unusual ones — an own assignment
+                # needs no explanation, its absence is the explanation.
+                "source": source.kind,
+                "source_vehicle": source.vehicle_name,
                 "rapport_state": _rapport_state(report),
                 "has_been_dispatched": incident_id in dispatched,
                 "arrived_at": report.arrived_at if report else None,
@@ -459,7 +615,10 @@ async def get_feld_assignments_for_personnel(
                 # Sort-only, stripped below. "Owes a rapport" rather than "has
                 # none": a Schadenplatz that was never disponiert owes nothing,
                 # so it must not be sorted up as if it were the crew's homework.
-                "_owes_rapport": _rapport_state(report) != "submitted"
+                # Nor does one somebody only drove to or recced — that is what
+                # `source.owes_rapport` is guarding (decision 11).
+                "_owes_rapport": source.owes_rapport
+                and _rapport_state(report) != "submitted"
                 and rapport_applies(dispatched=incident_id in dispatched, has_report=report is not None),
                 "_position": incident.position,
                 "_created_at": incident.created_at,

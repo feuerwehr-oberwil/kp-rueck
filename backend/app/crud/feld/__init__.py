@@ -1,18 +1,20 @@
-"""CRUD for the `/feld` field surface (plan 25).
+"""CRUD for the `/feld` field surface (plans 25 and 26).
 
 Two things live here, and the second one is the load-bearing part:
 
 1. The read queries behind the person picker and "meine Einsatzstellen".
 2. **Step 2 of the `/feld` authorization.** The event token (step 1) only says
    *which Ereignis*; it never says *who*. Visibility is "only mine" (decision 4)
-   and it is enforced here, server-side, never in the UI: a person sees exactly
-   the incidents they are — or **were** — assigned to. Released rows count on
-   purpose, because a crew files the rapport *after* being released; requiring
-   ``unassigned_at IS NULL`` would lock out exactly the moment the form is for.
+   and it is enforced here, server-side, never in the UI.
 
-Every later phase of plan 25 mounts on ``person_has_event_assignment`` /
-``get_authorized_incident``; adding an endpoint without one of them is the hole
-this module exists to prevent.
+Since plan 26 "mine" is a **union of four sources** — crew, reko, driver,
+magazin — because a driver holds no personnel row at all and a Magazin person is
+assigned to nothing. The rule, its precedence, and which sources may write what
+live in ``visibility.py``; read that module's docstring before touching any of
+it.
+
+Every endpoint mounts on ``person_has_event_access`` / ``get_authorized_incident``;
+adding one without either is the hole this package exists to prevent.
 """
 
 # Split from a single 2300-line module (plan 26, decision 21). The package
@@ -68,6 +70,15 @@ from .reports import (
 )
 from .visibility import (
     _DANGER_KEYS,
+    ARRIVAL_SOURCES,
+    RAPPORT_SOURCES,
+    SOURCE_CREW,
+    SOURCE_DRIVER,
+    SOURCE_MAGAZIN,
+    SOURCE_PRECEDENCE,
+    SOURCE_REKO,
+    WORK_SOURCES,
+    FeldSource,
     _briefings,
     _event_incidents,
     _rapport_state,
@@ -77,12 +88,23 @@ from .visibility import (
     get_feld_assignments_for_personnel,
     get_feld_personnel_for_event,
     get_incident_leaders,
-    person_has_event_assignment,
+    person_has_event_access,
+    visible_by_personnel,
+    visible_incidents_for_personnel,
 )
 
 __all__ = [
+    "ARRIVAL_SOURCES",
     "CONCURRENT_EDITOR_WINDOW",
+    "RAPPORT_SOURCES",
+    "SOURCE_CREW",
+    "SOURCE_DRIVER",
+    "SOURCE_MAGAZIN",
+    "SOURCE_PRECEDENCE",
+    "SOURCE_REKO",
+    "WORK_SOURCES",
     "_DANGER_KEYS",
+    "FeldSource",
     "FieldActor",
     "_board_material_units",
     "_board_personnel_count",
@@ -122,7 +144,7 @@ __all__ = [
     "material_return_units",
     "normalize_extra_materials",
     "normalize_extra_personnel",
-    "person_has_event_assignment",
+    "person_has_event_access",
     "reconcile_materials",
     "reconcile_personnel",
     "reconcile_vehicles",
@@ -132,4 +154,6 @@ __all__ = [
     "record_pickup",
     "remove_photo",
     "save_rapport",
+    "visible_by_personnel",
+    "visible_incidents_for_personnel",
 ]
