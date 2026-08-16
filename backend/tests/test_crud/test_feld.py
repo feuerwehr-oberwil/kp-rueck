@@ -1380,7 +1380,9 @@ class TestFieldActionsReachTheBoardLive:
         async def fake_broadcast(payload, action):
             sent.append((payload, action))
 
-        monkeypatch.setattr(crud, "broadcast_incident_update", fake_broadcast)
+        # `_broadcast` resolves this name in `crud.feld.reports`, so that is where it
+        # must be patched. Patching the package would patch nothing and pass anyway.
+        monkeypatch.setattr(crud.reports, "broadcast_incident_update", fake_broadcast)
         incident = await _incident(db_session, test_event, test_user)
         actor = await self._actor(db_session)
 
@@ -1405,7 +1407,9 @@ class TestFieldActionsReachTheBoardLive:
         async def fake_broadcast(payload, action):
             sent.append((payload, action))
 
-        monkeypatch.setattr(crud, "broadcast_incident_update", fake_broadcast)
+        # `_broadcast` resolves this name in `crud.feld.reports`, so that is where it
+        # must be patched. Patching the package would patch nothing and pass anyway.
+        monkeypatch.setattr(crud.reports, "broadcast_incident_update", fake_broadcast)
         incident = await _incident(db_session, test_event, test_user)
         actor = await self._actor(db_session)
 
@@ -1422,7 +1426,9 @@ class TestFieldActionsReachTheBoardLive:
         async def fake_broadcast(payload, action):
             sent.append((payload, action))
 
-        monkeypatch.setattr(crud, "broadcast_incident_update", fake_broadcast)
+        # `_broadcast` resolves this name in `crud.feld.reports`, so that is where it
+        # must be patched. Patching the package would patch nothing and pass anyway.
+        monkeypatch.setattr(crud.reports, "broadcast_incident_update", fake_broadcast)
         incident = await _incident(db_session, test_event, test_user)
         actor = await self._actor(db_session)
 
