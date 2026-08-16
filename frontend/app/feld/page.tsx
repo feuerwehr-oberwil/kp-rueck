@@ -28,6 +28,7 @@ import {
 } from '@/lib/api-client'
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
+import { FeldIdentityBar, clearFeldName, writeFeldName } from '@/components/feld/feld-identity-bar'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -146,19 +147,34 @@ function LeaderLine({
   )
 }
 
-/** Does this row owe a rapport at all? (§18.27) — the one place `/feld` asks,
- *  so the chip and the form section can never disagree with each other. */
-function assignmentRapportApplies(assignment: ApiFeldAssignment): boolean {
-  // Only a `crew` row has a Schadenplatz-Rapport at all (plan 26, decision 11).
-  // A driver parked outside and a Reko trupp that only looked owe nothing, and
-  // the server refuses the write — so the form must not be offered either, or
-  // the page promises something the door will decline.
-  if (assignment.source !== 'crew') return false
+/**
+ * Does this SCHADENPLATZ have a Rapport at all? (§18.27)
+ *
+ * About the incident, not about who is looking at it: nobody was ever sent
+ * here, so there is nothing to report on.
+ */
+function incidentHasRapport(assignment: ApiFeldAssignment): boolean {
   return rapportApplies({
     hasBeenDispatched: assignment.has_been_dispatched,
     status: assignment.incident_status,
     hasReport: assignment.rapport_state !== 'none',
   })
+}
+
+/**
+ * Is the Rapport **this person's** to file?
+ *
+ * Two questions, deliberately separate. Folding them into one told a driver
+ * standing at a long-dispatched Schadenplatz that it "wird erst erfasst, wenn
+ * der Schadenplatz disponiert wurde" — the right answer to a question nobody
+ * had asked, and a visibly false statement about the incident.
+ *
+ * Only a `crew` row owes one (plan 26, decision 11): a driver parked outside
+ * and a Reko trupp that only looked owe nothing, and the server refuses the
+ * write — so the form must not be offered either.
+ */
+function assignmentRapportApplies(assignment: ApiFeldAssignment): boolean {
+  return assignment.source === 'crew' && incidentHasRapport(assignment)
 }
 
 /**
@@ -205,50 +221,6 @@ function SourceReason({ assignment }: { assignment: ApiFeldAssignment }) {
         ? t('driverReason', { vehicle: assignment.source_vehicle ?? '' })
         : t(`${assignment.source}Reason`)}
     </p>
-  )
-}
-
-/**
- * Who this phone is, always on screen.
- *
- * The page is login-less and gets handed around a vehicle, so "which crew am I
- * looking at" is a real question — and it used to be answerable only on the
- * list, which is exactly where somebody is *not* when they are filing. It rides
- * along into the detail view for that reason.
- */
-function FeldIdentityBar({
-  name,
-  subtitle,
-  onNotMe,
-  children,
-}: {
-  name: string
-  subtitle?: string | null
-  onNotMe?: () => void
-  /** Leading control — the detail view puts its back button here. */
-  children?: React.ReactNode
-}) {
-  const t = useTranslations('feld')
-  return (
-    <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex max-w-md items-center gap-2 px-3 py-2">
-        {children}
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <User className="size-3.5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold leading-tight">{name}</div>
-            {subtitle && <div className="truncate text-xs text-muted-foreground">{subtitle}</div>}
-          </div>
-        </div>
-        {onNotMe && (
-          <Button variant="ghost" size="sm" onClick={onNotMe} className="shrink-0">
-            {t('assignments.notMe')}
-          </Button>
-        )}
-      </div>
-    </div>
   )
 }
 
@@ -359,6 +331,7 @@ function FeldSurface() {
     clearCookie(TOKEN_COOKIE)
     clearCookie(PERSON_COOKIE)
     clearCookie(INCIDENT_COOKIE)
+    clearFeldName()
     restoredFromCookie.current = false
     restoredIncident.current = false
     // The phone is being handed to whoever actually drove. If they scanned a
@@ -483,6 +456,8 @@ function FeldSurface() {
       setDeviceToken(claim.token)
       writeCookie(TOKEN_COOKIE, claim.token)
       writeCookie(PERSON_COOKIE, person.personnel_id)
+      // Readable from /reko too, so the form keeps saying who is filing.
+      writeFeldName(person.name)
       setSelectedPerson(person)
       setViewMode('assignments')
       setAssignments([])
@@ -918,7 +893,7 @@ function FeldSurface() {
                 (§18.27). One sentence instead of a form: the crew reads why the
                 fields are missing rather than filling an empty rapport that
                 lands on the Restliste as work somebody has to check. */}
-            {token && selectedPerson && !assignmentRapportApplies(selectedAssignment) && (
+            {token && selectedPerson && selectedAssignment.source === 'crew' && !incidentHasRapport(selectedAssignment) && (
               <section className="rounded-xl bg-secondary/30 p-4">
                 <h2 className="text-sm font-medium mb-2">{t('detail.rapportTitle')}</h2>
                 <p className="text-sm text-muted-foreground">{tRapport('notDispatched')}</p>

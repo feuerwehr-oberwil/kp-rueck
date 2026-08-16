@@ -83,7 +83,17 @@ export function FeldAccessCard({ eventId }: FeldAccessCardProps) {
     }
   }
 
-  if (!state) return null
+  // A skeleton of the SAME height rather than nothing: returning null until the
+  // fetch lands made the card pop in and shove the link rows down a line, which
+  // on a footer sheet means the row under the cursor moves as you reach for it.
+  if (!state) {
+    return (
+      <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5" aria-hidden>
+        <div className="h-4 w-24 rounded bg-muted" />
+        <div className="mt-1 h-8 w-32 rounded bg-muted/70" />
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">

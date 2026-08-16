@@ -2027,7 +2027,8 @@
   },
   "reko": {
     "common": {
-      "back": "Zurück"
+      "back": "Zurück",
+      "title": "Reko erfassen"
     },
     "success": {
       "title": "Reko-Bericht übermittelt",
