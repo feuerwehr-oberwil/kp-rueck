@@ -7,17 +7,17 @@ set -e
 #
 # The defaults below cover Basel-Landschaft, because that is where the first
 # station running KP Rück sits. A station anywhere else overrides them with
-# environment variables rather than editing this file — the geography is
+# environment variables rather than editing this file – the geography is
 # configuration, not source:
 #
 #   TILES_REGION   Human-readable label, used only in the output.
-#   TILES_BOUNDS   minLon,minLat,maxLon,maxLat — the area actually rendered.
+#   TILES_BOUNDS   minLon,minLat,maxLon,maxLat – the area actually rendered.
 #                  Find yours at https://boundingbox.klokantech.com/ (CSV format).
 #   TILES_AREA     planetiler's area name for the auxiliary data it fetches;
 #                  keep it consistent with the extract below.
 #   TILES_PBF_URL  Any Geofabrik extract: https://download.geofabrik.de/
 #
-# Example — a station in Upper Bavaria:
+# Example – a station in Upper Bavaria:
 #
 #   TILES_REGION="Oberbayern" \
 #   TILES_BOUNDS=11.0,47.7,12.3,48.4 \
@@ -27,7 +27,7 @@ set -e
 #
 # TILES_NAME is deliberately NOT part of that list. It is the filename the
 # tileserver looks for, so changing it means changing it in the container too
-# (scripts/init-tileserver.sh reads the same variable) — and an existing
+# (scripts/init-tileserver.sh reads the same variable) – and an existing
 # deployment already has tiles on its volume under the default name. Leave it
 # alone unless you are setting up a new stack and want the file to say what it
 # holds; then set it in both places.
@@ -39,10 +39,20 @@ TILES_PBF_URL="${TILES_PBF_URL:-https://download.geofabrik.de/europe/switzerland
 TILES_NAME="${TILES_NAME:-basel-landschaft}"
 
 TILES_FILE="${TILES_NAME}.mbtiles"
+
+# DOMAIN and HTTP_PORT come from the station's .env, not from this shell – the readiness probe
+# at the end of this script needs them to know where the tile server is reachable, and reading
+# them from the environment made every domain deployment (HTTP_PORT=80) end a successful
+# 15-minute run with "didn't respond". Resolved here, before the cd into the temp workspace
+# below makes a relative .env path meaningless. Same reader as `just doctor`.
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+envval() { [ -f "$REPO_DIR/.env" ] || return 0; sed -n "s/^$1=//p" "$REPO_DIR/.env" | tail -n1 | tr -d '\r' | sed 's/^"\(.*\)"$/\1/'; }
+STACK_DOMAIN="$(envval DOMAIN)"
+STACK_PORT="$(envval HTTP_PORT)"; STACK_PORT="${STACK_PORT:-8080}"
 # Which tileserver container to talk to. The dev stack names it
 # kprueck-tileserver-dev; the production stack (compose project "kp-rueck") names it
-# kp-rueck-tileserver-1. This used to default to the dev name, so offline tiles — the
-# flagship feature for a station with no internet — could not be installed on a
+# kp-rueck-tileserver-1. This used to default to the dev name, so offline tiles – the
+# flagship feature for a station with no internet – could not be installed on a
 # production stack by any documented command. Detect instead of guessing.
 # Set TILES_CONTAINER to override for a non-standard setup.
 CONTAINER_NAME="${TILES_CONTAINER:-$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^kp-?rueck[-_].*tileserver' | head -1)}"
@@ -58,7 +68,7 @@ echo "and generate offline map tiles for: $TILES_REGION"
 echo "Bounds: $TILES_BOUNDS"
 echo ""
 echo "Not your area? Set TILES_REGION / TILES_BOUNDS / TILES_AREA / TILES_PBF_URL"
-echo "— see the header of this script, or docs/OFFLINE_MAPS.md."
+echo "– see the header of this script, or docs/OFFLINE_MAPS.md."
 echo ""
 echo "Source: Geofabrik (https://geofabrik.de) - 100% Free & Legal"
 echo "Expected download size: ~500 MB OSM data"
@@ -77,7 +87,7 @@ echo "✓ Docker found"
 # Check if tile server container exists
 if [ -z "$CONTAINER_NAME" ] || ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "⚠️  Warning: Tile server container not found."
-    echo "   Start the stack first — 'docker compose up -d' for a production"
+    echo "   Start the stack first – 'docker compose up -d' for a production"
     echo "   install, or 'just dev' for the development stack."
     echo "   If your container has a non-standard name, set TILES_CONTAINER=<name>."
     exit 1
@@ -208,18 +218,34 @@ docker restart "$CONTAINER_NAME" > /dev/null
 echo "✓ Tile server restarted"
 echo ""
 
-# Wait for tile server to be ready
+# Wait for tile server to be ready.
+# Two stacks, two addresses: dev publishes the tileserver directly on 8080, while the
+# production stack publishes NO tileserver port at all and reaches it through Caddy at
+# /tiles. Probing only 8080 meant a successful 15-minute production run always ended in
+# "didn't respond within 30 seconds" – a false alarm the operator cannot tell apart from a
+# wasted download. Same probe order as `just tiles-status`: the /tiles paths come first,
+# because a production stack left on port 8080 answers /health from the BACKEND and would
+# otherwise be mistaken for a dev tileserver.
 echo "Waiting for tile server to be ready..."
+BASE_URL=""
 MAX_ATTEMPTS=30
 ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-        echo "✓ Tile server is ready"
+    # -k: a certificate that is self-signed or still being issued must not read as "down".
+    if [ -n "$STACK_DOMAIN" ] && curl -sfk -m 5 "https://${STACK_DOMAIN}/tiles/health" > /dev/null 2>&1; then
+        BASE_URL="https://${STACK_DOMAIN}/tiles"
+    elif curl -sf -m 5 "http://localhost:${STACK_PORT}/tiles/health" > /dev/null 2>&1; then
+        BASE_URL="http://localhost:${STACK_PORT}/tiles"
+    elif curl -sf -m 5 http://localhost:8080/health > /dev/null 2>&1; then
+        BASE_URL="http://localhost:8080"
+    fi
+    if [ -n "$BASE_URL" ]; then
+        echo "✓ Tile server is ready ($BASE_URL)"
         break
     fi
     ATTEMPT=$((ATTEMPT + 1))
     if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-        echo "⚠️  Warning: Tile server didn't respond within 30 seconds"
+        echo "⚠️  Warning: Tile server didn't respond after $MAX_ATTEMPTS attempts"
         echo "   It may still be starting up. Check with: just tiles-status"
         break
     fi
@@ -237,7 +263,7 @@ echo "Tile size: $SIZE_DISPLAY"
 echo "Coverage: $TILES_REGION ($TILES_BOUNDS, zoom 0-17)"
 echo ""
 echo "Next steps:"
-echo "1. Open http://localhost:8080 to view tile server"
+echo "1. Open ${BASE_URL:-http://localhost:8080} to view tile server"
 echo "2. Go to Settings → Map Mode and select 'Offline'"
 echo "3. Navigate to Map view to test offline tiles"
 echo ""

@@ -87,6 +87,19 @@ Alle Display-Ansichten synchronisieren sich mit dem Editor-Fenster: Wird auf dem
 ### Kartenstil
 Unter Einstellungen → Kartenstil kann zwischen verschiedenen Kartenstilen gewechselt werden: OpenStreetMap (Standard), Topografisch (Esri), Voyager/Hell (CARTO) und Dunkel (CARTO).
 
+### Offline-Maps
+Die Karte holt ihre Kacheln normalerweise aus dem Internet. Fällt die Verbindung aus, bleibt sie leer – ausgerechnet in der Lage, in der man sie braucht. Dagegen gibt es den mitgelieferten Kachel-Server.
+
+Unter **Einstellungen → Karten-Modus** stehen drei Einstellungen zur Wahl:
+
+- **Auto** (Standard): zuerst online, bei einem Fehler automatisch offline.
+- **Online**: immer aus dem Internet.
+- **Offline**: immer vom eigenen Kachel-Server.
+
+Offline-Kacheln müssen einmalig heruntergeladen werden, und zwar für das **eigene** Gebiet – die Voreinstellung deckt Basel-Landschaft ab. Das macht die Person, die den Server betreut, mit `just tiles-download` auf dem Docker-Host; die Anleitung dazu steht in `docs/OFFLINE_MAPS.md`. Der Download ist gross und dauert; er gehört auf einen ruhigen Nachmittag, nicht auf den Abend vor einer Übung.
+
+Ob es geklappt hat, zeigt `just tiles-status`: es unterscheidet zwischen «nur die minimalen Start-Kacheln» und «echte Offline-Daten für die Region».
+
 ---
 
 ## Suche
@@ -594,8 +607,8 @@ Daten werden automatisch von Railway synchronisiert (siehe Sync-Einstellungen).
 
 ### Stoppen
 ```bash
-just stop       # Services stoppen
-just clean      # Alles zurücksetzen (löscht Daten)
+just dev-stop    # Services stoppen
+just dev-clean   # Alles zurücksetzen (löscht Daten) – fragt zuerst nach
 ```
 
 Die lokale Instanz läuft unter `http://localhost:3000`.

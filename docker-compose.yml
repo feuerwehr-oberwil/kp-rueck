@@ -1,6 +1,6 @@
 # Self-hosting KP Rück on a VPS: Postgres + backend + frontend + tileserver behind one origin.
 # This is the PRODUCTION stack (published images, no source needed). For hot-reload development
-# use docker-compose.dev.yml — `just dev`.
+# use docker-compose.dev.yml – `just dev`.
 #
 #   cp .env.example .env    # fill in the required secrets
 #   docker compose up -d    # pulls the published images, migrates + seeds on boot
@@ -29,11 +29,11 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
-    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # Memory ceiling. Not a reservation – it decides WHO gets killed when the box runs out,
     # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
     # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
     # re-measure before tightening them.
-    # Postgres: 221 MB peak measured. The most important one NOT to kill —
+    # Postgres: 221 MB peak measured. The most important one NOT to kill –
     # a killed database takes the incident record with it, so it gets the most headroom.
     mem_limit: 1g
     logging: *default-logging
@@ -56,7 +56,7 @@ services:
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./backend, dockerfile: Dockerfile }
     restart: unless-stopped
-    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # Memory ceiling. Not a reservation – it decides WHO gets killed when the box runs out,
     # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
     # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
     # re-measure before tightening them.
@@ -67,42 +67,59 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # The whole .env reaches the backend, so EVERY variable documented in .env.example works
+    # here without also being listed below. It used to be an explicit list, and twelve
+    # documented variables – SSO_EDITOR_ALLOWLIST, KP_TELEMETRY_ENABLED, AUDIT_RETENTION_DAYS,
+    # TRUSTED_PROXY_COUNT, MASTER_TOKEN, WS_REQUIRE_AUTH and the four LOGIN_* – had quietly
+    # fallen off it. Each failed silently and in the permissive direction: you set
+    # SSO_EDITOR_ALLOWLIST, your officers still couldn't edit, and nothing anywhere said why.
+    # A list that has to be maintained will drift again; passing the file cannot.
+    # `environment:` below still wins over anything in .env, which is what keeps the derived
+    # values (DATABASE_URL, ENVIRONMENT=production, PHOTOS_DIR) out of a station's hands.
+    # Pydantic ignores env vars it has no field for (`extra="ignore"`, app/config.py:16), so
+    # the backup and tile variables riding along are inert.
+    env_file:
+      - path: .env
+        required: false
     environment:
       # Declares this a real deployment: mandatory secrets (no per-restart SECRET_KEY),
       # no auth bypass, no sample incidents seeded onto the board. See app/environment.py.
       ENVIRONMENT: production
       # A separate axis from ENVIRONMENT: what this instance may do to the OUTSIDE world.
       # Blank = production, which blocks nothing. `staging` refuses outbound alerting and sync
-      # and shows a permanent band — set it on a second instance running on a copy of the real
+      # and shows a permanent band – set it on a second instance running on a copy of the real
       # database, where the switches in the settings table arrive still pointing outward.
       # Only those two values are accepted; anything else aborts startup rather than being
       # guessed as production. See .env.example and docs/RAILWAY.md §5.1.
       DEPLOYMENT_ROLE: ${DEPLOYMENT_ROLE:-}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-kprueck}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-kprueck}
-      # Signs sessions/tokens — mandatory in production, and must stay STABLE.
+      # Signs sessions/tokens – mandatory in production, and must stay STABLE.
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env (openssl rand -hex 32)}
-      # Signs JWTs — keep it STABLE (changing it logs everyone out).
+      # Signs JWTs – keep it STABLE (changing it logs everyone out).
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?set AUTH_SECRET_KEY in .env (openssl rand -hex 32)}
       # Same origin for everything, so the only allowed origin is the deployment's own URL.
-      # Named CORS_ORIGINS in .env too — it is what the backend actually reads, and the old
+      # Named CORS_ORIGINS in .env too – it is what the backend actually reads, and the old
       # name PUBLIC_URL collided with KP Front's PUBLIC_URL, which means something else there
       # (the base for absolute links in outbound webhooks). Copying one .env into the other
       # broke CORS silently. PUBLIC_URL stays accepted as a deprecated fallback.
       CORS_ORIGINS: ${CORS_ORIGINS:-${PUBLIC_URL:-http://localhost:8080}}
-      # Login cookies are Secure by default. A browser DROPS a Secure cookie over plain
-      # http://, so a trusted-LAN install with no DOMAIN must set this to false or nobody
-      # can log in. Blank = leave the secure default alone.
+      # Leave this BLANK. A browser drops a Secure cookie over plain http://, so a trusted-LAN
+      # install used to need `false` here or nobody could log in – and finding that out meant
+      # reading SETUP.md §7 after the login had already started failing silently. The backend
+      # now infers it from CORS_ORIGINS: an all-plain-http origin serves the cookie without
+      # Secure and says so in the log. Set this only to override the inference in either
+      # direction. See app/auth/config.py.
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-}
       # Must live under /mnt/data: entrypoint.sh chowns exactly that path to the non-root
       # app user, and a fresh named volume is otherwise created root-owned.
       PHOTOS_DIR: /mnt/data/photos
-      # Admin account seeded on first boot (≥12 chars, required in production) — rotate
+      # Admin account seeded on first boot (≥12 chars, required in production) – rotate
       # after the first login. The shared editor login is dev-only and never seeded here.
       ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:?set ADMIN_SEED_PASSWORD in .env (≥12 chars)}
       # Read-only account, also required in production: seeding refuses to fall back to a
       # default viewer login on an internet-facing deployment.
       VIEWER_PASSWORD: ${VIEWER_PASSWORD:?set VIEWER_PASSWORD in .env (≥12 chars)}
-      # Optional integrations — leave blank to disable. See .env.example.
+      # Optional integrations – leave blank to disable. See .env.example.
       DIVERA_ACCESS_KEY: ${DIVERA_ACCESS_KEY:-}
       TRACCAR_URL: ${TRACCAR_URL:-}
       TRACCAR_EMAIL: ${TRACCAR_EMAIL:-}
@@ -122,7 +139,7 @@ services:
       # Snapshots taken by start.sh immediately before `alembic upgrade head`. A NAMED volume,
       # not the container's own filesystem: a failed migration is exactly the moment the
       # container gets recreated, which would throw an in-image dump away with it. Not the
-      # nightly backup and no substitute for it — this one covers the ten seconds where the
+      # nightly backup and no substitute for it – this one covers the ten seconds where the
       # schema changes under live data.
       - premigration:/mnt/data/backups
     healthcheck:
@@ -139,7 +156,7 @@ services:
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./frontend, dockerfile: Dockerfile, target: runner }
     restart: unless-stopped
-    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # Memory ceiling. Not a reservation – it decides WHO gets killed when the box runs out,
     # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
     # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
     # re-measure before tightening them.
@@ -151,13 +168,13 @@ services:
         condition: service_healthy
     environment:
       # RUNTIME api target for the Next.js /backend-api proxy route. The published image is
-      # built WITHOUT NEXT_PUBLIC_API_URL on purpose — baking a URL in would tie the image to
+      # built WITHOUT NEXT_PUBLIC_API_URL on purpose – baking a URL in would tie the image to
       # one station. The browser calls /backend-api on its own origin and Next forwards here.
       #
       # A split-origin deployment (Railway) also hands API_URL to the browser as the WebSocket
       # origin. This value is a Docker service name, reachable only on this network, so the
       # frontend deliberately withholds it (publicBackendOrigin() in frontend/lib/env.ts) and
-      # the socket stays on the app's own origin — where Caddy routes /socket.io to the backend.
+      # the socket stays on the app's own origin – where Caddy routes /socket.io to the backend.
       API_URL: http://backend:8000
       NODE_ENV: production
     healthcheck:
@@ -175,7 +192,7 @@ services:
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ., dockerfile: ./tileserver/Dockerfile }
     restart: unless-stopped
-    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # Memory ceiling. Not a reservation – it decides WHO gets killed when the box runs out,
     # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
     # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
     # re-measure before tightening them.
@@ -185,6 +202,13 @@ services:
     logging: *default-logging
     environment:
       - TILESERVER_PORT=8080
+      # The MBTiles filename the container looks for, and the one the tile scripts write.
+      # It was NOT passed through, so a station that set TILES_NAME in .env got tiles written
+      # under its name and a tileserver still looking for `basel-landschaft` – i.e. offline
+      # maps that silently stayed on the bootstrap placeholder. Keep it in step with
+      # scripts/download-tiles.sh and scripts/init-tileserver.sh, and do not rename it on a
+      # volume that already holds tiles.
+      - TILES_NAME=${TILES_NAME:-basel-landschaft}
     volumes:
       # Bootstrap tiles are generated on first run; drop real MBTiles in here for full
       # offline coverage (see docs/OFFLINE_MAPS.md).
@@ -203,7 +227,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # Memory ceiling. Not a reservation – it decides WHO gets killed when the box runs out,
     # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
     # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
     # re-measure before tightening them.
@@ -224,23 +248,29 @@ services:
       - "${HTTP_PORT:-8080}:80"
       # Both host ports are variable so a station running KP Front and KP Rück on ONE box can
       # move this stack off 443 (the other stack, or a single shared reverse proxy, keeps it).
-      # Caddy is NOT optional here — unlike KP Front, no other service publishes a port and
+      # Caddy is NOT optional here – unlike KP Front, no other service publishes a port and
       # this is the single origin the Caddyfile routes. Don't gate it behind a profile.
       - "${HTTPS_PORT:-443}:443"
     networks: [kprueck]
 
-  # Nightly backup: Postgres dump + the photo volume, with retention. Opt-in, because it writes
-  # to a path on the HOST and only you know which one:
-  #   docker compose --profile backup up -d
+  # Nightly backup: Postgres dump + the photo volume, with retention. On by default –
+  # .env.example ships COMPOSE_PROFILES=backup. What you must still choose is BACKUP_HOST_DIR,
+  # because it writes to a path on the HOST and only you know which one.
+  #
+  # Profiles belong in COMPOSE_PROFILES in .env, never on the command line. Compose treats
+  # COMPOSE_PROFILES as the DEFAULT VALUE of --profile, so `--profile printing` REPLACES the
+  # list rather than adding to it, and silently switches this service off. A sidecar that was
+  # never created cannot report itself unhealthy, which makes that the one backup failure with
+  # no signal at all. Two profiles = COMPOSE_PROFILES=backup,printing.
   #
   # It replaces the cron line this used to be documented as. A sidecar wins twice: it needs no
   # docker socket (it talks to `db` over the compose network and mounts the photo volume
-  # read-only), and it can be *observed* — `docker compose ps` shows it unhealthy when the last
+  # read-only), and it can be *observed* – `docker compose ps` shows it unhealthy when the last
   # backup failed or went stale, which a cron job writing into a directory cannot.
   backup:
     # The Postgres client must be at least as new as the server or pg_dump refuses outright
     # ("aborting because of server version mismatch"), so this deliberately tracks the db
-    # service's image. If you move `db` to a newer major, move this with it — the script
+    # service's image. If you move `db` to a newer major, move this with it – the script
     # compares the two versions and fails loudly rather than quietly dumping nothing.
     image: ${BACKUP_PG_IMAGE:-postgres:16-alpine}
     restart: unless-stopped
@@ -267,7 +297,7 @@ services:
       - ./scripts:/scripts:ro
       # Read-only: this service may never be the thing that deletes a Reko photo.
       - photos:/photos:ro
-      # A host path, NOT a named volume — `docker compose down -v` must not be able to take the
+      # A host path, NOT a named volume – `docker compose down -v` must not be able to take the
       # backups with it, and the files have to be copyable off the box without docker.
       - ${BACKUP_HOST_DIR:-./backups}:/backups
     healthcheck:
@@ -281,18 +311,20 @@ services:
     networks: [kprueck]
 
   # Thermal printer agent for the command post. Opt-in: it needs to reach a printer on the
-  # local LAN, so it runs on the host network and only starts with the `printing` profile:
-  #   docker compose --profile printing up -d
+  # local LAN, so it runs on the host network and only starts with the `printing` profile.
+  # Switch it on by ADDING to the list in .env – `COMPOSE_PROFILES=backup,printing` – and not
+  # with `--profile printing` on the command line, which would replace the list and take the
+  # backup sidecar out with it. See the note above the `backup` service.
   print-agent:
     # Neutral name on purpose: ONE agent serves KP Front and KP Rück both. The old
     # kp-rueck-print-agent name is still published for this release so nothing breaks on
     # update. To print from both systems, mount a config with a `backends` list instead of
-    # the single-backend variables below — see tools/print-agent/README.md.
+    # the single-backend variables below – see tools/print-agent/README.md.
     image: ghcr.io/feuerwehr-oberwil/kp-print-agent:${KP_RUECK_TAG:-latest}
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./tools/print-agent, dockerfile: Dockerfile }
     restart: unless-stopped
-    # Memory ceiling. Not a reservation — it decides WHO gets killed when the box runs out,
+    # Memory ceiling. Not a reservation – it decides WHO gets killed when the box runs out,
     # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
     # measured on the production deployment (`railway metrics`, 2026-07-29), not guesses;
     # re-measure before tightening them.
@@ -302,14 +334,14 @@ services:
     profiles: ["printing"]
     network_mode: "host"
     environment:
-      # On the host network the stack isn't reachable by service name — point this at the
+      # On the host network the stack isn't reachable by service name – point this at the
       # deployment's public URL (or http://localhost:<HTTP_PORT> on the same host).
       BACKEND_URL: ${PRINT_AGENT_BACKEND_URL:-http://localhost:8080}
       # The agent reads AGENT_TOKEN; the backend reads PRINT_AGENT_TOKEN. One value in .env
-      # feeds both — they are the two ends of the same shared secret and must match.
+      # feeds both – they are the two ends of the same shared secret and must match.
       AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-}
       # The agent long-polls, so a queued slip prints within milliseconds and these two are
-      # only the fallback pace — used while printing is switched off in the settings, or
+      # only the fallback pace – used while printing is switched off in the settings, or
       # against a backend older than the long-poll endpoint.
       POLL_INTERVAL_IDLE: ${PRINT_POLL_INTERVAL_IDLE:-10}
       POLL_INTERVAL_ACTIVE: ${PRINT_POLL_INTERVAL_ACTIVE:-5}

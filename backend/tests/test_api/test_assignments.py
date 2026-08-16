@@ -373,6 +373,35 @@ async def test_release_all_success(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_release_all_keeps_materials_assigned(
+    editor_client: AsyncClient,
+    test_incident: Incident,
+    test_personnel: Personnel,
+    test_material: Material,
+):
+    """Releasing "everything" releases people and vehicles – material stays until returned.
+
+    Not an oversight: equipment is left standing on site and the station tracks
+    where it is (`exclude_materials=True`, returned via the Rapport). It is also
+    the endpoint's whole documented promise, and an operator read "release all"
+    literally, so pin it: personnel gone, material still on the incident.
+    """
+    for resource_type, resource_id in (("personnel", test_personnel.id), ("material", test_material.id)):
+        assigned = await editor_client.post(
+            f"/api/incidents/{test_incident.id}/assign",
+            json={"resource_type": resource_type, "resource_id": str(resource_id)},
+        )
+        assert assigned.status_code == 200
+
+    response = await editor_client.post(f"/api/incidents/{test_incident.id}/release-all")
+    assert response.status_code == 204
+
+    remaining = (await editor_client.get(f"/api/incidents/{test_incident.id}/assignments")).json()
+    assert [row["resource_type"] for row in remaining] == ["material"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_release_all_viewer_forbidden(
     viewer_client: AsyncClient, test_incident: Incident, existing_assignment: IncidentAssignment
 ):

@@ -19,11 +19,17 @@ just tiles-download  # Download and install tiles (~12 MB)
 just tiles-status    # Check tile server status
 
 # Stop everything
-just stop
+just dev-stop
 
-# Clean up (removes volumes)
-just clean
+# Clean up (DELETES the dev database and photos – asks first)
+just dev-clean
 ```
+
+The `dev-` prefix is deliberate. `just up` / `just down` / `just doctor` / `just init` are the
+**station operator's** verbs and act on the production stack; `dev-stop` / `dev-clean` are ours.
+They used to be called `stop` and `clean`, which meant an operator who had installed `just` for
+the offline-tiles step could take their own board down with a recipe described as "stop all
+services".
 
 ### Local Development (Without Docker)
 
@@ -99,7 +105,7 @@ cd frontend && pnpm exec playwright test --headed  # Visible browser
 - **Database**: PostgreSQL 16
 - **Map Tiles**: TileServer GL (self-hosted offline tiles; region set by `TILES_BOUNDS`, default Basel-Landschaft)
 - **Package Managers**: pnpm (frontend), uv (backend)
-- **Deployment**: two supported paths on the same images — Docker Compose from published GHCR images, or Railway (`docs/RAILWAY.md`). Pick by who runs the server: compose survives an internet outage, Railway means nobody has to look after a box.
+- **Deployment**: two supported paths on the same images – Docker Compose from published GHCR images, or Railway (`docs/RAILWAY.md`). Pick by who runs the server: compose survives an internet outage, Railway means nobody has to look after a box.
 - **Local Development**: Docker Compose with hot reload
 
 **Application Purpose:**
@@ -161,7 +167,7 @@ kp-rueck/
 ### Frontend (Next.js)
 
 - **App Router**: Next.js 15 app directory structure (not pages)
-- **Client Components in practice**: **all 22 pages under `app/` are `'use client'`** — this is
+- **Client Components in practice**: **all 22 pages under `app/` are `'use client'`** – this is
   the reality, not an aspiration to fix. The root layout mounts 30 providers (auth, operations,
   event, WebSocket, theme, i18n, …), and the board is a live, interactive surface: there is no
   meaningful server-rendered page here. Do not "restore" server components on a page as a
@@ -187,14 +193,18 @@ kp-rueck/
 
 ### API Endpoints
 
-Incidents: `/api/incidents` (GET, POST, PUT, DELETE)
-Personnel: `/api/personnel` (GET, POST, PUT)
-Vehicles: `/api/vehicles` (GET, POST, PUT)
-Materials: `/api/materials` (GET, POST, PUT)
+**The trailing slash on the collection routes is not decorative.** `/api/personnel` (no slash)
+answers **307** to `/api/personnel/`, and a redirected POST does not carry its body – so a
+scripted write silently does nothing and looks like a success. Write the slash:
+
+Incidents: `/api/incidents/` (GET, POST, PUT, DELETE)
+Personnel: `/api/personnel/` (GET, POST, PUT)
+Vehicles: `/api/vehicles/` (GET, POST, PUT)
+Materials: `/api/materials/` (GET, POST, PUT)
 Alarm intake: `/api/alarms` (POST) – provider-neutral webhook, any dispatch system; Divera adapter at `/api/divera/webhook`
 Integrations: `/api/integrations` (GET) – capability registry (which provider is configured per domain)
 
-Full docs: [`docs/openapi.json`](docs/openapi.json) — the committed contract, regenerated
+Full docs: [`docs/openapi.json`](docs/openapi.json) – the committed contract, regenerated
 with `just openapi` (a pytest fails when it drifts). Live Swagger UI while the backend
 runs: http://localhost:8000/docs
 
@@ -230,7 +240,7 @@ A deployment `.env` for the compose stack is documented in `.env.example` / `doc
   (`kp-rueck-{backend,frontend,tileserver}` + `kp-print-agent`, pinned by `KP_RUECK_TAG`) and puts
   Caddy in front as a single origin: `/socket.io` + `/api` → backend, `/tiles` → tileserver,
   everything else → frontend. Sets `ENVIRONMENT=production`, which is what turns on mandatory
-  secrets, no auth bypass, and no sample data at all — not just no sample incidents, but no fleet,
+  secrets, no auth bypass, and no sample data at all – not just no sample incidents, but no fleet,
   roster, materials or training locations either (`backend/app/environment.py`,
   `backend/app/seed.py`; production is NOT Railway-only any more). Building from source is the commented-out path on each service.
 - `docker-compose.dev.yml`: development with hot reload and volume mounts (`just dev`).
@@ -265,7 +275,7 @@ The system includes optional offline map tile support so the map keeps working w
 # Download and install tiles (~12 MB, takes 5-15 minutes).
 # Region is configuration, not code: TILES_REGION / TILES_BOUNDS / TILES_AREA /
 # TILES_PBF_URL, defaulting to Basel-Landschaft. TILES_NAME (the on-disk filename)
-# is shared by all three tile scripts — don't rename it on an existing volume.
+# is shared by all three tile scripts – don't rename it on an existing volume.
 just tiles-download
 
 # Check status
@@ -283,12 +293,19 @@ open http://localhost:8080
 
 **Tile Server Endpoints:**
 - Health: `http://localhost:8080/health`
-- Tiles: `http://localhost:8080/styles/basic/{z}/{x}/{y}.png`
+- Tiles: `http://localhost:8080/styles/basic-preview/512/{z}/{x}/{y}.png` (what the app requests –
+  see `getTileBaseUrl()` in `frontend/lib/env.ts` and `use-map-mode.ts`)
 - UI: `http://localhost:8080`
+
+Those two URLs are the **dev** stack, where the tileserver publishes its own port. The production
+compose stack publishes no tileserver port at all – Caddy routes `/tiles` to it, so the same
+checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has both columns.
 
 **Documentation:**
 - Setup guide: `docs/OFFLINE_MAPS.md`
-- Configuration: `tileserver-config.json`
+- Configuration: there is **no** config file. `scripts/init-tileserver.sh` creates the MBTiles and
+  hands over to the TileServer GL entrypoint with no config, which auto-detects `/data/*.mbtiles`.
+  (This line used to name a `tileserver-config.json` that does not exist in the repo.)
 - Download script: `scripts/download-tiles.sh`
 
 **Note:** Offline tiles are optional. If not installed, map will work in online-only mode using OpenStreetMap tiles.
@@ -323,7 +340,7 @@ open http://localhost:8080
 - `docs/DEPLOYMENT.md` - Self-hosting guide (the reference deployment path)
 - `docs/SETUP.md` - Ordered first-time setup for a new station
 - `docs/RUNNING-BOTH.md` - Running KP Front and KP Rück on one host
-- `docs/RAILWAY.md` - Railway deployment guide (a supported path, not legacy). **`NEXT_PUBLIC_API_URL` must stay unset there** — it is build-time inlined and breaks mobile logins via third-party cookies; the frontend uses runtime `API_URL` through its own-origin `/backend-api` proxy.
+- `docs/RAILWAY.md` - Railway deployment guide (a supported path, not legacy). **`NEXT_PUBLIC_API_URL` must stay unset there** – it is build-time inlined and breaks mobile logins via third-party cookies; the frontend uses runtime `API_URL` through its own-origin `/backend-api` proxy.
 - `docs/OFFLINE_MAPS.md` - Offline map tiles setup and troubleshooting guide
 - `justfile` - Quick reference for common commands (run `just` to see all)
 - `backend/README.md` - Backend-specific setup and API docs

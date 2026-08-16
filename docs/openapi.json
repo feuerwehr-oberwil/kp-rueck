@@ -284,7 +284,7 @@
           "admin"
         ],
         "summary": "Preview Excel Import",
-        "description": "Preview Excel import without committing to database.\nReturns first 10 rows of each sheet for user confirmation.",
+        "description": "Preview Excel import without committing to database.\n\nReturns first 10 rows of each sheet plus, for the given mode, how much\nexisting data the import would delete – including the assignments on running\nincidents that would be left pointing at deleted resources.",
         "operationId": "preview_excel_import_api_admin_import_preview_post",
         "parameters": [
           {
@@ -325,7 +325,11 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_preview_excel_import_api_admin_import_preview_post"
+                "$ref": "#/components/schemas/Body_preview_excel_import_api_admin_import_preview_post",
+                "required": [
+                  "file",
+                  "mode"
+                ]
               }
             }
           }
@@ -360,7 +364,7 @@
           "admin"
         ],
         "summary": "Execute Excel Import",
-        "description": "Execute Excel import with specified mode.\n\nModes:\n- replace: Delete all existing data, insert new\n- merge: Update existing by name, add new (treated as replace for now)\n- append: Keep existing, add new",
+        "description": "Execute Excel import with specified mode. `mode` is required – there is no default.\n\nModes:\n- replace: Delete all existing data, insert new\n- append: Keep existing, add new",
         "operationId": "execute_excel_import_api_admin_import_execute_post",
         "parameters": [
           {
@@ -401,7 +405,11 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_execute_excel_import_api_admin_import_execute_post"
+                "$ref": "#/components/schemas/Body_execute_excel_import_api_admin_import_execute_post",
+                "required": [
+                  "file",
+                  "mode"
+                ]
               }
             }
           }
@@ -6626,7 +6634,7 @@
           "assignments"
         ],
         "summary": "Release All Resources",
-        "description": "Release all resources from incident.\n\nCalled when incident completes (moves to 'complete').",
+        "description": "Release the incident's personnel and vehicles. **Material stays assigned.**\n\nCalled when an incident completes (moves to 'complete'), and the same cascade\nis available on its own from the board.\n\nMaterials are excluded on purpose (`auto_release_incident_resources(exclude_materials=True)`):\nequipment is regularly left standing on site after the crew drives off, and\nthe station tracks where it is until someone brings it back. Returning it is\nits own step – `GET /api/incidents/{incident_id}/rapport/material-return`\nlists what the crew reported as returned versus left on site, and the operator\nreleases those rows through `POST /api/incidents/{incident_id}/unassign/{assignment_id}`.\nA field form must not silently release a pump that is still running in a cellar.\n\nSo this endpoint does NOT leave the incident with zero assignments, and callers\nthat need that – the Excel `replace` import is the one that got caught – have\nto deal with the material rows separately.\n\nIdempotent: releasing an incident that holds nothing is a 204.",
         "operationId": "release_all_resources_api_incidents__incident_id__release_all_post",
         "parameters": [
           {
@@ -12597,6 +12605,138 @@
         }
       }
     },
+    "/api/settings/alarm-webhook-secret": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Reveal Alarm Webhook Secret",
+        "description": "Show the current webhook secret to an admin, and say where it comes from.",
+        "operationId": "reveal_alarm_webhook_secret_api_settings_alarm_webhook_secret_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmWebhookSecret"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/alarm-webhook-secret/rotate": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Rotate Alarm Webhook Secret",
+        "description": "Generate a new webhook secret. Refuses when the environment pins one.",
+        "operationId": "rotate_alarm_webhook_secret_api_settings_alarm_webhook_secret_rotate_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmWebhookSecret"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/{key}": {
       "get": {
         "tags": [
@@ -17248,6 +17388,34 @@
         "title": "AlarmIn",
         "description": "A provider-neutral alarm as delivered by an external dispatch system."
       },
+      "AlarmWebhookSecret": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "env",
+              "database"
+            ],
+            "title": "Source"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "source",
+          "configured"
+        ],
+        "title": "AlarmWebhookSecret",
+        "description": "The shared secret for POST /api/alarms, handed back to an admin who asked for it.\n\n``source`` is not decoration: ``ALARM_WEBHOOK_SECRET`` in the environment wins over the\ndatabase value, so an admin looking at ``env`` needs to know that rotating from the UI\nwould change nothing and the value has to move in ``.env`` instead."
+      },
       "AssignRekoPersonnelRequest": {
         "properties": {
           "personnel_id": {
@@ -17647,9 +17815,16 @@
             "title": "File"
           },
           "mode": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Mode",
-            "default": "replace"
+            "description": "**Required.** `replace` (delete all personnel, vehicles and materials, then load the file) or `append` (keep them and add the file's rows). Sending neither is a 400, not a default."
           }
         },
         "type": "object",
@@ -17723,6 +17898,18 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode",
+            "description": "**Required.** `replace` (delete all personnel, vehicles and materials, then load the file) or `append` (keep them and add the file's rows). Sending neither is a 400, not a default."
           }
         },
         "type": "object",
@@ -19276,6 +19463,65 @@
         "title": "EventUpdate",
         "description": "Schema for updating an event."
       },
+      "ExcelImportDeletions": {
+        "properties": {
+          "personnel": {
+            "type": "integer",
+            "title": "Personnel"
+          },
+          "vehicles": {
+            "type": "integer",
+            "title": "Vehicles"
+          },
+          "materials": {
+            "type": "integer",
+            "title": "Materials"
+          },
+          "incident_assignments": {
+            "type": "integer",
+            "title": "Incident Assignments"
+          },
+          "active_incident_assignments": {
+            "type": "integer",
+            "title": "Active Incident Assignments"
+          },
+          "incident_group_assignments": {
+            "type": "integer",
+            "title": "Incident Group Assignments",
+            "default": 0
+          },
+          "active_incident_group_assignments": {
+            "type": "integer",
+            "title": "Active Incident Group Assignments",
+            "default": 0
+          },
+          "cascade_event_attendance": {
+            "type": "integer",
+            "title": "Cascade Event Attendance",
+            "default": 0
+          },
+          "cascade_event_special_functions": {
+            "type": "integer",
+            "title": "Cascade Event Special Functions",
+            "default": 0
+          },
+          "cascade_personnel_identities": {
+            "type": "integer",
+            "title": "Cascade Personnel Identities",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel",
+          "vehicles",
+          "materials",
+          "incident_assignments",
+          "active_incident_assignments"
+        ],
+        "title": "ExcelImportDeletions",
+        "description": "What the chosen import mode would DELETE – zero throughout for `append`.\n\n`incident_assignments` is the number that matters and that no operator can\nguess: an assignment references its resource by a bare UUID with no foreign\nkey, so a `replace` leaves those rows behind pointing at deleted personnel,\nvehicles and materials. `active_incident_assignments` is the subset still on\nthe board, i.e. the damage visible on a running incident.\n`incident_group_assignments` is the identical hazard on Aufträge, whose\nresources hang off the route rather than off any of its stops.\n\n`cascade_*` are the rows that do the opposite and disappear without trace:\n`personnel.id` is a real FK with ON DELETE CASCADE in all three, so a roster\nreplace silently wipes the check-ins of a running event.\n\nThe fields below the first five default to 0 so an older client that never\nsends or reads them keeps working – they were added after the shape shipped."
+      },
       "ExcelImportPreview": {
         "properties": {
           "personnel_preview": {
@@ -19313,6 +19559,17 @@
           "materials_total": {
             "type": "integer",
             "title": "Materials Total"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "replace",
+              "append"
+            ],
+            "title": "Mode"
+          },
+          "deletions": {
+            "$ref": "#/components/schemas/ExcelImportDeletions"
           }
         },
         "type": "object",
@@ -19322,7 +19579,9 @@
           "vehicles_preview",
           "vehicles_total",
           "materials_preview",
-          "materials_total"
+          "materials_total",
+          "mode",
+          "deletions"
         ],
         "title": "ExcelImportPreview",
         "description": "Preview of Excel import data."

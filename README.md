@@ -102,9 +102,26 @@ including the one step that does want a bigger machine, are in
 [docs/DEPLOYMENT.md §0](docs/DEPLOYMENT.md).
 
 ```bash
-cp .env.example .env          # fill in the five required secrets (see docs/SETUP.md §2)
-docker compose up -d          # pulls ghcr.io/feuerwehr-oberwil/kp-rueck-*, migrates on boot
+git clone https://github.com/feuerwehr-oberwil/kp-rueck.git && cd kp-rueck
+git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release, not main
+just init     # three decisions, generates the secrets, writes a complete .env
+just up       # pulls ghcr.io/feuerwehr-oberwil/kp-rueck-*, migrates on boot, prints the URL
 ```
+
+Keep the whole clone and run these from inside it: the stack never builds from this source, but
+`docker-compose.yml` mounts `deploy/Caddyfile` and `scripts/` out of it.
+
+Without `just`: `cp .env.example .env`, fill in the *Required* section at the top of that file
+– five secrets plus three networking lines, walked through in
+[docs/SETUP.md §1](docs/SETUP.md) – then `docker compose up -d`.
+
+**The first boot takes two to three minutes.** Migrations and seeding run before the backend
+answers at all, so the board is not up the moment the command returns – `just up` waits for it
+and tells you when it is there. Then open
+`https://<your DOMAIN>`, or `http://<this-host>:8080` on a LAN, and sign in as `admin` with the
+`ADMIN_SEED_PASSWORD` you chose. If it doesn't come up, `just doctor` prints one screen of
+containers, health, tiles, last backup and running version. `just down` stops the stack without
+deleting anything.
 
 Everything is served through one origin (Caddy in front of frontend, backend and tileserver),
 with automatic HTTPS when you set `DOMAIN`. Updating is
@@ -121,7 +138,7 @@ commit that has been carrying live operations. Releases exist for *other* statio
 Setting up a station for the first time? Follow **[docs/SETUP.md](docs/SETUP.md)**, which walks
 the whole path in order. **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** is the full self-hosting
 reference behind it. Prefer not to look after a machine at all?
-**[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed route — same images, same releases,
+**[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed route – same images, same releases,
 equally supported. The trade is the one you would expect: a box in the Gerätehaus keeps the
 board alive through an internet outage, a managed platform keeps it alive without you.
 
@@ -242,14 +259,16 @@ Start with the [documentation index](docs/README.md). Highlights:
 | Document | Description |
 |----------|-------------|
 | [docs/SETUP.md](docs/SETUP.md) | **Start here** for a new station: the ordered path from an empty host to a board you can run an event on |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | The self-hosting reference behind it: the compose stack, version pinning, updates and rollback, backups |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and deployment diagrams |
 | [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) | Provider-neutral alarm webhook and integration registry |
-| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide — the managed path, equally supported |
+| [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide – the managed path, equally supported |
 | [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) | Thermal printer and print agent |
-| [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md) | Offline map tiles setup |
+| [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md) | Offline map tiles setup – any region, Basel-Landschaft is only the default |
 | [docs/AUSFALL_SOP.md](docs/AUSFALL_SOP.md) | Outage / paper-fallback standard operating procedure |
-| [backend/README.md](backend/README.md) | Backend API and configuration reference |
-| [PRIVACY.md](PRIVACY.md) | What this app does and does not send anywhere — nothing, until a station switches it on |
+| [docs/openapi.json](docs/openapi.json) | The committed API contract – every route, request and response, readable without booting the stack. Several setup steps are faster through the API than the UI |
+| [backend/README.md](backend/README.md) | Backend service internals – for working *on* it, not for running a station |
+| [PRIVACY.md](PRIVACY.md) | What this app does and does not send anywhere – nothing, until a station switches it on |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 
 ## Related project

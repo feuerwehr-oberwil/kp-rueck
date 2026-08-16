@@ -87,6 +87,19 @@ Toutes les vues d’affichage se synchronisent avec la fenêtre de l’éditeur 
 ### Style de carte
 Sous Réglages → Style de carte, on peut passer d’un style à l’autre : OpenStreetMap (standard), topographique (Esri), Voyager/clair (CARTO) et sombre (CARTO).
 
+### Offline-Maps
+La carte va normalement chercher ses tuiles sur Internet. Si la connexion tombe, elle reste vide – précisément dans la situation où l’on en a besoin. C’est à cela que sert le serveur de tuiles fourni.
+
+Sous **Réglages → Mode carte**, trois réglages sont possibles :
+
+- **Auto** (par défaut) : d’abord en ligne, bascule automatiquement hors ligne en cas d’erreur.
+- **En ligne** : toujours depuis Internet.
+- **Hors ligne** : toujours depuis le serveur de tuiles local.
+
+Les tuiles hors ligne doivent être téléchargées une fois, et pour **votre** région – le réglage par défaut couvre Bâle-Campagne. C’est la personne qui s’occupe du serveur qui le fait, avec `just tiles-download` sur l’hôte Docker ; la marche à suivre est dans `docs/OFFLINE_MAPS.md`. Le téléchargement est volumineux et long : il se fait un après-midi calme, pas la veille d’un exercice.
+
+Pour vérifier que cela a fonctionné, `just tiles-status` distingue « uniquement les tuiles minimales de départ » de « vraies données hors ligne pour la région ».
+
 ---
 
 ## Recherche
@@ -599,8 +612,8 @@ Les données sont synchronisées automatiquement depuis Railway (voir les régla
 
 ### Arrêter
 ```bash
-just stop       # Arrêter les services
-just clean      # Tout réinitialiser (supprime les données)
+just dev-stop    # Arrêter les services
+just dev-clean   # Tout réinitialiser (supprime les données) – demande confirmation
 ```
 
 L’instance locale tourne sur `http://localhost:3000`.

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..auth.dependencies import CurrentAdmin, CurrentEditor, CurrentUser
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Setting
@@ -30,7 +30,7 @@ async def get_all_settings(current_user: CurrentUser, db: AsyncSession = Depends
 # image bytes, so it is served with an image content type (an <img src> can point at
 # it directly), written through a validating, re-encoding upload, and kept out of the
 # settings dict the page fetches on every visit. Declared before `GET /{key}` for
-# readability only — that route matches a single path segment and could never have
+# readability only – that route matches a single path segment and could never have
 # swallowed these two-segment paths.
 # ---------------------------------------------------------------------------
 
@@ -42,7 +42,7 @@ async def get_report_logo(current_user: CurrentUser, db: AsyncSession = Depends(
     if png is None:
         raise HTTPException(status_code=404, detail="Kein Logo hinterlegt")
     # no-cache: the settings page has to show a replaced logo immediately, and the
-    # payload is ~100 KB fetched on two screens — there is nothing here worth caching.
+    # payload is ~100 KB fetched on two screens – there is nothing here worth caching.
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
@@ -95,6 +95,94 @@ async def delete_report_logo(
     return Response(status_code=204)
 
 
+# ---------------------------------------------------------------------------
+# The alarm webhook secret: reveal and rotate, admin only.
+#
+# Declared ABOVE the generic `/{key}` routes below, because FastAPI matches in declaration
+# order and `/{key}` would otherwise swallow these paths.
+#
+# This exists to retire a documented setup step that read a credential out of the database
+# with SQL. `GET /api/settings/{key}` refuses every SECRET_SETTING_KEY by name, and it is
+# right to – a viewer must not be able to read the key that authorises writing incidents
+# onto the board. But that left the ADMIN, the one role that legitimately needs the value
+# to hand to a dispatch provider, with psql as the only route. So: same refusal for
+# everyone else, a narrow door for the admin, and both sides of it in the audit log.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/alarm-webhook-secret", response_model=schemas.AlarmWebhookSecret)
+@limiter.limit(RateLimits.SECRET_REVEAL)
+async def reveal_alarm_webhook_secret(
+    current_user: CurrentAdmin,
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,  # type: ignore[assignment]
+) -> schemas.AlarmWebhookSecret:
+    """Show the current webhook secret to an admin, and say where it comes from."""
+    pinned = await settings_service.alarm_webhook_secret_is_pinned()
+    secret = await settings_service.get_alarm_webhook_secret(db)
+
+    # Reading a credential is an event worth having in the trail, even when it is allowed.
+    # The value itself is never written there – only that somebody looked.
+    await log_action(
+        db=db,
+        action_type="read",
+        resource_type="setting",
+        resource_id=None,
+        user=current_user,
+        changes={"key": "alarm_webhook_secret", "action": "revealed"},
+        request=request,
+    )
+    await db.commit()
+
+    return schemas.AlarmWebhookSecret(
+        secret=secret,
+        source="env" if pinned else "database",
+        configured=bool(secret),
+    )
+
+
+@router.post("/alarm-webhook-secret/rotate", response_model=schemas.AlarmWebhookSecret)
+@limiter.limit(RateLimits.SECRET_REVEAL)
+async def rotate_alarm_webhook_secret(
+    current_user: CurrentAdmin,
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,  # type: ignore[assignment]
+) -> schemas.AlarmWebhookSecret:
+    """Generate a new webhook secret. Refuses when the environment pins one."""
+    if await settings_service.alarm_webhook_secret_is_pinned():
+        # Rotating the database value while ALARM_WEBHOOK_SECRET is set would report success
+        # and change nothing any caller sees. The operator would hand the new value to their
+        # dispatch provider and every alarm after that would be rejected.
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "ALARM_WEBHOOK_SECRET ist in der .env gesetzt und hat Vorrang – eine Rotation "
+                "hier würde nichts ändern. Wert in der .env anpassen und den Backend-Container "
+                "neu starten."
+            ),
+        )
+
+    # `updated_by` is a real foreign key into `users`, and the MASTER_TOKEN caller is a mock
+    # user with no row behind it – passing its id raises an IntegrityError and the rotation
+    # 500s. Every other writer in this file already guards this; this one did not, and the
+    # scripted-provisioning path is exactly who rotates a webhook secret from a runbook.
+    user_id = current_user.id if current_user.username != "master-token" else None
+    new_secret = await settings_service.rotate_alarm_webhook_secret(db, user_id)
+
+    await log_action(
+        db=db,
+        action_type="update",
+        resource_type="setting",
+        resource_id=None,
+        user=current_user,
+        changes={"key": "alarm_webhook_secret", "action": "rotated"},
+        request=request,
+    )
+    await db.commit()
+
+    return schemas.AlarmWebhookSecret(secret=new_secret, source="database", configured=True)
+
+
 @router.get("/{key}", response_model=schemas.Setting)
 async def get_setting(key: str, current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> Setting:
     """Get single setting. Credential-valued keys are not served here."""
@@ -137,12 +225,21 @@ async def update_setting(
     # `create_async_engine` (services/sync_service.py), i.e. it decides where this backend
     # opens an outbound database connection and pushes events, incidents, personnel,
     # vehicles, materials and settings. It has a dedicated endpoint that validates and
-    # redacts it — PUT /api/sync/config — and that is now the only way in.
+    # redacts it – PUT /api/sync/config – and that is now the only way in.
     if key in settings_service.GENERIC_WRITE_DENYLIST:
         raise HTTPException(status_code=403, detail=settings_service.GENERIC_WRITE_DENY_REASONS[key])
 
     # Get old value for audit logging
     old_value = await settings_service.get_setting(db, key)
+
+    # Never write a credential's VALUE into the audit trail. Today every SECRET_SETTING_KEY
+    # is on the denylist above, so nothing can reach this line - but the audit log is read by
+    # more people than the settings table is, and it is exported into after-action reports.
+    # "somebody changed it, and when" is the fact worth keeping; the secret itself is not.
+    def _audit_value(v: str | None) -> str | None:
+        if v and key in settings_service.SECRET_SETTING_KEYS:
+            return settings_service.SECRET_PLACEHOLDER
+        return v
 
     # Update setting (use None for non-DB users like master token)
     user_id = current_user.id if current_user.username != "master-token" else None
@@ -155,7 +252,7 @@ async def update_setting(
         resource_type="setting",
         resource_id=None,  # Settings don't have UUIDs
         user=current_user,
-        changes={"key": key, "before": old_value, "after": update.value},
+        changes={"key": key, "before": _audit_value(old_value), "after": _audit_value(update.value)},
         request=request,
     )
     await db.commit()

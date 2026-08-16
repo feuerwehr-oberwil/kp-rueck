@@ -17,24 +17,70 @@ Content-Type: application/json
 ```
 
 **Authentifizierung:** gemeinsames Secret, wahlweise als Query-Parameter
-(`?secret=...`) oder als Header (`X-Webhook-Secret: ...`). Das Secret wird beim
-ersten Start automatisch erzeugt und steht in der Datenbank:
+(`?secret=...`) oder als Header (`X-Webhook-Secret: ...`).
+
+Ohne konfiguriertes oder mit falschem Secret antwortet der Endpunkt mit `403`. Das gilt
+seit 2026-07 genauso für den Divera-Adapter (`POST /api/divera/webhook`) – der hat die
+Prüfung bei leerem Secret vorher übersprungen und war damit offen. Beide Wege gehen jetzt
+durch dieselbe Prüfung.
+
+Es gibt drei Wege an dieses Secret, und sie stehen hier in der Reihenfolge, in der man sie
+nehmen sollte.
+
+### 1. In der `.env` setzen (der bevorzugte Weg)
+
+Eine Zeile, selbst gewählt, und damit muss nichts ausgelesen werden:
+
+```bash
+ALARM_WEBHOOK_SECRET=…      # erzeugen mit: openssl rand -hex 24
+```
+
+Die Umgebungsvariable **gewinnt über den Datenbankwert**
+(`backend/app/services/settings.py`, `get_alarm_webhook_secret`). Das ist der Weg, mit dem
+sich eine Station vollständig aus einer Datei bereitstellen lässt: Wert setzen, Stack
+starten, Leitstelle konfigurieren – kein SQL, kein Schritt, der sich nicht skripten lässt.
+
+### 2. In der Anwendung anzeigen oder neu erzeugen (Administrator)
+
+Ist die Variable leer geblieben, erzeugt der erste Start ein Secret in der
+`settings`-Tabelle – und um daran heranzukommen, braucht es seit 2026-08 keine
+Datenbank-Shell mehr. Zwei Endpunkte, beide **nur für Administratoren**, beide auf
+10 Anfragen/Minute begrenzt:
+
+| Endpunkt | Zweck |
+|----------|-------|
+| `GET /api/settings/alarm-webhook-secret` | Zeigt den aktuell gültigen Wert und sagt dazu, woher er kommt: `source: "env"` (aus der `.env` gepinnt) oder `source: "database"`. |
+| `POST /api/settings/alarm-webhook-secret/rotate` | Erzeugt einen neuen Wert, speichert ihn und gibt ihn genau einmal im Klartext zurück. |
+
+Beides steht im Audit-Log – auch das blosse Anzeigen, denn «jemand hat nachgeschaut» ist
+der Eintrag, der zählt. Der Wert selbst wird nie dorthin geschrieben.
+
+⚠️ **Rotieren wird mit `409` abgelehnt, solange `ALARM_WEBHOOK_SECRET` in der `.env`
+steht.** Das ist Absicht und keine Einschränkung: die Rotation würde den Datenbankwert
+ändern, den in diesem Fall niemand liest. Die Antwort hiesse «rotiert», die Station gäbe
+das neue Secret an ihre Leitstelle weiter – und ab dann würde jeder Alarm abgelehnt. Ein
+gepinntes Secret wechselt man in der `.env` und startet den Backend-Container neu.
+
+Der generische `PATCH /api/settings/alarm_webhook_secret` antwortet dagegen für **jeden**
+mit `403` (`GENERIC_WRITE_DENY_REASONS` in `backend/app/services/settings.py`). Vorher
+konnte dort jeder Editor den Schlüssel überschreiben, ohne ihn je lesen zu dürfen – also
+schreiben ohne lesen, ausgerechnet bei der Berechtigung, mit der man Einsätze auf die Lage
+schreibt. Dasselbe gilt weiterhin fürs Lesen: `GET /api/settings/` maskiert den Wert und
+`GET /api/settings/alarm_webhook_secret` antwortet mit `403`, damit ihn nicht jeder
+angemeldete Benutzer – auch ein reiner Viewer – mitliest.
+
+### 3. Direkt aus der Datenbank (Notnagel)
+
+Nur für eine Installation, deren Oberfläche gerade nicht erreichbar ist oder auf der kein
+Administrator-Login zur Hand ist:
 
 ```sql
 SELECT value FROM settings WHERE key = 'alarm_webhook_secret';
 ```
 
-Ohne konfiguriertes oder mit falschem Secret antwortet der Endpunkt mit `403`. Das gilt
-seit 2026-07 genauso für den Divera-Adapter (`POST /api/divera/webhook`) — der hat die
-Prüfung bei leerem Secret vorher übersprungen und war damit offen. Beide Wege gehen jetzt
-durch dieselbe Prüfung.
-
-Am einfachsten gibt man das Secret mit `ALARM_WEBHOOK_SECRET` in der `.env` fest vor —
-die Umgebungsvariable gewinnt über den Datenbankwert, und dann muss man es nirgends
-auslesen. Die API gibt es nicht heraus: `GET /api/settings/` maskiert es und
-`GET /api/settings/alarm_webhook_secret` antwortet mit `403`, weil sonst jeder
-angemeldete Benutzer — auch ein reiner Viewer — den Schlüssel mitlesen könnte, mit dem
-man Einsätze auf die Lage schreibt. Bleibt der Weg über die Datenbank (oben).
+Das war einmal der dokumentierte Normalweg. Er funktioniert weiterhin, aber ein Setup-Schritt,
+für den man eine Datenbank-Shell aufmachen muss, ist keiner, den wir einer Wehr zumuten
+wollen.
 
 ## Payload
 

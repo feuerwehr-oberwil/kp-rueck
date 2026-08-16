@@ -66,8 +66,10 @@ import {
   type ApiRekoFormResponse,
   type ApiEventRekoSummariesResponse,
   type ApiViewerRekoSummary,
+  type ApiAlarmWebhookSecret,
   type ApiExcelImportPreview,
   type ApiExcelImportResult,
+  type ExcelImportMode,
   type ApiEmergencyTemplate,
   type ApiTrainingLocation,
   type ApiSimulatedRapport,
@@ -97,14 +99,14 @@ import {
 } from './api/types'
 
 /**
- * The share-link view of an incident — the situation, never the Melder.
+ * The share-link view of an incident – the situation, never the Melder.
  *
  * Mirrors the backend's `schemas.ViewerIncident`: `contact`, `contact_phone`
  * and `internal_notes` are not in the payload, and neither is the workflow
  * bookkeeping (rapport flags, `pickup_note`, field/user ids). `pickup_needed` /
  * `pickup_requested_at` are the exception and are here on purpose: a crew that
  * cannot get itself back is the situation, and the flag names nobody. Built
- * with `Pick` on purpose — a field is in the share payload only if it is named
+ * with `Pick` on purpose – a field is in the share payload only if it is named
  * here, and adding one to `ApiIncident` cannot leak it onto a wall by itself.
  */
 export type ApiViewerIncident = Pick<
@@ -138,7 +140,7 @@ export type ApiViewerIncident = Pick<
   | 'has_completed_reko'
   | 'reko_arrived_at'
 > & {
-  /** Never sent — the operator behind a card is not part of a shared situation.
+  /** Never sent – the operator behind a card is not part of a shared situation.
    *  Declared (as absent) so the mappers that read it stay honest and compile. */
   created_by?: null
 }
@@ -156,7 +158,7 @@ export type ApiViewerMaterial = Pick<
   'id' | 'name' | 'type' | 'location' | 'location_sort_order' | 'consumable' | 'group_id'
 >
 
-/** Which resource sits on which incident — never who put it there, or when.
+/** Which resource sits on which incident – never who put it there, or when.
  *  `is_leader` rides along: the crew's names are already in the payload, and it
  *  only marks which of them leads (the display sorts the crew leader-first). */
 export type ApiViewerAssignment = Pick<
@@ -178,7 +180,7 @@ export type ApiViewerGroupAssignment = Pick<
 
 /** An Auftrag as a display draws it: name, colour, stops, progress and the
  *  resources it owns. No `created_by`, no `assigned_by` on the rows, and no
- *  Funkdurchsage bookkeeping — a display never makes an announcement. */
+ *  Funkdurchsage bookkeeping – a display never makes an announcement. */
 export type ApiViewerGroup = Pick<
   ApiIncidentGroup,
   'id' | 'event_id' | 'name' | 'color' | 'notes' | 'position' | 'created_at' | 'updated_at' | 'stop_ids' | 'progress'
@@ -189,7 +191,7 @@ export type ApiViewerGroup = Pick<
 
 /** Read-only payload behind a share token (board/map/status displays).
  *
- * Every row is the narrow `ApiViewer*` shape, not the board's own — the token in
+ * Every row is the narrow `ApiViewer*` shape, not the board's own – the token in
  * the URL is the only gate here, so what rides along is an allowlist on both
  * sides of the wire (`backend/app/schemas/viewer.py`). */
 export interface ApiViewerData {
@@ -267,7 +269,7 @@ class ApiClient {
         const response = await fetch(url, {
           ...options,
           credentials: 'include', // Send cookies for authentication
-          // Without this a request could hang indefinitely — a dead-but-open TCP connection
+          // Without this a request could hang indefinitely – a dead-but-open TCP connection
           // never rejects on its own. One hung GET was enough to wedge the polling loop for
           // good: `startPolling()` cannot re-arm while `isPollingActive` is still true, and
           // only a WebSocket 'connected' transition resets it. The board then sat there
@@ -329,7 +331,7 @@ class ApiClient {
 
           // A 401 means the session is gone (auth endpoints don't go through
           // this client). Tell the auth layer so it can clear the user and
-          // show "Sitzung abgelaufen" — without this, every mutation after
+          // show "Sitzung abgelaufen" – without this, every mutation after
           // token expiry fails silently and optimistic UI just reverts.
           if (response.status === 401 && typeof window !== 'undefined') {
             window.dispatchEvent(new Event('kp:session-expired'))
@@ -366,14 +368,14 @@ class ApiClient {
         // Network errors are always retryable.
         //
         // The message is deliberately NOT inspected any more. It used to require
-        // `.includes('fetch')`, which only matches Chrome's "Failed to fetch" — Safari
+        // `.includes('fetch')`, which only matches Chrome's "Failed to fetch" – Safari
         // throws `TypeError: Load failed` and Firefox "NetworkError when attempting to
         // fetch resource". On Safari every offline request therefore fell through to the
         // generic re-throw below: no "Verbindung verloren" toast, and GETs threw instead of
         // degrading softly, so ~85 read call sites silently changed contract per browser.
         // Any TypeError out of `fetch()` is a network-layer failure; that is the check.
         //
-        // AbortError is the request timeout below — also a network failure, also retryable.
+        // AbortError is the request timeout below – also a network failure, also retryable.
         const isTimeout = error instanceof DOMException && error.name === 'TimeoutError'
         if (error instanceof TypeError || isTimeout) {
           if (retryCount < maxRetries) {
@@ -394,7 +396,7 @@ class ApiClient {
             return undefined as T
           }
           // Mutations must fail loudly so the caller's catch (rollback,
-          // toast, refresh) runs — otherwise the optimistic UI state keeps
+          // toast, refresh) runs – otherwise the optimistic UI state keeps
           // claiming a write succeeded that was never sent.
           throw new NetworkError()
         }
@@ -457,7 +459,41 @@ class ApiClient {
   }
 
   /**
-   * URL of the station logo used on printed exports — an <img src>, not a fetch:
+   * Reveal the alarm-webhook secret (admin only, rate-limited, and written to the
+   * audit trail as a `read` – the value never is). Deliberately NOT part of
+   * `getAllSettings()`: credential-valued keys are masked there and refused by
+   * `GET /api/settings/{key}`, so this is the only way to see it.
+   *
+   * Resolves to `undefined` when the request never reached the backend: `request()`
+   * lets a failed GET degrade softly so polling callers keep their last known state
+   * (see the network-error branch above), and `skipToast` means it does so without a
+   * word. That is right for a poll and wrong for a button, so the type says it out
+   * loud – the caller has to decide what "no answer" looks like. HTTP failures
+   * (401/403/404) still reject with an `ApiError` carrying the backend's detail.
+   */
+  async getAlarmWebhookSecret(): Promise<ApiAlarmWebhookSecret | undefined> {
+    return this.request<ApiAlarmWebhookSecret | undefined>('/api/settings/alarm-webhook-secret', {
+      skipToast: true,
+    })
+  }
+
+  /**
+   * Generate a new secret. Rejects with a 409 `ApiError` when `source` is `env`
+   * – the caller shows that message, it names the file to edit.
+   *
+   * Unlike the GET above this never resolves to nothing on a dead connection:
+   * `request()` throws `NetworkError` for mutations, precisely so a write that
+   * was never sent cannot be mistaken for one that succeeded.
+   */
+  async rotateAlarmWebhookSecret(): Promise<ApiAlarmWebhookSecret> {
+    return this.request<ApiAlarmWebhookSecret>('/api/settings/alarm-webhook-secret/rotate', {
+      method: 'POST',
+      skipToast: true,
+    })
+  }
+
+  /**
+   * URL of the station logo used on printed exports – an <img src>, not a fetch:
    * the backend answers with image bytes, and 404 (no logo set) is a normal answer
    * the <img> reports through onError rather than an exception nobody asked for.
    *
@@ -506,7 +542,7 @@ class ApiClient {
   /**
    * The Restliste (§6, V-8): what is still open in this Ereignis.
    *
-   * Three counts, each carrying the incidents behind it — the count is only the
+   * Three counts, each carrying the incidents behind it – the count is only the
    * way in, because nobody clicks twenty-three cards individually.
    */
   async getEventRestliste(eventId: string): Promise<ApiEventRestliste> {
@@ -600,7 +636,7 @@ class ApiClient {
    * identical either way, which is how 200 incidents could render as an arbitrary 100 with
    * nothing on screen suggesting anything was missing.
    *
-   * `total` is null when the header is absent (an older backend, or a proxy that strips it) —
+   * `total` is null when the header is absent (an older backend, or a proxy that strips it) –
    * callers must treat null as "unknown", never as zero, or the banner would claim a full
    * board is truncated.
    */
@@ -669,7 +705,7 @@ class ApiClient {
     })
   }
 
-  // --- Aufträge (incident groups) — ordered multi-stop routes over incidents ---
+  // --- Aufträge (incident groups) – ordered multi-stop routes over incidents ---
 
   /** List the Aufträge of an event, each with `stop_ids` + derived `progress`. */
   async getIncidentGroups(eventId: string): Promise<ApiIncidentGroup[]> {
@@ -1098,7 +1134,7 @@ class ApiClient {
   }
 
   /**
-   * Back to «nicht anwesend» — removes the attendance row entirely. Board only;
+   * Back to «nicht anwesend» – removes the attendance row entirely. Board only;
    * this is a correction of the record, not something a crew reports about itself.
    */
   async clearPersonnelAttendance(personnelId: string, eventId: string): Promise<ApiPersonnel> {
@@ -1108,7 +1144,7 @@ class ApiClient {
     )
   }
 
-  /** "Alle abmelden" — everyone still present goes to `gegangen`. Board only. */
+  /** "Alle abmelden" – everyone still present goes to `gegangen`. Board only. */
   async checkOutAllPersonnel(eventId: string): Promise<ApiPersonnel[]> {
     return this.request<ApiPersonnel[]>(
       `/api/personnel/check-in/event/${encodeURIComponent(eventId)}/out-all`,
@@ -1179,7 +1215,7 @@ class ApiClient {
     })
   }
 
-  /** The board's door onto the same route (plan 26 §5.1) — no token, the session
+  /** The board's door onto the same route (plan 26 §5.1) – no token, the session
    *  identifies the operator. The report lands in the same table and the same
    *  list as a crew-filed one; only its provenance columns differ. */
   async createRekoReportAsEditor(
@@ -1193,7 +1229,7 @@ class ApiClient {
     })
   }
 
-  /** Amend an existing report — a crew's included, without filing a second one.
+  /** Amend an existing report – a crew's included, without filing a second one.
    *  The endpoint has accepted a session since it was written; it simply never
    *  had a caller. Without `token` this is the KP door and stamps the operator. */
   async updateRekoReport(
@@ -1226,7 +1262,7 @@ class ApiClient {
     })
   }
 
-  /** The board's door onto the same upload — the WhatsApp-photo case. No token:
+  /** The board's door onto the same upload – the WhatsApp-photo case. No token:
    *  the session identifies the operator. `reportId` when amending an existing
    *  report, omitted while creating one (the photo then lands in the draft the
    *  save submits). */
@@ -1344,9 +1380,13 @@ class ApiClient {
     return response.blob()
   }
 
-  async previewExcelImport(file: File): Promise<ApiExcelImportPreview> {
+  /** The mode is not cosmetic here: the preview reports what the chosen mode would
+   *  DELETE, so previewing 'replace' and importing 'append' (or the reverse) shows the
+   *  operator the wrong number. Pass the mode the UI has selected. */
+  async previewExcelImport(file: File, mode: ExcelImportMode = 'replace'): Promise<ApiExcelImportPreview> {
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('mode', mode)
 
     const url = `${this.getBaseUrl()}/api/admin/import/preview`
     const response = await fetch(url, {
@@ -1363,7 +1403,10 @@ class ApiClient {
     return response.json()
   }
 
-  async executeExcelImport(file: File, mode: 'replace' | 'append' = 'replace'): Promise<ApiExcelImportResult> {
+  /** `mode` is required on the wire – the backend refuses a request without it rather
+   *  than defaulting to the destructive one. The default here only keeps the call sites
+   *  compiling; it is always sent. */
+  async executeExcelImport(file: File, mode: ExcelImportMode = 'replace'): Promise<ApiExcelImportResult> {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('mode', mode)
@@ -1426,7 +1469,7 @@ class ApiClient {
     return response.blob()
   }
 
-  // Einsätze — one wide row per Schadenplatz (XLSX, plan 25 §7). Somebody
+  // Einsätze – one wide row per Schadenplatz (XLSX, plan 25 §7). Somebody
   // still retypes it into the billing system by hand; it just does not need
   // that name on it.
   async exportEventEinsaetze(eventId: string): Promise<Blob> {
@@ -1443,7 +1486,7 @@ class ApiClient {
     return response.blob()
   }
 
-  // Lageblatt — paper-fallback board snapshot (PDF, Führungsformular layout)
+  // Lageblatt – paper-fallback board snapshot (PDF, Führungsformular layout)
   async exportEventLageblatt(eventId: string): Promise<Blob> {
     const url = `${this.getBaseUrl()}/api/exports/events/${eventId}/lageblatt`
     const response = await fetch(url, {
@@ -1523,7 +1566,7 @@ class ApiClient {
 
   /** Inject a simulated Divera alarm into the pool (training intake exercise).
    *
-   * No caller since 2026-07-28 — the Übungssteuerung buttons were removed while
+   * No caller since 2026-07-28 – the Übungssteuerung buttons were removed while
    * the recipient model is unresolved. Endpoint and generator still exist, so
    * restoring the UI is a small change once that model lands.
    */
@@ -1572,7 +1615,7 @@ class ApiClient {
     })
   }
 
-  /** Mark the Reko crew as "vor Ort" (arrived) without submitting a report —
+  /** Mark the Reko crew as "vor Ort" (arrived) without submitting a report –
    *  the first of the two Reko conductor steps. */
   async simulateRekoArrived(
     eventId: string,
@@ -1583,7 +1626,7 @@ class ApiClient {
     })
   }
 
-  // GPS drive simulation (Übungssteuerung) — simulated positions feed the same
+  // GPS drive simulation (Übungssteuerung) – simulated positions feed the same
   // pipeline as real Traccar data (map, distances, arrival/return prompts).
   async getGpsSimulations(): Promise<ApiGpsSimDrive[]> {
     return this.request<ApiGpsSimDrive[]>('/api/training/gps-sim/')
@@ -1615,11 +1658,11 @@ class ApiClient {
     })
   }
 
-  /** Field crew reports the incident finished ("Einsatz beendet") — sets an
+  /** Field crew reports the incident finished ("Einsatz beendet") – sets an
    *  informational badge for the operator; does NOT change status.
    *
    *  `pickupNeeded` is the follow-up the field gets ("Kommt ihr selbst
-   *  zurück?"): omit it and the backend preselects it from the situation — a
+   *  zurück?"): omit it and the backend preselects it from the situation – a
    *  crew that walked there or whose vehicle drove on is usually stranded. */
   async simulateFieldComplete(
     eventId: string,
@@ -1644,7 +1687,7 @@ class ApiClient {
   }
 
   /** Inject "Rapporte eingetroffen": 80 % of the missing ones arrive at once.
-   *  The remaining fifth stays missing on purpose — those gaps are the
+   *  The remaining fifth stays missing on purpose – those gaps are the
    *  Restliste, and finding them is the exercise. */
   async simulateRapportsBulk(eventId: string): Promise<ApiSimulatedRapportBulk> {
     return this.request<ApiSimulatedRapportBulk>(`/api/training/events/${eventId}/simulate/rapport`, {
@@ -1663,7 +1706,7 @@ class ApiClient {
   /** Inject "Angekommen": the crew reports it is on the Schadenplatz. Stamps
    *  `arrived_at` on the Schadenplatz-Rapport through the same CRUD the `/feld`
    *  button uses. A second call never moves an arrival that is already
-   *  reported — the message says so instead. */
+   *  reported – the message says so instead. */
   async simulateFieldArrived(eventId: string, incidentId: string): Promise<{ message: string }> {
     return this.request<{ message: string }>(
       `/api/training/events/${eventId}/simulate/arrived/${incidentId}`,
@@ -1671,7 +1714,7 @@ class ApiClient {
     )
   }
 
-  /** Inject "Abholung nötig" / "Abholung erledigt" on its own — the crew that
+  /** Inject "Abholung nötig" / "Abholung erledigt" on its own – the crew that
    *  asks for a lift an hour after "Einsatz beendet", or reports the bus has
    *  been. Omit `note` and the backend derives one from the situation. */
   async simulatePickup(
@@ -1777,7 +1820,7 @@ class ApiClient {
     })
   }
 
-  /** List Divera members (id + name) — for picking a test-alarm recipient. */
+  /** List Divera members (id + name) – for picking a test-alarm recipient. */
   async getDiveraMembers(): Promise<ApiDiveraMemberPreview[]> {
     return this.request<ApiDiveraMemberPreview[]>('/api/divera/members')
   }
@@ -1790,12 +1833,12 @@ class ApiClient {
     })
   }
 
-  /** Divera polling/connection status — for the Verbindung indicator. */
+  /** Divera polling/connection status – for the Verbindung indicator. */
   async getDiveraPollingStatus(): Promise<ApiDiveraPollingStatus> {
     return this.request<ApiDiveraPollingStatus>('/api/divera/polling/status')
   }
 
-  /** Provider capability registry — which integrations are configured, per domain. */
+  /** Provider capability registry – which integrations are configured, per domain. */
   async getIntegrations(): Promise<ApiIntegrations> {
     return this.request<ApiIntegrations>('/api/integrations')
   }
@@ -1811,7 +1854,7 @@ class ApiClient {
   }
 
   async getSyncConfig(): Promise<SyncConfig> {
-    // Admin-only endpoint, but also probed by the user menu for every user —
+    // Admin-only endpoint, but also probed by the user menu for every user –
     // suppress the generic error toast and let callers handle 401/403.
     return this.request<SyncConfig>('/api/sync/config', { skipToast: true })
   }
@@ -1880,7 +1923,7 @@ class ApiClient {
     )
   }
 
-  // Feld (/feld) — the login-less field surface. One global link per Ereignis;
+  // Feld (/feld) – the login-less field surface. One global link per Ereignis;
   // the token names the event, the endpoints check the assignment.
   async generateFeldLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
     return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
@@ -1913,21 +1956,21 @@ class ApiClient {
     )
   }
 
-  /** "Angekommen". Idempotent — a second tap does not move the timestamp. */
+  /** "Angekommen". Idempotent – a second tap does not move the timestamp. */
   async feldReportArrived(incidentId: string, personnelId: string, token: string): Promise<ApiFieldReportState> {
     return this.request<ApiFieldReportState>(this.feldQuery(incidentId, 'arrived', personnelId, token), {
       method: 'POST',
     })
   }
 
-  /** "Einsatz beendet". Does NOT close the card — that stays the KP's call. */
+  /** "Einsatz beendet". Does NOT close the card – that stays the KP's call. */
   async feldReportComplete(incidentId: string, personnelId: string, token: string): Promise<ApiFieldReportState> {
     return this.request<ApiFieldReportState>(this.feldQuery(incidentId, 'complete', personnelId, token), {
       method: 'POST',
     })
   }
 
-  /** "Abholung nötig" / "abgeholt" — also the answer to the beendet follow-up. */
+  /** "Abholung nötig" / "abgeholt" – also the answer to the beendet follow-up. */
   async feldReportPickup(
     incidentId: string,
     personnelId: string,
@@ -1941,7 +1984,7 @@ class ApiClient {
     })
   }
 
-  /** Freitext-Meldung an den KP — a chip or a typed sentence. */
+  /** Freitext-Meldung an den KP – a chip or a typed sentence. */
   async feldSendMessage(incidentId: string, personnelId: string, token: string, message: string): Promise<void> {
     await this.request<void>(this.feldQuery(incidentId, 'message', personnelId, token), {
       method: 'POST',
@@ -1959,7 +2002,7 @@ class ApiClient {
 
   // The Schadenplatz-Rapport, from both doors. Same CRUD module underneath, so
   // the four calls below are two pairs of the same thing with a different
-  // identity — which is exactly what lets one form component mount twice.
+  // identity – which is exactly what lets one form component mount twice.
 
   /** The Rapport as the crew sees it. Prefilled when nothing has been filed yet. */
   async getFeldRapport(incidentId: string, personnelId: string, token: string): Promise<ApiSchadenplatzRapport> {
@@ -1979,7 +2022,7 @@ class ApiClient {
     })
   }
 
-  /** The same Rapport from the board — the radio-message case. */
+  /** The same Rapport from the board – the radio-message case. */
   async getIncidentRapport(incidentId: string): Promise<ApiSchadenplatzRapport> {
     return this.request<ApiSchadenplatzRapport>(`/api/incidents/${incidentId}/rapport`)
   }
@@ -1992,7 +2035,7 @@ class ApiClient {
   }
 
   // Rapport photos, from both doors (§6.1). The crew photographs the cellar; the
-  // KP attaches the photo that arrived by WhatsApp. Same storage, same files —
+  // KP attaches the photo that arrived by WhatsApp. Same storage, same files –
   // but a feld token never opens the Reko photo endpoints and vice versa.
 
   async uploadFeldPhoto(
@@ -2020,7 +2063,7 @@ class ApiClient {
   }
 
   /**
-   * The `<img src>` for a rapport photo on `/feld` — an absolute URL, because it
+   * The `<img src>` for a rapport photo on `/feld` – an absolute URL, because it
    * goes into markup rather than through `request()`.
    *
    * The board's `GET /api/photos/...` needs a session cookie and `/feld` has
@@ -2049,7 +2092,7 @@ class ApiClient {
    * "Material zurück – freigeben" (decision 17): what the board MAY release.
    *
    * A read. The releasing itself goes through `unassignResource`, one unit at a
-   * time — a field form must not silently write assignments, and the decision
+   * time – a field form must not silently write assignments, and the decision
    * stays with the operator.
    */
   async getRapportMaterialReturn(
@@ -2182,7 +2225,7 @@ class ApiClient {
   /**
    * The Abholliste (decision 25): the material half of the Restliste on paper.
    *
-   * The existing print-job path on purpose — it is a driving list, not a fourth
+   * The existing print-job path on purpose – it is a driving list, not a fourth
    * document format.
    */
   async queueAbhollistePrint(eventId: string): Promise<ApiPrintJob> {
@@ -2258,7 +2301,7 @@ class ApiClient {
    *
    * Public, and read at runtime rather than baked in at build time: the same image runs in
    * production and on staging, so the role can only come from the server it is talking to.
-   * Returns null when the backend cannot be reached — the caller then assumes production,
+   * Returns null when the backend cannot be reached – the caller then assumes production,
    * which changes nothing on screen.
    */
   async getDeployment(): Promise<ApiDeployment | null> {

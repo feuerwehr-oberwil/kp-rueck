@@ -1,0 +1,42 @@
+# Build the four images from THIS checkout instead of pulling the published ones.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# For contributors, for a patched fork, and for verifying a fix before a release exists.
+# Everything else - Caddy, the volumes, the profiles, the whole of .env - comes from
+# docker-compose.yml unchanged, so what you are testing is the production stack with
+# different image sources and nothing else altered.
+#
+# This exists because the alternative was "comment out `image:` and uncomment `build:`",
+# i.e. edit a tracked file to change how you run it - which then shows up in `git status`
+# forever, gets committed by accident, and has to be undone before you can pull an update.
+# An override file cannot do any of that.
+#
+# `image:` is kept alongside `build:` on purpose: it names the locally built result, so
+# `docker compose down` and `docker compose ps` behave the same as on the published path,
+# and a later run without this override goes straight back to the registry copy.
+#
+# The tileserver's context is the repo root, not ./tileserver - its Dockerfile reaches into
+# scripts/ for init-tileserver.sh.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runner
+
+  tileserver:
+    build:
+      context: .
+      dockerfile: ./tileserver/Dockerfile
+
+  print-agent:
+    build:
+      context: ./tools/print-agent
+      dockerfile: Dockerfile

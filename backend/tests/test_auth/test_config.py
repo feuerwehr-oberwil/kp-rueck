@@ -3,6 +3,7 @@
 import pytest
 
 from app.auth.config import AuthSettings, auth_settings
+from app.config import settings as app_settings
 
 # ============================================
 # Default Configuration Tests
@@ -245,6 +246,9 @@ def test_cookie_secure_property_production(monkeypatch):
     # Simulate production environment (Railway) with a strong secret key
     monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
     monkeypatch.setenv("AUTH_SECRET_KEY", "x" * 64)
+    # A TLS origin, which is what Railway actually serves – cookie_secure reads the scheme of
+    # CORS_ORIGINS when nothing was set explicitly. See tests/test_auth/test_cookie_security.py.
+    monkeypatch.setattr(app_settings, "cors_origins", ["https://kp.up.railway.app"])
 
     settings = AuthSettings()
     # In production, should force HTTPS (secure cookies)

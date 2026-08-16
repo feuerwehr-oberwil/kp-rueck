@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Restore a KP Rück backup into a FRESH, EMPTY database — the other half of scripts/backup.sh.
+# Restore a KP Rück backup into a FRESH, EMPTY database – the other half of scripts/backup.sh.
 #
 #   scripts/restore.sh backups/daily/db-2026-07-30-033000.dump
 #   scripts/restore.sh backups/weekly/db-2026-W31.dump --photos backups/weekly/photos-2026-W31.tar.gz
 #
 # Same libpq environment as backup.sh (PGHOST/PGPORT/PGUSER/PGDATABASE/PGPASSWORD). It restores
-# into $PGDATABASE, which must already exist and must be EMPTY — this script will not drop your
+# into $PGDATABASE, which must already exist and must be EMPTY – this script will not drop your
 # production database for you, and it refuses to restore over occupied tables. Creating the
 # empty target is one line and is in docs/DEPLOYMENT.md §6.1, deliberately typed by a human.
 #
 # Why a fresh database rather than a volume copy: the named use case for restoring is a laptop
-# standing in for the station server — often macOS or WSL, often arm64 against amd64. A
+# standing in for the station server – often macOS or WSL, often arm64 against amd64. A
 # pg_dump/pg_restore pair crosses that; a copied data directory does not. Do not "optimise"
 # this into a volume snapshot.
 #
@@ -18,7 +18,7 @@
 #   PHOTOS_DIR     where to unpack the photo tarball (default /photos)
 #
 # After restoring, start the backend: `alembic upgrade head` runs on boot, so a dump from an
-# OLDER release is migrated up automatically. A dump from a NEWER release is not — migrations
+# OLDER release is migrated up automatically. A dump from a NEWER release is not – migrations
 # only run forwards. Match or exceed the tag the dump came from.
 set -euo pipefail
 
@@ -60,7 +60,7 @@ pg_restore --list "$DUMP" >/dev/null 2>&1 \
 #    an archive written by a newer major version can still carry constructs an older server does
 #    not understand, and the failure arrives halfway through a half-restored database.
 SERVER_VERSION="$(psql -Atqc 'SHOW server_version' 2>&1)" \
-  || fail "cannot connect to $PGUSER@$PGHOST:$PGPORT/$PGDATABASE — $SERVER_VERSION" 3
+  || fail "cannot connect to $PGUSER@$PGHOST:$PGPORT/$PGDATABASE – $SERVER_VERSION" 3
 SERVER_VERSION="${SERVER_VERSION%% *}"
 CLIENT_VERSION="$(pg_restore --version | awk '{print $3}')"
 if [ "${CLIENT_VERSION%%.*}" -lt "${SERVER_VERSION%%.*}" ]; then
@@ -71,12 +71,12 @@ fi
 #    database that looks restored and is actually a collision of two states.
 TABLES="$(psql -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")"
 if [ "$TABLES" -gt 0 ]; then
-  fail "$PGDATABASE already has $TABLES tables in schema public. Restore needs an EMPTY database — drop and recreate it first (docs/DEPLOYMENT.md §6.1), then re-run." 5
+  fail "$PGDATABASE already has $TABLES tables in schema public. Restore needs an EMPTY database – drop and recreate it first (docs/DEPLOYMENT.md §6.1), then re-run." 5
 fi
 
 log "restoring $DUMP → $PGUSER@$PGHOST:$PGPORT/$PGDATABASE (server $SERVER_VERSION, pg_restore $CLIENT_VERSION)"
 pg_restore --dbname "$PGDATABASE" --no-owner --no-privileges --exit-on-error --jobs "$JOBS" "$DUMP" \
-  || fail "pg_restore failed — the database is now half-restored. Drop it, recreate it, and try another dump." 7
+  || fail "pg_restore failed – the database is now half-restored. Drop it, recreate it, and try another dump." 7
 
 ROWS="$(psql -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")"
 log "restored: $ROWS tables in schema public"

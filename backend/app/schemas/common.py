@@ -1,6 +1,7 @@
 """Cross-domain shared schemas (sort order, settings)."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -39,3 +40,16 @@ class Setting(SettingBase):
 
     updated_at: datetime
     updated_by: UUID | None = None
+
+
+class AlarmWebhookSecret(BaseModel):
+    """The shared secret for POST /api/alarms, handed back to an admin who asked for it.
+
+    ``source`` is not decoration: ``ALARM_WEBHOOK_SECRET`` in the environment wins over the
+    database value, so an admin looking at ``env`` needs to know that rotating from the UI
+    would change nothing and the value has to move in ``.env`` instead.
+    """
+
+    secret: str
+    source: Literal["env", "database"]
+    configured: bool

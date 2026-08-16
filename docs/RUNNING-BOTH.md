@@ -12,13 +12,13 @@ variable names that mean different things**, and **alarm intake secrets**.
 
 If you run only one of the two, you can ignore this entire page.
 
-**Sizing:** both stacks together fit in **4 GB of RAM** and are comfortable in 8 GB — KP Rück
+**Sizing:** both stacks together fit in **4 GB of RAM** and are comfortable in 8 GB – KP Rück
 is the larger of the two (see [`DEPLOYMENT.md`](DEPLOYMENT.md) §0), KP Front roughly half
 that. Neither is CPU-bound. The machine is not what makes running both awkward; the three
 collisions below are.
 
 > **This is the canonical copy, and it is linked from the kp-front repository** (its README,
-> its docs index, and its `.env.example`) rather than duplicated there — a second copy would
+> its docs index, and its `.env.example`) rather than duplicated there – a second copy would
 > drift, and half-right instructions about a silent port collision are worse than none. Edit it
 > here; there is nothing to keep in step on the other side.
 
@@ -40,10 +40,11 @@ Recommended layout for two public domains on one host:
 
 ```bash
 # KP Rück .env
-DOMAIN=                  # empty: the outer proxy terminates TLS, Caddy stays plain HTTP
-HTTP_PORT=8080           # what your reverse proxy forwards to
-HTTPS_PORT=8443          # NOT 443 – see the warning below
-AUTH_COOKIE_SECURE=      # leave blank; the browser still speaks HTTPS to the outer proxy
+DOMAIN=                            # empty: the outer proxy terminates TLS, Caddy stays plain HTTP
+HTTP_PORT=8080                     # what your reverse proxy forwards to
+HTTPS_PORT=8443                    # NOT 443 – see the warning below
+CORS_ORIGINS=https://rueck.example.org   # the URL BROWSERS use, not http://127.0.0.1:8080
+AUTH_COOKIE_SECURE=                # leave blank; CORS_ORIGINS above already answers this
 ```
 
 ```bash
@@ -51,6 +52,14 @@ AUTH_COOKIE_SECURE=      # leave blank; the browser still speaks HTTPS to the ou
 APP_PORT=8000            # what your reverse proxy forwards to
 DOMAIN=                  # unused without --profile tls
 ```
+
+> **`CORS_ORIGINS` is the browser's address, not the proxy's target.** This is the line people
+> fill in wrongly behind an outer proxy, because `http://127.0.0.1:8080` is the address they
+> were just typing into the proxy config. It is not what the browser sees, and `CORS_ORIGINS`
+> is load-bearing twice over: it is the allowed CORS origin *and* the value the backend reads
+> to decide whether the login cookie carries the `Secure` flag. Put the plain-HTTP forwarding
+> address in it and you get an `https://` board whose API calls are all refused, and a login
+> cookie sent without `Secure` over a connection that has TLS. Write the name people type.
 
 > **`HTTPS_PORT` must be changed even when unused.** KP Rück's Caddy publishes it
 > unconditionally – it is the single origin the Caddyfile routes and is deliberately *not*
@@ -65,10 +74,35 @@ DOMAIN=                  # unused without --profile tls
 
 **Keeping it simpler:** if only one of the two is published and the other stays on the LAN, skip
 the outer proxy. Let the public one keep `DOMAIN` and 80/443, and move the other onto plain
-high ports. The LAN-only stack then needs the insecure-cookie switch — and it is spelled
-differently in each: `AUTH_COOKIE_SECURE=false` for KP Rück, `COOKIE_SECURE=false` for KP
-Front (see the table in §5). Setting the wrong one is silent: the browser drops the login
-cookie and signing in fails with no error.
+high ports.
+
+Plain HTTP is where the login cookie becomes a question – a browser silently drops a `Secure`
+cookie over `http://`, so signing in fails with no error anywhere. **The two systems answer it
+differently now, and that is the point:**
+
+```bash
+# KP Rück on the LAN – nothing extra. Say where browsers reach it and you are done.
+CORS_ORIGINS=http://192.168.1.50:8080
+AUTH_COOKIE_SECURE=            # leave blank
+```
+
+```bash
+# KP Front on the LAN – still needs the switch, explicitly.
+COOKIE_SECURE=false
+```
+
+KP Rück's backend reads `CORS_ORIGINS`, sees a plain-`http://` origin, and drops the `Secure`
+flag by itself, saying so in the boot log. `AUTH_COOKIE_SECURE` survives only as an explicit
+override in either direction. KP Front has no such inference: `COOKIE_SECURE=false` is the real
+switch there, and its own `scripts/setup.sh --lan` writes it for you.
+
+> **This page used to tell you to set both**, as if `AUTH_COOKIE_SECURE=false` and
+> `COOKIE_SECURE=false` were the same instruction spelled two ways. Since 0.2 that advice is
+> actively harmful on the KP Rück side: a hand-written `false` keeps sending the login cookie
+> in the clear on the day the station puts a domain in front, because the origin becomes
+> `https://` and the inference that would have followed it is pinned. The two variables no
+> longer do the same job, so they no longer take the same value. If you have
+> `AUTH_COOKIE_SECURE=false` in a KP Rück `.env` from an earlier install, blank it.
 
 ---
 
@@ -163,24 +197,25 @@ Worth stating, so you don't go looking for problems that aren't there:
 
   > ⚠️ If you are migrating from the two separate agents, **stop the old ones first**. Two
   > agents polling one queue both claim jobs, and each job then prints once, from whichever
-  > asked first — prints that "sometimes don't arrive" while both logs look healthy.
+  > asked first – prints that "sometimes don't arrive" while both logs look healthy.
 
 ---
 
 ## 5. The environment-variable mapping
 
 The two projects grew separately and name some identical concepts differently. These are **not**
-collisions — nothing breaks — but if you keep both `.env` files open you will reach for the
+collisions – nothing breaks – but if you keep both `.env` files open you will reach for the
 wrong name. Only `PUBLIC_URL` (§2) was actually dangerous, and that one is fixed; the rest is a
-translation table.
+translation table – with one row that is *not* a translation, because the two variables stopped
+meaning the same thing (the cookie row below, and §1).
 
 | Concept | KP Front | KP Rück |
 | --- | --- | --- |
 | Signing secret | `SECRET_KEY` | `AUTH_SECRET_KEY` signs logins, `SECRET_KEY` is the app secret |
-| Secure-cookie override | `COOKIE_SECURE` | `AUTH_COOKIE_SECURE` |
+| Plain-HTTP login cookie | `COOKIE_SECURE=false` – the switch, and you have to set it | `AUTH_COOKIE_SECURE` – an override only; derived from `CORS_ORIGINS`, leave blank (§1) |
 | Host HTTP port | `APP_PORT` (the app publishes it) | `HTTP_PORT` (Caddy publishes it) |
 | Host HTTPS port | fixed `443`, only with `--profile tls` | `HTTPS_PORT` |
-| Allowed CORS origin | *not configurable — same origin* | `CORS_ORIGINS` |
+| Allowed CORS origin | *not configurable – same origin* | `CORS_ORIGINS` |
 | Base for outbound webhook links | `PUBLIC_URL` | *not applicable* |
 | Print-agent shared secret | `PRINT_AGENT_SECRET` | `PRINT_AGENT_TOKEN` |
 | First login | `SEED_DATABASE` seeds a PIN user | `ADMIN_SEED_PASSWORD` + `VIEWER_PASSWORD` |
@@ -190,12 +225,12 @@ translation table.
 `POSTGRES_DB` (per stack, but the same names), `DOMAIN`, `DIVERA_ACCESS_KEY`, `TRACCAR_URL`,
 `TRACCAR_EMAIL`, `TRACCAR_PASSWORD`, `KP_TELEMETRY_ENABLED`, `KP_TELEMETRY_DSN`.
 
-One Divera access key in both is fine and expected — they poll the same account. It does **not**
+One Divera access key in both is fine and expected – they poll the same account. It does **not**
 make the two systems share anything: each keeps its own roster copy, and there is no bridge
 between them (they already agree on person identity because both derive it from the same Divera
 `pull/all` keys).
 
-`ALARM_WEBHOOK_SECRET` has the same name in both and must hold **different** values — see §3.
+`ALARM_WEBHOOK_SECRET` has the same name in both and must hold **different** values – see §3.
 
 ---
 
@@ -206,7 +241,10 @@ Before you start the second stack:
 - [ ] One reverse proxy owns `80`/`443`; neither stack does.
 - [ ] KP Front runs **without** `--profile tls`; `APP_PORT` is free.
 - [ ] KP Rück's `HTTP_PORT` **and** `HTTPS_PORT` are both free – `HTTPS_PORT` is not `443`.
-- [ ] `CORS_ORIGINS` (KP Rück) and `PUBLIC_URL` (KP Front) each point at their **own** stack.
+- [ ] `CORS_ORIGINS` (KP Rück) and `PUBLIC_URL` (KP Front) each point at their **own** stack –
+      and `CORS_ORIGINS` holds the URL *browsers* use, not the address an outer proxy forwards to.
+- [ ] `AUTH_COOKIE_SECURE` is **blank** in the KP Rück `.env`; if KP Front is on plain HTTP, its
+      `COOKIE_SECURE=false` is set.
 - [ ] `ALARM_WEBHOOK_SECRET` is a **different** value in each `.env`.
 - [ ] The dispatch system has a separate webhook per stack, each with its own payload shape.
 - [ ] `docker compose up -d` on the second stack, then confirm the **first** one is still

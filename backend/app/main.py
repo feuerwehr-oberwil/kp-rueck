@@ -84,7 +84,7 @@ from .services.settings import initialize_default_settings
 from .websocket_manager import set_divera_poll_callback, ws_manager
 from .websocket_manager import sio as socket_server
 
-# Read the deployment role once, here, at import — the same place and the same moment a missing
+# Read the deployment role once, here, at import – the same place and the same moment a missing
 # or weak SECRET_KEY aborts (`config.py`). A DEPLOYMENT_ROLE the build cannot read raises here
 # and the process never starts, so no request can ever be served by an instance whose idea of
 # what it may do to the outside world is a guess. Unset is fine and silent: that is production.
@@ -125,7 +125,7 @@ async def _setup_divera_polling():
                 )
 
                 # Auto-attach to the newest active event with the flag on, then
-                # broadcast (pool toast + board update) — same as the webhook path.
+                # broadcast (pool toast + board update) – same as the webhook path.
                 incident = await try_auto_attach(db, emergency)
                 await broadcast_emergency_received(
                     schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
@@ -158,7 +158,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting application...")
 
     # Say out loud what this instance is allowed to do to the outside world. An unreadable role
-    # never gets this far — it is refused at import, below.
+    # never gets this far – it is refused at import, below.
     blocked = blocked_domains()
     if blocked:
         logger.warning("Deployment role %r blocks: %s", deployment_role(), ", ".join(blocked))
@@ -167,7 +167,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Schema is managed by Alembic ONLY (start.sh / start-dev.sh run
     # `alembic upgrade head` before boot). A create_all here would silently
-    # materialize tables for models that lack a migration — the later real
+    # materialize tables for models that lack a migration – the later real
     # migration then fails with DuplicateTable and the boot crash-loops.
 
     # Initialize default settings
@@ -181,8 +181,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         break  # Only need one session (outside `finally`: there it would swallow errors)
 
     # Development auth bypass fabricates its "dev-user" in memory, with a fixed
-    # id and no row behind it. Anything that records WHO did something —
-    # assignments (`assigned_by`), dismissals (`dismissed_by`), the audit log —
+    # id and no row behind it. Anything that records WHO did something –
+    # assignments (`assigned_by`), dismissals (`dismissed_by`), the audit log –
     # foreign-keys to users.id, so without a matching row every such write dies
     # with a ForeignKeyViolation and a 500 that says nothing useful. The normal
     # seed happens to create a `dev-user`; the demo seed does not, so a locally
@@ -212,7 +212,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"Sync scheduler failed to start: {e}")
 
     # Start the telemetry flush loop. Always registered, and a genuine no-op unless an
-    # admin has opted in — see app/telemetry/. Registering it unconditionally means turning
+    # admin has opted in – see app/telemetry/. Registering it unconditionally means turning
     # consent on does not require a restart.
     logger.info("Starting telemetry flush scheduler...")
     try:
@@ -221,7 +221,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"Telemetry scheduler failed to start: {e}")
 
     # Dead-man's switch. A no-op unless HEALTHCHECK_PING_URL is set, and its failure must
-    # never keep the app from starting — a station whose board refuses to boot because a
+    # never keep the app from starting – a station whose board refuses to boot because a
     # monitoring endpoint is unreachable is a worse outcome than an unmonitored board.
     try:
         start_heartbeat_scheduler()
@@ -283,7 +283,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.warning(f"Training auto-generation task failed to start: {e}")
 
     # Start fallback auto-print monitor (idle unless fallback.auto_print_enabled;
-    # pointless in demo mode — there is no printer)
+    # pointless in demo mode – there is no printer)
     if not settings.demo_mode:
         logger.info("Starting fallback auto-print task...")
         try:
@@ -295,9 +295,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     if settings.is_production and not settings.print_agent_token:
         logger.warning(
-            "PRINT_AGENT_TOKEN is not set in production - print agent endpoints "
-            "(/api/print/config/, jobs/pending/, claim/, complete/) are unauthenticated"
+            "PRINT_AGENT_TOKEN is not set - printing is disabled: the four /api/print/* "
+            "endpoints (config/, jobs/pending/, claim/, complete/) answer 403. Set it in .env "
+            "if this station uses the thermal printer."
         )
+
+    # Read the cookie decision once, here, so it lands in the BOOT log. It is a property
+    # evaluated lazily, and its only other readers are the four places a cookie is actually
+    # set – so the "serving cookies without Secure" warning used to appear on the first login
+    # and on every login after it, never at startup. The docs point the operator at the boot
+    # log to confirm the inference ran, and this is what makes that true. Logging the secure
+    # case too, because "which did it pick?" is the actual question being asked.
+    logger.info(
+        "Login cookies: Secure=%s (from %s)",
+        auth_settings.cookie_secure,
+        "AUTH_COOKIE_SECURE" if auth_settings.COOKIE_SECURE is not None else "CORS_ORIGINS",
+    )
 
     logger.info("Application startup complete")
     yield
@@ -421,7 +434,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     """Log unhandled exceptions with traceback + request ID, return a generic 500.
 
     Note: this response is produced by ServerErrorMiddleware, outside the CORS
-    middleware, so it lacks CORS headers — browsers surface it as a network
+    middleware, so it lacks CORS headers – browsers surface it as a network
     error. That's acceptable; the frontend already shows a connection toast.
     """
     request_id = get_request_id() or request.scope.get("state", {}).get("request_id")
@@ -486,7 +499,7 @@ app.add_middleware(
     allow_headers=["*"],
     # Response headers the BROWSER is allowed to hand to JavaScript. Without this a
     # cross-origin `headers.get('X-Total-Count')` returns null even though the server sent it
-    # — CORS hides every non-safelisted response header by default. The reference deployment
+    # – CORS hides every non-safelisted response header by default. The reference deployment
     # is same-origin (Caddy fronts both), so this only bites a split-origin setup, which is
     # exactly what a developer runs locally: the board silently stopped being able to tell a
     # truncated incident list from a complete one, with no error anywhere.

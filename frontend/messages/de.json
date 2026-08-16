@@ -1393,6 +1393,18 @@
               "column": "Zeit in diesem Status",
               "total": "Zeit seit Alarmierung"
             }
+          },
+          "firestation_name": {
+            "label": "Name der Feuerwehr",
+            "description": "Beschriftung des Magazin-Markers auf der Karte. Frisch installierte Stationen tragen hier den Platzhalter «Feuerwehr Musterstadt» – bitte ersetzen."
+          },
+          "firestation_latitude": {
+            "label": "Magazin – Breitengrad",
+            "description": "Dezimalgrad, z. B. 47.516377. Bestimmt den Kartenmittelpunkt und gewichtet die Adresssuche – der voreingestellte Platzhalter reiht ortsfremde Treffer zuoberst ein."
+          },
+          "firestation_longitude": {
+            "label": "Magazin – Längengrad",
+            "description": "Dezimalgrad, z. B. 7.561800. Bestimmt den Kartenmittelpunkt und gewichtet die Adresssuche – der voreingestellte Platzhalter reiht ortsfremde Treffer zuoberst ein."
           }
         },
         "logo": {
@@ -1405,6 +1417,10 @@
           "removed": "Logo entfernt",
           "uploadFailed": "Logo konnte nicht gespeichert werden",
           "tooLarge": "Datei zu gross – maximal 5 MB"
+        },
+        "validation": {
+          "notANumber": "Keine gültige Zahl.",
+          "outOfRange": "Muss zwischen {min} und {max} liegen."
         }
       },
       "alerting": {
@@ -1428,7 +1444,27 @@
         "alarmFilterHint": "Gross-/Kleinschreibung egal, führende Leerzeichen werden ignoriert. Zuerst werden ganze Zeilen entfernt, danach die Bezeichnungen. Gilt nur für neu eingehende Alarme.",
         "feldChipsTitle": "Meldungs-Chips für /feld",
         "feldChipsDescription": "Ein-Tipp-Meldungen, die ein Trupp im Feld an den KP schicken kann. Eine Meldung pro Zeile. Bewusst keine Übersetzung: jede Feuerwehr formuliert das selbst.",
-        "feldChipsLabel": "Meldungen (eine pro Zeile)"
+        "feldChipsLabel": "Meldungen (eine pro Zeile)",
+        "webhookSecret": {
+          "title": "Webhook-Schlüssel für Alarme",
+          "description": "Der gemeinsame Schlüssel, mit dem die Alarmzentrale ihre Meldungen an POST /api/alarms signiert. In das entsprechende Feld beim Anbieter einsetzen.",
+          "reveal": "Schlüssel anzeigen",
+          "revealFailed": "Schlüssel konnte nicht geladen werden.",
+          "revealUnreachable": "Keine Antwort vom Server – Schlüssel konnte nicht geladen werden. Backend erreichbar?",
+          "hide": "Verbergen",
+          "copy": "Kopieren",
+          "copied": "Kopiert",
+          "copyFailed": "Kopieren fehlgeschlagen.",
+          "rotate": "Neu erzeugen",
+          "rotated": "Neuer Schlüssel erzeugt – beim Anbieter hinterlegen.",
+          "rotateFailed": "Schlüssel konnte nicht neu erzeugt werden.",
+          "rotateConfirmTitle": "Schlüssel neu erzeugen?",
+          "rotateConfirmDescription": "Der bisherige Schlüssel wird sofort ungültig. Alarme der Zentrale werden abgewiesen, bis der neue Schlüssel dort hinterlegt ist.",
+          "rotateDisabledHint": "ALARM_WEBHOOK_SECRET ist in der .env gesetzt und hat Vorrang – eine Rotation hier hätte keine Wirkung. Wert in der .env anpassen und das Backend neu starten.",
+          "sourceEnv": "Quelle: .env",
+          "sourceDatabase": "Quelle: Datenbank",
+          "notConfigured": "Noch kein Schlüssel gesetzt – Alarme über POST /api/alarms werden ohne Signaturprüfung angenommen."
+        }
       },
       "demo": {
         "sync": "Synchronisation ist im Demo-Modus nicht verfügbar.",
@@ -1442,8 +1478,6 @@
         "exportTitle": "Export",
         "exportDescription": "Alle Ressourcen als Excel herunterladen",
         "exportButton": "Exportieren",
-        "importTitle": "Import",
-        "importDescription": "Ressourcen aus Excel-Datei importieren",
         "step1Title": "Vorlage herunterladen",
         "step1Description": "Excel-Vorlage mit korrektem Format",
         "templateButton": "Vorlage",
@@ -1461,7 +1495,58 @@
         "replaceConfirmTitle": "Datenimport ersetzen?",
         "replaceConfirmDescription": "Diese Aktion löscht alle bestehenden Personal-, Fahrzeug- und Materialdaten und ersetzt sie durch den Inhalt der Excel-Datei.",
         "replaceConfirmCounts": "Importiert werden <strong>{personnel}</strong> Personal, <strong>{vehicles}</strong> Fahrzeuge, <strong>{materials}</strong> Material.",
-        "replaceConfirmAction": "Daten ersetzen"
+        "replaceConfirmAction": "Daten ersetzen",
+        "importTitleReplace": "Import – Modus «Ersetzen»",
+        "importTitleAppend": "Import – Modus «Anhängen»",
+        "importDescriptionReplace": "Löscht den gesamten Bestand und legt danach den Inhalt der Datei an.",
+        "importDescriptionAppend": "Legt den Inhalt der Datei zusätzlich an. Bestehendes bleibt unangetastet.",
+        "badgeDataLoss": "Datenverlust",
+        "badgeNoDeletion": "Nichts wird gelöscht",
+        "modeStepHint": "Der Modus entscheidet, was der Import kostet – nicht die Datei.",
+        "modeChosen": "Gewählt",
+        "importReplaceAction": "Bestand löschen und ersetzen",
+        "switchToAppend": "Stattdessen anhängen",
+        "replaceBlockedTooltip": "{count} aktive Zuteilungen auf laufenden Einsätzen – «Ersetzen» wird abgelehnt.",
+        "sheetEmpty": "{resource}: keine Zeilen in der Datei.",
+        "sheetEmptyAmbiguous": "{resource}: keine Zeilen in der Datei. Ist das Blatt mit Kopfzeile vorhanden, wird die Tabelle geleert – fehlt das Blatt ganz, lehnt der Import ab.",
+        "replaceConfirmDeletions": "Gelöscht werden <strong>{personnel}</strong> Personal, <strong>{vehicles}</strong> Fahrzeuge, <strong>{materials}</strong> Material – und <strong>{assignments}</strong> Zuteilungen zeigen danach ins Leere.",
+        "balance": {
+          "title": "Bilanz",
+          "modeBadgeReplace": "Modus: Ersetzen",
+          "modeBadgeAppend": "Modus: Anhängen",
+          "columnResource": "Ressource",
+          "columnBefore": "Bestand heute",
+          "columnFromFile": "Aus Datei",
+          "columnDeleted": "Wird gelöscht",
+          "columnDeletedNote": "unwiderruflich",
+          "columnAfter": "Bestand nachher",
+          "columnAfterEstimate": "Richtwert",
+          "unknownValue": "unbekannt",
+          "sourcePreviewNote": "«Bestand heute» und «Wird gelöscht» stammen aus derselben Serverantwort. Ersetzen leert die Tabellen, danach steht genau das drin, was die Datei liefert.",
+          "sourceStockNote": "«Bestand heute» wurde separat abgefragt – «Bestand nachher» ist deshalb ein Richtwert. Gesichert ist, was die Datei liefert, und dass nichts gelöscht wird.",
+          "sourceUnknownNote": "«Bestand heute» konnte nicht gezählt werden, «Bestand nachher» bleibt darum offen. Gesichert ist, was die Datei liefert, und dass nichts gelöscht wird.",
+          "stockOutdatedNote": "Die Bestandszahlen bei der Moduswahl oben sind veraltet – die Tabelle zeigt die Zahlen vom Server.",
+          "afterEmpty": "leer",
+          "totalRow": "Total Datensätze",
+          "nothingDeletedTitle": "Es wird nichts gelöscht.",
+          "nothingDeletedHint": "Keine Zuteilung verliert ihre Ressource, kein laufender Einsatz ist betroffen.",
+          "consequencesTitle": "Folgen auf dem Einsatzboard",
+          "consequencesBlockedTitle": "Blockiert: aktive Zuteilungen auf laufenden Einsätzen und Aufträgen",
+          "repairableBadge": "Später aufräumbar",
+          "orphanedLabel": "Zuteilungen zeigen danach ins Leere",
+          "orphanedActiveLabel": "davon aktiv auf laufenden Einsätzen",
+          "groupOrphanedLabel": "Auftrags-Zuteilungen zeigen danach ins Leere",
+          "groupOrphanedActiveLabel": "davon aktiv auf laufenden Aufträgen",
+          "consequencesHint": "Zuteilungen verweisen ohne Fremdschlüssel auf ihre Ressource: gelöschtes Personal, Fahrzeuge und Material lassen die Zuteilung stehen – auf einem Einsatz, der weiterläuft.",
+          "consequencesBlockedHint": "Zuteilungen freigeben, Einsätze und Aufträge abschliessen – oder mit «Anhängen» importieren. Abgeschlossene Einsätze blockieren nicht.",
+          "cascadeTitle": "Wird ersatzlos mitgelöscht",
+          "cascadeBadge": "Nur mit Datensicherung",
+          "cascadeAttendanceLabel": "Anwesenheiten (Check-Ins)",
+          "cascadeFunctionsLabel": "Zugeteilte Spezialfunktionen",
+          "cascadeIdentitiesLabel": "Verknüpfungen zum Alarmierungskonto",
+          "cascadeHint": "Diese Zeilen hängen direkt an Personal und Fahrzeugen und verschwinden mit ihnen – auf dem Board bleibt nichts zum Aufräumen. Zurück holt sie nur eine Datensicherung, Alarmierungskonten müssen danach neu verknüpft werden."
+        },
+        "modeCostHeading": "Wird gelöscht"
       },
       "audit": {
         "exportTitle": "Einsatz-Protokoll exportieren (Excel)",

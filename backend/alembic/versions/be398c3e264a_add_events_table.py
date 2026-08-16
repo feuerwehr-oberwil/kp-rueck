@@ -49,20 +49,36 @@ def upgrade() -> None:
     op.create_index("ix_events_archived_at", "events", ["archived_at"])
     op.create_index("ix_events_last_activity_at", "events", ["last_activity_at"])
 
-    # Step 3: Create default event for existing incidents
+    # Step 3: Create a default event to hold the incidents that existed before events did.
+    #
+    # Only when there ARE any. This used to run unconditionally, so a brand-new station -
+    # where every migration runs in sequence against an empty database - came up with an
+    # event called "Migrated Incidents": English, on an otherwise German board, holding
+    # nothing, created in the first minute, and named in no document. SETUP.md §3 works hard
+    # to tell a new operator that their board starts empty and that anything they find is
+    # configuration rather than somebody else's data; this row undercut that on sight.
+    #
+    # Safe to change after the fact: a deployment that has already run this revision does not
+    # run it again, so this only affects databases created from here on. Existing stations
+    # keep their event and the incidents attached to it.
     default_event_id = str(uuid.uuid4())
-    op.execute(f"""
-        INSERT INTO events (id, name, training_flag, created_at, updated_at, last_activity_at)
-        VALUES ('{default_event_id}', 'Migrated Incidents', false, NOW(), NOW(), NOW())
-    """)
+    conn = op.get_bind()
+    existing_incidents = conn.execute(sa.text("SELECT count(*) FROM incidents")).scalar() or 0
+
+    if existing_incidents:
+        op.execute(f"""
+            INSERT INTO events (id, name, training_flag, created_at, updated_at, last_activity_at)
+            VALUES ('{default_event_id}', 'Migrated Incidents', false, NOW(), NOW(), NOW())
+        """)
 
     # Step 4: Add event_id column to incidents (nullable initially)
     op.add_column("incidents", sa.Column("event_id", postgresql.UUID(as_uuid=True), nullable=True))
 
     # Step 5: Migrate all existing incidents to the default event
-    op.execute(f"""
-        UPDATE incidents SET event_id = '{default_event_id}' WHERE event_id IS NULL
-    """)
+    if existing_incidents:
+        op.execute(f"""
+            UPDATE incidents SET event_id = '{default_event_id}' WHERE event_id IS NULL
+        """)
 
     # Step 6: Make event_id non-nullable now that all rows have values
     op.alter_column("incidents", "event_id", nullable=False)
