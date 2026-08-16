@@ -6,13 +6,13 @@
  *
  * Reached only by editors and admins: `ProtectedRoute` sends every `viewer` to
  * `/display/board` before this renders, so the `isEditor` checks below are constant-true
- * today — see `components/protected-route.tsx` for why they are kept.
+ * today – see `components/protected-route.tsx` for why they are kept.
  *
  * `activeSection` is read unfiltered from the URL, so `?section=users` and
  * `?section=audit` are reachable by anyone who gets this far. That is safe because the
  * data is not: `GET /api/users` requires `CurrentAdmin` and `GET /api/audit` requires
  * `CurrentEditor`, so those panels render empty rather than leaking. If you add a
- * section here, gate its endpoint on the backend — not just its sidebar entry.
+ * section here, gate its endpoint on the backend – not just its sidebar entry.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -82,6 +82,12 @@ import {
   Megaphone,
   Navigation,
   LifeBuoy,
+  ClipboardCheck,
+  Route,
+  Trash2,
+  Plus,
+  Lock,
+  ArrowRight,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslations } from 'next-intl';
@@ -90,6 +96,22 @@ import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
+import { AlarmWebhookSecretCard } from '@/components/settings/alarm-webhook-secret-card';
+import { ImportBalanceCard } from '@/components/settings/import-balance-card';
+import {
+  IMPORT_RESOURCES,
+  buildImportBalance,
+  emptySheetNotices,
+  type ImportStock,
+} from '@/components/settings/import-balance';
+import {
+  LATITUDE_RANGE,
+  LONGITUDE_RANGE,
+  normalizeDecimal,
+  validateRangedSetting,
+  type SettingRange,
+  type SettingValidationError,
+} from '@/components/settings/setting-validation';
 import { DiveraAlarmSettingsCard } from '@/components/divera/divera-alarm-settings-card';
 import { GpsSettingsCard } from '@/components/settings/gps-settings';
 import { AlarmDescriptionFilterSettings } from '@/components/settings/alarm-description-filter-settings';
@@ -101,6 +123,8 @@ import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { PrinterSettings } from '@/components/settings/printer-settings';
 import { FallbackSettings } from '@/components/settings/fallback-settings';
+import { ChecklistSettings } from '@/components/settings/checklist-settings';
+import { AuftragTemplateSettings } from '@/components/settings/auftrag-template-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
 import { BrandingSettings } from '@/components/settings/branding-settings';
@@ -115,8 +139,10 @@ const SECTIONS = [
   { id: 'general', icon: Settings2, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'notifications', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'alerting', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'checklist', icon: ClipboardCheck, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'auftragTemplates', icon: Route, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'gps', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
-  // Sync can rewrite whole tables and points at a database URL — admin-only (matches /api/sync/*).
+  // Sync can rewrite whole tables and points at a database URL – admin-only (matches /api/sync/*).
   { id: 'sync', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
   { id: 'printer', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'fallback', icon: LifeBuoy, group: 'config', editorOnly: true, adminOnly: false },
@@ -144,6 +170,8 @@ interface SettingConfig {
   type: 'number' | 'boolean' | 'text' | 'select';
   unit?: string;
   options?: string[];
+  /** Inclusive bounds for a `number`. Rejected client-side – the PATCH stores any string. */
+  range?: SettingRange;
 }
 
 // Labels/descriptions/option labels come from settings.page.general.configs.*
@@ -155,6 +183,27 @@ const SETTING_CONFIGS: SettingConfig[] = [
   {
     key: 'funkrufname',
     type: 'text',
+  },
+  // Station identity. All three have been PATCHable through the generic settings
+  // endpoint since 0.4.0 (they are in the backend's DEFAULT_SETTINGS allowlist) –
+  // what was missing is only this, the surface docs/SETUP.md already told operators
+  // to use. `seed.py` writes "Feuerwehr Musterstadt" at 47.5596 / 7.5886 on every
+  // fresh install, production included, so the failure mode is not a blank field:
+  // it is a placeholder nobody is prompted to replace, quietly centring the map and
+  // biasing every address search on a town the brigade has never been to.
+  {
+    key: 'firestation_name',
+    type: 'text',
+  },
+  {
+    key: 'firestation_latitude',
+    type: 'number',
+    range: LATITUDE_RANGE,
+  },
+  {
+    key: 'firestation_longitude',
+    type: 'number',
+    range: LONGITUDE_RANGE,
   },
   {
     key: 'map_mode',
@@ -201,6 +250,10 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  // Per-key validation failures for the ranged settings (the station coordinates).
+  // A rejected value stays in the input so the operator can fix the typo instead of
+  // retyping the whole coordinate – it is simply not PATCHed.
+  const [settingErrors, setSettingErrors] = useState<Record<string, SettingValidationError>>({});
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
 
   // Sync status
@@ -212,7 +265,16 @@ export default function SettingsPage() {
   const previewRef = useRef<HTMLDivElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ApiExcelImportPreview | null>(null);
-  const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
+  // `append` is the default on purpose. On a first-run board – the only board where
+  // nobody has yet learned what these two words cost – the two modes do exactly the
+  // same thing, because there is nothing to replace. On a board that has been in use
+  // for a year they differ by the whole roster. So the safe default is free where it
+  // is indistinguishable and priceless where it is not.
+  const [importMode, setImportMode] = useState<'replace' | 'append'>('append');
+  // What the three tables hold right now. `deletions` only reports the stock in
+  // `replace` mode, and the mode buttons have to state their price before a file is
+  // even chosen – so the counts are fetched rather than inferred from the preview.
+  const [stock, setStock] = useState<ImportStock | null>(null);
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -311,6 +373,28 @@ export default function SettingsPage() {
     }
   };
 
+  // Current stock, loaded when the import section opens and refreshed after an
+  // import so the balance never quotes a "Bestand heute" the import just changed.
+  const fetchStock = async () => {
+    try {
+      const [personnel, vehicles, materials] = await Promise.all([
+        apiClient.getAllPersonnel(),
+        apiClient.getVehicles(),
+        apiClient.getAllMaterials(),
+      ]);
+      setStock({ personnel: personnel.length, vehicles: vehicles.length, materials: materials.length });
+    } catch (err) {
+      console.error('Failed to count existing resources:', err);
+      setStock(null);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === 'import' && isEditor) {
+      fetchStock();
+    }
+  }, [activeSection, isEditor]);
+
   // Import/Export handlers
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -322,12 +406,34 @@ export default function SettingsPage() {
     }
   };
 
+  // Changing the mode invalidates the preview. The preview now reports how many existing rows
+  // the import would DELETE, and that number is mode-specific – `Anhängen` deletes nothing.
+  // Leaving a stale preview on screen would show the operator the deletion figures for a mode
+  // they just navigated away from, which is the exact number this whole surface exists to get
+  // right. The preview button is disabled while a preview is loaded, so clearing it is also
+  // what re-enables it.
+  const selectImportMode = (mode: 'replace' | 'append') => {
+    setImportMode(mode);
+    setPreview(null);
+  };
+
   const handlePreview = async () => {
     if (!selectedFile) return;
     setImportLoading(true);
     setImportError(null);
     try {
-      const result = await apiClient.previewExcelImport(selectedFile);
+      // Pass the selected mode: the preview now reports how many rows the import would
+      // DELETE, and that number is only meaningful for the mode about to be executed.
+      //
+      // The stock is re-counted alongside it. In `append` the balance has nothing else
+      // to build «Bestand nachher» from, and a count from when the section was opened
+      // is a count from before lunch. Fetching both together does not make them one
+      // answer – the balance still marks the `append` total as an estimate – but it
+      // shrinks the window in which they can disagree to the length of one request.
+      const [result] = await Promise.all([
+        apiClient.previewExcelImport(selectedFile, importMode),
+        fetchStock(),
+      ]);
       setPreview(result);
       setTimeout(() => {
         previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -355,6 +461,7 @@ export default function SettingsPage() {
       setSelectedFile(null);
       setPreview(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      fetchStock();
     } catch (err) {
       setImportError(err instanceof Error ? err.message : t('page.errors.importFailed'));
     } finally {
@@ -514,19 +621,54 @@ export default function SettingsPage() {
       );
     }
 
+    const validationError = settingErrors[config.key];
+
     return (
-      <Input
-        id={config.key}
-        type={config.type === 'number' ? 'number' : 'text'}
-        value={value}
-        onChange={(e) => setSettings((prev) => ({ ...prev, [config.key]: e.target.value }))}
-        onBlur={(e) => {
-          if (e.target.value !== serverSettings[config.key]) {
-            updateSetting(config.key, e.target.value);
-          }
-        }}
-        disabled={!isEditor || isCurrentlySaving}
-      />
+      <div className="space-y-1">
+        <Input
+          id={config.key}
+          // `text`, not `number`, even for the ranged ones: a number input silently
+          // discards a pasted "47,5164" instead of letting the comma be normalised,
+          // and its spinner is useless at six decimal places.
+          type="text"
+          inputMode={config.range ? 'decimal' : undefined}
+          value={value}
+          aria-invalid={validationError ? true : undefined}
+          aria-describedby={validationError ? `${config.key}-error` : undefined}
+          onChange={(e) => {
+            setSettings((prev) => ({ ...prev, [config.key]: e.target.value }));
+            setSettingErrors((prev) => {
+              if (!(config.key in prev)) return prev;
+              const { [config.key]: _removed, ...rest } = prev;
+              return rest;
+            });
+          }}
+          onBlur={(e) => {
+            const raw = e.target.value;
+            if (config.range) {
+              const problem = validateRangedSetting(raw, config.range);
+              if (problem) {
+                setSettingErrors((prev) => ({ ...prev, [config.key]: problem }));
+                return;
+              }
+            }
+            const next = config.range ? normalizeDecimal(raw) : raw;
+            if (next !== raw) setSettings((prev) => ({ ...prev, [config.key]: next }));
+            if (next !== serverSettings[config.key]) {
+              updateSetting(config.key, next);
+            }
+          }}
+          disabled={!isEditor || isCurrentlySaving}
+        />
+        {validationError && config.range && (
+          <p id={`${config.key}-error`} className="text-xs text-destructive">
+            {t(`page.general.validation.${validationError}`, {
+              min: config.range.min,
+              max: config.range.max,
+            })}
+          </p>
+        )}
+      </div>
     );
   };
 
@@ -581,7 +723,7 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              {/* Language — per-device (NEXT_LOCALE cookie), like the theme above. The row
+              {/* Language – per-device (NEXT_LOCALE cookie), like the theme above. The row
                   only renders once a second locale has real translations; while fr/it are
                   empty stubs, German-only stations never see it. */}
               {mounted && AVAILABLE_LOCALES.length > 1 && (
@@ -635,11 +777,11 @@ export default function SettingsPage() {
                           <Label htmlFor={config.key} className="text-sm font-semibold text-muted-foreground">{t(`page.general.configs.${config.key}.label`)}</Label>
                           <p className="text-xs text-muted-foreground">{t(`page.general.configs.${config.key}.description`)}</p>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <div className={config.type === 'text' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
+                        <div className="flex items-start gap-2 flex-shrink-0">
+                          <div className={config.type === 'text' || config.type === 'number' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
                             {renderSettingInput(config)}
                           </div>
-                          {saving === config.key && <Save className="h-4 w-4 text-primary animate-pulse" />}
+                          {saving === config.key && <Save className="mt-2.5 h-4 w-4 text-primary animate-pulse" />}
                         </div>
                       </div>
                     ))}
@@ -786,7 +928,7 @@ export default function SettingsPage() {
               saving={saving}
             />
             {/* Inbound side of Alarmierung: what the dispatch system puts into every alarm
-                text — standing lines dropped whole, labels stripped off kept lines. Both
+                text – standing lines dropped whole, labels stripped off kept lines. Both
                 lists ship empty, so an install that configures nothing filters nothing. */}
             <AlarmDescriptionFilterSettings
               settings={settings}
@@ -796,8 +938,13 @@ export default function SettingsPage() {
               isEditor={isEditor}
               saving={saving}
             />
+            {/* The credential the dispatch provider signs POST /api/alarms with –
+                admin-only, and next to the inbound filter above because that is the
+                same half of the Alarmierung. Reading it is a rate-limited, audited
+                call, so the card fetches nothing until asked. */}
+            {isAdmin && <AlarmWebhookSecretCard />}
             {/* /feld Meldungs-Chips (plan 25, decision 20). Station config, NOT
-                i18n: a brigade rewords them without a translation round — the
+                i18n: a brigade rewords them without a translation round – the
                 same reasoning that puts the message templates above on this
                 page instead of in de.json. One chip per line. */}
             {(() => {
@@ -842,6 +989,26 @@ export default function SettingsPage() {
                 </Card>
               );
             })()}
+            </DemoLock>
+          </div>
+        );
+      }
+
+      case 'checklist': {
+        return (
+          <div className="space-y-6">
+            <DemoLock active={demoMode}>
+              <ChecklistSettings readOnly={!isEditor || demoMode} />
+            </DemoLock>
+          </div>
+        );
+      }
+
+      case 'auftragTemplates': {
+        return (
+          <div className="space-y-6">
+            <DemoLock active={demoMode}>
+              <AuftragTemplateSettings readOnly={!isEditor || demoMode} />
             </DemoLock>
           </div>
         );
@@ -924,7 +1091,25 @@ export default function SettingsPage() {
         // Lock is applied inside so the "Sortierung" tab stays viewable in demo.
         return <MaterialSettings demoMode={demoMode} />;
 
-      case 'import':
+      case 'import': {
+        // The preview is the balance: it carries the deletion figures, which are the
+        // half that must never be missing. The stock counts are handed in as the
+        // second-best source they are – the balance uses them only where the preview
+        // says nothing (`append`) and labels the result. A failed stock fetch
+        // therefore costs the «nachher» column, not the whole card.
+        // `selectImportMode` drops the preview whenever the mode changes, so
+        // `preview.mode` and `importMode` cannot drift.
+        const balance = preview ? buildImportBalance(preview, stock) : null;
+        const isReplace = importMode === 'replace';
+        // Above zero the backend answers 409. Saying so here, with the number,
+        // beats letting the operator find out from a rejected POST. Read off the
+        // preview rather than the balance on purpose: the gate has to hold even
+        // when the stock counts failed to load and there is no balance to show.
+        const activeOrphans = preview?.deletions.active_incident_assignments ?? 0;
+        const replaceBlocked = preview?.mode === 'replace' && activeOrphans > 0;
+        const emptySheets = preview ? emptySheetNotices(preview) : [];
+        const switchToAppend = () => selectImportMode('append');
+
         return (
           <div className="space-y-6">
             {/* Notifications */}
@@ -970,18 +1155,112 @@ export default function SettingsPage() {
               </div>
             </Card>
 
-            {/* Import - Stepped workflow */}
+            {/* Import – mode first, then the file.
+                The mode, not the file, decides what the import costs: the same
+                workbook either adds two recruits or deletes the whole station and
+                then adds two recruits. Choosing it last, tucked below the upload,
+                made the expensive half of that sentence the easy thing to skip. */}
             <DemoLock active={demoMode}>
-            <Card className="p-5">
+            <Card className={`p-5 ${isReplace ? 'border-destructive/40' : ''}`}>
               <div className="space-y-5">
-                <div>
-                  <p className="font-medium">{t('page.import.importTitle')}</p>
-                  <p className="text-sm text-muted-foreground">{t('page.import.importDescription')}</p>
+                <div className="flex items-start gap-3">
+                  {isReplace
+                    ? <Trash2 className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true" />
+                    : <Plus className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">
+                      {isReplace ? t('page.import.importTitleReplace') : t('page.import.importTitleAppend')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {isReplace ? t('page.import.importDescriptionReplace') : t('page.import.importDescriptionAppend')}
+                    </p>
+                  </div>
+                  {isReplace ? (
+                    <Badge variant="destructive">
+                      <Trash2 aria-hidden="true" />
+                      {t('page.import.badgeDataLoss')}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-success/40 text-success">
+                      <CheckCircle aria-hidden="true" />
+                      {t('page.import.badgeNoDeletion')}
+                    </Badge>
+                  )}
                 </div>
 
-                {/* Step 1: Template */}
+                {/* Step 1: Mode – with its price in the station's own numbers. */}
+                <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">1</div>
+                    <div>
+                      <p className="text-sm font-medium">{t('page.import.step3Title')}</p>
+                      <p className="text-xs text-muted-foreground">{t('page.import.modeStepHint')}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 ml-12">
+                    {([
+                      { mode: 'replace' as const, icon: Trash2 },
+                      { mode: 'append' as const, icon: Plus },
+                    ]).map(({ mode, icon: ModeIcon }) => {
+                      const selected = importMode === mode;
+                      const destructive = mode === 'replace';
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => selectImportMode(mode)}
+                          className={`rounded-lg border-2 p-3 text-left transition-all ${
+                            selected
+                              ? destructive ? 'border-destructive bg-destructive/5' : 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <ModeIcon className={`size-4 shrink-0 ${destructive ? 'text-destructive' : 'text-muted-foreground'}`} aria-hidden="true" />
+                            <span className="font-medium text-sm">
+                              {destructive ? t('page.import.modeReplace') : t('page.import.modeAppend')}
+                            </span>
+                            {selected && (
+                              <Badge variant={destructive ? 'destructive' : 'secondary'} className="ml-auto">
+                                {t('page.import.modeChosen')}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {destructive ? t('page.import.modeReplaceHint') : t('page.import.modeAppendHint')}
+                          </p>
+                          {/* The cost, before any file exists: `replace` deletes the
+                              whole stock, `append` deletes nothing. */}
+                          {stock && (
+                            <div className="mt-2 border-t pt-2">
+                              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                {t('page.import.modeCostHeading')}
+                              </p>
+                              <dl className="mt-1 space-y-0.5 text-xs tabular-nums">
+                                {IMPORT_RESOURCES.map((resource) => {
+                                  const count = destructive ? stock[resource] : 0;
+                                  return (
+                                    <div key={resource} className="flex items-baseline justify-between gap-2">
+                                      <dt className="text-muted-foreground">{t(`page.sections.${resource}`)}</dt>
+                                      <dd className={count > 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}>
+                                        {count}
+                                      </dd>
+                                    </div>
+                                  );
+                                })}
+                              </dl>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Step 2: Template */}
                 <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">1</div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">2</div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">{t('page.import.step1Title')}</p>
                     <p className="text-xs text-muted-foreground">{t('page.import.step1Description')}</p>
@@ -992,9 +1271,9 @@ export default function SettingsPage() {
                   </Button>
                 </div>
 
-                {/* Step 2: File selection */}
+                {/* Step 3: File selection */}
                 <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">2</div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">3</div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">{t('page.import.step2Title')}</p>
                     {selectedFile && (
@@ -1020,57 +1299,40 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Step 3: Mode selection (only if file selected) */}
-                {selectedFile && (
-                  <div className="p-3 bg-muted/50 rounded-lg space-y-3">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">3</div>
-                      <p className="text-sm font-medium">{t('page.import.step3Title')}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 ml-12">
-                      <button
-                        type="button"
-                        onClick={() => setImportMode('replace')}
-                        className={`rounded-lg border-2 p-3 text-left transition-all ${
-                          importMode === 'replace' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <p className="font-medium text-sm">{t('page.import.modeReplace')}</p>
-                        <p className="text-xs text-muted-foreground">{t('page.import.modeReplaceHint')}</p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setImportMode('append')}
-                        className={`rounded-lg border-2 p-3 text-left transition-all ${
-                          importMode === 'append' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <p className="font-medium text-sm">{t('page.import.modeAppend')}</p>
-                        <p className="text-xs text-muted-foreground">{t('page.import.modeAppendHint')}</p>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Step 4: Actions (only if file selected) */}
                 {selectedFile && (
-                  <div className="flex items-center gap-3 pt-2 border-t">
+                  <div className={`flex items-center gap-3 pt-3 border-t ${isReplace ? 'border-destructive/30' : ''}`}>
                     <Button onClick={handlePreview} disabled={importLoading || !!preview} variant="outline">
                       {t('page.import.showPreview')}
                     </Button>
                     {preview && (
-                      <Button
-                        onClick={() => {
-                          if (importMode === 'replace') {
-                            setReplaceConfirmOpen(true);
-                          } else {
-                            handleImport();
-                          }
-                        }}
-                        disabled={importLoading}
-                      >
-                        {t('page.import.importNow')}
-                      </Button>
+                      replaceBlocked ? (
+                        <>
+                          <Button variant="destructive" disabled title={t('page.import.replaceBlockedTooltip', { count: activeOrphans })}>
+                            <Lock className="size-4" aria-hidden="true" />
+                            {t('page.import.importReplaceAction')}
+                          </Button>
+                          <Button variant="outline" onClick={switchToAppend}>
+                            {t('page.import.switchToAppend')}
+                            <ArrowRight className="size-4" aria-hidden="true" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant={isReplace ? 'destructive' : 'default'}
+                          onClick={() => {
+                            if (isReplace) {
+                              setReplaceConfirmOpen(true);
+                            } else {
+                              handleImport();
+                            }
+                          }}
+                          disabled={importLoading}
+                        >
+                          {isReplace && <Trash2 className="size-4" aria-hidden="true" />}
+                          {isReplace ? t('page.import.importReplaceAction') : t('page.import.importNow')}
+                        </Button>
+                      )
                     )}
                     <Button onClick={resetImport} variant="ghost" size="sm" className="ml-auto">
                       <X className="size-3.5" />
@@ -1082,10 +1344,32 @@ export default function SettingsPage() {
             </Card>
             </DemoLock>
 
+            {/* The balance: what the station looks like before and after, and what
+                the import costs on the way. Renders above the parsed rows because
+                the parsed rows are the reassuring half. */}
+            {balance && <div ref={previewRef}><ImportBalanceCard balance={balance} /></div>}
+
             {/* Preview */}
             {preview && (
-              <Card ref={previewRef} className="p-5 space-y-4">
+              <Card ref={balance ? undefined : previewRef} className="p-5 space-y-4">
                 <p className="font-medium">{t('page.import.previewTitle')}</p>
+
+                {/* A sheet with a header row and nothing under it used to render as
+                    absolutely nothing – indistinguishable from a sheet the file does
+                    not contain, which is the case `replace` refuses outright. Neither
+                    is visible in the payload (it carries totals, not a `present`
+                    flag), so name the row and both of its possible outcomes. */}
+                {emptySheets.length > 0 && (
+                  <ul className="space-y-1 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                    {emptySheets.map(({ resource, ambiguous }) => (
+                      <li key={resource}>
+                        {ambiguous
+                          ? t('page.import.sheetEmptyAmbiguous', { resource: t(`page.sections.${resource}`) })
+                          : t('page.import.sheetEmpty', { resource: t(`page.sections.${resource}`) })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 {preview.personnel_total > 0 && (
                   <div>
@@ -1174,6 +1458,7 @@ export default function SettingsPage() {
             )}
           </div>
         );
+      }
 
       case 'audit':
         return (
@@ -1406,7 +1691,7 @@ export default function SettingsPage() {
           {!isMobile && <PageNavigation currentPage="settings" />}
         </header>
 
-        {/* Main content with sidebar — stack on mobile (selector above content),
+        {/* Main content with sidebar – stack on mobile (selector above content),
             side-by-side sidebar on desktop. */}
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
           {/* Sidebar - Desktop */}
@@ -1524,7 +1809,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Content area — min-h-0 so it scrolls inside the flex column on
+          {/* Content area – min-h-0 so it scrolls inside the flex column on
               mobile; extra bottom padding so content clears the bottom nav. */}
           <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">
             <div className="max-w-4xl">
@@ -1536,7 +1821,11 @@ export default function SettingsPage() {
         {/* Mobile Bottom Navigation */}
         <MobileBottomNavigation currentPage="settings" />
 
-        {/* UI #17 — confirm before replace-mode import wipes existing data. */}
+        {/* UI #17 – confirm before replace-mode import wipes existing data.
+            The dialog reports both halves of the trade: what arrives, and what
+            leaves. Quoting only the arrivals is how «2 Personal» came to be the
+            last thing an operator read before losing a roster of eighteen.
+            `extraAction` is the safer sibling – the same file, appended. */}
         <ConfirmDialog
           open={replaceConfirmOpen}
           onOpenChange={setReplaceConfirmOpen}
@@ -1546,14 +1835,25 @@ export default function SettingsPage() {
             <>
               {t('page.import.replaceConfirmDescription')}
               {preview && (
-                <span className="block mt-2">
-                  {t.rich('page.import.replaceConfirmCounts', {
-                    personnel: preview.personnel_total,
-                    vehicles: preview.vehicles_total,
-                    materials: preview.materials_total,
-                    strong: (chunks) => <strong>{chunks}</strong>,
-                  })}
-                </span>
+                <>
+                  <span className="block mt-2">
+                    {t.rich('page.import.replaceConfirmCounts', {
+                      personnel: preview.personnel_total,
+                      vehicles: preview.vehicles_total,
+                      materials: preview.materials_total,
+                      strong: (chunks) => <strong>{chunks}</strong>,
+                    })}
+                  </span>
+                  <span className="block mt-2 text-destructive">
+                    {t.rich('page.import.replaceConfirmDeletions', {
+                      personnel: preview.deletions.personnel,
+                      vehicles: preview.deletions.vehicles,
+                      materials: preview.deletions.materials,
+                      assignments: preview.deletions.incident_assignments,
+                      strong: (chunks) => <strong>{chunks}</strong>,
+                    })}
+                  </span>
+                </>
               )}
               <span className="block mt-2 text-destructive">
                 {t('common.irreversible')}
@@ -1562,6 +1862,13 @@ export default function SettingsPage() {
           }
           cancelText={t('common.cancel')}
           confirmText={t('page.import.replaceConfirmAction')}
+          extraAction={{
+            label: t('page.import.switchToAppend'),
+            onSelect: () => {
+              setReplaceConfirmOpen(false);
+              selectImportMode('append');
+            },
+          }}
           onConfirm={handleImport}
         />
       </div>

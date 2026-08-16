@@ -1,18 +1,43 @@
-"""Excel import/export service for bulk data management."""
+"""Excel import/export service for bulk data management.
+
+The downloaded template carries example rows so an operator can see the shape a
+sheet is meant to have. Every one of them is prefixed with `EXAMPLE_ROW_MARKER`
+in its `name` column and is **dropped on import** – a tester looked at a plain
+`Max Mustermann` row and could not tell whether it would be imported, and it was:
+two fictional firefighters, two fictional vehicles and three fictional pumps
+landed on a live board underneath the real roster. Marking the rows only fixes
+that for the operator who reads carefully, so the parser matches the marker too.
+Deleting the example rows and leaving them in place are both correct.
+"""
 
 import asyncio
+import logging
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
-from sqlalchemy import delete, select
+from sqlalchemy import Select, and_, delete, func, or_, select
+from sqlalchemy import null as sa_null
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
-from ..models import Material, Personnel, Vehicle
+from ..models import (
+    EventAttendance,
+    EventSpecialFunction,
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
+    Material,
+    Personnel,
+    PersonnelExternalIdentity,
+    Vehicle,
+)
 from .audit_export_service import EventReportData
 from .pdf_report_service import (
     LOCAL_TZ,
@@ -56,19 +81,119 @@ MATERIAL_COLUMNS = [
     ("description", False),
 ]
 
-# Valid enum values
-VEHICLE_TYPES = ["TLF", "DLK", "MTW", "KDO", "KdoW", "VRW", "RW", "Anhänger"]
+# Valid enum values. There is no VEHICLE_TYPES list any more: one sat here for years
+# looking like an allowed-values check while enforcing nothing, and the docs had to tell
+# operators that `type` is free text anyway. Free text is the intended behaviour – stations
+# run "Anhänger", "Pikett-Bus" and whatever else is in the hall.
 VEHICLE_STATUSES = ["available", "unavailable"]
 PERSONNEL_STATUSES = ["available", "unavailable"]
 # Material types are no longer hardcoded - validation now accepts any non-empty string
 
+# The prefix every example row in the template carries in its `name` column, and the
+# single place the parser looks for it. It is user-facing German: the operator reads it
+# in their own spreadsheet, and it has to say what to do with the row, not just that the
+# row is special.
+EXAMPLE_ROW_MARKER = "BEISPIEL – Zeile löschen"
+
+logger = logging.getLogger(__name__)
+
+
+def _example_name(name: str) -> str:
+    """The `name` cell of a template example row, marked as an example."""
+    return f"{EXAMPLE_ROW_MARKER}: {name}"
+
+
+def _is_example_row(name: object) -> bool:
+    """True for a row the template shipped as an example – the import skips it.
+
+    Deliberately forgiving: case-folded and stripped, because the row passes through
+    an operator's spreadsheet before it comes back, and a marker that only matched
+    byte-for-byte would let the example through in exactly the files where somebody
+    had been editing around it.
+
+    A sheet whose rows are ALL examples therefore parses as present with zero rows –
+    identical to a header-only sheet, which in `replace` mode clears that table on
+    purpose. It must not read as an *absent* sheet: that is refused with a 409
+    (`admin._refuse_missing_sheets`), and an operator who deleted nothing would have
+    no idea what the refusal wanted from them.
+    """
+    return str(name or "").strip().casefold().startswith(EXAMPLE_ROW_MARKER.casefold())
+
+
+def _cell(value: object) -> str:
+    """The operator's own cell value, quoted and capped, for an error message.
+
+    Echoing it back is fine – it is their file – but a cell holds up to 32k
+    characters and none of them belong in an HTTP response.
+    """
+    text = str(value)
+    return f"'{text[:60]}…'" if len(text) > 60 else f"'{text}'"
+
 
 class ExcelImportError(Exception):
-    """Excel import validation error."""
+    """A refused workbook, carrying the sheet and row the operator has to go fix.
+
+    The parser has always known which cell it tripped over; the API used to throw
+    that away and answer "Excel-Datei konnte nicht verarbeitet werden", which
+    leaves a volunteer to bisect an 18-row spreadsheet by hand. So `message` is
+    built to be returned verbatim: every `detail` below is a German literal
+    authored in this module, interpolating only the uploaded file's own cells
+    (via `_cell`) and our own column constants – never a path, a query or a
+    traceback. The one raise site whose text was NOT ours – openpyxl's own
+    exception string, wrapped as "Invalid Excel file: {e}" – logs the original
+    and raises a fixed sentence instead, because nothing promises what a
+    third-party parser puts in there.
+    """
+
+    def __init__(self, detail: str, *, sheet: str | None = None, row: int | None = None) -> None:
+        self.detail = detail
+        self.sheet = sheet
+        self.row = row
+        super().__init__(self.message)
+
+    @property
+    def message(self) -> str:
+        """The whole complaint in one line, e.g. `Vehicles Zeile 7 – ungültiger Status 'x'`.
+
+        Sheet names stay English: they name an actual tab in the operator's file.
+        """
+        if self.sheet is not None and self.row is not None:
+            return f"{self.sheet} Zeile {self.row} – {self.detail}"
+        if self.sheet is not None:
+            return f"Blatt {self.sheet} – {self.detail}"
+        return self.detail
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedSheet:
+    """One sheet's rows, plus whether that sheet was in the workbook at all.
+
+    The distinction is the whole point: in `replace` mode an absent sheet means
+    "this file says nothing about vehicles" while a present-but-empty sheet means
+    "the station has no vehicles, clear the table". Both used to arrive here as an
+    empty list, so a Personnel-only workbook deleted the fleet and the material
+    inventory and reported `success: true`.
+    """
+
+    present: bool
+    rows: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedImport:
+    """A validated workbook: one `ParsedSheet` per table the import can write."""
+
+    personnel: ParsedSheet
+    vehicles: ParsedSheet
+    materials: ParsedSheet
 
 
 def generate_empty_template() -> BytesIO:
-    """Generate empty Excel template with example rows."""
+    """Generate an empty Excel template with example rows.
+
+    Every example row is named through `_example_name`, so it reads as an example in
+    the sheet and is skipped by the parser whether or not the operator deletes it.
+    """
     wb = Workbook()
     wb.remove(wb.active)  # Remove default sheet
 
@@ -80,8 +205,8 @@ def generate_empty_template() -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     # Example rows
-    ws_personnel.append(["Max Mustermann", "Fahrer", "available"])
-    ws_personnel.append(["Anna Schmidt", "", "unavailable"])
+    ws_personnel.append([_example_name("Max Mustermann"), "Fahrer", "available"])
+    ws_personnel.append([_example_name("Anna Schmidt"), "", "unavailable"])
 
     # Vehicles sheet
     ws_vehicles = wb.create_sheet("Vehicles")
@@ -89,8 +214,8 @@ def generate_empty_template() -> BytesIO:
     for cell in ws_vehicles[1]:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    ws_vehicles.append(["TLF 1", "TLF", "1", "available", "Florian 1"])
-    ws_vehicles.append(["DLK 1", "DLK", "2", "available", "Florian 2"])
+    ws_vehicles.append([_example_name("TLF 1"), "TLF", "1", "available", "Florian 1"])
+    ws_vehicles.append([_example_name("DLK 1"), "DLK", "2", "available", "Florian 2"])
 
     # Materials sheet
     ws_materials = wb.create_sheet("Materials")
@@ -99,9 +224,9 @@ def generate_empty_template() -> BytesIO:
         cell.font = Font(bold=True)
         cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     # Example with duplicates showing multiple items
-    ws_materials.append(["Tauchpumpe Gr.", "Tauchpumpen", "TLF", ""])
-    ws_materials.append(["Tauchpumpe Kl.", "Tauchpumpen", "TLF", ""])
-    ws_materials.append(["Wassersauger", "Wassersauger", "Pio", ""])
+    ws_materials.append([_example_name("Tauchpumpe Gr."), "Tauchpumpen", "TLF", ""])
+    ws_materials.append([_example_name("Tauchpumpe Kl."), "Tauchpumpen", "TLF", ""])
+    ws_materials.append([_example_name("Wassersauger"), "Wassersauger", "Pio", ""])
 
     # Save to BytesIO
     output = BytesIO()
@@ -110,168 +235,483 @@ def generate_empty_template() -> BytesIO:
     return output
 
 
-def validate_and_parse_excel(
-    file_bytes: bytes,
-) -> dict[str, list[dict[str, Any]]]:
+def _check_headers(sheet: str, headers: list[Any], expected: list[str]) -> None:
+    """Refuse a sheet whose header row is not the one we know how to read."""
+    if headers == expected:
+        return
+    # Only as many of the file's own headers as it takes to see the mismatch – a sheet
+    # can carry a hundred stray columns and the error still has to fit in a toast.
+    found = ", ".join(_cell(header) for header in headers[: len(expected) + 3]) or "keine"
+    raise ExcelImportError(
+        f"falsche Spaltenüberschriften. Erwartet: {', '.join(expected)}, gefunden: {found}.",
+        sheet=sheet,
+    )
+
+
+def _parse_personnel_sheet(wb: Workbook) -> ParsedSheet:
+    """Parse the Personnel sheet, or report it absent."""
+    if "Personnel" not in wb.sheetnames:
+        return ParsedSheet(present=False)
+
+    ws = wb["Personnel"]
+    headers = [cell.value for cell in ws[1]]
+    expected_headers = [col[0] for col in PERSONNEL_COLUMNS]
+    if headers == LEGACY_PERSONNEL_COLUMNS:
+        headers = expected_headers
+    _check_headers("Personnel", headers, expected_headers)
+
+    rows: list[dict[str, Any]] = []
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if all(cell is None for cell in row):
+            continue  # Skip empty rows
+
+        row_data = dict(zip(expected_headers, row, strict=False))
+
+        # Before any validation: the template's own example row is not the operator's
+        # data and must not be able to fail their import either.
+        if _is_example_row(row_data.get("name")):
+            continue
+
+        if not row_data.get("name"):
+            raise ExcelImportError(
+                "Spalte 'name' ist leer, jede Zeile braucht einen Namen.", sheet="Personnel", row=row_idx
+            )
+
+        if row_data.get("status") and row_data["status"] not in PERSONNEL_STATUSES:
+            raise ExcelImportError(
+                f"ungültiger Status {_cell(row_data['status'])}. Erlaubt: {', '.join(PERSONNEL_STATUSES)}.",
+                sheet="Personnel",
+                row=row_idx,
+            )
+
+        if not row_data.get("status"):
+            row_data["status"] = "unavailable"
+
+        rows.append(row_data)
+
+    return ParsedSheet(present=True, rows=rows)
+
+
+def _parse_vehicles_sheet(wb: Workbook) -> ParsedSheet:
+    """Parse the Vehicles sheet, or report it absent.
+
+    `type` is deliberately unvalidated: it is free text, and stations run
+    "Anhänger", "Pikett-Bus" and other names no list here would have guessed.
     """
-    Validate and parse Excel file.
+    if "Vehicles" not in wb.sheetnames:
+        return ParsedSheet(present=False)
 
-    Returns dict with keys: 'personnel', 'vehicles', 'materials'
-    Each value is a list of row dicts.
+    ws = wb["Vehicles"]
+    expected_headers = [col[0] for col in VEHICLE_COLUMNS]
+    _check_headers("Vehicles", [cell.value for cell in ws[1]], expected_headers)
 
-    Raises ExcelImportError if validation fails.
+    rows: list[dict[str, Any]] = []
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if all(cell is None for cell in row):
+            continue
+
+        row_data = dict(zip(expected_headers, row, strict=False))
+
+        # See `_is_example_row`: skipped before validation, so a half-edited example
+        # row cannot refuse the whole workbook either.
+        if _is_example_row(row_data.get("name")):
+            continue
+
+        for column, required in VEHICLE_COLUMNS:
+            if required and not row_data.get(column):
+                raise ExcelImportError(f"Spalte '{column}' ist leer (Pflichtfeld).", sheet="Vehicles", row=row_idx)
+
+        if row_data["status"] not in VEHICLE_STATUSES:
+            raise ExcelImportError(
+                f"ungültiger Status {_cell(row_data['status'])}. Erlaubt: {', '.join(VEHICLE_STATUSES)}.",
+                sheet="Vehicles",
+                row=row_idx,
+            )
+
+        try:
+            row_data["display_order"] = int(row_data["display_order"])
+        except (ValueError, TypeError):
+            raise ExcelImportError(
+                f"'display_order' muss eine ganze Zahl sein, steht aber auf {_cell(row_data['display_order'])}.",
+                sheet="Vehicles",
+                row=row_idx,
+            ) from None
+
+        rows.append(row_data)
+
+    return ParsedSheet(present=True, rows=rows)
+
+
+def _parse_materials_sheet(wb: Workbook) -> ParsedSheet:
+    """Parse the Materials sheet, or report it absent.
+
+    `type` accepts any non-empty string – material categories differ per station.
+    """
+    if "Materials" not in wb.sheetnames:
+        return ParsedSheet(present=False)
+
+    ws = wb["Materials"]
+    expected_headers = [col[0] for col in MATERIAL_COLUMNS]
+    _check_headers("Materials", [cell.value for cell in ws[1]], expected_headers)
+
+    rows: list[dict[str, Any]] = []
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if all(cell is None for cell in row):
+            continue
+
+        row_data = dict(zip(expected_headers, row, strict=False))
+
+        # See `_is_example_row`: skipped before validation, so a half-edited example
+        # row cannot refuse the whole workbook either.
+        if _is_example_row(row_data.get("name")):
+            continue
+
+        for column, required in MATERIAL_COLUMNS:
+            if required and not row_data.get(column):
+                raise ExcelImportError(f"Spalte '{column}' ist leer (Pflichtfeld).", sheet="Materials", row=row_idx)
+
+        rows.append(row_data)
+
+    return ParsedSheet(present=True, rows=rows)
+
+
+def validate_and_parse_excel(file_bytes: bytes) -> ParsedImport:
+    """
+    Validate and parse an uploaded workbook.
+
+    A sheet the file does not contain comes back as `ParsedSheet(present=False)`,
+    which is NOT the same as a sheet that is there and empty – see `ParsedSheet`.
+
+    Rows still carrying the template's `EXAMPLE_ROW_MARKER` in their name are
+    dropped here and never reach the database – see `_is_example_row`.
+
+    Raises ExcelImportError if validation fails; its `message` is safe to return
+    to the caller and names the sheet and row.
     """
     try:
         wb = openpyxl.load_workbook(BytesIO(file_bytes))
     except Exception as e:
-        raise ExcelImportError(f"Invalid Excel file: {e!s}") from e
+        # openpyxl's own text is not ours to hand out (it can name whatever the
+        # library felt like naming), so it goes to the log and the operator gets
+        # the one thing they can act on: the file is not a readable workbook.
+        logger.warning("Rejected Excel upload openpyxl could not open: %s", e, exc_info=True)
+        raise ExcelImportError(
+            "Die Datei konnte nicht als Excel-Arbeitsmappe geöffnet werden. "
+            "Ist es wirklich eine .xlsx-Datei (nicht CSV, nicht umbenannt)?"
+        ) from e
 
-    result: dict[str, list[dict[str, Any]]] = {"personnel": [], "vehicles": [], "materials": []}
+    return ParsedImport(
+        personnel=_parse_personnel_sheet(wb),
+        vehicles=_parse_vehicles_sheet(wb),
+        materials=_parse_materials_sheet(wb),
+    )
 
-    # Validate Personnel sheet
-    if "Personnel" in wb.sheetnames:
-        ws = wb["Personnel"]
-        headers = [cell.value for cell in ws[1]]
-        expected_headers = [col[0] for col in PERSONNEL_COLUMNS]
 
-        if headers == LEGACY_PERSONNEL_COLUMNS:
-            headers = expected_headers
-        if headers != expected_headers:
-            raise ExcelImportError(f"Personnel sheet: Expected columns {expected_headers}, got {headers}")
+class ImportDeletionImpact(TypedDict):
+    """How many rows the chosen import mode would destroy, per entity.
 
-        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-            if all(cell is None for cell in row):
-                continue  # Skip empty rows
+    `incident_assignments` is the one nobody expects: assignments carry a bare
+    polymorphic `resource_id` with no foreign key, so deleting a Personnel /
+    Vehicle / Material row leaves the assignment behind pointing at nothing.
+    `active_*` is the subset still on the board (`unassigned_at IS NULL`).
 
-            row_data = dict(zip(expected_headers, row, strict=False))
+    `incident_group_assignments` is the SAME hazard one level up. Aufträge own
+    their resources on `incident_group_assignments`, an identical polymorphic
+    table, and it was missing here for exactly as long as it existed – a route
+    with a full squad on it was invisible to both the preview and the refusal.
 
-            # Validate required fields
-            if not row_data.get("name"):
-                raise ExcelImportError(f"Personnel row {row_idx}: 'name' is required")
+    The `cascade_*` numbers are the opposite failure: those rows do NOT survive,
+    they vanish. `personnel.id` is a real foreign key with ON DELETE CASCADE in
+    three tables, so wiping the roster takes every check-in of the running event
+    with it, and the preview said nothing at all. Deleting a *vehicle* cascades
+    into `event_special_functions` too (Fahrer), which is why that number is not
+    a personnel-only count. Nothing references `materials.id`.
+    """
 
-            # Validate enum values
-            if row_data.get("status") and row_data["status"] not in PERSONNEL_STATUSES:
-                raise ExcelImportError(
-                    f"Personnel row {row_idx}: Invalid status '{row_data['status']}'. "
-                    f"Must be one of: {PERSONNEL_STATUSES}"
-                )
+    personnel: int
+    vehicles: int
+    materials: int
+    incident_assignments: int
+    active_incident_assignments: int
+    incident_group_assignments: int
+    active_incident_group_assignments: int
+    cascade_event_attendance: int
+    cascade_event_special_functions: int
+    cascade_personnel_identities: int
 
-            # Set defaults
-            if not row_data.get("status"):
-                row_data["status"] = "unavailable"
 
-            result["personnel"].append(row_data)
+# The two polymorphic assignment tables, which are byte-for-byte the same shape in
+# every way this module cares about. Anything added here has to be added to
+# `list_assignment_blockers` as well, or the refusal quotes a count it cannot break down.
+_AssignmentTable = type[IncidentAssignment] | type[IncidentGroupAssignment]
 
-    # Validate Vehicles sheet
-    if "Vehicles" in wb.sheetnames:
-        ws = wb["Vehicles"]
-        headers = [cell.value for cell in ws[1]]
-        expected_headers = [col[0] for col in VEHICLE_COLUMNS]
 
-        if headers != expected_headers:
-            raise ExcelImportError(f"Vehicles sheet: Expected columns {expected_headers}, got {headers}")
+def _assignments_to_live_resources(table: _AssignmentTable = IncidentAssignment) -> ColumnElement[bool]:
+    """Assignment rows whose `resource_id` still resolves to an existing resource.
 
-        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-            if all(cell is None for cell in row):
-                continue
+    A `replace` deletes every personnel, vehicle and material row, so every
+    assignment matching this is an assignment that would be orphaned.
+    """
+    return or_(
+        and_(
+            table.resource_type == "personnel",
+            table.resource_id.in_(select(Personnel.id)),
+        ),
+        and_(
+            table.resource_type == "vehicle",
+            table.resource_id.in_(select(Vehicle.id)),
+        ),
+        and_(
+            table.resource_type == "material",
+            table.resource_id.in_(select(Material.id)),
+        ),
+    )
 
-            row_data = dict(zip(expected_headers, row, strict=False))
 
-            # Validate required fields
-            required = ["name", "type", "display_order", "status", "radio_call_sign"]
-            for field in required:
-                if not row_data.get(field):
-                    raise ExcelImportError(f"Vehicles row {row_idx}: '{field}' is required")
+async def count_deletion_impact(db: AsyncSession, mode: Literal["replace", "append"]) -> ImportDeletionImpact:
+    """Count what `mode` would delete, so the preview can say it out loud.
 
-            # Validate status enum
-            if row_data["status"] not in VEHICLE_STATUSES:
-                raise ExcelImportError(
-                    f"Vehicles row {row_idx}: Invalid status '{row_data['status']}'. Must be one of: {VEHICLE_STATUSES}"
-                )
+    A station uploaded a one-row sheet to add two recruits and lost 18 people,
+    5 vehicles and 26 materials – plus 24 assignments on three running incidents
+    that then pointed at rows which no longer existed. The numbers were all
+    knowable beforehand; nothing asked for them.
 
-            # Validate display_order is integer
-            try:
-                row_data["display_order"] = int(row_data["display_order"])
-            except (ValueError, TypeError):
-                raise ExcelImportError(f"Vehicles row {row_idx}: display_order must be an integer") from None
+    Counted as a full three-table `replace`, the same way `personnel` / `vehicles`
+    / `materials` already are, even though `import_data` only clears the tables
+    whose sheet is present. `_refuse_missing_sheets` depends on exactly that: it
+    needs to know a table has rows before it can refuse a workbook for omitting
+    it. The numbers are therefore the worst case, and a workbook that omits a
+    sheet never gets far enough to make them wrong.
+    """
+    if mode == "append":
+        # append inserts and never deletes – there is nothing to warn about.
+        return {
+            "personnel": 0,
+            "vehicles": 0,
+            "materials": 0,
+            "incident_assignments": 0,
+            "active_incident_assignments": 0,
+            "incident_group_assignments": 0,
+            "active_incident_group_assignments": 0,
+            "cascade_event_attendance": 0,
+            "cascade_event_special_functions": 0,
+            "cascade_personnel_identities": 0,
+        }
 
-            result["vehicles"].append(row_data)
+    async def _count(stmt: Select[tuple[int]]) -> int:
+        return (await db.execute(stmt)).scalar_one()
 
-    # Validate Materials sheet
-    if "Materials" in wb.sheetnames:
-        ws = wb["Materials"]
-        headers = [cell.value for cell in ws[1]]
-        expected_headers = [col[0] for col in MATERIAL_COLUMNS]
+    async def _count_all(table: type[Any]) -> int:
+        return await _count(select(func.count()).select_from(table))
 
-        if headers != expected_headers:
-            raise ExcelImportError(f"Materials sheet: Expected columns {expected_headers}, got {headers}")
+    affected = _assignments_to_live_resources()
+    affected_groups = _assignments_to_live_resources(IncidentGroupAssignment)
+    return {
+        "personnel": await _count_all(Personnel),
+        "vehicles": await _count_all(Vehicle),
+        "materials": await _count_all(Material),
+        "incident_assignments": await _count(select(func.count()).select_from(IncidentAssignment).where(affected)),
+        "active_incident_assignments": await _count(
+            select(func.count())
+            .select_from(IncidentAssignment)
+            .where(affected, IncidentAssignment.unassigned_at.is_(None))
+        ),
+        "incident_group_assignments": await _count(
+            select(func.count()).select_from(IncidentGroupAssignment).where(affected_groups)
+        ),
+        "active_incident_group_assignments": await _count(
+            select(func.count())
+            .select_from(IncidentGroupAssignment)
+            .where(affected_groups, IncidentGroupAssignment.unassigned_at.is_(None))
+        ),
+        # Unconditional counts, not filtered by anything: `personnel_id` is NOT NULL
+        # with ON DELETE CASCADE in all three, so emptying `personnel` empties them.
+        "cascade_event_attendance": await _count_all(EventAttendance),
+        "cascade_event_special_functions": await _count_all(EventSpecialFunction),
+        "cascade_personnel_identities": await _count_all(PersonnelExternalIdentity),
+    }
 
-        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-            if all(cell is None for cell in row):
-                continue
 
-            row_data = dict(zip(expected_headers, row, strict=False))
+class AssignmentBlocker(TypedDict):
+    """One incident or Auftrag still holding assignments that a `replace` would orphan.
 
-            # Validate required fields
-            required = ["name", "type", "location"]
-            for field in required:
-                if not row_data.get(field):
-                    raise ExcelImportError(f"Materials row {row_idx}: '{field}' is required")
+    The count in `ImportDeletionImpact` is what the refusal used to say, and a
+    number is useless to the person who has to act on it: they get "6 aktive
+    Zuteilungen" and no way to find the six. This is the same set, broken down
+    by incident and by resource type – enough to walk to the board and clear it.
 
-            # No hardcoded validation for material type - accepts any non-empty string
-            # This allows flexibility for different material categories
+    `materials` is separated out for a reason: "Alle freigeben" and completing an
+    incident release personnel and vehicles only, so a material blocker survives
+    exactly the action the operator reaches for first.
 
-            result["materials"].append(row_data)
+    `kind` exists because "release it on the incident" is the wrong instruction
+    for half of these: an Auftrag owns its squad on the route, not on any of its
+    stops, so an operator sent to the stop finds an empty resource list and a
+    refusal that keeps coming back.
+    """
 
-    return result
+    kind: Literal["incident", "group"]
+    title: str
+    location: str | None
+    deleted: bool
+    personnel: int
+    vehicles: int
+    materials: int
+    total: int
+
+
+def _fold_blocker_rows(
+    rows: Sequence[Any],
+    kind: Literal["incident", "group"],
+) -> list[AssignmentBlocker]:
+    """Fold `(id, title, location, deleted_at, resource_type, count)` rows into blockers."""
+    folded: dict[Any, AssignmentBlocker] = {}
+    for owner_id, title, location, deleted_at, resource_type, count in rows:
+        blocker = folded.setdefault(
+            owner_id,
+            {
+                "kind": kind,
+                "title": title,
+                "location": location,
+                "deleted": deleted_at is not None,
+                "personnel": 0,
+                "vehicles": 0,
+                "materials": 0,
+                "total": 0,
+            },
+        )
+        # The CHECK constraint on `resource_type` keeps this exhaustive.
+        key = {"personnel": "personnel", "vehicle": "vehicles", "material": "materials"}[resource_type]
+        blocker[key] += count  # type: ignore[literal-required]
+        blocker["total"] += count
+    return list(folded.values())
+
+
+async def list_assignment_blockers(db: AsyncSession) -> list[AssignmentBlocker]:
+    """Name what is behind the active-assignment counts, worst first.
+
+    Counts the exact same rows as `count_deletion_impact` (active assignment,
+    resource still exists) across BOTH assignment tables, so the totals here
+    always add up to the number the refusal quotes – a list that is one short of
+    the count sends the operator hunting for a blocker that does not exist.
+
+    Soft-deleted incidents and Aufträge are in here on purpose. Deleting either
+    does not release its resources, so the assignments keep blocking the import
+    while the card is gone from the board; `deleted` lets the message say so
+    instead of naming something nobody can find.
+    """
+    incident_rows = (
+        await db.execute(
+            select(
+                Incident.id,
+                Incident.title,
+                Incident.location_address,
+                Incident.deleted_at,
+                IncidentAssignment.resource_type,
+                func.count().label("n"),
+            )
+            .select_from(IncidentAssignment)
+            # Inner join is safe: `incident_assignments.incident_id` is a real FK
+            # with ON DELETE CASCADE – unlike `resource_id`, which is the bare UUID
+            # this whole refusal exists because of.
+            .join(Incident, Incident.id == IncidentAssignment.incident_id)
+            .where(_assignments_to_live_resources(), IncidentAssignment.unassigned_at.is_(None))
+            .group_by(
+                Incident.id,
+                Incident.title,
+                Incident.location_address,
+                Incident.deleted_at,
+                IncidentAssignment.resource_type,
+            )
+        )
+    ).all()
+
+    # An Auftrag has no address of its own – its stops carry the addresses – so the
+    # location column is a literal NULL rather than a join we would have to aggregate.
+    group_rows = (
+        await db.execute(
+            select(
+                IncidentGroup.id,
+                IncidentGroup.name,
+                sa_null(),
+                IncidentGroup.deleted_at,
+                IncidentGroupAssignment.resource_type,
+                func.count().label("n"),
+            )
+            .select_from(IncidentGroupAssignment)
+            .join(IncidentGroup, IncidentGroup.id == IncidentGroupAssignment.incident_group_id)
+            .where(
+                _assignments_to_live_resources(IncidentGroupAssignment),
+                IncidentGroupAssignment.unassigned_at.is_(None),
+            )
+            .group_by(
+                IncidentGroup.id,
+                IncidentGroup.name,
+                IncidentGroup.deleted_at,
+                IncidentGroupAssignment.resource_type,
+            )
+        )
+    ).all()
+
+    blockers = _fold_blocker_rows(incident_rows, "incident") + _fold_blocker_rows(group_rows, "group")
+
+    # Worst first, so the capped list names what is worth walking to; kind and title
+    # as tie-breaks only so the order is stable between two identical calls.
+    return sorted(blockers, key=lambda b: (-b["total"], b["kind"], b["title"]))
 
 
 async def import_data(
     db: AsyncSession,
-    parsed_data: dict[str, list[dict[str, Any]]],
-    mode: Literal["replace", "merge", "append"],
+    parsed_data: ParsedImport,
+    mode: Literal["replace", "append"],
     user_id: str,
 ) -> dict[str, int]:
     """
     Import parsed data into database.
 
     Modes:
-    - replace: Delete all existing, insert new
-    - merge: Update existing by name, add new (not implemented - use replace or append)
+    - replace: Delete the tables the workbook actually contains, insert new
     - append: Keep existing, add new
+
+    There used to be a third mode, `merge`, documented as "update existing by
+    name, add new". It never did that – it ran the same three DELETEs as
+    `replace`. The endpoint rejects it now rather than keep a name that means
+    the opposite of what it does.
 
     Returns counts: {personnel: X, vehicles: Y, materials: Z}
     """
     counts = {"personnel": 0, "vehicles": 0, "materials": 0}
 
     if mode == "replace":
-        # Delete all existing
-        await db.execute(delete(Personnel))
-        await db.execute(delete(Vehicle))
-        await db.execute(delete(Material))
-        await db.commit()
-    elif mode == "merge":
-        # Merge not implemented in this version - requires UUID matching
-        # For now, treat as replace
-        await db.execute(delete(Personnel))
-        await db.execute(delete(Vehicle))
-        await db.execute(delete(Material))
+        # Only the tables whose sheet is in the file. `replace` used to DELETE all
+        # three unconditionally, so a Personnel-only workbook wiped the fleet and the
+        # material inventory and put nothing back – reported as success. A sheet that
+        # is present and empty still clears its table: that is how a station empties
+        # one on purpose. The endpoint refuses the absent-sheet case outright rather
+        # than silently leaving a table behind (see `admin.execute_excel_import`);
+        # this branch is the second lock on the same door.
+        if parsed_data.personnel.present:
+            await db.execute(delete(Personnel))
+        if parsed_data.vehicles.present:
+            await db.execute(delete(Vehicle))
+        if parsed_data.materials.present:
+            await db.execute(delete(Material))
         await db.commit()
 
     # Insert personnel
-    for person_data in parsed_data.get("personnel", []):
+    for person_data in parsed_data.personnel.rows:
         personnel = Personnel(**person_data)
         db.add(personnel)
         counts["personnel"] += 1
 
     # Insert vehicles
-    for vehicle_data in parsed_data.get("vehicles", []):
+    for vehicle_data in parsed_data.vehicles.rows:
         vehicle = Vehicle(**vehicle_data)
         db.add(vehicle)
         counts["vehicles"] += 1
 
     # Insert materials (duplicate rows = multiple items)
-    for material_data in parsed_data.get("materials", []):
+    for material_data in parsed_data.materials.rows:
         material = Material(**material_data)
         db.add(material)
         counts["materials"] += 1

@@ -636,6 +636,81 @@ class IncidentGroup(Base):
         return f"<IncidentGroup {self.name}>"
 
 
+class AuftragTemplate(Base):
+    """A station's recurring Auftrag — «Sturmholz», «Absperren», «TLF-Backup».
+
+    Station configuration, NOT event data: a template outlives every Lage and is
+    edited in Einstellungen. ``auto_create`` decides whether creating an event
+    materialises this template as an empty ``IncidentGroup`` right away; the rest
+    stay in the Aufträge-Slide-up as one-click Vorlagen. The instantiated Auftrag
+    is a plain Auftrag afterwards — editing or deleting it never touches the
+    template, and editing the template never reaches back into a running Lage.
+    """
+
+    __tablename__ = "auftrag_templates"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Same contract as IncidentGroup.color — the instantiated Auftrag inherits it,
+    # so «Sturmholz» is the same colour on board and map at every Lage.
+    color: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Create this Auftrag automatically with every new event.
+    auto_create: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # Order in the settings list, and the order the auto-created Aufträge get on
+    # the board (mirrors IncidentGroup.position).
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    resources: Mapped[list["AuftragTemplateResource"]] = relationship(
+        "AuftragTemplateResource",
+        back_populates="template",
+        cascade="all, delete-orphan",
+        order_by="AuftragTemplateResource.position",
+    )
+
+    __table_args__ = (Index("idx_auftrag_templates_position", "position"),)
+
+    def __repr__(self) -> str:
+        return f"<AuftragTemplate {self.name}>"
+
+
+class AuftragTemplateResource(Base):
+    """A vehicle or material an Auftrag template brings along by default.
+
+    Deliberately no ``personnel``: who is on a squad is decided per Lage from who
+    actually showed up, so a template naming people would be wrong more often
+    than right. Like every other resource link in this schema, ``resource_id`` is
+    polymorphic and carries no FK — a deleted vehicle simply stops materialising
+    (see ``instantiate_auto_templates``).
+    """
+
+    __tablename__ = "auftrag_template_resources"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    template_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("auftrag_templates.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    resource_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+
+    template: Mapped["AuftragTemplate"] = relationship("AuftragTemplate", back_populates="resources")
+
+    __table_args__ = (
+        CheckConstraint("resource_type IN ('vehicle', 'material')", name="valid_template_resource_type"),
+        # One row per resource per template — the settings UI has no concept of
+        # "the same TLF twice".
+        Index("uq_template_resource", "template_id", "resource_type", "resource_id", unique=True),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AuftragTemplateResource {self.resource_type}:{self.resource_id}>"
+
+
 # ============================================
 # ASSIGNMENTS (Many-to-Many Junction)
 # ============================================

@@ -86,3 +86,53 @@ export interface ApiGroupAssignmentCreate {
   resource_type: GroupResourceType
   resource_id: string
 }
+
+// --- Standard-Aufträge (Auftrag templates) --------------------------------
+// Station configuration, not event data: a template outlives every Lage and is
+// edited in Einstellungen. `auto_create` decides whether a new event opens with
+// this Auftrag already on the board.
+
+/**
+ * Narrower than `GroupResourceType` on purpose (and CHECK-constrained in the
+ * database): a template names equipment, never people — who is on a squad is
+ * decided per Lage from who actually turned up.
+ */
+export type TemplateResourceType = 'vehicle' | 'material'
+
+/** One vehicle or material a template brings along by default. */
+export interface ApiAuftragTemplateResource {
+  resource_type: TemplateResourceType
+  resource_id: string // UUID
+}
+
+export interface ApiAuftragTemplate {
+  id: string // UUID
+  name: string
+  /** Hex/token the created Auftrag inherits, so it looks the same at every Lage. */
+  color: string | null
+  notes: string | null
+  /** Open this Auftrag automatically with every new event. */
+  auto_create: boolean
+  /** Order in the settings list, and the board order of the auto-created Aufträge. */
+  position: number
+  resources: ApiAuftragTemplateResource[]
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiAuftragTemplateCreate {
+  name: string
+  color?: string | null
+  notes?: string | null
+  auto_create?: boolean
+  resources?: ApiAuftragTemplateResource[]
+}
+
+/** Partial PATCH. A present `resources` list REPLACES the stored one. */
+export interface ApiAuftragTemplateUpdate {
+  name?: string
+  color?: string | null
+  notes?: string | null
+  auto_create?: boolean
+  resources?: ApiAuftragTemplateResource[]
+}

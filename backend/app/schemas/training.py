@@ -3,13 +3,44 @@
 import re
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
 
 
 # Excel import/export
+class ExcelImportDeletions(BaseModel):
+    """What the chosen import mode would DELETE – zero throughout for `append`.
+
+    `incident_assignments` is the number that matters and that no operator can
+    guess: an assignment references its resource by a bare UUID with no foreign
+    key, so a `replace` leaves those rows behind pointing at deleted personnel,
+    vehicles and materials. `active_incident_assignments` is the subset still on
+    the board, i.e. the damage visible on a running incident.
+    `incident_group_assignments` is the identical hazard on Aufträge, whose
+    resources hang off the route rather than off any of its stops.
+
+    `cascade_*` are the rows that do the opposite and disappear without trace:
+    `personnel.id` is a real FK with ON DELETE CASCADE in all three, so a roster
+    replace silently wipes the check-ins of a running event.
+
+    The fields below the first five default to 0 so an older client that never
+    sends or reads them keeps working – they were added after the shape shipped.
+    """
+
+    personnel: int
+    vehicles: int
+    materials: int
+    incident_assignments: int
+    active_incident_assignments: int
+    incident_group_assignments: int = 0
+    active_incident_group_assignments: int = 0
+    cascade_event_attendance: int = 0
+    cascade_event_special_functions: int = 0
+    cascade_personnel_identities: int = 0
+
+
 class ExcelImportPreview(BaseModel):
     """Preview of Excel import data."""
 
@@ -19,6 +50,10 @@ class ExcelImportPreview(BaseModel):
     vehicles_total: int
     materials_preview: list[dict[str, Any]]
     materials_total: int
+    # The preview used to show only what would be ADDED, which reads as harmless
+    # no matter which mode is selected. These two say what it would cost.
+    mode: Literal["replace", "append"]
+    deletions: ExcelImportDeletions
 
 
 class ExcelImportResult(BaseModel):

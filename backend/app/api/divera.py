@@ -3,7 +3,7 @@
 import logging
 import re
 from typing import Annotated, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError
@@ -30,7 +30,12 @@ from ..services.divera_intake import (
     incident_create_from_emergency,
     try_auto_attach,
 )
-from ..services.divera_members import build_sync_preview, execute_sync, fetch_divera_members
+from ..services.divera_members import (
+    build_sync_preview,
+    execute_sync,
+    fetch_divera_groups,
+    fetch_divera_members,
+)
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update, get_divera_poller_stats
 
@@ -763,6 +768,146 @@ async def list_divera_members(
         ) from e
     members.sort(key=lambda m: m["name"].lower())
     return [schemas.DiveraMemberPreview(**m) for m in members]
+
+
+@router.get("/groups", response_model=list[schemas.DiveraGroupPreview])
+async def list_divera_groups(
+    current_user: CurrentEditor,
+) -> list[schemas.DiveraGroupPreview]:
+    """List the unit's Divera groups — the recipient choices for a Mitteilung.
+
+    Read live from Divera (pull/all), like the member list next door.
+    """
+    if not settings.divera_access_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Divera access key not configured",
+        )
+    try:
+        groups = await fetch_divera_groups()
+    except Exception as e:
+        logger.error("Failed to fetch groups from Divera: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Divera-Gruppen konnten nicht geladen werden: {e}",
+        ) from e
+    return [schemas.DiveraGroupPreview(**g) for g in groups]
+
+
+@router.post("/message", response_model=schemas.DiveraMessageResponse)
+async def send_divera_message(
+    request_data: schemas.DiveraMessageRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.DiveraMessageResponse:
+    """Post an informational Mitteilung (not an alarm) to the unit.
+
+    This is the setup checklist's standby message — "KP-Rück ist aktiv, Telefon
+    mitnehmen" — which used to be a WhatsApp text pasted by hand. It is
+    deliberately NOT an alarm: everybody should read it, nobody should be woken
+    by a siren, and no pager is touched.
+
+    Same gating as an alarm (provider configured, ``alerting.enabled``, not
+    demo, editor role), because it still lands on every addressed phone. Who
+    receives it is explicit: named groups, or a deliberate «alle» — the request
+    schema has no default.
+    """
+    provider = alerting.get_provider()
+    if provider is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kein Alarmierungs-Provider konfiguriert",
+        )
+    enabled = await settings_service.get_setting_value(db, "alerting.enabled", "false")
+    if enabled.lower() != "true":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ausalarmierung ist deaktiviert",
+        )
+    if settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ausalarmierung ist im Demo-Modus deaktiviert",
+        )
+
+    # Group NAMES for the confirmation toast — resolved before the send so a
+    # stale id (a group deleted in Divera since the sheet was opened) is caught
+    # here rather than reported as "sent to 3 groups" that do not exist.
+    group_names: list[str] = []
+    if request_data.target == "groups":
+        try:
+            known = {g["divera_id"]: g["name"] for g in await fetch_divera_groups()}
+        except Exception as e:
+            logger.error("Failed to resolve Divera groups: %s", e)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Divera-Gruppen konnten nicht geladen werden: {e}",
+            ) from e
+        unknown = [gid for gid in request_data.group_ids if gid not in known]
+        if unknown:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unbekannte Divera-Gruppe(n): {', '.join(str(g) for g in unknown)}",
+            )
+        group_names = [known[gid] for gid in request_data.group_ids]
+
+    title = (request_data.title or "").strip() or "KP-Rück"
+    text = request_data.text.strip()
+    foreign_id = f"kprueck-info-{uuid4().hex[:12]}"
+
+    # Training: run the flow, send nothing — same contract as the incident alarm.
+    if request_data.event_id is not None:
+        event = await events_crud.get_event_by_id(db, request_data.event_id)
+        if event is not None and event.training_flag:
+            logger.info("Training: simulating Divera Mitteilung (no external call)")
+            return schemas.DiveraMessageResponse(
+                success=True,
+                foreign_id=foreign_id,
+                target=request_data.target,
+                group_names=group_names,
+                simulated=True,
+            )
+
+    # Hand the pooled connection back before the provider call — same reasoning as
+    # the incident alarm above (retries against a 15 s timeout).
+    await db.commit()
+
+    try:
+        result = await provider.send_message(
+            title=title,
+            text=text,
+            foreign_id=foreign_id,
+            channels=alerting.AlarmChannels(push=True),
+            group_ids=request_data.group_ids if request_data.target == "groups" else None,
+            to_everyone=request_data.target == "all",
+        )
+    except alerting.AlarmSendError as e:
+        logger.error("Divera Mitteilung failed: %s", e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
+
+    await log_action(
+        db=db,
+        action_type="divera_message",
+        resource_type="settings",
+        resource_id=None,
+        user=current_user,
+        changes={
+            "provider": provider.slug,
+            "target": request_data.target,
+            "groups": group_names,
+            "divera_message_id": result.provider_message_id,
+        },
+        request=request,
+    )
+
+    return schemas.DiveraMessageResponse(
+        success=True,
+        foreign_id=foreign_id,
+        divera_message_id=result.provider_message_id,
+        target=request_data.target,
+        group_names=group_names,
+    )
 
 
 @router.post("/test-alarm", response_model=schemas.DiveraAlarmResponse)

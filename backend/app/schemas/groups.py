@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .common import ResourceType
+
 
 class GroupProgress(BaseModel):
     """Derived checklist roll-up of an Auftrag's member stops.
@@ -83,17 +85,8 @@ class GroupAssignmentCreate(BaseModel):
     when it has zero stops.
     """
 
-    resource_type: str  # 'personnel', 'vehicle', 'material'
+    resource_type: ResourceType
     resource_id: UUID
-
-    @field_validator("resource_type")
-    @classmethod
-    def validate_resource_type(cls, v: str) -> str:
-        """Validate resource type is one of the allowed values."""
-        valid_types = {"personnel", "vehicle", "material"}
-        if v not in valid_types:
-            raise ValueError(f"resource_type must be one of: {', '.join(sorted(valid_types))}")
-        return v
 
 
 class GroupAssignmentResponse(BaseModel):
@@ -103,7 +96,7 @@ class GroupAssignmentResponse(BaseModel):
 
     id: UUID
     incident_group_id: UUID
-    resource_type: str
+    resource_type: ResourceType
     resource_id: UUID
     assigned_at: datetime
     unassigned_at: datetime | None = None

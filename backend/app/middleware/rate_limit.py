@@ -35,14 +35,14 @@ def client_ip(request: Request) -> str | None:
     """The caller's IP address, taken from X-Forwarded-For in a way a caller cannot forge.
 
     This header is written by the client first and appended to by each proxy on the way in,
-    so its LEFTMOST entry is whatever the caller typed — reading that (which both this
+    so its LEFTMOST entry is whatever the caller typed – reading that (which both this
     function and the audit log used to do) meant anyone could pick their own IP by sending
     `X-Forwarded-For: 1.2.3.4`. That defeated the login throttle, the request rate limit,
     and the attribution in the audit trail all at once.
 
     The trustworthy entry is the one OUR OWN outermost proxy appended, i.e. the
     `trusted_proxy_count`-th from the right. With the reference deployments that is one hop
-    — Caddy in the compose stack, Railway's edge on Railway — and it holds for app traffic
+    – Caddy in the compose stack, Railway's edge on Railway – and it holds for app traffic
     too, because the Next.js `/backend-api` proxy forwards the header it received rather
     than adding to it.
 
@@ -71,7 +71,7 @@ def get_client_identifier(request: Request) -> str:
 # headers_enabled=False: _inject_headers requires Response objects but FastAPI
 # endpoints return dicts. Header injection crashes with "parameter `response`
 # must be an instance of starlette.responses.Response". Rate limit enforcement
-# still works — 429 responses are handled by rate_limit_exceeded_handler.
+# still works – 429 responses are handled by rate_limit_exceeded_handler.
 limiter = Limiter(
     key_func=get_client_identifier,
     headers_enabled=False,
@@ -85,7 +85,7 @@ class RateLimits:
     # Authentication.
     #
     # LOGIN is deliberately NOT the brute-force control. It keys on client IP
-    # and counts every attempt, successful ones included — and a command post
+    # and counts every attempt, successful ones included – and a command post
     # NATs every tablet and wall display behind one public IP, so a tight
     # value here locked out the whole crew whenever a few people signed in
     # within the same minute, with no recovery but waiting.
@@ -96,7 +96,13 @@ class RateLimits:
     # command-post traffic. Tune via LOGIN_RATE_LIMIT_PER_IP.
     LOGIN = settings.login_rate_limit_per_ip
     REGISTER = "3/minute"
-    PASSWORD_RESET = "3/minute"  # noqa: S105 — a rate limit, not a secret
+    PASSWORD_RESET = "3/minute"  # noqa: S105 – a rate limit, not a secret
+
+    # Handing a credential back to an admin who asked for it (the alarm webhook secret).
+    # Deliberately loose enough that an admin copying it into a dispatch provider's form,
+    # fumbling it and asking again is not locked out, and tight enough that the endpoint is
+    # useless as an oracle if a session is ever stolen. Every call is in the audit log.
+    SECRET_REVEAL = "10/minute"  # noqa: S105 – a rate limit, not a secret
 
     # General API - moderate limits
     DEFAULT = "100/minute"

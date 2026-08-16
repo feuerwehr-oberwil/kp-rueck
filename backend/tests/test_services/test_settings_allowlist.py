@@ -52,6 +52,13 @@ def test_every_setting_the_page_offers_can_actually_be_saved():
         "map_mode",
         "map_style",
         "home_city",
+        # Same failure one component further out: Settings → Alarmierung has edited
+        # these two since the checklist existed, and every save 404'd.
+        "whatsapp_message_1",
+        "whatsapp_message_2",
+        # Settings → Checkliste: which steps this station runs, and its own notes.
+        "checklist.hidden_tasks",
+        "checklist.notes",
     ],
 )
 def test_settings_read_by_the_frontend_are_writable(key: str):

@@ -4,7 +4,7 @@ This guide explains the offline map tiles functionality in KP Rück. The system 
 
 ## Overview
 
-The system uses a self-hosted [TileServer GL](https://github.com/maptiler/tileserver-gl) instance to serve map tiles locally. The defaults cover the Basel-Landschaft region (Switzerland) because that is where the first station running KP Rück sits — **any region** works, from free OpenStreetMap data, without touching the code. See [Using Custom Regions](#using-custom-regions).
+The system uses a self-hosted [TileServer GL](https://github.com/maptiler/tileserver-gl) instance to serve map tiles locally. The defaults cover the Basel-Landschaft region (Switzerland) because that is where the first station running KP Rück sits – **any region** works, from free OpenStreetMap data, without touching the code. See [Using Custom Regions](#using-custom-regions).
 
 **Zoom Levels**: 0-17 (building-level detail)
 **Tile Format**: MBTiles (single-file SQLite database)
@@ -50,24 +50,26 @@ This provides full offline map capability without any online dependency.
 
 The application provides three map modes (configurable in Settings):
 
-### Auto Mode (Recommended for Local Development)
+### Auto Mode (Recommended)
 - Uses online OpenStreetMap tiles by default
 - **Automatically falls back** to offline tiles if online fails
 - Best for normal operations with internet connectivity
 - Seamlessly handles connectivity issues
-- **Note**: Only works when tile server is running (local Docker setup)
+- **Note**: The fallback only has somewhere to go when a tile server is running – both Docker
+  stacks ship one, Railway does not
 
-### Online Mode (Default for Production/Railway)
+### Online Mode
 - Always uses OpenStreetMap tiles
 - Requires internet connectivity
 - No fallback to offline tiles
-- **Recommended for Railway deployments** (no tile server available)
+- **The only option on Railway** (no tile server there)
 
-### Offline Mode (Local Development Only)
-- Always uses local tile server
+### Offline Mode
+- Always uses the local tile server
 - Works completely offline
 - Requires full offline tiles (via `just tiles-download`)
-- **Only available in local Docker setup** (not on Railway)
+- Available on **both Docker stacks** – development and the Docker Compose production stack.
+  Not on Railway.
 
 ## How It Works
 
@@ -92,21 +94,61 @@ The `just tiles-download` command downloads and generates complete tiles:
 
 ## Verifying Tiles Are Working
 
+### Which stack are you on?
+
+Two stacks, two addresses – and every command in this section depends on which one you are
+standing in front of. The **development** stack publishes the tile server directly on port 8080.
+The **production** compose stack publishes no tile server port at all: Caddy is the single
+origin, and it proxies `/tiles` to the tile server. So on a station box `localhost:8080` is
+Caddy, not the tile server, and a command copied out of a development guide answers with the
+wrong thing or nothing at all.
+
+| | Development (`just dev`) | Production (`docker compose up -d`) |
+|---|---|---|
+| Health check | `http://localhost:8080/health` | `http://localhost:${HTTP_PORT:-8080}/tiles/health` |
+| Tile server UI | `http://localhost:8080/` | `http://localhost:${HTTP_PORT:-8080}/tiles/` |
+| Raster tiles | `http://localhost:8080/styles/basic-preview/512/{z}/{x}/{y}.png` | `http://localhost:${HTTP_PORT:-8080}/tiles/styles/basic-preview/512/{z}/{x}/{y}.png` |
+| Vector tiles | `http://localhost:8080/data/basel-landschaft/{z}/{x}/{y}.pbf` | `http://localhost:${HTTP_PORT:-8080}/tiles/data/basel-landschaft/{z}/{x}/{y}.pbf` |
+| Tile JSON | `http://localhost:8080/data/basel-landschaft.json` | `http://localhost:${HTTP_PORT:-8080}/tiles/data/basel-landschaft.json` |
+| Container name | `kprueck-tileserver-dev` | `kp-rueck-tileserver-1` |
+
+`HTTP_PORT` is what you set in `.env` (default 8080); with a `DOMAIN` set, the same paths work
+over HTTPS on your hostname. `basel-landschaft` is `TILES_NAME` – substitute yours if you
+changed it.
+
+The rest of this page writes the address as `$BASE` and the container as `$TILESERVER`. Set both
+once and everything afterwards works on either stack:
+
+```bash
+# The tile server container, whatever the stack called it
+# (dev: kprueck-tileserver-dev, production: kp-rueck-tileserver-1)
+TILESERVER=$(docker ps --format '{{.Names}}' | grep -E '^kp-?rueck[-_].*tileserver' | head -1)
+
+# The address it answers on – try the dev port first, then production through Caddy
+BASE=$(curl -sf http://localhost:8080/health > /dev/null && echo "http://localhost:8080" \
+  || echo "http://localhost:${HTTP_PORT:-8080}/tiles")
+```
+
+This is the same detection `just tiles-status`, `scripts/download-tiles.sh` and
+`scripts/install-tiles.sh` do for you. Those two scripts also honour `TILES_CONTAINER=<name>` if
+your container is named something else entirely; here, just set `TILESERVER` by hand.
+
 ### Check Tile Server Status
 
 ```bash
-# Check if tile server is running
+# Detects the container and probes both addresses for you
 just tiles-status
 
-# Or manually:
-curl http://localhost:8080/health
+# Or by hand, with $BASE from above:
+curl "$BASE/health"
 ```
 
 Expected response: `{"status":"ok"}`
 
 ### View Tile Server UI
 
-Open in browser: http://localhost:8080/
+Open `$BASE` in a browser – http://localhost:8080/ on the development stack,
+`http://localhost:${HTTP_PORT:-8080}/tiles/` on production.
 
 You should see:
 - TileServer GL interface
@@ -117,41 +159,50 @@ You should see:
 
 ```bash
 # Get a sample tile (zoom 10, Basel area)
-curl http://localhost:8080/data/basel-landschaft/10/533/357.pbf
+curl "$BASE/data/basel-landschaft/10/533/357.pbf"
 
 # Should return binary data (PBF format)
 ```
 
 ### Test in Application
 
-1. Start the application: `just dev`
+1. Start the application (`just dev`, or `docker compose up -d` on a station)
 2. Go to Settings → Map Mode
 3. Select "Offline" mode
 4. Navigate to Map view
 5. Verify tiles load correctly
 
+**One caveat when testing on the box itself**: the app derives the tile address from the address
+you browse it at (`getTileBaseUrl` in `frontend/lib/env.ts`). Anything other than `localhost` or
+`127.0.0.1` uses `/tiles` on its own origin, which is exactly what production serves. Open a
+production stack by its hostname or LAN IP – at `http://localhost:8080` the map looks for the
+tile server on the development port and finds Caddy instead.
+
 ## Tile Server Endpoints
 
-The tile server provides the following endpoints:
+The tile server provides the following endpoints. Paths are relative to `$BASE` – see
+[Which stack are you on?](#which-stack-are-you-on) for what that is on your deployment.
 
 ### Raster Tiles (for Leaflet)
 ```
-http://localhost:8080/styles/basic/{z}/{x}/{y}.png
+$BASE/styles/basic-preview/512/{z}/{x}/{y}.png
 ```
+
+This is the one the map actually requests (`frontend/lib/hooks/use-map-mode.ts`).
 
 ### Vector Tiles (PBF)
 ```
-http://localhost:8080/data/basel-landschaft/{z}/{x}/{y}.pbf
+$BASE/data/basel-landschaft/{z}/{x}/{y}.pbf
 ```
 
 ### Health Check
 ```
-http://localhost:8080/health
+$BASE/health
 ```
 
 ### Tile JSON (metadata)
 ```
-http://localhost:8080/data/basel-landschaft.json
+$BASE/data/basel-landschaft.json
 ```
 
 ## Updating Tiles
@@ -165,12 +216,14 @@ Tiles should be updated periodically to include new streets, buildings, and map 
 1. Download new MBTiles file (following Option 1 or 2 above)
 2. Backup current tiles:
    ```bash
-   docker exec kprueck-tileserver-dev cp /data/basel-landschaft.mbtiles /data/basel-landschaft.mbtiles.backup
+   docker exec "$TILESERVER" cp /data/basel-landschaft.mbtiles /data/basel-landschaft.mbtiles.backup
    ```
 3. Copy new tiles:
    ```bash
-   docker cp basel-landschaft.mbtiles kprueck-tileserver-dev:/data/basel-landschaft.mbtiles
+   docker cp basel-landschaft.mbtiles "$TILESERVER":/data/basel-landschaft.mbtiles
    ```
+   Or let the script do steps 1–4 for you: `./scripts/install-tiles.sh <file>` finds the
+   container itself.
 4. Restart tile server:
    ```bash
    just tiles-restart
@@ -183,12 +236,15 @@ Tiles should be updated periodically to include new streets, buildings, and map 
 
 **Check logs**:
 ```bash
-docker logs kprueck-tileserver-dev
+docker logs "$TILESERVER"
 ```
 
 **Common issues**:
-- Port conflict: Ensure port 8080 is not in use by another service
-- Docker volume permission issues: Try `just clean && just dev`
+- Port conflict: on the development stack, ensure port 8080 is not in use by another service.
+  Production publishes no tile server port, so the port to check there is `HTTP_PORT` (Caddy).
+- Docker volume permission issues: on the development stack, `just dev-clean && just dev`.
+  (`dev-clean` deletes the dev database and photos and asks first – it is not the station's
+  board it touches, but read the prompt before you type `delete`.)
 - Init script error: Check logs for sqlite3 or file system errors
 
 **Note**: MBTiles and config are auto-created on startup, so missing files are not an issue.
@@ -202,7 +258,7 @@ docker logs kprueck-tileserver-dev
 
 **Verify tile server is accessible**:
 ```bash
-curl http://localhost:8080/health
+curl "$BASE/health"
 ```
 
 **Check map mode setting**:
@@ -227,7 +283,7 @@ curl http://localhost:8080/health
 **Verify bounding box**:
 ```bash
 # Check tile metadata
-curl http://localhost:8080/data/basel-landschaft.json | jq .bounds
+curl "$BASE/data/basel-landschaft.json" | jq .bounds
 ```
 
 Expected bounds (Basel-Landschaft):
@@ -239,18 +295,27 @@ Expected bounds (Basel-Landschaft):
 
 ### Custom Config
 
-The tile server config is auto-generated by `scripts/init-tileserver.sh`. To customize:
+There is no config file by default. `scripts/init-tileserver.sh` creates the MBTiles if it is
+missing and then hands over to TileServer GL with no config at all, which makes it auto-detect
+every `.mbtiles` in `/data` – which is why adding a region below needs no config edit.
 
-1. Let the init script create the base config on first run
-2. Modify `/data/config.json` inside the container:
-   ```bash
-   docker exec -it kprueck-tileserver-dev vi /data/config.json
-   ```
-3. Restart: `just tiles-restart`
+> **Advanced, and ephemeral.** You *can* write a `/data/config.json` inside the running
+> container:
+>
+> ```bash
+> docker exec -it "$TILESERVER" vi /data/config.json   # lost on the next recreate
+> ```
+>
+> but the next `docker compose up -d` that recreates the container replaces it – and after an
+> update ("`docker compose pull && docker compose up -d`") that is exactly what happens. It is
+> fine for trying something out, never as the way your station is configured. The durable path
+> is the image: put the config next to `scripts/init-tileserver.sh`, copy it in from
+> `tileserver/Dockerfile`, and build. A station that is not building its own images should not
+> need this at all.
 
 ### Custom Styles
 
-Add custom map styles to the config:
+If you do keep a config (see the note above), custom map styles go in it:
 
 ```json
 {
@@ -268,24 +333,13 @@ Add additional MBTiles files for other regions:
 
 1. Copy MBTiles into container:
    ```bash
-   docker cp switzerland.mbtiles kprueck-tileserver-dev:/data/switzerland.mbtiles
+   docker cp switzerland.mbtiles "$TILESERVER":/data/switzerland.mbtiles
    ```
 
-2. Update config to include new data source:
-   ```json
-   {
-     "data": {
-       "basel-landschaft": {
-         "mbtiles": "basel-landschaft.mbtiles"
-       },
-       "switzerland": {
-         "mbtiles": "switzerland.mbtiles"
-       }
-     }
-   }
-   ```
+2. Restart tile server: `just tiles-restart`
 
-3. Restart tile server: `just tiles-restart`
+No config edit needed – with no config file, TileServer GL picks up every `.mbtiles` it finds in
+`/data` and serves it under its filename.
 
 **Note**: The frontend uses a single data source, the one named by `TILES_NAME`.
 
@@ -311,7 +365,7 @@ volumes:
 
 ## Storage Requirements
 
-**These are *vector* tiles, generated with planetiler — an order of magnitude smaller than the
+**These are *vector* tiles, generated with planetiler – an order of magnitude smaller than the
 raster tiles people expect.** The default region (Basel-Landschaft, zoom 0-17) produces a
 **~12 MB** `.mbtiles` file. A whole country is in the low gigabytes, not the tens.
 
@@ -322,7 +376,7 @@ raster tiles people expect.** The default region (Basel-Landschaft, zoom 0-17) p
 
 **The generation is the expensive part, not the result.** `scripts/download-tiles.sh`
 downloads ~500 MB of OSM data, needs ~2 GB of temporary disk and recommends 4 GB of RAM. On a
-small station box, run the script on a laptop instead and copy the finished file in — see
+small station box, run the script on a laptop instead and copy the finished file in – see
 [`DEPLOYMENT.md`](DEPLOYMENT.md) §0.
 
 ## Backup and Disaster Recovery
@@ -331,24 +385,27 @@ small station box, run the script on a laptop instead and copy the finished file
 
 ```bash
 # Backup to local filesystem
-docker cp kprueck-tileserver-dev:/data/basel-landschaft.mbtiles ./backups/tiles-$(date +%Y%m%d).mbtiles
+docker cp "$TILESERVER":/data/basel-landschaft.mbtiles ./backups/tiles-$(date +%Y%m%d).mbtiles
 ```
 
 ### Restore Tiles
 
 ```bash
 # Restore from backup
-docker cp ./backups/tiles-20250101.mbtiles kprueck-tileserver-dev:/data/basel-landschaft.mbtiles
+./scripts/install-tiles.sh ./backups/tiles-20250101.mbtiles
+
+# Or by hand:
+docker cp ./backups/tiles-20250101.mbtiles "$TILESERVER":/data/basel-landschaft.mbtiles
 just tiles-restart
 ```
 
-### Include in Regular Backups
+### Not part of the nightly backup, on purpose
 
-Add to `scripts/backup.sh`:
-```bash
-# Backup offline map tiles
-docker cp kprueck-tileserver:/data/basel-landschaft.mbtiles "$BACKUP_DIR/tiles.mbtiles"
-```
+`scripts/backup.sh` covers the database and the photo volume and deliberately stops there: it
+runs as a sidecar with no access to the docker socket, and tiles are *reproducible* – the same
+`.mbtiles` comes back from `just tiles-download`, or from the copy on the laptop that generated
+it. Keep that copy somewhere off the box and a lost tile volume costs one `install-tiles.sh`,
+not an Einsatz.
 
 ## Technical Details
 
@@ -361,8 +418,8 @@ The `scripts/init-tileserver.sh` script runs on container startup and:
    - `metadata` table with required fields (name, type, version, format, bounds, etc.)
    - `tiles` table with proper schema (zoom_level, tile_column, tile_row, tile_data)
    - Unique index on tile coordinates
-3. **Generates config**: Creates `/data/config.json` with TileServer GL settings
-4. **Starts TileServer GL**: Launches server on port 8080
+3. **Starts TileServer GL**: Hands over to the image's own entrypoint with no config file, so
+   the server auto-detects whatever `.mbtiles` sits in `/data` and listens on port 8080
 
 **Why minimal tiles?**
 - TileServer GL requires valid MBTiles with metadata to start
@@ -383,47 +440,51 @@ When you run `just tiles-download`:
 
 **Note**: Vector tiles + server-side rendering = smaller storage, better quality!
 
-## Production Deployment (Railway)
+## Railway has no tile server – the Compose stack does
 
-**Important**: The offline tile server is **only available in local Docker development**.
+There are two supported deployments, and they differ on exactly this point.
 
-### Railway Configuration
+**Docker Compose (the reference production stack) ships the tile server.** `docker-compose.yml`
+runs `tileserver` as a first-class service on the `tiles` volume, and `deploy/Caddyfile` routes
+`/tiles` to it on the same origin as everything else. Offline maps therefore work in production:
+run `just tiles-download` (or copy an `.mbtiles` in with `scripts/install-tiles.sh`) against the
+running stack, exactly as in development. Only the addresses differ – see
+[Which stack are you on?](#which-stack-are-you-on).
 
-Railway deployments **do not include** the tile server container because:
-- Tile server requires persistent storage (~12 MB+ per region)
-- Adds deployment complexity and cost
-- Online OpenStreetMap tiles are reliable and free
-- Most production use cases have internet connectivity
+If a station is picking between the two paths, this is one of the reasons to pick Compose: it is
+the deployment that still shows a map when the internet is gone.
 
-### Settings for Railway
+**Railway does not ship the tile server.** No tileserver service, no persistent tile volume, so
+there is nothing for the app to fall back to:
+- All maps use online OpenStreetMap tiles
+- Map Mode should stay on "Online" (or "Auto", which then never finds a fallback)
+- That is a deliberate trade: Railway means nobody has to look after a box, at the cost of the
+  offline map
 
-The application automatically uses **"online" mode** on Railway by default:
-- No tile server connection attempted
-- All maps use OpenStreetMap tiles
-- No offline fallback (not needed in production)
-- Clean, simple deployment
+### If you need offline maps on Railway
 
-### If You Need Offline Maps in Production
+1. Run the Docker Compose stack instead – it already has this, and it is the shorter path
+2. Or use a managed tile host (Maptiler, Mapbox), or deploy TileServer GL separately with a
+   persistent volume, and budget hosting + storage + bandwidth
 
-If your production deployment requires offline maps:
-1. Use a managed tile hosting service (e.g., Maptiler, Mapbox)
-2. Deploy TileServer GL separately with persistent volume
-3. Update frontend `NEXT_PUBLIC_TILE_URL` environment variable
-4. Consider costs: hosting + storage + bandwidth
-
-For most use cases, online OpenStreetMap tiles are sufficient.
+> **Not** by setting `NEXT_PUBLIC_TILE_URL` on the running deployment. Every `NEXT_PUBLIC_*`
+> value is inlined into the JavaScript at **build** time, and the published frontend image is
+> built without station-specific ones on purpose – setting it on a deployment does nothing at
+> all. Pointing the browser at a different tile host means rebuilding the image yourself, which
+> a station should not be doing. The reason `/tiles` on the app's own origin is the supported
+> route is precisely that it needs no rebuild.
 
 ## Using Custom Regions
 
 The defaults cover Basel-Landschaft, because that is where the first station running KP Rück
-sits. **Your region is configuration, not a code change** — set four environment variables and
+sits. **Your region is configuration, not a code change** – set four environment variables and
 run the same script. (Earlier versions of this page told you to edit `scripts/download-tiles.sh`
 and named variables the script never had. Sorry.)
 
 ### Step 1: Find your extract on Geofabrik
 
 Browse [download.geofabrik.de](https://download.geofabrik.de/) and take the **smallest** extract
-that covers your area — a smaller extract means a much faster conversion. For example:
+that covers your area – a smaller extract means a much faster conversion. For example:
 
 - Germany / Upper Bavaria: `https://download.geofabrik.de/europe/germany/bayern/oberbayern-latest.osm.pbf`
 - Austria: `https://download.geofabrik.de/europe/austria-latest.osm.pbf`
@@ -431,7 +492,7 @@ that covers your area — a smaller extract means a much faster conversion. For 
 
 ### Step 2: Find your bounding box
 
-[boundingbox.klokantech.com](https://boundingbox.klokantech.com/) — draw a box around your
+[boundingbox.klokantech.com](https://boundingbox.klokantech.com/) – draw a box around your
 operational area and copy the **CSV** output (`minLon,minLat,maxLon,maxLat`). Be generous at the
 edges; an incident just outside the box has no offline map.
 
@@ -455,18 +516,31 @@ just tiles-restart
 | `TILES_PBF_URL` | The Geofabrik extract from step 1. |
 
 Put them in your shell profile or a small wrapper script so a later tile refresh reproduces the
-same coverage — nothing on the server remembers what you passed.
+same coverage – nothing on the server remembers what you passed.
+
+> **They do not belong in `.env`, and this is the one thing worth being pedantic about.**
+> `scripts/download-tiles.sh` reads them from the shell it is started in; it only reaches into
+> `.env` for `DOMAIN` and `HTTP_PORT`, so that its readiness probe at the end knows where to
+> look. Set `TILES_BOUNDS` in `.env` and nothing errors – the next `just tiles-download` simply
+> spends fifteen minutes generating Basel-Landschaft, and you find out when the map is blank
+> outside a canton you do not serve. `.env.example` documents the four for exactly this reason:
+> so the station that goes looking finds them, and finds them with this caveat attached.
 
 ### The filename is a separate decision
 
 `TILES_NAME` (default `basel-landschaft`) is the name of the `.mbtiles` file on the tileserver
 volume, not part of the geography above. Three places must agree on it:
-`scripts/download-tiles.sh`, `scripts/install-tiles.sh`, and `scripts/init-tileserver.sh` — all
+`scripts/download-tiles.sh`, `scripts/install-tiles.sh`, and `scripts/init-tileserver.sh` – all
 three read the same variable, and the tileserver container needs it in its environment too.
+
+This one **is** an `.env` variable, unlike the four above: `docker-compose.yml` passes it into
+the tileserver container from there, and `just doctor` / `just tiles-status` read it from the
+same file to tell real tiles apart from the bootstrap placeholder. It is documented in
+`.env.example`, commented out at its default.
 
 **An existing deployment should leave it alone.** Its tiles are already on the volume under the
 default name, and renaming means the init script finds nothing and quietly writes a bootstrap
-file instead — a map that looks like it works and has no tiles in it. Only worth setting on a
+file instead – a map that looks like it works and has no tiles in it. Only worth setting on a
 fresh stack, if you would rather the file said what it holds.
 
 ### Size Estimates by Region
@@ -494,6 +568,6 @@ fresh stack, if you would rather the file said what it holds.
 
 For issues or questions:
 1. Check troubleshooting section above
-2. Review tile server logs: `docker logs kprueck-tileserver-dev`
+2. Review tile server logs: `docker logs "$TILESERVER"` (see [Which stack are you on?](#which-stack-are-you-on))
 3. Verify tile server status: `just tiles-status`
 4. Open an issue on GitHub with logs and error messages

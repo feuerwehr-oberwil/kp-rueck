@@ -6,7 +6,7 @@ set -e
 #
 # TILES_NAME must match what scripts/download-tiles.sh writes. It defaults to the
 # region the first station covers; a new stack that renames it has to set the same
-# value in both places, and an existing deployment should leave it alone — its tiles
+# value in both places, and an existing deployment should leave it alone – its tiles
 # are already on the volume under the default name.
 
 TILES_NAME="${TILES_NAME:-basel-landschaft}"

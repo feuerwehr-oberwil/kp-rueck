@@ -7,7 +7,7 @@
 #   scripts/db-fingerprint.sh > after.txt       # against the restore
 #   diff before.txt after.txt
 #
-# This is what turns "the restore finished without errors" into "the restore is correct" — the
+# This is what turns "the restore finished without errors" into "the restore is correct" – the
 # distinction the drill in docs/DEPLOYMENT.md §6.2 exists for, and the assertion the weekly
 # restore-drill CI job makes. Connection comes from the usual libpq variables; an optional first
 # argument is a shortcut for PGPORT, which is the only one that usually differs between the two

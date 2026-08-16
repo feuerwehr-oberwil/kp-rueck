@@ -28,7 +28,16 @@ class Settings(BaseSettings):
         return v
 
     # CORS
-    cors_origins: list[str] | str = ["http://localhost:3000", "http://localhost:3001"]
+    # PUBLIC_URL is the name this had until 0.2. Three documents promise the old name still
+    # works, and until now that was true only of the compose file, which maps it in a shell
+    # substitution – a Railway station (variables set on the service, no compose file) that
+    # followed the "an existing installation needs no change" advice fell back to the
+    # localhost defaults below and lost every API call. Accepting it here makes the promise
+    # true everywhere. CORS_ORIGINS wins when both are set.
+    cors_origins: list[str] | str = Field(
+        default=["http://localhost:3000", "http://localhost:3001"],
+        validation_alias=AliasChoices("CORS_ORIGINS", "PUBLIC_URL"),
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -37,6 +46,14 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",")]
         return v
+
+    # Caddy's site address on the compose stack. Non-empty = this deployment is served over
+    # public HTTPS; empty = plain HTTP on a trusted LAN. The backend does not route anything
+    # with it – it is read solely so the cookie policy has a TLS signal that does not depend
+    # on CORS_ORIGINS being right (app/auth/config.py). Same `.env`, same value Caddy uses,
+    # reaching us through the `env_file:` pass-through in docker-compose.yml. Without a field
+    # here `extra="ignore"` would swallow it: not an error, just permanently invisible.
+    domain: str = ""
 
     # API
     api_v1_prefix: str = "/api"
@@ -47,10 +64,10 @@ class Settings(BaseSettings):
     # Uvicorn
     # Binds all interfaces on purpose: the process only ever listens inside its container, and
     # the only thing that reaches it is Caddy on the compose network. Binding 127.0.0.1 instead
-    # would make the container unreachable from the proxy — the service would simply not work.
+    # would make the container unreachable from the proxy – the service would simply not work.
     # What is actually exposed to the host is decided by `ports:` in docker-compose.yml, and the
     # backend publishes none. nosec B104: the finding does not apply to a containerised service.
-    host: str = "0.0.0.0"  # noqa: S104 — the container network is the boundary, not the process  # nosec B104
+    host: str = "0.0.0.0"  # noqa: S104 – the container network is the boundary, not the process  # nosec B104
     port: int = 8000
     reload: bool = False  # Set to False in production
 
@@ -135,7 +152,7 @@ class Settings(BaseSettings):
     # Keeping everything is only affordable because the log now grows with ACTIVITY rather
     # than with traffic: middleware/audit.py records mutations only. While reads were logged
     # too, the ~5 s board poll meant two idle wall displays wrote on the order of a gigabyte a
-    # year against this same "keep forever" default — a full disk, reached without anybody
+    # year against this same "keep forever" default – a full disk, reached without anybody
     # doing anything. Mutations alone are a few hundred thousand rows a year for a busy
     # station, which keeps indefinitely on any disk. If reads are ever logged again, this
     # default has to be revisited in the same change.
@@ -160,7 +177,7 @@ class Settings(BaseSettings):
 
     # SSO provisioning
     # Comma-separated emails (case-insensitive) that get role=editor on first
-    # Microsoft login. Everyone else is provisioned as viewer — any tenant
+    # Microsoft login. Everyone else is provisioned as viewer – any tenant
     # member can reach the login, so write access must be an explicit grant.
     sso_editor_allowlist: str = ""
 
@@ -174,11 +191,11 @@ class Settings(BaseSettings):
     # Print Agent
     # Shared token for the print agent endpoints. Fail CLOSED: empty means the four agent
     # endpoints answer 403 for everyone, not that they are open. Setting it is the
-    # deployment's opt-in to printing — see api/print.py::require_print_agent.
+    # deployment's opt-in to printing – see api/print.py::require_print_agent.
     print_agent_token: str = ""
 
     # Dead-man's switch: if set to a healthchecks.io / cron-monitor ping URL, a 60 s scheduler
-    # job GETs it — the monitor alerts if the pings ever stop (app or event loop silently
+    # job GETs it – the monitor alerts if the pings ever stop (app or event loop silently
     # dead). Unset → the heartbeat job isn't scheduled. Same name and cadence as kp-front, so
     # both deployments configure identically. See background/heartbeat.py.
     healthcheck_ping_url: str = ""
@@ -187,15 +204,15 @@ class Settings(BaseSettings):
     # Reject connects that carry no valid access_token cookie. Default ON.
     #
     # It defaulted to False through "Phase 1", which meant anything that could reach
-    # /socket.io could join the operations room and receive live incident broadcasts —
-    # addresses, crew assignments — without logging in. Only the admin room was role-gated,
+    # /socket.io could join the operations room and receive live incident broadcasts –
+    # addresses, crew assignments – without logging in. Only the admin room was role-gated,
     # and the Socket.IO CORS whitelist is not a control here: CORS is enforced by browsers,
     # and a script that omits or spoofs Origin is not a browser.
     #
     # Nothing legitimate connects anonymously: the client sends withCredentials, the
     # /display/* pages gate on isAuthenticated, and the public share-link board polls over
     # HTTP instead of using the socket. If some client of yours genuinely cannot log in, set
-    # WS_REQUIRE_AUTH=false — the board degrades to ~5s polling rather than going blank.
+    # WS_REQUIRE_AUTH=false – the board degrades to ~5s polling rather than going blank.
     ws_require_auth: bool = True
 
     # Photo Storage
@@ -208,7 +225,7 @@ class Settings(BaseSettings):
     # How many reverse proxies sit in front of this app. Decides which X-Forwarded-For
     # entry is trustworthy (see middleware/rate_limit.client_ip): the caller writes the
     # left of that header, our own proxies append to the right. 1 covers both reference
-    # deployments — Caddy in the compose stack, Railway's edge on Railway. Set 0 when the
+    # deployments – Caddy in the compose stack, Railway's edge on Railway. Set 0 when the
     # app is exposed directly, which makes the header be ignored entirely.
     trusted_proxy_count: int = 1
 
@@ -257,12 +274,12 @@ class Settings(BaseSettings):
     # every other field binds to its bare upper-cased name; without the explicit alias below,
     # KP_TELEMETRY_ENABLED would bind to nothing and the deployer veto documented in PRIVACY.md
     # would silently do nothing. The bare names stay accepted so existing .env files keep working.
-    # test_telemetry_env_veto.py pins both spellings — do not collapse these to plain fields.
+    # test_telemetry_env_veto.py pins both spellings – do not collapse these to plain fields.
     telemetry_enabled: bool = Field(
         default=True,
         validation_alias=AliasChoices("KP_TELEMETRY_ENABLED", "TELEMETRY_ENABLED"),
     )
-    # Points at our ingest by default (a public, write-only key — read app/telemetry/dsn.py
+    # Points at our ingest by default (a public, write-only key – read app/telemetry/dsn.py
     # before assuming that's a mistake). Override to aim the same machinery at your own
     # GlitchTip and upstream never hears from you.
     telemetry_dsn: str = Field(
@@ -279,7 +296,7 @@ class Settings(BaseSettings):
     @field_validator("telemetry_enabled", mode="before")
     @classmethod
     def _empty_telemetry_flag_is_false(cls, v: object) -> object:
-        # compose passes an unset variable through as "" — the safe reading of "unset" here is
+        # compose passes an unset variable through as "" – the safe reading of "unset" here is
         # "don't send", not "crash the boot on a pydantic bool parse".
         if isinstance(v, str) and v.strip() == "":
             return False

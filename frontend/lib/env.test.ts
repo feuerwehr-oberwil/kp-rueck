@@ -22,11 +22,20 @@ function servedFrom(href: string) {
   const url = new URL(href)
   Object.defineProperty(window, 'location', {
     configurable: true,
-    value: { hostname: url.hostname, origin: url.origin, href: url.href, protocol: url.protocol },
+    // `port` included deliberately: a real window.location has one, and leaving it undefined
+    // made every stub look like it was served from the default port. getTileBaseUrl() reads it
+    // to tell the dev server (:3000) apart from a compose stack on :8080.
+    value: {
+      hostname: url.hostname,
+      origin: url.origin,
+      href: url.href,
+      protocol: url.protocol,
+      port: url.port,
+    },
   })
 }
 
-/** No build-time NEXT_PUBLIC_* — how the published image is built. */
+/** No build-time NEXT_PUBLIC_* – how the published image is built. */
 function noBuildTimeEnv() {
   vi.stubEnv('NEXT_PUBLIC_API_URL', '')
   vi.stubEnv('NEXT_PUBLIC_WS_URL', '')
@@ -50,7 +59,7 @@ describe('self-hosted behind one origin (the docker-compose stack)', () => {
     noBuildTimeEnv()
     servedFrom('https://einsatz.feuerwehr-musterdorf.ch/')
     // Regression: the Railway naming convention used to be applied to ANY host with 3+
-    // labels, producing wss://einsatz-api.feuerwehr-musterdorf.ch — a host that does not
+    // labels, producing wss://einsatz-api.feuerwehr-musterdorf.ch – a host that does not
     // exist, so live board updates never connected on a self-hosted deployment.
     expect(getWsUrl()).toBe('wss://einsatz.feuerwehr-musterdorf.ch')
   })
@@ -78,7 +87,7 @@ describe('Railway (frontend and backend on separate hostnames)', () => {
 })
 
 describe('the runtime backend origin (API_URL, handed down by the root layout)', () => {
-  it('is what a custom Railway domain connects to — the case every guess got wrong', () => {
+  it('is what a custom Railway domain connects to – the case every guess got wrong', () => {
     noBuildTimeEnv()
     setRuntimeBackendOrigin('https://kp-api.feuerwehr-musterhausen.ch')
     servedFrom('https://kp.feuerwehr-musterhausen.ch/')
@@ -156,12 +165,23 @@ describe('local development', () => {
     expect(getWsUrl()).toBe('ws://localhost:8000')
     expect(getTileBaseUrl()).toBe('http://localhost:8080')
   })
+
+  it('does not mistake the compose stack on localhost for the dev server', () => {
+    // A station running docker compose on one box and opening the board on that same box.
+    // The old hostname-only check sent tiles to http://localhost:8080/styles/… – which is
+    // Caddy, which routes everything that is not /api, /socket.io or /tiles to the frontend.
+    // Offline tiles 404'd and the map went blank, while the same stack reached by LAN IP was
+    // fine. Only the dev server's port 3000 means "talk to the tileserver container direct".
+    noBuildTimeEnv()
+    servedFrom('http://localhost:8080/')
+    expect(getTileBaseUrl()).toBe('/tiles')
+  })
 })
 
 /**
  * The Content-Security-Policy, which `middleware.ts` composes on every document request.
  *
- * A test cannot read a live response header here — that would need a running server — so the
+ * A test cannot read a live response header here – that would need a running server – so the
  * check happens at the seam instead: the header is a pure function of four environment values,
  * and the cases below are the deployment shapes it has to get right. The `connect-src` ones are
  * the point of the exercise; the last is a tripwire, so a later edit cannot quietly drop
@@ -182,7 +202,7 @@ describe('the Content-Security-Policy header', () => {
 
   it('names no backend of its own when nothing is configured', () => {
     // The published image on the compose stack, served from ONE origin: 'self' already covers
-    // the API, the tiles and — per CSP3 — the same-origin WebSocket.
+    // the API, the tiles and – per CSP3 – the same-origin WebSocket.
     const sources = connectSrc({})
     expect(sources).toContain("'self'")
     expect(sources).toContain('http://localhost:8000')
@@ -199,7 +219,7 @@ describe('the Content-Security-Policy header', () => {
 
   it('withholds an API_URL the browser cannot resolve', () => {
     // docker-compose sets exactly this. A Docker service name in connect-src would put a host
-    // in the policy that no browser can look up — the trap publicBackendOrigin() exists for,
+    // in the policy that no browser can look up – the trap publicBackendOrigin() exists for,
     // and the reason this reuses that filter rather than restating the rule.
     expect(connectSrc({ apiUrl: 'http://backend:8000' })).toEqual(connectSrc({}))
     expect(connectSrc({ apiUrl: 'http://backend.railway.internal:8000' })).toEqual(connectSrc({}))
@@ -207,7 +227,7 @@ describe('the Content-Security-Policy header', () => {
 
   it('names a runtime API_URL as both an https and a wss origin', () => {
     // The case the whole change exists for: a split-origin deployment on a custom backend
-    // domain, running the published image — which is built without any NEXT_PUBLIC_* variable.
+    // domain, running the published image – which is built without any NEXT_PUBLIC_* variable.
     const sources = connectSrc({ apiUrl: 'https://kp-api.fwo.li' })
     expect(sources).toContain('https://kp-api.fwo.li')
     expect(sources).toContain('wss://kp-api.fwo.li')
@@ -236,7 +256,7 @@ describe('the Content-Security-Policy header', () => {
 
   it('honours NEXT_PUBLIC_WS_URL, which the build-time policy never did', () => {
     // A latent hole in the old header: getWsUrl() has always read this variable, but only
-    // NEXT_PUBLIC_API_URL ever reached connect-src — so setting just this one aimed the socket
+    // NEXT_PUBLIC_API_URL ever reached connect-src – so setting just this one aimed the socket
     // correctly and had the browser refuse it anyway.
     expect(connectSrc({ publicWsUrl: 'wss://ws.example.org' })).toContain('wss://ws.example.org')
     // The hostname rule reaches this value too, through the same filter.
@@ -264,7 +284,7 @@ describe('the Content-Security-Policy header', () => {
         'https://*.tile.openstreetmap.org https://tile.openstreetmap.org ' +
         'https://*.basemaps.cartocdn.com https://server.arcgisonline.com http://localhost:8080',
     )
-    // And only the http half — a wss origin in img-src would be noise.
+    // And only the http half – a wss origin in img-src would be noise.
     expect(directive(csp, 'img-src')).not.toContain('wss://')
   })
 

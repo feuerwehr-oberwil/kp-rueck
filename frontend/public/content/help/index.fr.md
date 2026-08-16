@@ -87,6 +87,19 @@ Toutes les vues d’affichage se synchronisent avec la fenêtre de l’éditeur 
 ### Style de carte
 Sous Réglages → Style de carte, on peut passer d’un style à l’autre : OpenStreetMap (standard), topographique (Esri), Voyager/clair (CARTO) et sombre (CARTO).
 
+### Offline-Maps
+La carte va normalement chercher ses tuiles sur Internet. Si la connexion tombe, elle reste vide – précisément dans la situation où l’on en a besoin. C’est à cela que sert le serveur de tuiles fourni.
+
+Sous **Réglages → Mode carte**, trois réglages sont possibles :
+
+- **Auto** (par défaut) : d’abord en ligne, bascule automatiquement hors ligne en cas d’erreur.
+- **En ligne** : toujours depuis Internet.
+- **Hors ligne** : toujours depuis le serveur de tuiles local.
+
+Les tuiles hors ligne doivent être téléchargées une fois, et pour **votre** région – le réglage par défaut couvre Bâle-Campagne. C’est la personne qui s’occupe du serveur qui le fait, avec `just tiles-download` sur l’hôte Docker ; la marche à suivre est dans `docs/OFFLINE_MAPS.md`. Le téléchargement est volumineux et long : il se fait un après-midi calme, pas la veille d’un exercice.
+
+Pour vérifier que cela a fonctionné, `just tiles-status` distingue « uniquement les tuiles minimales de départ » de « vraies données hors ligne pour la région ».
+
 ---
 
 ## Recherche
@@ -179,6 +192,25 @@ Un clic droit sur une carte d’intervention ouvre un menu avec les options suiv
 
 ## Comment ça marche : déroulements types
 
+### Liste de contrôle (au démarrage du PC arrière)
+
+S’ouvre d’elle-même dès qu’un événement est sélectionné, puis reste accessible
+par **« Checklist n/m »** dans la barre du bas. Elle guide ce qui doit se passer
+dans les premières minutes : informer l’effectif, distribuer les liens d’arrivée,
+de reconnaissance, d’alarme et de terrain, attribuer les conducteurs, vérifier
+l’imprimante, armer le repli papier.
+
+- **Les lignes chiffrées se cochent toutes seules** (personnes annoncées,
+  conducteurs par véhicule, imprimante joignable). Chaque ligne peut en plus être
+  cochée et décochée **à la main** – retenu par appareil.
+- **Sous les lignes de lien figure à qui il est destiné et combien d’exemplaires
+  imprimer** (« Pour chaque équipe qui part · 1 exemplaire par véhicule »). Si une
+  imprimante thermique est joignable, la ligne imprime le code QR ; sinon elle
+  copie le lien.
+- **Adaptable :** Réglages → Checklist. Chaque étape peut y être **masquée** (une
+  étape masquée ne compte plus dans la progression) et la note remplacée par vos
+  propres chiffres.
+
 ### Une nouvelle intervention arrive
 
 1. Appuyer sur `N` ou cliquer sur « Nouvelle intervention »
@@ -225,6 +257,26 @@ En plus de WhatsApp et de l’imprimante, les personnes attribuées peuvent êtr
 - **Liaison :** seules les personnes **liées** à Divera peuvent être alarmées – les autres sont grisées. La liaison se fait par la synchronisation des personnes Divera (Réglages → Personnel).
 - **Activer :** Réglages → Alarmement → activer « Alarmement Divera » (nécessite une clé d’accès Divera). On y trouve aussi une **alarme de test** vers une seule personne.
 - N’est **pas** déclenché en mode exercice ni en mode démo ; le pager n’est délibérément pas sollicité (push / pas de double alarmement).
+
+### Message Divera (information, pas une alarme)
+
+Le message de mise en attente de la liste de contrôle – « le PC arrière est
+actif, prendre son téléphone » – peut partir directement comme **message
+Divera** au lieu de passer par WhatsApp. Un message n’est délibérément **pas une
+alarme** : il arrive comme notification dans l’app Divera, ne réveille personne
+comme une convocation et ne sollicite aucun pager.
+
+- **Où :** bouton **« Message Divera »** à côté de « Envoyer par WhatsApp » dans
+  la liste de contrôle (sur les deux lignes de message). Il n’apparaît que si un
+  fournisseur d’alarmement est configuré **et** que l’alarmement est activé.
+- **Destinataires :** **rien** n’est présélectionné. Dans la fenêtre de
+  confirmation, cocher les **groupes Divera** visés. « Tout le site » existe,
+  mais c’est un choix délibéré, signalé par un avertissement – un message destiné
+  au piquet ne doit pas atteindre tout le corps par inadvertance.
+- **Texte :** vient du modèle (Réglages → Alarmement) et reste modifiable dans la
+  fenêtre avant l’envoi.
+- N’est **pas** réellement envoyé en mode exercice ni en mode démo.
+- **Divera FREE :** un seul message toutes les cinq minutes.
 
 ### Arrivée du personnel
 
@@ -357,6 +409,19 @@ Ouvrir avec la touche `A` ou via la barre **Missions** en bas de l’écran.
    - **Glisser-déposer** : faire glisser une carte d’intervention directement sur la mission.
 
 Une intervention qui appartient déjà à une autre mission est **déplacée** lors de l’ajout (une intervention appartient au plus à un itinéraire).
+
+### Ordres standard
+
+Les missions qui reviennent à chaque situation n’ont pas à être ressaisies à chaque fois. Sous **Réglages → Ordres standard**, tu crées des modèles – nom, couleur, une note fixe et les véhicules/matériels que la mission emporte habituellement. Exemples typiques : « Bois de tempête », « Barrage », « Réserve TLF ».
+
+L’interrupteur de chaque modèle décide de la suite :
+
+- **À chaque situation** – la mission est créée automatiquement à chaque nouvel événement, vide et prête à recevoir des étapes.
+- **Sur demande** – le modèle apparaît en haut de la barre des missions sous forme de bouton ; un clic crée la mission.
+
+Deux choix délibérés : un véhicule enregistré est attribué **même s’il est déjà engagé ailleurs** – l’avertissement de conflit sur le tableau existe précisément pour rendre cela visible. Et un modèle ne contient **aucun personnel** : qui fait partie du groupe se décide par situation, selon qui est présent.
+
+Une mission issue d’un modèle est ensuite une mission ordinaire – modifier ou supprimer le modèle plus tard n’a **aucun** effet rétroactif sur les situations en cours.
 
 ### Ressources propres à l’itinéraire
 
@@ -599,8 +664,8 @@ Les données sont synchronisées automatiquement depuis Railway (voir les régla
 
 ### Arrêter
 ```bash
-just stop       # Arrêter les services
-just clean      # Tout réinitialiser (supprime les données)
+just dev-stop    # Arrêter les services
+just dev-clean   # Tout réinitialiser (supprime les données) – demande confirmation
 ```
 
 L’instance locale tourne sur `http://localhost:3000`.

@@ -151,9 +151,24 @@ async def release_all_resources(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """
-    Release all resources from incident.
+    Release the incident's personnel and vehicles. **Material stays assigned.**
 
-    Called when incident completes (moves to 'complete').
+    Called when an incident completes (moves to 'complete'), and the same cascade
+    is available on its own from the board.
+
+    Materials are excluded on purpose (`auto_release_incident_resources(exclude_materials=True)`):
+    equipment is regularly left standing on site after the crew drives off, and
+    the station tracks where it is until someone brings it back. Returning it is
+    its own step – `GET /api/incidents/{incident_id}/rapport/material-return`
+    lists what the crew reported as returned versus left on site, and the operator
+    releases those rows through `POST /api/incidents/{incident_id}/unassign/{assignment_id}`.
+    A field form must not silently release a pump that is still running in a cellar.
+
+    So this endpoint does NOT leave the incident with zero assignments, and callers
+    that need that – the Excel `replace` import is the one that got caught – have
+    to deal with the material rows separately.
+
+    Idempotent: releasing an incident that holds nothing is a 204.
     """
     await crud.auto_release_incident_resources(
         db=db,

@@ -284,7 +284,7 @@
           "admin"
         ],
         "summary": "Preview Excel Import",
-        "description": "Preview Excel import without committing to database.\nReturns first 10 rows of each sheet for user confirmation.",
+        "description": "Preview Excel import without committing to database.\n\nReturns first 10 rows of each sheet plus, for the given mode, how much\nexisting data the import would delete – including the assignments on running\nincidents that would be left pointing at deleted resources.",
         "operationId": "preview_excel_import_api_admin_import_preview_post",
         "parameters": [
           {
@@ -325,7 +325,11 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_preview_excel_import_api_admin_import_preview_post"
+                "$ref": "#/components/schemas/Body_preview_excel_import_api_admin_import_preview_post",
+                "required": [
+                  "file",
+                  "mode"
+                ]
               }
             }
           }
@@ -360,7 +364,7 @@
           "admin"
         ],
         "summary": "Execute Excel Import",
-        "description": "Execute Excel import with specified mode.\n\nModes:\n- replace: Delete all existing data, insert new\n- merge: Update existing by name, add new (treated as replace for now)\n- append: Keep existing, add new",
+        "description": "Execute Excel import with specified mode. `mode` is required – there is no default.\n\nModes:\n- replace: Delete all existing data, insert new\n- append: Keep existing, add new",
         "operationId": "execute_excel_import_api_admin_import_execute_post",
         "parameters": [
           {
@@ -401,7 +405,11 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_execute_excel_import_api_admin_import_execute_post"
+                "$ref": "#/components/schemas/Body_execute_excel_import_api_admin_import_execute_post",
+                "required": [
+                  "file",
+                  "mode"
+                ]
               }
             }
           }
@@ -1172,6 +1180,372 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auftrag-templates/": {
+      "get": {
+        "tags": [
+          "auftrag-templates"
+        ],
+        "summary": "List Templates",
+        "description": "List the station's Standard-Aufträge in settings order.",
+        "operationId": "list_templates_api_auftrag_templates__get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuftragTemplateResponse"
+                  },
+                  "title": "Response List Templates Api Auftrag Templates  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "auftrag-templates"
+        ],
+        "summary": "Create Template",
+        "description": "Create a Standard-Auftrag (editor only).",
+        "operationId": "create_template_api_auftrag_templates__post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuftragTemplateCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuftragTemplateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auftrag-templates/reorder": {
+      "post": {
+        "tags": [
+          "auftrag-templates"
+        ],
+        "summary": "Reorder Templates",
+        "description": "Persist the settings list order (editor only).",
+        "operationId": "reorder_templates_api_auftrag_templates_reorder_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuftragTemplateReorder"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auftrag-templates/{template_id}": {
+      "patch": {
+        "tags": [
+          "auftrag-templates"
+        ],
+        "summary": "Update Template",
+        "description": "Update a Standard-Auftrag (editor only). A given ``resources`` list replaces the old one.",
+        "operationId": "update_template_api_auftrag_templates__template_id__patch",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Template Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuftragTemplateUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuftragTemplateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "auftrag-templates"
+        ],
+        "summary": "Delete Template",
+        "description": "Delete a Standard-Auftrag (editor only). Aufträge created from it stay put.",
+        "operationId": "delete_template_api_auftrag_templates__template_id__delete",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Template Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -2294,6 +2668,152 @@
         }
       }
     },
+    "/api/divera/groups": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "List Divera Groups",
+        "description": "List the unit's Divera groups — the recipient choices for a Mitteilung.\n\nRead live from Divera (pull/all), like the member list next door.",
+        "operationId": "list_divera_groups_api_divera_groups_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DiveraGroupPreview"
+                  },
+                  "title": "Response List Divera Groups Api Divera Groups Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/divera/message": {
+      "post": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Send Divera Message",
+        "description": "Post an informational Mitteilung (not an alarm) to the unit.\n\nThis is the setup checklist's standby message — \"KP-Rück ist aktiv, Telefon\nmitnehmen\" — which used to be a WhatsApp text pasted by hand. It is\ndeliberately NOT an alarm: everybody should read it, nobody should be woken\nby a siren, and no pager is touched.\n\nSame gating as an alarm (provider configured, ``alerting.enabled``, not\ndemo, editor role), because it still lands on every addressed phone. Who\nreceives it is explicit: named groups, or a deliberate «alle» — the request\nschema has no default.",
+        "operationId": "send_divera_message_api_divera_message_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiveraMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiveraMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/test-alarm": {
       "post": {
         "tags": [
@@ -2537,7 +3057,7 @@
           "events"
         ],
         "summary": "Create Event",
-        "description": "Create a new event (editor only).",
+        "description": "Create a new event (editor only), including the automatic Standard-Aufträge.",
         "operationId": "create_event_api_events__post",
         "parameters": [
           {
@@ -6626,7 +7146,7 @@
           "assignments"
         ],
         "summary": "Release All Resources",
-        "description": "Release all resources from incident.\n\nCalled when incident completes (moves to 'complete').",
+        "description": "Release the incident's personnel and vehicles. **Material stays assigned.**\n\nCalled when an incident completes (moves to 'complete'), and the same cascade\nis available on its own from the board.\n\nMaterials are excluded on purpose (`auto_release_incident_resources(exclude_materials=True)`):\nequipment is regularly left standing on site after the crew drives off, and\nthe station tracks where it is until someone brings it back. Returning it is\nits own step – `GET /api/incidents/{incident_id}/rapport/material-return`\nlists what the crew reported as returned versus left on site, and the operator\nreleases those rows through `POST /api/incidents/{incident_id}/unassign/{assignment_id}`.\nA field form must not silently release a pump that is still running in a cellar.\n\nSo this endpoint does NOT leave the incident with zero assignments, and callers\nthat need that – the Excel `replace` import is the one that got caught – have\nto deal with the material rows separately.\n\nIdempotent: releasing an incident that holds nothing is a 204.",
         "operationId": "release_all_resources_api_incidents__incident_id__release_all_post",
         "parameters": [
           {
@@ -12597,6 +13117,138 @@
         }
       }
     },
+    "/api/settings/alarm-webhook-secret": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Reveal Alarm Webhook Secret",
+        "description": "Show the current webhook secret to an admin, and say where it comes from.",
+        "operationId": "reveal_alarm_webhook_secret_api_settings_alarm_webhook_secret_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmWebhookSecret"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/alarm-webhook-secret/rotate": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Rotate Alarm Webhook Secret",
+        "description": "Generate a new webhook secret. Refuses when the environment pins one.",
+        "operationId": "rotate_alarm_webhook_secret_api_settings_alarm_webhook_secret_rotate_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmWebhookSecret"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/{key}": {
       "get": {
         "tags": [
@@ -17248,6 +17900,34 @@
         "title": "AlarmIn",
         "description": "A provider-neutral alarm as delivered by an external dispatch system."
       },
+      "AlarmWebhookSecret": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "env",
+              "database"
+            ],
+            "title": "Source"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "source",
+          "configured"
+        ],
+        "title": "AlarmWebhookSecret",
+        "description": "The shared secret for POST /api/alarms, handed back to an admin who asked for it.\n\n``source`` is not decoration: ``ALARM_WEBHOOK_SECRET`` in the environment wins over the\ndatabase value, so an admin looking at ``env`` needs to know that rotating from the UI\nwould change nothing and the value has to move in ``.env`` instead."
+      },
       "AssignRekoPersonnelRequest": {
         "properties": {
           "personnel_id": {
@@ -17309,6 +17989,11 @@
         "properties": {
           "resource_type": {
             "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
             "title": "Resource Type"
           },
           "resource_id": {
@@ -17339,6 +18024,11 @@
           },
           "resource_type": {
             "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
             "title": "Resource Type"
           },
           "resource_id": {
@@ -17530,6 +18220,234 @@
         "title": "AuditLogEntry",
         "description": "Audit log entry schema."
       },
+      "AuftragTemplateCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "auto_create": {
+            "type": "boolean",
+            "title": "Auto Create",
+            "default": false
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/AuftragTemplateResourceRef"
+            },
+            "type": "array",
+            "title": "Resources",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "AuftragTemplateCreate",
+        "description": "Schema for creating a Standard-Auftrag."
+      },
+      "AuftragTemplateReorder": {
+        "properties": {
+          "template_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Template Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "template_ids"
+        ],
+        "title": "AuftragTemplateReorder",
+        "description": "New order for the settings list, most-significant first."
+      },
+      "AuftragTemplateResourceRef": {
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "vehicle",
+              "material"
+            ],
+            "title": "Resource Type"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resource_type",
+          "resource_id"
+        ],
+        "title": "AuftragTemplateResourceRef",
+        "description": "One vehicle or material a template brings along."
+      },
+      "AuftragTemplateResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "auto_create": {
+            "type": "boolean",
+            "title": "Auto Create",
+            "default": false
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/AuftragTemplateResourceRef"
+            },
+            "type": "array",
+            "title": "Resources",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "id",
+          "position",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AuftragTemplateResponse",
+        "description": "A Standard-Auftrag as the settings screen and the Vorlagen row read it."
+      },
+      "AuftragTemplateUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "auto_create": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Create"
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AuftragTemplateResourceRef"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resources"
+          }
+        },
+        "type": "object",
+        "title": "AuftragTemplateUpdate",
+        "description": "Partial PATCH. ``resources``, when given, REPLACES the whole list."
+      },
       "AvailableRekoPersonnel": {
         "properties": {
           "personnel_id": {
@@ -17647,9 +18565,16 @@
             "title": "File"
           },
           "mode": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Mode",
-            "default": "replace"
+            "description": "**Required.** `replace` (delete all personnel, vehicles and materials, then load the file) or `append` (keep them and add the file's rows). Sending neither is a 400, not a default."
           }
         },
         "type": "object",
@@ -17723,6 +18648,18 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode",
+            "description": "**Required.** `replace` (delete all personnel, vehicles and materials, then load the file) or `append` (keep them and add the file's rows). Sending neither is a 400, not a default."
           }
         },
         "type": "object",
@@ -18453,6 +19390,25 @@
         "title": "DiveraEmergencyResponse",
         "description": "Pool alarm response schema (Divera or generic-webhook alarms)."
       },
+      "DiveraGroupPreview": {
+        "properties": {
+          "divera_id": {
+            "type": "integer",
+            "title": "Divera Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "divera_id",
+          "name"
+        ],
+        "title": "DiveraGroupPreview",
+        "description": "One Divera group (Gruppe) a Mitteilung can be addressed at."
+      },
       "DiveraMemberPreview": {
         "properties": {
           "divera_id": {
@@ -18471,6 +19427,112 @@
         ],
         "title": "DiveraMemberPreview",
         "description": "Preview of a single Divera member."
+      },
+      "DiveraMessageRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "groups",
+              "all"
+            ],
+            "title": "Target"
+          },
+          "group_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Group Ids",
+            "default": []
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "target"
+        ],
+        "title": "DiveraMessageRequest",
+        "description": "Request to post a Divera Mitteilung (e.g. the KP's standby message).\n\n``target`` is required and has no default: \"everyone\" is a decision an\noperator makes on purpose, in the confirmation sheet, not something a\nforgotten field does for them."
+      },
+      "DiveraMessageResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "foreign_id": {
+            "type": "string",
+            "title": "Foreign Id"
+          },
+          "divera_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Divera Message Id"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "groups",
+              "all"
+            ],
+            "title": "Target"
+          },
+          "group_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Group Names",
+            "default": []
+          },
+          "simulated": {
+            "type": "boolean",
+            "title": "Simulated",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "foreign_id",
+          "target"
+        ],
+        "title": "DiveraMessageResponse",
+        "description": "Result of a Mitteilung send."
       },
       "DiveraSyncExecute": {
         "properties": {
@@ -19276,6 +20338,65 @@
         "title": "EventUpdate",
         "description": "Schema for updating an event."
       },
+      "ExcelImportDeletions": {
+        "properties": {
+          "personnel": {
+            "type": "integer",
+            "title": "Personnel"
+          },
+          "vehicles": {
+            "type": "integer",
+            "title": "Vehicles"
+          },
+          "materials": {
+            "type": "integer",
+            "title": "Materials"
+          },
+          "incident_assignments": {
+            "type": "integer",
+            "title": "Incident Assignments"
+          },
+          "active_incident_assignments": {
+            "type": "integer",
+            "title": "Active Incident Assignments"
+          },
+          "incident_group_assignments": {
+            "type": "integer",
+            "title": "Incident Group Assignments",
+            "default": 0
+          },
+          "active_incident_group_assignments": {
+            "type": "integer",
+            "title": "Active Incident Group Assignments",
+            "default": 0
+          },
+          "cascade_event_attendance": {
+            "type": "integer",
+            "title": "Cascade Event Attendance",
+            "default": 0
+          },
+          "cascade_event_special_functions": {
+            "type": "integer",
+            "title": "Cascade Event Special Functions",
+            "default": 0
+          },
+          "cascade_personnel_identities": {
+            "type": "integer",
+            "title": "Cascade Personnel Identities",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel",
+          "vehicles",
+          "materials",
+          "incident_assignments",
+          "active_incident_assignments"
+        ],
+        "title": "ExcelImportDeletions",
+        "description": "What the chosen import mode would DELETE – zero throughout for `append`.\n\n`incident_assignments` is the number that matters and that no operator can\nguess: an assignment references its resource by a bare UUID with no foreign\nkey, so a `replace` leaves those rows behind pointing at deleted personnel,\nvehicles and materials. `active_incident_assignments` is the subset still on\nthe board, i.e. the damage visible on a running incident.\n`incident_group_assignments` is the identical hazard on Aufträge, whose\nresources hang off the route rather than off any of its stops.\n\n`cascade_*` are the rows that do the opposite and disappear without trace:\n`personnel.id` is a real FK with ON DELETE CASCADE in all three, so a roster\nreplace silently wipes the check-ins of a running event.\n\nThe fields below the first five default to 0 so an older client that never\nsends or reads them keeps working – they were added after the shape shipped."
+      },
       "ExcelImportPreview": {
         "properties": {
           "personnel_preview": {
@@ -19313,6 +20434,17 @@
           "materials_total": {
             "type": "integer",
             "title": "Materials Total"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "replace",
+              "append"
+            ],
+            "title": "Mode"
+          },
+          "deletions": {
+            "$ref": "#/components/schemas/ExcelImportDeletions"
           }
         },
         "type": "object",
@@ -19322,7 +20454,9 @@
           "vehicles_preview",
           "vehicles_total",
           "materials_preview",
-          "materials_total"
+          "materials_total",
+          "mode",
+          "deletions"
         ],
         "title": "ExcelImportPreview",
         "description": "Preview of Excel import data."
@@ -20233,6 +21367,11 @@
         "properties": {
           "resource_type": {
             "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
             "title": "Resource Type"
           },
           "resource_id": {
@@ -20263,6 +21402,11 @@
           },
           "resource_type": {
             "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
             "title": "Resource Type"
           },
           "resource_id": {

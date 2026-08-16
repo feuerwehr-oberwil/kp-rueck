@@ -9,6 +9,14 @@ changing the env var and redeploying.
 
 It is a no-op unless `VIEWER_PASSWORD` is set, so it never creates a weak
 default-password account by accident.
+
+Note the asymmetry with `admin`, which surprises people: `ADMIN_SEED_PASSWORD` applies once,
+when the database is created, and the docs tell you to change it in the app afterwards.
+`VIEWER_PASSWORD` is re-applied on EVERY boot, so the env var – not the app – is the source of
+truth for the viewer login. Changing it in the UI is reverted at the next restart, which is why
+docs/SETUP.md §2 now says to rotate it in `.env`. That is documented, not accidental: the
+viewer account is what wall displays log in with, and a station that has lost the password
+needs a way back in that does not involve SQL.
 """
 
 import asyncio
@@ -26,7 +34,18 @@ from .database import async_session_maker
 async def ensure_viewer_account() -> None:
     viewer_password = os.getenv("VIEWER_PASSWORD")
     if not viewer_password:
-        print("VIEWER_PASSWORD not set — leaving viewer account unchanged")
+        print("VIEWER_PASSWORD not set – leaving viewer account unchanged")
+        return
+
+    # seed.py enforces this on a fresh database; this path did not, so a VIEWER_PASSWORD
+    # shortened after the first boot was accepted silently – against what .env.example
+    # promises. Refuse it, but do NOT raise: this runs on every boot, and taking the whole
+    # board down over the read-only kiosk password is the worse failure of the two.
+    if len(viewer_password) < 12:
+        print(
+            f"VIEWER_PASSWORD is {len(viewer_password)} characters – at least 12 are required. "
+            "Leaving the viewer account unchanged; fix it in .env and restart."
+        )
         return
 
     password_hash = bcrypt.hashpw(viewer_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -48,7 +67,7 @@ async def ensure_viewer_account() -> None:
             )
             print("Created read-only viewer account from VIEWER_PASSWORD")
         else:
-            # Env var is the source of truth — keep the account read-only + active
+            # Env var is the source of truth – keep the account read-only + active
             # and sync its password so it can be rotated via a redeploy.
             viewer.password_hash = password_hash
             viewer.role = "viewer"
@@ -88,7 +107,7 @@ async def ensure_dev_bypass_user(db: AsyncSession) -> None:
         models.User(
             id=DEV_BYPASS_USER_ID,
             username="dev-user",
-            password_hash="!",  # noqa: S106 — sentinel, never matches a bcrypt verify
+            password_hash="!",  # noqa: S106 – sentinel, never matches a bcrypt verify
             role="admin",
             display_name="Development User",
             is_active=True,

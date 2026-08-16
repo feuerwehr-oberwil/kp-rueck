@@ -177,7 +177,7 @@ erDiagram
 
 ## Deployment Architectures
 
-The **self-hosted production stack** below is the reference deployment — it is what published releases are built and tested for, and what [`DEPLOYMENT.md`](DEPLOYMENT.md) documents. The others are the development stack, the same production stack tuned for a command post with no internet, and a legacy managed-PaaS layout.
+The **self-hosted production stack** below is the reference deployment – it is what published releases are built and tested for, and what [`DEPLOYMENT.md`](DEPLOYMENT.md) documents. The others are the development stack, the same production stack tuned for a command post with no internet, and a legacy managed-PaaS layout.
 
 ### Local Development (Docker Compose)
 
@@ -212,11 +212,11 @@ graph LR
 
 The reference deployment: one box, one origin, published images from GHCR pinned by
 `KP_RUECK_TAG`. Caddy terminates TLS and fans out by path, which is why the frontend image
-carries no station URL — the browser only ever talks to its own host.
+carries no station URL – the browser only ever talks to its own host.
 
 ```mermaid
 graph LR
-    subgraph host["Docker Compose (docker-compose.yml) — one host"]
+    subgraph host["Docker Compose (docker-compose.yml) – one host"]
         caddy["Caddy<br/><small>:80/:443 · automatic HTTPS</small>"]
         fe_prod["Frontend<br/><small>Next.js</small>"]
         be_prod["Backend<br/><small>FastAPI</small>"]
@@ -240,27 +240,27 @@ graph LR
 
 | Service | Image | Notes |
 |---------|-------|-------|
-| Caddy | `caddy:2-alpine` | Single origin. Automatic HTTPS when `DOMAIN` is set; plain HTTP on `HTTP_PORT` for a LAN-only install (then `AUTH_COOKIE_SECURE=false` is required). |
+| Caddy | `caddy:2-alpine` | Single origin. Automatic HTTPS when `DOMAIN` is set; plain HTTP on `HTTP_PORT` for a LAN-only install. The backend reads `CORS_ORIGINS`, sees a plain `http://` origin and drops the `Secure` flag from login cookies itself, so a LAN install sets nothing extra – `AUTH_COOKIE_SECURE` is an override, not a step. |
 | Backend | `ghcr.io/feuerwehr-oberwil/kp-rueck-backend` | `start.sh` runs `alembic upgrade head` on boot. `ENVIRONMENT=production` makes the secrets mandatory and disables the auth bypass, sample data and Swagger. |
-| Frontend | `ghcr.io/feuerwehr-oberwil/kp-rueck-frontend` | Built **without** `NEXT_PUBLIC_API_URL` on purpose — baking a URL in would tie the image to one station. The browser calls `/backend-api` on its own origin and Next forwards to the runtime `API_URL`. |
+| Frontend | `ghcr.io/feuerwehr-oberwil/kp-rueck-frontend` | Built **without** `NEXT_PUBLIC_API_URL` on purpose – baking a URL in would tie the image to one station. The browser calls `/backend-api` on its own origin and Next forwards to the runtime `API_URL`. |
 | PostgreSQL | `postgres:16-alpine` | Named volume. `DATABASE_URL` is composed in `docker-compose.yml` from the `POSTGRES_*` values. |
-| TileServer | `ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver` | Offline tiles, reachable at `/tiles`. Optional but recommended — it is what keeps the map alive without internet. |
-| Print Agent | `ghcr.io/feuerwehr-oberwil/kp-print-agent` | Optional (`--profile printing`), amd64 + arm64. |
+| TileServer | `ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver` | Offline tiles, reachable at `/tiles`. Optional but recommended – it is what keeps the map alive without internet. |
+| Print Agent | `ghcr.io/feuerwehr-oberwil/kp-print-agent` | Optional – add `printing` to `COMPOSE_PROFILES` in `.env`, amd64 + arm64. |
 
 All four published images share one tag; a station runs a matched set, never a mix.
 
-### Cloud (managed PaaS) — legacy
+### Cloud (managed PaaS) – legacy
 
 Feuerwehr Oberwil's own deployment grew up on Railway, and [`RAILWAY.md`](RAILWAY.md) still
 describes that layout: three services, managed Postgres, a `/mnt/data` volume for Reko photos,
 online-only OSM tiles (no tile server). The runtime no longer assumes Railway and this path is
-not maintained in step with the compose stack — it is documented for deployments already on it,
+not maintained in step with the compose stack – it is documented for deployments already on it,
 not recommended for new ones.
 
 
 ### Command Post (Offline-capable)
 
-The same production stack as above, on a machine at the command post with offline tiles installed and an optional Raspberry Pi for thermal printing. Nothing about the images or compose file differs — only the configuration (no `DOMAIN`, tiles downloaded, print agent enabled).
+The same production stack as above, on a machine at the command post with offline tiles installed and an optional Raspberry Pi for thermal printing. Nothing about the images or compose file differs – only the configuration (no `DOMAIN`, tiles downloaded, print agent enabled).
 
 ```mermaid
 graph TB

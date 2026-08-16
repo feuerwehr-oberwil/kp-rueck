@@ -74,6 +74,7 @@ import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist } from "@/components/event-setup-checklist"
+import { DiveraMessageDialog } from "@/components/divera/divera-message-dialog"
 import { summarizeEventChecklist } from "@/lib/checklist-tasks"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
@@ -525,6 +526,8 @@ export default function FireStationDashboard() {
   // The Appell. Not a ninth footer sheet and not a tab inside the shared QR body — it is
   // opened from the check-in sheet's Anwesenheit row, and opening it closes that sheet.
   const [attendanceOpen, setAttendanceOpen] = useState(false)
+  /** Body of the Divera-Mitteilung the Checkliste asked to send; null = closed. */
+  const [diveraMessageText, setDiveraMessageText] = useState<string | null>(null)
   const [attendanceCounts, setAttendanceCounts] = useState<{ present: number; total: number } | null>(null)
 
   // Auto-generate check-in QR code URL when no personnel are available
@@ -2507,6 +2510,7 @@ export default function FireStationDashboard() {
                       onAllTasksComplete={() => handleChecklistOpenChange(false)}
                       onOpenVehicles={() => setActiveFooterSheet('vehicles')}
                       onOpenAttendance={() => setAttendanceOpen(true)}
+                      onSendDiveraMessage={(text) => setDiveraMessageText(text)}
                     />
                   </PopoverContent>
                 </Popover>
@@ -3086,6 +3090,17 @@ export default function FireStationDashboard() {
           }}
         />
       )}
+
+      {/* Divera-Mitteilung from the Checkliste. Mounted here, not inside the
+          checklist popover: opening it closes that popover, which would take a
+          dialog rendered in there down with it (same reason as the driver
+          prompt). Nothing is sent until it is confirmed, and its group picker
+          starts empty — «alle» is a choice, never a default. */}
+      <DiveraMessageDialog
+        open={diveraMessageText !== null}
+        onOpenChange={(open) => !open && setDiveraMessageText(null)}
+        defaultText={diveraMessageText ?? ''}
+      />
 
       {/* Thermal slip, A4 status print and per-event file export in one sheet */}
       <PrintHubSheet

@@ -156,7 +156,7 @@ Response:
 ### Photo Serving
 ```http
 GET /api/photos/{incident_id}/{filename}
-  (an authenticated session, OR ?token=<viewer share token> — 401 otherwise)
+  (an authenticated session, OR ?token=<viewer share token> – 401 otherwise)
 
 Response:
   Image file (image/jpeg)
@@ -179,7 +179,7 @@ Response:
 - **Upload**: Requires valid form token (generated per incident)
 - **Viewing**: **A session, or an event-scoped viewer token.** `GET /api/photos/{incident}/{file}` writes an audit entry (`action_type="view_photo"`, with `changes.via = "session" | "viewer_token"`) and responds `Cache-Control: private, max-age=3600`.
   A **viewer share token** (`/display/board?token=…`, 24 h, one event) also opens this route, but only for a photo that (a) belongs to an incident in that token's event AND (b) is listed by a **submitted** Reko report. Anything else answers `404`, never `403`, so a forwarded link cannot probe which photos exist. A Schadenplatz-Rapport photo sitting in the same directory on disk is NOT reachable this way, and neither are the photos of a draft Reko.
-  **So Reko photos are not "never public": anybody holding a share link sees them.** Decide with that in mind who gets the link — see `_viewer_token_may_see_photo` in `backend/app/api/reko.py`.
+  **So Reko photos are not "never public": anybody holding a share link sees them.** Decide with that in mind who gets the link – see `_viewer_token_may_see_photo` in `backend/app/api/reko.py`.
 - **Deletion**: Requires valid form token (same as upload)
 
 ### File Validation
@@ -190,7 +190,7 @@ Response:
 
 ### Performance
 - **Compression**: Reduces storage and bandwidth usage
-- **Caching**: photo responses are `private, max-age=3600` — cacheable by the operator's own browser, never by a shared cache.
+- **Caching**: photo responses are `private, max-age=3600` – cacheable by the operator's own browser, never by a shared cache.
 - **Cleanup**: Empty incident directories are automatically removed
 
 ## Troubleshooting
@@ -297,7 +297,7 @@ docker run --rm -v kp-rueck_photos:/data -v "$PWD:/out" alpine \
 ```
 
 See [`DEPLOYMENT.md`](DEPLOYMENT.md) §6. On a managed PaaS the equivalent is whatever that
-platform offers for volume export — but the rule is the same, and a persistent volume is not a
+platform offers for volume export – but the rule is the same, and a persistent volume is not a
 backup by itself: it only ensures uploads survive a normal container restart.
 
 ## Future Enhancements

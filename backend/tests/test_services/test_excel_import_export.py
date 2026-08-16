@@ -18,12 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Material, Personnel, User, Vehicle
 from app.services.excel_import_export import (
+    EXAMPLE_ROW_MARKER,
     MATERIAL_COLUMNS,
     PERSONNEL_COLUMNS,
     PERSONNEL_STATUSES,
     VEHICLE_COLUMNS,
     VEHICLE_STATUSES,
     ExcelImportError,
+    ParsedImport,
+    ParsedSheet,
     export_data_to_excel,
     generate_empty_template,
     import_data,
@@ -33,6 +36,26 @@ from app.services.excel_import_export import (
 # ============================================
 # Fixtures
 # ============================================
+
+
+def full_workbook(
+    *,
+    personnel: list[dict] | None = None,
+    vehicles: list[dict] | None = None,
+    materials: list[dict] | None = None,
+) -> ParsedImport:
+    """What the parser returns for a file that has all three sheets in it.
+
+    Empty here means "the sheet is there with only its header" – which in `replace`
+    mode legitimately clears that table. A sheet the file does not have at all is a
+    different thing entirely (`ParsedSheet(present=False)`) and is built by hand in
+    the tests that care.
+    """
+    return ParsedImport(
+        personnel=ParsedSheet(present=True, rows=personnel or []),
+        vehicles=ParsedSheet(present=True, rows=vehicles or []),
+        materials=ParsedSheet(present=True, rows=materials or []),
+    )
 
 
 @pytest_asyncio.fixture
@@ -223,6 +246,21 @@ class TestGenerateEmptyTemplate:
         ws_materials = wb["Materials"]
         assert ws_materials.max_row >= 4
 
+    def test_every_example_row_is_marked(self):
+        """No example row may be readable as data by the operator scanning the file.
+
+        A tester asked outright whether `Max Mustermann` would be imported and could
+        not tell from the sheet. Every example row now says what it is, in the first
+        column, in the operator's language.
+        """
+        wb = load_workbook(generate_empty_template())
+
+        for sheet in ("Personnel", "Vehicles", "Materials"):
+            ws = wb[sheet]
+            names = [row[0] for row in ws.iter_rows(min_row=2, values_only=True)]
+            assert names, f"{sheet} has no example rows"
+            assert all(str(name).startswith(EXAMPLE_ROW_MARKER) for name in names), names
+
     def test_buffer_position_at_start(self):
         """Test returned buffer is positioned at start."""
         result = generate_empty_template()
@@ -239,16 +277,16 @@ class TestValidateAndParseExcel:
 
     def test_raises_error_for_invalid_file(self):
         """Test raises ExcelImportError for invalid file bytes."""
-        with pytest.raises(ExcelImportError, match="Invalid Excel file"):
+        with pytest.raises(ExcelImportError, match="nicht als Excel-Arbeitsmappe"):
             validate_and_parse_excel(b"not a valid excel file")
 
     def test_parses_empty_sheets(self):
         """Test handles empty sheets (headers only)."""
         file_bytes = create_valid_excel_bytes()
         result = validate_and_parse_excel(file_bytes)
-        assert result["personnel"] == []
-        assert result["vehicles"] == []
-        assert result["materials"] == []
+        assert result.personnel.rows == []
+        assert result.vehicles.rows == []
+        assert result.materials.rows == []
 
     def test_parses_personnel_data(self):
         """Test parses Personnel data correctly."""
@@ -258,10 +296,10 @@ class TestValidateAndParseExcel:
             ]
         )
         result = validate_and_parse_excel(file_bytes)
-        assert len(result["personnel"]) == 1
-        assert result["personnel"][0]["name"] == "Test Person"
-        assert result["personnel"][0]["role"] == "Fahrer"
-        assert result["personnel"][0]["status"] == "available"
+        assert len(result.personnel.rows) == 1
+        assert result.personnel.rows[0]["name"] == "Test Person"
+        assert result.personnel.rows[0]["role"] == "Fahrer"
+        assert result.personnel.rows[0]["status"] == "available"
 
     def test_parses_vehicles_data(self):
         """Test parses Vehicles data correctly."""
@@ -277,11 +315,11 @@ class TestValidateAndParseExcel:
             ]
         )
         result = validate_and_parse_excel(file_bytes)
-        assert len(result["vehicles"]) == 1
-        assert result["vehicles"][0]["name"] == "Test Vehicle"
-        assert result["vehicles"][0]["type"] == "TLF"
-        assert result["vehicles"][0]["display_order"] == 1
-        assert result["vehicles"][0]["status"] == "available"
+        assert len(result.vehicles.rows) == 1
+        assert result.vehicles.rows[0]["name"] == "Test Vehicle"
+        assert result.vehicles.rows[0]["type"] == "TLF"
+        assert result.vehicles.rows[0]["display_order"] == 1
+        assert result.vehicles.rows[0]["status"] == "available"
 
     def test_parses_materials_data(self):
         """Test parses Materials data correctly."""
@@ -291,10 +329,10 @@ class TestValidateAndParseExcel:
             ]
         )
         result = validate_and_parse_excel(file_bytes)
-        assert len(result["materials"]) == 1
-        assert result["materials"][0]["name"] == "Test Material"
-        assert result["materials"][0]["type"] == "Pumps"
-        assert result["materials"][0]["location"] == "TLF"
+        assert len(result.materials.rows) == 1
+        assert result.materials.rows[0]["name"] == "Test Material"
+        assert result.materials.rows[0]["type"] == "Pumps"
+        assert result.materials.rows[0]["location"] == "TLF"
 
     def test_skips_empty_rows(self):
         """Test skips completely empty rows."""
@@ -318,7 +356,7 @@ class TestValidateAndParseExcel:
         file_bytes = buffer.getvalue()
 
         result = validate_and_parse_excel(file_bytes)
-        assert len(result["personnel"]) == 2
+        assert len(result.personnel.rows) == 2
 
     def test_accepts_legacy_availability_header(self):
         """A workbook exported before the rename still imports.
@@ -340,25 +378,25 @@ class TestValidateAndParseExcel:
         wb.save(buffer)
 
         result = validate_and_parse_excel(buffer.getvalue())
-        assert result["personnel"] == [{"name": "Alte Datei", "role": "Mannschaft", "status": "available"}]
+        assert result.personnel.rows == [{"name": "Alte Datei", "role": "Mannschaft", "status": "available"}]
 
     def test_validates_personnel_name_required(self):
         """Test validates Personnel name is required."""
         file_bytes = create_valid_excel_bytes(personnel=[{"name": None, "role": "Test", "status": "available"}])
-        with pytest.raises(ExcelImportError, match="'name' is required"):
+        with pytest.raises(ExcelImportError, match="Spalte 'name' ist leer"):
             validate_and_parse_excel(file_bytes)
 
     def test_validates_personnel_status_enum(self):
         """Test validates Personnel status is valid enum."""
         file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test", "role": "Test", "status": "invalid_status"}])
-        with pytest.raises(ExcelImportError, match="Invalid status"):
+        with pytest.raises(ExcelImportError, match="ungültiger Status"):
             validate_and_parse_excel(file_bytes)
 
     def test_sets_default_personnel_status(self):
         """Test sets default status to 'unavailable' when empty."""
         file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test Person", "role": "Test", "status": None}])
         result = validate_and_parse_excel(file_bytes)
-        assert result["personnel"][0]["status"] == "unavailable"
+        assert result.personnel.rows[0]["status"] == "unavailable"
 
     def test_validates_vehicle_required_fields(self):
         """Test validates all Vehicle required fields."""
@@ -373,7 +411,7 @@ class TestValidateAndParseExcel:
             }
             vehicle[field] = None  # Remove required field
             file_bytes = create_valid_excel_bytes(vehicles=[vehicle])
-            with pytest.raises(ExcelImportError, match=f"'{field}' is required"):
+            with pytest.raises(ExcelImportError, match=f"Spalte '{field}' ist leer"):
                 validate_and_parse_excel(file_bytes)
 
     def test_validates_vehicle_status_enum(self):
@@ -389,7 +427,7 @@ class TestValidateAndParseExcel:
                 }
             ]
         )
-        with pytest.raises(ExcelImportError, match="Invalid status"):
+        with pytest.raises(ExcelImportError, match="ungültiger Status"):
             validate_and_parse_excel(file_bytes)
 
     def test_validates_vehicle_display_order_is_integer(self):
@@ -405,7 +443,7 @@ class TestValidateAndParseExcel:
                 }
             ]
         )
-        with pytest.raises(ExcelImportError, match="display_order must be an integer"):
+        with pytest.raises(ExcelImportError, match="muss eine ganze Zahl sein"):
             validate_and_parse_excel(file_bytes)
 
     def test_validates_material_required_fields(self):
@@ -415,7 +453,7 @@ class TestValidateAndParseExcel:
             material = {"name": "Test", "type": "Pumps", "location": "TLF", "description": "Test"}
             material[field] = None  # Remove required field
             file_bytes = create_valid_excel_bytes(materials=[material])
-            with pytest.raises(ExcelImportError, match=f"'{field}' is required"):
+            with pytest.raises(ExcelImportError, match=f"Spalte '{field}' ist leer"):
                 validate_and_parse_excel(file_bytes)
 
     def test_validates_incorrect_column_headers(self):
@@ -434,7 +472,7 @@ class TestValidateAndParseExcel:
         buffer = io.BytesIO()
         wb.save(buffer)
 
-        with pytest.raises(ExcelImportError, match="Expected columns"):
+        with pytest.raises(ExcelImportError, match="falsche Spaltenüberschriften"):
             validate_and_parse_excel(buffer.getvalue())
 
     def test_accepts_any_material_type(self):
@@ -443,7 +481,157 @@ class TestValidateAndParseExcel:
             materials=[{"name": "Test", "type": "Custom Type 123", "location": "TLF", "description": ""}]
         )
         result = validate_and_parse_excel(file_bytes)
-        assert result["materials"][0]["type"] == "Custom Type 123"
+        assert result.materials.rows[0]["type"] == "Custom Type 123"
+
+    def test_accepts_any_vehicle_type(self):
+        """Vehicle `type` is free text, and stays free text.
+
+        A `VEHICLE_TYPES` list used to sit next to the status enums looking like an
+        allowed-values check while enforcing nothing – so the docs had to explain that
+        `type` is not validated. The list is gone; this is the behaviour it never had.
+        """
+        file_bytes = create_valid_excel_bytes(
+            vehicles=[
+                {
+                    "name": "Anhänger Pumpe",
+                    "type": "Anhänger",
+                    "display_order": 1,
+                    "status": "available",
+                    "radio_call_sign": "Florian 9",
+                }
+            ]
+        )
+        result = validate_and_parse_excel(file_bytes)
+        assert result.vehicles.rows[0]["type"] == "Anhänger"
+
+    def test_absent_sheet_is_not_an_empty_sheet(self):
+        """A missing sheet and a header-only sheet are opposite instructions.
+
+        Both used to arrive here as `[]`, which is how a Personnel-only workbook in
+        `replace` mode deleted a station's whole fleet and material inventory.
+        """
+        wb = Workbook()
+        wb.remove(wb.active)
+        wb.create_sheet("Personnel").append(["name", "role", "status"])
+        wb.create_sheet("Vehicles").append(["name", "type", "display_order", "status", "radio_call_sign"])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        result = validate_and_parse_excel(buffer.getvalue())
+
+        assert result.personnel.present is True
+        assert result.vehicles == ParsedSheet(present=True, rows=[])
+        assert result.materials == ParsedSheet(present=False, rows=[])
+
+    def test_example_rows_are_skipped_and_real_rows_are_not(self):
+        """The template's examples never reach the database, whoever left them there.
+
+        This is the half of the fix that removes the harm: an operator who types their
+        roster underneath the examples and uploads it must not end up with two fictional
+        firefighters, two fictional vehicles and three fictional pumps on the board.
+        """
+        file_bytes = create_valid_excel_bytes(
+            personnel=[
+                {"name": f"{EXAMPLE_ROW_MARKER}: Max Mustermann", "role": "Fahrer", "status": "available"},
+                {"name": "Beatrice Roth", "role": "", "status": "available"},
+            ],
+            vehicles=[
+                {
+                    "name": f"{EXAMPLE_ROW_MARKER}: TLF 1",
+                    "type": "TLF",
+                    "display_order": 1,
+                    "status": "available",
+                    "radio_call_sign": "Florian 1",
+                },
+                {
+                    "name": "MTW Oberwil",
+                    "type": "MTW",
+                    "display_order": 2,
+                    "status": "available",
+                    "radio_call_sign": "Florian 9",
+                },
+            ],
+            materials=[
+                {"name": f"{EXAMPLE_ROW_MARKER}: Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF"},
+                {"name": "Motorsäge", "type": "Werkzeug", "location": "Pio"},
+            ],
+        )
+        result = validate_and_parse_excel(file_bytes)
+
+        assert [row["name"] for row in result.personnel.rows] == ["Beatrice Roth"]
+        assert [row["name"] for row in result.vehicles.rows] == ["MTW Oberwil"]
+        assert [row["name"] for row in result.materials.rows] == ["Motorsäge"]
+
+    def test_example_marker_is_matched_forgivingly(self):
+        """The row travels through the operator's spreadsheet before it comes back.
+
+        Case and stray whitespace are exactly what changes on the way, and a marker
+        that only matched byte-for-byte would let the example through in the files
+        where somebody had been editing around it.
+        """
+        file_bytes = create_valid_excel_bytes(
+            personnel=[
+                {"name": f"  {EXAMPLE_ROW_MARKER}: Max Mustermann  ", "role": "", "status": "available"},
+                {"name": f"{EXAMPLE_ROW_MARKER.upper()}: Anna Schmidt", "role": "", "status": "available"},
+                {"name": f"{EXAMPLE_ROW_MARKER.lower()}: Anna Schmidt", "role": "", "status": "available"},
+            ],
+        )
+        assert validate_and_parse_excel(file_bytes).personnel == ParsedSheet(present=True, rows=[])
+
+    def test_sheet_of_only_example_rows_is_present_not_absent(self):
+        """Untouched examples mean "nothing here", not "no such sheet".
+
+        The two are opposite instructions in `replace` mode: a present-but-empty sheet
+        clears its table, while an absent one is refused with a 409 (`_refuse_missing_sheets`).
+        An operator who deleted nothing at all would have no way to act on that refusal,
+        so the skip must never turn one case into the other.
+        """
+        result = validate_and_parse_excel(generate_empty_template().getvalue())
+
+        assert result.personnel == ParsedSheet(present=True, rows=[])
+        assert result.vehicles == ParsedSheet(present=True, rows=[])
+        assert result.materials == ParsedSheet(present=True, rows=[])
+
+    def test_error_carries_sheet_and_row(self):
+        """The parser knows the cell – the operator has an 18-row sheet and no idea.
+
+        `message` is the line the API hands back, so the sheet name and row number
+        have to survive all the way into it.
+        """
+        file_bytes = create_valid_excel_bytes(
+            vehicles=[
+                {
+                    "name": "TLF 1",
+                    "type": "TLF",
+                    "display_order": 1,
+                    "status": "einsatzbereit",
+                    "radio_call_sign": "Florian 1",
+                }
+            ]
+        )
+        with pytest.raises(ExcelImportError) as excinfo:
+            validate_and_parse_excel(file_bytes)
+
+        error = excinfo.value
+        assert error.sheet == "Vehicles"
+        assert error.row == 2
+        assert error.message.startswith("Vehicles Zeile 2 – ")
+        assert "'einsatzbereit'" in error.message
+
+    def test_unreadable_file_does_not_forward_openpyxl_text(self):
+        """openpyxl's own wording is the one message here that is not ours to hand out.
+
+        Everything else is a German literal from this module; this site wraps a
+        third-party exception, so it gets a fixed sentence and the original goes to
+        the log instead.
+        """
+        with pytest.raises(ExcelImportError) as excinfo:
+            validate_and_parse_excel(b"not a valid excel file")
+
+        error = excinfo.value
+        assert error.sheet is None and error.row is None
+        assert "nicht als Excel-Arbeitsmappe" in error.message
+        assert "zip" not in error.message.lower()
 
 
 # ============================================
@@ -464,11 +652,9 @@ class TestImportData:
         assert len(result.scalars().all()) == 3
 
         # Import new data with replace mode
-        parsed_data = {
-            "personnel": [{"name": "New Person", "role": "Test", "status": "available"}],
-            "vehicles": [],
-            "materials": [],
-        }
+        parsed_data = full_workbook(
+            personnel=[{"name": "New Person", "role": "Test", "status": "available"}], vehicles=[], materials=[]
+        )
         counts = await import_data(db_session, parsed_data, "replace", str(excel_user.id))
 
         assert counts["personnel"] == 1
@@ -490,11 +676,9 @@ class TestImportData:
         assert existing_count == 3
 
         # Import new data with append mode
-        parsed_data = {
-            "personnel": [{"name": "New Person", "role": "Test", "status": "available"}],
-            "vehicles": [],
-            "materials": [],
-        }
+        parsed_data = full_workbook(
+            personnel=[{"name": "New Person", "role": "Test", "status": "available"}], vehicles=[], materials=[]
+        )
         counts = await import_data(db_session, parsed_data, "append", str(excel_user.id))
 
         assert counts["personnel"] == 1
@@ -505,28 +689,31 @@ class TestImportData:
         assert len(personnel) == 4
 
     @pytest.mark.asyncio
-    async def test_import_merge_mode_acts_as_replace(
+    async def test_import_unknown_mode_does_not_delete(
         self, db_session: AsyncSession, excel_user: User, sample_personnel: list[Personnel]
     ):
-        """Test merge mode currently acts as replace."""
-        parsed_data = {
-            "personnel": [{"name": "Merged Person", "role": "Test", "status": "available"}],
-            "vehicles": [],
-            "materials": [],
-        }
-        counts = await import_data(db_session, parsed_data, "merge", str(excel_user.id))
+        """The removed `merge` mode – and any other stray string – must never delete.
 
-        result = await db_session.execute(select(Personnel))
-        personnel = result.scalars().all()
-        assert len(personnel) == 1
-        assert personnel[0].name == "Merged Person"
+        `merge` used to be a branch here running the same three DELETEs as `replace`. The
+        endpoint rejects it now, and this function's fall-through must stay additive so a
+        mode that slips past validation can never wipe a station again.
+        """
+        parsed_data = full_workbook(
+            personnel=[{"name": "Merged Person", "role": "Test", "status": "available"}], vehicles=[], materials=[]
+        )
+        counts = await import_data(db_session, parsed_data, "merge", str(excel_user.id))  # type: ignore[arg-type]
+
+        assert counts["personnel"] == 1
+        names = {p.name for p in (await db_session.execute(select(Personnel))).scalars().all()}
+        assert "Merged Person" in names
+        assert len(names) == len(sample_personnel) + 1
 
     @pytest.mark.asyncio
     async def test_import_vehicles(self, db_session: AsyncSession, excel_user: User):
         """Test importing vehicles."""
-        parsed_data = {
-            "personnel": [],
-            "vehicles": [
+        parsed_data = full_workbook(
+            personnel=[],
+            vehicles=[
                 {
                     "name": "Imported TLF",
                     "type": "TLF",
@@ -535,8 +722,8 @@ class TestImportData:
                     "radio_call_sign": "Imported 1",
                 }
             ],
-            "materials": [],
-        }
+            materials=[],
+        )
         counts = await import_data(db_session, parsed_data, "replace", str(excel_user.id))
 
         assert counts["vehicles"] == 1
@@ -549,11 +736,11 @@ class TestImportData:
     @pytest.mark.asyncio
     async def test_import_materials(self, db_session: AsyncSession, excel_user: User):
         """Test importing materials."""
-        parsed_data = {
-            "personnel": [],
-            "vehicles": [],
-            "materials": [{"name": "Imported Material", "type": "Pumps", "location": "TLF", "description": "Test"}],
-        }
+        parsed_data = full_workbook(
+            personnel=[],
+            vehicles=[],
+            materials=[{"name": "Imported Material", "type": "Pumps", "location": "TLF", "description": "Test"}],
+        )
         counts = await import_data(db_session, parsed_data, "replace", str(excel_user.id))
 
         assert counts["materials"] == 1
@@ -566,12 +753,12 @@ class TestImportData:
     @pytest.mark.asyncio
     async def test_import_returns_counts(self, db_session: AsyncSession, excel_user: User):
         """Test import returns correct counts."""
-        parsed_data = {
-            "personnel": [
+        parsed_data = full_workbook(
+            personnel=[
                 {"name": "Person 1", "role": "Test", "status": "available"},
                 {"name": "Person 2", "role": "Test", "status": "available"},
             ],
-            "vehicles": [
+            vehicles=[
                 {
                     "name": "Vehicle 1",
                     "type": "TLF",
@@ -580,12 +767,12 @@ class TestImportData:
                     "radio_call_sign": "V1",
                 }
             ],
-            "materials": [
+            materials=[
                 {"name": "Material 1", "type": "Pumps", "location": "TLF"},
                 {"name": "Material 2", "type": "Pumps", "location": "TLF"},
                 {"name": "Material 3", "type": "Pumps", "location": "TLF"},
             ],
-        }
+        )
         counts = await import_data(db_session, parsed_data, "replace", str(excel_user.id))
 
         assert counts["personnel"] == 2
@@ -593,9 +780,51 @@ class TestImportData:
         assert counts["materials"] == 3
 
     @pytest.mark.asyncio
+    async def test_replace_leaves_tables_whose_sheet_is_absent(
+        self,
+        db_session: AsyncSession,
+        excel_user: User,
+        sample_vehicles: list[Vehicle],
+        sample_materials: list[Material],
+    ):
+        """`replace` used to DELETE all three tables whatever the file contained.
+
+        A Personnel-only workbook therefore wiped the fleet and the material list and
+        inserted nothing in their place. The endpoint refuses that upload outright; this
+        is the second lock, for anyone calling the service directly.
+        """
+        parsed = ParsedImport(
+            personnel=ParsedSheet(present=True, rows=[{"name": "Neu Nina", "role": "Test", "status": "available"}]),
+            vehicles=ParsedSheet(present=False),
+            materials=ParsedSheet(present=False),
+        )
+        await import_data(db_session, parsed, "replace", str(excel_user.id))
+
+        assert len((await db_session.execute(select(Vehicle))).scalars().all()) == len(sample_vehicles)
+        assert len((await db_session.execute(select(Material))).scalars().all()) == len(sample_materials)
+
+    @pytest.mark.asyncio
+    async def test_replace_clears_a_table_whose_sheet_is_present_but_empty(
+        self, db_session: AsyncSession, excel_user: User, sample_vehicles: list[Vehicle]
+    ):
+        """The legitimate case the refusal must not swallow: emptying a table on purpose.
+
+        A sheet with its header and no rows says "the station has no vehicles" – that is
+        an answer, and `replace` is allowed to act on it.
+        """
+        parsed = ParsedImport(
+            personnel=ParsedSheet(present=True),
+            vehicles=ParsedSheet(present=True),
+            materials=ParsedSheet(present=True),
+        )
+        await import_data(db_session, parsed, "replace", str(excel_user.id))
+
+        assert (await db_session.execute(select(Vehicle))).scalars().all() == []
+
+    @pytest.mark.asyncio
     async def test_import_empty_data(self, db_session: AsyncSession, excel_user: User):
         """Test importing empty data sets."""
-        parsed_data = {"personnel": [], "vehicles": [], "materials": []}
+        parsed_data = full_workbook(personnel=[], vehicles=[], materials=[])
         counts = await import_data(db_session, parsed_data, "replace", str(excel_user.id))
 
         assert counts["personnel"] == 0
@@ -764,21 +993,21 @@ class TestRoundTrip:
         assert counts["materials"] == len(sample_materials)
 
     @pytest.mark.asyncio
-    async def test_template_is_importable(self, db_session: AsyncSession, excel_user: User):
-        """Test generated template can be imported."""
-        template = generate_empty_template()
-        parsed = validate_and_parse_excel(template.getvalue())
+    async def test_untouched_template_imports_nobody(self, db_session: AsyncSession, excel_user: User):
+        """The template goes through the import without adding a single row.
 
-        # Template has example rows
-        assert len(parsed["personnel"]) > 0
-        assert len(parsed["vehicles"]) > 0
-        assert len(parsed["materials"]) > 0
+        This test used to assert the opposite – that the examples imported – which is
+        precisely how two fictional firefighters, two fictional vehicles and three
+        fictional pumps could land on a station's board.
+        """
+        parsed = validate_and_parse_excel(generate_empty_template().getvalue())
 
-        # Should import without errors
         counts = await import_data(db_session, parsed, "replace", str(excel_user.id))
-        assert counts["personnel"] > 0
-        assert counts["vehicles"] > 0
-        assert counts["materials"] > 0
+        assert counts == {"personnel": 0, "vehicles": 0, "materials": 0}
+
+        for model in (Personnel, Vehicle, Material):
+            rows = (await db_session.execute(select(model))).scalars().all()
+            assert rows == [], f"{model.__name__} got rows from the template"
 
 
 # ============================================
@@ -796,23 +1025,23 @@ class TestEdgeCases:
             materials=[{"name": "Schläuche", "type": "Schläuche", "location": "TLF", "description": ""}],
         )
         result = validate_and_parse_excel(file_bytes)
-        assert result["personnel"][0]["name"] == "Müller Jürgen"
-        assert result["materials"][0]["name"] == "Schläuche"
+        assert result.personnel.rows[0]["name"] == "Müller Jürgen"
+        assert result.materials.rows[0]["name"] == "Schläuche"
 
     def test_handles_very_long_strings(self):
         """Test handles very long text values."""
         long_name = "A" * 1000
         file_bytes = create_valid_excel_bytes(personnel=[{"name": long_name, "role": "Test", "status": "available"}])
         result = validate_and_parse_excel(file_bytes)
-        assert result["personnel"][0]["name"] == long_name
+        assert result.personnel.rows[0]["name"] == long_name
 
     @pytest.mark.asyncio
     async def test_import_large_dataset(self, db_session: AsyncSession, excel_user: User):
         """Test importing a large dataset."""
         # Create data for 100 items of each type
-        parsed_data = {
-            "personnel": [{"name": f"Person {i}", "role": "Test", "status": "available"} for i in range(100)],
-            "vehicles": [
+        parsed_data = full_workbook(
+            personnel=[{"name": f"Person {i}", "role": "Test", "status": "available"} for i in range(100)],
+            vehicles=[
                 {
                     "name": f"Vehicle {i}",
                     "type": "TLF",
@@ -822,8 +1051,8 @@ class TestEdgeCases:
                 }
                 for i in range(100)
             ],
-            "materials": [{"name": f"Material {i}", "type": "Pumps", "location": "TLF"} for i in range(100)],
-        }
+            materials=[{"name": f"Material {i}", "type": "Pumps", "location": "TLF"} for i in range(100)],
+        )
         counts = await import_data(db_session, parsed_data, "replace", str(excel_user.id))
 
         assert counts["personnel"] == 100
@@ -835,7 +1064,7 @@ class TestEdgeCases:
         for status in PERSONNEL_STATUSES:
             file_bytes = create_valid_excel_bytes(personnel=[{"name": "Test", "role": "Test", "status": status}])
             result = validate_and_parse_excel(file_bytes)
-            assert result["personnel"][0]["status"] == status
+            assert result.personnel.rows[0]["status"] == status
 
     def test_validates_all_vehicle_statuses(self):
         """Test all valid vehicle statuses are accepted."""
@@ -852,4 +1081,4 @@ class TestEdgeCases:
                 ]
             )
             result = validate_and_parse_excel(file_bytes)
-            assert result["vehicles"][0]["status"] == status
+            assert result.vehicles.rows[0]["status"] == status

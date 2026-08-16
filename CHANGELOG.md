@@ -30,6 +30,18 @@ will keep holding.
 
 ### Security
 
+- **Any editor could rewrite the alarm webhook secret, and its value went into the audit log
+  in clear text.** The key that authorises writing incidents onto the board was masked in
+  `GET /api/settings/`, refused by name on the single-key route – and then writable by every
+  editor through the generic `PATCH /api/settings/{key}`, because it was in `DEFAULT_SETTINGS`
+  and on no denylist. Write-without-read on a credential: an editor could pin it to a value
+  they chose, or simply break the station's dispatch integration, and the handler wrote the old
+  and the new value into the trail on the way past – a log read by more people than the
+  settings table is, and exported into after-action reports. The generic route now refuses it
+  for everyone, credential values are redacted from the audit entry whatever route wrote them,
+  and reveal/rotate is admin-only, rate-limited, and audited as *that somebody looked*, never
+  with the value.
+
 - **⚠️ A Viewer-Link now shows what the Reko found, photos included.** Until now the share
   board said only *that* a Reko had happened; it now carries the Reko summary – relevant
   yes/no, the dangers, the effort estimate, the Kurzbericht – and the photos of the damage,
@@ -80,6 +92,113 @@ will keep holding.
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ### Added
+
+- **Standard-Aufträge: the board opens with the Aufträge you always open.** «Sturmholz»,
+  «Absperren», «TLF-Backup» – the same handful of Aufträge get typed out at the start of every
+  Lage, with the same colour and the same equipment, by somebody who has better things to do in
+  the first ten minutes. They are now station configuration (Einstellungen → Standard-Aufträge):
+  name, colour, a standing note, and the vehicles and material the Auftrag normally brings along.
+  A switch per Vorlage decides what happens next – **on** means every new Ereignis opens with
+  that Auftrag already on the board, empty and ready for stops; **off** keeps it in the
+  Aufträge-Fenster as a one-click Vorlage, which is what a rarely-needed «TLF-Backup» wants.
+  A station that never opens the section is unaffected: no templates means a new Ereignis still
+  starts with an empty board.
+
+  Two deliberate choices. **Equipment that is already committed elsewhere is attached anyway** –
+  the station named that TLF on purpose, and the board's conflict warning exists to say *this
+  Auftrag is short a vehicle* out loud rather than to be routed around. And a template names
+  equipment only, never **people**: who is on a squad is decided per Lage from who actually
+  turned up. Aufträge created from a Vorlage are ordinary Aufträge afterwards – editing the
+  template never reaches back into a running Lage, and deleting one leaves what it created
+  standing.
+
+- **Things that needed a terminal now have a screen.** The rule this follows: anything read
+  before the app can serve a page stays in `.env` – the signing keys, the database URL, the
+  port Caddy binds – and everything after that belongs in the browser, because the person who
+  runs a station on a Tuesday evening is not the person who installed it.
+  - **The alarm webhook secret** can be revealed and rotated by an admin (Einstellungen →
+    Alarmierung). Setting up a dispatch integration used to mean `SELECT value FROM settings
+    WHERE key = 'alarm_webhook_secret';`, which four documents taught. Rotation is refused with
+    an explanation when `ALARM_WEBHOOK_SECRET` pins the value in `.env`, rather than reporting a
+    success that would hand the dispatcher a dead secret.
+  - **Station name and map coordinates** are editable. They were seeded to *"Feuerwehr
+    Musterstadt"* at 47.5596/7.5886 and had no control anywhere, so every station inherited
+    somebody else's placeholder – and these do more than centre the map: they bias and sort
+    address search, which is the daily annoyance nobody traces back to a setting.
+  - **The Excel import shows what it would destroy.** A balance sheet per resource – now, from
+    the file, deleted, after – and below it the two kinds of harm kept apart, because they are
+    not the same: assignments left pointing at deleted resources can be cleaned up afterwards,
+    while check-ins, Spezialfunktionen and alerting-account links are removed by a database
+    cascade and come back only from a backup. The mode is chosen before the file and defaults
+    to **Anhängen**; `Ersetzen` is refused outright while resources are assigned on a running
+    incident or an Auftrag.
+
+- **The Standby-Info goes out through Divera, as a Mitteilung and not as an alarm.** «KP-Rück
+  ist aktiv, bitte Telefon mitnehmen» used to be a text copied out of the Checkliste and pasted
+  into WhatsApp by hand. It can now be pushed straight from the Checkliste – as a Divera
+  *Mitteilung*, which is the honest shape for it: it arrives as a notification in the app, it
+  never touches a pager, and it is not the siren-grade event a real Aufgebot is. WhatsApp stays
+  next to it, unchanged, for the stations that do not run Divera.
+  **Nothing is sent by pressing the button.** It opens a confirmation carrying the message and
+  the unit's Divera-Gruppen with **none of them selected** – a Mitteilung meant for «Pikett»
+  must not become a push to the whole Feuerwehr because a default said so. «Alle im Standort»
+  is available, one deliberate click away and marked as what it is. The API refuses to guess
+  either: the recipient choice is a required field, groups must be named, unknown group ids are
+  rejected, a training event simulates the whole flow without leaving the building, and a
+  deployment whose role forbids alerting refuses Mitteilungen exactly as it refuses alarms.
+
+- **A station decides which steps its Checkliste has, and who each link is for.** Einstellungen
+  → Checkliste switches a step off – a brigade that never hands out a Reko-Link should not stare
+  at a row it will never tick, and a hidden step leaves the progress badge too, instead of
+  standing there as a permanent 11/12. Each step also carries a line the station writes itself:
+  «Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug». That was the question the checklist
+  answered least well – *Link kopieren* says nothing about how many slips to print or who is
+  supposed to hold one – and the number is a property of the Magazin, not of the software.
+
+- **The side panel's Ressourcen-Liste takes drops.** On a wide board the incident opens in the
+  panel rather than in the modal, and until now the panel could only be looked at: assigning
+  somebody meant carrying the chip back across the board to find that incident's card. The
+  block accepts people, Fahrzeuge and Material directly, with everything the card already does
+  – the Doppelbelegung-Rückfrage for a resource that is busy elsewhere, the Reko-Slot for a
+  Reko-Person, and an incident inside an Auftrag routing the assignment to the Auftrag.
+
+- **`just init` runs unattended.** `--yes --lan` or `--yes --domain kp.example.ch`, for a
+  runbook or an SSH session that may drop. Passwords come from `ADMIN_SEED_PASSWORD` /
+  `VIEWER_PASSWORD` or are generated and printed once. It detects that the port it is about to
+  write is already in use, names the holder when it can – a KP Front stack, usually – and offers
+  a free one instead of writing a `.env` that Caddy cannot bind. It also moves `HTTPS_PORT` when
+  443 is taken, which a plain-HTTP LAN install needed and never did: Caddy publishes 443
+  unconditionally, so a correct LAN config failed to start on a port it does not even serve.
+  A re-run now reports what the station is configured to do instead of only refusing, and still
+  never regenerates a secret.
+
+- **`just up` checks that somebody can actually log in.** A healthy container with an empty
+  roster is the failure that looks most like success. It probes the login route and counts
+  active accounts, without touching a password or spending the admin's lockout budget.
+
+- **A station operator now has commands of their own: `just init`, `just up`, `just down`,
+  `just doctor`.** Every recipe in the justfile used to be a developer's or a maintainer's. The
+  one a station was told to install `just` for was `tiles-download`, and having installed it,
+  the obvious next move – `just` on its own – showed a menu of `openapi`, `release` and `fmt`,
+  and nothing that answered *is my station healthy?* `just init` asks three things (two
+  passwords, and whether a domain points at this box) and writes a complete `.env`: the three
+  secrets generated with `openssl`, and `DOMAIN` / `HTTP_PORT` / `CORS_ORIGINS` derived from
+  that one answer, which is the group first installs get wrong. It refuses to overwrite an
+  existing `.env`, because that file holds `SECRET_KEY` and `AUTH_SECRET_KEY` and regenerating
+  either logs every user out and orphans every backup taken under the old ones. `just up`
+  waits for the backend to actually answer – the first boot runs migrations and seeding, so
+  the command returning is not the board being up – and then prints the URL, which no
+  document had previously stated at the moment the reader needed it. `just doctor` is one
+  screen: containers, `/health` and disk, whether the offline tiles are real or still the
+  bootstrap placeholder, how old the last backup is and whether it worked, and which release
+  is running. It is built to survive a broken stack, since that is when it gets run.
+
+- **`docker-compose.build.yml`, so running from source stops meaning "edit a tracked file".**
+  Building from this checkout was documented as commenting out `image:` and uncommenting
+  `build:` in `docker-compose.yml`. That works once and then sits in `git status` until
+  somebody remembers to undo it – usually the moment they next try to pull an update. The
+  override changes nothing else about the stack, so what you test differs from a real
+  deployment only in where the images came from.
 
 - **The landing page speaks French, and it is generated rather than written twice.**
   `site/index.html` used to be the page; it is now the *output* of `site/index.template.html`
@@ -303,6 +422,35 @@ will keep holding.
 
 ### Changed
 
+- **The two WhatsApp-Nachrichten of the Checkliste have a row each, and «Bereitschaft» is
+  called «Checkliste».** Standby and Einrücken went out at different moments – the first when
+  the KP goes up, the second when the crew is actually called in – but shared one row with a
+  picker between them, so ticking one hid the other and the row could only ever be completed
+  once. They are separate steps now, one button each. The badge in the Fussleiste says
+  «Checkliste», which is what is behind it.
+
+- **`just stop` and `just clean` are now `just dev-stop` and `just dev-clean`.** Both act on
+  the development stack, and both were described in `just --list` as "stop all services" and
+  "stop all services and DELETE ALL DATA". A station operator who installed `just` for the
+  offline-tiles step had no way to read those as developer recipes, and `stop` had no
+  confirmation prompt. **If you have either in a script or a habit, rename it.** The station's
+  verbs are `just up` / `just down`.
+
+- **`.env.example` puts everything a first install must get right in one block at the top.**
+  The labelled *Required* section held five secrets, while `CORS_ORIGINS` – equally required,
+  and the one whose failure mode is a board that loads and then fails at everything – sat sixty
+  lines further down, below a 35-line essay on backup retention that nobody needs on evening
+  one. The required block now carries the five secrets *and* `DOMAIN` / `HTTP_PORT` /
+  `CORS_ORIGINS`, with a two-line decision at the top so the reader answers one question
+  instead of three. Everything else moved below a visible divider. `POSTGRES_PASSWORD` ships
+  empty like the other four rather than with a working-looking placeholder – in a file where
+  every other required line is blank, a filled one reads as already done.
+
+- **`HTTP_PORT` was documented as "ignored when DOMAIN is set". It is not.** It is the host
+  side of `"${HTTP_PORT:-8080}:80"`, so with the shipped default and a domain configured,
+  **nothing on the host listens on port 80**: `http://your.domain` is refused outright, and
+  Let's Encrypt's HTTP-01 challenge has nothing to answer on. With a domain, set it to 80.
+
 - **Der Einsatzbericht sieht aus wie der Einsatzrapport aus KP Front.** Eine Nacht kann
   zwei Dokumente hervorbringen, und die sahen aus wie aus zwei verschiedenen Produkten.
   Der Bericht übernimmt die Palette des Rapports (Tinte, gedämpftes Grau, hellgraue
@@ -419,6 +567,95 @@ will keep holding.
   and when both were drawn the same the eye stopped finding the column boundaries.
 
 ### Fixed
+
+- **The two WhatsApp-Vorlagen in Einstellungen → Alarmierung could not be saved.** The page
+  offered a Textarea for each, and every save answered 404 behind a generic «Speichern
+  fehlgeschlagen» – the keys were never on the backend's allowlist, so a station that reworded
+  its Standby-Info kept getting the shipped default back. Same class of bug as the one that
+  once made the offline-map switch unsettable; the test that ties the settings page to the
+  allowlist now names these two as well.
+
+- **A deployment with a domain could serve login cookies without `Secure`.** The cookie policy
+  was inferred from `CORS_ORIGINS` being plain `http://`, on the reasoning that a wrong value
+  breaks every API call and so cannot stay wrong. That reasoning does not hold on the compose
+  stack, where everything is served through Caddy on one origin and browser requests are
+  same-origin: a stale `CORS_ORIGINS` there has no symptom at all. So a hand-edited `.env` that
+  set `DOMAIN` and left `CORS_ORIGINS` at its localhost default produced a public HTTPS board
+  handing out cookies without the flag, silently. `DOMAIN` now reaches the backend and settles
+  it: a domain means TLS, whatever the origins say, and the mismatch is logged with both values
+  because it is still a misconfiguration worth fixing.
+
+- **An Excel `replace` could wipe more than the balance sheet admitted.** Aufträge own their
+  resources on a second polymorphic table (`incident_group_assignments`), which was neither
+  counted nor blocking – so a squad assigned to a route did not stop a replace and did not
+  appear in the preview. Deleting personnel or vehicles also cascades into event check-ins,
+  Spezialfunktionen and alerting-account links, which do not dangle but disappear. All of it is
+  counted now, blocking where it should block, and shown as two distinct kinds of loss.
+
+- **Twelve settings `.env.example` documents at length did nothing at all on a compose
+  deployment.** Compose reads `.env` for *interpolation*; a variable only reaches the backend
+  if the compose file also hands it over, and `SSO_EDITOR_ALLOWLIST`, `KP_TELEMETRY_ENABLED`,
+  `KP_TELEMETRY_DSN`, `AUDIT_RETENTION_DAYS`, `AUDIT_CLEANUP_INTERVAL_HOURS`, `MASTER_TOKEN`,
+  `TRUSTED_PROXY_COUNT`, `WS_REQUIRE_AUTH` and the four `LOGIN_*` had fallen off that list.
+  Every one failed silently and in the permissive direction. `SSO_EDITOR_ALLOWLIST` was the
+  worst of them: `SETUP.md` tells you to set it "or nobody who signs in with Microsoft can
+  change anything", and setting it produced exactly that symptom anyway – with the document
+  having already pre-empted the one hypothesis that would have led you to the truth. A
+  privacy-conscious station setting `KP_TELEMETRY_ENABLED=0` was reading a promise the compose
+  path did not keep. The backend now receives the whole `.env`, so a hand-maintained list
+  cannot drift again, and a test fails if a documented variable stops reaching a real setting
+  or if a documented default stops matching the code – which it immediately caught for
+  `LOGIN_FAILED_WINDOW_SECONDS` (the template said 300, the code has always used 900).
+
+- **The shipped defaults made browser login fail on a plain-HTTP LAN, silently.** `DOMAIN`
+  empty means Caddy serves plain HTTP; `AUTH_COOKIE_SECURE` blank meant the backend still
+  marked login cookies `Secure`; and a browser drops a `Secure` cookie on `http://`. Login
+  returned 200 and bounced straight back to the form, with no error on screen and none in the
+  log. The cure was `SETUP.md` §7 item 3 – a section called "the things that bite", which by
+  construction you read *after* being bitten. The backend now works it out from
+  `CORS_ORIGINS`: an all-plain-`http://` origin serves the cookie without the flag, and says
+  which way it decided in the boot log. `AUTH_COOKIE_SECURE` stays as an explicit override in
+  either direction. **Do not mix `http://` and `https://` in `CORS_ORIGINS`** – one `https://`
+  entry re-arms `Secure` for everyone, which is how a station that adds a new domain alongside
+  its old LAN address locks out the LAN address.
+
+- **Offline map tiles went blank for anyone browsing their own box at `localhost`.** The
+  tile URL was chosen by hostname, so a station running the stack on one machine and opening
+  `http://localhost:8080` on that same machine sent tile requests to
+  `http://localhost:8080/styles/…` – which is Caddy, which routes anything that is not `/api`,
+  `/socket.io` or `/tiles` to the frontend. Tiles 404'd and the map stayed empty, while the
+  identical stack reached by LAN IP worked. The discriminator is now the development server's
+  port, not the hostname.
+
+- **`TILES_NAME` never reached the tileserver.** A station that set it got tiles written under
+  its own name and a container still looking for `basel-landschaft.mbtiles` – so offline maps
+  silently stayed on the bootstrap placeholder after a successful 15-minute generation.
+  Relatedly, `just tiles-status` and `scripts/download-tiles.sh` read `HTTP_PORT` from the
+  shell instead of `.env`, so on the recommended domain setup (`HTTP_PORT=80`) both probes
+  missed and a healthy tile server was reported as not responding – at the exact step the
+  guide uses to confirm the tiles landed. `just tiles-status` also only checked for HTTP 200,
+  which the bootstrap placeholder answers too, so it claimed real tiles where there were none.
+
+- **`docs/OFFLINE_MAPS.md` was a development document handed to production operators.** Every
+  verification and troubleshooting command in it – the health URL, the tileserver UI, the
+  container name – existed only on the `just dev` stack, and each failure read as "the tiles
+  did not install". It also stated that offline tiles were development-only, while the
+  production compose stack has shipped a tileserver behind `/tiles` all along.
+
+- **Two startup log lines sent operators after the wrong thing.** One announced that the print
+  endpoints were "unauthenticated" when `PRINT_AGENT_TOKEN` was unset – they answer `403`, and
+  it is the one piece of documentation an operator cannot avoid, telling them they had an open
+  attack surface on a public host. The other pointed at a "Settings → Alarmierung" screen that
+  does not exist, for a secret that is masked in the API and can only be set in `.env` or read
+  back with SQL.
+
+- **`docker compose --profile printing up -d` deleted your nightly backups.** Compose treats
+  `COMPOSE_PROFILES` as the default value of `--profile`, so passing the flag *replaces* the
+  list rather than adding to it – switching off the `backup` profile that `.env.example`
+  ships. A sidecar that was never created cannot report itself unhealthy, which both guides
+  call the one backup failure with no signal at all. Every place that taught the flag now says
+  `COMPOSE_PROFILES=backup,printing` instead, and `docs/PRINT_AGENT.md` has the compose
+  instructions it was being linked to for and never had.
 
 - **Fünf Fehler im Einsatzbericht, gefunden beim Ausdrucken statt beim Lesen des Codes.**
   Ein roher Enum stand auf dem Papier («Stromversorgung: available») – das UI übersetzt die

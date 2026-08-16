@@ -2,25 +2,35 @@
   "checklist": {
     "tasks": {
       "send-first-whatsapp": {
-        "title": "Envoyer le premier WhatsApp d’information",
-        "description": "Informer l’effectif de l’événement"
+        "title": "Envoyer le WhatsApp de mise en attente",
+        "description": "Informer l’effectif : le PC arrière est actif, prendre son téléphone",
+        "note": "Au groupe de l’effectif · au démarrage du PC arrière"
+      },
+      "send-second-whatsapp": {
+        "title": "Envoyer le WhatsApp de rappel",
+        "description": "Appel direct : rejoindre la caserne",
+        "note": "Au groupe de l’effectif · seulement en cas de mobilisation réelle"
       },
       "personnel-checkin": {
         "title": "Enregistrer l’arrivée du personnel",
         "details": "{count, plural, one {# personne annoncée} other {# personnes annoncées}}",
-        "description": "Au moins 3 personnes pour être opérationnel"
+        "description": "Au moins 3 personnes pour être opérationnel",
+        "note": "Pour l’effectif · 1 exemplaire à la caserne"
       },
       "share-reko-link": {
         "title": "Partager le lien de reconnaissance",
-        "description": "Donner au personnel de reconnaissance l’accès à son tableau"
+        "description": "Donner au personnel de reconnaissance l’accès à son tableau",
+        "note": "Pour les officiers de reconnaissance · 1 exemplaire par équipe"
       },
       "share-alarm-link": {
         "title": "Partager le lien d’alarme",
-        "description": "Permettre les annonces par téléphone ou au guichet"
+        "description": "Permettre les annonces par téléphone ou au guichet",
+        "note": "Pour le téléphone et l’accueil au PC · 1 exemplaire"
       },
       "share-feld-link": {
         "title": "Partager le lien terrain",
-        "description": "Les équipes annoncent depuis leur site et remplissent le rapport"
+        "description": "Les équipes annoncent depuis leur site et remplissent le rapport",
+        "note": "Pour chaque équipe qui part · 1 exemplaire par véhicule"
       },
       "assign-reko": {
         "title": "Désigner les officiers de reconnaissance",
@@ -93,8 +103,7 @@
       "whatsappCopiedDescription": "Colle-le dans WhatsApp et envoie-le, puis coche manuellement.",
       "copyError": "Erreur lors de la copie",
       "whatsappSend": "Envoyer par WhatsApp",
-      "message1": "Message 1 · Attente",
-      "message2": "Message 2 · Rentrer au poste",
+      "diveraSend": "Message Divera",
       "checkInTitle": "Arrivée du personnel",
       "checkInSubtitle": "Scanner le QR pour s’annoncer – fonctionne sans connexion.",
       "rekoTitle": "Tableau de reconnaissance",
@@ -393,6 +402,27 @@
       "priorityLabel": "Priorité (course urgente)",
       "cancel": "Annuler",
       "send": "Envoyer la convocation ({count})"
+    },
+    "messageDialog": {
+      "title": "Envoyer un message Divera",
+      "description": "Message d’information – pas une alarme. Il arrive comme notification dans l’app Divera.",
+      "recipients": "Destinataires",
+      "targetGroups": "Groupes sélectionnés",
+      "targetAll": "Tout le site",
+      "allWarning": "Va à tous les pompiers – y compris celles et ceux qui ne sont pas engagés.",
+      "loadingGroups": "Chargement des groupes…",
+      "groupsError": "Les groupes n’ont pas pu être chargés.",
+      "noGroups": "Aucun groupe n’est défini dans Divera.",
+      "titleLabel": "Titre",
+      "textLabel": "Texte",
+      "noRecipientsError": "Aucun destinataire sélectionné",
+      "sentToGroups": "Message envoyé à {groups}",
+      "sentToAll": "Message envoyé à tout le site",
+      "simulatedTitle": "Exercice : message simulé",
+      "simulatedDescription": "Pendant un exercice, aucun message réel n’est envoyé.",
+      "cancel": "Annuler",
+      "send": "Envoyer ({count, plural, one {# groupe} other {# groupes}})",
+      "sendAll": "Envoyer à tous"
     },
     "notification": {
       "trainingTag": "[EXERCICE]"
@@ -1249,7 +1279,7 @@
       "displayLinkFailed": "Le lien d’affichage n’a pas pu être généré. Réessaie.",
       "alarmLinkFailed": "Le lien d’alarme n’a pas pu être généré. Réessaie.",
       "materialReturned": "Matériel rendu",
-      "readiness": "Préparation",
+      "readiness": "Checklist",
       "checkIn": "Arrivée",
       "display": "Affichage",
       "alarm": "Alarme",
@@ -1568,6 +1598,7 @@
       "leaderFailed": "Le chef d’intervention n’a pas pu être défini.",
       "description": "Regrouper plusieurs interventions en un itinéraire ordonné et le confier à une équipe.",
       "newAuftrag": "Nouvelle mission",
+      "templatesLabel": "Modèles :",
       "defaultName": "Mission {n}",
       "namePlaceholder": "Nom de la mission",
       "create": "Créer",
@@ -2495,6 +2526,8 @@
         "general": "Général",
         "notifications": "Notifications",
         "alerting": "Alarmement",
+        "checklist": "Checklist",
+        "auftragTemplates": "Ordres standard",
         "gps": "GPS",
         "sync": "Synchronisation",
         "printer": "Imprimante",
@@ -2615,6 +2648,18 @@
               "column": "Temps dans ce statut",
               "total": "Temps depuis l’alarme"
             }
+          },
+          "firestation_name": {
+            "label": "Nom du corps de sapeurs-pompiers",
+            "description": "Légende du marqueur du dépôt sur la carte. Une installation neuve porte ici l'exemple « Feuerwehr Musterstadt » – à remplacer."
+          },
+          "firestation_latitude": {
+            "label": "Dépôt – latitude",
+            "description": "Degrés décimaux, p. ex. 47.516377. Détermine le centre de la carte et pondère la recherche d'adresses – la valeur d'exemple fait remonter des résultats hors secteur."
+          },
+          "firestation_longitude": {
+            "label": "Dépôt – longitude",
+            "description": "Degrés décimaux, p. ex. 7.561800. Détermine le centre de la carte et pondère la recherche d'adresses – la valeur d'exemple fait remonter des résultats hors secteur."
           }
         },
         "logo": {
@@ -2627,11 +2672,57 @@
           "removed": "Logo retiré",
           "uploadFailed": "Le logo n’a pas pu être enregistré",
           "tooLarge": "Fichier trop volumineux – 5 Mo au maximum"
+        },
+        "validation": {
+          "notANumber": "Nombre non valide.",
+          "outOfRange": "Doit être compris entre {min} et {max}."
         }
+      },
+      "checklist": {
+        "title": "Liste de contrôle",
+        "description": "Quelles étapes ce corps de sapeurs-pompiers effectue, et à qui sont destinés les liens partagés. Une étape masquée ne compte plus dans la progression.",
+        "showRow": "Afficher l’étape « {title} »",
+        "notePlaceholder": "Pour qui · combien d’exemplaires",
+        "summary": "{count, plural, one {# étape} other {# étapes}} dans la liste",
+        "loadFailed": "Les réglages de la liste n’ont pas pu être chargés",
+        "saveFailed": "La modification n’a pas pu être enregistrée"
+      },
+      "auftragTemplates": {
+        "title": "Ordres standard",
+        "description": "Ce qui est activé est créé automatiquement à chaque nouvelle situation – avec sa couleur, sa note et ses ressources. Le reste attend en un clic dans la fenêtre des ordres.",
+        "empty": "Aucun ordre standard. Saisissez ci-dessous ce qui revient toujours chez vous.",
+        "newPlaceholder": "Nom du modèle",
+        "add": "Modèle",
+        "summary": "{count, plural, one {# modèle} other {# modèles}} · {auto, plural, =0 {aucun créé automatiquement} one {# créé automatiquement} other {# créés automatiquement}}",
+        "autoOn": "À chaque situation",
+        "autoOff": "Sur demande",
+        "autoLabel": "Créer «{name}» à chaque nouvelle situation",
+        "resourceCount": "{count, plural, =0 {aucune ressource} one {# ressource} other {# ressources}}",
+        "nameLabel": "Nom",
+        "colorLabel": "Couleur sur le tableau et la carte",
+        "colorSwatch": "Couleur {color}",
+        "notesLabel": "Note sur l'ordre",
+        "notesPlaceholder": "Ce qui vaut toujours pour cet ordre",
+        "resourcesLabel": "Ressources standard",
+        "addResource": "Ressource",
+        "removeResource": "Retirer la ressource",
+        "resourceMissing": "Ressource supprimée",
+        "searchResource": "Rechercher un véhicule ou du matériel",
+        "noResource": "Aucun résultat",
+        "resourceGroup": {
+          "vehicle": "Véhicules",
+          "material": "Matériel"
+        },
+        "delete": "Supprimer le modèle",
+        "deleteTitle": "Supprimer le modèle ?",
+        "deleteDescription": "«{name}» sera retiré des réglages. Les ordres déjà créés à partir de ce modèle restent sur leurs situations.",
+        "loadFailed": "Impossible de charger les ordres standard",
+        "saveFailed": "Impossible d'enregistrer la modification",
+        "deleteFailed": "Impossible de supprimer le modèle"
       },
       "alerting": {
         "whatsappTitle": "Messages WhatsApp",
-        "whatsappDescription": "Modèles pour le WhatsApp d’information de la liste de contrôle de mise en place. À l’envoi, le message choisi est copié dans le presse-papiers.",
+        "whatsappDescription": "Modèles des deux messages WhatsApp de la liste de contrôle – chacun y a sa propre ligne. À l’envoi, le message est copié dans le presse-papiers.",
         "message1Label": "Message 1 · Attente",
         "message1Hint": "Première info : KP Rück actif, prendre le téléphone, déroulement.",
         "message2Label": "Message 2 · Rentrer au poste",
@@ -2650,7 +2741,27 @@
         "alarmFilterHint": "Casse indifférente, les espaces en début de ligne sont ignorés. Les lignes entières sont supprimées d’abord, les étiquettes ensuite. S’applique uniquement aux nouvelles alarmes.",
         "feldChipsTitle": "Annonces rapides pour /feld",
         "feldChipsDescription": "Annonces en un geste qu’un groupe sur le terrain peut envoyer au PC. Une annonce par ligne. Volontairement non traduites : chaque corps les formule lui-même.",
-        "feldChipsLabel": "Annonces (une par ligne)"
+        "feldChipsLabel": "Annonces (une par ligne)",
+        "webhookSecret": {
+          "title": "Clé webhook pour les alarmes",
+          "description": "La clé partagée avec laquelle la centrale d'alarme signe ses messages vers POST /api/alarms. À saisir dans le champ correspondant chez le fournisseur.",
+          "reveal": "Afficher la clé",
+          "revealFailed": "Impossible de charger la clé.",
+          "revealUnreachable": "Aucune réponse du serveur – impossible de charger la clé. Le backend est-il joignable ?",
+          "hide": "Masquer",
+          "copy": "Copier",
+          "copied": "Copié",
+          "copyFailed": "Échec de la copie.",
+          "rotate": "Régénérer",
+          "rotated": "Nouvelle clé générée – à enregistrer chez le fournisseur.",
+          "rotateFailed": "Impossible de régénérer la clé.",
+          "rotateConfirmTitle": "Régénérer la clé ?",
+          "rotateConfirmDescription": "L'ancienne clé devient immédiatement invalide. Les alarmes de la centrale seront refusées jusqu'à ce que la nouvelle clé y soit enregistrée.",
+          "rotateDisabledHint": "ALARM_WEBHOOK_SECRET est défini dans le .env et prime – une rotation ici n'aurait aucun effet. Modifier la valeur dans le .env et redémarrer le backend.",
+          "sourceEnv": "Source : .env",
+          "sourceDatabase": "Source : base de données",
+          "notConfigured": "Aucune clé définie – les alarmes via POST /api/alarms sont acceptées sans vérification de signature."
+        }
       },
       "demo": {
         "sync": "La synchronisation n’est pas disponible en mode démo.",
@@ -2664,8 +2775,6 @@
         "exportTitle": "Export",
         "exportDescription": "Télécharger toutes les ressources en Excel",
         "exportButton": "Exporter",
-        "importTitle": "Import",
-        "importDescription": "Importer des ressources depuis un fichier Excel",
         "step1Title": "Télécharger le modèle",
         "step1Description": "Modèle Excel au format correct",
         "templateButton": "Modèle",
@@ -2683,7 +2792,58 @@
         "replaceConfirmTitle": "Remplacer les données importées ?",
         "replaceConfirmDescription": "Cette action supprime toutes les données existantes de personnel, de véhicules et de matériel et les remplace par le contenu du fichier Excel.",
         "replaceConfirmCounts": "Seront importés <strong>{personnel}</strong> personnes, <strong>{vehicles}</strong> véhicules, <strong>{materials}</strong> matériels.",
-        "replaceConfirmAction": "Remplacer les données"
+        "replaceConfirmAction": "Remplacer les données",
+        "importTitleReplace": "Import – mode « Remplacer »",
+        "importTitleAppend": "Import – mode « Ajouter »",
+        "importDescriptionReplace": "Supprime tout l'inventaire, puis crée le contenu du fichier.",
+        "importDescriptionAppend": "Crée le contenu du fichier en plus. L'existant reste intact.",
+        "badgeDataLoss": "Perte de données",
+        "badgeNoDeletion": "Rien n'est supprimé",
+        "modeStepHint": "C'est le mode qui décide du coût de l'import – pas le fichier.",
+        "modeChosen": "Choisi",
+        "importReplaceAction": "Supprimer et remplacer l'inventaire",
+        "switchToAppend": "Ajouter à la place",
+        "replaceBlockedTooltip": "{count} affectations actives sur des interventions en cours – « Remplacer » sera refusé.",
+        "sheetEmpty": "{resource} : aucune ligne dans le fichier.",
+        "sheetEmptyAmbiguous": "{resource} : aucune ligne dans le fichier. Si la feuille existe avec sa ligne d'en-tête, la table sera vidée – si la feuille manque entièrement, l'import sera refusé.",
+        "replaceConfirmDeletions": "Seront supprimés <strong>{personnel}</strong> personnel, <strong>{vehicles}</strong> véhicules, <strong>{materials}</strong> matériel – et <strong>{assignments}</strong> affectations pointeront ensuite dans le vide.",
+        "balance": {
+          "title": "Bilan",
+          "modeBadgeReplace": "Mode : Remplacer",
+          "modeBadgeAppend": "Mode : Ajouter",
+          "columnResource": "Ressource",
+          "columnBefore": "Inventaire actuel",
+          "columnFromFile": "Du fichier",
+          "columnDeleted": "Sera supprimé",
+          "columnDeletedNote": "irréversible",
+          "columnAfter": "Inventaire après",
+          "columnAfterEstimate": "valeur indicative",
+          "unknownValue": "inconnu",
+          "sourcePreviewNote": "« Inventaire actuel » et « Sera supprimé » proviennent de la même réponse du serveur. Le mode Remplacer vide les tables : il ne restera ensuite que ce que le fichier apporte.",
+          "sourceStockNote": "« Inventaire actuel » provient d'une requête séparée – « Inventaire après » n'est donc qu'une valeur indicative. Ce qui est certain : ce que le fichier apporte, et que rien n'est supprimé.",
+          "sourceUnknownNote": "« Inventaire actuel » n'a pas pu être compté, « Inventaire après » reste donc ouvert. Ce qui est certain : ce que le fichier apporte, et que rien n'est supprimé.",
+          "stockOutdatedNote": "Les chiffres affichés au choix du mode ci-dessus sont périmés – le tableau utilise ceux du serveur.",
+          "afterEmpty": "vide",
+          "totalRow": "Total des enregistrements",
+          "nothingDeletedTitle": "Rien n'est supprimé.",
+          "nothingDeletedHint": "Aucune affectation ne perd sa ressource, aucune intervention en cours n'est touchée.",
+          "consequencesTitle": "Conséquences sur le tableau d'engagement",
+          "consequencesBlockedTitle": "Bloqué : affectations actives sur des interventions et des missions en cours",
+          "repairableBadge": "Réparable ensuite",
+          "orphanedLabel": "Affectations pointant ensuite dans le vide",
+          "orphanedActiveLabel": "dont actives sur des interventions en cours",
+          "groupOrphanedLabel": "Affectations de missions pointant ensuite dans le vide",
+          "groupOrphanedActiveLabel": "dont actives sur des missions en cours",
+          "consequencesHint": "Les affectations renvoient à leur ressource sans clé étrangère : supprimer du personnel, des véhicules ou du matériel laisse l'affectation en place – sur une intervention qui continue.",
+          "consequencesBlockedHint": "Libérer les affectations, clore les interventions et les missions – ou importer en mode « Ajouter ». Les interventions closes ne bloquent pas.",
+          "cascadeTitle": "Supprimé en même temps, sans retour",
+          "cascadeBadge": "Uniquement via sauvegarde",
+          "cascadeAttendanceLabel": "Présences (arrivées)",
+          "cascadeFunctionsLabel": "Fonctions spéciales attribuées",
+          "cascadeIdentitiesLabel": "Liens vers les comptes d'alarmement",
+          "cascadeHint": "Ces lignes dépendent directement du personnel et des véhicules et disparaissent avec eux – il ne restera rien à corriger sur le tableau. Seule une sauvegarde des données les restitue, et les comptes d'alarmement devront être reliés à nouveau."
+        },
+        "modeCostHeading": "Sera supprimé"
       },
       "audit": {
         "exportTitle": "Exporter le journal d’intervention (Excel)",

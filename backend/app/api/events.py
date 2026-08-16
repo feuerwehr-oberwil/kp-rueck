@@ -113,8 +113,8 @@ async def create_event(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,  # Only editors can create
 ) -> schemas.EventResponse:
-    """Create a new event (editor only)."""
-    event = await crud.create_event(db, event_data)
+    """Create a new event (editor only), including the automatic Standard-Aufträge."""
+    event = await crud.create_event(db, event_data, created_by=current_user.id)
 
     event_dict = {
         "id": event.id,

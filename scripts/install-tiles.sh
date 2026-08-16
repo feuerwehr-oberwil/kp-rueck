@@ -6,12 +6,12 @@ set -e
 
 # TILES_NAME is the filename the tileserver looks for; keep it in step with
 # scripts/download-tiles.sh and scripts/init-tileserver.sh. Your source file can
-# be called anything — it is renamed to this on the way into the volume.
+# be called anything – it is renamed to this on the way into the volume.
 TILES_NAME="${TILES_NAME:-basel-landschaft}"
 
 # Dev names it kprueck-tileserver-dev, production names it kp-rueck-tileserver-1.
 # Detect rather than default to one of them; TILES_CONTAINER overrides.
-# (Same resolution as scripts/download-tiles.sh — keep the two in step.)
+# (Same resolution as scripts/download-tiles.sh – keep the two in step.)
 CONTAINER_NAME="${TILES_CONTAINER:-$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^kp-?rueck[-_].*tileserver' | head -1)}"
 TILES_FILE="${TILES_NAME}.mbtiles"
 
@@ -57,7 +57,7 @@ fi
 # Check if tile server container exists
 if [ -z "$CONTAINER_NAME" ] || ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "❌ Error: Tile server container not found."
-    echo "   Start the stack first — 'docker compose up -d' for a production"
+    echo "   Start the stack first – 'docker compose up -d' for a production"
     echo "   install, or 'just dev' for the development stack."
     echo "   If your container has a non-standard name, set TILES_CONTAINER=<name>."
     exit 1
@@ -76,12 +76,20 @@ docker restart "$CONTAINER_NAME" > /dev/null
 echo "✓ Tile server restarted"
 echo ""
 
+# Dev publishes the tileserver on 8080; production publishes no tileserver port and reaches
+# it through Caddy at /tiles. Probe both – see the same block in download-tiles.sh.
 echo "[3/3] Waiting for tile server to be ready..."
+BASE_URL=""
 MAX_ATTEMPTS=30
 ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-        echo "✓ Tile server is ready"
+    if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+        BASE_URL="http://localhost:8080"
+    elif curl -sf "http://localhost:${HTTP_PORT:-8080}/tiles/health" > /dev/null 2>&1; then
+        BASE_URL="http://localhost:${HTTP_PORT:-8080}/tiles"
+    fi
+    if [ -n "$BASE_URL" ]; then
+        echo "✓ Tile server is ready ($BASE_URL)"
         break
     fi
     ATTEMPT=$((ATTEMPT + 1))
@@ -100,7 +108,7 @@ echo "✅ Offline map tiles installed successfully!"
 echo "═══════════════════════════════════════════════"
 echo ""
 echo "Next steps:"
-echo "1. Open http://localhost:8080 to verify tiles are loaded"
+echo "1. Open ${BASE_URL:-http://localhost:8080} to verify tiles are loaded"
 echo "2. Go to Settings → Map Mode and select 'Offline'"
 echo "3. Navigate to Map view to test offline tiles"
 echo ""
