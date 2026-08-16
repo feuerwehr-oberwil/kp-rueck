@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  applyChecklistSettings,
+  CHECKLIST_HIDDEN_TASKS_KEY,
+  CHECKLIST_NOTES_KEY,
   findVehiclesWithoutDriver,
   generateChecklistTasks,
   isTaskComplete,
+  listChecklistTasks,
   type ChecklistTaskState,
 } from './checklist-tasks'
 
@@ -94,11 +98,67 @@ describe('the setup checklist links into what it is asking for', () => {
   })
 
   it('gives every other row an action or a deliberate reason not to', () => {
-    // The WhatsApp row has the component's own two-message picker instead.
+    // The two WhatsApp rows carry the component's own copy button instead.
     const withoutAction = tasks()
-      .filter(task => !task.actionButtons && !task.isWhatsApp)
+      .filter(task => !task.actionButtons && !task.whatsappMessage)
       .map(task => task.id)
     expect(withoutAction).toEqual(['assign-magazin'])
+  })
+
+  it('splits the two WhatsApp messages into one row each', () => {
+    // They go out at different moments — Standby when the KP goes up, Einrücken
+    // when the crew is called in — so a single row could only be ticked once.
+    expect(tasks().filter(task => task.whatsappMessage).map(task => task.id)).toEqual([
+      'send-first-whatsapp',
+      'send-second-whatsapp',
+    ])
+  })
+
+  it('says who each shared link is for', () => {
+    // "Link kopieren" does not say who is supposed to hold the slip, or how
+    // many to print — which is exactly what a rare operator has to guess.
+    for (const id of ['personnel-checkin', 'share-reko-link', 'share-alarm-link', 'share-feld-link']) {
+      expect(byId(id, tasks())?.note).toBeTruthy()
+    }
+  })
+})
+
+describe('a station shapes the checklist to how it actually works', () => {
+  it('drops a hidden step so it cannot sit in the progress count forever', () => {
+    const visible = applyChecklistSettings(tasks(), {
+      [CHECKLIST_HIDDEN_TASKS_KEY]: JSON.stringify(['share-reko-link']),
+    })
+    expect(visible.map(task => task.id)).not.toContain('share-reko-link')
+    expect(visible).toHaveLength(tasks().length - 1)
+  })
+
+  it('lets a station write its own note, and delete it', () => {
+    const [withNote] = applyChecklistSettings(tasks(), {
+      [CHECKLIST_NOTES_KEY]: JSON.stringify({ 'share-feld-link': '2 Ausdrucke pro Fahrzeug' }),
+    }).filter(task => task.id === 'share-feld-link')
+    expect(withNote.note).toBe('2 Ausdrucke pro Fahrzeug')
+
+    // An emptied field removes the line — it must not fall back to the built-in
+    // text, or deleting a note would look broken.
+    const [cleared] = applyChecklistSettings(tasks(), {
+      [CHECKLIST_NOTES_KEY]: JSON.stringify({ 'share-feld-link': '   ' }),
+    }).filter(task => task.id === 'share-feld-link')
+    expect(cleared.note).toBeUndefined()
+  })
+
+  it('survives a settings value of the wrong shape', () => {
+    // The checklist is read while a command post is being started; a hand-edited
+    // setting must not be able to take it down.
+    expect(applyChecklistSettings(tasks(), { [CHECKLIST_HIDDEN_TASKS_KEY]: '{not json' })).toHaveLength(
+      tasks().length,
+    )
+    expect(applyChecklistSettings(tasks(), { [CHECKLIST_NOTES_KEY]: '["wrong shape"]' })).toHaveLength(
+      tasks().length,
+    )
+  })
+
+  it('offers every row in Settings, so a new step can always be switched off', () => {
+    expect(listChecklistTasks().map(task => task.id)).toEqual(tasks().map(task => task.id))
   })
 })
 

@@ -2,9 +2,10 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
 
 from .incidents import IncidentResponse
 
@@ -212,4 +213,57 @@ class DiveraAlarmResponse(BaseModel):
     # True when this was a training run: the flow ran end-to-end but nothing was
     # actually sent to Divera (no external request). Lets the UI show a clearly
     # different "simulated" confirmation instead of a real-send success.
+    simulated: bool = False
+
+
+# Mitteilungen (Divera "news") — informational, NOT an alarm
+class DiveraGroupPreview(BaseModel):
+    """One Divera group (Gruppe) a Mitteilung can be addressed at."""
+
+    divera_id: int
+    name: str
+
+
+class DiveraMessageRequest(BaseModel):
+    """Request to post a Divera Mitteilung (e.g. the KP's standby message).
+
+    ``target`` is required and has no default: "everyone" is a decision an
+    operator makes on purpose, in the confirmation sheet, not something a
+    forgotten field does for them.
+    """
+
+    text: str
+    title: str | None = None
+    target: Literal["groups", "all"]
+    group_ids: list[int] = []
+    # Only used to recognise a training event, which simulates instead of sending.
+    event_id: UUID | None = None
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        """A Mitteilung with no body is a push that says nothing."""
+        if not v.strip():
+            raise ValueError("Message text must not be empty")
+        return v
+
+    @model_validator(mode="after")
+    def validate_recipients(self) -> "DiveraMessageRequest":
+        """Addressing groups means naming at least one."""
+        if self.target == "groups" and not self.group_ids:
+            raise ValueError("Must select at least one group")
+        return self
+
+
+class DiveraMessageResponse(BaseModel):
+    """Result of a Mitteilung send."""
+
+    success: bool
+    foreign_id: str
+    divera_message_id: int | None = None
+    target: Literal["groups", "all"]
+    #: Group names actually addressed — echoed back so the toast can say who got it.
+    group_names: list[str] = []
+    # Same meaning as on the alarm response: the training flow ran, nothing left
+    # the building.
     simulated: bool = False

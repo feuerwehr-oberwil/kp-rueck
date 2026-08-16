@@ -80,10 +80,13 @@ import {
   type ApiDiveraSyncResult,
   type ApiDiveraAlarmResult,
   type ApiDiveraMemberPreview,
+  type ApiDiveraGroup,
+  type ApiDiveraMessageResult,
   type ApiDiveraPollingStatus,
   type ApiIntegrations,
   type ApiDeployment,
   type SendDiveraAlarmOptions,
+  type SendDiveraMessageOptions,
   type ApiRekoDashboardPersonnelListResponse,
   type ApiRekoDashboardAssignmentsResponse,
   type ApiAvailableRekoPersonnelResponse,
@@ -1830,6 +1833,23 @@ class ApiClient {
     return this.request<ApiDiveraAlarmResult>('/api/divera/test-alarm', {
       method: 'POST',
       body: JSON.stringify({ divera_user_id: diveraUserId, name }),
+    })
+  }
+
+  /** The unit's Divera groups – the recipient choices for a Mitteilung. */
+  async getDiveraGroups(): Promise<ApiDiveraGroup[]> {
+    return this.request<ApiDiveraGroup[]>('/api/divera/groups')
+  }
+
+  /**
+   * Post an informational Divera Mitteilung (not an alarm) – the checklist's
+   * standby message. Recipients are explicit: named groups, or a deliberate
+   * `target: 'all'`.
+   */
+  async sendDiveraMessage(options: SendDiveraMessageOptions): Promise<ApiDiveraMessageResult> {
+    return this.request<ApiDiveraMessageResult>('/api/divera/message', {
+      method: 'POST',
+      body: JSON.stringify(options),
     })
   }
 

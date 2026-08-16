@@ -102,6 +102,49 @@ async def fetch_divera_members() -> list[dict[str, Any]]:
     return members
 
 
+async def fetch_divera_groups() -> list[dict[str, Any]]:
+    """Fetch the unit's Divera groups (Gruppen) — id + name, sorted by name.
+
+    Exists so a Mitteilung can be addressed at "Pikett" rather than at the whole
+    Feuerwehr. Same ``pull/all`` payload the member sync reads; Divera returns
+    the groups as an id-keyed map under ``cluster.group``, but older payloads
+    hand back a list, so both shapes are accepted.
+    """
+    if not settings.divera_access_key:
+        raise ValueError("Divera access key not configured")
+
+    url = f"{DIVERA_PULL_BASE_URL}/pull/all"
+    params = {"accesskey": settings.divera_access_key}
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+    if not data.get("success"):
+        raise ValueError("Divera API returned success=false")
+
+    raw = data.get("data", {}).get("cluster", {}).get("group", {})
+    entries = raw.items() if isinstance(raw, dict) else [(g.get("id"), g) for g in raw or []]
+
+    groups: list[dict[str, Any]] = []
+    for group_id, info in entries:
+        if not isinstance(info, dict):
+            continue
+        try:
+            divera_id = int(group_id)
+        except (ValueError, TypeError):
+            continue
+        name = (info.get("name") or info.get("shortname") or "").strip()
+        if not name:
+            continue
+        groups.append({"divera_id": divera_id, "name": name})
+
+    groups.sort(key=lambda g: g["name"].lower())
+    logger.info("Fetched %d groups from Divera", len(groups))
+    return groups
+
+
 def build_sync_preview(divera_members: list[dict[str, Any]], existing_personnel: Sequence[Personnel]) -> dict[str, Any]:
     """Compare Divera member names with existing personnel.
 

@@ -1,4 +1,12 @@
-"""Outbound Divera 24/7 alarm service (ausalarmierung).
+"""Outbound Divera 24/7 services: alarms (Ausalarmierung) and Mitteilungen.
+
+Both live here because they are the same transport, the same validation quirk
+and the same field caps — Divera's ``/api/v2/news`` is an alarm's quieter
+sibling, not a separate integration. ``send_news`` below is the Mitteilung; it
+is what an *informational* message ("KP-Rück ist aktiv, Telefon mitnehmen")
+should use, because a full alarm is a siren-grade event on every phone.
+
+The alarm half:
 
 Sends alarms to individual people via the Divera v2 API, targeting them by their
 ``user_cluster_relation`` id with ``notification_type = 4`` (= selected users
@@ -26,8 +34,11 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 # Divera v2 Empfänger-Auswahl. 4 = selected users only.
-# 2 = ALL of the location — must never be used here.
+# 2 = ALL of the location — must never be used for an ALARM. A Mitteilung is the
+# one thing that legitimately goes to everybody (see NOTIFICATION_TYPE_ALL below).
 NOTIFICATION_TYPE_SELECTED_USERS = 4
+NOTIFICATION_TYPE_SELECTED_GROUPS = 3
+NOTIFICATION_TYPE_ALL = 2
 
 # Field caps enforced client-side (Divera truncates/ rejects beyond these).
 MAX_TITLE = 50
@@ -38,7 +49,7 @@ _RETRYABLE = (httpx.ConnectError, httpx.TimeoutException, httpx.ReadError)
 
 
 class DiveraAlarmError(Exception):
-    """Raised when an outbound alarm cannot be sent."""
+    """Raised when an outbound alarm or Mitteilung cannot be sent."""
 
 
 def _truncate(value: str | None, limit: int) -> str | None:
@@ -183,4 +194,81 @@ async def send_alarm(
     else:
         data = await _request_with_retry("POST", f"{base}/alarms", params=params, json_body=payload)
 
+    return data if isinstance(data, dict) else {}
+
+
+async def send_news(
+    *,
+    title: str,
+    text: str,
+    foreign_id: str,
+    group_ids: list[int] | None = None,
+    user_cluster_relation: list[int] | None = None,
+    to_everyone: bool = False,
+    send_push: bool = True,
+    send_sms: bool = False,
+    send_call: bool = False,
+    send_mail: bool = False,
+) -> dict[str, Any]:
+    """Post a Divera *Mitteilung* (``/api/v2/news``) — an informational message.
+
+    The KP's standby message ("KP-Rück ist aktiv, Telefon mitnehmen") is exactly
+    this: everybody should read it, nobody should be woken by a siren. Which is
+    also why a Mitteilung MAY go to the whole Standort where an alarm may not —
+    but never by accident: the caller has to say ``to_everyone=True``, because
+    the difference between "die Gruppe Pikett" and "die ganze Feuerwehr" is one
+    forgotten argument.
+
+    Recipients, in order of precedence: ``group_ids`` (notification_type 3),
+    ``user_cluster_relation`` (4), ``to_everyone`` (2). Nothing at all is an
+    error rather than a silent broadcast.
+
+    Never touches the pager, for the same reason the alarm doesn't: the
+    fwo-divera e-Call bridge pages on everything it sees.
+
+    Unlike an alarm this is always a POST — a Mitteilung is a moment, not a
+    living object that later re-sends get folded into, so there is no
+    lookup-then-update dance. ``foreign_id`` is still stamped so the message can
+    be recognised in Divera later.
+
+    Note for FREE-tier units: Divera allows one Mitteilung per five minutes.
+
+    Returns the Divera ``data`` object. Raises :class:`DiveraAlarmError`.
+    """
+    if not settings.divera_access_key:
+        raise DiveraAlarmError("Divera access key not configured")
+    if not group_ids and not user_cluster_relation and not to_everyone:
+        raise DiveraAlarmError("Keine Empfänger für die Mitteilung ausgewählt")
+
+    if group_ids:
+        notification_type = NOTIFICATION_TYPE_SELECTED_GROUPS
+    elif user_cluster_relation:
+        notification_type = NOTIFICATION_TYPE_SELECTED_USERS
+    else:
+        notification_type = NOTIFICATION_TYPE_ALL
+
+    news: dict[str, Any] = {
+        "title": _truncate(title, MAX_TITLE) or "Mitteilung",
+        "text": _truncate(text, MAX_TEXT) or "",
+        "notification_type": notification_type,
+        "send_push": send_push,
+        "send_sms": send_sms,
+        "send_call": send_call,
+        "send_mail": send_mail,
+        "send_pager": False,  # never page — avoids double-paging via the e-Call bridge
+        "foreign_id": foreign_id,
+    }
+    payload: dict[str, Any] = {"News": news}
+    instructions: dict[str, Any] = {}
+    if group_ids:
+        news["group"] = group_ids
+        instructions["group"] = {"mapping": "id"}
+    elif user_cluster_relation:
+        news["user_cluster_relation"] = user_cluster_relation
+        instructions["user_cluster_relation"] = {"mapping": "id"}
+    if instructions:
+        payload["instructions"] = instructions
+
+    params = {"accesskey": settings.divera_access_key}
+    data = await _request_with_retry("POST", f"{settings.divera_api_url}/news", params=params, json_body=payload)
     return data if isinstance(data, dict) else {}

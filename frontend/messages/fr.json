@@ -2,25 +2,35 @@
   "checklist": {
     "tasks": {
       "send-first-whatsapp": {
-        "title": "Envoyer le premier WhatsApp d’information",
-        "description": "Informer l’effectif de l’événement"
+        "title": "Envoyer le WhatsApp de mise en attente",
+        "description": "Informer l’effectif : le PC arrière est actif, prendre son téléphone",
+        "note": "Au groupe de l’effectif · au démarrage du PC arrière"
+      },
+      "send-second-whatsapp": {
+        "title": "Envoyer le WhatsApp de rappel",
+        "description": "Appel direct : rejoindre la caserne",
+        "note": "Au groupe de l’effectif · seulement en cas de mobilisation réelle"
       },
       "personnel-checkin": {
         "title": "Enregistrer l’arrivée du personnel",
         "details": "{count, plural, one {# personne annoncée} other {# personnes annoncées}}",
-        "description": "Au moins 3 personnes pour être opérationnel"
+        "description": "Au moins 3 personnes pour être opérationnel",
+        "note": "Pour l’effectif · 1 exemplaire à la caserne"
       },
       "share-reko-link": {
         "title": "Partager le lien de reconnaissance",
-        "description": "Donner au personnel de reconnaissance l’accès à son tableau"
+        "description": "Donner au personnel de reconnaissance l’accès à son tableau",
+        "note": "Pour les officiers de reconnaissance · 1 exemplaire par équipe"
       },
       "share-alarm-link": {
         "title": "Partager le lien d’alarme",
-        "description": "Permettre les annonces par téléphone ou au guichet"
+        "description": "Permettre les annonces par téléphone ou au guichet",
+        "note": "Pour le téléphone et l’accueil au PC · 1 exemplaire"
       },
       "share-feld-link": {
         "title": "Partager le lien terrain",
-        "description": "Les équipes annoncent depuis leur site et remplissent le rapport"
+        "description": "Les équipes annoncent depuis leur site et remplissent le rapport",
+        "note": "Pour chaque équipe qui part · 1 exemplaire par véhicule"
       },
       "assign-reko": {
         "title": "Désigner les officiers de reconnaissance",
@@ -93,8 +103,7 @@
       "whatsappCopiedDescription": "Colle-le dans WhatsApp et envoie-le, puis coche manuellement.",
       "copyError": "Erreur lors de la copie",
       "whatsappSend": "Envoyer par WhatsApp",
-      "message1": "Message 1 · Attente",
-      "message2": "Message 2 · Rentrer au poste",
+      "diveraSend": "Message Divera",
       "checkInTitle": "Arrivée du personnel",
       "checkInSubtitle": "Scanner le QR pour s’annoncer – fonctionne sans connexion.",
       "rekoTitle": "Tableau de reconnaissance",
@@ -393,6 +402,27 @@
       "priorityLabel": "Priorité (course urgente)",
       "cancel": "Annuler",
       "send": "Envoyer la convocation ({count})"
+    },
+    "messageDialog": {
+      "title": "Envoyer un message Divera",
+      "description": "Message d’information – pas une alarme. Il arrive comme notification dans l’app Divera.",
+      "recipients": "Destinataires",
+      "targetGroups": "Groupes sélectionnés",
+      "targetAll": "Tout le site",
+      "allWarning": "Va à tous les pompiers – y compris celles et ceux qui ne sont pas engagés.",
+      "loadingGroups": "Chargement des groupes…",
+      "groupsError": "Les groupes n’ont pas pu être chargés.",
+      "noGroups": "Aucun groupe n’est défini dans Divera.",
+      "titleLabel": "Titre",
+      "textLabel": "Texte",
+      "noRecipientsError": "Aucun destinataire sélectionné",
+      "sentToGroups": "Message envoyé à {groups}",
+      "sentToAll": "Message envoyé à tout le site",
+      "simulatedTitle": "Exercice : message simulé",
+      "simulatedDescription": "Pendant un exercice, aucun message réel n’est envoyé.",
+      "cancel": "Annuler",
+      "send": "Envoyer ({count, plural, one {# groupe} other {# groupes}})",
+      "sendAll": "Envoyer à tous"
     },
     "notification": {
       "trainingTag": "[EXERCICE]"
@@ -1249,7 +1279,7 @@
       "displayLinkFailed": "Le lien d’affichage n’a pas pu être généré. Réessaie.",
       "alarmLinkFailed": "Le lien d’alarme n’a pas pu être généré. Réessaie.",
       "materialReturned": "Matériel rendu",
-      "readiness": "Préparation",
+      "readiness": "Checklist",
       "checkIn": "Arrivée",
       "display": "Affichage",
       "alarm": "Alarme",
@@ -2495,6 +2525,7 @@
         "general": "Général",
         "notifications": "Notifications",
         "alerting": "Alarmement",
+        "checklist": "Checklist",
         "gps": "GPS",
         "sync": "Synchronisation",
         "printer": "Imprimante",
@@ -2645,9 +2676,18 @@
           "outOfRange": "Doit être compris entre {min} et {max}."
         }
       },
+      "checklist": {
+        "title": "Liste de contrôle",
+        "description": "Quelles étapes ce corps de sapeurs-pompiers effectue, et à qui sont destinés les liens partagés. Une étape masquée ne compte plus dans la progression.",
+        "showRow": "Afficher l’étape « {title} »",
+        "notePlaceholder": "Pour qui · combien d’exemplaires",
+        "summary": "{count, plural, one {# étape} other {# étapes}} dans la liste",
+        "loadFailed": "Les réglages de la liste n’ont pas pu être chargés",
+        "saveFailed": "La modification n’a pas pu être enregistrée"
+      },
       "alerting": {
         "whatsappTitle": "Messages WhatsApp",
-        "whatsappDescription": "Modèles pour le WhatsApp d’information de la liste de contrôle de mise en place. À l’envoi, le message choisi est copié dans le presse-papiers.",
+        "whatsappDescription": "Modèles des deux messages WhatsApp de la liste de contrôle – chacun y a sa propre ligne. À l’envoi, le message est copié dans le presse-papiers.",
         "message1Label": "Message 1 · Attente",
         "message1Hint": "Première info : KP Rück actif, prendre le téléphone, déroulement.",
         "message2Label": "Message 2 · Rentrer au poste",

@@ -402,7 +402,7 @@
       "displayLinkFailed": "Display-Link konnte nicht generiert werden. Bitte versuche es erneut.",
       "alarmLinkFailed": "Alarm-Link konnte nicht generiert werden. Bitte versuche es erneut.",
       "materialReturned": "Material zurückgegeben",
-      "readiness": "Bereitschaft",
+      "readiness": "Checkliste",
       "checkIn": "Check-In",
       "display": "Display",
       "alarm": "Alarm",
@@ -1273,6 +1273,7 @@
         "general": "Allgemein",
         "notifications": "Benachrichtigungen",
         "alerting": "Alarmierung",
+        "checklist": "Checkliste",
         "gps": "GPS",
         "sync": "Synchronisation",
         "printer": "Drucker",
@@ -1423,9 +1424,18 @@
           "outOfRange": "Muss zwischen {min} und {max} liegen."
         }
       },
+      "checklist": {
+        "title": "Setup-Checkliste",
+        "description": "Welche Schritte diese Feuerwehr abarbeitet und für wen die geteilten Links gedacht sind. Ausgeblendete Schritte zählen auch nicht mehr im Fortschritt.",
+        "showRow": "Schritt «{title}» anzeigen",
+        "notePlaceholder": "Für wen · wie viele Ausdrucke",
+        "summary": "{count, plural, one {# Schritt} other {# Schritte}} in der Checkliste",
+        "loadFailed": "Checklisten-Einstellungen konnten nicht geladen werden",
+        "saveFailed": "Änderung konnte nicht gespeichert werden"
+      },
       "alerting": {
         "whatsappTitle": "WhatsApp-Nachrichten",
-        "whatsappDescription": "Vorlagen für die Info-WhatsApp aus der Setup-Checkliste. Beim Senden wird die gewählte Nachricht in die Zwischenablage kopiert.",
+        "whatsappDescription": "Vorlagen für die zwei WhatsApp-Nachrichten der Setup-Checkliste – dort hat jede ihre eigene Zeile. Beim Senden wird die Nachricht in die Zwischenablage kopiert.",
         "message1Label": "Nachricht 1 · Standby",
         "message1Hint": "Erste Info: KP-Rück aktiv, Telefon mitnehmen, Ablauf.",
         "message2Label": "Nachricht 2 · Einrücken",
@@ -2339,6 +2349,27 @@
       "cancel": "Abbrechen",
       "send": "Aufgebot senden ({count})"
     },
+    "messageDialog": {
+      "title": "Divera-Mitteilung senden",
+      "description": "Info-Mitteilung – kein Alarm. Sie erscheint als Push in der Divera-App.",
+      "recipients": "Empfänger",
+      "targetGroups": "Ausgewählte Gruppen",
+      "targetAll": "Alle im Standort",
+      "allWarning": "Geht an die ganze Feuerwehr – auch an alle, die nicht im Einsatz sind.",
+      "loadingGroups": "Gruppen werden geladen…",
+      "groupsError": "Gruppen konnten nicht geladen werden.",
+      "noGroups": "In Divera sind keine Gruppen angelegt.",
+      "titleLabel": "Titel",
+      "textLabel": "Text",
+      "noRecipientsError": "Keine Empfänger ausgewählt",
+      "sentToGroups": "Mitteilung gesendet an {groups}",
+      "sentToAll": "Mitteilung an alle im Standort gesendet",
+      "simulatedTitle": "Übung: Mitteilung simuliert",
+      "simulatedDescription": "In der Übung wird keine echte Mitteilung gesendet.",
+      "cancel": "Abbrechen",
+      "send": "Senden ({count, plural, one {# Gruppe} other {# Gruppen}})",
+      "sendAll": "An alle senden"
+    },
     "notification": {
       "trainingTag": "[ÜBUNG]"
     }
@@ -2814,25 +2845,35 @@
   "checklist": {
     "tasks": {
       "send-first-whatsapp": {
-        "title": "Erste Info-WhatsApp senden",
-        "description": "Mannschaft über Ereignis informieren"
+        "title": "Standby-WhatsApp senden",
+        "description": "Mannschaft informieren: KP-Rück aktiv, Telefon mitnehmen",
+        "note": "An die Mannschafts-Gruppe · beim Aufstarten des KP"
+      },
+      "send-second-whatsapp": {
+        "title": "Einrück-WhatsApp senden",
+        "description": "Direkter Aufruf: ins Magazin einrücken",
+        "note": "An die Mannschafts-Gruppe · erst wenn wirklich aufgeboten wird"
       },
       "personnel-checkin": {
         "title": "Personal einchecken",
         "details": "{count, plural, one {# Person} other {# Personen}} eingecheckt",
-        "description": "Mindestens 3 Personen für Einsatzbereitschaft"
+        "description": "Mindestens 3 Personen für Einsatzbereitschaft",
+        "note": "Für die Mannschaft · 1 Ausdruck im Magazin"
       },
       "share-reko-link": {
         "title": "Reko-Link teilen",
-        "description": "Reko-Personal Zugang zum Reko-Dashboard geben"
+        "description": "Reko-Personal Zugang zum Reko-Dashboard geben",
+        "note": "Für die Reko-Offiziere · 1 Ausdruck pro Reko-Trupp"
       },
       "share-alarm-link": {
         "title": "Alarm-Link teilen",
-        "description": "Telefon-/Walk-in-Meldungen ermöglichen"
+        "description": "Telefon-/Walk-in-Meldungen ermöglichen",
+        "note": "Für Telefondienst und Empfang im KP · 1 Ausdruck"
       },
       "share-feld-link": {
         "title": "Feld-Link teilen",
-        "description": "Trupps melden vom Schadenplatz und füllen den Rapport aus"
+        "description": "Trupps melden vom Schadenplatz und füllen den Rapport aus",
+        "note": "Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug"
       },
       "assign-reko": {
         "title": "Reko-Offiziere bestimmen",
@@ -2905,8 +2946,7 @@
       "whatsappCopiedDescription": "In WhatsApp einfügen und senden, danach manuell abhaken.",
       "copyError": "Fehler beim Kopieren",
       "whatsappSend": "WhatsApp senden",
-      "message1": "Nachricht 1 · Standby",
-      "message2": "Nachricht 2 · Einrücken",
+      "diveraSend": "Divera-Mitteilung",
       "checkInTitle": "Personal Check-In",
       "checkInSubtitle": "QR scannen zum Einchecken – funktioniert ohne Anmeldung.",
       "rekoTitle": "Reko-Dashboard",

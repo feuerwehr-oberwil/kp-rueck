@@ -87,6 +87,33 @@ export interface ApiDiveraAlarmResult {
   simulated?: boolean
 }
 
+// Mitteilung ("news") — informational, NOT an alarm
+export interface ApiDiveraGroup {
+  divera_id: number
+  name: string
+}
+
+export interface SendDiveraMessageOptions {
+  text: string
+  title?: string
+  /** No default on purpose — reaching the whole Feuerwehr is a decision. */
+  target: 'groups' | 'all'
+  group_ids?: number[]
+  /** Lets the backend simulate instead of sending when the event is a drill. */
+  event_id?: string
+}
+
+export interface ApiDiveraMessageResult {
+  success: boolean
+  foreign_id: string
+  divera_message_id?: number | null
+  target: 'groups' | 'all'
+  /** Names of the groups actually addressed, echoed back for the confirmation. */
+  group_names: string[]
+  /** True for a training run: the flow ran but nothing was sent to Divera. */
+  simulated?: boolean
+}
+
 // Polling / connection status (for the Verbindung indicator)
 export interface ApiDiveraPollingStatus {
   /** True when an access key is set (alarms + inbound polling can work). */

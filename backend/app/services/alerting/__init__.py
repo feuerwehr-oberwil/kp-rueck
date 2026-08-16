@@ -14,7 +14,15 @@ from typing import Any
 
 from ...config import settings
 from ...environment import blocked_reason, is_domain_blocked
-from .base import AlarmBlockedError, AlarmChannels, AlarmProvider, AlarmResult, AlarmSendError
+from .base import (
+    AlarmBlockedError,
+    AlarmChannels,
+    AlarmProvider,
+    AlarmResult,
+    AlarmSendError,
+    MessageNotSupportedError,
+    MessageResult,
+)
 from .divera import DiveraAlarmProvider
 
 __all__ = [
@@ -23,6 +31,8 @@ __all__ = [
     "AlarmProvider",
     "AlarmResult",
     "AlarmSendError",
+    "MessageNotSupportedError",
+    "MessageResult",
     "get_provider",
 ]
 
@@ -41,6 +51,12 @@ class BlockedAlarmProvider:
         self.display_name = provider.display_name
 
     async def send_alarm(self, **kwargs: Any) -> AlarmResult:
+        reason = blocked_reason("alerting") or "Ausalarmierung ist auf diesem System gesperrt."
+        raise AlarmBlockedError(reason)
+
+    async def send_message(self, **kwargs: Any) -> MessageResult:
+        # A Mitteilung is quieter than an alarm but still lands on every phone in
+        # the unit, so the same block covers it — no "it's only an info" exception.
         reason = blocked_reason("alerting") or "Ausalarmierung ist auf diesem System gesperrt."
         raise AlarmBlockedError(reason)
 

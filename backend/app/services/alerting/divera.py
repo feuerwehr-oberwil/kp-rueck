@@ -5,7 +5,7 @@ Thin adapter over ``services.divera_alarm`` — all Divera API specifics
 """
 
 from .. import divera_alarm
-from .base import AlarmChannels, AlarmResult, AlarmSendError
+from .base import AlarmChannels, AlarmResult, AlarmSendError, MessageResult
 
 
 class DiveraAlarmProvider:
@@ -53,3 +53,35 @@ class DiveraAlarmProvider:
             count_recipients=data.get("count_recipients"),
             raw=data,
         )
+
+    async def send_message(
+        self,
+        *,
+        title: str,
+        text: str,
+        foreign_id: str,
+        channels: AlarmChannels,
+        group_ids: list[int] | None = None,
+        to_everyone: bool = False,
+    ) -> MessageResult:
+        """Post a Divera Mitteilung (``/api/v2/news``) — see the protocol docstring.
+
+        ``to_everyone`` is passed through rather than inferred from "no groups
+        given": a broadcast to the whole Feuerwehr is a decision, not a default.
+        """
+        try:
+            data = await divera_alarm.send_news(
+                title=title,
+                text=text,
+                foreign_id=foreign_id,
+                group_ids=group_ids,
+                to_everyone=to_everyone,
+                send_push=channels.push,
+                send_sms=channels.sms,
+                send_call=channels.call,
+                send_mail=channels.mail,
+            )
+        except divera_alarm.DiveraAlarmError as e:
+            raise AlarmSendError(str(e)) from e
+
+        return MessageResult(provider_message_id=data.get("id"), raw=data)

@@ -82,6 +82,7 @@ import {
   Megaphone,
   Navigation,
   LifeBuoy,
+  ClipboardCheck,
   Trash2,
   Plus,
   Lock,
@@ -121,6 +122,7 @@ import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { PrinterSettings } from '@/components/settings/printer-settings';
 import { FallbackSettings } from '@/components/settings/fallback-settings';
+import { ChecklistSettings } from '@/components/settings/checklist-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
 import { BrandingSettings } from '@/components/settings/branding-settings';
@@ -135,6 +137,7 @@ const SECTIONS = [
   { id: 'general', icon: Settings2, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'notifications', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'alerting', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'checklist', icon: ClipboardCheck, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'gps', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
   // Sync can rewrite whole tables and points at a database URL – admin-only (matches /api/sync/*).
   { id: 'sync', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
@@ -987,6 +990,17 @@ export default function SettingsPage() {
           </div>
         );
       }
+
+      case 'checklist': {
+        return (
+          <div className="space-y-6">
+            <DemoLock active={demoMode}>
+              <ChecklistSettings readOnly={!isEditor || demoMode} />
+            </DemoLock>
+          </div>
+        );
+      }
+
 
       case 'gps': {
         return (

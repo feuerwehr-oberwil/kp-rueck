@@ -4,19 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { X, ClipboardCheck, Check, MessageCircle, ChevronDown } from 'lucide-react'
+import { X, ClipboardCheck, Check, MessageCircle, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getTileBaseUrl } from '@/lib/env'
 import {
   generateChecklistTasks,
+  applyChecklistSettings,
   findVehiclesWithoutDriver,
   ChecklistTaskState,
   isTaskComplete,
@@ -42,6 +37,10 @@ interface EventSetupChecklistProps {
   onOpenVehicles?: () => void
   /** Opens the Appell — where the count on the check-in row is actually made. */
   onOpenAttendance?: () => void
+  /** Opens the Divera-Mitteilung confirmation with this text. Owned by the page:
+   *  a dialog rendered in here would be unmounted the moment its own opening
+   *  closed the popover it lives in (same reason as the driver prompt). */
+  onSendDiveraMessage?: (text: string) => void
 }
 
 export function EventSetupChecklist({
@@ -51,6 +50,7 @@ export function EventSetupChecklist({
   onChecklistLoaded,
   onOpenVehicles,
   onOpenAttendance,
+  onSendDiveraMessage,
 }: EventSetupChecklistProps) {
   // The driver prompt is queued through the context, not opened here — it is mounted in
   // the root layout, so it survives this popover being dismissed.
@@ -65,6 +65,29 @@ export function EventSetupChecklist({
     m1: DEFAULT_WHATSAPP_MESSAGE_1,
     m2: DEFAULT_WHATSAPP_MESSAGE_2,
   })
+  // The same text, sent as a Divera Mitteilung instead of pasted into WhatsApp.
+  // Offered only where it can actually work — an alerting provider is configured
+  // AND Ausalarmierung is switched on — because a button that always 403s is
+  // worse than no button. Nothing is sent from here: the page opens a
+  // confirmation sheet where the groups are picked.
+  const [alertingConfigured, setAlertingConfigured] = useState(false)
+  const [alertingEnabled, setAlertingEnabled] = useState(false)
+  const diveraMessageAvailable = alertingConfigured && alertingEnabled
+
+  // Which provider this station has, if any — configuration, not state, so it is
+  // asked once rather than on every five-second refresh of the rows.
+  useEffect(() => {
+    let cancelled = false
+    apiClient
+      .getIntegrations()
+      .then((integrations) => {
+        if (!cancelled) setAlertingConfigured(integrations.alerting.configured)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // --- Link helpers: generate the public link, then copy it or print its QR ---
   const toFullUrl = (link: string) => `${window.location.origin}${link}`
@@ -199,7 +222,7 @@ export function EventSetupChecklist({
           apiClient.getEventCheckInList(eventId).catch(() => ({ personnel: [] })),
           apiClient.getEventSpecialFunctions(eventId).catch(() => []),
           apiClient.getVehicles().catch(() => []),
-          apiClient.getAllSettings().catch(() => ({})),
+          apiClient.getAllSettings().catch(() => ({}) as Record<string, string>),
           apiClient.getPrinterStatus().catch(() => null),
           checkMapTiles(),
         ])
@@ -208,6 +231,10 @@ export function EventSetupChecklist({
         m1: resolveWhatsAppMessage(settings, WHATSAPP_MESSAGE_1_KEY, DEFAULT_WHATSAPP_MESSAGE_1),
         m2: resolveWhatsAppMessage(settings, WHATSAPP_MESSAGE_2_KEY, DEFAULT_WHATSAPP_MESSAGE_2),
       })
+
+      // Read with the rest of the settings, which this poll refreshes anyway —
+      // the provider half is fetched once on mount (see the effect below).
+      setAlertingEnabled(settings["alerting.enabled"] === "true")
 
       const updatedTasks = generateChecklistTasks({
         eventId,
@@ -252,7 +279,8 @@ export function EventSetupChecklist({
         },
       })
 
-      setTasks(updatedTasks)
+      // Hidden steps out, station notes in — before anything counts them.
+      setTasks(applyChecklistSettings(updatedTasks, settings))
       onChecklistLoaded?.()
     } catch (error) {
       console.error('Failed to load checklist state:', error)
@@ -334,6 +362,8 @@ export function EventSetupChecklist({
             // Every button, not just the first — a row that offers two ways in (share
             // the link *or* tick the names yourself) silently lost the second one here.
             const actions = task.actionButtons ?? []
+            // Read out as a const so the narrowing survives into the click handler.
+            const whatsappMessage = task.whatsappMessage
 
             return (
               <div
@@ -374,6 +404,17 @@ export function EventSetupChecklist({
                       {task.metadata.details}
                     </span>
                   )}
+                  {/* Who the link/QR is for, and how many copies to print. The
+                      action button says "QR drucken" but not «wie viele, für
+                      wen» — which is the part a rare operator has to guess. */}
+                  {/* Wraps rather than truncating: on a row with two buttons the
+                      note is the first thing to lose width, and «…1 Ausdruck pro
+                      F…» answers nothing. Two lines is the cap. */}
+                  {task.note && !isCompleted && (
+                    <span className="block text-xs leading-snug text-muted-foreground/70 line-clamp-2">
+                      {task.note}
+                    </span>
+                  )}
                 </div>
 
                 {/* Actions — clicks here must NOT toggle the row */}
@@ -382,26 +423,40 @@ export function EventSetupChecklist({
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 >
-                  {!isCompleted && task.isWhatsApp ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
-                          <MessageCircle className="size-3.5" />
-                          {t('whatsappSend')}
-                          <ChevronDown className="size-3.5 opacity-60" />
+                  {!isCompleted && whatsappMessage ? (
+                    // One button per row: the picker this replaced could only ever
+                    // be ticked once, while the two messages go out at different
+                    // moments. Divera sits next to WhatsApp rather than replacing
+                    // it — the same text, pushed instead of pasted, and only where
+                    // a provider is actually set up.
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                        onClick={() => handleSendWhatsApp(whatsappMessage)}
+                        title={whatsappMessage === 1 ? whatsappMessages.m1 : whatsappMessages.m2}
+                      >
+                        <MessageCircle className="size-3.5" />
+                        {t('whatsappSend')}
+                      </Button>
+                      {diveraMessageAvailable && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 text-xs"
+                          onClick={() => {
+                            onDismiss()
+                            onSendDiveraMessage?.(
+                              whatsappMessage === 1 ? whatsappMessages.m1 : whatsappMessages.m2,
+                            )
+                          }}
+                        >
+                          <Send className="size-3.5" />
+                          {t('diveraSend')}
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-64">
-                        <DropdownMenuItem onClick={() => handleSendWhatsApp(1)} className="flex-col items-start gap-0.5">
-                          <span className="font-medium">{t('message1')}</span>
-                          <span className="text-xs text-muted-foreground line-clamp-2">{whatsappMessages.m1}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleSendWhatsApp(2)} className="flex-col items-start gap-0.5">
-                          <span className="font-medium">{t('message2')}</span>
-                          <span className="text-xs text-muted-foreground line-clamp-2">{whatsappMessages.m2}</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      )}
+                    </>
                   ) : !isCompleted ? (
                     actions.map((action) => {
                       const ActionIcon = action.icon

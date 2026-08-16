@@ -59,6 +59,12 @@ services:
       # backend/app/seed.py rejects shorter). Keep in step with frontend/tests/constants.ts.
       ADMIN_SEED_PASSWORD: "${ADMIN_SEED_PASSWORD:-kp-dev-password}"
       RELOAD: "true"
+      # Divera stays OFF unless this is set — an unset key means `get_provider()`
+      # returns None and every outbound path (alarm, Mitteilung) is refused before
+      # it can reach anybody's phone. Set it in the repo-root `.env` (gitignored)
+      # when you actually want to test against Divera, and remember the key is the
+      # REAL brigade key: a send from a dev board is a real push to real people.
+      DIVERA_ACCESS_KEY: "${DIVERA_ACCESS_KEY:-}"
       # Dev-only default so the print agent can talk to this backend out of the box; in
       # production the same variable is empty and the endpoints stay fail-closed.
       PRINT_AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-dev-print-token}

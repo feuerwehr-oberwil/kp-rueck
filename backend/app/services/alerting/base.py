@@ -15,6 +15,10 @@ class AlarmSendError(Exception):
     """Sending failed at the provider (network, auth, rejected payload)."""
 
 
+class MessageNotSupportedError(Exception):
+    """This provider pages people but has no informational-message channel."""
+
+
 class AlarmBlockedError(Exception):
     """This deployment refuses to alert at all, whatever the settings say.
 
@@ -47,6 +51,14 @@ class AlarmResult:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class MessageResult:
+    """Provider-neutral result of a Mitteilung."""
+
+    provider_message_id: int | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
 class AlarmProvider(Protocol):
     """One external alerting service, addressed by external personnel ids."""
 
@@ -69,4 +81,33 @@ class AlarmProvider(Protocol):
         channels: AlarmChannels,
     ) -> AlarmResult:
         """Send an alarm to the given provider-side ids. Raises AlarmSendError."""
+        ...
+
+    async def send_message(
+        self,
+        *,
+        title: str,
+        text: str,
+        foreign_id: str,
+        channels: AlarmChannels,
+        group_ids: list[int] | None = None,
+        to_everyone: bool = False,
+    ) -> MessageResult:
+        """Send an informational message to selected groups — NOT an alarm.
+
+        The distinction is the point: an alarm is siren-grade on every phone, a
+        Mitteilung is a notification everybody reads when they get to it. The
+        KP's standby message ("KP-Rück ist aktiv, Telefon mitnehmen") is the
+        latter, and used to be a WhatsApp text pasted by hand.
+
+        Recipients are explicit on purpose: ``group_ids`` names the Divera
+        groups (Pikett, Zug 1, …), and reaching the WHOLE unit needs
+        ``to_everyone=True``. Neither one set is an error — a message that
+        defaults to the entire Feuerwehr is one forgotten argument away from
+        waking 80 people.
+
+        A provider whose service has no such concept raises
+        :class:`MessageNotSupportedError` — it must not quietly downgrade to an
+        alarm. Raises AlarmSendError on a provider failure.
+        """
         ...

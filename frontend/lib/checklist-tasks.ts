@@ -19,8 +19,12 @@ export interface ChecklistTask {
   description: string
   icon: LucideIcon
   priority: 'critical' | 'recommended' | 'optional'
-  /** Whether this row offers the two-message WhatsApp picker instead of a plain action. */
-  isWhatsApp?: boolean
+  /** Which stored WhatsApp template this row copies — the component turns it into
+   *  a copy button instead of a plain action. */
+  whatsappMessage?: 1 | 2
+  /** Who the row's link/QR is for and how many copies to print. Shown as a second
+   *  line, because "Link kopieren" does not say who is supposed to hold it. */
+  note?: string
   actionButtons?: ChecklistAction[]
 }
 
@@ -50,6 +54,67 @@ export const DEFAULT_WHATSAPP_MESSAGE_2 = `KP-Rück ist aktiv. Bitte Telefon mit
 3. Auf weitere Anweisungen warten
 4. Bei Unklarheiten auf diese Nummer antworten.`
 
+// --- Station configuration of the checklist itself -------------------------
+// Which steps a station runs, and who its slips are for, are not the same
+// everywhere: a brigade without a Reko-Dashboard should not stare at a row it
+// will never tick, and "1 Ausdruck pro Fahrzeug" is Oberwil's number, not
+// everybody's. Both live in settings so an editor changes them without a deploy.
+/** JSON array of task ids the station has switched off. */
+export const CHECKLIST_HIDDEN_TASKS_KEY = 'checklist.hidden_tasks'
+/** JSON object of task id → the station's own note text ("" = use the default). */
+export const CHECKLIST_NOTES_KEY = 'checklist.notes'
+
+function readJsonSetting(settings: Record<string, string>, key: string): unknown {
+  const raw = settings[key]
+  if (!raw || !raw.trim()) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    // A hand-edited setting must never take the checklist down with it — the
+    // checklist is what somebody reads while starting a command post.
+    return null
+  }
+}
+
+/** The task ids this station has hidden. */
+export function parseHiddenTasks(settings: Record<string, string>): Set<string> {
+  const parsed = readJsonSetting(settings, CHECKLIST_HIDDEN_TASKS_KEY)
+  return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [])
+}
+
+/** The station's own note per task id. */
+export function parseTaskNotes(settings: Record<string, string>): Record<string, string> {
+  const parsed = readJsonSetting(settings, CHECKLIST_NOTES_KEY)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+  return Object.fromEntries(
+    Object.entries(parsed as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string'
+    )
+  )
+}
+
+/**
+ * The rows this station actually runs: hidden steps dropped, notes overridden.
+ *
+ * Applied by every caller BEFORE counting, so a hidden row cannot sit in the
+ * n/m badge as a step that can never be completed.
+ */
+export function applyChecklistSettings(
+  tasks: ChecklistTaskState[],
+  settings: Record<string, string>
+): ChecklistTaskState[] {
+  const hidden = parseHiddenTasks(settings)
+  const notes = parseTaskNotes(settings)
+  return tasks
+    .filter((task) => !hidden.has(task.id))
+    .map((task) => {
+      const override = notes[task.id]
+      // An empty string means "no note here" — deleting the text must be able to
+      // remove the line, not silently fall back to the built-in one.
+      return override === undefined ? task : { ...task, note: override.trim() || undefined }
+    })
+}
+
 /** Resolve a stored WhatsApp template, falling back to the default when unset/blank. */
 export function resolveWhatsAppMessage(
   settings: Record<string, string>,
@@ -62,7 +127,7 @@ export function resolveWhatsAppMessage(
 
 /**
  * The vehicles nobody is driving yet, in the order they are listed. Shared by the
- * checklist popover and the "Bereitschaft" badge so the two can never disagree
+ * checklist popover and the "Checkliste" badge so the two can never disagree
  * about how much of the fleet is still missing a driver.
  */
 export function findVehiclesWithoutDriver(
@@ -122,16 +187,30 @@ export function generateChecklistTasks(params: {
       : { label: translateOutsideReact('checklist.actions.copyLink'), icon: Copy, variant: 'default', onClick: onCopy }
 
   return [
-    // 1. Send first WhatsApp notification (two-message picker, handled in component).
-    // Manual tick only — copying a message must not auto-complete it, so the
+    // 1a/1b. The two WhatsApp messages, one row each. They are sent at different
+    // moments — Standby when the KP goes up, Einrücken when the crew is actually
+    // called in — so a single row with a picker could only ever be ticked once.
+    // Manual tick only: copying a message must not auto-complete it, so the
     // operator can re-copy as often as needed and check it off when truly sent.
     {
       id: 'send-first-whatsapp',
       title: translateOutsideReact('checklist.tasks.send-first-whatsapp.title'),
       description: translateOutsideReact('checklist.tasks.send-first-whatsapp.description'),
+      note: translateOutsideReact('checklist.tasks.send-first-whatsapp.note'),
       icon: MessageCircle,
       priority: 'recommended',
-      isWhatsApp: true,
+      whatsappMessage: 1,
+      completed: false
+    },
+
+    {
+      id: 'send-second-whatsapp',
+      title: translateOutsideReact('checklist.tasks.send-second-whatsapp.title'),
+      description: translateOutsideReact('checklist.tasks.send-second-whatsapp.description'),
+      note: translateOutsideReact('checklist.tasks.send-second-whatsapp.note'),
+      icon: MessageCircle,
+      priority: 'recommended',
+      whatsappMessage: 2,
       completed: false
     },
 
@@ -140,6 +219,7 @@ export function generateChecklistTasks(params: {
       id: 'personnel-checkin',
       title: translateOutsideReact('checklist.tasks.personnel-checkin.title'),
       description: translateOutsideReact('checklist.tasks.personnel-checkin.description'),
+      note: translateOutsideReact('checklist.tasks.personnel-checkin.note'),
       icon: Users,
       priority: 'critical',
       completed: params.checkedInPersonnel >= 3,
@@ -165,6 +245,7 @@ export function generateChecklistTasks(params: {
       id: 'share-reko-link',
       title: translateOutsideReact('checklist.tasks.share-reko-link.title'),
       description: translateOutsideReact('checklist.tasks.share-reko-link.description'),
+      note: translateOutsideReact('checklist.tasks.share-reko-link.note'),
       icon: Map,
       priority: 'recommended',
       completed: false,
@@ -176,6 +257,7 @@ export function generateChecklistTasks(params: {
       id: 'share-alarm-link',
       title: translateOutsideReact('checklist.tasks.share-alarm-link.title'),
       description: translateOutsideReact('checklist.tasks.share-alarm-link.description'),
+      note: translateOutsideReact('checklist.tasks.share-alarm-link.note'),
       icon: MessageCircle,
       priority: 'recommended',
       completed: false,
@@ -194,6 +276,7 @@ export function generateChecklistTasks(params: {
       id: 'share-feld-link',
       title: translateOutsideReact('checklist.tasks.share-feld-link.title'),
       description: translateOutsideReact('checklist.tasks.share-feld-link.description'),
+      note: translateOutsideReact('checklist.tasks.share-feld-link.note'),
       icon: Truck,
       priority: 'recommended',
       completed: false,
@@ -356,6 +439,45 @@ export function generateChecklistTasks(params: {
 }
 
 /**
+ * Every row the checklist can show — id, title and built-in note — for the
+ * Settings editor, which has no event and none of the live counts.
+ *
+ * Built by generating the real list with placeholder state rather than keeping a
+ * second hand-written copy: a row added above would otherwise be missing from
+ * the place where it can be switched off.
+ */
+export function listChecklistTasks(): { id: string; title: string; defaultNote?: string }[] {
+  const noop = () => {}
+  return generateChecklistTasks({
+    eventId: '',
+    checkedInPersonnel: 0,
+    totalVehicles: 0,
+    driverAssignments: 0,
+    rekoOfficers: 0,
+    magazinStaff: 0,
+    mapTilesAvailable: false,
+    printerEnabled: false,
+    printerAgentOnline: false,
+    fallbackReady: false,
+    onCopyCheckInLink: noop,
+    onPrintCheckInLink: noop,
+    onCopyRekoLink: noop,
+    onPrintRekoLink: noop,
+    onCopyAlarmLink: noop,
+    onPrintAlarmLink: noop,
+    onCopyFeldLink: noop,
+    onPrintFeldLink: noop,
+    onShowTileSetup: noop,
+    onTestPrint: noop,
+    onOpenFallbackSettings: noop,
+    onOpenVehicles: noop,
+    onAssignDrivers: noop,
+    vehiclesWithoutDriver: 0,
+    onOpenAttendance: noop,
+  }).map((task) => ({ id: task.id, title: task.title, defaultNote: task.note }))
+}
+
+/**
  * The paper fallback counts as armed when either snapshot routine runs:
  * server-side auto thermal print (needs the printer enabled too) or the
  * Lageblatt auto-download on THIS device (localStorage).
@@ -388,7 +510,7 @@ export function isTaskComplete(
 /**
  * Fetch live state and summarise checklist completion using the SAME rules as
  * generateChecklistTasks (single source of truth). Used by the persistent
- * "Bereitschaft" badge so it stays live even when the popover is closed.
+ * "Checkliste" badge so it stays live even when the popover is closed.
  */
 export async function summarizeEventChecklist(
   eventId: string
@@ -437,14 +559,18 @@ export async function summarizeEventChecklist(
     onOpenAttendance: noop,
   })
 
+  // The station's own selection of steps — the badge must count what the
+  // popover shows, so it is applied here too.
+  const visible = applyChecklistSettings(tasks, settings)
+
   // Shares the validation used by the checklist component's reader, so a value
   // of the wrong shape can't crash one caller while the other shrugs it off.
   const overrides = readJson(checklistOverridesKey(eventId), isBooleanRecord, {})
 
-  const completedCount = tasks.filter((t) => isTaskComplete(t, overrides)).length
+  const completedCount = visible.filter((t) => isTaskComplete(t, overrides)).length
   return {
     completed: completedCount,
-    total: tasks.length,
-    allComplete: tasks.length > 0 && completedCount === tasks.length,
+    total: visible.length,
+    allComplete: visible.length > 0 && completedCount === visible.length,
   }
 }

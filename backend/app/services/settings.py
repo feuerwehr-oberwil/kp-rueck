@@ -87,6 +87,26 @@ DEFAULT_SETTINGS = {
         "\n"
         "_Erstellt: {timestamp}_"
     ),
+    # Setup-Checkliste. Two kinds of station-owned content:
+    #
+    # The two WhatsApp templates the checklist copies (Standby / Einrücken). They
+    # were editable in Settings → Alarmierung and every save 404'd here — the same
+    # class of bug the home_city comment above describes: the page rendered an
+    # editor for a key this dict never admitted. Defaults live in
+    # frontend/lib/checklist-tasks.ts (the checklist falls back to them when the
+    # value is unset or blank), so they are stored EMPTY here rather than
+    # duplicated — a copy would drift and silently overwrite the real default.
+    #
+    # ...and the shape of the checklist itself: which steps this station runs, and
+    # its own «für wen · wie viele Ausdrucke» note per step. JSON, because a list
+    # and a map do not fit a string-valued table any other way; both readers
+    # tolerate a broken value (see applyChecklistSettings) — the checklist is read
+    # while a command post is being started and must not be takeable down by a
+    # hand-edited setting.
+    "whatsapp_message_1": "",
+    "whatsapp_message_2": "",
+    "checklist.hidden_tasks": "[]",
+    "checklist.notes": "{}",
     # Outbound alarm (Ausalarmierung) – optional, OFF by default. Only takes
     # effect when an alerting provider is configured (currently: DIVERA_ACCESS_KEY).
     # Installations without a provider leave this off and see no send UI.
