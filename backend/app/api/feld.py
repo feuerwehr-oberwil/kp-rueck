@@ -397,6 +397,7 @@ async def get_feld_assignments(
     assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
     chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
     checked_in = await crud.is_checked_in(db, event.id, personnel_id)
+    functions = await crud.functions_for_personnel(db, event.id, personnel_id)
     # One read for the whole list, next to the chips read that is already here.
     home_city = await incident_display.get_home_city(db)
 
@@ -405,6 +406,7 @@ async def get_feld_assignments(
         personnel_name=person.name,
         personnel_role=person.role,
         checked_in=checked_in,
+        functions=functions,
         event_id=event.id,
         event_name=event.name,
         assignments=[
@@ -641,7 +643,11 @@ async def report_new_incident(
     login-less door, and it is the one write here that a bored link-holder
     could use to make a mess.
     """
-    person = await require_feld_person(db, claims, personnel_id)
+    # `require_access=False`, like checking in: reporting something is what
+    # somebody does BEFORE the Ereignis has given them anything. A Telefondienst
+    # holds a role and is assigned to nothing at all — refusing them here would
+    # refuse the one person whose entire job this is.
+    person = await require_feld_person(db, claims, personnel_id, require_access=False)
     event = await _load_event(db, claims.event_id)
     incident, mode = await crud.create_field_report(db, event.id, person, payload, request)
 

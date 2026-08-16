@@ -212,6 +212,18 @@ async def test_engine():
         await conn.execute(text("CREATE SCHEMA public"))
         await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
         await conn.run_sync(Base.metadata.create_all)
+        # `special_function_types` is a lookup table, so an empty one makes every
+        # role invalid — the schema alone is not a working database. The
+        # migration seeds it in a real deployment; this is the same rows for a
+        # schema built straight from the metadata.
+        await conn.execute(
+            text(
+                "INSERT INTO special_function_types (key, label_de, label_fr, requires_vehicle, sort_order) "
+                "VALUES ('driver','Fahrer','Chauffeur',true,10), ('reko','Reko','Reco',false,20), "
+                "('magazin','Magazin','Magasin',false,30), "
+                "('telefondienst','Telefondienst','Service téléphonique',false,40)"
+            )
+        )
 
     yield engine
 

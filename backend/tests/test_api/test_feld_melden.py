@@ -116,15 +116,37 @@ class TestMelden:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_a_stranger_cannot_report(
+    async def test_anybody_in_the_brigade_may_report(
         self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
     ):
-        # The door is unchanged: this creates board state, so it runs the same
-        # two-step as every other write here.
+        # Somebody with no assignment at all can still report — reporting is what
+        # you do BEFORE the Ereignis has given you anything, and a Telefondienst
+        # is assigned to nothing by definition. They came through the Feld-Code
+        # and named themselves; that is the bar.
         await _incident(db_session, test_event, test_user, "Baum")
-        stranger = await _person(db_session, "Nie Dabei")
+        newcomer = await _person(db_session, "Neu Hier")
 
-        response = await _post(client, test_event, db_session, stranger)
+        response = await _post(client, test_event, db_session, newcomer)
+
+        assert response.status_code == 201
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_device_cannot_report_as_somebody_else(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The rule that did not loosen: the binding. A device speaks for its own
+        # person and for nobody else, so a report cannot be put in a colleague's
+        # name — which is what makes the reporter on the audit row worth reading.
+        await _incident(db_session, test_event, test_user, "Baum")
+        me = await _person(db_session)
+        colleague = await _person(db_session, "Frey Marc")
+        token = await feld_device_token(db_session, test_event.id, me.id)
+
+        response = await client.post(
+            f"/api/feld/incidents?token={token}&personnel_id={colleague.id}",
+            json=MELDUNG,
+        )
 
         assert response.status_code == 403
 
@@ -238,3 +260,38 @@ class TestTakeOver:
             ("personnel", person.id),
             ("vehicle", vehicle.id),
         }
+
+
+class TestTelefondienst:
+    """The phone desk is a ROLE now, not a page (plan 26, decision 6).
+
+    A Telefondienst is a known person with an event role, so they pass the
+    `/feld` two-step honestly and need no exception path — which is what made
+    folding `/alarm` into the field surface possible at all.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_phone_desk_writes_an_intake_with_its_melder(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        person = await _person(db_session, "Hug Lena")
+        db_session.add(
+            EventSpecialFunction(event_id=test_event.id, personnel_id=person.id, function_type="telefondienst")
+        )
+        await db_session.commit()
+
+        response = await _post(
+            client,
+            test_event,
+            db_session,
+            person,
+            as_phone_call=True,
+            contact="R. Suter",
+            contact_phone="079 123 45 67",
+        )
+
+        assert response.status_code == 201, response.text
+        incident = await db_session.get(Incident, uuid.UUID(response.json()["incident_id"]))
+        assert incident is not None
+        # The board draws a call differently from a firefighter

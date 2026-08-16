@@ -141,6 +141,9 @@ export interface ApiFeldAssignmentsResponse {
   personnel_role: string | null
   /** Present at this Ereignis — drives "Einchecken" vs "Ich rücke ab". */
   checked_in?: boolean
+  /** The roles this person holds here (plan 26, decision 5). The roles are
+   *  data; which sections they unlock stays code. */
+  functions?: string[]
   event_id: string
   event_name: string
   assignments: ApiFeldAssignment[]
@@ -503,6 +506,12 @@ export interface ApiFeldIncidentCreate {
   description?: string | null
   /** "Wir übernehmen das gleich" — see `ApiFeldIncidentCreated.takeover`. */
   take_over?: boolean
+  /** The Telefondienst variant: a call written down, not a thing seen. Only
+   *  honoured for somebody who actually holds the role — the server checks,
+   *  because provenance is never faked from the client. */
+  as_phone_call?: boolean
+  contact?: string | null
+  contact_phone?: string | null
 }
 
 /**

@@ -136,6 +136,20 @@ async def _driven_vehicle_ids(
     return [row[0] for row in result.all()]
 
 
+async def _holds(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID, function: str) -> bool:
+    """Does this person hold this role in this Ereignis?"""
+    result = await db.execute(
+        select(EventSpecialFunction.id)
+        .where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.personnel_id == personnel_id,
+            EventSpecialFunction.function_type == function,
+        )
+        .limit(1)
+    )
+    return result.first() is not None
+
+
 async def create_field_report(
     db: AsyncSession,
     event_id: uuid.UUID,
@@ -151,6 +165,12 @@ async def create_field_report(
     board draws them differently for that reason, and an editor cannot claim
     either (they are not in ``EditorIncidentSource``).
     """
+    # The Telefondienst variant (decision 6). Claiming it is not enough —
+    # holding the role is, and the server checks rather than trusting the flag,
+    # because "this was a phone call" is provenance and provenance is never
+    # faked from the client.
+    took_a_call = payload.as_phone_call and await _holds(db, event_id, person.id, "telefondienst")
+
     incident = Incident(
         title=payload.title,
         type=payload.type,
@@ -159,9 +179,13 @@ async def create_field_report(
         location_address=payload.location_address,
         location_lat=payload.location_lat,
         location_lng=payload.location_lng,
+        # The Melder — only meaningful when somebody took a call; a firefighter
+        # standing in front of it IS the Melder and the audit row says so.
+        contact=payload.contact if took_a_call else None,
+        contact_phone=payload.contact_phone if took_a_call else None,
         event_id=event_id,
         status="incoming",
-        source="feld",
+        source="intake" if took_a_call else "feld",
         # No user: this came through a login-less door. The audit row below
         # carries the reporter's name instead, which is the thing an operator
         # actually wants to know.
@@ -182,7 +206,7 @@ async def create_field_report(
         user=None,
         changes={
             "created": payload.model_dump(mode="json", exclude={"take_over"}),
-            "source": "feld",
+            "source": "intake" if took_a_call else "feld",
             "reported_by": person.name,
             "takeover": mode,
         },

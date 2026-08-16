@@ -359,6 +359,29 @@ class FeldDeviceClaim(Base):
     )
 
 
+class SpecialFunctionType(Base):
+    """The roles a person can hold for an Ereignis — data, not a CHECK constraint.
+
+    Pinned in the schema until plan 26 (decision 5), so a fourth role meant a
+    migration: exactly the sprawl "beyond reko and magazin" was asking to end.
+
+    **Only the values live here.** What a role *does* — which sections `/feld`
+    shows it, whether it owes a Rapport — stays in code, because a visibility
+    rule expressed as configuration is a far harder thing to keep correct than
+    a list of names. This table lets a station name a Verkehrsdienst; it does
+    not let it invent an authorization model.
+    """
+
+    __tablename__ = "special_function_types"
+
+    key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label_de: Mapped[str] = mapped_column(String(64), nullable=False)
+    label_fr: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: UI only — the per-row ``driver_requires_vehicle`` CHECK is what enforces it.
+    requires_vehicle: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class EventSpecialFunction(Base):
     """Event-specific special function assignments for personnel (drivers, Reko, Magazin)."""
 
@@ -380,7 +403,6 @@ class EventSpecialFunction(Base):
     assigned_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     __table_args__ = (
-        CheckConstraint("function_type IN ('driver', 'reko', 'magazin')", name="valid_function_type"),
         # Driver assignments require a vehicle
         CheckConstraint(
             "(function_type != 'driver') OR (function_type = 'driver' AND vehicle_id IS NOT NULL)",

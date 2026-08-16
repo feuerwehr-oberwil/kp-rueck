@@ -3444,7 +3444,11 @@
         "stop": "Als weiterer Stop in eurem Auftrag",
         "auftrag": "Auftrag eröffnet – ihr habt jetzt zwei Stops",
         "solo": "Meldung ist beim KP – ihr seid zugeteilt"
-      }
+      },
+      "titlePhone": "Telefonische Meldung",
+      "fabPhone": "Anruf erfassen",
+      "caller": "Melder",
+      "callerPhone": "Telefon"
     },
     "attendance": {
       "notHereTitle": "Du bist nicht eingecheckt",

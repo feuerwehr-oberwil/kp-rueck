@@ -50,17 +50,30 @@ interface FeldMeldenSheetProps {
   onOpenChange: (open: boolean) => void
   personnelId: string
   token: string
+  /** True when this person holds the Telefondienst role — the phone desk is a
+   *  role rather than a page since plan 26 (decision 6), so the same sheet
+   *  writes down a call when the person taking it is the one on the phone. */
+  isPhoneDesk?: boolean
   /** Refresh the list: a taken-over Meldung appears on it immediately. */
   onReported: (result: ApiFeldIncidentCreated) => void
 }
 
-export function FeldMeldenSheet({ open, onOpenChange, personnelId, token, onReported }: FeldMeldenSheetProps) {
+export function FeldMeldenSheet({
+  open,
+  onOpenChange,
+  personnelId,
+  token,
+  isPhoneDesk,
+  onReported,
+}: FeldMeldenSheetProps) {
   const t = useTranslations('feld.melden')
   const [type, setType] = useState<IncidentType>('elementarereignis')
   const [address, setAddress] = useState('')
   const [description, setDescription] = useState('')
   const [takeOver, setTakeOver] = useState(false)
   const [coords, setCoords] = useState<{ lat: string; lng: string } | null>(null)
+  const [contact, setContact] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
   const [locating, setLocating] = useState(false)
   const [sending, setSending] = useState(false)
 
@@ -70,6 +83,8 @@ export function FeldMeldenSheet({ open, onOpenChange, personnelId, token, onRepo
     setDescription('')
     setTakeOver(false)
     setCoords(null)
+    setContact('')
+    setContactPhone('')
   }
 
   /** The reporter is standing there, so their own position is the best address
@@ -111,6 +126,9 @@ export function FeldMeldenSheet({ open, onOpenChange, personnelId, token, onRepo
         location_lng: coords?.lng ?? null,
         description: description.trim() || null,
         take_over: takeOver,
+        as_phone_call: Boolean(isPhoneDesk),
+        contact: isPhoneDesk ? contact.trim() || null : null,
+        contact_phone: isPhoneDesk ? contactPhone.trim() || null : null,
       })
       toast.success(t(`confirm.${result.takeover}`))
       onReported(result)
@@ -126,7 +144,7 @@ export function FeldMeldenSheet({ open, onOpenChange, personnelId, token, onRepo
 
   return (
     <FooterSheet open={open} onOpenChange={onOpenChange} className="max-w-md mx-auto px-4 py-4">
-      <h2 className="mb-3 text-lg font-semibold">{t('title')}</h2>
+      <h2 className="mb-3 text-lg font-semibold">{isPhoneDesk ? t('titlePhone') : t('title')}</h2>
 
       <div className="space-y-4">
         <div>
@@ -182,9 +200,41 @@ export function FeldMeldenSheet({ open, onOpenChange, personnelId, token, onRepo
           />
         </div>
 
+        {/* The Melder — only for somebody taking a call. A firefighter standing
+            in front of the thing IS the Melder, and their name is already on
+            the audit row, so asking them who reported it is asking twice. */}
+        {isPhoneDesk && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor="feld-melden-contact" className="text-xs font-semibold text-muted-foreground">
+                {t('caller')}
+              </Label>
+              <Input
+                id="feld-melden-contact"
+                value={contact}
+                onChange={event => setContact(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="feld-melden-phone" className="text-xs font-semibold text-muted-foreground">
+                {t('callerPhone')}
+              </Label>
+              <Input
+                id="feld-melden-phone"
+                inputMode="tel"
+                value={contactPhone}
+                onChange={event => setContactPhone(event.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+        )}
+
         {/* The switch the phone desk could never have: the person reporting is
             the person who can do it. What it does depends on what they are
             already working — the server decides and the confirmation says so. */}
+        {!isPhoneDesk && (
         <div className="flex items-start gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium">{t('takeOver')}</div>
@@ -192,6 +242,7 @@ export function FeldMeldenSheet({ open, onOpenChange, personnelId, token, onRepo
           </div>
           <Switch checked={takeOver} onCheckedChange={setTakeOver} />
         </div>
+        )}
 
         <Button
           size="lg"

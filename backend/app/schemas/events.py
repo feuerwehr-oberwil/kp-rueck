@@ -53,18 +53,28 @@ class EventListResponse(BaseModel):
 
 # Special functions
 class FunctionType(str, Enum):
-    """Special function type enumeration."""
+    """The roles this release knows by name.
+
+    Kept as an enum for the three the code actually *behaves* differently for,
+    and for a readable OpenAPI. It is no longer the authority: since plan 26
+    (decision 5) the values live in ``special_function_types`` so a station can
+    add its own without a migration, and the API validates against that table.
+    A role this enum has never heard of is therefore accepted and simply gets
+    the default treatment — which is the whole point of making it data.
+    """
 
     DRIVER = "driver"
     REKO = "reko"
     MAGAZIN = "magazin"
+    TELEFONDIENST = "telefondienst"
 
 
 class EventSpecialFunctionCreate(BaseModel):
     """Schema for assigning a special function to personnel."""
 
     personnel_id: UUID
-    function_type: FunctionType
+    # `str`, not the enum: the lookup table is the authority (decision 5).
+    function_type: str
     vehicle_id: UUID | None = None  # Required for driver assignments
 
 
@@ -102,3 +112,22 @@ class EventStats(BaseModel):
     avg_duration_minutes: int
     resource_utilization_percent: float
     personnel_activity: list[PersonnelActivity] = []
+
+
+class SpecialFunctionTypeResponse(BaseModel):
+    """One role a station can give somebody for an Ereignis.
+
+    The labels are columns rather than i18n keys on purpose: a station that adds
+    "Verkehrsdienst" is naming its own role, and a name a brigade chose has no
+    business going through a translation round to appear on its own board. The
+    roles that SHIP still read naturally in both languages because the seed
+    fills both columns.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    key: str
+    label_de: str
+    label_fr: str | None = None
+    requires_vehicle: bool = False
+    sort_order: int = 0

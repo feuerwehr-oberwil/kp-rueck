@@ -832,7 +832,11 @@
         "stop": "Ajouté comme étape à votre mandat",
         "auftrag": "Mandat ouvert – vous avez deux étapes",
         "solo": "Annonce transmise – vous êtes assignés"
-      }
+      },
+      "titlePhone": "Annonce téléphonique",
+      "fabPhone": "Saisir un appel",
+      "caller": "Annonceur",
+      "callerPhone": "Téléphone"
     },
     "attendance": {
       "notHereTitle": "Tu n'es pas enregistré",

@@ -12,7 +12,7 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import special_functions as crud
 from ..database import get_db
-from ..models import EventSpecialFunction, Personnel, Vehicle
+from ..models import EventSpecialFunction, Personnel, SpecialFunctionType, Vehicle
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_special_function_update
 
@@ -57,6 +57,22 @@ async def _enrich_assignments(
         )
         for a in assignments
     ]
+
+
+@router.get("/types", response_model=list[schemas.SpecialFunctionTypeResponse])
+async def list_function_types(
+    event_id: uuid.UUID,
+    _current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> list[schemas.SpecialFunctionTypeResponse]:
+    """The roles this station has (plan 26, decision 5).
+
+    Data rather than a CHECK constraint since plan 26, so a station can name a
+    Verkehrsdienst without a migration. What each role *does* still lives in
+    code — this is the list of names, not a permission model.
+    """
+    result = await db.execute(select(SpecialFunctionType).order_by(SpecialFunctionType.sort_order))
+    return [schemas.SpecialFunctionTypeResponse.model_validate(row) for row in result.scalars().all()]
 
 
 @router.get("/", response_model=list[schemas.EventSpecialFunctionResponse])

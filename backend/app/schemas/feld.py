@@ -220,6 +220,11 @@ class FeldAssignmentsResponse(BaseModel):
     # Present at this Ereignis (decision 10). The field surface carries the
     # individual half of the roll call; `/check-in` stays the door tablet.
     checked_in: bool = False
+    # The roles this person holds in this Ereignis (plan 26, decision 5). The
+    # page shows a section per role; the roles themselves are data, the sections
+    # are code. Names only — this grants nothing, every permission still goes
+    # through the visibility union.
+    functions: list[str] = []
     event_id: UUID
     event_name: str
     assignments: list[FeldAssignment]
@@ -753,6 +758,14 @@ class FeldIncidentCreate(BaseModel):
     location_lng: str | Decimal | None = None
     description: str | None = None
     take_over: bool = False
+    # The Telefondienst variant (plan 26, decision 6): the phone desk is a ROLE,
+    # not a page. Somebody holding it is writing down a call, so the report gets
+    # the Melder it was taken from and `source='intake'` — the board draws that
+    # differently from a firefighter standing in front of the thing. Ignored,
+    # and the source stays 'feld', for anybody without the role.
+    as_phone_call: bool = False
+    contact: str | None = None
+    contact_phone: str | None = None
 
     _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
     _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]

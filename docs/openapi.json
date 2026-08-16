@@ -13757,6 +13757,86 @@
         }
       }
     },
+    "/api/events/{event_id}/special-functions/types": {
+      "get": {
+        "tags": [
+          "special-functions"
+        ],
+        "summary": "List Function Types",
+        "description": "The roles this station has (plan 26, decision 5).\n\nData rather than a CHECK constraint since plan 26, so a station can name a\nVerkehrsdienst without a migration. What each role *does* still lives in\ncode — this is the list of names, not a permission model.",
+        "operationId": "list_function_types_api_events__event_id__special_functions_types_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SpecialFunctionTypeResponse"
+                  },
+                  "title": "Response List Function Types Api Events  Event Id  Special Functions Types Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events/{event_id}/special-functions/": {
       "get": {
         "tags": [
@@ -20460,7 +20540,8 @@
             "title": "Personnel Id"
           },
           "function_type": {
-            "$ref": "#/components/schemas/FunctionType"
+            "type": "string",
+            "title": "Function Type"
           },
           "vehicle_id": {
             "anyOf": [
@@ -21153,6 +21234,14 @@
             "title": "Checked In",
             "default": false
           },
+          "functions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Functions",
+            "default": []
+          },
           "event_id": {
             "type": "string",
             "format": "uuid",
@@ -21298,6 +21387,33 @@
             "type": "boolean",
             "title": "Take Over",
             "default": false
+          },
+          "as_phone_call": {
+            "type": "boolean",
+            "title": "As Phone Call",
+            "default": false
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
           }
         },
         "type": "object",
@@ -21768,10 +21884,11 @@
         "enum": [
           "driver",
           "reko",
-          "magazin"
+          "magazin",
+          "telefondienst"
         ],
         "title": "FunctionType",
-        "description": "Special function type enumeration."
+        "description": "The roles this release knows by name.\n\nKept as an enum for the three the code actually *behaves* differently for,\nand for a readable OpenAPI. It is no longer the authority: since plan 26\n(decision 5) the values live in ``special_function_types`` so a station can\nadd its own without a migration, and the API validates against that table.\nA role this enum has never heard of is therefore accepted and simply gets\nthe default treatment — which is the whole point of making it data."
       },
       "GenerateEmergencyRequest": {
         "properties": {
@@ -27519,6 +27636,46 @@
         ],
         "title": "SimulateVehicleBreakdownResponse",
         "description": "Result of a simulated vehicle breakdown."
+      },
+      "SpecialFunctionTypeResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label_de": {
+            "type": "string",
+            "title": "Label De"
+          },
+          "label_fr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Fr"
+          },
+          "requires_vehicle": {
+            "type": "boolean",
+            "title": "Requires Vehicle",
+            "default": false
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label_de"
+        ],
+        "title": "SpecialFunctionTypeResponse",
+        "description": "One role a station can give somebody for an Ereignis.\n\nThe labels are columns rather than i18n keys on purpose: a station that adds\n\"Verkehrsdienst\" is naming its own role, and a name a brigade chose has no\nbusiness going through a translation round to appear on its own board. The\nroles that SHIP still read naturally in both languages because the seed\nfills both columns."
       },
       "StatusTransitionCreate": {
         "properties": {

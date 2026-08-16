@@ -232,6 +232,27 @@ async def visible_by_personnel(
     return out
 
 
+async def functions_for_personnel(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+) -> list[str]:
+    """Which roles this person holds in this Ereignis.
+
+    The field page shows a section per role (plan 26, decision 5: the roles are
+    data, the sections are code), so it has to know which ones apply before it
+    can decide what to render. Names only — this grants nothing on its own, and
+    every actual permission still goes through the visibility union.
+    """
+    result = await db.execute(
+        select(EventSpecialFunction.function_type).where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.personnel_id == personnel_id,
+        )
+    )
+    return sorted({row[0] for row in result.all()})
+
+
 async def visible_incidents_for_personnel(
     db: AsyncSession,
     event_id: uuid.UUID,

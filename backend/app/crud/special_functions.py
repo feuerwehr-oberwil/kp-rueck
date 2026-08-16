@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import EventSpecialFunction, User
+from ..models import EventSpecialFunction, SpecialFunctionType, User
 from ..services.audit import log_action
 
 
@@ -52,6 +52,16 @@ async def create_special_function(
     request: Request,
 ) -> EventSpecialFunction:
     """Assign a special function to personnel for an event."""
+    # The lookup table is the authority since plan 26 (decision 5) — a role the
+    # station added is as valid as one that shipped. The FK would refuse an
+    # unknown key anyway; asking first turns a 500 into a 400 that says which
+    # value was wrong.
+    known = await db.scalar(
+        select(SpecialFunctionType.key).where(SpecialFunctionType.key == assignment.function_type)
+    )
+    if known is None:
+        raise ValueError(f"Unbekannte Funktion: {assignment.function_type}")
+
     # Validate driver assignment has a vehicle
     if assignment.function_type == "driver" and not assignment.vehicle_id:
         raise ValueError("Driver assignments must include a vehicle_id")

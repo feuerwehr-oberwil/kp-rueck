@@ -296,6 +296,9 @@ function FeldSurface() {
   // wet phone it sits one thumb-width from the rest of the header.
   const [confirmNotMe, setConfirmNotMe] = useState(false)
   const [meldenOpen, setMeldenOpen] = useState(false)
+  // Which roles this person holds here. The roles are data (decision 5); which
+  // sections they unlock stays code, deliberately.
+  const [functions, setFunctions] = useState<string[]>([])
   // Attendance: the individual half of the roll call (decision 10). The door
   // tablet stays its own page; this is somebody saying "ich bin da" from the
   // vehicle, and — the part that was missing entirely — "ich rücke ab".
@@ -398,6 +401,7 @@ function FeldSurface() {
       setMessageChips(data.message_chips ?? [])
       setEventName(data.event_name)
       setCheckedIn(Boolean(data.checked_in))
+      setFunctions(data.functions ?? [])
       // A device coming back from its cookie has no picker to have chosen from,
       // so the person is restored from the response it was going to fetch
       // anyway — one round trip, not two, and no picker for somebody who has
@@ -1135,13 +1139,14 @@ function FeldSurface() {
             className="fixed bottom-5 right-4 z-40 flex h-13 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg"
           >
             <Plus className="size-4" />
-            {t('melden.fab')}
+            {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
           </button>
           <FeldMeldenSheet
             open={meldenOpen}
             onOpenChange={setMeldenOpen}
             personnelId={selectedPerson.personnel_id}
             token={token}
+            isPhoneDesk={functions.includes('telefondienst')}
             onReported={() => loadAssignments(selectedPerson.personnel_id)}
           />
         </>
