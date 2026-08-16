@@ -3178,7 +3178,10 @@
       "title": "Meine Schadenplätze",
       "notMe": "Nicht ich",
       "empty": "Dir ist im Moment kein Schadenplatz zugeteilt. Melde dich beim KP – sobald du eingeteilt bist, erscheint er hier.",
-      "released": "Nicht mehr zugeteilt"
+      "released": "Nicht mehr zugeteilt",
+      "past": "Früher",
+      "notMeTitle": "Abmelden?",
+      "notMeDescription": "Dieses Gerät wird abgemeldet. Wer es als Nächstes benutzt, braucht den Feld-Code."
     },
     "briefing": {
       "title": "Lage und Ressourcen",

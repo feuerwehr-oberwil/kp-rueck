@@ -117,7 +117,16 @@ function BriefingRow({
  * closed can be closed by accident with a wet thumb. The board-side rendering
  * (and the tests) keep the plain section.
  */
-export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssignment; folded?: boolean }) {
+export function FeldBriefing({
+  assignment,
+  folded,
+  bare,
+}: {
+  assignment: ApiFeldAssignment
+  folded?: boolean
+  /** Render only the rows — no card, no heading. Used by the detail header. */
+  bare?: boolean
+}) {
   const t = useTranslations('feld.briefing')
   const { description, contact, contact_phone: phone, crew, vehicles, materials, reko } = assignment
 
@@ -187,6 +196,12 @@ export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssign
       )}
     </>
   )
+
+  // `bare` drops the wrapper AND the heading: the briefing then sits inside the
+  // detail's header card, under the address it belongs to. "Lage und
+  // Ressourcen" was a title over the only content on screen — a label for a
+  // section nobody had to be told apart from anything else.
+  if (bare) return <div className="space-y-3">{body}</div>
 
   if (folded) {
     return (

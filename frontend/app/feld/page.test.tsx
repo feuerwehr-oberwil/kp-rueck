@@ -128,7 +128,7 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
       personnel_role: 'Offizier',
       event_id: 'e-1',
       event_name: 'Sturm Oberwil',
-      assignments: [assignment(), assignment({ incident_id: 'inc-2', incident_title: 'Baum Strasse' })],
+      assignments: [assignment(), assignment({ incident_id: 'inc-2', incident_title: 'Baum Strasse', location_address: 'Baumgasse 7' })],
       message_chips: [],
     })
   })
@@ -185,7 +185,8 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     // Straight into the detail of the incident the slip names — skipping the
     // "meine Einsatzstellen" list it would otherwise land on.
     await waitFor(() => expect(screen.getByTestId('feld-rapport-form')).toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument()
+    // The detail's h1 is the ADDRESS now; the incident title rides in the bar.
+    expect(screen.getByRole('heading', { name: /Baumgasse 7/ })).toBeInTheDocument()
   })
 
   it('lands on the list when the slip names an incident that is not mine', async () => {
@@ -194,7 +195,7 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     setParams({ token: 'feld-token', incident_id: 'inc-fremd' })
     renderWithIntl(<FeldPage />)
 
-    await waitFor(() => expect(screen.getByText('Keller Wasser')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Hauptstrasse 1')).toBeInTheDocument())
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
   })
 
@@ -202,7 +203,7 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     setParams({ token: 'feld-token' })
     renderWithIntl(<FeldPage />)
 
-    await waitFor(() => expect(screen.getByText('Baum Strasse')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Baumgasse 7')).toBeInTheDocument())
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
   })
 })
@@ -298,7 +299,7 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
       personnel_role: 'Offizier',
       event_id: 'e-1',
       event_name: 'Sturm Oberwil',
-      assignments: [assignment(), assignment({ incident_id: 'inc-2', incident_title: 'Baum Strasse' })],
+      assignments: [assignment(), assignment({ incident_id: 'inc-2', incident_title: 'Baum Strasse', location_address: 'Baumgasse 7' })],
       message_chips: [],
     })
     setParams({ token: 'feld-token' })
@@ -307,28 +308,31 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
   it('comes back to the Schadenplatz that was open, without a slip in the URL', async () => {
     const user = userEvent.setup()
     const first = renderWithIntl(<FeldPage />)
-    await user.click(await screen.findByText('Baum Strasse'))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument())
+    await user.click(await screen.findByText('Baumgasse 7'))
+    await waitFor(() => // The detail's h1 is the ADDRESS now; the incident title rides in the bar.
+    expect(screen.getByRole('heading', { name: /Baumgasse 7/ })).toBeInTheDocument())
     first.unmount()
 
     // Same device, fresh page: person AND place come back.
     renderWithIntl(<FeldPage />)
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument())
+    await waitFor(() => // The detail's h1 is the ADDRESS now; the incident title rides in the bar.
+    expect(screen.getByRole('heading', { name: /Baumgasse 7/ })).toBeInTheDocument())
   })
 
   it('forgets it when the crew leaves via «Zurück»', async () => {
     const user = userEvent.setup()
     const first = renderWithIntl(<FeldPage />)
-    await user.click(await screen.findByText('Baum Strasse'))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Baum Strasse' })).toBeInTheDocument())
+    await user.click(await screen.findByText('Baumgasse 7'))
+    await waitFor(() => // The detail's h1 is the ADDRESS now; the incident title rides in the bar.
+    expect(screen.getByRole('heading', { name: /Baumgasse 7/ })).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'Zurück' }))
     first.unmount()
 
     renderWithIntl(<FeldPage />)
     // Their own list, both rows, no detail — "Baum Strasse" is a row heading
     // here, so the detail-only «Zurück» is what tells the two views apart.
-    await waitFor(() => expect(screen.getByText('Keller Wasser')).toBeInTheDocument())
-    expect(screen.getByText('Baum Strasse')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Hauptstrasse 1')).toBeInTheDocument())
+    expect(screen.getByText('Baumgasse 7')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Zurück' })).not.toBeInTheDocument()
   })
 
@@ -338,7 +342,7 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
 
     renderWithIntl(<FeldPage />)
 
-    await waitFor(() => expect(screen.getByText('Keller Wasser')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Hauptstrasse 1')).toBeInTheDocument())
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
     expect(document.cookie).not.toContain('inc-weg')
   })
@@ -433,7 +437,7 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
     const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
 
-    await user.click(await screen.findByText('Keller Wasser'))
+    await user.click(await screen.findByText('Hauptstrasse 1'))
 
     await waitFor(() =>
       expect(routerPush).toHaveBeenCalledWith('/reko?incident_id=inc-1&token=form-token&personnel_id=p-1'),
@@ -449,7 +453,7 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
     setParams({ token: 'feld-token' })
     renderWithIntl(<FeldPage />)
 
-    await screen.findByText('Keller Wasser')
+    await screen.findByText('Hauptstrasse 1')
     expect(mintFeldRekoLink).not.toHaveBeenCalled()
   })
 })

@@ -30,6 +30,7 @@ import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { getActiveLocale } from '@/lib/i18n-messages'
@@ -207,6 +208,50 @@ function SourceReason({ assignment }: { assignment: ApiFeldAssignment }) {
   )
 }
 
+/**
+ * Who this phone is, always on screen.
+ *
+ * The page is login-less and gets handed around a vehicle, so "which crew am I
+ * looking at" is a real question — and it used to be answerable only on the
+ * list, which is exactly where somebody is *not* when they are filing. It rides
+ * along into the detail view for that reason.
+ */
+function FeldIdentityBar({
+  name,
+  subtitle,
+  onNotMe,
+  children,
+}: {
+  name: string
+  subtitle?: string | null
+  onNotMe?: () => void
+  /** Leading control — the detail view puts its back button here. */
+  children?: React.ReactNode
+}) {
+  const t = useTranslations('feld')
+  return (
+    <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="mx-auto flex max-w-md items-center gap-2 px-3 py-2">
+        {children}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <User className="size-3.5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold leading-tight">{name}</div>
+            {subtitle && <div className="truncate text-xs text-muted-foreground">{subtitle}</div>}
+          </div>
+        </div>
+        {onNotMe && (
+          <Button variant="ghost" size="sm" onClick={onNotMe} className="shrink-0">
+            {t('assignments.notMe')}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function RapportStateChip({ state }: { state: ApiFeldAssignment['rapport_state'] }) {
   const t = useTranslations('feld.rapportState')
   const styles: Record<ApiFeldAssignment['rapport_state'], string> = {
@@ -273,6 +318,10 @@ function FeldSurface() {
   const [codeInput, setCodeInput] = useState('')
   const [codeError, setCodeError] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
+  // "Nicht ich" is not just a name change any more: it throws away the device's
+  // bound token, so the next person types the code. Worth asking first — on a
+  // wet phone it sits one thumb-width from the rest of the header.
+  const [confirmNotMe, setConfirmNotMe] = useState(false)
   const token = deviceToken
   const restoredFromCookie = useRef(false)
   const restoredIncident = useRef(false)
@@ -777,19 +826,15 @@ function FeldSurface() {
             taps deep in a Rapport with nothing left in view that says WHICH
             Schadenplatz they are filing — and on a storm night there are six.
             So the way back and the address ride along at the top. */}
-        <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          <div className="mx-auto flex max-w-md items-center gap-1 px-2 py-2">
-            <Button variant="ghost" size="sm" onClick={leaveAssignment} className="shrink-0">
-              <ArrowLeft className="size-3.5" />
-              {tCommon('back')}
-            </Button>
-            {/* Still the page's h1 — it only moved into the bar, so the heading
-                a screen reader announces is the one that is always on screen. */}
-            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold" title={selectedAssignment.incident_title}>
-              {selectedAssignment.incident_title}
-            </h1>
-          </div>
-        </div>
+        {/* The identity rides along here too. Somebody four taps deep in a
+            Rapport, on a phone that gets handed around a vehicle, must be able
+            to answer "whose page is this" without going back for it. */}
+        <FeldIdentityBar name={selectedPerson?.name ?? ''} subtitle={selectedAssignment.incident_title}>
+          <Button variant="ghost" size="sm" onClick={leaveAssignment} className="shrink-0 -ml-1">
+            <ArrowLeft className="size-3.5" />
+            {tCommon('back')}
+          </Button>
+        </FeldIdentityBar>
 
         <div className="max-w-md mx-auto p-4">
 
@@ -803,17 +848,22 @@ function FeldSurface() {
               <div className="flex items-start justify-between gap-3 mb-2">
                 {/* The address leads the card: the incident title is in the
                     sticky bar above and does not need saying twice. */}
-                <p className="flex items-start gap-1.5 text-base font-semibold leading-tight">
+                {/* The page's h1. The address leads because that is what a crew
+                    standing on a street matches against; the incident title
+                    rides in the bar above and is not said twice. */}
+                <h1 className="flex items-start gap-1.5 text-base font-semibold leading-tight">
                   {address && <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />}
                   <span>{address || selectedAssignment.incident_title}</span>
-                </p>
+                </h1>
                 {/* No chip on a Schadenplatz nobody was ever sent to: "kein
                     Rapport" would read as a to-do the crew cannot do. */}
                 {assignmentRapportApplies(selectedAssignment) && (
                   <RapportStateChip state={selectedAssignment.rapport_state} />
                 )}
               </div>
-              <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
+              {selectedAssignment.source !== 'reko' && (
+                <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
+              )}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span>{tStatus(selectedAssignment.incident_status)}</span>
                 {selectedAssignment.arrived_at && (
@@ -833,6 +883,14 @@ function FeldSurface() {
                   </span>
                 )}
               </div>
+
+              {/* The briefing lives IN the header, under the address it is
+                  about (§18.22). It used to be a card of its own titled "Lage
+                  und Ressourcen" — a heading over the only thing on screen,
+                  separating the Meldung from the address it describes. */}
+              <div className="mt-3 border-t border-border/60 pt-3">
+                <FeldBriefing assignment={selectedAssignment} bare />
+              </div>
             </section>
 
             {/* Section: field actions — Angekommen / Einsatz beendet /
@@ -851,10 +909,7 @@ function FeldSurface() {
               />
             )}
 
-            {/* Section: the briefing (§18.22) — what the board knows about
-                this Schadenplatz. Read-only, and it sits above the Rapport
-                because it is what the crew fills the Rapport against. */}
-            <FeldBriefing assignment={selectedAssignment} folded />
+
 
             {/* Section: the Schadenplatz-Rapport itself — the paper
                 replacement. The SAME component the board's detail mounts
@@ -929,28 +984,14 @@ function FeldSurface() {
 
   // -------------------------------------------------------- assignments
   return (
-    <div className="min-h-screen bg-background p-4 pb-20">
-      <div className="max-w-md mx-auto mb-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <User className="h-5 w-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg font-semibold truncate">{selectedPerson?.name}</h1>
-              <p className="text-sm text-muted-foreground truncate">{selectedPerson?.role || eventName}</p>
-            </div>
-          </div>
-          {/* "Nicht ich" — the phone gets handed around; the cookie must be one
-              tap away from being wrong about who is holding it. */}
-          <Button variant="ghost" size="sm" onClick={handleNotMe} className="shrink-0">
-            {t('assignments.notMe')}
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background pb-20">
+      <FeldIdentityBar
+        name={selectedPerson?.name ?? ''}
+        subtitle={selectedPerson?.role || eventName}
+        onNotMe={() => setConfirmNotMe(true)}
+      />
 
-      <div className="max-w-md mx-auto space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">{t('assignments.title')}</h2>
+      <div className="max-w-md mx-auto space-y-3 p-4">
 
         {loadingAssignments ? null : assignments.length === 0 ? (
           <div className="py-12 text-center animate-in fade-in duration-300">
@@ -965,12 +1006,21 @@ function FeldSurface() {
             <p className="text-sm text-muted-foreground px-2">{t('assignments.empty')}</p>
           </div>
         ) : (
-          feed.map(assignment => {
+          feed.map((assignment, index) => {
             const address = assignment.location_display
               ?? formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity())
+            // The one split worth making: what is behind you. Everything above
+            // is live work in the order it needs doing; below is what you have
+            // already left and may still owe a Rapport for.
+            const startsPast = !assignment.is_active_assignment && (index === 0 || feed[index - 1].is_active_assignment)
             return (
+              <div key={`group-${assignment.incident_id}`}>
+              {startsPast && (
+                <p className="mb-2 mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t('assignments.past')}
+                </p>
+              )}
               <button
-                key={assignment.incident_id}
                 onClick={() => openAssignment(assignment)}
                 className={`w-full cursor-pointer text-left rounded-xl p-4 transition-colors ${
                   assignment.is_active_assignment
@@ -978,14 +1028,17 @@ function FeldSurface() {
                     : 'bg-muted/30 hover:bg-muted/50'
                 }`}
               >
+                {/* Address first, Meldung underneath — the same order the detail
+                    view and the board's own cards use. A crew standing on a
+                    street matches the street, not the dispatcher's title for it;
+                    the title stays as the fallback when there is no address. */}
                 <div className="flex items-start justify-between gap-3 mb-1.5">
-                  <h3 className="font-medium leading-tight">{assignment.incident_title}</h3>
+                  <h3 className="font-medium leading-tight">{address || assignment.incident_title}</h3>
                   <div className="flex shrink-0 items-center gap-2">
                     <SourceLabel assignment={assignment} />
                     <ChevronRight className="h-4 w-4 text-muted-foreground mt-0.5" />
                   </div>
                 </div>
-                {address && <p className="text-sm text-muted-foreground mb-1.5">{address}</p>}
                 {/* Why this row is here at all, in a plain sentence — the tag
                     above is a marker, this is the explanation. Silent for an
                     own assignment, which needs none. */}
@@ -1029,10 +1082,20 @@ function FeldSurface() {
                   )}
                 </div>
               </button>
+              </div>
             )
           })
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmNotMe}
+        onOpenChange={setConfirmNotMe}
+        title={t('assignments.notMeTitle')}
+        description={t('assignments.notMeDescription')}
+        confirmText={t('assignments.notMe')}
+        onConfirm={handleNotMe}
+      />
     </div>
   )
 }

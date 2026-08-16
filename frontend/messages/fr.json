@@ -567,7 +567,10 @@
       "title": "Mes places sinistrées",
       "notMe": "Ce n’est pas moi",
       "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es affecté, elle apparaîtra ici.",
-      "released": "Plus affecté"
+      "released": "Plus affecté",
+      "past": "Précédemment",
+      "notMeTitle": "Se déconnecter ?",
+      "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain."
     },
     "briefing": {
       "title": "Situation et ressources",
