@@ -92,6 +92,15 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
     },
     "feld": {
         "POST /generate-link": "session",
+        # The door itself (plan 26, decisions 13 and 18). Token-gated because
+        # they are what a phone calls *before* it has any other credential —
+        # see KNOWN_GAPS for why neither has a board twin.
+        "POST /unlock": "token",
+        "POST /claim": "token",
+        # The board's two knobs on that door. Editor-only: the code is a
+        # credential, and logging every crew out mid-storm is not a field action.
+        "POST /access/regenerate": "session",
+        "POST /access/revoke-devices": "session",
         "POST /incidents/{incident_id}/arrived": "token",
         "POST /incidents/{incident_id}/complete": "token",
         "POST /incidents/{incident_id}/pickup": "token",
@@ -142,6 +151,22 @@ EXTERNAL_TWINS: dict[str, str] = {
 # a new token-gated write still fails this suite until somebody writes the line,
 # which is the point — the decision gets made once, in review, in writing.
 KNOWN_GAPS: dict[str, str] = {
+    "POST /api/feld/unlock": (
+        "NOT A STATE WRITE — this is authentication, and the rule §1 states does not "
+        "reach it. The endpoint exchanges a link token plus the Feld-Code for an "
+        "unlocked token and writes nothing at all; there is no database state for an "
+        "editor to reproduce from the board. It is a POST because it carries a secret "
+        "in a body rather than a query string. The board's authority over this door is "
+        "the code itself: POST /api/feld/access/regenerate, which is session-only."
+    ),
+    "POST /api/feld/claim": (
+        "Authentication again (decision 18): the device names its person and receives a "
+        "token bound to them. It does write one row — the feld_device_claims record that "
+        "makes revocation possible — but that row is a credential, not board state, and "
+        "an editor minting one on somebody's behalf is precisely the capability the "
+        "binding exists to remove. The board's twin is the other direction: "
+        "POST /api/feld/access/revoke-devices takes claims away, and nothing hands them out."
+    ),
     "POST /api/reko/{incident_id}/photos": (
         "The board offers no photo upload on a Reko report and this stays token-only "
         "on purpose (phase 2's call, re-affirmed in phase 4). A Reko report the KP "

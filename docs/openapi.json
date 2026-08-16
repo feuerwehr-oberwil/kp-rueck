@@ -11999,13 +11999,357 @@
         }
       }
     },
+    "/api/feld/access": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Feld Access",
+        "description": "The Feld-Code and how many devices are using it (editor only).",
+        "operationId": "get_feld_access_api_feld_access_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event ID",
+              "title": "Event Id"
+            },
+            "description": "Event ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldAccessState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/access/regenerate": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Regenerate Feld Code",
+        "description": "A new code, for one that got around.\n\n**Nobody is logged out.** Devices already bound keep their token until the\nEreignis ends; only new unlocks need the new digits. That is what makes this\na cheap action — the expensive one is `/access/revoke-devices` below, and\nthe two are kept apart precisely so the cheap one is not feared and the\nexpensive one is not pressed by mistake (decision 30).",
+        "operationId": "regenerate_feld_code_api_feld_access_regenerate_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event ID",
+              "title": "Event Id"
+            },
+            "description": "Event ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldAccessState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/access/revoke-devices": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Revoke Feld Devices",
+        "description": "The emergency brake: every bound device for this Ereignis is logged out.\n\nFor a lost phone or a code that ended up somewhere public. Everyone in the\nfield types the code again — including the crews currently standing at a\nSchadenplatz — so the UI states the device count before asking.",
+        "operationId": "revoke_feld_devices_api_feld_access_revoke_devices_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event ID",
+              "title": "Event Id"
+            },
+            "description": "Event ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldAccessState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/unlock": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Unlock Feld",
+        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns the picker in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.",
+        "operationId": "unlock_feld_api_feld_unlock_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldUnlockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldUnlockResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/claim": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Claim Feld Person",
+        "description": "Step 3: the device says who it is, and gets a token bound to that person.\n\nThis is where decision 18 actually happens. From here the token carries a\n``personnel_id`` the server enforces, so the device cannot act as a\ncolleague — no delivery channel, no Divera, no phone numbers needed.\n\nThe person must be someone this event holds something for; claiming an\narbitrary UUID gets the same 403 as claiming a stranger, so the endpoint is\nnot an oracle for which personnel ids exist.",
+        "operationId": "claim_feld_person_api_feld_claim_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldClaimResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/personnel": {
       "get": {
         "tags": [
           "feld"
         ],
         "summary": "List Feld Personnel",
-        "description": "The person picker: everyone with an assignment in this event.\n\nToken only — no login. Deliberately not the roster: a person with no\nassignment has nothing to file, and listing them would produce an empty page\nwith no explanation instead of the \"melde dich beim KP\" sentence.",
+        "description": "The person picker: everyone this event holds something for.\n\nNeeds an **unlocked** token — the picker is the one thing the code buys you\nbefore you have named yourself, and handing it to a bare link token would\ngive the whole roster back to anyone holding a forwarded URL.\n\nDeliberately not the roster of the brigade: a person the event holds nothing\nfor has nothing to do here, and listing them would produce an empty page\nwith no explanation instead of the \"melde dich beim KP\" sentence.\n\nSince plan 26 this includes drivers and Magazin people, who hold no\nassignment of their own and were therefore invisible to the old query.",
         "operationId": "list_feld_personnel_api_feld_personnel_get",
         "parameters": [
           {
@@ -20494,6 +20838,25 @@
         "title": "ExcelImportResult",
         "description": "Result of Excel import operation."
       },
+      "FeldAccessState": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "device_count": {
+            "type": "integer",
+            "title": "Device Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "device_count"
+        ],
+        "title": "FeldAccessState",
+        "description": "What the board shows next to the Ereignis: the code, and who is using it.\n\n``device_count`` is live claims, not total ever — the number the KP can act\non. Editor-only: the code is a credential, however short."
+      },
       "FeldAssignment": {
         "properties": {
           "incident_id": {
@@ -20815,6 +21178,41 @@
         "title": "FeldAssignmentsResponse",
         "description": "Response for \"meine Einsatzstellen\"."
       },
+      "FeldClaimRequest": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id"
+        ],
+        "title": "FeldClaimRequest",
+        "description": "\"Ich bin das\" — the person this device belongs to from now on."
+      },
+      "FeldClaimResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "personnel_id"
+        ],
+        "title": "FeldClaimResponse",
+        "description": "The bound token. The device stores this and stops using the link token."
+      },
       "FeldMaterialLine": {
         "properties": {
           "name": {
@@ -21009,6 +21407,55 @@
         "type": "object",
         "title": "FeldReko",
         "description": "What the Reko found here — the only *submitted* report, flattened.\n\nA draft Reko is somebody still typing and is deliberately absent: the field\nbriefing must not quote half a sentence back at the next crew as fact.\n``dangers`` carries the keys of ``DangersAssessment`` that are true, so the\nphone renders the same badges the board does instead of a second wording."
+      },
+      "FeldUnlockRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 8,
+            "minLength": 1,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "FeldUnlockRequest",
+        "description": "The four digits from under the QR poster."
+      },
+      "FeldUnlockResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "personnel": {
+            "items": {
+              "$ref": "#/components/schemas/FeldPersonnel"
+            },
+            "type": "array",
+            "title": "Personnel"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "event_name": {
+            "type": "string",
+            "title": "Event Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "personnel",
+          "event_id",
+          "event_name"
+        ],
+        "title": "FeldUnlockResponse",
+        "description": "The unlocked token, plus the picker it exists to let you read.\n\nBoth in one response because the only thing the caller can do next is find\ntheir own name, and a second round trip on a phone in the rain buys nothing."
       },
       "FieldReportState": {
         "properties": {

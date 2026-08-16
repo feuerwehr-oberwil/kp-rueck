@@ -1,5 +1,6 @@
 """Database models for KP Rück system."""
 
+import secrets
 from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -239,6 +240,16 @@ class Event(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     training_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     auto_attach_divera: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # The four digits under the QR poster (plan 26, decision 22). It does not
+    # prove who somebody is — it proves they are at THIS Ereignis right now,
+    # which is the whole threat model: the brigade is trusted, a link that has
+    # been forwarded or left on a dashboard for three weeks is not.
+    #
+    # Regenerating it closes the door on a leaked code WITHOUT disturbing anyone
+    # already in the field: devices hold their own bound token and keep working
+    # (decision 30). Throwing people out is the separate, deliberate act of
+    # revoking the claims below.
+    feld_code: Mapped[str] = mapped_column(String(4), nullable=False, default=lambda: f"{secrets.randbelow(10000):04d}")
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -299,6 +310,52 @@ class EventAttendance(Base):
         Index("idx_event_attendance_event", "event_id"),
         Index("idx_event_attendance_personnel", "personnel_id"),
         Index("idx_event_attendance_checked_in", "event_id", "checked_in"),
+    )
+
+
+class FeldDeviceClaim(Base):
+    """One phone that entered the Feld-Code and said who it belongs to.
+
+    A `/feld` token is a JWT and therefore cannot be taken back — so the claim it
+    was minted against is recorded here and checked on every request. That buys
+    the two things a stateless token could not:
+
+    * **"Alle Geräte abmelden"** (decision 30): the emergency brake for a lost
+      phone. Revoking marks the rows, and every bound token pointing at one dies
+      on its next request. Note this is NOT what regenerating the code does —
+      that only changes what *new* devices unlock with, and confusing the two is
+      how the brake gets pulled by accident on a storm night.
+    * **the device count on the board** (decision 28): wide sharing of the code
+      becomes visible to the KP instead of being silently blocked, because
+      blocking real firefighters mid-storm is the worse failure.
+
+    Deliberately holds no user agent, no IP and no device fingerprint: the count
+    is what the KP needs, and this table sits on the one surface of kp-rueck that
+    touches citizen PII (§9).
+    """
+
+    __tablename__ = "feld_device_claims"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+    )
+    personnel_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False
+    )
+    claimed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_feld_device_claims_event", "event_id"),
+        # Every bound request checks its own claim by id, then whether it is
+        # still live — so the partial index is the one that matters in traffic.
+        Index(
+            "idx_feld_device_claims_live",
+            "event_id",
+            unique=False,
+            postgresql_where=sa_text("revoked_at IS NULL"),
+        ),
     )
 
 

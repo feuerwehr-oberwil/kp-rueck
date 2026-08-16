@@ -4,7 +4,7 @@ import contextlib
 import os
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -593,3 +593,25 @@ def valid_user_data() -> dict:
         "password_hash": "hashed_password",
         "role": "editor",
     }
+
+
+async def feld_device_token(db: AsyncSession, event_id: UUID, personnel_id: UUID) -> str:
+    """A `/feld` token as a phone actually holds one: through the door and bound.
+
+    Since plan 26 (decisions 13 and 18) a bare link token opens nothing — it is
+    only the right to be asked for the Feld-Code. Any test that wants to *act* as
+    somebody through the field surface has to hold what a real device holds:
+    unlocked, bound to one person, and pointing at a live claim row.
+
+    Lives here rather than in one test module because both the `/feld` suite and
+    the KP-parity suite need it, and two copies of a credential helper is how
+    one of them quietly keeps testing the old rule.
+    """
+    from app.models import FeldDeviceClaim
+    from app.services.tokens import generate_feld_token
+
+    claim = FeldDeviceClaim(event_id=event_id, personnel_id=personnel_id)
+    db.add(claim)
+    await db.commit()
+    await db.refresh(claim)
+    return generate_feld_token(event_id, personnel_id=personnel_id, unlocked=True, claim_id=claim.id)

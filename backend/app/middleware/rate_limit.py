@@ -130,6 +130,13 @@ class RateLimits:
     # anyone with the event link reaches it. Photo upload keeps PHOTO_UPLOAD.
     FELD = "60/minute"
 
+    # The Feld-Code exchange. Tight enough that guessing four digits is not
+    # worth starting, loose enough that a crew fumbling it with cold wet hands
+    # is not locked out — because locking a firefighter out mid-storm is the
+    # worse failure of the two (decision 28). A device unlocks once per
+    # Ereignis, so this ceiling only ever bites on repeated wrong answers.
+    FELD_UNLOCK = "10 per 10 minutes"
+
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """

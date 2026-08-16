@@ -55,6 +55,49 @@ class FeldPersonnelListResponse(BaseModel):
     event_name: str
 
 
+class FeldUnlockRequest(BaseModel):
+    """The four digits from under the QR poster."""
+
+    code: str = Field(min_length=1, max_length=8)
+
+
+class FeldUnlockResponse(BaseModel):
+    """The unlocked token, plus the picker it exists to let you read.
+
+    Both in one response because the only thing the caller can do next is find
+    their own name, and a second round trip on a phone in the rain buys nothing.
+    """
+
+    token: str
+    personnel: list[FeldPersonnel]
+    event_id: UUID
+    event_name: str
+
+
+class FeldClaimRequest(BaseModel):
+    """ "Ich bin das" — the person this device belongs to from now on."""
+
+    personnel_id: UUID
+
+
+class FeldClaimResponse(BaseModel):
+    """The bound token. The device stores this and stops using the link token."""
+
+    token: str
+    personnel_id: UUID
+
+
+class FeldAccessState(BaseModel):
+    """What the board shows next to the Ereignis: the code, and who is using it.
+
+    ``device_count`` is live claims, not total ever — the number the KP can act
+    on. Editor-only: the code is a credential, however short.
+    """
+
+    code: str
+    device_count: int
+
+
 class FeldMaterialLine(BaseModel):
     """One line of the briefing's material list: a name and how many of it.
 

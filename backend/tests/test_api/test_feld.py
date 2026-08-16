@@ -45,6 +45,7 @@ from app.services.tokens import (
     generate_reko_dashboard_token,
     generate_viewer_token,
 )
+from tests.conftest import feld_device_token
 
 # Every endpoint that is scoped to one person: (method, path, personnel_id is a
 # query param, json body). A new phase adds a row here instead of quietly
@@ -209,7 +210,11 @@ class TestTokenGate:
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_unknown_event(self, client: AsyncClient):
-        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(uuid4())}")
+        # Unlocked, because since plan 26 the code gate runs BEFORE the event is
+        # looked up — so a bare link token gets 403 here and never learns
+        # whether the event exists. That ordering is deliberate; this test is
+        # about the 404 behind it.
+        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(uuid4(), unlocked=True)}")
         assert response.status_code == 404
 
 
@@ -232,7 +237,7 @@ class TestPersonnelList:
         await _assign(db_session, incident, assigned)
         await _assign(db_session, incident, released, released=True)
 
-        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(test_event.id)}")
+        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(test_event.id, unlocked=True)}")
         assert response.status_code == 200
         body = response.json()
         names = [p["name"] for p in body["personnel"]]
@@ -268,7 +273,7 @@ class TestPersonnelList:
         await _assign(db_session, await _make_incident(db_session, test_event, test_user, "A"), mine)
         await _assign(db_session, await _make_incident(db_session, other_event, test_user, "B"), theirs)
 
-        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(test_event.id)}")
+        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(test_event.id, unlocked=True)}")
         assert response.status_code == 200
         assert [p["name"] for p in response.json()["personnel"]] == ["Meins Max"]
 
@@ -295,7 +300,7 @@ class TestAuthorizationStepTwo:
         response = await _call(
             client,
             spec,
-            token=generate_feld_token(test_event.id),
+            token=await feld_device_token(db_session, test_event.id, outsider.id),
             personnel_id=outsider.id,
             incident_id=incident.id,
         )
@@ -317,7 +322,7 @@ class TestAuthorizationStepTwo:
         response = await _call(
             client,
             spec,
-            token=generate_feld_token(test_event.id),
+            token=generate_feld_token(test_event.id, unlocked=True),
             personnel_id=uuid4(),
             incident_id=incident.id,
         )
@@ -345,7 +350,7 @@ class TestAuthorizationStepTwo:
         response = await _call(
             client,
             spec,
-            token=generate_feld_token(test_event.id),
+            token=await feld_device_token(db_session, test_event.id, person.id),
             personnel_id=person.id,
             incident_id=incident_b.id,
         )
@@ -373,7 +378,7 @@ class TestAuthorizationStepTwo:
         response = await _call(
             client,
             spec,
-            token=generate_feld_token(test_event.id),
+            token=await feld_device_token(db_session, test_event.id, person.id),
             personnel_id=person.id,
             incident_id=theirs.id,
         )
@@ -403,7 +408,7 @@ class TestAuthorizationStepTwo:
         response = await _call(
             client,
             spec,
-            token=generate_feld_token(test_event.id),
+            token=await feld_device_token(db_session, test_event.id, person.id),
             personnel_id=person.id,
             incident_id=incident.id,
         )
@@ -422,7 +427,9 @@ class TestAuthorizationStepTwo:
         person = await _make_person(db_session, "Spaet Filer")
         await _assign(db_session, incident, person, released=True)
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert response.status_code == 200
         rows = response.json()["assignments"]
         assert [r["incident_id"] for r in rows] == [str(incident.id)]
@@ -464,7 +471,7 @@ class TestPersonBoundToken:
         response = await _call(
             client,
             spec,
-            token=generate_feld_token(test_event.id, personnel_id=person_a.id),
+            token=await feld_device_token(db_session, test_event.id, person_a.id),
             personnel_id=person_b.id,
             incident_id=theirs.id,
         )
@@ -488,7 +495,7 @@ class TestPersonBoundToken:
         response = await _call(
             client,
             spec,
-            token=generate_feld_token(test_event.id, personnel_id=person.id),
+            token=await feld_device_token(db_session, test_event.id, person.id),
             personnel_id=person.id,
             incident_id=incident.id,
         )
@@ -496,31 +503,39 @@ class TestPersonBoundToken:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_unbound_token_is_unchanged(
+    async def test_a_bare_link_token_can_no_longer_act_as_anybody(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
         test_event: Event,
         test_user: User,
     ):
-        """The links in the wild: still the event's, still every crew in it.
+        """The trade plan 26 made, pinned in the direction it now runs.
 
-        Pinned deliberately rather than left implicit — a poster on a wall and
-        the slips already printed must not stop working, and if that is ever
-        traded away it should be a failing test, not a silent Sunday morning.
+        This test used to assert the opposite — that a poster link kept working
+        as every crew in the event — and it was written to fail loudly if that
+        was ever traded away rather than lost on a quiet Sunday. It has now been
+        traded away **deliberately** (decisions 13 and 18): a link on its own is
+        the right to be asked for the Feld-Code and nothing more.
+
+        What that buys: a forwarded WhatsApp link, or an Einsatzzettel left in a
+        vehicle for three weeks, stops being a working credential for the board.
+        What it costs: everyone types four digits once per device, and the
+        printed poster must carry the code next to the QR or it strands people.
         """
         mine = await _make_incident(db_session, test_event, test_user, "Meine Stelle")
-        theirs = await _make_incident(db_session, test_event, test_user, "Fremde Stelle")
-        person_a = await _make_person(db_session, "Muster Hans")
-        person_b = await _make_person(db_session, "Frey Marc")
-        await _assign(db_session, mine, person_a)
-        await _assign(db_session, theirs, person_b)
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, mine, person)
 
-        token = generate_feld_token(test_event.id)
-        for person, incident in ((person_a, mine), (person_b, theirs)):
-            response = await client.get(f"/api/feld/assignments/{person.id}?token={token}")
-            assert response.status_code == 200
-            assert [r["incident_id"] for r in response.json()["assignments"]] == [str(incident.id)]
+        link_token = generate_feld_token(test_event.id)
+
+        # Not even the picker, which is what the code buys you first.
+        picker = await client.get(f"/api/feld/personnel?token={link_token}")
+        assert picker.status_code == 403
+
+        # And certainly not somebody's Schadenplätze.
+        response = await client.get(f"/api/feld/assignments/{person.id}?token={link_token}")
+        assert response.status_code == 403
 
 
 class TestAssignments:
@@ -542,7 +557,9 @@ class TestAssignments:
         await _assign(db_session, mine, person)
         await _assign(db_session, theirs, other)
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert response.status_code == 200
         body = response.json()
         assert body["personnel_name"] == "Muster Hans"
@@ -566,7 +583,9 @@ class TestAssignments:
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert response.status_code == 200
         row = response.json()["assignments"][0]
         assert row["location_address"] == "Meine Stelle 1, Oberwil"
@@ -592,7 +611,9 @@ class TestAssignments:
         await _assign(db_session, with_leader, leader, is_leader=True)
         await _assign(db_session, without_leader, person)
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert response.status_code == 200
         rows = {r["incident_id"]: r for r in response.json()["assignments"]}
         assert rows[str(with_leader.id)]["leader_name"] == "Chef Karl"
@@ -623,7 +644,9 @@ class TestAssignments:
         await _assign(db_session, incident, leader, released=True)
         await db_session.commit()
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert response.status_code == 200
         row = response.json()["assignments"][0]
         assert row["incident_id"] == str(incident.id)
@@ -649,7 +672,9 @@ class TestAssignments:
         await _assign(db_session, incident, now_leading, is_leader=True)
         await db_session.commit()
 
-        response = await client.get(f"/api/feld/assignments/{old.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{old.id}?token={await feld_device_token(db_session, test_event.id, old.id)}"
+        )
         row = response.json()["assignments"][0]
         assert row["leader_name"] == "Neu Nadia"
 
@@ -666,7 +691,9 @@ class TestAssignments:
         person = await _make_person(db_session, "Muster Hans", role="Offizier")
         await _assign(db_session, incident, person, is_leader=True)
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         row = response.json()["assignments"][0]
         assert row["leader_personnel_id"] == str(person.id)
 
@@ -692,7 +719,9 @@ class TestAssignments:
         submitted.field_complete_reported_at = datetime(2026, 8, 8, 15, 0, tzinfo=UTC)
         await db_session.commit()
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert response.status_code == 200
         rows = {r["incident_id"]: r for r in response.json()["assignments"]}
         assert rows[str(none_yet.id)]["rapport_state"] == "none"
@@ -719,7 +748,9 @@ class TestAssignments:
         incident.deleted_at = datetime.now(UTC)
         await db_session.commit()
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert [r["incident_id"] for r in response.json()["assignments"]] == [str(alive.id)]
 
 
@@ -769,7 +800,9 @@ class TestBriefing:
         )
         await db_session.commit()
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert response.status_code == 200
         row = response.json()["assignments"][0]
         assert row["description"] == "Wasser im Keller"
@@ -795,7 +828,9 @@ class TestBriefing:
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         row = response.json()["assignments"][0]
         assert row["crew"] == ["Muster Hans"]
         assert row["vehicles"] == []
@@ -827,8 +862,9 @@ class TestNeverWritesAssignments:
         assignment = await _assign(db_session, incident, person, is_leader=True)
         before = (assignment.id, assignment.assigned_at, assignment.unassigned_at, assignment.is_leader)
 
-        token = generate_feld_token(test_event.id)
-        assert (await client.get(f"/api/feld/personnel?token={token}")).status_code == 200
+        token = await feld_device_token(db_session, test_event.id, person.id)
+        picker_token = generate_feld_token(test_event.id, unlocked=True)
+        assert (await client.get(f"/api/feld/personnel?token={picker_token}")).status_code == 200
         for spec in PERSON_SCOPED_ENDPOINTS:
             response = await _call(client, spec, token=token, personnel_id=person.id, incident_id=incident.id)
             assert response.status_code in _expected_ok(spec), (spec, response.text)
@@ -864,7 +900,10 @@ class TestArrived:
 
         response = await client.post(
             f"/api/feld/incidents/{incident.id}/arrived",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
         )
         assert response.status_code == 200
         assert response.json()["arrived_at"] is not None
@@ -895,7 +934,10 @@ class TestArrived:
         incident = await _make_incident(db_session, test_event, test_user, "Keller Wasser")
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
-        params = {"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)}
+        params = {
+            "token": await feld_device_token(db_session, test_event.id, person.id),
+            "personnel_id": str(person.id),
+        }
 
         first = await client.post(f"/api/feld/incidents/{incident.id}/arrived", params=params)
         second = await client.post(f"/api/feld/incidents/{incident.id}/arrived", params=params)
@@ -933,7 +975,10 @@ class TestFieldComplete:
 
         response = await client.post(
             f"/api/feld/incidents/{incident.id}/complete",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
         )
         assert response.status_code == 200
 
@@ -954,7 +999,10 @@ class TestFieldComplete:
         incident = await _make_incident(db_session, test_event, test_user, "Sturmschaden")
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
-        params = {"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)}
+        params = {
+            "token": await feld_device_token(db_session, test_event.id, person.id),
+            "personnel_id": str(person.id),
+        }
 
         await client.post(f"/api/feld/incidents/{incident.id}/complete", params=params)
         await client.post(f"/api/feld/incidents/{incident.id}/complete", params=params)
@@ -982,7 +1030,10 @@ class TestPickup:
         incident = await _make_incident(db_session, test_event, test_user, "Zu Fuss")
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
-        params = {"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)}
+        params = {
+            "token": await feld_device_token(db_session, test_event.id, person.id),
+            "personnel_id": str(person.id),
+        }
 
         response = await client.post(
             f"/api/feld/incidents/{incident.id}/pickup",
@@ -1023,7 +1074,10 @@ class TestPickup:
         incident = await _make_incident(db_session, test_event, test_user, "Zu Fuss")
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
-        params = {"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)}
+        params = {
+            "token": await feld_device_token(db_session, test_event.id, person.id),
+            "personnel_id": str(person.id),
+        }
 
         first = await client.post(
             f"/api/feld/incidents/{incident.id}/pickup", params=params, json={"needed": True, "note": "2 Personen"}
@@ -1053,7 +1107,10 @@ class TestFieldMessage:
 
         response = await client.post(
             f"/api/feld/incidents/{incident.id}/message",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
             json={"message": "Verstärkung nötig"},
         )
         assert response.status_code == 204
@@ -1095,7 +1152,10 @@ class TestFieldMessage:
         incident = await _make_incident(db_session, test_event, test_user, "Keller Wasser")
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
-        params = {"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)}
+        params = {
+            "token": await feld_device_token(db_session, test_event.id, person.id),
+            "personnel_id": str(person.id),
+        }
 
         for text in ("Pumpe läuft", "Wasser steigt weiter"):
             assert (
@@ -1129,7 +1189,10 @@ class TestFieldMessage:
 
         response = await client.post(
             f"/api/feld/incidents/{incident.id}/message",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
             json={"message": ""},
         )
         assert response.status_code == 422
@@ -1151,7 +1214,9 @@ class TestMessageChips:
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
 
-        response = await client.get(f"/api/feld/assignments/{person.id}?token={generate_feld_token(test_event.id)}")
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
         assert response.status_code == 200
         chips = response.json()["message_chips"]
         # Station config, not i18n (decision 20).
@@ -1171,7 +1236,7 @@ class TestRapport:
         incident = await _make_incident(db, event, user, "Keller Wasser")
         person = await _make_person(db, "Muster Hans")
         await _assign(db, incident, person)
-        return incident, person, generate_feld_token(event.id)
+        return incident, person, await feld_device_token(db, event.id, person.id)
 
     async def _material(self, db: AsyncSession, name: str, *, consumable: bool = False) -> Material:
         material = Material(
@@ -1588,7 +1653,10 @@ class TestRapport:
 
         response = await client.put(
             f"/api/feld/incidents/{incident.id}/rapport",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
             json={"is_draft": False, "kurzbericht": "Baum entfernt"},
         )
         assert response.status_code == 200
@@ -1629,7 +1697,7 @@ class TestPhotos:
         incident = await _make_incident(db, event, user, "Keller Wasser")
         person = await _make_person(db, "Muster Hans")
         await _assign(db, incident, person)
-        return incident, person, generate_feld_token(event.id)
+        return incident, person, await feld_device_token(db, event.id, person.id)
 
     @pytest.mark.asyncio
     @pytest.mark.api

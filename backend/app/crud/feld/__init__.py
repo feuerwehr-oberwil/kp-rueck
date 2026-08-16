@@ -22,6 +22,15 @@ adding one without either is the hole this package exists to prevent.
 # and `crud.<anything>` keep working unchanged — including the underscore
 # helpers the tests reach for.
 
+from .access import (
+    claim_is_live,
+    code_matches,
+    create_claim,
+    generate_code,
+    live_device_count,
+    regenerate_code,
+    revoke_all_claims,
+)
 from .material import (
     event_restliste,
     material_left_on_site_named,
@@ -130,15 +139,20 @@ __all__ = [
     "_route_assigned_ids",
     "_stamp_updated_by",
     "add_photo",
+    "claim_is_live",
+    "code_matches",
+    "create_claim",
     "derive_personnel_count",
     "event_restliste",
     "field_report_state",
+    "generate_code",
     "get_authorized_incident",
     "get_feld_assignments_for_personnel",
     "get_feld_personnel_for_event",
     "get_incident_leaders",
     "get_rapport",
     "is_automation_user",
+    "live_device_count",
     "material_left_on_site_named",
     "material_return_attribution",
     "material_return_units",
@@ -152,7 +166,9 @@ __all__ = [
     "record_field_complete",
     "record_field_message",
     "record_pickup",
+    "regenerate_code",
     "remove_photo",
+    "revoke_all_claims",
     "save_rapport",
     "visible_by_personnel",
     "visible_incidents_for_personnel",

@@ -110,10 +110,20 @@ async def require_feld_person(
     the URL. An unknown personnel id gets that same 403 as a known-but-unassigned
     one: a public token must not become a way to probe which UUIDs exist.
     """
-    if claims.personnel_id is not None and claims.personnel_id != personnel_id:
+    # Since decision 18 the binding is mandatory, not optional: a token that
+    # names no person may not act as one. An unbound token used to be able to
+    # write as any crew in the event — that was the whole hole this closes.
+    if claims.personnel_id is None or claims.personnel_id != personnel_id:
         raise HTTPException(
             status_code=403,
             detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        )
+    # The claim is the recall a JWT cannot do by itself: once the KP has pressed
+    # "alle Geräte abmelden", this is where the revoked device finds out.
+    if claims.claim_id is None or not await crud.claim_is_live(db, claims.claim_id, claims.event_id):
+        raise HTTPException(
+            status_code=401,
+            detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.",
         )
     if not await crud.person_has_event_access(db, claims.event_id, personnel_id):
         raise HTTPException(
@@ -156,6 +166,137 @@ async def generate_feld_link(
     }
 
 
+@router.get("/access", response_model=schemas.FeldAccessState)
+async def get_feld_access(
+    current_user: CurrentEditor,  # Editor only — the code is a credential
+    event_id: uuid.UUID = Query(..., description="Event ID"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldAccessState:
+    """The Feld-Code and how many devices are using it (editor only)."""
+    event = await _load_event(db, event_id)
+    return schemas.FeldAccessState(
+        code=event.feld_code,
+        device_count=await crud.live_device_count(db, event.id),
+    )
+
+
+@router.post("/access/regenerate", response_model=schemas.FeldAccessState)
+async def regenerate_feld_code(
+    current_user: CurrentEditor,  # Editor only
+    event_id: uuid.UUID = Query(..., description="Event ID"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldAccessState:
+    """A new code, for one that got around.
+
+    **Nobody is logged out.** Devices already bound keep their token until the
+    Ereignis ends; only new unlocks need the new digits. That is what makes this
+    a cheap action — the expensive one is `/access/revoke-devices` below, and
+    the two are kept apart precisely so the cheap one is not feared and the
+    expensive one is not pressed by mistake (decision 30).
+    """
+    event = await _load_event(db, event_id)
+    code = await crud.regenerate_code(db, event)
+    return schemas.FeldAccessState(
+        code=code,
+        device_count=await crud.live_device_count(db, event.id),
+    )
+
+
+@router.post("/access/revoke-devices", response_model=schemas.FeldAccessState)
+async def revoke_feld_devices(
+    current_user: CurrentEditor,  # Editor only
+    event_id: uuid.UUID = Query(..., description="Event ID"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldAccessState:
+    """The emergency brake: every bound device for this Ereignis is logged out.
+
+    For a lost phone or a code that ended up somewhere public. Everyone in the
+    field types the code again — including the crews currently standing at a
+    Schadenplatz — so the UI states the device count before asking.
+    """
+    event = await _load_event(db, event_id)
+    await crud.revoke_all_claims(db, event.id)
+    return schemas.FeldAccessState(
+        code=event.feld_code,
+        device_count=await crud.live_device_count(db, event.id),
+    )
+
+
+@router.post("/unlock", response_model=schemas.FeldUnlockResponse)
+@limiter.limit(RateLimits.FELD_UNLOCK)
+async def unlock_feld(
+    request: Request,
+    payload: schemas.FeldUnlockRequest,
+    claims: FeldClaims,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldUnlockResponse:
+    """Step 2 of the door: trade the link token for an unlocked one.
+
+    The exchange is server-side on purpose (decision 13). A screen that merely
+    asked for the code before rendering would be bypassed by anyone who kept the
+    URL — the point is that the *link* stops being sufficient.
+
+    Returns the picker in the same response, because the only thing the caller
+    can do next is find their own name, and a second round trip on a phone in
+    the rain buys nothing.
+
+    Rate limited hard: the limit counts every attempt, but a device unlocks once
+    per Ereignis, so the ceiling only ever bites on repeated guessing.
+    """
+    event = await _load_event(db, claims.event_id)
+    if not crud.code_matches(event, payload.code):
+        # No hint about length, no "close" — and deliberately the same shape of
+        # answer whether the code was wrong or malformed.
+        raise HTTPException(status_code=403, detail="Falscher Code")
+
+    personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
+    return schemas.FeldUnlockResponse(
+        token=generate_feld_token(claims.event_id, unlocked=True),
+        personnel=[schemas.FeldPersonnel(**p) for p in personnel],
+        event_id=event.id,
+        event_name=event.name,
+    )
+
+
+@router.post("/claim", response_model=schemas.FeldClaimResponse)
+@limiter.limit(RateLimits.FELD)
+async def claim_feld_person(
+    request: Request,
+    payload: schemas.FeldClaimRequest,
+    claims: FeldClaims,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldClaimResponse:
+    """Step 3: the device says who it is, and gets a token bound to that person.
+
+    This is where decision 18 actually happens. From here the token carries a
+    ``personnel_id`` the server enforces, so the device cannot act as a
+    colleague — no delivery channel, no Divera, no phone numbers needed.
+
+    The person must be someone this event holds something for; claiming an
+    arbitrary UUID gets the same 403 as claiming a stranger, so the endpoint is
+    not an oracle for which personnel ids exist.
+    """
+    if not claims.unlocked:
+        raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
+    event = await _load_event(db, claims.event_id)
+    if not await crud.person_has_event_access(db, event.id, payload.personnel_id):
+        raise HTTPException(
+            status_code=403,
+            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        )
+
+    claim = await crud.create_claim(db, event.id, payload.personnel_id)
+    return schemas.FeldClaimResponse(
+        token=generate_feld_token(
+            event.id,
+            personnel_id=payload.personnel_id,
+            unlocked=True,
+            claim_id=claim.id,
+        ),
+        personnel_id=payload.personnel_id,
+    )
+
+
 @router.get("/personnel", response_model=schemas.FeldPersonnelListResponse)
 @limiter.limit(RateLimits.FELD)
 async def list_feld_personnel(
@@ -166,13 +307,19 @@ async def list_feld_personnel(
     """
     The person picker: everyone this event holds something for.
 
-    Token only — no login. Deliberately not the roster: a person the event holds
-    nothing for has nothing to do here, and listing them would produce an empty
-    page with no explanation instead of the "melde dich beim KP" sentence.
+    Needs an **unlocked** token — the picker is the one thing the code buys you
+    before you have named yourself, and handing it to a bare link token would
+    give the whole roster back to anyone holding a forwarded URL.
+
+    Deliberately not the roster of the brigade: a person the event holds nothing
+    for has nothing to do here, and listing them would produce an empty page
+    with no explanation instead of the "melde dich beim KP" sentence.
 
     Since plan 26 this includes drivers and Magazin people, who hold no
     assignment of their own and were therefore invisible to the old query.
     """
+    if not claims.unlocked:
+        raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
     event = await _load_event(db, claims.event_id)
     personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
 
