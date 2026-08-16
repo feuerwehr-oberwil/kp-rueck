@@ -25,15 +25,18 @@ optional:
    for an Abholung. That is enforced at the door via ``sources=``, not by
    hiding a section in the UI.
 
-What step 2 is and is not: it decides *which Schadenplätze* a given person may
-see, and it is why a crew's list is their own. It is **not** proof of identity.
-On an unbound (event-scoped) token the caller names the person themselves, and
-`GET /feld/personnel` hands every holder of the link the whole picker — that is
-the design (one global QR, everyone finds themselves in a list), and it means
-such a link is a credential for the *event*: it can read, and write as, any crew
-in it. A token minted with a ``personnel_id`` closes exactly that gap — step 2
-then also refuses any other person — but nothing mints one today, because
-neither the poster QR nor the Einsatzzettel slip knows who will drive.
+**Step 0, since plan 26: the Feld-Code.** The poster QR and the Einsatzzettel
+carry a *link* token, which opens nothing at all. `POST /unlock` trades it plus
+the four digits for an *unlocked* token (good only for the picker), and
+`POST /claim` trades that for a *bound* one when somebody names themselves. From
+there the token carries a ``personnel_id`` the server enforces, so a device
+cannot act as a colleague, and a ``claim_id`` so it can be logged out again —
+a JWT is otherwise impossible to recall.
+
+What none of this is: proof of identity. Somebody may still pick the wrong name
+off the picker, and the accepted answer is that the brigade is trusted
+(decision 2). What it *does* buy is that holding the link is no longer enough —
+a forwarded URL, or a slip left in a vehicle for three weeks, is inert.
 
 Privacy (§9): neither a token nor any owner field may be interpolated into a log
 line here. The field surface is the first place kp-rueck touches citizen PII.
@@ -61,7 +64,12 @@ from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services import incident_display
 from ..services.photo_storage import photo_storage
 from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
-from ..services.tokens import FeldTokenClaims, generate_feld_token, validate_feld_token
+from ..services.tokens import (
+    FeldTokenClaims,
+    generate_feld_token,
+    generate_form_token,
+    validate_feld_token,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -531,6 +539,37 @@ async def report_pickup(
         request=request,
     )
     return schemas.FieldReportState(**await crud.field_report_state(db, incident))
+
+
+@router.post("/incidents/{incident_id}/reko-link", response_model=dict)
+@limiter.limit(RateLimits.FELD)
+async def mint_reko_link(
+    request: Request,
+    incident_id: uuid.UUID,
+    claims: FeldClaims,
+    personnel_id: uuid.UUID = Query(..., description="The person filing"),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """A short-lived form token so the Reko form can mount inside `/feld`.
+
+    The alternative was to widen ``validate_form_token`` to accept feld tokens,
+    and that is exactly how a token type stops meaning anything (see the photo
+    handler below, which makes the same argument). Instead `/feld` runs its own
+    two-step and then mints the *existing* per-incident form token — the same
+    one `/reko-dashboard` handed out — so neither token type learns about the
+    other and the Reko form component is reused unchanged.
+
+    Gated on ``SOURCE_REKO``: only somebody the KP actually gave a Reko auftrag
+    may file one. A crew working the Schadenplatz reads the Reko as briefing and
+    files a Schadenplatz-Rapport instead.
+    """
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=(crud.SOURCE_REKO,))
+    token = generate_form_token(str(incident.id), "reko")
+    return {
+        "incident_id": str(incident.id),
+        "token": token,
+        "link": f"/reko?incident_id={incident.id}&token={token}&personnel_id={person.id}",
+    }
 
 
 @router.get("/incidents/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)

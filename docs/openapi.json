@@ -12654,6 +12654,75 @@
         }
       }
     },
+    "/api/feld/incidents/{incident_id}/reko-link": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Mint Reko Link",
+        "description": "A short-lived form token so the Reko form can mount inside `/feld`.\n\nThe alternative was to widen ``validate_form_token`` to accept feld tokens,\nand that is exactly how a token type stops meaning anything (see the photo\nhandler below, which makes the same argument). Instead `/feld` runs its own\ntwo-step and then mints the *existing* per-incident form token — the same\none `/reko-dashboard` handed out — so neither token type learns about the\nother and the Reko form component is reused unchanged.\n\nGated on ``SOURCE_REKO``: only somebody the KP actually gave a Reko auftrag\nmay file one. A crew working the Schadenplatz reads the Reko as briefing and\nfiles a Schadenplatz-Rapport instead.",
+        "operationId": "mint_reko_link_api_feld_incidents__incident_id__reko_link_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The person filing",
+              "title": "Personnel Id"
+            },
+            "description": "The person filing"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Mint Reko Link Api Feld Incidents  Incident Id  Reko Link Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents/{incident_id}/rapport": {
       "get": {
         "tags": [

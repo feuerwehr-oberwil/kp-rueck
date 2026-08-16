@@ -101,6 +101,7 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         # credential, and logging every crew out mid-storm is not a field action.
         "POST /access/regenerate": "session",
         "POST /access/revoke-devices": "session",
+        "POST /incidents/{incident_id}/reko-link": "token",
         "POST /incidents/{incident_id}/arrived": "token",
         "POST /incidents/{incident_id}/complete": "token",
         "POST /incidents/{incident_id}/pickup": "token",
@@ -166,6 +167,13 @@ KNOWN_GAPS: dict[str, str] = {
         "an editor minting one on somebody's behalf is precisely the capability the "
         "binding exists to remove. The board's twin is the other direction: "
         "POST /api/feld/access/revoke-devices takes claims away, and nothing hands them out."
+    ),
+    "POST /api/feld/incidents/{incident_id}/reko-link": (
+        "Mints a short-lived form token so the Reko form can mount inside /feld; it "
+        "writes no state at all. The board's equivalent is the route it borrows from — "
+        "POST /api/reko/{incident_id}/generate-link, which is editor-authed and hands "
+        "out the identical token. Two doors, one credential, no second handler to keep "
+        "in step."
     ),
     "POST /api/reko/{incident_id}/photos": (
         "The board offers no photo upload on a Reko report and this stays token-only "

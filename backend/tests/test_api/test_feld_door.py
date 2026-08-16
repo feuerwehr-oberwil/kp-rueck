@@ -15,7 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event, FeldDeviceClaim, Incident, IncidentAssignment, Personnel, User
-from app.services.tokens import generate_feld_token, validate_feld_token
+from app.services.tokens import generate_feld_token, validate_feld_token, validate_form_token
+from tests.conftest import feld_device_token
 
 
 async def _person_on_an_incident(db: AsyncSession, event: Event, user: User) -> Personnel:
@@ -269,3 +270,44 @@ class TestAccessStateIsEditorOnly:
     async def test_an_anonymous_caller_cannot_read_the_code(self, client: AsyncClient, test_event: Event):
         response = await client.get(f"/api/feld/access?event_id={test_event.id}")
         assert response.status_code in (401, 403)
+
+
+class TestRekoLink:
+    """Absorbing the Reko form without widening a token type."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_reko_auftrag_gets_a_form_token(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        person = await _person_on_an_incident(db_session, test_event, test_user)
+        assignment = (await db_session.execute(select(IncidentAssignment))).scalar_one()
+        assignment.purpose = "reko"
+        await db_session.commit()
+        token = await feld_device_token(db_session, test_event.id, person.id)
+
+        response = await client.post(
+            f"/api/feld/incidents/{assignment.incident_id}/reko-link?token={token}&personnel_id={person.id}"
+        )
+
+        assert response.status_code == 200
+        # The SAME per-incident form token /reko-dashboard used to hand out —
+        # `/feld` mints it rather than teaching either token type about the other.
+        assert validate_form_token(response.json()["token"], str(assignment.incident_id))
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_working_crew_cannot_file_a_reko(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # They read the Reko as briefing and file a Schadenplatz-Rapport instead;
+        # filing the Reko is the job of the trupp the KP sent to look.
+        person = await _person_on_an_incident(db_session, test_event, test_user)
+        assignment = (await db_session.execute(select(IncidentAssignment))).scalar_one()
+        token = await feld_device_token(db_session, test_event.id, person.id)
+
+        response = await client.post(
+            f"/api/feld/incidents/{assignment.incident_id}/reko-link?token={token}&personnel_id={person.id}"
+        )
+
+        assert response.status_code == 403
