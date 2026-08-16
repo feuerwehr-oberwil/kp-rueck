@@ -12,6 +12,7 @@ import {
   dismissOverlays,
   expectCardCount,
   generateFeldLink,
+  getFeldCode,
   pinLeader,
   selectEvent,
   setIncidentStatus,
@@ -59,6 +60,7 @@ interface FieldFixture {
   eventId: string;
   eventName: string;
   link: string;
+  code: string;
   incidents: TestIncident[];
   personnel: TestPersonnel[];
 }
@@ -121,17 +123,24 @@ async function arrangeField(
     eventId: event.id,
     eventName: event.name,
     link: await generateFeldLink(page.request, cookieHeader, event.id),
+    code: await getFeldCode(page.request, cookieHeader, event.id),
     incidents,
     personnel,
   };
 }
 
 /** A phone: its own context, no session cookie, nothing but the link. */
-async function fieldPhone(browser: Browser, link: string): Promise<{ page: Page; feld: FeldPage }> {
+async function fieldPhone(
+  browser: Browser,
+  link: string,
+  code: string,
+): Promise<{ page: Page; feld: FeldPage }> {
   const context = await browser.newContext();
   const page = await context.newPage();
   const feld = new FeldPage(page);
-  await feld.open(link);
+  // Every phone walks the door now (plan 26): the link is the right to be asked
+  // for the Feld-Code, and nothing more.
+  await feld.open(link, code);
   return { page, feld };
 }
 
@@ -189,7 +198,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       card(authenticatedPage, incident).locator('[title="Schadenplatz-Rapport erfasst"]'),
     ).toHaveCount(0);
 
-    const { page: phone, feld } = await fieldPhone(browser, fixture.link);
+    const { page: phone, feld } = await fieldPhone(browser, fixture.link, fixture.code);
     try {
       await expect(phone.getByText(fixture.eventName)).toBeVisible();
 
@@ -227,7 +236,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     const cookieHeader = await cookieHeaderFor(authenticatedPage);
     await setIncidentStatus(authenticatedPage.request, cookieHeader, finished.id, 'active', 'complete');
 
-    const { page: phone, feld } = await fieldPhone(browser, fixture.link);
+    const { page: phone, feld } = await fieldPhone(browser, fixture.link, fixture.code);
     try {
       await feld.pickPerson(crew.name);
 
@@ -265,7 +274,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
 
     await openBoard(authenticatedPage, fixture);
 
-    const { page: phone, feld } = await fieldPhone(browser, fixture.link);
+    const { page: phone, feld } = await fieldPhone(browser, fixture.link, fixture.code);
     try {
       await feld.pickPerson(crew.name);
       await feld.openAssignment(incident.title);
