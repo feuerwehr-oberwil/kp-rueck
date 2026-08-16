@@ -19,13 +19,14 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users, FileText, PanelRight, Loader2 } from 'lucide-react'
+import { Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Users, FileText, PanelRight, Loader2 } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
 import { QrShareSheet } from "@/components/kanban/qr-share-sheet"
+import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -506,7 +507,7 @@ export default function FireStationDashboard() {
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'feld' | 'display' | 'alarm' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'links' | 'checkin' | 'reko' | 'display' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
   // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
@@ -568,10 +569,8 @@ export default function FireStationDashboard() {
   const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
   const [displayToken, setDisplayToken] = useState<string | null>(null)
   const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
-  const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
   // link per incident or per vehicle (plan 25, decision 1).
-  const [feldUrl, setFeldUrl] = useState<string | null>(null)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
   // These dialogs hold a snapshot of the operation; derive the LIVE operation so a
@@ -1520,12 +1519,11 @@ export default function FireStationDashboard() {
   const displayUrl = displayToken
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/display/${displayView}?token=${displayToken}`
     : null
-  const alarmQrDialogOpen = activeFooterSheet === 'alarm'
-  const feldQrDialogOpen = activeFooterSheet === 'feld'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printSheetOpen = activeFooterSheet === 'print'
   const auftraegeSheetOpen = activeFooterSheet === 'auftraege'
   const rapportBacklogSheetOpen = activeFooterSheet === 'rapporte'
+  const linksSheetOpen = activeFooterSheet === 'links'
 
   // The rolling Schadenplatz-Rapport backlog — closed incidents whose rapport is
   // still missing, oldest first. Computed once: the footer pill shows the count,
@@ -1671,59 +1669,7 @@ export default function FireStationDashboard() {
     }
   }
 
-  const generateAlarmQR = async () => {
-    // Toggle behavior: if already open, just close
-    if (alarmQrDialogOpen) {
-      setActiveFooterSheet(null)
-      return
-    }
 
-    if (!selectedEvent) {
-      toast.error(tCommon('error'), {
-        description: tDash('selectEventFirst'),
-      })
-      return
-    }
-
-    try {
-      const response = await apiClient.generateAlarmLink(selectedEvent.id)
-      const fullUrl = `${window.location.origin}${response.link}`
-      setAlarmUrl(fullUrl)
-      setActiveFooterSheet('alarm')
-    } catch (error) {
-      console.error('Failed to generate alarm link:', error)
-      toast.error(tCommon('error'), {
-        description: tDash('alarmLinkFailed'),
-      })
-    }
-  }
-
-  const generateFeldQR = async () => {
-    // Toggle behavior: if already open, just close
-    if (feldQrDialogOpen) {
-      setActiveFooterSheet(null)
-      return
-    }
-
-    if (!selectedEvent) {
-      toast.error(tCommon('error'), {
-        description: tDash('selectEventFirst'),
-      })
-      return
-    }
-
-    try {
-      const response = await apiClient.generateFeldLink(selectedEvent.id)
-      const fullUrl = `${window.location.origin}${response.link}`
-      setFeldUrl(fullUrl)
-      setActiveFooterSheet('feld')
-    } catch (error) {
-      console.error('Failed to generate feld link:', error)
-      toast.error(tCommon('error'), {
-        description: tDash('feldLinkFailed'),
-      })
-    }
-  }
 
   // Handle resource assignment dialog. A grouped incident owns no resources of its
   // own — the Auftrag (route) does — so assigning from its card buttons or the
@@ -2546,57 +2492,16 @@ export default function FireStationDashboard() {
               moreTitle={(count) => tDash('moreTitle', { count })}
               items={[
                 {
-                  key: 'checkin',
+                  // One pill for every link the board hands out (decision 29).
+                  // Was five — Check-In, Reko, Feld, Anzeige, Alarm — each
+                  // opening its own sheet that did the same three things.
+                  key: 'links',
                   node: (
                     <ToolbarToggle
                       icon={QrCode}
-                      label={tDash('checkIn')}
-                      active={qrDialogOpen}
-                      onActivate={generateCheckInQR}
-                    />
-                  ),
-                },
-                {
-                  key: 'reko',
-                  node: (
-                    <ToolbarToggle
-                      icon={Search}
-                      label={tCommon('reko')}
-                      active={rekoQrDialogOpen}
-                      onActivate={generateRekoDashboardQR}
-                    />
-                  ),
-                },
-                {
-                  key: 'feld',
-                  node: (
-                    <ToolbarToggle
-                      icon={Axe}
-                      label={tDash('feld')}
-                      active={feldQrDialogOpen}
-                      onActivate={generateFeldQR}
-                    />
-                  ),
-                },
-                {
-                  key: 'display',
-                  node: (
-                    <ToolbarToggle
-                      icon={MonitorDown}
-                      label={tDash('display')}
-                      active={displaySheetOpen}
-                      onActivate={generateDisplayShare}
-                    />
-                  ),
-                },
-                {
-                  key: 'alarm',
-                  node: (
-                    <ToolbarToggle
-                      icon={Siren}
-                      label={tDash('alarm')}
-                      active={alarmQrDialogOpen}
-                      onActivate={generateAlarmQR}
+                      label={tDash('linksAndQr')}
+                      active={linksSheetOpen}
+                      onActivate={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
                     />
                   ),
                 },
@@ -2886,6 +2791,17 @@ export default function FireStationDashboard() {
           the Anzeige sheet uses for its view selector — rather than QrShareSheet growing a
           special case for one of its five callers. The count IS the entry: it says why one
           would click. */}
+      {/* The one sheet the footer opens now. The four QrShareSheets below it
+          stay mounted for the deep links and the printer flows that still name
+          them individually — they are simply no longer how an operator gets
+          there. */}
+      <LinksQrSheet
+        open={linksSheetOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'links' && setActiveFooterSheet(null)}
+        eventId={selectedEvent?.id ?? null}
+        printerEnabled={printerEnabled}
+      />
+
       <QrShareSheet
         open={qrDialogOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'checkin' && setActiveFooterSheet(null)}
@@ -2938,17 +2854,6 @@ export default function FireStationDashboard() {
       />
 
       {/* Feld (Schadenplatz-Rapport) QR Code Sheet — one global link per Ereignis */}
-      <QrShareSheet
-        open={feldQrDialogOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'feld' && setActiveFooterSheet(null)}
-        url={feldUrl}
-        title={tDash('feldSheetTitle')}
-        description={tDash('feldSheetDescription')}
-        hint={tDash('feldSheetHint')}
-        printerEnabled={printerEnabled}
-        isPrinting={isPrintingQR}
-        onPrint={feldUrl ? () => handlePrintQR(feldUrl, tDash('feldSheetTitle'), tDash('feldSheetHint')) : undefined}
-      />
 
       {/* Display share QR Code Sheet */}
       <QrShareSheet
@@ -2981,17 +2886,6 @@ export default function FireStationDashboard() {
       </QrShareSheet>
 
       {/* Alarm Intake Link Sheet */}
-      <QrShareSheet
-        open={alarmQrDialogOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'alarm' && setActiveFooterSheet(null)}
-        url={alarmUrl}
-        title={tDash('alarmSheetTitle')}
-        description={tDash('alarmSheetDescription')}
-        hint={tDash('alarmSheetHint')}
-        printerEnabled={printerEnabled}
-        isPrinting={isPrintingQR}
-        onPrint={alarmUrl ? () => handlePrintQR(alarmUrl, tDash('alarmSheetTitle'), tDash('alarmSheetHint')) : undefined}
-      />
 
       {/* Vehicle Status Sheet */}
       <VehicleStatusSheet

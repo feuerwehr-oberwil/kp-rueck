@@ -14,7 +14,15 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, FeldDeviceClaim, Incident, IncidentAssignment, Personnel, User
+from app.models import (
+    Event,
+    EventSpecialFunction,
+    FeldDeviceClaim,
+    Incident,
+    IncidentAssignment,
+    Personnel,
+    User,
+)
 from app.services.tokens import generate_feld_token, validate_feld_token, validate_form_token
 from tests.conftest import feld_device_token
 
@@ -311,3 +319,63 @@ class TestRekoLink:
         )
 
         assert response.status_code == 403
+
+
+class TestBoardAssignedRekoReachesTheField:
+    """The write path, not just the migration.
+
+    `purpose` was added with a backfill for history, and the board's own
+    assign-reko path then had to learn to set it. It did not, at first: every
+    Reko the KP assigned came out as a crew row, so `/feld` asked the trupp for
+    a Schadenplatz-Rapport on a place it had only looked at — the exact bug the
+    column exists to kill, alive again for every NEW assignment.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_assigning_a_reko_from_the_board_lands_as_a_reko_row(
+        self,
+        editor_client: AsyncClient,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # A crew is already on the Schadenplatz; the Reko is somebody ELSE, which
+        # is the normal case and the only one the board accepts — assigning the
+        # person already on it is a no-op it answers 400 to.
+        await _person_on_an_incident(db_session, test_event, test_user)
+        incident_id = (await db_session.execute(select(IncidentAssignment))).scalar_one().incident_id
+        person = Personnel(id=uuid.uuid4(), name="Fischer Thomas", role="Offizier", status="available")
+        db_session.add(person)
+        await db_session.commit()
+        # The board only offers people who hold the reko function for the event.
+        db_session.add(EventSpecialFunction(event_id=test_event.id, personnel_id=person.id, function_type="reko"))
+        await db_session.commit()
+
+        response = await editor_client.post(
+            f"/api/reko-dashboard/incidents/{incident_id}/assign-reko",
+            json={"personnel_id": str(person.id)},
+        )
+        assert response.status_code in (200, 201), response.text
+
+        rows = (
+            (
+                await db_session.execute(
+                    select(IncidentAssignment).where(
+                        IncidentAssignment.incident_id == incident_id,
+                        IncidentAssignment.resource_id == person.id,
+                        IncidentAssignment.unassigned_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [r.purpose for r in rows] == ["reko"]
+
+        # And the field surface reads it as a Reko auftrag: no Rapport asked for.
+        token = await feld_device_token(db_session, test_event.id, person.id)
+        feed = await client.get(f"/api/feld/assignments/{person.id}?token={token}")
+        row = next(r for r in feed.json()["assignments"] if r["incident_id"] == str(incident_id))
+        assert row["source"] == "reko"

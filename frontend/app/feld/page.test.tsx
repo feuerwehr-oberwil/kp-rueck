@@ -17,17 +17,21 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiFeldAssignment, ApiFeldPersonnel } from '@/lib/api/types'
 
 const searchParams = vi.hoisted(() => new URLSearchParams())
+const routerPush = vi.hoisted(() => vi.fn())
 const getFeldPersonnel = vi.hoisted(() => vi.fn())
 const getFeldAssignments = vi.hoisted(() => vi.fn())
 const unlockFeld = vi.hoisted(() => vi.fn())
 const claimFeldPerson = vi.hoisted(() => vi.fn())
+const mintFeldRekoLink = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
+  // A Reko row navigates straight to the form instead of opening a detail page.
+  useRouter: () => ({ push: routerPush }),
 }))
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { getFeldPersonnel, getFeldAssignments, unlockFeld, claimFeldPerson },
+  apiClient: { getFeldPersonnel, getFeldAssignments, unlockFeld, claimFeldPerson, mintFeldRekoLink },
 }))
 
 // The detail view is a stack of sections; this test is about which section the
@@ -393,5 +397,59 @@ describe('/feld renders the server-computed address label', () => {
     // No home city known here, so the formatter passes the address through —
     // the row is never blank.
     expect(await screen.findByText('Hauptstrasse 1, 4104 Oberwil')).toBeInTheDocument()
+  })
+})
+
+/**
+ * A Reko auftrag is not a Schadenplatz you work — it is one form, and the KP
+ * sent you out to fill it. So the row skips the detail page entirely and lands
+ * in the form, exactly as the old per-incident Reko link did. A page of
+ * Aktionen and a Rapport section would be a page of things that are not theirs,
+ * and the server would refuse half of them anyway.
+ */
+describe('/feld opens a Reko auftrag straight into the form', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    seedDevice()
+    mintFeldRekoLink.mockResolvedValue({
+      incident_id: 'inc-1',
+      token: 'form-token',
+      link: '/reko?incident_id=inc-1&token=form-token&personnel_id=p-1',
+    })
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [assignment({ source: 'reko' })],
+      message_chips: [],
+    })
+  })
+
+  it('goes to the Reko form and never shows the detail sections', async () => {
+    setParams({ token: 'feld-token' })
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByText('Keller Wasser'))
+
+    await waitFor(() =>
+      expect(routerPush).toHaveBeenCalledWith('/reko?incident_id=inc-1&token=form-token&personnel_id=p-1'),
+    )
+    // No Aktionen, no Rapport — the two things a Reko trupp has no business with.
+    expect(screen.queryByTestId('feld-actions')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
+  })
+
+  it('mints the form token on the tap, not on render', async () => {
+    // It is short-lived and one is enough per filing: minting while the row is
+    // merely *shown* would spend one every ten seconds on the poll.
+    setParams({ token: 'feld-token' })
+    renderWithIntl(<FeldPage />)
+
+    await screen.findByText('Keller Wasser')
+    expect(mintFeldRekoLink).not.toHaveBeenCalled()
   })
 })

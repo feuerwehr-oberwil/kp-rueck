@@ -457,7 +457,8 @@
         "rowTitle": "{name} steht noch bei {address}",
         "since": "seit {duration}",
         "unknownAddress": "Ohne Adresse"
-      }
+      },
+      "linksAndQr": "Links & QR"
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -855,6 +856,27 @@
       "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuteilungen bleiben bestehen.",
       "quickAddHint": "Wird direkt angemeldet",
       "writeFailed": "Anwesenheit konnte nicht gespeichert werden"
+    },
+    "links": {
+      "title": "Links & QR",
+      "description": "Was die Mannschaft, das Tablet an der Tür und der Wandbildschirm öffnen.",
+      "enlarge": "QR vergrössern",
+      "feld": {
+        "title": "Feld",
+        "audience": "Für alle im Einsatz – Plakat und Einsatzzettel"
+      },
+      "checkin": {
+        "title": "Check-in",
+        "audience": "Tablet an der Tür – Anwesenheit"
+      },
+      "display": {
+        "title": "Anzeige",
+        "audience": "Wandbildschirm – nur lesen"
+      },
+      "alarm": {
+        "title": "Alarm",
+        "audience": "Telefondienst und Laufkundschaft"
+      }
     }
   },
   "incidents": {
@@ -3383,12 +3405,6 @@
       "rekoReason": "Vom KP als Reko zugeteilt",
       "driverReason": "{vehicle} ist disponiert – du bist nicht selbst zugeteilt",
       "magazinReason": "Material von hier ist noch nicht zurück"
-    },
-    "reko": {
-      "title": "Reko erfassen",
-      "description": "Das KP hat dir diesen Schadenplatz zur Erkundung zugeteilt.",
-      "open": "Formular öffnen",
-      "failed": "Formular konnte nicht geöffnet werden. Nochmals versuchen."
     },
     "access": {
       "label": "Feld-Code",

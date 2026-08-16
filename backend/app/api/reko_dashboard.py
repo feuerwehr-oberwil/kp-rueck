@@ -175,12 +175,18 @@ async def assign_reko_personnel(
             incident_id,
         )
 
-    # Create the new assignment
+    # Create the new assignment.
+    #
+    # `purpose="reko"` is the whole point of the column (plan 26 §27): this row
+    # and a crew row are otherwise identical, and `/feld` would then ask a trupp
+    # that only drove out to look for a Schadenplatz-Rapport. Set here, at the
+    # path the assignment came in through — never inferred afterwards.
     db_assignment = IncidentAssignment(
         incident_id=incident_id,
         resource_type="personnel",
         resource_id=assignment.personnel_id,
         assigned_by=current_user.id,
+        purpose="reko",
     )
     db.add(db_assignment)
     await db.commit()
@@ -295,12 +301,15 @@ async def transfer_reko_assignments(
         if incident and incident.status in ("incoming", "reko"):
             # Unassign old person
             await crud.unassign_reko_personnel_from_incident(db, assignment["incident_id"], from_personnel_id)
-            # Assign new person
+            # Assign new person — still a Reko auftrag, so it keeps the purpose
+            # (a handover that quietly turned into a crew row would land the new
+            # person with a Rapport the old one never owed).
             db_assignment = IncidentAssignment(
                 incident_id=assignment["incident_id"],
                 resource_type="personnel",
                 resource_id=to_personnel_id,
                 assigned_by=current_user.id if current_user else None,
+                purpose="reko",
             )
             db.add(db_assignment)
             transferred.append(str(assignment["incident_id"]))

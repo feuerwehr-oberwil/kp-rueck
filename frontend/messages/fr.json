@@ -795,12 +795,6 @@
       "driverReason": "{vehicle} est engagé – tu n'es pas assigné toi-même",
       "magazinReason": "Du matériel d'ici n'est pas encore rentré"
     },
-    "reko": {
-      "title": "Saisir la reco",
-      "description": "Le PC t'a assigné ce lieu pour la reconnaissance.",
-      "open": "Ouvrir le formulaire",
-      "failed": "Impossible d'ouvrir le formulaire. Réessaie."
-    },
     "access": {
       "label": "Code terrain",
       "devices": "{count, plural, =0 {aucun appareil} one {# appareil} other {# appareils}}",
@@ -1366,7 +1360,8 @@
         "rowTitle": "{name} se trouve encore à {address}",
         "since": "depuis {duration}",
         "unknownAddress": "Sans adresse"
-      }
+      },
+      "linksAndQr": "Liens & QR"
     },
     "missingResources": {
       "title": "Il manque des ressources",
@@ -1764,6 +1759,27 @@
       "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les affectations sont conservées.",
       "quickAddHint": "Sera annoncé directement",
       "writeFailed": "La présence n’a pas pu être enregistrée"
+    },
+    "links": {
+      "title": "Liens & QR",
+      "description": "Ce qu'ouvrent les équipes, la tablette à la porte et l'écran mural.",
+      "enlarge": "Agrandir le QR",
+      "feld": {
+        "title": "Terrain",
+        "audience": "Pour toutes les équipes – affiche et fiche d'intervention"
+      },
+      "checkin": {
+        "title": "Check-in",
+        "audience": "Tablette à la porte – présence"
+      },
+      "display": {
+        "title": "Affichage",
+        "audience": "Écran mural – lecture seule"
+      },
+      "alarm": {
+        "title": "Alarme",
+        "audience": "Service téléphonique et passage"
+      }
     }
   },
   "login": {

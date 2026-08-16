@@ -180,11 +180,20 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
     }
   }
 
+  // Only the crew working a Schadenplatz can arrive at it, end it or ask for an
+  // Abholung — the server refuses those three from a driver or a Magazin person
+  // (plan 26, decision 11). Rendering them anyway would be four buttons of which
+  // two answer 403, which is worse than three that all work. A Meldung is open
+  // to anybody who can see the row: noticing something is not a crew privilege.
+  const isCrew = assignment.source === 'crew'
+
   return (
     <section className="rounded-xl bg-secondary/50 p-4 space-y-3">
       <h2 className="text-sm font-medium text-muted-foreground">{t('title')}</h2>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className={isCrew ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-1 gap-2'}>
+        {isCrew && (
+          <>
         <Button
           variant={arrived ? 'secondary' : 'default'}
           size="lg"
@@ -243,6 +252,8 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
           <CarTaxiFront className="size-4" />
           <span className="text-sm font-semibold">{tPickup('request')}</span>
         </Button>
+          </>
+        )}
 
         <Button
           variant="outline"

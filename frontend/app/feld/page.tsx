@@ -15,7 +15,7 @@
  */
 
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Star, User } from 'lucide-react'
 
@@ -29,7 +29,6 @@ import {
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
-import { FeldRekoSection } from '@/components/feld/feld-reko-section'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
@@ -236,6 +235,7 @@ export default function FeldPage() {
 
 function FeldSurface() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const linkToken = searchParams.get('token')
   // The Einsatzzettel's second QR (decision 19): the SAME event token with the
   // incident appended. A shortcut, not a second door — it can only preselect the
@@ -445,12 +445,33 @@ function FeldSurface() {
     }
   }, [token, loadAssignments, t])
 
-  /** Open a Schadenplatz and remember it, so a reload comes back HERE. */
-  const openAssignment = useCallback((incidentId: string) => {
-    setSelectedIncidentId(incidentId)
+  /**
+   * Open a Schadenplatz and remember it, so a reload comes back HERE.
+   *
+   * **A Reko auftrag skips the detail page entirely** and goes straight into the
+   * form, exactly as the old per-incident Reko link did. The KP sent this person
+   * out to look at one place and report back — there is nothing else for them to
+   * do here, so a page of Aktionen and a Rapport section is a page of things
+   * that are not theirs. (The server agrees: half those buttons would 403.)
+   */
+  const openAssignment = useCallback(async (assignment: ApiFeldAssignment) => {
+    if (assignment.source === 'reko' && token && selectedPerson) {
+      try {
+        const { link } = await apiClient.mintFeldRekoLink(
+          assignment.incident_id,
+          selectedPerson.personnel_id,
+          token,
+        )
+        router.push(link)
+      } catch (err) {
+        console.error('Failed to open the reko form:', err)
+      }
+      return
+    }
+    setSelectedIncidentId(assignment.incident_id)
     setViewMode('detail')
-    writeCookie(INCIDENT_COOKIE, incidentId)
-  }, [])
+    writeCookie(INCIDENT_COOKIE, assignment.incident_id)
+  }, [token, selectedPerson, router])
 
   /** Leaving via «Zurück» is the crew saying they are done with this one, so it
    *  is also what forgets it — otherwise the back button would be undone by the
@@ -495,7 +516,7 @@ function FeldSurface() {
     preselectApplied.current = true
     const match = assignments.find(a => a.incident_id === preselectIncidentId)
     if (!match) return
-    openAssignment(match.incident_id)
+    openAssignment(match)
   }, [assignments, preselectIncidentId, openAssignment])
 
   // Coming back from another tab/app should show the current state, not what
@@ -835,22 +856,6 @@ function FeldSurface() {
                 because it is what the crew fills the Rapport against. */}
             <FeldBriefing assignment={selectedAssignment} folded />
 
-            {/* Section: "Reko erfassen" — only for somebody the KP actually
-                gave a Reko auftrag (plan 26, decision 27). This is the half of
-                the two detail views that a *working* crew never sees: they read
-                the Reko above as briefing and file a Rapport instead.
-
-                The form is the board's own; `/feld` mints the per-incident form
-                token for it rather than widening the feld token, so neither
-                token type learns about the other. */}
-            {token && selectedPerson && selectedAssignment.source === 'reko' && (
-              <FeldRekoSection
-                incidentId={selectedAssignment.incident_id}
-                personnelId={selectedPerson.personnel_id}
-                token={token}
-              />
-            )}
-
             {/* Section: the Schadenplatz-Rapport itself — the paper
                 replacement. The SAME component the board's detail mounts
                 (decision 28); only the transport and the identity differ. */}
@@ -966,7 +971,7 @@ function FeldSurface() {
             return (
               <button
                 key={assignment.incident_id}
-                onClick={() => openAssignment(assignment.incident_id)}
+                onClick={() => openAssignment(assignment)}
                 className={`w-full cursor-pointer text-left rounded-xl p-4 transition-colors ${
                   assignment.is_active_assignment
                     ? 'bg-secondary/50 hover:bg-secondary'
