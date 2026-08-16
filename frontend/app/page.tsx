@@ -1971,8 +1971,14 @@ export default function FireStationDashboard() {
           /* Desktop View */
           <>
         <div className="relative flex flex-1 overflow-hidden">
+          {/* `z-10` on both sidebars: their collapse handles straddle the inner
+              edge, so half of each hangs over the board. `backdrop-blur-sm` makes
+              an aside a stacking context, so a handle's own z-20 cannot lift it
+              past a SIBLING — and the board block follows the LEFT sidebar in DOM
+              order with an opaque background, which painted that half away. The
+              right one only ever looked fine because it comes after the board. */}
           {showLeftSidebar && (
-            <aside className="relative w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
+            <aside className="relative z-10 w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
               {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
               <button
                 onClick={() => setShowLeftSidebar(false)}
@@ -2280,8 +2286,11 @@ export default function FireStationDashboard() {
             onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
           />
 
+          {/* Same `z-10` as the left sidebar — see the note there. This side works
+              on DOM order alone today; it carries the class so the handle does not
+              depend on which side of the board its aside happens to sit. */}
           {showRightSidebar && (
-            <aside className="relative w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
+            <aside className="relative z-10 w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
               {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
               <button
                 onClick={() => setShowRightSidebar(false)}

@@ -30,6 +30,17 @@ will keep holding.
 
 ### Security
 
+- **A crash report could carry an integration credential out of the building.** The telemetry
+  sanitiser is vendored from KP Front, and KP Front's copy had been tightened while this one
+  had not – so for a while the two apps stripped different things, which is the exact failure
+  the cross-repo CI job exists to catch. The copies are identical again, and this side now
+  strips what the other already did: the credential words a station can set from the browser
+  (`accesskey`, `access_key`, `vapid`, `credential`, `passwort`, and the same words inside a
+  longer identifier such as `stt_api_key`), and – the one that mattered – the whole URL rather
+  than its host. `healthcheck_ping_url` is a credential whose secret is the *path*: the old
+  order kept the basename, which is right for a stack frame and precisely wrong here, so the
+  ping token left inside `…/<token>`.
+
 - **Any editor could rewrite the alarm webhook secret, and its value went into the audit log
   in clear text.** The key that authorises writing incidents onto the board was masked in
   `GET /api/settings/`, refused by name on the single-key route – and then writable by every
@@ -567,6 +578,14 @@ will keep holding.
   and when both were drawn the same the eye stopped finding the column boundaries.
 
 ### Fixed
+
+- **The left sidebar's collapse handle was painted over by the board.** Both handles straddle
+  the inner edge of their sidebar, so half of each hangs over the board – and `backdrop-blur`
+  makes an aside its own stacking context, which means the handle's own `z-20` could not lift
+  it past a *sibling*. The board block follows the left sidebar in DOM order and has an opaque
+  background, so it covered that half; the right handle only ever looked right because its
+  aside comes after the board. Both asides now carry `z-10`, so neither depends on which side
+  of the board it happens to sit.
 
 - **The two WhatsApp-Vorlagen in Einstellungen → Alarmierung could not be saved.** The page
   offered a Textarea for each, and every save answered 404 behind a generic «Speichern
