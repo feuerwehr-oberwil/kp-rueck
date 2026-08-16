@@ -67,7 +67,11 @@ services:
         condition: service_healthy
     healthcheck:
       # The backend image ships no curl; probe with the interpreter instead.
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      # 127.0.0.1, not localhost: inside this container `localhost` resolves to ::1 first and
+      # uvicorn binds IPv4 only, so the probe was refused on every run – the dev backend sat
+      # `unhealthy` forever while answering the host perfectly well. Same trap, and the same
+      # fix, as the frontend probe in docker-compose.yml.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -144,7 +144,10 @@ services:
       - premigration:/mnt/data/backups
     healthcheck:
       # The backend image ships no curl; probe with the interpreter instead.
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      # 127.0.0.1 for the same reason the frontend probe below uses it: `localhost` can resolve
+      # to ::1 inside the image while uvicorn binds IPv4 only, which refuses the probe on a
+      # backend that is in fact serving. It bites on the dev image today and is latent here.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
       interval: 15s
       timeout: 5s
       retries: 5
