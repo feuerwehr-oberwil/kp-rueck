@@ -55,7 +55,9 @@ event, one operator at the board**, not scaled down from a dispatch center.
 - **Resources:** personnel, vehicles, and materials with assignment conflict warnings.
 - **Aufträge:** group several incidents into one ordered route for a squad – the storm case,
   where a crew works a list rather than a single address. The board keeps the sequence, the
-  crew, and the radio announcement for the whole route.
+  crew, and the radio announcement for the whole route. Recurring ones («Sturmholz»,
+  «Absperren») are configurable as **Standard-Aufträge** and can open with every new Ereignis,
+  carrying their colour, note and usual equipment.
 - **Alarm intake:** provider-neutral `POST /api/alarms`, a native Divera adapter, a token-gated
   phone/walk-in form, and a capability registry the UI reads instead of hard-coding providers.
 - **Reconnaissance:** Reko forms with photo upload from mobile devices.

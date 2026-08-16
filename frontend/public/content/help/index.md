@@ -406,6 +406,19 @@ Bei einer **Flächenlage** (z. B. Sturm- oder Hochwasserschäden mit vielen klei
 
 Ein Einsatz, der bereits in einem anderen Auftrag liegt, wird beim Hinzufügen **verschoben** (ein Einsatz gehört zu höchstens einer Route).
 
+### Standard-Aufträge
+
+Aufträge, die bei jeder Lage vorkommen, muss niemand jedes Mal neu tippen. Unter **Einstellungen → Standard-Aufträge** legst du Vorlagen an – Name, Farbe, eine feste Notiz und die Fahrzeuge/Materialien, die der Auftrag üblicherweise mitbringt. Typische Beispiele: «Sturmholz», «Absperren», «TLF-Backup».
+
+Der Schalter pro Vorlage entscheidet, was damit passiert:
+
+- **Bei jeder Lage** – der Auftrag wird bei jedem neuen Ereignis automatisch angelegt, leer und bereit für Stops.
+- **Nur auf Abruf** – die Vorlage steht oben in der Aufträge-Leiste als Knopf; ein Klick legt den Auftrag an.
+
+Zwei Dinge, die bewusst so sind: Ein hinterlegtes Fahrzeug wird **auch dann zugewiesen, wenn es schon anderswo im Einsatz ist** – die Konfliktwarnung auf dem Board soll genau das sichtbar machen. Und eine Vorlage enthält **kein Personal**: wer im Trupp ist, entscheidet sich pro Lage danach, wer da ist.
+
+Ein aus einer Vorlage entstandener Auftrag ist danach ein ganz normaler Auftrag – die Vorlage später zu ändern oder zu löschen wirkt **nicht** in laufende Lagen zurück.
+
 ### Route-eigene Ressourcen
 
 Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die die ganze Route selbstständig abarbeitet** – wir leiten diesen einen Trupp nur von Stop zu Stop.

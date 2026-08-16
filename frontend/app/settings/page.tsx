@@ -83,6 +83,7 @@ import {
   Navigation,
   LifeBuoy,
   ClipboardCheck,
+  Route,
   Trash2,
   Plus,
   Lock,
@@ -123,6 +124,7 @@ import { MaterialSettings } from '@/components/settings/material-settings';
 import { PrinterSettings } from '@/components/settings/printer-settings';
 import { FallbackSettings } from '@/components/settings/fallback-settings';
 import { ChecklistSettings } from '@/components/settings/checklist-settings';
+import { AuftragTemplateSettings } from '@/components/settings/auftrag-template-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
 import { BrandingSettings } from '@/components/settings/branding-settings';
@@ -138,6 +140,7 @@ const SECTIONS = [
   { id: 'notifications', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
   { id: 'alerting', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'checklist', icon: ClipboardCheck, group: 'config', editorOnly: true, adminOnly: false },
+  { id: 'auftragTemplates', icon: Route, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'gps', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
   // Sync can rewrite whole tables and points at a database URL – admin-only (matches /api/sync/*).
   { id: 'sync', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
@@ -1001,6 +1004,15 @@ export default function SettingsPage() {
         );
       }
 
+      case 'auftragTemplates': {
+        return (
+          <div className="space-y-6">
+            <DemoLock active={demoMode}>
+              <AuftragTemplateSettings readOnly={!isEditor || demoMode} />
+            </DemoLock>
+          </div>
+        );
+      }
 
       case 'gps': {
         return (

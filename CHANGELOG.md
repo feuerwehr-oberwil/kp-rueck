@@ -93,6 +93,25 @@ will keep holding.
 
 ### Added
 
+- **Standard-Aufträge: the board opens with the Aufträge you always open.** «Sturmholz»,
+  «Absperren», «TLF-Backup» – the same handful of Aufträge get typed out at the start of every
+  Lage, with the same colour and the same equipment, by somebody who has better things to do in
+  the first ten minutes. They are now station configuration (Einstellungen → Standard-Aufträge):
+  name, colour, a standing note, and the vehicles and material the Auftrag normally brings along.
+  A switch per Vorlage decides what happens next – **on** means every new Ereignis opens with
+  that Auftrag already on the board, empty and ready for stops; **off** keeps it in the
+  Aufträge-Fenster as a one-click Vorlage, which is what a rarely-needed «TLF-Backup» wants.
+  A station that never opens the section is unaffected: no templates means a new Ereignis still
+  starts with an empty board.
+
+  Two deliberate choices. **Equipment that is already committed elsewhere is attached anyway** –
+  the station named that TLF on purpose, and the board's conflict warning exists to say *this
+  Auftrag is short a vehicle* out loud rather than to be routed around. And a template names
+  equipment only, never **people**: who is on a squad is decided per Lage from who actually
+  turned up. Aufträge created from a Vorlage are ordinary Aufträge afterwards – editing the
+  template never reaches back into a running Lage, and deleting one leaves what it created
+  standing.
+
 - **Things that needed a terminal now have a screen.** The rule this follows: anything read
   before the app can serve a page stays in `.env` – the signing keys, the database URL, the
   port Caddy binds – and everything after that belongs in the browser, because the person who

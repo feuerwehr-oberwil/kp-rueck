@@ -410,6 +410,19 @@ Ouvrir avec la touche `A` ou via la barre **Missions** en bas de l’écran.
 
 Une intervention qui appartient déjà à une autre mission est **déplacée** lors de l’ajout (une intervention appartient au plus à un itinéraire).
 
+### Ordres standard
+
+Les missions qui reviennent à chaque situation n’ont pas à être ressaisies à chaque fois. Sous **Réglages → Ordres standard**, tu crées des modèles – nom, couleur, une note fixe et les véhicules/matériels que la mission emporte habituellement. Exemples typiques : « Bois de tempête », « Barrage », « Réserve TLF ».
+
+L’interrupteur de chaque modèle décide de la suite :
+
+- **À chaque situation** – la mission est créée automatiquement à chaque nouvel événement, vide et prête à recevoir des étapes.
+- **Sur demande** – le modèle apparaît en haut de la barre des missions sous forme de bouton ; un clic crée la mission.
+
+Deux choix délibérés : un véhicule enregistré est attribué **même s’il est déjà engagé ailleurs** – l’avertissement de conflit sur le tableau existe précisément pour rendre cela visible. Et un modèle ne contient **aucun personnel** : qui fait partie du groupe se décide par situation, selon qui est présent.
+
+Une mission issue d’un modèle est ensuite une mission ordinaire – modifier ou supprimer le modèle plus tard n’a **aucun** effet rétroactif sur les situations en cours.
+
 ### Ressources propres à l’itinéraire
 
 Le modèle de base : **une mission est une unité unique qui parcourt tout l’itinéraire de manière autonome** – nous ne faisons que guider ce groupe d’étape en étape.

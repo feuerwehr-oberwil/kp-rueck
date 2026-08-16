@@ -53,6 +53,9 @@ import {
   type ApiIncidentGroup,
   type ApiIncidentGroupCreate,
   type ApiIncidentGroupUpdate,
+  type ApiAuftragTemplate,
+  type ApiAuftragTemplateCreate,
+  type ApiAuftragTemplateUpdate,
   type ApiGroupAnnouncement,
   type ApiGroupAssignment,
   type ApiGroupAssignmentCreate,
@@ -743,6 +746,43 @@ class ApiClient {
     await this.request<void>('/api/incident-groups/reorder', {
       method: 'POST',
       body: JSON.stringify({ event_id: eventId, ordered_ids: orderedIds }),
+    })
+  }
+
+  // --- Standard-Aufträge (Auftrag templates) – station config, not event data ---
+
+  /** List the station's Standard-Aufträge in settings order (any signed-in user). */
+  async getAuftragTemplates(): Promise<ApiAuftragTemplate[]> {
+    return this.request<ApiAuftragTemplate[]>('/api/auftrag-templates/')
+  }
+
+  async createAuftragTemplate(data: ApiAuftragTemplateCreate): Promise<ApiAuftragTemplate> {
+    return this.request<ApiAuftragTemplate>('/api/auftrag-templates/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateAuftragTemplate(
+    id: string,
+    data: ApiAuftragTemplateUpdate
+  ): Promise<ApiAuftragTemplate> {
+    return this.request<ApiAuftragTemplate>(`/api/auftrag-templates/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  /** Delete a Standard-Auftrag. Aufträge already created from it stay put (204). */
+  async deleteAuftragTemplate(id: string): Promise<void> {
+    return this.request<void>(`/api/auftrag-templates/${id}`, { method: 'DELETE' })
+  }
+
+  /** Persist the settings list order of the Standard-Aufträge (204 No Content). */
+  async reorderAuftragTemplates(templateIds: string[]): Promise<void> {
+    await this.request<void>('/api/auftrag-templates/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ template_ids: templateIds }),
     })
   }
 

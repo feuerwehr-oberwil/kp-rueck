@@ -25,6 +25,7 @@ from .api.alarms import router as alarms_router
 from .api.assignments import bulk_router as assignments_bulk_router
 from .api.assignments import router as assignments_router
 from .api.audit import router as audit_router
+from .api.auftrag_templates import router as auftrag_templates_router
 from .api.auth import router as auth_router
 from .api.diag import router as diag_router
 from .api.divera import router as divera_router
@@ -525,6 +526,7 @@ app.include_router(admin_router, prefix=settings.api_v1_prefix)
 app.include_router(alarms_router, prefix=settings.api_v1_prefix)
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(audit_router, prefix=settings.api_v1_prefix)
+app.include_router(auftrag_templates_router, prefix=settings.api_v1_prefix)
 app.include_router(diag_router, prefix=settings.api_v1_prefix)
 app.include_router(divera_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)

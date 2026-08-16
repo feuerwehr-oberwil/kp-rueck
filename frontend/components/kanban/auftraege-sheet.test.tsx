@@ -81,6 +81,9 @@ vi.mock("@/lib/api-client", () => ({
   apiClient: {
     getAllSettings: async () => ({}) as Record<string, string>,
     getVehiclePositions: async () => [],
+    // No Standard-Aufträge configured: the Vorlagen row stays out of the way,
+    // which is the state every assertion below is written against.
+    getAuftragTemplates: async () => [],
   },
 }))
 vi.mock("@/lib/geocoding", () => ({ reverseGeocode: vi.fn(async () => "Adresse") }))

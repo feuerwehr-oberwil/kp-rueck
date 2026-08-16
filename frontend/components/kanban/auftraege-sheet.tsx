@@ -31,7 +31,7 @@ import {
   Radio,
 } from "lucide-react"
 import { toast } from "sonner"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, type ApiAuftragTemplate } from "@/lib/api-client"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
@@ -147,6 +147,7 @@ export function AuftraegeSheet({
     reorderGroupStops,
     removeStop,
     unassignResource,
+    assignResource,
     getGroupResources,
     refreshGroups,
   } = useGroups()
@@ -175,6 +176,51 @@ export function AuftraegeSheet({
   const [renameValue, setRenameValue] = useState("")
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [radioGroupId, setRadioGroupId] = useState<string | null>(null)
+
+  // Standard-Aufträge the station configured in Einstellungen. Loaded when the
+  // sheet opens rather than held in a context: it is station config that changes
+  // about never, and nothing else on the board needs it.
+  const [templates, setTemplates] = useState<ApiAuftragTemplate[]>([])
+  const [templateBusy, setTemplateBusy] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open || !canEdit) return
+    apiClient
+      .getAuftragTemplates()
+      .then(setTemplates)
+      .catch(() => setTemplates([])) // a missing Vorlagen row is not worth a toast
+  }, [open, canEdit])
+
+  // Offered only while this event has no Auftrag of that name — the auto-created
+  // ones are already down there, and a second «Sturmholz» helps nobody.
+  const availableTemplates = useMemo(() => {
+    const taken = new Set(groups.map((group) => group.name.trim().toLowerCase()))
+    return templates.filter((template) => !taken.has(template.name.trim().toLowerCase()))
+  }, [templates, groups])
+
+  /** Create an Auftrag from a Vorlage, carrying its colour, notes and equipment.
+   *  Resources that clash with another Einsatz are assigned anyway — the board's
+   *  conflict warning is the point, not something to route around. */
+  const createFromTemplate = useCallback(
+    async (template: ApiAuftragTemplate) => {
+      setTemplateBusy(template.id)
+      try {
+        const created = await createGroup({
+          name: template.name,
+          color: template.color,
+          notes: template.notes,
+        })
+        if (!created) return
+        for (const resource of template.resources) {
+          await assignResource(created.id, resource.resource_type, resource.resource_id)
+        }
+        setExpanded(new Set([created.id]))
+      } finally {
+        setTemplateBusy(null)
+      }
+    },
+    [createGroup, assignResource],
+  )
 
   const rowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
 
@@ -294,6 +340,29 @@ export function AuftraegeSheet({
               </Button>}
             </div>
           </SheetHeader>
+
+          {/* Standard-Aufträge that are not on this board yet — one click each.
+              Above the scroll area so it stays put while the routes scroll. */}
+          {canEdit && availableTemplates.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 border-b border-border pb-3">
+              <span className="text-xs font-medium text-muted-foreground">{t("templatesLabel")}</span>
+              {availableTemplates.map((template) => (
+                <Button
+                  key={template.id}
+                  size="xs"
+                  variant="outline"
+                  disabled={templateBusy !== null}
+                  onClick={() => void createFromTemplate(template)}
+                >
+                  <span
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: template.color ?? "var(--muted-foreground)" }}
+                  />
+                  {template.name}
+                </Button>
+              ))}
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto mt-3 pb-10 space-y-3">
             {/* Inline create row */}

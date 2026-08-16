@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..models import Event, Incident, User
 from ..services.audit import log_action
+from . import auftrag_templates as auftrag_templates_crud
 
 
 async def get_events(
@@ -49,13 +50,23 @@ async def get_event_by_id(db: AsyncSession, event_id: uuid.UUID) -> Event | None
     return result.scalar_one_or_none()
 
 
-async def create_event(db: AsyncSession, event_data: schemas.EventCreate) -> Event:
+async def create_event(
+    db: AsyncSession,
+    event_data: schemas.EventCreate,
+    created_by: uuid.UUID | None = None,
+) -> Event:
     """
-    Create a new event.
+    Create a new event, opening the station's automatic Standard-Aufträge with it.
+
+    The templates are the whole reason this is not a two-line insert: a station
+    that has switched «Sturmholz» and «Absperren» on expects them on the board
+    the moment the Lage exists, not after somebody remembers to type them. One
+    transaction, so a board never appears with half its standing Aufträge.
 
     Args:
         db: Database session
         event_data: Event creation data
+        created_by: Who is opening the Lage — recorded on the auto-created Aufträge
 
     Returns:
         Created event
@@ -67,6 +78,8 @@ async def create_event(db: AsyncSession, event_data: schemas.EventCreate) -> Eve
         last_activity_at=datetime.now(UTC),
     )
     db.add(event)
+    await db.flush()
+    await auftrag_templates_crud.instantiate_auto_templates(db, event.id, created_by)
     await db.commit()
     await db.refresh(event)
     return event
