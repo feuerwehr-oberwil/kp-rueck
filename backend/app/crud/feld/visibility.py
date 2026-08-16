@@ -136,6 +136,16 @@ async def visible_by_personnel(
             # Same source twice — assigned, released, re-assigned. Active wins.
             mine[incident_id] = FeldSource(kind, True, vehicle_name or current.vehicle_name)
 
+    # Who is a Reko person in this Ereignis at all. Needed as a *fallback* below,
+    # not as the rule — see the loop.
+    reko_people = await db.execute(
+        select(EventSpecialFunction.personnel_id).where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.function_type == "reko",
+        )
+    )
+    reko_person_ids = {row[0] for row in reko_people.all()}
+
     # ── crew + reko: personal assignments, active or released ──────────────
     personal = await db.execute(
         select(
@@ -149,12 +159,22 @@ async def visible_by_personnel(
         )
     )
     for person_id, incident_id, unassigned_at, purpose in personal.all():
-        # A purpose this release has never heard of — one a LATER release adds —
-        # reads as crew. Today's CHECK constraint makes that unreachable; if it
-        # ever is reached, the safe direction is *more* paperwork, never
-        # silently dropping a Rapport somebody owes.
-        kind = SOURCE_REKO if purpose == SOURCE_REKO else SOURCE_CREW
-        offer(person_id, incident_id, kind, unassigned_at is None)
+        # `purpose` is the authoritative signal — it says why THIS row exists.
+        #
+        # The fallback matters because the board has a second, older signal: the
+        # event-wide `reko` function. Rows written before `purpose` existed (and
+        # any written by a path that forgets to set it) carry the default 'crew'
+        # while the board still draws that person as the Reko — two rules for one
+        # question, and the field surface losing the argument means a Reko trupp
+        # is handed the working crew's page.
+        #
+        # Reading the function as reko closes that. The cost is that a Reko
+        # person's *crew* work elsewhere in the same Ereignis also reads as reko
+        # and is never asked for a Rapport — accepted deliberately, because a
+        # person doing both in one Ereignis is vanishingly rare and the board
+        # already treats the two as separate roles.
+        is_reko = purpose == SOURCE_REKO or person_id in reko_person_ids
+        offer(person_id, incident_id, SOURCE_REKO if is_reko else SOURCE_CREW, unassigned_at is None)
 
     # ── driver: vehicles they drive, only while those are assigned ─────────
     driven = await db.execute(

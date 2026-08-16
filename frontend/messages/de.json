@@ -862,20 +862,20 @@
       "description": "Was die Mannschaft, das Tablet an der Tür und der Wandbildschirm öffnen.",
       "enlarge": "QR vergrössern",
       "feld": {
-        "title": "Feld",
-        "audience": "Für alle im Einsatz – Plakat und Einsatzzettel"
+        "title": "Feld – Mannschaft",
+        "subtitle": "Für alle im Einsatz"
       },
       "checkin": {
-        "title": "Check-in",
-        "audience": "Tablet an der Tür – Anwesenheit"
+        "title": "Anwesenheit",
+        "subtitle": "Check-in am Eingang"
       },
       "display": {
-        "title": "Anzeige",
-        "audience": "Wandbildschirm – nur lesen"
+        "title": "Wandanzeige",
+        "subtitle": "Nur lesen"
       },
       "alarm": {
-        "title": "Alarm",
-        "audience": "Telefondienst und Laufkundschaft"
+        "title": "Alarm erfassen",
+        "subtitle": "Telefon und Laufkundschaft"
       }
     }
   },
@@ -3399,12 +3399,13 @@
       "wrong": "Falscher Code"
     },
     "source": {
-      "reko": "Als Reko",
+      "reko": "Reko-Auftrag",
       "driver": "Als Fahrer · {vehicle}",
       "magazin": "Magazin",
       "rekoReason": "Vom KP als Reko zugeteilt",
       "driverReason": "{vehicle} ist disponiert – du bist nicht selbst zugeteilt",
-      "magazinReason": "Material von hier ist noch nicht zurück"
+      "magazinReason": "Material von hier ist noch nicht zurück",
+      "rekoAction": "Reko erfassen"
     },
     "access": {
       "label": "Feld-Code",

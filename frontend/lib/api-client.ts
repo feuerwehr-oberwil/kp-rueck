@@ -2022,11 +2022,17 @@ class ApiClient {
     )
   }
 
-  /** Step 2 of the door: the code buys an unlocked token *and* the picker. */
+  /** Step 2 of the door: the code buys an unlocked token *and* the picker.
+   *
+   *  `skipToast` because a wrong code is not an error to be announced — it is
+   *  the expected answer to a typo, and the page already turns the field red.
+   *  A toast on top of that shouts "Fehler" across a phone screen for a
+   *  mistyped digit, and does it again on every retry. */
   async unlockFeld(token: string, code: string): Promise<ApiFeldUnlockResponse> {
     return this.request<ApiFeldUnlockResponse>(`/api/feld/unlock?token=${encodeURIComponent(token)}`, {
       method: 'POST',
       body: JSON.stringify({ code }),
+      skipToast: true,
     })
   }
 

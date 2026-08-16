@@ -113,7 +113,7 @@ export function LinksQrSheet({ open, onOpenChange, eventId, printerEnabled }: Li
       await apiClient.queueQRCodePrint({
         qr_content: url,
         title: t(`${key}.title`),
-        subtitle: t(`${key}.audience`),
+        subtitle: t(`${key}.subtitle`),
         event_id: eventId,
       })
       toast.info(tCommon("printQrCode"))
@@ -125,7 +125,15 @@ export function LinksQrSheet({ open, onOpenChange, eventId, printerEnabled }: Li
 
   return (
     <>
-      <FooterSheet open={open} onOpenChange={onOpenChange} className="max-w-3xl mx-auto px-6 py-4">
+      <FooterSheet
+        open={open}
+        onOpenChange={onOpenChange}
+        // Enlarging a QR opens a dialog on top of this sheet; without this the
+        // outside-click guard reads that as "the operator clicked away" and
+        // closes the sheet underneath, so dismissing the QR lands on the board.
+        shouldPreventClose={() => enlarged !== null}
+        className="max-w-3xl mx-auto px-6 py-4"
+      >
         <SheetHeader className="p-0 mb-3">
           <SheetTitle>{t("title")}</SheetTitle>
           <SheetDescription>{t("description")}</SheetDescription>
@@ -158,8 +166,10 @@ export function LinksQrSheet({ open, onOpenChange, eventId, printerEnabled }: Li
                 </button>
 
                 <div className="min-w-0 flex-1">
+                  {/* The name does the explaining. A second line spelling out
+                      who it is for ("Tablet an der Tür – Anwesenheit") was the
+                      same fact twice, and the longer half was the vaguer one. */}
                   <div className="text-sm font-medium">{t(`${key}.title`)}</div>
-                  <div className="truncate text-xs text-muted-foreground">{t(`${key}.audience`)}</div>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5">

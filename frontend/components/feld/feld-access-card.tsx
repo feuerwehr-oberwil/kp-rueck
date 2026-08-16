@@ -87,24 +87,29 @@ export function FeldAccessCard({ eventId }: FeldAccessCardProps) {
 
   return (
     <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-      <div className="flex items-center gap-3">
-        <KeyRound className="size-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('label')}</div>
-          {/* Tabular figures and wide tracking: this gets read out across a
-              command post and typed on a phone in the rain. */}
-          <div className="font-mono text-2xl font-semibold tracking-[0.3em] tabular-nums">{state.code}</div>
+      {/* The code leads and gets the room. It is the one thing on this card
+          somebody reads off a screen and types on a phone; the two maintenance
+          buttons are rare and sit out of its way rather than beside it. */}
+      <div className="flex items-baseline gap-2">
+        <KeyRound className="size-3.5 shrink-0 translate-y-0.5 text-muted-foreground" />
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('label')}</span>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {t('devices', { count: state.device_count })}
+        </span>
+      </div>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        {/* Tabular figures and wide tracking: read out across a command post,
+            typed on a phone in the rain. */}
+        <div className="font-mono text-3xl font-semibold leading-none tracking-[0.28em] tabular-nums">
+          {state.code}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            {t('devices', { count: state.device_count })}
-          </span>
-          <Button variant="outline" size="xs" onClick={() => setConfirmRegenerate(true)} disabled={busy}>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button variant="ghost" size="xs" onClick={() => setConfirmRegenerate(true)} disabled={busy}>
             {busy ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
             {t('regenerate')}
           </Button>
           {state.device_count > 0 && (
-            <Button variant="outline" size="xs" onClick={() => setConfirmRevoke(true)} disabled={busy}>
+            <Button variant="ghost" size="xs" onClick={() => setConfirmRevoke(true)} disabled={busy}>
               {t('revoke')}
             </Button>
           )}

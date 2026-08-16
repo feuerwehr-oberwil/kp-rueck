@@ -990,8 +990,13 @@ function FeldSurface() {
                     above is a marker, this is the explanation. Silent for an
                     own assignment, which needs none. */}
                 <SourceReason assignment={assignment} />
-                {/* The EL briefing on the list, before the form is ever opened. */}
-                <LeaderLine assignment={assignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
+                {/* The EL briefing on the list, before the form is ever opened.
+                    Not on a Reko row: the Einsatzleiter leads the crew that
+                    works the Schadenplatz, and a trupp sent out to look at it
+                    reports back to the KP, not to them. */}
+                {assignment.source !== 'reko' && (
+                  <LeaderLine assignment={assignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
+                )}
                 {/* Meldung, Fahrzeuge, Gefahren — the three facts that decide
                     which of six rows you open (§18.22). The rest of the
                     briefing is one tap away and stays there. */}
@@ -1000,7 +1005,17 @@ function FeldSurface() {
                   {assignmentRapportApplies(assignment) && (
                     <RapportStateChip state={assignment.rapport_state} />
                   )}
-                  <span className="text-xs text-muted-foreground">{tStatus(assignment.incident_status)}</span>
+                  {/* A Reko row says what it IS and what tapping does, and drops
+                      the status: "Reko" as a Schadenplatz-Status next to a Reko
+                      auftrag is the same word twice meaning two things. */}
+                  {assignment.source === 'reko' ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      <FileText className="h-3 w-3" />
+                      {t('source.rekoAction')}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{tStatus(assignment.incident_status)}</span>
+                  )}
                   {!assignment.is_active_assignment && (
                     <span className="text-xs text-muted-foreground">{t('assignments.released')}</span>
                   )}

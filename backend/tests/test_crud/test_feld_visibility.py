@@ -492,3 +492,46 @@ class TestEventIsolation:
         visible = await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id)
 
         assert visible == {}
+
+
+class TestTheBoardsOlderRekoSignal:
+    """`purpose` is authoritative, the event-wide reko function is the fallback.
+
+    The board has drawn the Reko off `event_special_functions` since long before
+    `purpose` existed. Any assignment written before this column — or by a path
+    that forgets it — carries the default 'crew' while the board still shows
+    that person as the Reko. Two rules for one question, and the field surface
+    losing the argument means handing a Reko trupp the working crew's page.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_reko_person_reads_as_reko_even_on_a_legacy_crew_row(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user, "Alt")
+        person = await _person(db_session, "Fischer Thomas")
+        await _function(db_session, test_event, person, "reko")
+        # purpose='crew': exactly what a row written before the column looks like.
+        await _assign(db_session, incident, "personnel", person.id, purpose="crew")
+
+        visible = await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id)
+
+        assert visible[incident.id].kind == crud.SOURCE_REKO
+        assert visible[incident.id].owes_rapport is False
+
+    @pytest.mark.asyncio
+    async def test_somebody_without_the_function_is_still_crew(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The fallback must not leak: it keys on the person, not the incident.
+        incident = await _incident(db_session, test_event, test_user, "Normal")
+        reko = await _person(db_session, "Fischer Thomas")
+        worker = await _person(db_session, "Brunner Marco")
+        await _function(db_session, test_event, reko, "reko")
+        await _assign(db_session, incident, "personnel", reko.id, purpose="reko")
+        await _assign(db_session, incident, "personnel", worker.id)
+
+        visible = await crud.visible_incidents_for_personnel(db_session, test_event.id, worker.id)
+
+        assert visible[incident.id].kind == crud.SOURCE_CREW
+        assert visible[incident.id].owes_rapport is True
