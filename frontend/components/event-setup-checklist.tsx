@@ -149,8 +149,8 @@ export function EventSetupChecklist({
 
   const handleCopyCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
   const handlePrintCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'print', checkInMeta)
-  const handleCopyRekoLink = () => shareLink(() => apiClient.generateRekoDashboardLink(eventId), 'copy', rekoMeta)
-  const handlePrintRekoLink = () => shareLink(() => apiClient.generateRekoDashboardLink(eventId), 'print', rekoMeta)
+  const handleCopyRekoLink = () => shareLink(() => apiClient.generateFeldLink(eventId), 'copy', rekoMeta)
+  const handlePrintRekoLink = () => shareLink(() => apiClient.generateFeldLink(eventId), 'print', rekoMeta)
   const handleCopyAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'copy', alarmMeta)
   const handlePrintAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'print', alarmMeta)
   const handleCopyFeldLink = () => shareLink(() => apiClient.generateFeldLink(eventId), 'copy', feldMeta)

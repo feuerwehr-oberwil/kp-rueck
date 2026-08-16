@@ -1,4 +1,11 @@
-"""Reko Dashboard CRUD operations."""
+"""Assigning a Reko to a Schadenplatz — the BOARD's operation.
+
+Called `reko_dashboard` until plan 26 removed the login-less page of that name.
+Nothing in here ever belonged to that page: every caller is editor-authed, and
+the page only ever *read*. The Reko trupp files from `/feld` like everybody
+else now, so what is left is the KP's side of it — who is available, who has it,
+and handing it over.
+"""
 
 import math
 import uuid

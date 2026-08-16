@@ -46,7 +46,6 @@ from .api.personnel_checkin import router as personnel_checkin_router
 from .api.print import router as print_router
 from .api.reko import photos_router
 from .api.reko import router as reko_router
-from .api.reko_dashboard import router as reko_dashboard_router
 from .api.settings import router as settings_router
 from .api.special_functions import router as special_functions_router
 from .api.stats import router as stats_router
@@ -544,7 +543,6 @@ app.include_router(vehicles_router, prefix=settings.api_v1_prefix)
 app.include_router(materials_router, prefix=settings.api_v1_prefix)
 app.include_router(material_groups_router, prefix=settings.api_v1_prefix)
 app.include_router(reko_router, prefix=settings.api_v1_prefix)
-app.include_router(reko_dashboard_router, prefix=settings.api_v1_prefix)
 app.include_router(feld_router, prefix=settings.api_v1_prefix)
 app.include_router(photos_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)

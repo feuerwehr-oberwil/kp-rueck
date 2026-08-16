@@ -44,7 +44,7 @@ class WebSocketClient {
   private pingIntervalId: ReturnType<typeof setInterval> | null = null
   // How many mounted consumers currently want this socket alive. The socket is
   // a module singleton shared by OperationsProvider (root layout, effectively
-  // permanent) and several page-level consumers (/check-in, /reko-dashboard).
+  // permanent) and several page-level consumers (/check-in, /feld).
   // Without refcounting, the FIRST page to unmount tore the socket down for
   // everyone — navigating board → Check-in → board silently killed realtime
   // for the rest of the session, because the provider's connect() lives in a

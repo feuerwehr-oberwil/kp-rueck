@@ -10974,7 +10974,7 @@
           "reko"
         ],
         "summary": "Generate Reko Link",
-        "description": "Generate Reko form link for an incident.\n\nRequires either an editor/admin login or a valid reko-dashboard link\ntoken whose event contains the incident (the dashboard runs on field\nphones without an account). A leaked form link must NOT allow minting\nfresh tokens for arbitrary incidents.\n\nArgs:\n    incident_id: The incident this reko is for\n    form_type: Type of form (default: reko)\n    personnel_id: Optional personnel who will do the reko\n    dashboard_token: Event-scoped reko-dashboard token (alternative to login)\n\nReturns shareable link with token.",
+        "description": "Generate Reko form link for an incident.\n\nEditor/admin only. The field surface mints its own form token through\n`POST /api/feld/incidents/{id}/reko-link`, which runs the `/feld` two-step\nfirst — so a leaked form link still cannot mint fresh tokens for arbitrary\nincidents, and neither door had to learn about the other.\n\nArgs:\n    incident_id: The incident this reko is for\n    form_type: Type of form (default: reko)\n    personnel_id: Optional personnel who will do the reko\n\nReturns shareable link with token.",
         "operationId": "generate_reko_link_api_reko_generate_link_post",
         "parameters": [
           {
@@ -11012,22 +11012,6 @@
                 }
               ],
               "title": "Personnel Id"
-            }
-          },
-          {
-            "name": "dashboard_token",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Dashboard Token"
             }
           },
           {
@@ -11398,194 +11382,14 @@
         }
       }
     },
-    "/api/reko-dashboard/generate-link": {
-      "post": {
-        "tags": [
-          "reko-dashboard"
-        ],
-        "summary": "Generate Reko Dashboard Link",
-        "description": "Generate Reko Dashboard link (editor only).\n\nReturns shareable link scoped to a specific event.",
-        "operationId": "generate_reko_dashboard_link_api_reko_dashboard_generate_link_post",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Event ID for Reko Dashboard",
-              "title": "Event Id"
-            },
-            "description": "Event ID for Reko Dashboard"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Generate Reko Dashboard Link Api Reko Dashboard Generate Link Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/reko-dashboard/personnel": {
+    "/api/reko/incidents/{incident_id}/available-reko": {
       "get": {
         "tags": [
-          "reko-dashboard"
-        ],
-        "summary": "List Reko Personnel",
-        "description": "Get list of Reko personnel for the dashboard.\n\nRequires valid token (no user authentication).\nReturns personnel with Reko function assigned for the event.",
-        "operationId": "list_reko_personnel_api_reko_dashboard_personnel_get",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Access token from generated link",
-              "title": "Token"
-            },
-            "description": "Access token from generated link"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RekoDashboardPersonnelListResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/reko-dashboard/assignments/{personnel_id}": {
-      "get": {
-        "tags": [
-          "reko-dashboard"
-        ],
-        "summary": "Get Reko Assignments",
-        "description": "Get active incident assignments for a Reko personnel.\n\nRequires valid token (no user authentication).\nReturns list of incidents the personnel is assigned to.",
-        "operationId": "get_reko_assignments_api_reko_dashboard_assignments__personnel_id__get",
-        "parameters": [
-          {
-            "name": "personnel_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Personnel Id"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Access token",
-              "title": "Token"
-            },
-            "description": "Access token"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RekoDashboardAssignmentsResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/reko-dashboard/incidents/{incident_id}/available-reko": {
-      "get": {
-        "tags": [
-          "reko-dashboard"
+          "reko"
         ],
         "summary": "Get Available Reko Personnel",
         "description": "Get available Reko personnel for assignment to an incident.\n\nEditor only - used when assigning Reko personnel from incident card.\nReturns all Reko personnel with their assignment counts.",
-        "operationId": "get_available_reko_personnel_api_reko_dashboard_incidents__incident_id__available_reko_get",
+        "operationId": "get_available_reko_personnel_api_reko_incidents__incident_id__available_reko_get",
         "parameters": [
           {
             "name": "incident_id",
@@ -11654,14 +11458,14 @@
         }
       }
     },
-    "/api/reko-dashboard/incidents/{incident_id}/assign-reko": {
+    "/api/reko/incidents/{incident_id}/assign-reko": {
       "post": {
         "tags": [
-          "reko-dashboard"
+          "reko"
         ],
         "summary": "Assign Reko Personnel",
         "description": "Assign Reko personnel to an incident.\n\nEditor only - creates a personnel assignment for the Reko person.\nIf another Reko person is already assigned, they will be unassigned first.",
-        "operationId": "assign_reko_personnel_api_reko_dashboard_incidents__incident_id__assign_reko_post",
+        "operationId": "assign_reko_personnel_api_reko_incidents__incident_id__assign_reko_post",
         "parameters": [
           {
             "name": "incident_id",
@@ -11740,14 +11544,14 @@
         }
       }
     },
-    "/api/reko-dashboard/incidents/{incident_id}/unassign-reko/{personnel_id}": {
+    "/api/reko/incidents/{incident_id}/unassign-reko/{personnel_id}": {
       "delete": {
         "tags": [
-          "reko-dashboard"
+          "reko"
         ],
         "summary": "Unassign Reko Personnel",
         "description": "Unassign Reko personnel from an incident.\n\nEditor only - removes the personnel assignment for the Reko person.",
-        "operationId": "unassign_reko_personnel_api_reko_dashboard_incidents__incident_id__unassign_reko__personnel_id__delete",
+        "operationId": "unassign_reko_personnel_api_reko_incidents__incident_id__unassign_reko__personnel_id__delete",
         "parameters": [
           {
             "name": "incident_id",
@@ -11819,14 +11623,14 @@
         }
       }
     },
-    "/api/reko-dashboard/transfer-rekos": {
+    "/api/reko/transfer-rekos": {
       "post": {
         "tags": [
-          "reko-dashboard"
+          "reko"
         ],
         "summary": "Transfer Reko Assignments",
         "description": "Transfer all open reko assignments from one person to another.\n\nOnly transfers incidents that are in reko status (not yet completed).",
-        "operationId": "transfer_reko_assignments_api_reko_dashboard_transfer_rekos_post",
+        "operationId": "transfer_reko_assignments_api_reko_transfer_rekos_post",
         "parameters": [
           {
             "name": "from_personnel_id",
@@ -26481,216 +26285,6 @@
         "type": "object",
         "title": "RekoArrivedUpdate",
         "description": "\"Reko meldet: vor Ort\" as the KP hears it (plan 26 §5.2).\n\nThree shapes, and the difference between the last two is the point:\n\n* field **absent** — \"now\", and idempotent: an arrival already on the row is\n  left where it is, exactly as a crew's second tap is.\n* field **set** — that time. A radio message logged five minutes late has to\n  land at the right time or the board's waiting clocks lie.\n* field **null** — clear it. A mis-heard call is corrected, not amended, and\n  clearing takes the provenance with it: \"nobody has reported it\" is not a\n  KP report."
-      },
-      "RekoDashboardAssignment": {
-        "properties": {
-          "incident_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Incident Id"
-          },
-          "incident_title": {
-            "type": "string",
-            "title": "Incident Title"
-          },
-          "incident_type": {
-            "type": "string",
-            "title": "Incident Type"
-          },
-          "incident_status": {
-            "type": "string",
-            "title": "Incident Status"
-          },
-          "location_address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Address"
-          },
-          "location_display": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Display"
-          },
-          "location_lat": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Lat"
-          },
-          "location_lng": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Lng"
-          },
-          "assignment_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assignment Id"
-          },
-          "assigned_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assigned At"
-          },
-          "has_completed_reko": {
-            "type": "boolean",
-            "title": "Has Completed Reko",
-            "default": false
-          },
-          "is_active_assignment": {
-            "type": "boolean",
-            "title": "Is Active Assignment",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "incident_id",
-          "incident_title",
-          "incident_type",
-          "incident_status"
-        ],
-        "title": "RekoDashboardAssignment",
-        "description": "Incident assignment for Reko personnel (active or historical)."
-      },
-      "RekoDashboardAssignmentsResponse": {
-        "properties": {
-          "personnel_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Personnel Id"
-          },
-          "personnel_name": {
-            "type": "string",
-            "title": "Personnel Name"
-          },
-          "assignments": {
-            "items": {
-              "$ref": "#/components/schemas/RekoDashboardAssignment"
-            },
-            "type": "array",
-            "title": "Assignments"
-          }
-        },
-        "type": "object",
-        "required": [
-          "personnel_id",
-          "personnel_name",
-          "assignments"
-        ],
-        "title": "RekoDashboardAssignmentsResponse",
-        "description": "Response for Reko personnel assignments."
-      },
-      "RekoDashboardPersonnel": {
-        "properties": {
-          "personnel_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Personnel Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role"
-          },
-          "assignment_count": {
-            "type": "integer",
-            "title": "Assignment Count",
-            "default": 0
-          },
-          "open_count": {
-            "type": "integer",
-            "title": "Open Count",
-            "default": 0
-          },
-          "done_count": {
-            "type": "integer",
-            "title": "Done Count",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "personnel_id",
-          "name"
-        ],
-        "title": "RekoDashboardPersonnel",
-        "description": "Reko personnel with assignment status for dashboard list."
-      },
-      "RekoDashboardPersonnelListResponse": {
-        "properties": {
-          "personnel": {
-            "items": {
-              "$ref": "#/components/schemas/RekoDashboardPersonnel"
-            },
-            "type": "array",
-            "title": "Personnel"
-          },
-          "event_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Event Id"
-          },
-          "event_name": {
-            "type": "string",
-            "title": "Event Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "personnel",
-          "event_id",
-          "event_name"
-        ],
-        "title": "RekoDashboardPersonnelListResponse",
-        "description": "Response for Reko dashboard personnel list."
       },
       "RekoOpenAssignmentInfo": {
         "properties": {

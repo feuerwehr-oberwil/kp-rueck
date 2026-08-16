@@ -29,7 +29,6 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..config import settings
-from ..environment import is_production_environment
 
 
 def client_ip(request: Request) -> str | None:
@@ -131,19 +130,17 @@ class RateLimits:
     # anyone with the event link reaches it. Photo upload keeps PHOTO_UPLOAD.
     FELD = "60/minute"
 
-    # The Feld-Code exchange. Tight enough that guessing four digits is not
-    # worth starting, loose enough that a crew fumbling it with cold wet hands
-    # is not locked out — because locking a firefighter out mid-storm is the
-    # worse failure of the two (decision 28). A device unlocks once per
-    # Ereignis, so this ceiling only ever bites on repeated wrong answers.
+    # The Feld-Code exchange.
     #
-    # Relaxed off production. The E2E suite walks this door on every phone it
-    # opens and runs from one address, so the real ceiling turned a full run
-    # into a wall of "Falscher Code" — the page cannot tell a 429 from a wrong
-    # code, and deliberately does not try (an error that distinguishes them is
-    # an oracle). Same shape as AUTH_BYPASS_AUTH_DEV: the hardening is on where
-    # it protects somebody.
-    FELD_UNLOCK = "10 per 10 minutes" if is_production_environment() else "1000 per minute"
+    # This is NOT the brute-force control, for the same reason LOGIN above is
+    # not: it keys on client IP and counts every attempt, and a station NATs
+    # every phone behind one address — so a tight value here locks crews out of
+    # the poster on the one night it matters, from the eleventh phone on.
+    #
+    # Guessing is handled by `feld_code_throttle` in `api/feld.py`, which keys
+    # on (IP, Ereignis) and counts only FAILURES. This ceiling just blunts a
+    # flood from a single host and sits well above any real depot.
+    FELD_UNLOCK = "120/minute"
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:

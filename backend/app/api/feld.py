@@ -8,8 +8,7 @@ list, and the Einsatzleiter briefing on every row. Nothing here writes.
 optional:
 
 1. ``validate_feld_token`` turns the link's token into its claims, else 401.
-   A ``checkin`` / ``viewer`` / ``reko_dashboard`` / ``alarm`` token does not
-   open this door.
+   A ``checkin`` / ``viewer`` / ``alarm`` token does not open this door.
 2. The event must hold something for the caller's personnel row, else 403. This
    is decision 4 ("visibility is only mine") and it lives in
    ``crud/feld/visibility.py``, not in the UI.
@@ -55,12 +54,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
+from ..auth.login_throttle import LoginThrottle
 from ..config import settings
 from ..crud import events as events_crud
 from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
 from ..database import get_db
-from ..middleware.rate_limit import RateLimits, limiter
+from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services import incident_display
 from ..services.photo_storage import photo_storage
@@ -241,6 +241,18 @@ async def revoke_feld_devices(
     )
 
 
+#: Wrong Feld-Codes, counted per (IP, Ereignis) — never per IP alone.
+#:
+#: The obvious control was a plain rate limit on this route, and it was wrong
+#: for exactly the reason `auth/login_throttle.py` exists: a station NATs every
+#: phone behind one public IP, so crews scanning the poster in the depot would
+#: have locked each other out from the eleventh phone on — on the one night the
+#: page matters. Counting only FAILURES fixes that: a correct code is not an
+#: attack and costs nobody else their budget, while somebody sitting there
+#: guessing four digits against one Ereignis is cut off after a handful.
+feld_code_throttle = LoginThrottle()
+
+
 @router.post("/unlock", response_model=schemas.FeldUnlockResponse)
 @limiter.limit(RateLimits.FELD_UNLOCK)
 async def unlock_feld(
@@ -263,11 +275,26 @@ async def unlock_feld(
     per Ereignis, so the ceiling only ever bites on repeated guessing.
     """
     event = await _load_event(db, claims.event_id)
+    scope = str(event.id)
+    ip = client_ip(request) or "unknown"
+
+    wait = await feld_code_throttle.retry_after(ip, scope)
+    if wait:
+        raise HTTPException(
+            status_code=429,
+            detail="Zu viele Fehlversuche. Bitte kurz warten.",
+            headers={"Retry-After": str(wait)},
+        )
+
     if not crud.code_matches(event, payload.code):
+        await feld_code_throttle.record_failure(ip, scope)
         # No hint about length, no "close" — and deliberately the same shape of
         # answer whether the code was wrong or malformed.
         raise HTTPException(status_code=403, detail="Falscher Code")
 
+    # A correct code clears the counter: the crew that just fumbled it twice
+    # must not be carrying that against the next phone on the same Wi-Fi.
+    await feld_code_throttle.record_success(ip, scope)
     personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
     return schemas.FeldUnlockResponse(
         token=generate_feld_token(claims.event_id, unlocked=True),

@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud.reko_dashboard import get_reko_personnel_for_event
+from app.crud.reko_assignment import get_reko_personnel_for_event
 from app.models import (
     Event,
     EventSpecialFunction,

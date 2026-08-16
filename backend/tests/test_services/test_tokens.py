@@ -1,7 +1,7 @@
 """Token-type confusion is cheapest to catch here.
 
 Five token pairs share one secret and one `type` claim, and the whole
-authorization story of `/feld`, `/alarm`, `/check-in`, `/reko-dashboard` and the
+authorization story of `/feld`, `/alarm`, `/check-in` and the
 viewer link rests on that claim being checked in both directions. So every
 direction is asserted: a feld token opens nothing else, and nothing else opens
 feld.
@@ -18,26 +18,22 @@ from app.services.tokens import (
     generate_alarm_token,
     generate_checkin_token,
     generate_feld_token,
-    generate_reko_dashboard_token,
     generate_viewer_token,
     validate_alarm_token,
     validate_checkin_token,
     validate_feld_token,
-    validate_reko_dashboard_token,
     validate_viewer_token,
 )
 
 OTHER_GENERATORS = {
     "checkin": generate_checkin_token,
     "viewer": generate_viewer_token,
-    "reko_dashboard": generate_reko_dashboard_token,
     "alarm": generate_alarm_token,
 }
 
 OTHER_VALIDATORS = {
     "checkin": validate_checkin_token,
     "viewer": validate_viewer_token,
-    "reko_dashboard": validate_reko_dashboard_token,
     "alarm": validate_alarm_token,
 }
 

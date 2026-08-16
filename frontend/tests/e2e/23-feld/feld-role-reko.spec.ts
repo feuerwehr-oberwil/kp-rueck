@@ -34,7 +34,7 @@ import {
  * Both ways of becoming a Reko are covered, because they are two different
  * lines of code:
  *
- *  (a) the board's own path — `POST /reko-dashboard/…/assign-reko`, which writes
+ *  (a) the board's own path — `POST /reko/…/assign-reko`, which writes
  *      `purpose='reko'` on the assignment row. That column IS the signal.
  *  (b) the documented FALLBACK — the event-wide `reko` special function. Rows
  *      written before `purpose` existed (or by a path that forgets it) carry the

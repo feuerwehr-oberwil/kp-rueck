@@ -402,9 +402,7 @@ async def get_feld_personnel_for_event(
     personnel = list(personnel_result.scalars().all())
 
     attendance_result = await db.execute(
-        select(EventAttendance.personnel_id, EventAttendance.checked_in).where(
-            EventAttendance.event_id == event_id
-        )
+        select(EventAttendance.personnel_id, EventAttendance.checked_in).where(EventAttendance.event_id == event_id)
     )
     attendance = {row[0]: bool(row[1]) for row in attendance_result.all()}
 

@@ -42,7 +42,6 @@ from app.services.tokens import (
     generate_checkin_token,
     generate_feld_token,
     generate_form_token,
-    generate_reko_dashboard_token,
     generate_viewer_token,
 )
 from tests.conftest import feld_device_token
@@ -213,8 +212,8 @@ class TestTokenGate:
     @pytest.mark.api
     @pytest.mark.parametrize(
         "generator",
-        [generate_checkin_token, generate_viewer_token, generate_reko_dashboard_token, generate_alarm_token],
-        ids=["checkin", "viewer", "reko_dashboard", "alarm"],
+        [generate_checkin_token, generate_viewer_token, generate_alarm_token],
+        ids=["checkin", "viewer", "alarm"],
     )
     async def test_other_token_types_rejected(self, client: AsyncClient, test_event: Event, generator):
         response = await client.get(f"/api/feld/personnel?token={generator(test_event.id)}")

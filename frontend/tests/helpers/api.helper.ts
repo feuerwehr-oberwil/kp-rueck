@@ -536,7 +536,11 @@ export async function firstMaterialId(request: APIRequestContext, cookieHeader: 
   return materials[0].id;
 }
 
-/** Assign somebody as the Reko through the board's own path (sets purpose='reko'). */
+/** Assign somebody as the Reko through the board's own path (sets purpose='reko').
+ *
+ *  Under `/api/reko` since plan 26 removed `/reko-dashboard`: the endpoint was
+ *  never that page's — it is editor-authed and always was — so it moved rather
+ *  than went. */
 export async function assignReko(
   request: APIRequestContext,
   cookieHeader: string,
@@ -544,7 +548,7 @@ export async function assignReko(
   personnelId: string,
 ): Promise<void> {
   const response = await request.post(
-    `${API_BASE}/api/reko-dashboard/incidents/${incidentId}/assign-reko`,
+    `${API_BASE}/api/reko/incidents/${incidentId}/assign-reko`,
     { headers: jsonHeaders(cookieHeader), data: { personnel_id: personnelId } },
   );
   expect(response.ok(), await response.text()).toBeTruthy();

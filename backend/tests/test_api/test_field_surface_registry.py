@@ -55,7 +55,6 @@ DOORS = ("token", "session", "both")
 SURFACE_PREFIXES: dict[str, str] = {
     "personnel_checkin": "/api/personnel/check-in",
     "reko": "/api/reko",
-    "reko_dashboard": "/api/reko-dashboard",
     "feld": "/api/feld",
     "intake": "/api/intake",
     "viewer": "/api/viewer",
@@ -76,19 +75,18 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
     },
     "reko": {
         "POST /": "both",
+        # The four that moved here when `/reko-dashboard` was removed (decision
+        # 24). They were never that page's: every one is editor-authed, and the
+        # comment below its old entry said so. Deleting the router would have
+        # taken the board's Reko assignment UI with it.
+        "POST /incidents/{incident_id}/assign-reko": "session",
+        "DELETE /incidents/{incident_id}/unassign-reko/{personnel_id}": "session",
+        "POST /transfer-rekos": "session",
         "PATCH /{report_id}": "both",
         "POST /generate-link": "both",
         "POST /{incident_id}/arrived": "token",
         "POST /{incident_id}/photos": "token",
         "DELETE /{incident_id}/photos/{filename}": "token",
-    },
-    "reko_dashboard": {
-        # §2.4: the page itself writes nothing. These four live next to it but are
-        # editor-cookie-authed — board endpoints that happen to be filed here.
-        "POST /generate-link": "session",
-        "POST /incidents/{incident_id}/assign-reko": "session",
-        "DELETE /incidents/{incident_id}/unassign-reko/{personnel_id}": "session",
-        "POST /transfer-rekos": "session",
     },
     "feld": {
         "POST /generate-link": "session",

@@ -354,7 +354,7 @@ class TestBoardAssignedRekoReachesTheField:
         await db_session.commit()
 
         response = await editor_client.post(
-            f"/api/reko-dashboard/incidents/{incident_id}/assign-reko",
+            f"/api/reko/incidents/{incident_id}/assign-reko",
             json={"personnel_id": str(person.id)},
         )
         assert response.status_code in (200, 201), response.text
@@ -445,3 +445,64 @@ class TestOwnAttendance:
         response = await client.post(f"/api/feld/attendance/{colleague.id}?token={token}&present=true")
 
         assert response.status_code == 403
+
+
+class TestCodeThrottle:
+    """Guessing is throttled per (IP, Ereignis) — never per IP alone.
+
+    The obvious control was a rate limit on the route, and it was wrong for
+    exactly the reason `auth/login_throttle.py` exists: a station NATs every
+    phone behind one public IP, so crews scanning the poster in the depot would
+    lock each other out from the eleventh phone on — on the one night the page
+    matters. Counting only failures is what makes a busy depot free and a
+    guesser expensive.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_correct_code_costs_the_next_phone_nothing(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.api.feld import feld_code_throttle
+
+        await feld_code_throttle.reset()
+        await _person_on_an_incident(db_session, test_event, test_user)
+        wrong = "0000" if test_event.feld_code != "0000" else "1111"
+        link = generate_feld_token(test_event.id)
+
+        # Two fumbles, then the right one — the shape of a cold, wet hand.
+        for _ in range(2):
+            await client.post(f"/api/feld/unlock?token={link}", json={"code": wrong})
+        assert (
+            await client.post(f"/api/feld/unlock?token={link}", json={"code": test_event.feld_code})
+        ).status_code == 200
+
+        # The next twenty phones on the same Wi-Fi are unaffected, because the
+        # success cleared the counter and successes were never counted anyway.
+        for _ in range(20):
+            assert (
+                await client.post(f"/api/feld/unlock?token={link}", json={"code": test_event.feld_code})
+            ).status_code == 200
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_repeated_wrong_codes_are_locked_out(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.api.feld import feld_code_throttle
+        from app.config import settings
+
+        await feld_code_throttle.reset()
+        await _person_on_an_incident(db_session, test_event, test_user)
+        wrong = "0000" if test_event.feld_code != "0000" else "1111"
+        link = generate_feld_token(test_event.id)
+
+        for _ in range(settings.login_max_failed_attempts):
+            await client.post(f"/api/feld/unlock?token={link}", json={"code": wrong})
+
+        # 429 with a Retry-After, not a 403: at this point the honest answer is
+        # "wait", and the page can say so instead of insisting the code is wrong.
+        blocked = await client.post(f"/api/feld/unlock?token={link}", json={"code": test_event.feld_code})
+        assert blocked.status_code == 429
+        assert int(blocked.headers["Retry-After"]) > 0
+        await feld_code_throttle.reset()

@@ -566,7 +566,7 @@ export default function FireStationDashboard() {
   // The store keeps one stable object per value, so `cardView` can go straight
   // into the memoised column/card tree without a useMemo wrapper here.
   const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
-  const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
+  const [rekoLinkUrl, setRekoLinkUrl] = useState<string | null>(null)
   const [displayToken, setDisplayToken] = useState<string | null>(null)
   const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
@@ -1612,7 +1612,9 @@ export default function FireStationDashboard() {
     }
   }
 
-  const generateRekoDashboardQR = async () => {
+  // The Reko trupp's link is the field link now — `/reko-dashboard` is gone
+  // (plan 26, decision 24) and `/feld` absorbed everything it did.
+  const generateRekoLinkQR = async () => {
     // Toggle behavior: if already open, just close
     if (rekoQrDialogOpen) {
       setActiveFooterSheet(null)
@@ -1627,10 +1629,10 @@ export default function FireStationDashboard() {
     }
 
     try {
-      const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
+      const response = await apiClient.generateFeldLink(selectedEvent.id)
       // Build full URL for QR code
       const fullUrl = `${window.location.origin}${response.link}`
-      setRekoDashboardUrl(fullUrl)
+      setRekoLinkUrl(fullUrl)
       setActiveFooterSheet('reko')
     } catch (error) {
       console.error('Failed to generate Reko Dashboard link:', error)
@@ -2844,13 +2846,13 @@ export default function FireStationDashboard() {
       <QrShareSheet
         open={rekoQrDialogOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'reko' && setActiveFooterSheet(null)}
-        url={rekoDashboardUrl}
+        url={rekoLinkUrl}
         title={tDash('rekoSheetTitle')}
         description={tDash('rekoSheetDescription')}
         hint={tDash('rekoSheetHint')}
         printerEnabled={printerEnabled}
         isPrinting={isPrintingQR}
-        onPrint={rekoDashboardUrl ? () => handlePrintQR(rekoDashboardUrl, tDash('rekoSheetTitle'), tDash('rekoSheetHint')) : undefined}
+        onPrint={rekoLinkUrl ? () => handlePrintQR(rekoLinkUrl, tDash('rekoSheetTitle'), tDash('rekoSheetHint')) : undefined}
       />
 
       {/* Feld (Schadenplatz-Rapport) QR Code Sheet — one global link per Ereignis */}
@@ -3062,7 +3064,7 @@ export default function FireStationDashboard() {
         currentPage="kanban"
         hasSelectedEvent={!!selectedEvent}
         onCheckIn={generateCheckInQR}
-        onReko={generateRekoDashboardQR}
+        onReko={generateRekoLinkQR}
         onDisplay={generateDisplayShare}
         onPersonnel={() => setMobilePersonnelSheetOpen(true)}
         onVehicleStatus={() => setActiveFooterSheet('vehicles')}

@@ -90,8 +90,6 @@ import {
   type ApiDeployment,
   type SendDiveraAlarmOptions,
   type SendDiveraMessageOptions,
-  type ApiRekoDashboardPersonnelListResponse,
-  type ApiRekoDashboardAssignmentsResponse,
   type ApiAvailableRekoPersonnelResponse,
   type ApiFeldPersonnelListResponse,
   type ApiFeldAssignmentsResponse,
@@ -1221,15 +1219,14 @@ class ApiClient {
   }
 
   // Reko Forms
-  // `dashboardToken` authorizes the call from the public reko-dashboard page
-  // (field phones without a login); the board UI relies on cookie auth instead.
-  async generateRekoLink(incidentId: string, personnelId?: string, dashboardToken?: string): Promise<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }> {
+  //
+  // Editor-only since plan 26: the field phone mints its own form token through
+  // `mintFeldRekoLink`, which runs the /feld two-step first, so neither door had
+  // to learn about the other.
+  async generateRekoLink(incidentId: string, personnelId?: string): Promise<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }> {
     let url = `/api/reko/generate-link?incident_id=${encodeURIComponent(incidentId)}`
     if (personnelId) {
       url += `&personnel_id=${encodeURIComponent(personnelId)}`
-    }
-    if (dashboardToken) {
-      url += `&dashboard_token=${encodeURIComponent(dashboardToken)}`
     }
     return this.request<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }>(
       url, {
@@ -1967,26 +1964,8 @@ class ApiClient {
   }
 
   // Reko Dashboard
-  async generateRekoDashboardLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
-    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
-      `/api/reko-dashboard/generate-link?event_id=${encodeURIComponent(eventId)}`,
-      {
-        method: 'POST',
-      }
-    )
-  }
 
-  async getRekoDashboardPersonnel(token: string): Promise<ApiRekoDashboardPersonnelListResponse> {
-    return this.request<ApiRekoDashboardPersonnelListResponse>(
-      `/api/reko-dashboard/personnel?token=${encodeURIComponent(token)}`
-    )
-  }
 
-  async getRekoDashboardAssignments(personnelId: string, token: string): Promise<ApiRekoDashboardAssignmentsResponse> {
-    return this.request<ApiRekoDashboardAssignmentsResponse>(
-      `/api/reko-dashboard/assignments/${personnelId}?token=${encodeURIComponent(token)}`
-    )
-  }
 
   // Feld (/feld) – the login-less field surface. One global link per Ereignis.
   //
@@ -2264,13 +2243,13 @@ class ApiClient {
 
   async getAvailableRekoPersonnel(incidentId: string): Promise<ApiAvailableRekoPersonnelResponse> {
     return this.request<ApiAvailableRekoPersonnelResponse>(
-      `/api/reko-dashboard/incidents/${incidentId}/available-reko`
+      `/api/reko/incidents/${incidentId}/available-reko`
     )
   }
 
   async assignRekoPersonnel(incidentId: string, personnelId: string): Promise<ApiAssignment> {
     return this.request<ApiAssignment>(
-      `/api/reko-dashboard/incidents/${incidentId}/assign-reko`,
+      `/api/reko/incidents/${incidentId}/assign-reko`,
       {
         method: 'POST',
         body: JSON.stringify({ personnel_id: personnelId }),
@@ -2280,7 +2259,7 @@ class ApiClient {
 
   async unassignRekoPersonnel(incidentId: string, personnelId: string): Promise<void> {
     return this.request<void>(
-      `/api/reko-dashboard/incidents/${incidentId}/unassign-reko/${personnelId}`,
+      `/api/reko/incidents/${incidentId}/unassign-reko/${personnelId}`,
       {
         method: 'DELETE',
       }
@@ -2293,7 +2272,7 @@ class ApiClient {
     eventId: string,
   ): Promise<{ transferred_count: number; incident_ids: string[] }> {
     return this.request<{ transferred_count: number; incident_ids: string[] }>(
-      `/api/reko-dashboard/transfer-rekos?from_personnel_id=${encodeURIComponent(fromPersonnelId)}&to_personnel_id=${encodeURIComponent(toPersonnelId)}&event_id=${encodeURIComponent(eventId)}`,
+      `/api/reko/transfer-rekos?from_personnel_id=${encodeURIComponent(fromPersonnelId)}&to_personnel_id=${encodeURIComponent(toPersonnelId)}&event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',
       }
