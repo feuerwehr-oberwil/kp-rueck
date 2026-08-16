@@ -37,6 +37,7 @@ from .material import (
     material_return_attribution,
     material_return_units,
 )
+from .melden import create_field_report, report_summary
 from .rapport import (
     CONCURRENT_EDITOR_WINDOW,
     _board_material_units,
@@ -142,6 +143,7 @@ __all__ = [
     "claim_is_live",
     "code_matches",
     "create_claim",
+    "create_field_report",
     "derive_personnel_count",
     "event_restliste",
     "field_report_state",
@@ -168,6 +170,7 @@ __all__ = [
     "record_pickup",
     "regenerate_code",
     "remove_photo",
+    "report_summary",
     "revoke_all_claims",
     "save_rapport",
     "visible_by_personnel",

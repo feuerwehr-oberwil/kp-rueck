@@ -73,6 +73,19 @@ ENDPOINT_IDS = [f"{spec[0]} {spec[1].rsplit('/', 1)[-1]}" for spec in PERSON_SCO
 _MISSING_FILENAME = "gibt-es-nicht.jpg"
 
 
+def _is_own_list(spec: tuple[str, str, bool, dict[str, Any] | None]) -> bool:
+    """The person-scoped GET — "meine Einsatzstellen".
+
+    It is the one endpoint that answers 200-with-nothing rather than 403 when the
+    Ereignis holds nothing for the caller. A bound token can only ever ask about
+    itself, so the answer leaks nothing — and refusing it was actively harmful:
+    the phone's silent poll keeps its rows when a request fails (a cellar must
+    not blank the Schadenplatz somebody is standing at), so a 403 left a crew
+    looking at a Schadenplatz they no longer had access to.
+    """
+    return spec[1].endswith("{personnel_id}")
+
+
 def _expected_ok(spec: tuple[str, str, bool, dict[str, Any] | None]) -> tuple[int, ...]:
     return (404,) if spec[1].endswith("{filename}") else (200, 204)
 
@@ -304,7 +317,11 @@ class TestAuthorizationStepTwo:
             personnel_id=outsider.id,
             incident_id=incident.id,
         )
-        assert response.status_code == 403
+        if _is_own_list(spec):
+            assert response.status_code == 200
+            assert response.json()["assignments"] == []
+        else:
+            assert response.status_code == 403
 
     @pytest.mark.asyncio
     @pytest.mark.api
@@ -354,7 +371,14 @@ class TestAuthorizationStepTwo:
             personnel_id=person.id,
             incident_id=incident_b.id,
         )
-        assert response.status_code == 403
+        if _is_own_list(spec):
+            # Cross-event isolation still holds, it just reads as "nothing here"
+            # instead of a refusal: the token names event A, so event B's work is
+            # simply not in the answer.
+            assert response.status_code == 200
+            assert response.json()["assignments"] == []
+        else:
+            assert response.status_code == 403
 
     @pytest.mark.asyncio
     @pytest.mark.api

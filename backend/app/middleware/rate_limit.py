@@ -29,6 +29,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..config import settings
+from ..environment import is_production_environment
 
 
 def client_ip(request: Request) -> str | None:
@@ -135,7 +136,14 @@ class RateLimits:
     # is not locked out — because locking a firefighter out mid-storm is the
     # worse failure of the two (decision 28). A device unlocks once per
     # Ereignis, so this ceiling only ever bites on repeated wrong answers.
-    FELD_UNLOCK = "10 per 10 minutes"
+    #
+    # Relaxed off production. The E2E suite walks this door on every phone it
+    # opens and runs from one address, so the real ceiling turned a full run
+    # into a wall of "Falscher Code" — the page cannot tell a 429 from a wrong
+    # code, and deliberately does not try (an error that distinguishes them is
+    # an oracle). Same shape as AUTH_BYPASS_AUTH_DEV: the hardening is on where
+    # it protects somebody.
+    FELD_UNLOCK = "10 per 10 minutes" if is_production_environment() else "1000 per minute"
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:

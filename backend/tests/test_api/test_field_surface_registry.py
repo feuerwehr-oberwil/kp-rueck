@@ -101,6 +101,7 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         # credential, and logging every crew out mid-storm is not a field action.
         "POST /access/regenerate": "session",
         "POST /access/revoke-devices": "session",
+        "POST /incidents": "token",
         "POST /incidents/{incident_id}/reko-link": "token",
         "POST /incidents/{incident_id}/arrived": "token",
         "POST /incidents/{incident_id}/complete": "token",
@@ -126,6 +127,12 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
 # quietly outlive the route it points at; anything after that is prose.
 EXTERNAL_TWINS: dict[str, str] = {
     "POST /api/intake/alarm": "POST /api/incidents/ with source='intake'",
+    "POST /api/feld/incidents": (
+        "POST /api/incidents/ — the board's own create. Same table, same columns; only "
+        "the provenance differs, and `source='feld'` is deliberately NOT in "
+        "EditorIncidentSource so an operator cannot claim a card was reported from the "
+        "field. The takeover half has a board twin too: adding a stop to an Auftrag."
+    ),
     "POST /api/reko/{incident_id}/arrived": (
         "POST /api/incidents/{incident_id}/reko-arrived — the KP writer for "
         "'Reko meldet: vor Ort' over the radio (§5.2). Not a second door on the "

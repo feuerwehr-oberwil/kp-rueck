@@ -811,6 +811,28 @@
       "regenerateDescription": "Les nouveaux appareils auront besoin du nouveau code. Les appareils déjà connectés continuent sans interruption – personne n'est déconnecté.",
       "revokeTitle": "Déconnecter tous les appareils ?",
       "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les équipes en intervention. Un nouveau code seul ne déconnecte personne."
+    },
+    "melden": {
+      "fab": "Annoncer",
+      "title": "Nouvelle annonce",
+      "what": "Quoi",
+      "where": "Où",
+      "wherePlaceholder": "Rue et numéro",
+      "useLocation": "Utiliser ma position",
+      "located": "Position enregistrée",
+      "locateFailed": "Position indisponible",
+      "description": "Description",
+      "descriptionPlaceholder": "Que voit-on ?",
+      "takeOver": "On s'en occupe tout de suite",
+      "takeOverHint": "Ajouté comme étape à votre mandat – ou en ouvre un.",
+      "submit": "Envoyer l'annonce",
+      "failed": "L'annonce n'a pas pu être envoyée.",
+      "confirm": {
+        "none": "Annonce transmise au PC",
+        "stop": "Ajouté comme étape à votre mandat",
+        "auftrag": "Mandat ouvert – vous avez deux étapes",
+        "solo": "Annonce transmise – vous êtes assignés"
+      }
     }
   },
   "help": {

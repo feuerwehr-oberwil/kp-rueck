@@ -12654,6 +12654,73 @@
         }
       }
     },
+    "/api/feld/incidents": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report New Incident",
+        "description": "«Neue Meldung» — a Schadenplatz reported from the field (decision 14).\n\nThe reporter is a **known person standing in front of it**, which is the\nwhole difference from `/intake/alarm`: no Melder fields to fill in, the\nboard gets `source='feld'` with their name on the audit row, and the crew\ncan take the job on in the same tap.\n\nRate limited with INTAKE rather than FELD: this creates board state from a\nlogin-less door, and it is the one write here that a bored link-holder\ncould use to make a mess.",
+        "operationId": "report_new_incident_api_feld_incidents_post",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldIncidentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldIncidentCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents/{incident_id}/reko-link": {
       "post": {
         "tags": [
@@ -21281,6 +21348,117 @@
         ],
         "title": "FeldClaimResponse",
         "description": "The bound token. The device stores this and stops using the link token."
+      },
+      "FeldIncidentCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/IncidentType"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/IncidentPriority"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "take_over": {
+            "type": "boolean",
+            "title": "Take Over",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "type",
+          "priority"
+        ],
+        "title": "FeldIncidentCreate",
+        "description": "«Neue Meldung» — a Schadenplatz reported by somebody standing in front of it.\n\nDeliberately narrower than the board's create and slightly wider than the\nphone-desk one: no Melder fields, because the reporter *is* the Melder and\nthe audit row already carries their name.\n\n``take_over`` is decision 3 and 14 together — \"wir übernehmen das gleich\".\nWhat it does depends on what the crew is already working; the endpoint\nanswers with which of the three it was."
+      },
+      "FeldIncidentCreated": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "takeover": {
+            "type": "string",
+            "enum": [
+              "none",
+              "stop",
+              "auftrag",
+              "solo"
+            ],
+            "title": "Takeover"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "takeover"
+        ],
+        "title": "FeldIncidentCreated",
+        "description": "What the phone gets back: the new Schadenplatz, and what became of it.\n\n``takeover`` says which of the three shapes happened, so the confirmation can\nbe specific — \"als Stop 3 im Auftrag\" reads very differently from \"gemeldet\"."
       },
       "FeldMaterialLine": {
         "properties": {

@@ -42,6 +42,11 @@ vi.mock('@/components/feld/feld-actions', () => ({
 vi.mock('@/components/feld/feld-rapport-form', () => ({
   FeldRapportForm: () => <div data-testid="feld-rapport-form" />,
 }))
+// The Melden sheet pulls in FooterSheet → useIsMobile → matchMedia, which jsdom
+// does not have. This file is about which view the page opens, not the sheet.
+vi.mock('@/components/feld/feld-melden-sheet', () => ({
+  FeldMeldenSheet: () => <div data-testid="feld-melden-sheet" />,
+}))
 
 import FeldPage from '@/app/feld/page'
 

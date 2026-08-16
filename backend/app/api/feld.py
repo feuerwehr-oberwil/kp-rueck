@@ -70,6 +70,7 @@ from ..services.tokens import (
     generate_form_token,
     validate_feld_token,
 )
+from ..websocket_manager import broadcast_incident_update
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,8 @@ async def require_feld_person(
     db: AsyncSession,
     claims: FeldTokenClaims,
     personnel_id: uuid.UUID,
+    *,
+    require_access: bool = True,
 ) -> Personnel:
     """Step 2, person-scoped: this event must hold something for this person.
 
@@ -133,7 +136,14 @@ async def require_feld_person(
             status_code=401,
             detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.",
         )
-    if not await crud.person_has_event_access(db, claims.event_id, personnel_id):
+    # `require_access=False` for reading your OWN list. Since the binding became
+    # mandatory this check adds nothing there — a bound token can only ask about
+    # itself — and refusing it was actively harmful: a crew whose last
+    # Schadenplatz was released got a 403 instead of an empty list, and the
+    # phone's silent poll (which keeps its rows when a request fails, so a
+    # cellar does not blank the page) then showed them a Schadenplatz they no
+    # longer had any access to, indefinitely.
+    if require_access and not await crud.person_has_event_access(db, claims.event_id, personnel_id):
         raise HTTPException(
             status_code=403,
             detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
@@ -354,7 +364,7 @@ async def get_feld_assignments(
     form opens, never enforced.
     """
     event = await _load_event(db, claims.event_id)
-    person = await require_feld_person(db, claims, personnel_id)
+    person = await require_feld_person(db, claims, personnel_id, require_access=False)
 
     assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
     chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
@@ -539,6 +549,37 @@ async def report_pickup(
         request=request,
     )
     return schemas.FieldReportState(**await crud.field_report_state(db, incident))
+
+
+@router.post("/incidents", response_model=schemas.FeldIncidentCreated, status_code=201)
+@limiter.limit(RateLimits.INTAKE)
+async def report_new_incident(
+    request: Request,
+    payload: schemas.FeldIncidentCreate,
+    claims: FeldClaims,
+    personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldIncidentCreated:
+    """«Neue Meldung» — a Schadenplatz reported from the field (decision 14).
+
+    The reporter is a **known person standing in front of it**, which is the
+    whole difference from `/intake/alarm`: no Melder fields to fill in, the
+    board gets `source='feld'` with their name on the audit row, and the crew
+    can take the job on in the same tap.
+
+    Rate limited with INTAKE rather than FELD: this creates board state from a
+    login-less door, and it is the one write here that a bored link-holder
+    could use to make a mess.
+    """
+    person = await require_feld_person(db, claims, personnel_id)
+    event = await _load_event(db, claims.event_id)
+    incident, mode = await crud.create_field_report(db, event.id, person, payload, request)
+
+    # Same broadcast + sync path as every other create, so the board moves
+    # without a refresh and the card is not a ghost until somebody polls.
+    await broadcast_incident_update(str(incident.id), "created")
+
+    return schemas.FeldIncidentCreated(incident_id=incident.id, takeover=mode)
 
 
 @router.post("/incidents/{incident_id}/reko-link", response_model=dict)

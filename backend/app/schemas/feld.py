@@ -12,10 +12,13 @@ drift, or a field the KP can set stops round-tripping through the field surface.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from .incidents import IncidentBase, IncidentPriority, IncidentType
 
 # 'none'      – no schadenplatz_reports row for this incident yet
 # 'draft'     – a row exists but is_draft is still True
@@ -722,3 +725,43 @@ class MaterialReturnResponse(BaseModel):
     # caller has to say so — "Aus dem Rapport-Entwurf von X" — because an
     # operator weighing a half-finished answer must know it is half-finished.
     rapport_is_draft: bool = False
+
+
+class FeldIncidentCreate(BaseModel):
+    """«Neue Meldung» — a Schadenplatz reported by somebody standing in front of it.
+
+    Deliberately narrower than the board's create and slightly wider than the
+    phone-desk one: no Melder fields, because the reporter *is* the Melder and
+    the audit row already carries their name.
+
+    ``take_over`` is decision 3 and 14 together — "wir übernehmen das gleich".
+    What it does depends on what the crew is already working; the endpoint
+    answers with which of the three it was.
+    """
+
+    title: str
+    type: IncidentType
+    priority: IncidentPriority
+    location_address: str | None = None
+    location_lat: str | Decimal | None = None
+    location_lng: str | Decimal | None = None
+    description: str | None = None
+    take_over: bool = False
+
+    _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
+    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
+    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
+    _validate_description = field_validator("description")(  # type: ignore[attr-defined]
+        IncidentBase.validate_description.__func__
+    )
+
+
+class FeldIncidentCreated(BaseModel):
+    """What the phone gets back: the new Schadenplatz, and what became of it.
+
+    ``takeover`` says which of the three shapes happened, so the confirmation can
+    be specific — "als Stop 3 im Auftrag" reads very differently from "gemeldet".
+    """
+
+    incident_id: UUID
+    takeover: Literal["none", "stop", "auftrag", "solo"]

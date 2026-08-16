@@ -480,3 +480,35 @@ export interface ApiMaterialReturnResponse {
    */
   rapport_is_draft: boolean
 }
+
+/**
+ * «Neue Meldung» from the field.
+ *
+ * Narrower than the board's create and slightly wider than the phone desk's:
+ * no Melder fields, because the reporter IS the Melder and their name is on the
+ * audit row already.
+ */
+export interface ApiFeldIncidentCreate {
+  title: string
+  type: string
+  priority: string
+  location_address?: string | null
+  location_lat?: string | null
+  location_lng?: string | null
+  description?: string | null
+  /** "Wir übernehmen das gleich" — see `ApiFeldIncidentCreated.takeover`. */
+  take_over?: boolean
+}
+
+/**
+ * What became of it. `takeover` lets the confirmation be specific:
+ *
+ *   none    — reported; the KP disposes
+ *   stop    — appended to the Auftrag the crew is already working
+ *   auftrag — their single job became a route, this is its second stop
+ *   solo    — nobody was on anything, so it is theirs alone
+ */
+export interface ApiFeldIncidentCreated {
+  incident_id: string
+  takeover: 'none' | 'stop' | 'auftrag' | 'solo'
+}

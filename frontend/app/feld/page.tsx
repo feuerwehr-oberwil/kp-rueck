@@ -17,7 +17,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Star, User } from 'lucide-react'
+import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Plus, Star, User } from 'lucide-react'
 
 import {
   apiClient,
@@ -29,6 +29,7 @@ import {
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FeldIdentityBar, clearFeldName, writeFeldName } from '@/components/feld/feld-identity-bar'
+import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -294,6 +295,7 @@ function FeldSurface() {
   // bound token, so the next person types the code. Worth asking first — on a
   // wet phone it sits one thumb-width from the rest of the header.
   const [confirmNotMe, setConfirmNotMe] = useState(false)
+  const [meldenOpen, setMeldenOpen] = useState(false)
   const token = deviceToken
   const restoredFromCookie = useRef(false)
   const restoredIncident = useRef(false)
@@ -409,6 +411,14 @@ function FeldSurface() {
       // code — not an empty list that looks like "you have nothing to do".
       if (err instanceof Error && err.message.includes('401')) {
         forgetDevice()
+        return
+      }
+      // A 403 is the server saying this list is not ours to see — the one
+      // failure a stale list must NOT survive. Everything else keeps its rows
+      // on a silent poll, because a cellar losing one request must not blank
+      // the Schadenplatz somebody is standing at.
+      if (err instanceof Error && err.message.includes('403')) {
+        setAssignments([])
         return
       }
       if (!silent) setAssignments([])
@@ -1062,6 +1072,29 @@ function FeldSurface() {
           })
         )}
       </div>
+
+      {/* «＋ Melden» — the crew reporting something they are standing in front
+          of. A floating button because it is the one action on this page that
+          is not about a row: it belongs to the person, not to a Schadenplatz. */}
+      {token && selectedPerson && (
+        <>
+          <button
+            type="button"
+            onClick={() => setMeldenOpen(true)}
+            className="fixed bottom-5 right-4 z-40 flex h-13 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg"
+          >
+            <Plus className="size-4" />
+            {t('melden.fab')}
+          </button>
+          <FeldMeldenSheet
+            open={meldenOpen}
+            onOpenChange={setMeldenOpen}
+            personnelId={selectedPerson.personnel_id}
+            token={token}
+            onReported={() => loadAssignments(selectedPerson.personnel_id)}
+          />
+        </>
+      )}
 
       <ConfirmDialog
         open={confirmNotMe}

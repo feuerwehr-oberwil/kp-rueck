@@ -3423,6 +3423,28 @@
       "regenerateDescription": "Neue Geräte brauchen ab sofort den neuen Code. Wer bereits angemeldet ist, arbeitet ungestört weiter – es wird niemand abgemeldet.",
       "revokeTitle": "Alle Geräte abmelden?",
       "revokeDescription": "{count, plural, one {# Gerät ist} other {# Geräte sind}} angemeldet. Alle müssen den Code neu eingeben – auch Mannschaften, die gerade unterwegs sind. Ein neuer Code allein meldet niemanden ab."
+    },
+    "melden": {
+      "fab": "Melden",
+      "title": "Neue Meldung",
+      "what": "Was",
+      "where": "Wo",
+      "wherePlaceholder": "Strasse und Nummer",
+      "useLocation": "Standort übernehmen",
+      "located": "Standort erfasst",
+      "locateFailed": "Standort nicht verfügbar",
+      "description": "Beschreibung",
+      "descriptionPlaceholder": "Was ist zu sehen?",
+      "takeOver": "Wir übernehmen das gleich",
+      "takeOverHint": "Kommt als Stop zu eurem Auftrag – oder eröffnet einen.",
+      "submit": "Meldung absetzen",
+      "failed": "Meldung konnte nicht abgesetzt werden.",
+      "confirm": {
+        "none": "Meldung ist beim KP",
+        "stop": "Als weiterer Stop in eurem Auftrag",
+        "auftrag": "Auftrag eröffnet – ihr habt jetzt zwei Stops",
+        "solo": "Meldung ist beim KP – ihr seid zugeteilt"
+      }
     }
   }
 }

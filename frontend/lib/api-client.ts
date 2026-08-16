@@ -98,6 +98,8 @@ import {
   type ApiFeldAccessState,
   type ApiFeldUnlockResponse,
   type ApiFeldClaimResponse,
+  type ApiFeldIncidentCreate,
+  type ApiFeldIncidentCreated,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
   type ApiSchadenplatzRapport,
@@ -2042,6 +2044,24 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ personnel_id: personnelId }),
     })
+  }
+
+  /**
+   * «Neue Meldung» — a Schadenplatz reported by somebody standing in front of it.
+   *
+   * `take_over` is the crew saying they will do it now; the response says which
+   * of the three shapes that took (a stop on their Auftrag, a new Auftrag, or
+   * just them), so the confirmation can be specific instead of "gespeichert".
+   */
+  async createFeldIncident(
+    personnelId: string,
+    token: string,
+    payload: ApiFeldIncidentCreate,
+  ): Promise<ApiFeldIncidentCreated> {
+    return this.request<ApiFeldIncidentCreated>(
+      `/api/feld/incidents?token=${encodeURIComponent(token)}&personnel_id=${personnelId}`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    )
   }
 
   /** A short-lived form token so the Reko form can mount inside `/feld`. */
