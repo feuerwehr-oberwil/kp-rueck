@@ -248,9 +248,20 @@ Laufzeit.
 
 Die Ausalarmierung läuft intern über ein Provider-Protokoll
 (`backend/app/services/alerting/`): ein neuer Anbieter (z. B. Alamos) ist ein
-Modul, das `send_alarm(...)` implementiert, plus ein Eintrag in der Registry –
-kein Umbau am Endpunkt oder an der Personen-Verknüpfung nötig
-(`personnel_external_identities` speichert Identitäten pro Anbieter).
+Modul, das `send_alarm(...)` und `send_message(...)` implementiert, plus ein
+Eintrag in der Registry – kein Umbau am Endpunkt oder an der Personen-Verknüpfung
+nötig (`personnel_external_identities` speichert Identitäten pro Anbieter).
+
+Die beiden Methoden sind **absichtlich getrennt**, und der Unterschied ist kein
+technischer: `send_alarm` bietet Personen auf – Sirenenqualität auf jedem Handy,
+adressiert an einzeln ausgewählte Personen. `send_message` ist die *Mitteilung*
+(bei Divera `/api/v2/news`): eine Information, die alle lesen sollen und von der
+niemand geweckt wird – die Standby-Info der Setup-Checkliste ist genau das.
+Empfänger sind dabei explizit anzugeben (`group_ids`, oder ein ausdrückliches
+`to_everyone=True`); nichts angegeben ist ein Fehler, keine stille Rundsendung an
+die ganze Feuerwehr. Ein Anbieter ohne Mitteilungs-Kanal wirft
+`MessageNotSupportedError` – er darf nicht heimlich auf einen Alarm ausweichen.
+Der Rollen-Riegel eines Deployments (`blocked_domains`) greift für beide gleich.
 
 Für Drucker gilt dasselbe Muster: siehe [docs/PRINT_AGENT.md](PRINT_AGENT.md).
 

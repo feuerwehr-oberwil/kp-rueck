@@ -192,6 +192,25 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 
 ## So funktioniert's: Typische Abläufe
 
+### Setup-Checkliste (beim Aufstarten des KP)
+
+Öffnet sich von selbst, sobald ein Ereignis ausgewählt wird, und ist danach über
+**"Checkliste n/m"** in der Fussleiste erreichbar. Sie führt durch das, was in den
+ersten Minuten passieren muss: Mannschaft informieren, Check-In-, Reko-, Alarm-
+und Feld-Link verteilen, Fahrer zuweisen, Drucker prüfen, Papier-Fallback
+scharfstellen.
+
+- **Zeilen mit Zahlen haken sich selbst ab** (eingecheckte Personen, Fahrer pro
+  Fahrzeug, Drucker erreichbar). Jede Zeile lässt sich zusätzlich **von Hand**
+  abhaken und wieder aufmachen – pro Gerät gemerkt.
+- **Unter den Link-Zeilen steht, für wen der Link ist und wie viele Ausdrucke es
+  braucht** ("Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug"). Ist ein
+  Thermodrucker erreichbar, druckt die Zeile den QR-Code, sonst kopiert sie den
+  Link.
+- **Anpassbar:** Einstellungen → Checkliste. Dort lässt sich jeder Schritt
+  **ausblenden** (ausgeblendete Schritte zählen auch nicht mehr im Fortschritt)
+  und die Notiz mit den eigenen Zahlen überschreiben.
+
 ### Neuer Einsatz kommt rein
 
 1. `N` drücken oder "Neuer Einsatz" klicken
@@ -238,6 +257,26 @@ Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **
 - **Verknüpfung:** Nur mit Divera **verknüpfte** Personen können alarmiert werden – nicht verknüpfte sind ausgegraut. Verknüpft wird über den Divera-Personen-Sync (Einstellungen → Personal).
 - **Aktivieren:** Einstellungen → Alarmierung → "Divera-Ausalarmierung" einschalten (benötigt Divera-Zugangsschlüssel). Dort gibt es auch einen **Testalarm** an eine einzelne Person.
 - Wird im **Trainings- und Demo-Modus nicht** ausgelöst; der Pager wird bewusst nicht angesteuert (Push/keine Doppel-Alarmierung).
+
+### Divera-Mitteilung (Info, kein Alarm)
+
+Die Standby-Info aus der Checkliste – "KP-Rück ist aktiv, bitte Telefon
+mitnehmen" – kann statt über WhatsApp direkt als **Divera-Mitteilung** rausgehen.
+Eine Mitteilung ist bewusst **kein Alarm**: sie erscheint als Push in der
+Divera-App, weckt niemanden wie ein Aufgebot und steuert keinen Pager an.
+
+- **Wo:** Button **"Divera-Mitteilung"** neben "WhatsApp senden" in der
+  Setup-Checkliste (beide Nachrichten-Zeilen). Er erscheint nur, wenn ein
+  Alarmierungs-Anbieter eingerichtet **und** die Ausalarmierung eingeschaltet ist.
+- **Empfänger:** Es wird **nichts** vorausgewählt. Im Bestätigungsfenster die
+  **Divera-Gruppen** ankreuzen, an die es gehen soll. "Alle im Standort" gibt es,
+  ist aber eine bewusste Entscheidung mit Warnhinweis – eine Mitteilung für
+  "Pikett" soll nicht versehentlich die ganze Feuerwehr erreichen.
+- **Text:** kommt aus der Vorlage (Einstellungen → Alarmierung) und ist im
+  Fenster vor dem Senden noch editierbar.
+- Wird im **Trainings- und Demo-Modus nicht** wirklich gesendet.
+- **Hinweis Divera-FREE:** dort ist nur **eine Mitteilung alle fünf Minuten**
+  möglich.
 
 ### Personal Check-In
 

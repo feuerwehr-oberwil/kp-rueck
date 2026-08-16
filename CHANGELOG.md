@@ -114,6 +114,35 @@ will keep holding.
     to **Anhängen**; `Ersetzen` is refused outright while resources are assigned on a running
     incident or an Auftrag.
 
+- **The Standby-Info goes out through Divera, as a Mitteilung and not as an alarm.** «KP-Rück
+  ist aktiv, bitte Telefon mitnehmen» used to be a text copied out of the Checkliste and pasted
+  into WhatsApp by hand. It can now be pushed straight from the Checkliste – as a Divera
+  *Mitteilung*, which is the honest shape for it: it arrives as a notification in the app, it
+  never touches a pager, and it is not the siren-grade event a real Aufgebot is. WhatsApp stays
+  next to it, unchanged, for the stations that do not run Divera.
+  **Nothing is sent by pressing the button.** It opens a confirmation carrying the message and
+  the unit's Divera-Gruppen with **none of them selected** – a Mitteilung meant for «Pikett»
+  must not become a push to the whole Feuerwehr because a default said so. «Alle im Standort»
+  is available, one deliberate click away and marked as what it is. The API refuses to guess
+  either: the recipient choice is a required field, groups must be named, unknown group ids are
+  rejected, a training event simulates the whole flow without leaving the building, and a
+  deployment whose role forbids alerting refuses Mitteilungen exactly as it refuses alarms.
+
+- **A station decides which steps its Checkliste has, and who each link is for.** Einstellungen
+  → Checkliste switches a step off – a brigade that never hands out a Reko-Link should not stare
+  at a row it will never tick, and a hidden step leaves the progress badge too, instead of
+  standing there as a permanent 11/12. Each step also carries a line the station writes itself:
+  «Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug». That was the question the checklist
+  answered least well – *Link kopieren* says nothing about how many slips to print or who is
+  supposed to hold one – and the number is a property of the Magazin, not of the software.
+
+- **The side panel's Ressourcen-Liste takes drops.** On a wide board the incident opens in the
+  panel rather than in the modal, and until now the panel could only be looked at: assigning
+  somebody meant carrying the chip back across the board to find that incident's card. The
+  block accepts people, Fahrzeuge and Material directly, with everything the card already does
+  – the Doppelbelegung-Rückfrage for a resource that is busy elsewhere, the Reko-Slot for a
+  Reko-Person, and an incident inside an Auftrag routing the assignment to the Auftrag.
+
 - **`just init` runs unattended.** `--yes --lan` or `--yes --domain kp.example.ch`, for a
   runbook or an SSH session that may drop. Passwords come from `ADMIN_SEED_PASSWORD` /
   `VIEWER_PASSWORD` or are generated and printed once. It detects that the port it is about to
@@ -374,6 +403,13 @@ will keep holding.
 
 ### Changed
 
+- **The two WhatsApp-Nachrichten of the Checkliste have a row each, and «Bereitschaft» is
+  called «Checkliste».** Standby and Einrücken went out at different moments – the first when
+  the KP goes up, the second when the crew is actually called in – but shared one row with a
+  picker between them, so ticking one hid the other and the row could only ever be completed
+  once. They are separate steps now, one button each. The badge in the Fussleiste says
+  «Checkliste», which is what is behind it.
+
 - **`just stop` and `just clean` are now `just dev-stop` and `just dev-clean`.** Both act on
   the development stack, and both were described in `just --list` as "stop all services" and
   "stop all services and DELETE ALL DATA". A station operator who installed `just` for the
@@ -512,6 +548,13 @@ will keep holding.
   and when both were drawn the same the eye stopped finding the column boundaries.
 
 ### Fixed
+
+- **The two WhatsApp-Vorlagen in Einstellungen → Alarmierung could not be saved.** The page
+  offered a Textarea for each, and every save answered 404 behind a generic «Speichern
+  fehlgeschlagen» – the keys were never on the backend's allowlist, so a station that reworded
+  its Standby-Info kept getting the shipped default back. Same class of bug as the one that
+  once made the offline-map switch unsettable; the test that ties the settings page to the
+  allowlist now names these two as well.
 
 - **A deployment with a domain could serve login cookies without `Secure`.** The cookie policy
   was inferred from `CORS_ORIGINS` being plain `http://`, on the reasoning that a wrong value

@@ -192,6 +192,25 @@ Un clic droit sur une carte d’intervention ouvre un menu avec les options suiv
 
 ## Comment ça marche : déroulements types
 
+### Liste de contrôle (au démarrage du PC arrière)
+
+S’ouvre d’elle-même dès qu’un événement est sélectionné, puis reste accessible
+par **« Checklist n/m »** dans la barre du bas. Elle guide ce qui doit se passer
+dans les premières minutes : informer l’effectif, distribuer les liens d’arrivée,
+de reconnaissance, d’alarme et de terrain, attribuer les conducteurs, vérifier
+l’imprimante, armer le repli papier.
+
+- **Les lignes chiffrées se cochent toutes seules** (personnes annoncées,
+  conducteurs par véhicule, imprimante joignable). Chaque ligne peut en plus être
+  cochée et décochée **à la main** – retenu par appareil.
+- **Sous les lignes de lien figure à qui il est destiné et combien d’exemplaires
+  imprimer** (« Pour chaque équipe qui part · 1 exemplaire par véhicule »). Si une
+  imprimante thermique est joignable, la ligne imprime le code QR ; sinon elle
+  copie le lien.
+- **Adaptable :** Réglages → Checklist. Chaque étape peut y être **masquée** (une
+  étape masquée ne compte plus dans la progression) et la note remplacée par vos
+  propres chiffres.
+
 ### Une nouvelle intervention arrive
 
 1. Appuyer sur `N` ou cliquer sur « Nouvelle intervention »
@@ -238,6 +257,26 @@ En plus de WhatsApp et de l’imprimante, les personnes attribuées peuvent êtr
 - **Liaison :** seules les personnes **liées** à Divera peuvent être alarmées – les autres sont grisées. La liaison se fait par la synchronisation des personnes Divera (Réglages → Personnel).
 - **Activer :** Réglages → Alarmement → activer « Alarmement Divera » (nécessite une clé d’accès Divera). On y trouve aussi une **alarme de test** vers une seule personne.
 - N’est **pas** déclenché en mode exercice ni en mode démo ; le pager n’est délibérément pas sollicité (push / pas de double alarmement).
+
+### Message Divera (information, pas une alarme)
+
+Le message de mise en attente de la liste de contrôle – « le PC arrière est
+actif, prendre son téléphone » – peut partir directement comme **message
+Divera** au lieu de passer par WhatsApp. Un message n’est délibérément **pas une
+alarme** : il arrive comme notification dans l’app Divera, ne réveille personne
+comme une convocation et ne sollicite aucun pager.
+
+- **Où :** bouton **« Message Divera »** à côté de « Envoyer par WhatsApp » dans
+  la liste de contrôle (sur les deux lignes de message). Il n’apparaît que si un
+  fournisseur d’alarmement est configuré **et** que l’alarmement est activé.
+- **Destinataires :** **rien** n’est présélectionné. Dans la fenêtre de
+  confirmation, cocher les **groupes Divera** visés. « Tout le site » existe,
+  mais c’est un choix délibéré, signalé par un avertissement – un message destiné
+  au piquet ne doit pas atteindre tout le corps par inadvertance.
+- **Texte :** vient du modèle (Réglages → Alarmement) et reste modifiable dans la
+  fenêtre avant l’envoi.
+- N’est **pas** réellement envoyé en mode exercice ni en mode démo.
+- **Divera FREE :** un seul message toutes les cinq minutes.
 
 ### Arrivée du personnel
 
