@@ -556,7 +556,7 @@ export function DriverAssignmentDialog({
                               </Badge>
                             )}
                             {isCurrentDriver && (
-                              <Badge variant="secondary" className="text-xs">{t('current')}</Badge>
+                              <Badge variant="secondary" className="text-xs">{t('drivesVehicle', { vehicle: vehicleName })}</Badge>
                             )}
                           </div>
                         </button>
@@ -618,7 +618,7 @@ export function DriverAssignmentDialog({
                                 </Badge>
                               )}
                               {isCurrentDriver && (
-                                <Badge variant="secondary" className="text-xs">{t('current')}</Badge>
+                                <Badge variant="secondary" className="text-xs">{t('drivesVehicle', { vehicle: vehicleName })}</Badge>
                               )}
                             </div>
                           </button>

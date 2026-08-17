@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { FooterSheet } from "@/components/ui/footer-sheet"
@@ -66,6 +66,42 @@ function getDurationColor(minutes: number | null): string {
   return "text-muted-foreground font-medium" // >= 2 hours
 }
 
+/** The Auftrag (route) a vehicle is out on — name plus the route's OWN colour,
+ *  the same colour the board and the map identify that route by. */
+interface VehicleAuftrag {
+  name: string
+  color: string | null
+}
+
+/** Tints an Auftrag chip in the route's colour. Returns undefined for a route
+ *  without a colour, which then falls back to the neutral chip classes. */
+function auftragChipStyle(color: string | null): CSSProperties | undefined {
+  if (!color) return undefined
+  return {
+    color,
+    borderColor: `color-mix(in oklab, ${color} 45%, transparent)`,
+    backgroundColor: `color-mix(in oklab, ${color} 12%, transparent)`,
+  }
+}
+
+/** «Auftrag «Sturm West»» in the route's colour — so a vehicle's route is
+ *  identifiable at a glance instead of reading as one more grey field. */
+function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-sm font-medium",
+        !auftrag.color && "border-border bg-muted/60 text-foreground",
+      )}
+      style={auftragChipStyle(auftrag.color)}
+      title={label}
+    >
+      <Route className="h-3 w-3 flex-shrink-0" />
+      <span className="truncate">{label}</span>
+    </span>
+  )
+}
+
 function getStatusBorderColor(status: string, hasIncident: boolean): string {
   // Refactoring UI: Use subtle visual cues, not heavy color blocks
   // Only highlight assigned vehicles, available is the default state
@@ -90,12 +126,13 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const { groups } = useGroups()
   // A vehicle can be deployed to a whole Auftrag (route) rather than a single
   // incident. Resolve vehicle-id → its Auftrag from the route assignments so the
-  // deployment reads as the route name instead of one stop's address.
+  // deployment reads as the route name instead of one stop's address. The colour
+  // travels with the name: it is what the board tints the route's cards with.
   const auftragByVehicleId = useMemo(() => {
-    const map = new Map<string, string>()
+    const map = new Map<string, VehicleAuftrag>()
     for (const g of groups) {
       for (const a of g.assignments) {
-        if (a.resourceType === "vehicle") map.set(a.resourceId, g.name)
+        if (a.resourceType === "vehicle") map.set(a.resourceId, { name: g.name, color: g.color })
       }
     }
     return map
@@ -310,7 +347,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
               {displayedVehicles.map((vehicle, index) => {
                 const isSelected = index === selectedVehicleIndex
                 const isClickable = !!vehicle.incident_id
-                const auftragName = auftragByVehicleId.get(vehicle.id)
+                const auftrag = auftragByVehicleId.get(vehicle.id)
+                const auftragName = auftrag?.name
                 const showDurationWarning = vehicle.assignment_duration_minutes && vehicle.assignment_duration_minutes >= 120
                 // Where the vehicle is: Auftrag name, else home-town-free incident
                 // address. The server ships that label already computed
@@ -386,15 +424,17 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                               {vehicle.driver_name || t('vehicleStatus.noDriver')}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 col-span-2">
-                            {auftragName ? (
-                              <Route className="h-3 w-3 text-primary flex-shrink-0" />
+                          <div className="flex min-w-0 items-center gap-1.5 col-span-2">
+                            {auftrag ? (
+                              <AuftragChip auftrag={auftrag} label={deploymentLabel} />
                             ) : (
-                              <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              <>
+                                <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <span className="truncate" title={deploymentLabel}>
+                                  {deploymentLabel}
+                                </span>
+                              </>
                             )}
-                            <span className={cn("truncate", auftragName && "font-medium")} title={deploymentLabel}>
-                              {deploymentLabel}
-                            </span>
                           </div>
                           {vehicle.assignment_duration_minutes !== null && (
                             <div className="flex items-center gap-1.5">
@@ -423,11 +463,14 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           </span>
                         </div>
 
-                        {/* Driver - Clickable to assign */}
+                        {/* Driver - Clickable to assign. This is the field an operator
+                            reads to know who to call, so it gets a share of the free
+                            width (basis-0 flex-1) rather than a fixed 120px that cut
+                            off anything longer than a short first name. */}
                         <button
                           onClick={(e) => handleOpenDriverDialog(vehicle, e)}
                           className={cn(
-                            "flex items-center gap-2 min-w-[120px] rounded px-1.5 py-0.5 -mx-1.5 transition-colors",
+                            "flex flex-1 basis-0 items-center gap-2 min-w-[150px] rounded px-1.5 py-0.5 -mx-1.5 transition-colors",
                             "hover:bg-muted/80 cursor-pointer group"
                           )}
                           title={vehicle.driver_name ? t('vehicleStatus.changeDriver') : t('vehicleStatus.assignDriver')}
@@ -441,17 +484,21 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           )}
                         </button>
 
-                        {/* Current deployment — the Auftrag (route) name when the vehicle
-                            is route-assigned, else the incident location. */}
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {auftragName ? (
-                            <Route className="h-3 w-3 text-primary flex-shrink-0" />
+                        {/* Current deployment — the Auftrag (route) in the route's own
+                            colour when the vehicle is route-assigned, else the incident
+                            location. Twice the driver's share of the free width: an
+                            address is the longer of the two. */}
+                        <div className="flex flex-[2] basis-0 items-center gap-2 min-w-0">
+                          {auftrag ? (
+                            <AuftragChip auftrag={auftrag} label={deploymentLabel} />
                           ) : (
-                            <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <>
+                              <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm truncate" title={deploymentLabel}>
+                                {deploymentLabel}
+                              </span>
+                            </>
                           )}
-                          <span className={cn("text-sm truncate", auftragName && "font-medium")} title={deploymentLabel}>
-                            {deploymentLabel}
-                          </span>
                         </div>
 
                         {/* Duration */}

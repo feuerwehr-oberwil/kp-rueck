@@ -65,6 +65,8 @@ import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
+import { useEvent } from "@/lib/contexts/event-context"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
@@ -152,6 +154,10 @@ export function AuftraegeSheet({
     refreshGroups,
   } = useGroups()
   const { operations } = useOperations()
+  const { selectedEvent } = useEvent()
+  // Who drives which Fahrzeug — one roster call for the whole sheet, only while
+  // it is open, kept live by the hook's WebSocket + same-tab listeners.
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
 
   // The route owns the people, so this is where a route's Einsatzleiter is set.
   // The backend demotes the previous holder in the same transaction — one call,
@@ -417,6 +423,7 @@ export function AuftraegeSheet({
                 group={group}
                 operations={operations}
                 resources={getGroupResources(group.id)}
+                vehicleDrivers={vehicleDrivers}
                 expanded={expanded.has(group.id)}
                 onToggle={() => toggleExpanded(group.id)}
                 isRenaming={renamingId === group.id}
@@ -485,6 +492,8 @@ interface AuftragCardProps {
   group: IncidentGroup
   operations: Operation[]
   resources: GroupResources
+  /** vehicle name → driver name, for the Fahrzeuge chips. */
+  vehicleDrivers: ReadonlyMap<string, string>
   expanded: boolean
   onToggle: () => void
   isRenaming: boolean
@@ -512,6 +521,7 @@ function AuftragCard({
   group,
   operations,
   resources,
+  vehicleDrivers,
   expanded,
   onToggle,
   isRenaming,
@@ -763,6 +773,7 @@ function AuftragCard({
               actions target the ROUTE (works with 0 stops). */}
           <RouteResourceSections
             resources={resources}
+            vehicleDrivers={vehicleDrivers}
             onAssign={onAssignRouteResource}
             onUnassign={onUnassignResource}
             onPromoteLeader={onPromoteLeader}
