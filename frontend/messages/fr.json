@@ -570,7 +570,8 @@
       "released": "Plus affecté",
       "past": "Précédemment",
       "notMeTitle": "Se déconnecter ?",
-      "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain."
+      "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain.",
+      "auftrag": "{name} · {count} arrêts"
     },
     "briefing": {
       "title": "Situation et ressources",
@@ -820,7 +821,6 @@
       "description": "Description",
       "descriptionPlaceholder": "Que voit-on ?",
       "takeOver": "On s'en occupe tout de suite",
-      "takeOverHint": "Ajouté comme étape à votre mandat – ou en ouvre un.",
       "submit": "Envoyer l'annonce",
       "failed": "L'annonce n'a pas pu être envoyée.",
       "confirm": {
@@ -832,7 +832,12 @@
       "titlePhone": "Annonce téléphonique",
       "fabPhone": "Saisir un appel",
       "caller": "Annonceur",
-      "callerPhone": "Téléphone"
+      "callerPhone": "Téléphone",
+      "message": "Message",
+      "messagePlaceholder": "Qu'est-ce qui a été signalé ?",
+      "priority": "Priorité",
+      "typeSearch": "Rechercher un type d'intervention…",
+      "typeNotFound": "Aucun type d'intervention trouvé."
     },
     "attendance": {
       "notHereTitle": "Tu n'es pas enregistré",
@@ -840,6 +845,19 @@
       "checkOut": "Je rentre",
       "here": "Enregistré",
       "hereNoJob": "Pas encore de mandat"
+    },
+    "material": {
+      "title": "Matériel",
+      "empty": "Aucun matériel enregistré.",
+      "summary": "{out} sur {total} en intervention",
+      "columnMaterial": "Matériel",
+      "columnWhere": "Où",
+      "inMagazin": "Magasin",
+      "state": {
+        "out": "sorti",
+        "left": "laissé sur place",
+        "in": "présent"
+      }
     }
   },
   "help": {

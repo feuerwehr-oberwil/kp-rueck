@@ -1,12 +1,20 @@
 'use client'
 
 /**
- * «Neue Meldung» — reporting a Schadenplatz from the field (plan 26, decision 14).
+ * «Neue Meldung» / «Anruf erfassen» — one sheet, two jobs (plan 26, decision 14).
  *
  * The difference from the phone desk's `/alarm` form is who is filling it in:
  * a **known person standing in front of the thing**. That is why there are no
  * Melder fields (they are the Melder), why the location offers their own GPS,
  * and why there is a switch the phone desk could never have.
+ *
+ * **Two shapes, on purpose.** Somebody on the Telefondienst is sitting at a
+ * desk taking a call, so their form is `/alarm`: Meldung, Priorität, all
+ * thirteen Einsatzarten, Melder and Telefon. A crew reporting a tree is
+ * one-handed in the rain, so theirs stays four pills and an address — the KP
+ * re-types a wrong guess in two seconds, and a seven-field form is the reason
+ * nothing gets reported at all. Keeping them the same would mean picking which
+ * of the two to make worse.
  *
  * **"Wir übernehmen das gleich"** is not a transfer. If the crew is working an
  * Auftrag, this becomes another stop on it and the route's resources already
@@ -18,7 +26,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, MapPin } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -28,10 +36,19 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { FooterSheet } from '@/components/ui/footer-sheet'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { apiClient, type ApiFeldIncidentCreated } from '@/lib/api-client'
 import { reverseGeocode } from '@/lib/geocoding'
+import { PRIORITY_LABELS } from '@/lib/priority'
+import { cn } from '@/lib/utils'
 import { INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
-import type { IncidentType } from '@/lib/types/incidents'
+import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
+
+/** The one label style the whole sheet uses — the same one `/alarm` uses, which
+ *  is what stopped the location field (its own component) looking like a
+ *  different form bolted into the middle of this one. */
+const LABEL = 'text-sm font-semibold text-muted-foreground'
 
 /**
  * The four a storm night is actually made of, in the order they come up.
@@ -75,6 +92,9 @@ export function FeldMeldenSheet({
 }: FeldMeldenSheetProps) {
   const t = useTranslations('feld.melden')
   const [type, setType] = useState<IncidentType>('elementarereignis')
+  const [typeOpen, setTypeOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [priority, setPriority] = useState<IncidentPriority>('medium')
   const [address, setAddress] = useState<string | null>(null)
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
@@ -91,6 +111,8 @@ export function FeldMeldenSheet({
 
   const reset = () => {
     setType('elementarereignis')
+    setTitle('')
+    setPriority('medium')
     setAddress(null)
     setLat(null)
     setLng(null)
@@ -135,15 +157,19 @@ export function FeldMeldenSheet({
     // The address is what the KP dispatches against; coordinates alone are a
     // dot nobody can read out over the radio, so one of the two must exist.
     const street = address?.trim() ?? ''
+    // The phone desk types what was reported; a crew in the field does not, and
+    // the address is the most useful title they always have.
+    const meldung = isPhoneDesk ? title.trim() : ''
     if (!street && lat === null) return
+    if (isPhoneDesk && !meldung) return
     setSending(true)
     try {
       const result = await apiClient.createFeldIncident(personnelId, token, {
         // The title is what the board shows on the card. The address is the
         // most useful thing a crew can put there and the one they always have.
-        title: street || INCIDENT_TYPE_LABELS[type],
+        title: meldung || street || INCIDENT_TYPE_LABELS[type],
         type,
-        priority: 'medium',
+        priority,
         location_address: street || null,
         location_lat: lat === null ? null : lat.toFixed(6),
         location_lng: lng === null ? null : lng.toFixed(6),
@@ -170,25 +196,30 @@ export function FeldMeldenSheet({
       <h2 className="mb-3 text-lg font-semibold">{isPhoneDesk ? t('titlePhone') : t('title')}</h2>
 
       <div className="space-y-4">
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">{t('what')}</Label>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {FIELD_TYPES.map(option => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setType(option)}
-                className={`min-h-9 rounded-lg border px-3 text-sm transition-colors ${
-                  type === option
-                    ? 'border-transparent bg-primary text-primary-foreground'
-                    : 'border-border bg-muted hover:bg-secondary'
-                }`}
-              >
-                {INCIDENT_TYPE_LABELS[option]}
-              </button>
-            ))}
+        {/* Four pills in the rain, all thirteen at the desk. The pills are not
+            a lesser version of the picker — they are the four a storm night is
+            made of, reachable in one tap with a wet glove. */}
+        {!isPhoneDesk && (
+          <div>
+            <Label className={LABEL}>{t('what')}</Label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {FIELD_TYPES.map(option => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setType(option)}
+                  className={`min-h-9 rounded-lg border px-3 text-sm transition-colors ${
+                    type === option
+                      ? 'border-transparent bg-primary text-primary-foreground'
+                      : 'border-border bg-muted hover:bg-secondary'
+                  }`}
+                >
+                  {INCIDENT_TYPE_LABELS[option]}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* The same control the phone desk gets on /alarm: type-ahead against
             the geocoder, a map to tap, coordinates to paste. A crew reporting a
@@ -205,20 +236,106 @@ export function FeldMeldenSheet({
             }}
             disabled={sending}
           />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={locate}
-            disabled={locating || sending}
-            className="mt-1.5"
-          >
-            {locating ? <Loader2 className="size-3.5 animate-spin" /> : <MapPin className="size-3.5" />}
-            {t('useLocation')}
-          </Button>
+          {/* Only for somebody standing in front of the thing. The phone desk
+              is sitting in the KP, so their position is the fire station — a
+              button that confidently fills in the wrong address. */}
+          {!isPhoneDesk && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={locate}
+              disabled={locating || sending}
+              className="mt-2"
+            >
+              {locating ? <Loader2 className="size-3.5 animate-spin" /> : <MapPin className="size-3.5" />}
+              {t('useLocation')}
+            </Button>
+          )}
         </div>
 
+        {/* Meldung, Priorität, Einsatzart — the three `/alarm` has and a crew
+            in the field does not need. Somebody taking a call has both hands
+            and the caller on the line; they are the ones who can answer them. */}
+        {isPhoneDesk && (
+          <>
+            <div>
+              <Label htmlFor="feld-melden-title" className={LABEL}>
+                {t('message')} <span className="text-destructive" aria-hidden="true">*</span>
+              </Label>
+              <Input
+                id="feld-melden-title"
+                value={title}
+                onChange={event => setTitle(event.target.value)}
+                placeholder={t('messagePlaceholder')}
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label className={LABEL}>
+                {t('priority')} <span className="text-destructive" aria-hidden="true">*</span>
+              </Label>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {(Object.entries(PRIORITY_LABELS) as [IncidentPriority, string][]).map(([key, label]) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant={priority === key ? 'default' : 'outline'}
+                    onClick={() => setPriority(key)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className={LABEL}>
+                {t('what')} <span className="text-destructive" aria-hidden="true">*</span>
+              </Label>
+              <Popover open={typeOpen} onOpenChange={setTypeOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={typeOpen}
+                    className="mt-2 w-full justify-between font-normal"
+                  >
+                    {INCIDENT_TYPE_LABELS[type]}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t('typeSearch')} />
+                    <CommandList>
+                      <CommandEmpty>{t('typeNotFound')}</CommandEmpty>
+                      <CommandGroup>
+                        {(Object.entries(INCIDENT_TYPE_LABELS) as [IncidentType, string][]).map(([key, label]) => (
+                          <CommandItem
+                            key={key}
+                            value={label}
+                            onSelect={() => {
+                              setType(key)
+                              setTypeOpen(false)
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', type === key ? 'opacity-100' : 'opacity-0')} />
+                            {label}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </>
+        )}
+
         <div>
-          <Label htmlFor="feld-melden-description" className="text-xs font-semibold text-muted-foreground">
+          <Label htmlFor="feld-melden-description" className={LABEL}>
             {t('description')}
           </Label>
           <Textarea
@@ -226,7 +343,7 @@ export function FeldMeldenSheet({
             value={description}
             onChange={event => setDescription(event.target.value)}
             placeholder={t('descriptionPlaceholder')}
-            className="mt-1.5 min-h-20"
+            className="mt-2 min-h-20"
           />
         </div>
 
@@ -236,18 +353,18 @@ export function FeldMeldenSheet({
         {isPhoneDesk && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label htmlFor="feld-melden-contact" className="text-xs font-semibold text-muted-foreground">
+              <Label htmlFor="feld-melden-contact" className={LABEL}>
                 {t('caller')}
               </Label>
               <Input
                 id="feld-melden-contact"
                 value={contact}
                 onChange={event => setContact(event.target.value)}
-                className="mt-1.5"
+                className="mt-2"
               />
             </div>
             <div>
-              <Label htmlFor="feld-melden-phone" className="text-xs font-semibold text-muted-foreground">
+              <Label htmlFor="feld-melden-phone" className={LABEL}>
                 {t('callerPhone')}
               </Label>
               <Input
@@ -255,7 +372,7 @@ export function FeldMeldenSheet({
                 inputMode="tel"
                 value={contactPhone}
                 onChange={event => setContactPhone(event.target.value)}
-                className="mt-1.5"
+                className="mt-2"
               />
             </div>
           </div>
@@ -266,10 +383,10 @@ export function FeldMeldenSheet({
             already working — the server decides and the confirmation says so. */}
         {offerTakeOver && (
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{t('takeOver')}</div>
-              <div className="text-xs text-muted-foreground">{t('takeOverHint')}</div>
-            </div>
+            {/* No explanatory line under it: what it does depends on what the
+                crew is already working, the confirmation says which, and a
+                sentence that has to hedge is worse than the four words. */}
+            <div className="min-w-0 flex-1 text-sm font-medium">{t('takeOver')}</div>
             <Switch checked={takeOver} onCheckedChange={setTakeOver} className="shrink-0" />
           </label>
         )}
@@ -278,7 +395,7 @@ export function FeldMeldenSheet({
           size="lg"
           className="w-full"
           onClick={submit}
-          disabled={sending || (!address?.trim() && lat === null)}
+          disabled={sending || (!address?.trim() && lat === null) || (isPhoneDesk && !title.trim())}
         >
           {sending && <Loader2 className="size-4 animate-spin" />}
           {t('submit')}

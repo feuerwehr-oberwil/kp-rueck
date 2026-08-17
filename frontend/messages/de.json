@@ -3183,7 +3183,8 @@
       "released": "Nicht mehr zugeteilt",
       "past": "Früher",
       "notMeTitle": "Abmelden?",
-      "notMeDescription": "Dieses Gerät wird abgemeldet. Wer es als Nächstes benutzt, braucht den Feld-Code."
+      "notMeDescription": "Dieses Gerät wird abgemeldet. Wer es als Nächstes benutzt, braucht den Feld-Code.",
+      "auftrag": "{name} · {count} Stops"
     },
     "briefing": {
       "title": "Lage und Ressourcen",
@@ -3433,7 +3434,6 @@
       "description": "Beschreibung",
       "descriptionPlaceholder": "Was ist zu sehen?",
       "takeOver": "Wir übernehmen das gleich",
-      "takeOverHint": "Kommt als Stop zu eurem Auftrag – oder eröffnet einen.",
       "submit": "Meldung absetzen",
       "failed": "Meldung konnte nicht abgesetzt werden.",
       "confirm": {
@@ -3445,7 +3445,12 @@
       "titlePhone": "Telefonische Meldung",
       "fabPhone": "Anruf erfassen",
       "caller": "Melder",
-      "callerPhone": "Telefon"
+      "callerPhone": "Telefon",
+      "message": "Meldung",
+      "messagePlaceholder": "Was wurde gemeldet?",
+      "priority": "Priorität",
+      "typeSearch": "Einsatzart suchen…",
+      "typeNotFound": "Keine Einsatzart gefunden."
     },
     "attendance": {
       "notHereTitle": "Du bist nicht eingecheckt",
@@ -3453,6 +3458,19 @@
       "checkOut": "Ich rücke ab",
       "here": "Eingecheckt",
       "hereNoJob": "Noch kein Auftrag"
+    },
+    "material": {
+      "title": "Material",
+      "empty": "Kein Material erfasst.",
+      "summary": "{out} von {total} draussen",
+      "columnMaterial": "Material",
+      "columnWhere": "Wo",
+      "inMagazin": "Magazin",
+      "state": {
+        "out": "draussen",
+        "left": "zurückgelassen",
+        "in": "da"
+      }
     }
   }
 }
