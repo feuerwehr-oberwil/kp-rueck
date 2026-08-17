@@ -673,18 +673,21 @@ export default function FireStationDashboard() {
   }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations, openIncidentDetail])
 
   // «Angekommen» / «Einsatz beendet» answered straight from the bell, without
-  // finding the card first. The move is the SAME one the card's own nudge makes
-  // — including the completion gate — and it records the same answer, so the
-  // question does not come back on the card a second later.
+  // finding the card first. It has to be the SAME move the card's own nudge
+  // makes, and for a while it was not: this one ran `requestCompletion`, i.e.
+  // the whole completion flow down to *Abgeschlossen*, while the nudge on the
+  // card moved to *Beendet / Rückfahrt* and stopped. Two buttons that ask the
+  // same question and answer it differently is worse than either answer — and
+  // the nudge's is the right one (see `field-status-nudge.tsx`): a crew that
+  // has packed up is not a Schadenplatz the KP has closed.
   useEffect(() => {
     if (!isEditor) return
     registerFieldActionHandler((incidentId, kind) => {
       storeFieldNudgeConfirmation(incidentId, kind)
-      if (kind === "complete") requestCompletion(incidentId)
-      else changeStatusToTop(incidentId, "active")
+      changeStatusToTop(incidentId, kind === "complete" ? "returning" : "active")
     })
     return () => registerFieldActionHandler(null)
-  }, [isEditor, registerFieldActionHandler, requestCompletion, changeStatusToTop])
+  }, [isEditor, registerFieldActionHandler, changeStatusToTop])
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -1390,6 +1393,9 @@ export default function FireStationDashboard() {
       else void assignGroupResource(groupId, resourceType, resourceId)
     },
     occupiedGroupResourceIds: occupiedResourceIds,
+    // A refused drop has to SAY it was refused. Silence here read as
+    // "drag and drop is broken" — the sidebar let go and nothing moved.
+    notifyRefused: () => toast.error(tCommon('dropRefusedRouteOccupied')),
   })
 
   // Board Auftrag chips signal the page via a window event (no prop threading
@@ -3029,8 +3035,8 @@ export default function FireStationDashboard() {
         funkrufname={funkrufname}
         diveraEnabled={diveraEnabled}
         onOpenAssignment={handleOpenAssignmentDialog}
-        onOpenDetail={(operationId) => {
-          openIncidentDetail(operationId)
+        onOpenDetail={(operationId, tab, section) => {
+          openIncidentDetail(operationId, tab, section)
         }}
         onSendDivera={setDiveraDialogOp}
         onRefresh={refreshOperations}

@@ -393,7 +393,7 @@ describe("OperationDetailContent", () => {
     // The modal has a second column for it: it sits inside Übersicht, above
     // «Status ändern».
     expect(
-      screen.getByRole("button", { name: "Abholung erledigt" }).closest('[role="tabpanel"]'),
+      screen.getByRole("button", { name: "Abholung disponiert" }).closest('[role="tabpanel"]'),
     ).not.toBeNull()
     unmount()
 
@@ -404,7 +404,7 @@ describe("OperationDetailContent", () => {
     // 420px has no second column, so the banner is a strip under the tab bar —
     // outside every tab panel, and therefore visible from all four tabs.
     expect(
-      screen.getByRole("button", { name: "Abholung erledigt" }).closest('[role="tabpanel"]'),
+      screen.getByRole("button", { name: "Abholung disponiert" }).closest('[role="tabpanel"]'),
     ).toBeNull()
   })
 

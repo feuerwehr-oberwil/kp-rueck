@@ -262,7 +262,13 @@ export function RekoReportForm({
           {t('effort')}
         </Label>
 
-        <div className={cn(dense ? "flex min-w-0 flex-1 items-center gap-2" : "grid grid-cols-2 gap-3")}>
+        {/* Wraps rather than overflows. Both labels are `whitespace-nowrap` and
+            both inputs are a fixed width, so the row is ~380px of unshrinkable
+            content — more than the board's 420px side panel has left after its
+            padding and the «Aufwand» gutter. Without the wrap the second field
+            simply ran off the panel's edge. In the modal, which is wider, it
+            still sits on one line. */}
+        <div className={cn(dense ? "flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5" : "grid grid-cols-2 gap-3")}>
           <div className={cn(dense && "flex items-center gap-1.5")}>
             <Label htmlFor="personnel-count" className={cn(
               "text-muted-foreground",
@@ -284,7 +290,7 @@ export function RekoReportForm({
                 })
               }
               placeholder={t('personnelPlaceholder')}
-              className={cn(dense ? "h-7 w-24" : "h-11")}
+              className={cn(dense ? "h-7 w-20" : "h-11")}
             />
           </div>
 
@@ -315,7 +321,7 @@ export function RekoReportForm({
                 })
               }}
               placeholder={t('durationPlaceholder')}
-              className={cn(dense ? "h-7 w-24" : "h-11")}
+              className={cn(dense ? "h-7 w-20" : "h-11")}
             />
           </div>
         </div>

@@ -115,9 +115,15 @@ export const OPERATION_DETAIL_TABS: readonly OperationDetailTab[] = ["overview",
 
 /** A block INSIDE a tab worth landing on directly, for a caller that pointed at
  *  something more specific than the tab — a click on the kanban card's crew or
- *  material row, say. Only Übersicht has one so far: its Ressourcen block, which
- *  in the 420px panel sits a long way below the form. */
-export type OperationDetailSection = "resources"
+ *  material row, say.
+ *
+ *  * `resources` — Übersicht's Ressourcen block, which in the 420px panel sits
+ *    a long way below the form.
+ *  * `newReport` — the Reko tab with its entry form already OPEN. «Reko-Details
+ *    öffnen» in the completion gate is an answer to "there is no Reko report",
+ *    so landing on a tab with a «Reko-Bericht erstellen» button still to find
+ *    is one click short of what the button promised. */
+export type OperationDetailSection = "resources" | "newReport"
 
 function isDetailTab(value: unknown): value is OperationDetailTab {
   return typeof value === "string" && (OPERATION_DETAIL_TABS as readonly string[]).includes(value)

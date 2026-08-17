@@ -61,6 +61,7 @@ import { RouteResourceSections } from "@/components/kanban/route-resource-sectio
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import type { Incident } from "@/lib/types/incidents"
 
 /** Whether the provenance toggle applies to this card at all.
@@ -388,34 +389,62 @@ export function OperationDetailContent({
   }, [openOnTab])
 
   /**
-   * The Ressourcen block takes drops, so a person or a Gerät can go straight
-   * onto the incident that is already open in the side panel instead of being
-   * carried back to its card. Panel only: the modal covers the very sidebars
-   * the resources are dragged out of, so there is nothing to drop there.
+   * The open side panel takes drops, so a person or a Gerät can go straight
+   * onto the incident already on screen instead of being carried back to its
+   * card. Panel only: the modal covers the very sidebars the resources are
+   * dragged out of, so there is nothing to drop there.
+   *
+   * **The whole panel, not just the Ressourcen block.** That block was the only
+   * target, which made the feature conditional on being on the Übersicht tab
+   * *and* on having scrolled the block into view — from the Reko or Rapport tab
+   * the panel silently refused every drop, and a refused drop looks exactly
+   * like a broken one. So the panel root is a target too. It is registered
+   * second and sits further out, and the monitor takes
+   * `dropTargets[0]` — the innermost — so the block still wins whenever the
+   * pointer is actually over it, and only its ring lights up.
    *
    * The payload is the card's own `operation-drop`, which is what buys the
    * behaviour that matters for free — Doppelbelegung prompt, Reko slot, and a
    * grouped incident routing the assignment to its Auftrag (see
-   * `applyResourceDrop`). Cards are refused: this block has no `index`, so the
-   * reorder maths in `applyOperationDrop` has nothing to work with.
+   * `applyResourceDrop`). Cards are refused: neither target has an `index`, so
+   * the reorder maths in `applyOperationDrop` has nothing to work with.
    */
   const [isResourceDropOver, setIsResourceDropOver] = useState(false)
+  const [isPanelDropOver, setIsPanelDropOver] = useState(false)
   useEffect(() => {
-    const element = resourcesRef.current
-    if (!element || layout !== 'panel' || !canEdit) return
+    const root = rootRef.current
+    if (!root || layout !== 'panel' || !canEdit) return
 
-    return dropTargetForElements({
-      element,
-      canDrop: ({ source }) =>
-        source.data.type === 'person' ||
-        source.data.type === 'material' ||
-        source.data.type === 'material-group' ||
-        source.data.type === 'driver-vehicle',
-      getData: () => ({ type: 'operation-drop', operationId: operation.id }),
-      onDragEnter: () => setIsResourceDropOver(true),
-      onDragLeave: () => setIsResourceDropOver(false),
-      onDrop: () => setIsResourceDropOver(false),
-    })
+    const takesResources = (data: Record<string | symbol, unknown>) =>
+      data.type === 'person' ||
+      data.type === 'material' ||
+      data.type === 'material-group' ||
+      data.type === 'driver-vehicle'
+    const dropData = () => ({ type: 'operation-drop', operationId: operation.id })
+
+    const block = resourcesRef.current
+    return combine(
+      dropTargetForElements({
+        element: root,
+        canDrop: ({ source }) => takesResources(source.data),
+        getData: dropData,
+        onDragEnter: () => setIsPanelDropOver(true),
+        onDragLeave: () => setIsPanelDropOver(false),
+        onDrop: () => setIsPanelDropOver(false),
+      }),
+      ...(block
+        ? [
+            dropTargetForElements({
+              element: block,
+              canDrop: ({ source }) => takesResources(source.data),
+              getData: dropData,
+              onDragEnter: () => setIsResourceDropOver(true),
+              onDragLeave: () => setIsResourceDropOver(false),
+              onDrop: () => setIsResourceDropOver(false),
+            }),
+          ]
+        : []),
+    )
   }, [layout, canEdit, operation.id, tab])
 
   // Shortcut targets that are not on screen: Shift+1/2/3 sets the priority,
@@ -602,7 +631,7 @@ export function OperationDetailContent({
         <FieldStatusNudge operation={operation} canEdit={canEdit} variant="detail" />
       )}
       {/* Stays visible on a completed incident on purpose, and is the KP's
-          «Abholung erledigt» control here as everywhere else — passing
+          «Abholung disponiert» control here as everywhere else — passing
           `incidentId` is what turns it into that button. */}
       {operation.pickupNeeded && (
         <PickupBadge
@@ -625,7 +654,15 @@ export function OperationDetailContent({
       // it holds the keyboard, it does not invite a click.
       tabIndex={layout === 'panel' ? -1 : undefined}
       onPointerDown={handlePanelPointerDown}
-      className={cn("flex h-full min-h-0 flex-col", layout === 'panel' && "outline-none")}
+      className={cn(
+        "flex h-full min-h-0 flex-col",
+        layout === 'panel' && "outline-none",
+        // Only when the Ressourcen block itself is NOT the target: a nested
+        // drop target leaves its parent "entered" too, and two rings around one
+        // drop is a question about which of them takes it.
+        isPanelDropOver && !isResourceDropOver &&
+          "rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background",
+      )}
       data-testid="operation-detail-content"
       data-layout={layout}
     >
@@ -1556,6 +1593,12 @@ export function OperationDetailContent({
                 // Two columns where there is width: what was reported on the
                 // left, what the operator writes on the right.
                 layout={dense ? 'stacked' : 'split'}
+                // Deep-linked with the entry form open. «Reko-Details öffnen»
+                // in the completion gate answers "no Reko report was filled in",
+                // so it has to land on the form, not on a tab with a button.
+                openEditorNonce={
+                  openOnTab?.tab === 'reko' && openOnTab.section === 'newReport' ? openOnTab.nonce : undefined
+                }
                 onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
               />
               </div>

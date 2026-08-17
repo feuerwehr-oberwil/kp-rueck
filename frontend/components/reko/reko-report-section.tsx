@@ -28,7 +28,7 @@
  * longer says whether Reko is on site.
  */
 
-import { useState, useEffect, useCallback, useMemo, Fragment, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -62,6 +62,14 @@ interface RekoReportSectionProps {
    * them, where it read as a heading for the entry surface as well.
    */
   dataSlot?: ReactNode
+  /**
+   * Open the entry form on arrival. A NONCE rather than a boolean: the caller
+   * that wants this is a deep link («Reko-Details öffnen» in the completion
+   * gate), the same incident can be deep-linked twice in a session, and a
+   * boolean that is already `true` cannot say "again". Ignored while the
+   * mount cannot write.
+   */
+  openEditorNonce?: number
 }
 
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
@@ -72,6 +80,7 @@ export default function RekoReportSection({
   canEdit = false,
   layout = 'stacked',
   dataSlot,
+  openEditorNonce,
 }: RekoReportSectionProps) {
   const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
@@ -145,6 +154,22 @@ export default function RekoReportSection({
     setFormData(toRekoFormData(latestReport))
     setIsEditing(true)
   }
+
+  // Deep-linked straight into the entry form. Waits for `isLoading`, because
+  // `startEditing` prefills from `latestReport` and opening before the fetch
+  // lands would give an amend an empty form. Keyed on the nonce so a second
+  // deep link to the same incident opens it again — and so a later re-render
+  // cannot re-open a form the operator has closed.
+  const openedForNonce = useRef<number | null>(null)
+  useEffect(() => {
+    if (openEditorNonce === undefined || !canEdit || isLoading) return
+    if (openedForNonce.current === openEditorNonce) return
+    openedForNonce.current = openEditorNonce
+    startEditing()
+    // `startEditing` is a plain function redeclared every render; the nonce guard
+    // above is what makes this run once per deep link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEditorNonce, canEdit, isLoading])
 
   async function handleSave() {
     setIsSaving(true)

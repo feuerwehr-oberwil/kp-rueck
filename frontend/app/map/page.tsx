@@ -40,6 +40,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
+import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
@@ -137,6 +138,13 @@ export default function MapPage() {
   )
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  // Which tab (and block inside it) the modal should land on when something
+  // pointed at more than "this incident" — the completion gate's «Reko-Details
+  // öffnen», for one. The nonce is what makes a second deep link to the SAME
+  // incident move the tab again.
+  const [detailOnTab, setDetailOnTab] = useState<
+    { tab: OperationDetailTab; nonce: number; section?: OperationDetailSection } | null
+  >(null)
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
   const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
   const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
@@ -406,24 +414,24 @@ export default function MapPage() {
   })
 
   // The bell's «angekommen» / «beendet» button works here too — the map is a
-  // full operating surface, and the move has to run through this page's own
-  // workflow gates rather than a second copy of them.
+  // full operating surface.
   //
-  // Depends on `requestCompletion`, NOT on the workflow object: that object is
+  // Depends on `changeStatusToTop`, NOT on the workflow object: that object is
   // rebuilt on every render, so depending on it re-registered the handler every
   // render — and registering is a setState in the notification context, which
   // renders again. That loop froze the whole Karte page, back button included.
   const { registerFieldActionHandler } = useNotifications()
-  const { requestCompletion } = statusWorkflow
+  // Same move as the board's handler and as the card's own nudge — see the note
+  // on `registerFieldActionHandler` in app/page.tsx for why «beendet» stops at
+  // Beendet / Rückfahrt instead of running the completion flow.
   useEffect(() => {
     if (!isEditor) return
     registerFieldActionHandler((incidentId, kind) => {
       storeFieldNudgeConfirmation(incidentId, kind)
-      if (kind === "complete") requestCompletion(incidentId)
-      else changeStatusToTop(incidentId, "active")
+      changeStatusToTop(incidentId, kind === "complete" ? "returning" : "active")
     })
     return () => registerFieldActionHandler(null)
-  }, [isEditor, registerFieldActionHandler, requestCompletion, changeStatusToTop])
+  }, [isEditor, registerFieldActionHandler, changeStatusToTop])
 
   const handleAssignRouteResource = (
     resourceType: 'crew' | 'vehicles' | 'materials',
@@ -1224,7 +1232,7 @@ export default function MapPage() {
                                     driving job and whoever assigns it is looking
                                     at where things are, so the rail carries the
                                     same chip the board does — and, like there,
-                                    it IS the «Abholung erledigt» button:
+                                    it IS the «Abholung disponiert» button:
                                     completing the incident already released the
                                     crew, so this chip is the only thing left
                                     saying they are standing at the kerb.
@@ -1365,6 +1373,7 @@ export default function MapPage() {
           operation={selectedOperation}
           open={detailModalOpen}
           onOpenChange={setDetailModalOpen}
+          openOnTab={detailOnTab ?? undefined}
           onUpdate={handleOperationUpdate}
           onDelete={isEditor ? handleOperationDelete : undefined}
           materials={materials}
@@ -1474,8 +1483,9 @@ export default function MapPage() {
           funkrufname={funkrufname}
           diveraEnabled={diveraEnabled}
           onOpenAssignment={handleOpenAssignmentDialog}
-          onOpenDetail={(operationId) => {
+          onOpenDetail={(operationId, tab, section) => {
             setSelectedOperationId(operationId)
+            setDetailOnTab(tab ? { tab, section, nonce: Date.now() } : null)
             setDetailModalOpen(true)
           }}
           onSendDivera={setDiveraDialogOp}
