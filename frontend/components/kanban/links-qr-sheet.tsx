@@ -11,6 +11,12 @@
  * Reko is gone from the list rather than merged: `/feld` absorbed it, and a Reko
  * auftrag now opens the form straight from the crew's own page.
  *
+ * Check-In and Anzeige are not here either, and for the opposite reason: they
+ * kept their own footer pills because their sheets do more than share a link
+ * (the Appell; picking which display the token opens). Listing them here too
+ * meant the same link in two places with two different sets of controls — so
+ * this sheet holds only the links that live nowhere else.
+ *
  * Two things that are not just tidying:
  *
  * * **The Feld-Code rides along at the top.** Since plan 26 the QR alone gets
@@ -35,8 +41,8 @@ import { FeldAccessCard } from "@/components/feld/feld-access-card"
 import { apiClient } from "@/lib/api-client"
 import { copyToClipboard } from "@/lib/utils"
 
-/** The four surviving links, in the order the KP needs them on a callout. */
-const LINK_KEYS = ["feld", "checkin", "display", "alarm"] as const
+/** The links that live only here, in the order the KP needs them on a callout. */
+const LINK_KEYS = ["feld", "alarm"] as const
 type LinkKey = (typeof LINK_KEYS)[number]
 
 interface LinksQrSheetProps {
@@ -57,21 +63,15 @@ export function LinksQrSheet({ open, onOpenChange, eventId, printerEnabled }: Li
   const generate = useCallback(
     async (key: LinkKey, id: string): Promise<string> => {
       const response =
-        key === "feld"
-          ? await apiClient.generateFeldLink(id)
-          : key === "checkin"
-            ? await apiClient.generateCheckInLink(id)
-            : key === "display"
-              ? await apiClient.generateViewerLink(id)
-              : await apiClient.generateAlarmLink(id)
+        key === "feld" ? await apiClient.generateFeldLink(id) : await apiClient.generateAlarmLink(id)
       return `${window.location.origin}${response.link}`
     },
     [],
   )
 
-  // All four at once when the sheet opens. Each is a separate mint and they are
+  // Both at once when the sheet opens. Each is a separate mint and they are
   // independent, so one failing (a provider off, a permission) must not take the
-  // other three down with it.
+  // other down with it.
   useEffect(() => {
     if (!open || !eventId) return
     let cancelled = false

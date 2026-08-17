@@ -38,6 +38,7 @@ import { MaterialOnSitePanel, selectMaterialOnSite } from "@/components/kanban/m
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { RoutenEditorModal } from "@/components/kanban/routen-editor-modal"
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { IncidentPickerDialog } from "@/components/kanban/incident-picker-dialog"
@@ -313,6 +314,9 @@ export default function FireStationDashboard() {
     isLoading,
     isLoaded
   } = useOperations()
+  // The board's roster is "everybody checked in", so the Appell writing an
+  // attendance row changes it — see `onAttendanceChange` on the modal below.
+  const { refreshPersonnel } = usePersonnel()
   const {
     groups,
     addStops: addStopsToGroup,
@@ -2487,7 +2491,10 @@ export default function FireStationDashboard() {
                   key: 'checkin',
                   node: (
                     <ToolbarToggle
-                      icon={QrCode}
+                      // Not a QR: that is the Links pill's icon, and two pills
+                      // side by side wearing the same one is what made an
+                      // operator open the wrong sheet. This one is the Appell.
+                      icon={ClipboardCheck}
                       label={tDash('checkIn')}
                       active={qrDialogOpen}
                       onActivate={generateCheckInQR}
@@ -2839,6 +2846,7 @@ export default function FireStationDashboard() {
           eventId={selectedEvent.id}
           eventName={selectedEvent.name}
           assignmentLabelFor={assignmentLabelForPerson}
+          onAttendanceChange={refreshPersonnel}
         />
       )}
 

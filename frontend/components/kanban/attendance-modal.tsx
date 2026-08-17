@@ -96,6 +96,11 @@ interface AttendanceModalProps {
   /** Where this person is still assigned, for the check-out warning. Injected rather than
    *  read from the operations context so the modal stays a pure view of attendance. */
   assignmentLabelFor?: (person: ApiPersonnelListItem) => string | null
+  /** Fired after every successful attendance write. The board's roster is
+   *  "everybody checked in", so ticking somebody here adds them to the sidebar —
+   *  and waiting for the socket round-trip to say so made the Appell look like
+   *  it had not worked. The modal keeps its own optimistic state either way. */
+  onAttendanceChange?: () => void
 }
 
 export function AttendanceModal({
@@ -104,6 +109,7 @@ export function AttendanceModal({
   eventId,
   eventName,
   assignmentLabelFor,
+  onAttendanceChange,
 }: AttendanceModalProps) {
   const t = useTranslations('kanban.attendance')
   const tCommon = useTranslations('kanban.common')
@@ -156,6 +162,7 @@ export function AttendanceModal({
     try {
       await apiClient.checkInPersonnelForEvent(person.id, eventId)
       applyLocally(person.id, { checked_in: true, checked_in_at: new Date().toISOString(), checked_out_at: null })
+      onAttendanceChange?.()
     } catch (error) {
       console.error('Check-in failed:', error)
       toast.error(t('writeFailed'))
@@ -167,6 +174,7 @@ export function AttendanceModal({
     try {
       await apiClient.checkOutPersonnelForEvent(person.id, eventId)
       applyLocally(person.id, { checked_in: false, checked_out_at: new Date().toISOString() })
+      onAttendanceChange?.()
     } catch (error) {
       console.error('Check-out failed:', error)
       toast.error(t('writeFailed'))
@@ -178,6 +186,7 @@ export function AttendanceModal({
     try {
       await apiClient.clearPersonnelAttendance(person.id, eventId)
       applyLocally(person.id, { checked_in: false, checked_in_at: null, checked_out_at: null })
+      onAttendanceChange?.()
     } catch (error) {
       console.error('Clearing attendance failed:', error)
       toast.error(t('writeFailed'))
@@ -222,6 +231,7 @@ export function AttendanceModal({
     try {
       await apiClient.checkOutAllPersonnel(eventId)
       await load()
+      onAttendanceChange?.()
     } catch (error) {
       console.error('Check-out-all failed:', error)
       toast.error(t('writeFailed'))
