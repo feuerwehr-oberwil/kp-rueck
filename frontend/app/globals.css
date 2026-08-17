@@ -324,6 +324,16 @@
       font-size: max(16px, 1rem);
     }
 
+    /* …and give them the same 44px the buttons below get. A field is a tap
+       target too, and without this a text input (h-9) sat 8px shorter than the
+       icon buttons beside it — which is what the address row in every location
+       field looked like on a phone. */
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select {
+      min-height: 44px;
+    }
+
     /* Ensure minimum touch target sizes (44x44px for iOS guidelines).
        `[role="switch"]` is excluded: a Radix Switch renders a <button>, so this
        rule squared it into a 44x44 blob wherever one appeared on a phone. A

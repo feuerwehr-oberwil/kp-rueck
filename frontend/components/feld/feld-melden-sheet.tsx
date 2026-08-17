@@ -26,7 +26,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, ChevronsUpDown, Loader2, LocateFixed } from 'lucide-react'
+import { Loader2, LocateFixed } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -36,12 +36,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { FooterSheet } from '@/components/ui/footer-sheet'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { apiClient, type ApiFeldIncidentCreated } from '@/lib/api-client'
 import { reverseGeocode } from '@/lib/geocoding'
 import { PRIORITY_LABELS } from '@/lib/priority'
-import { cn } from '@/lib/utils'
 import { INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
 
@@ -92,7 +90,6 @@ export function FeldMeldenSheet({
 }: FeldMeldenSheetProps) {
   const t = useTranslations('feld.melden')
   const [type, setType] = useState<IncidentType>('elementarereignis')
-  const [typeOpen, setTypeOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<IncidentPriority>('medium')
   const [address, setAddress] = useState<string | null>(null)
@@ -296,43 +293,23 @@ export function FeldMeldenSheet({
               <Label className={LABEL}>
                 {t('what')} <span className="text-destructive" aria-hidden="true">*</span>
               </Label>
-              <Popover open={typeOpen} onOpenChange={setTypeOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={typeOpen}
-                    className="mt-2 w-full justify-between font-normal"
-                  >
-                    {INCIDENT_TYPE_LABELS[type]}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder={t('typeSearch')} />
-                    <CommandList>
-                      <CommandEmpty>{t('typeNotFound')}</CommandEmpty>
-                      <CommandGroup>
-                        {(Object.entries(INCIDENT_TYPE_LABELS) as [IncidentType, string][]).map(([key, label]) => (
-                          <CommandItem
-                            key={key}
-                            value={label}
-                            onSelect={() => {
-                              setType(key)
-                              setTypeOpen(false)
-                            }}
-                          >
-                            <Check className={cn('mr-2 h-4 w-4', type === key ? 'opacity-100' : 'opacity-0')} />
-                            {label}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              {/* A plain Select, like the board's own «Neuer Einsatz» modal.
+                  The searchable Popover `/alarm` uses is right on a full page
+                  and wrong inside a bottom sheet: it portals to the body and
+                  collision-detects against the viewport, so on a phone it landed
+                  across the sheet's own header. Thirteen items scroll fine. */}
+              <Select value={type} onValueChange={value => setType(value as IncidentType)}>
+                <SelectTrigger className="mt-2 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(INCIDENT_TYPE_LABELS) as [IncidentType, string][]).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </>
         )}
