@@ -3484,7 +3484,9 @@
       "editHint": "Solange der KP niemanden geschickt hat, kannst du die Meldung noch ändern.",
       "editSubmit": "Korrektur senden",
       "editSaved": "Korrektur ist beim KP",
-      "editTooLate": "Der KP hat die Meldung bereits übernommen – bitte per Funk melden."
+      "editTooLate": "Der KP hat die Meldung bereits übernommen – bitte per Funk melden.",
+      "notes": "Weitere Hinweise",
+      "notesPlaceholder": "Zufahrt, Schlüssel, Kontakt vor Ort …"
     },
     "attendance": {
       "notHereTitle": "Du bist nicht eingecheckt",

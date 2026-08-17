@@ -63,6 +63,29 @@ describe('FeldMeldenSheet', () => {
     expect(createFeldIncident.mock.calls[0][2]).toMatchObject({ location_address: 'Hauptstrasse 12' })
   })
 
+  it('carries a crew reporter\'s notes and Melder — they are not the phone desk\'s alone', async () => {
+    const user = userEvent.setup()
+    render()
+
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    await user.type(screen.getByLabelText('Beschreibung'), 'Baum quer über der Fahrbahn')
+    await user.type(screen.getByLabelText('Weitere Hinweise'), 'Zufahrt über den Hinterhof')
+    await user.type(screen.getByLabelText('Melder'), 'A. Bürgin')
+    await user.type(screen.getByLabelText('Telefon'), '079 000 00 00')
+    await user.click(screen.getByRole('button', { name: 'Weiter' }))
+    await user.click(screen.getByRole('button', { name: 'Meldung absetzen' }))
+
+    await waitFor(() => expect(createFeldIncident).toHaveBeenCalledTimes(1))
+    // The Meldung stays the Meldung; the notes are Notizen, not a second
+    // sentence overwriting it.
+    expect(createFeldIncident.mock.calls[0][2]).toMatchObject({
+      description: 'Baum quer über der Fahrbahn',
+      internal_notes: 'Zufahrt über den Hinterhof',
+      contact: 'A. Bürgin',
+      contact_phone: '079 000 00 00',
+    })
+  })
+
   it('goes back to the form with the entries intact', async () => {
     const user = userEvent.setup()
     render()

@@ -133,6 +133,11 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
   const [lat, setLat] = useState<number | null>(editing?.location_lat ? Number(editing.location_lat) : null)
   const [lng, setLng] = useState<number | null>(editing?.location_lng ? Number(editing.location_lng) : null)
   const [description, setDescription] = useState(editing?.description ?? '')
+  /** «Weitere Hinweise» — the board's Notizen, separate from the Meldung it is
+   *  notes about. Offered to a crew as well as the phone desk: somebody
+   *  standing in front of the thing often has the caretaker's number in their
+   *  hand, and the alternative was radioing it in. */
+  const [notes, setNotes] = useState(editing?.internal_notes ?? '')
   const [takeOver, setTakeOver] = useState(false)
   const [contact, setContact] = useState(editing?.contact ?? '')
   const [contactPhone, setContactPhone] = useState(editing?.contact_phone ?? '')
@@ -155,6 +160,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
     setLat(null)
     setLng(null)
     setDescription('')
+    setNotes('')
     setTakeOver(false)
     setContact('')
     setContactPhone('')
@@ -185,9 +191,10 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
       // it took.
       hint: address?.trim() && lat !== null && lng !== null ? t('review.hasPin') : undefined,
     },
-    { label: t('description'), value: description.trim() },
-    ...(isPhoneDesk ? [{ label: t('caller'), value: contact.trim() }] : []),
-    ...(isPhoneDesk ? [{ label: t('callerPhone'), value: contactPhone.trim() }] : []),
+    ...(isPhoneDesk ? [] : [{ label: t('description'), value: description.trim() }]),
+    { label: t('notes'), value: notes.trim() },
+    { label: t('caller'), value: contact.trim() },
+    { label: t('callerPhone'), value: contactPhone.trim() },
     // Only when the switch was actually offered — "Übernahme: nein" for
     // somebody who was never asked is an answer to a question they did not get.
     ...(offerTakeOver
@@ -253,9 +260,9 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
           location_lat: lat === null ? null : lat.toFixed(6),
           location_lng: lng === null ? null : lng.toFixed(6),
           description: isPhoneDesk ? meldung : description.trim(),
-          internal_notes: isPhoneDesk ? description.trim() : null,
-          contact: isPhoneDesk ? contact.trim() : null,
-          contact_phone: isPhoneDesk ? contactPhone.trim() : null,
+          internal_notes: notes.trim(),
+          contact: contact.trim(),
+          contact_phone: contactPhone.trim(),
         })
         toast.success(t('editSaved'))
         props.onReported(corrected)
@@ -279,11 +286,11 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         // this, the desk's Meldung went into `title` (invisible the moment
         // there was an address) and the notes overwrote the Meldung.
         description: (isPhoneDesk ? meldung : description.trim()) || null,
-        internal_notes: isPhoneDesk ? description.trim() || null : null,
+        internal_notes: notes.trim() || null,
         take_over: takeOver,
         as_phone_call: Boolean(isPhoneDesk),
-        contact: isPhoneDesk ? contact.trim() || null : null,
-        contact_phone: isPhoneDesk ? contactPhone.trim() || null : null,
+        contact: contact.trim() || null,
+        contact_phone: contactPhone.trim() || null,
       })
       toast.success(t(`confirm.${result.takeover}`))
       props.onReported(result)
@@ -482,26 +489,49 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
           </>
         )}
 
+        {/* What was seen. For the phone desk this is «Meldung» above — they
+            are writing down somebody else's words — so they do not get a second
+            field for the same thing. */}
+        {!isPhoneDesk && (
+          <div>
+            <Label htmlFor="feld-melden-description" className={LABEL}>
+              {t('description')}
+            </Label>
+            <Textarea
+              id="feld-melden-description"
+              value={description}
+              onChange={event => setDescription(event.target.value)}
+              placeholder={t('descriptionPlaceholder')}
+              className="mt-2 min-h-20"
+            />
+          </div>
+        )}
+
+        {/* Notizen, not Meldung: anything that is useful on site but is not
+            what happened — the Zufahrt, who has the key, that the dog bites. */}
         <div>
-          <Label htmlFor="feld-melden-description" className={LABEL}>
-            {t('description')}
+          <Label htmlFor="feld-melden-notes" className={LABEL}>
+            {t('notes')}
           </Label>
           <Textarea
-            id="feld-melden-description"
-            value={description}
-            onChange={event => setDescription(event.target.value)}
-            placeholder={t('descriptionPlaceholder')}
-            className="mt-2 min-h-20"
+            id="feld-melden-notes"
+            value={notes}
+            onChange={event => setNotes(event.target.value)}
+            placeholder={t('notesPlaceholder')}
+            className="mt-2 min-h-16"
           />
         </div>
 
-        {/* The Melder — only for somebody taking a call. A firefighter standing
-            in front of the thing IS the Melder, and their name is already on
-            the audit row, so asking them who reported it is asking twice. */}
-        {/* Two rows, not two columns: half a phone width holds neither a name
+        {/* The Melder, for everybody. It used to be the phone desk's alone, on
+            the argument that a firefighter standing in front of the thing IS
+            the Melder — true, and beside the point: the person who flagged them
+            down, the caretaker with the key, the owner of the flooded cellar all
+            have a number the KP will otherwise ask for over the radio. Empty is
+            the normal case and costs two blank fields.
+
+            Two rows, not two columns: half a phone width holds neither a name
             nor a Swiss number without scrolling the text out of sight. */}
-        {isPhoneDesk && (
-          <>
+        <>
             <div>
               <Label htmlFor="feld-melden-contact" className={LABEL}>
                 {t('caller')}
@@ -528,8 +558,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                 className="mt-2"
               />
             </div>
-          </>
-        )}
+        </>
 
         {/* The switch the phone desk could never have: the person reporting is
             the person who can do it. What it does depends on what they are

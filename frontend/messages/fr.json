@@ -846,7 +846,9 @@
       "editHint": "Tant que le PC n’a engagé personne, tu peux encore modifier l’annonce.",
       "editSubmit": "Envoyer la correction",
       "editSaved": "Correction transmise au PC",
-      "editTooLate": "Le PC a déjà repris l’annonce – annonce la correction par radio."
+      "editTooLate": "Le PC a déjà repris l’annonce – annonce la correction par radio.",
+      "notes": "Autres indications",
+      "notesPlaceholder": "Accès, clé, contact sur place …"
     },
     "attendance": {
       "notHereTitle": "Tu n'es pas enregistré",
