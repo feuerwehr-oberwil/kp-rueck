@@ -212,17 +212,17 @@ function SourceLabel({ assignment }: { assignment: ApiFeldAssignment }) {
 
 /** The plain sentence under a row that explains an unusual source. The label is
  *  a tag; this is the explanation, and it is what actually makes the union rule
- *  legible to somebody who never heard of it. */
+ *  legible to somebody who never heard of it.
+ *
+ *  **Not for drivers.** "Das TLF ist disponiert – du bist nicht selbst
+ *  zugeteilt" told the one person on the Schadenplatz who already knows why he
+ *  is there, and read like a correction. The `TLF 1` tag is enough. Reko and
+ *  Magazin keep theirs: "your material is still there" is the only thing that
+ *  explains a row for a Schadenplatz nobody sent you to. */
 function SourceReason({ assignment }: { assignment: ApiFeldAssignment }) {
   const t = useTranslations('feld.source')
-  if (assignment.source === 'crew') return null
-  return (
-    <p className="mb-1.5 text-xs text-muted-foreground">
-      {assignment.source === 'driver'
-        ? t('driverReason', { vehicle: assignment.source_vehicle ?? '' })
-        : t(`${assignment.source}Reason`)}
-    </p>
-  )
+  if (assignment.source !== 'reko' && assignment.source !== 'magazin') return null
+  return <p className="mb-1.5 text-xs text-muted-foreground">{t(`${assignment.source}Reason`)}</p>
 }
 
 function RapportStateChip({ state }: { state: ApiFeldAssignment['rapport_state'] }) {
@@ -613,11 +613,11 @@ function FeldSurface() {
     return () => clearInterval(interval)
   }, [selectedPerson, token, loadAssignments])
 
-  /** Say you are here, or that you have gone home. */
+  /** Say you are here. Only ever true — see the attendance block below. */
   const toggleAttendance = useCallback(async () => {
     if (!token || !selectedPerson || attendanceBusy) return
     setAttendanceBusy(true)
-    const next = !checkedIn
+    const next = true
     try {
       await apiClient.setFeldAttendance(selectedPerson.personnel_id, token, next)
       setCheckedIn(next)
@@ -626,7 +626,7 @@ function FeldSurface() {
     } finally {
       setAttendanceBusy(false)
     }
-  }, [token, selectedPerson, checkedIn, attendanceBusy])
+  }, [token, selectedPerson, attendanceBusy])
 
   /** "Nicht ich" — the phone is being handed on. Switching person means a new
    *  bound token, and a new bound token means the code again: the binding would
@@ -1068,7 +1068,7 @@ function FeldSurface() {
                 </div>
                 {/* Why this row is here at all, in a plain sentence — the tag
                     above is a marker, this is the explanation. Silent for an
-                    own assignment, which needs none. */}
+                    own assignment and for a driver, which need none. */}
                 <SourceReason assignment={assignment} />
                 {/* The EL briefing on the list, before the form is ever opened.
                     Not on a Reko row: the Einsatzleiter leads the crew that
@@ -1114,16 +1114,14 @@ function FeldSurface() {
           })
         )}
 
-        {/* The other end of the night. Quiet, at the bottom, out of the way of
-            the work — but present, because "ich rücke ab" had no home at all
-            and the KP was left guessing who was still out. */}
+        {/* Checking IN is the crew's; checking out is not. Abmelden from a
+            phone in a vehicle edits the roll call the KP is keeping — and the
+            one person who cannot see that list is the one holding the phone.
+            The line stays as a statement, without the button. */}
         {checkedIn && (
           <div className="flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2.5">
             <span className="size-2 shrink-0 rounded-full bg-success" />
             <span className="flex-1 text-xs text-muted-foreground">{t('attendance.here')}</span>
-            <Button variant="ghost" size="sm" onClick={toggleAttendance} disabled={attendanceBusy}>
-              {t('attendance.checkOut')}
-            </Button>
           </div>
         )}
       </div>
@@ -1147,6 +1145,16 @@ function FeldSurface() {
             personnelId={selectedPerson.personnel_id}
             token={token}
             isPhoneDesk={functions.includes('telefondienst')}
+            // A Reko trupp cannot "take it on": they were sent to look and
+            // report back. The escape hatch is crew work the reko fallback
+            // cannot swallow — a squad assigned to an Auftrag holds no personnel
+            // row on any stop, so those rows really do come back as `crew`
+            // (`visibility.py`, the route block). A reko holder given ordinary
+            // per-incident crew rows reads as reko throughout the Ereignis, and
+            // that collapse is deliberate and documented there.
+            canTakeOver={
+              !functions.includes('reko') || assignments.some(item => item.source === 'crew')
+            }
             onReported={() => loadAssignments(selectedPerson.personnel_id)}
           />
         </>

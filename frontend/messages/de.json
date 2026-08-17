@@ -3408,7 +3408,6 @@
       "driver": "Als Fahrer · {vehicle}",
       "magazin": "Magazin",
       "rekoReason": "Vom KP als Reko zugeteilt",
-      "driverReason": "{vehicle} ist disponiert – du bist nicht selbst zugeteilt",
       "magazinReason": "Material von hier ist noch nicht zurück",
       "rekoAction": "Reko erfassen"
     },
@@ -3429,10 +3428,7 @@
       "fab": "Melden",
       "title": "Neue Meldung",
       "what": "Was",
-      "where": "Wo",
-      "wherePlaceholder": "Strasse und Nummer",
       "useLocation": "Standort übernehmen",
-      "located": "Standort erfasst",
       "locateFailed": "Standort nicht verfügbar",
       "description": "Beschreibung",
       "descriptionPlaceholder": "Was ist zu sehen?",

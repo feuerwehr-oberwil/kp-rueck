@@ -215,11 +215,11 @@ test.describe('/feld: der Fahrer', { tag: '@smoke' }, () => {
       // The tag names the vehicle — "Als Fahrer" alone would leave the driver of
       // two vehicles guessing which one put the row here.
       await expect(releasedRow.getByText(`Als Fahrer · ${releasedVehicle.name}`)).toBeVisible();
-      // …and under it the sentence that actually explains the union rule to
-      // somebody who never heard of it (`feld.source.driverReason`).
-      await expect(
-        releasedRow.getByText(`${releasedVehicle.name} ist disponiert – du bist nicht selbst zugeteilt`),
-      ).toBeVisible();
+      // …and nothing under it. The explanatory sentence Reko and Magazin rows
+      // carry is deliberately absent here: the driver is standing at the
+      // Schadenplatz and knows why, so "du bist nicht selbst zugeteilt" read as
+      // a correction rather than an explanation. The tag is the whole message.
+      await expect(releasedRow.getByText('nicht selbst zugeteilt')).toHaveCount(0);
 
       // ── 2. owes nothing, may still speak ─────────────────────────────────
       await feld.openAssignment(street(released));

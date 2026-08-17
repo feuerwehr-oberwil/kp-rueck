@@ -795,7 +795,6 @@
       "driver": "Comme chauffeur · {vehicle}",
       "magazin": "Magasin",
       "rekoReason": "Assigné en reconnaissance par le PC",
-      "driverReason": "{vehicle} est engagé – tu n'es pas assigné toi-même",
       "magazinReason": "Du matériel d'ici n'est pas encore rentré",
       "rekoAction": "Saisir la reco"
     },
@@ -816,10 +815,7 @@
       "fab": "Annoncer",
       "title": "Nouvelle annonce",
       "what": "Quoi",
-      "where": "Où",
-      "wherePlaceholder": "Rue et numéro",
       "useLocation": "Utiliser ma position",
-      "located": "Position enregistrée",
       "locateFailed": "Position indisponible",
       "description": "Description",
       "descriptionPlaceholder": "Que voit-on ?",
