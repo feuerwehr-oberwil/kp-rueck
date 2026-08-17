@@ -221,7 +221,8 @@ async def test_engine():
                 "INSERT INTO special_function_types (key, label_de, label_fr, requires_vehicle, sort_order) "
                 "VALUES ('driver','Fahrer','Chauffeur',true,10), ('reko','Reko','Reco',false,20), "
                 "('magazin','Magazin','Magasin',false,30), "
-                "('telefondienst','Telefondienst','Service téléphonique',false,40)"
+                "('telefondienst','Telefondienst','Service téléphonique',false,40), "
+                "('kommandoposten','Kommandoposten','Poste de commandement',false,50)"
             )
         )
 

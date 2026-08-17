@@ -107,8 +107,7 @@
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     },
     "dismissAllToasts": "Alle schliessen",
-    "redirecting": "Weiterleitung...",
-    "telefondienst": "Telefondienst"
+    "redirecting": "Weiterleitung..."
   },
   "nav": {
     "userMenu": {
@@ -359,7 +358,9 @@
       "onlyAssignedVehicles": "Nur zugewiesene",
       "transferResources": "Ressourcen übertragen",
       "distributeToAuftrag": "An Auftrag verteilen",
-      "newIncident": "Neuer Einsatz"
+      "newIncident": "Neuer Einsatz",
+      "telefondienst": "Telefondienst",
+      "kommandoposten": "Kommandoposten"
     },
     "dashboard": {
       "loading": "Laden...",
@@ -3177,7 +3178,8 @@
       "past": "Früher",
       "notMeTitle": "Abmelden?",
       "notMeDescription": "Dieses Gerät wird abgemeldet. Wer es als Nächstes benutzt, braucht den Feld-Code.",
-      "auftrag": "{name} · {count} Stops"
+      "auftrag": "{name} · {count} Stops",
+      "navigate": "Navigation starten"
     },
     "briefing": {
       "title": "Lage und Ressourcen",

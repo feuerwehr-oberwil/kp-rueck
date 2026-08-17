@@ -220,8 +220,7 @@
       "description": "Vue d’ensemble des interventions pour l’engagement de l’effectif et du matériel des sapeurs-pompiers."
     },
     "dismissAllToasts": "Tout fermer",
-    "redirecting": "Redirection...",
-    "telefondienst": "Service téléphonique"
+    "redirecting": "Redirection..."
   },
   "display": {
     "common": {
@@ -564,7 +563,8 @@
       "past": "Précédemment",
       "notMeTitle": "Se déconnecter ?",
       "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain.",
-      "auftrag": "{name} · {count} arrêts"
+      "auftrag": "{name} · {count} arrêts",
+      "navigate": "Lancer la navigation"
     },
     "briefing": {
       "title": "Situation et ressources",
@@ -1304,7 +1304,9 @@
       "onlyAssignedVehicles": "Attribués uniquement",
       "transferResources": "Transférer les ressources",
       "distributeToAuftrag": "Répartir sur une mission",
-      "newIncident": "Nouvelle intervention"
+      "newIncident": "Nouvelle intervention",
+      "telefondienst": "Service téléphonique",
+      "kommandoposten": "Poste de commandement"
     },
     "dashboard": {
       "loading": "Chargement...",

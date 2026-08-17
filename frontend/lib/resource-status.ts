@@ -60,9 +60,23 @@ export function personResourceState(
  * decision, not a filtering one.
  */
 export function isPersonOccupied(
-  p: { status?: string | null; isReko?: boolean; isDriver?: boolean; isMagazin?: boolean },
+  p: {
+    status?: string | null
+    isReko?: boolean
+    isDriver?: boolean
+    isMagazin?: boolean
+    isTelefondienst?: boolean
+    isKommandoposten?: boolean
+  },
 ): boolean {
-  return p.status === "assigned" || !!p.isReko || !!p.isDriver || !!p.isMagazin
+  return (
+    p.status === "assigned" ||
+    !!p.isReko ||
+    !!p.isDriver ||
+    !!p.isMagazin ||
+    !!p.isTelefondienst ||
+    !!p.isKommandoposten
+  )
 }
 
 /**

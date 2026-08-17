@@ -7,7 +7,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Siren, MapPin, Undo2 } from "lucide-react"
+import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2 } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
@@ -168,7 +168,13 @@ export function ResourceAssignmentDialog({
       // People with a special function (Reko / driver / magazin) used to be hidden
       // outright. Show them now — flagged with a badge — so they can be assigned
       // after an explicit "double-booking?" confirm instead of silently vanishing.
-      const hasSpecialFunction = p.isReko || p.isDriver || p.isMagazin || rekoPersonnelNames.includes(p.name)
+      const hasSpecialFunction =
+        p.isReko ||
+        p.isDriver ||
+        p.isMagazin ||
+        p.isTelefondienst ||
+        p.isKommandoposten ||
+        rekoPersonnelNames.includes(p.name)
       if (hasSpecialFunction) return true
 
       // Show available personnel
@@ -181,6 +187,8 @@ export function ResourceAssignmentDialog({
     if (p.isDriver) return { label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car }
     if (p.isReko || rekoPersonnelNames.includes(p.name)) return { label: t('common.reko'), Icon: Binoculars }
     if (p.isMagazin) return { label: t('common.magazin'), Icon: Package2 }
+    if (p.isTelefondienst) return { label: t('common.telefondienst'), Icon: Phone }
+    if (p.isKommandoposten) return { label: t('common.kommandoposten'), Icon: MonitorCog }
     return null
   }
 

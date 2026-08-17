@@ -609,6 +609,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       const rekoPersonnelIds = new Set<string>()
       const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>() // personId -> vehicle info
       const magazinPersonnelIds = new Set<string>()
+      const telefondienstPersonnelIds = new Set<string>()
+      const kommandopostenPersonnelIds = new Set<string>()
       let specialFunctions: Awaited<ReturnType<typeof apiClient.getEventSpecialFunctions>> = []
       try {
         specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
@@ -616,6 +618,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
           else if (func.function_type === 'driver') driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' })
           else if (func.function_type === 'magazin') magazinPersonnelIds.add(func.personnel_id)
+          else if (func.function_type === 'telefondienst') telefondienstPersonnelIds.add(func.personnel_id)
+          else if (func.function_type === 'kommandoposten') kommandopostenPersonnelIds.add(func.personnel_id)
         }
       } catch (error) {
         console.error('Failed to load special functions:', error)
@@ -716,6 +720,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         driverVehicleId: driverPersonnelIds.get(person.id)?.vehicleId || undefined,
         driverVehicleName: driverPersonnelIds.get(person.id)?.vehicleName || undefined,
         isMagazin: magazinPersonnelIds.has(person.id),
+        isTelefondienst: telefondienstPersonnelIds.has(person.id),
+        isKommandoposten: kommandopostenPersonnelIds.has(person.id),
       }))
 
       // Update material status based on assignments
@@ -808,6 +814,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const rekoPersonnelIds = new Set<string>()
         const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>()
         const magazinPersonnelIds = new Set<string>()
+        const telefondienstPersonnelIds = new Set<string>()
+        const kommandopostenPersonnelIds = new Set<string>()
         const assignedPersonIds = new Set<string>()
         const assignedMaterialIds = new Set<string>()
 
@@ -826,6 +834,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               assignedPersonIds.add(func.personnel_id)
             } else if (func.function_type === 'magazin') {
               magazinPersonnelIds.add(func.personnel_id)
+              assignedPersonIds.add(func.personnel_id)
+            } else if (func.function_type === 'telefondienst') {
+              telefondienstPersonnelIds.add(func.personnel_id)
+              assignedPersonIds.add(func.personnel_id)
+            } else if (func.function_type === 'kommandoposten') {
+              kommandopostenPersonnelIds.add(func.personnel_id)
               assignedPersonIds.add(func.personnel_id)
             } else {
               assignedPersonIds.add(func.personnel_id)
@@ -920,6 +934,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           driverVehicleId: driverPersonnelIds.get(person.id)?.vehicleId || undefined,
           driverVehicleName: driverPersonnelIds.get(person.id)?.vehicleName || undefined,
           isMagazin: magazinPersonnelIds.has(person.id),
+          isTelefondienst: telefondienstPersonnelIds.has(person.id),
+          isKommandoposten: kommandopostenPersonnelIds.has(person.id),
         }))
 
         const eventScopedMaterials = materialsList.map(material => ({

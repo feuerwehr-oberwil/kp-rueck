@@ -8,7 +8,7 @@ import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
 import { RESOURCE_STATE_ICON_CLASSES, isPersonOccupied } from "@/lib/resource-status"
-import { Car, Binoculars, Package2, Check, Minus, AlertTriangle } from 'lucide-react'
+import { Car, Binoculars, Package2, Phone, MonitorCog, Check, Minus, AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
 interface DraggablePersonProps {
@@ -85,6 +85,29 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
         <Badge key="magazin" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
           <Package2 className="h-3 w-3" />
           {t('common.magazin')}
+        </Badge>
+      )
+    }
+
+    // Telefondienst badge — the phone desk is a role like the three above it
+    // (plan 26, decision 6), so it wears a chip rather than becoming a "rank".
+    if (person.isTelefondienst) {
+      badges.push(
+        <Badge key="telefondienst" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
+          <Phone className="h-3 w-3" />
+          {t('common.telefondienst')}
+        </Badge>
+      )
+    }
+
+    // Kommandoposten — the one role that unlocks nothing. It exists to say the
+    // person is working on THIS, so the board stops offering its own operators
+    // as crew for a Schadenplatz.
+    if (person.isKommandoposten) {
+      badges.push(
+        <Badge key="kommandoposten" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
+          <MonitorCog className="h-3 w-3" />
+          {t('common.kommandoposten')}
         </Badge>
       )
     }
@@ -205,6 +228,8 @@ export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) 
     prevProps.person.isDriver === nextProps.person.isDriver &&
     prevProps.person.driverVehicleName === nextProps.person.driverVehicleName &&
     prevProps.person.isMagazin === nextProps.person.isMagazin &&
+    prevProps.person.isTelefondienst === nextProps.person.isTelefondienst &&
+    prevProps.person.isKommandoposten === nextProps.person.isKommandoposten &&
     JSON.stringify(prevProps.person.tags) === JSON.stringify(nextProps.person.tags) &&
     prevProps.disabled === nextProps.disabled &&
     prevProps.assignmentCount === nextProps.assignmentCount

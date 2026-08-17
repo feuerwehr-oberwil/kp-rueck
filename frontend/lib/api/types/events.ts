@@ -39,9 +39,11 @@ export interface ApiEventListResponse {
  * seed a fourth without a migration. This union stays hand-written because the
  * *sections* each role unlocks are code, not data: `driver` needs a vehicle,
  * `magazin` opens the material table, `telefondienst` turns «Melden» into the
- * call form. A role the UI does not know about is simply a name.
+ * call form, `kommandoposten` unlocks nothing at all and exists to say the
+ * person is busy running the board. A role the UI does not know about is simply
+ * a name.
  */
-export type FunctionType = 'driver' | 'reko' | 'magazin' | 'telefondienst'
+export type FunctionType = 'driver' | 'reko' | 'magazin' | 'telefondienst' | 'kommandoposten'
 
 export interface ApiEventSpecialFunctionCreate {
   personnel_id: string // UUID
