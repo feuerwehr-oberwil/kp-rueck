@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 
 export function PersistentNotificationSidebar() {
   const t = useTranslations('notifications.sidebar')
-  const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
+  const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, navigateToIncident, canNavigateToIncident } = useNotifications()
   const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
 
@@ -25,6 +25,11 @@ export function PersistentNotificationSidebar() {
   const historicalNotifications = notifications
     .filter((n) => n.dismissed)
     .slice(0, 20) // Show last 20 dismissed notifications
+
+  // Only the board registers a navigate handler. On every other page the rows
+  // used to look clickable and do nothing — hand the card `undefined` there so
+  // it renders as plain text instead.
+  const handleClickIncident = canNavigateToIncident ? navigateToIncident : undefined
 
   return (
     <aside
@@ -79,7 +84,7 @@ export function PersistentNotificationSidebar() {
                   key={notification.id}
                   notification={notification}
                   onDismiss={dismissNotification}
-                  onClickIncident={navigateToIncident}
+                  onClickIncident={handleClickIncident}
                   variant="compact"
                 />
               ))}
@@ -107,7 +112,7 @@ export function PersistentNotificationSidebar() {
                 <NotificationCard
                   key={notification.id}
                   notification={notification}
-                  onClickIncident={navigateToIncident}
+                  onClickIncident={handleClickIncident}
                   variant="compact"
                 />
               ))}

@@ -42,6 +42,14 @@ interface NotificationContextValue {
   // the notification is ABOUT — the bell points at one specific thing, so it
   // opens on it rather than on Übersicht (§18.27).
   navigateToIncident: (incidentId: string, tab?: OperationDetailTab) => void
+  /**
+   * Whether anybody is currently listening for `navigateToIncident` — only the
+   * board registers a handler, so on `/map` or in Einstellungen the call is a
+   * no-op. Consumers must render the affordance (a clickable row, a clickable
+   * toast body) only when this is true: a click target that does nothing is
+   * worse than none, especially for an operator chasing a Meldung vom Feld.
+   */
+  canNavigateToIncident: boolean
   registerNavigateHandler: (
     handler: ((incidentId: string, tab?: OperationDetailTab) => void) | null,
   ) => void
@@ -139,9 +147,17 @@ export function NotificationProvider({
   // Navigate to incident from notification click
   const navigateHandlerRef = useRef<((incidentId: string, tab?: OperationDetailTab) => void) | null>(null)
 
+  // A ref for calling, a state for rendering. The ref keeps the call path free
+  // of re-renders; the boolean has to be state because the consumers need to
+  // re-render when a handler appears or goes away. Re-registering the same
+  // handler is cheap — setting a boolean to the value it already has bails out
+  // of the render.
+  const [canNavigateToIncident, setCanNavigateToIncident] = useState(false)
+
   const registerNavigateHandler = useCallback(
     (handler: ((incidentId: string, tab?: OperationDetailTab) => void) | null) => {
       navigateHandlerRef.current = handler
+      setCanNavigateToIncident(handler !== null)
     },
     [],
   )
@@ -502,6 +518,7 @@ export function NotificationProvider({
     openSidebar,
     closeSidebar,
     navigateToIncident,
+    canNavigateToIncident,
     registerNavigateHandler,
     fieldAction,
     registerFieldActionHandler,

@@ -7,6 +7,7 @@ import { useNotifications } from '@/lib/contexts/notification-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { isStringArray, readJson, removeItem, writeJson } from '@/lib/utils/safe-storage'
 import { planToastBurst, TOAST_BURST_LIMIT } from '@/lib/notification-policy'
+import { detailTabForNotification } from '@/lib/notification-detail-tab'
 
 /**
  * Where the stack sits. Stable identities — see the note on the `offset` prop.
@@ -88,7 +89,15 @@ function cleanupOldToastIds(): Set<string> {
 }
 
 export function NotificationToasts() {
-  const { notifications, dismissNotification, isSidebarOpen, settings, openSidebar } = useNotifications()
+  const {
+    notifications,
+    dismissNotification,
+    isSidebarOpen,
+    settings,
+    openSidebar,
+    navigateToIncident,
+    canNavigateToIncident,
+  } = useNotifications()
   const isMobile = useIsMobile()
   // Non-critical toast lifetime (ms), configurable in notification settings.
   const toastDurationMs = Math.max(2, settings.toast_duration_seconds || 8) * 1000
@@ -158,9 +167,36 @@ export function NotificationToasts() {
       writeJson(TOAST_DATA_KEY, storedData)
 
       toBeToasted.forEach((notification) => {
+        // «Meldung vom Feld – Hauptstrasse 1: …» named a Schadenplatz the
+        // operator then had to find by hand while the toast was still on
+        // screen. The message itself opens it, on the tab the notification is
+        // about — the same path the bell takes (§18.27).
+        //
+        // Only when there is somewhere to go: the notification has to carry an
+        // incident, and a page has to be listening (the board registers the
+        // handler, the map does not).
+        const target = canNavigateToIncident ? notification.incident_id : undefined
+        const description = target ? (
+          <button
+            type="button"
+            title={tToasts('openIncident')}
+            className="cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current rounded-xs"
+            onClick={() => {
+              // Dismissing the toast runs `onDismiss` below, which clears the
+              // notification too — reading it and acting on it is the same act.
+              toast.dismiss(notification.id)
+              navigateToIncident(target, detailTabForNotification(notification.type))
+            }}
+          >
+            {notification.message}
+          </button>
+        ) : (
+          notification.message
+        )
+
         const toastOptions = {
           id: notification.id,
-          description: notification.message,
+          description,
           // Dismiss notification when toast is closed by any means
           onDismiss: () => dismissNotification(notification.id),
           action: notification.severity === 'critical' ? {
@@ -216,7 +252,15 @@ export function NotificationToasts() {
       toast.dismiss(notification.id)
       // Keep in shownToastIds to prevent re-showing
     })
-  }, [notifications, dismissNotification, isSidebarOpen, toastDurationMs, openSidebar])
+  }, [
+    notifications,
+    dismissNotification,
+    isSidebarOpen,
+    toastDurationMs,
+    openSidebar,
+    navigateToIncident,
+    canNavigateToIncident,
+  ])
 
   return (
     <Toaster

@@ -17,21 +17,39 @@ import { NotificationCard } from '@/components/notifications/notification-card'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 
 interface NotificationSidebarProps {
-  onClickIncident?: (incidentId: string, tab?: OperationDetailTab) => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }
 
-export function NotificationSidebar({ onClickIncident, open: controlledOpen, onOpenChange }: NotificationSidebarProps = {}) {
+export function NotificationSidebar({ open: controlledOpen, onOpenChange }: NotificationSidebarProps = {}) {
   const t = useTranslations('notifications.sidebar')
   const [internalOpen, setInternalOpen] = useState(false)
   const isOpen = controlledOpen ?? internalOpen
   const setIsOpen = onOpenChange ?? setInternalOpen
-  const { notifications, unreadCount, dismissNotification, dismissAllNotifications } = useNotifications()
+  const {
+    notifications,
+    unreadCount,
+    dismissNotification,
+    dismissAllNotifications,
+    navigateToIncident,
+    canNavigateToIncident,
+  } = useNotifications()
   const { isAuthenticated } = useAuth()
 
   // Notifications are an authenticated-only feature — nothing when logged out
   if (!isAuthenticated) return null
+
+  // The sheet took an `onClickIncident` prop that its only caller never passed,
+  // so every row looked clickable and merely closed the sheet. It routes
+  // through the same registered handler the persistent sidebar uses — and
+  // hands the card nothing at all when no page is listening, so the row stops
+  // pretending.
+  const handleClickIncident = canNavigateToIncident
+    ? (incidentId: string, tab?: OperationDetailTab) => {
+        setIsOpen(false)
+        navigateToIncident(incidentId, tab)
+      }
+    : undefined
 
   const activeNotifications = notifications.filter((n) => !n.dismissed)
   const historicalNotifications = notifications
@@ -87,10 +105,7 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
                     key={notification.id}
                     notification={notification}
                     onDismiss={dismissNotification}
-                    onClickIncident={(incidentId, tab) => {
-                      setIsOpen(false)
-                      onClickIncident?.(incidentId, tab)
-                    }}
+                    onClickIncident={handleClickIncident}
                   />
                 ))}
               </div>
@@ -115,10 +130,7 @@ export function NotificationSidebar({ onClickIncident, open: controlledOpen, onO
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    onClickIncident={(incidentId, tab) => {
-                      setIsOpen(false)
-                      onClickIncident?.(incidentId, tab)
-                    }}
+                    onClickIncident={handleClickIncident}
                   />
                 ))}
               </div>
