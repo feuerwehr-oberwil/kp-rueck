@@ -831,6 +831,55 @@ function FeldSurface() {
     )
   }, [])
 
+  /**
+   * «＋ Melden» — the crew reporting something they are standing in front of.
+   *
+   * One node, rendered by BOTH the list and the detail view. The person who
+   * spots the next tree is the one already four taps deep at a Schadenplatz,
+   * and having to find the way back to the list first is how a Meldung turns
+   * into a radio call — or into nothing. Only one of the two views is mounted
+   * at a time, so this stays a single sheet with a single piece of state; the
+   * sheet closing when the crew leaves the detail is the wanted behaviour.
+   *
+   * The FAB belongs to the person, not to a row: same corner in both views, so
+   * it is the same button rather than two that happen to look alike.
+   */
+  const meldenFab =
+    token && selectedPerson && !atTheStation(functions) ? (
+      <>
+        {/* Gone while the sheet is open. On a desktop viewport the sheet is
+            non-modal and its dim layer does not cover a `fixed` element outside
+            the portal, so the button sat lit up on top of the dimmed page — the
+            one bright thing on screen, offering to open what is already open. */}
+        {!meldenOpen && (
+          <button
+            type="button"
+            onClick={() => setMeldenOpen(true)}
+            className="fixed bottom-5 right-4 z-40 flex h-13 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg"
+          >
+            <Plus className="size-4" />
+            {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
+          </button>
+        )}
+        <FeldMeldenSheet
+          open={meldenOpen}
+          onOpenChange={setMeldenOpen}
+          personnelId={selectedPerson.personnel_id}
+          token={token}
+          isPhoneDesk={functions.includes('telefondienst')}
+          // A Reko trupp cannot "take it on": they were sent to look and
+          // report back. The escape hatch is crew work the reko fallback
+          // cannot swallow — a squad assigned to an Auftrag holds no personnel
+          // row on any stop, so those rows really do come back as `crew`
+          // (`visibility.py`, the route block). A reko holder given ordinary
+          // per-incident crew rows reads as reko throughout the Ereignis, and
+          // that collapse is deliberate and documented there.
+          canTakeOver={!functions.includes('reko') || assignments.some(item => item.source === 'crew')}
+          onReported={() => loadAssignments(selectedPerson.personnel_id)}
+        />
+      </>
+    ) : null
+
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -967,7 +1016,11 @@ function FeldSurface() {
       ?? formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
     const navigateUrl = navigationUrl(selectedAssignment)
     return (
-      <div className="min-h-screen bg-background pb-20">
+      // `pb-32` rather than the list's `pb-20`: the last thing in this view is
+      // the Rapport's own full-width «Senden», and the floating Melden button
+      // sits in the bottom right. Scrolled to the end — where a crew filing a
+      // Rapport ends up — the extra padding keeps the two a thumb apart.
+      <div className="min-h-screen bg-background pb-32">
         {/* The address, always on screen. Folded blocks mean a crew can be four
             taps deep in a Rapport with nothing left in view that says WHICH
             Schadenplatz they are filing — and on a storm night there are six.
@@ -1049,6 +1102,15 @@ function FeldSurface() {
                   <span>
                     {t('detail.completeAt', { time: formatTime(selectedAssignment.field_complete_reported_at) })}
                   </span>
+                )}
+                {/* The same sentence the list row carries, because the detail
+                    is where somebody sits while the KP closes the Schadenplatz
+                    under them. Without it the only sign was a row that had
+                    quietly moved to «Früher» on a list they were not looking
+                    at — the status itself is the KP's workflow and stays off
+                    this page. */}
+                {!selectedAssignment.is_active_assignment && (
+                  <span>{t('assignments.released')}</span>
                 )}
               </div>
 
@@ -1146,6 +1208,11 @@ function FeldSurface() {
             )}
           </div>
         </div>
+
+        {/* The same «＋ Melden» the list carries. The crew standing at this
+            Schadenplatz is the one who sees the next tree, and making them
+            navigate back to report it is how the Meldung becomes a radio call. */}
+        {meldenFab}
       </div>
     )
   }
@@ -1419,39 +1486,8 @@ function FeldSurface() {
         )}
       </div>
 
-      {/* «＋ Melden» — the crew reporting something they are standing in front
-          of. A floating button because it is the one action on this page that
-          is not about a row: it belongs to the person, not to a Schadenplatz. */}
-      {token && selectedPerson && !atTheStation(functions) && (
-        <>
-          <button
-            type="button"
-            onClick={() => setMeldenOpen(true)}
-            className="fixed bottom-5 right-4 z-40 flex h-13 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg"
-          >
-            <Plus className="size-4" />
-            {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
-          </button>
-          <FeldMeldenSheet
-            open={meldenOpen}
-            onOpenChange={setMeldenOpen}
-            personnelId={selectedPerson.personnel_id}
-            token={token}
-            isPhoneDesk={functions.includes('telefondienst')}
-            // A Reko trupp cannot "take it on": they were sent to look and
-            // report back. The escape hatch is crew work the reko fallback
-            // cannot swallow — a squad assigned to an Auftrag holds no personnel
-            // row on any stop, so those rows really do come back as `crew`
-            // (`visibility.py`, the route block). A reko holder given ordinary
-            // per-incident crew rows reads as reko throughout the Ereignis, and
-            // that collapse is deliberate and documented there.
-            canTakeOver={
-              !functions.includes('reko') || assignments.some(item => item.source === 'crew')
-            }
-            onReported={() => loadAssignments(selectedPerson.personnel_id)}
-          />
-        </>
-      )}
+      {/* The floating «＋ Melden», built once above — see `meldenFab`. */}
+      {meldenFab}
 
       {/* The correction sheet — the same form, prefilled. Keyed by incident so
           opening a second Meldung remounts it rather than showing the first

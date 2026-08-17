@@ -740,16 +740,25 @@ export function OperationDetailContent({
                   than everything the crew sends from the Schadenplatz, and one
                   tab holding both was one tab nobody could see the end of. */}
               <TabsTrigger value="reko" className={tabTriggerClass}>{t('detail.tabs.reko')}</TabsTrigger>
+              {/* «Feld», not «Rapport»: the panel stopped being the
+                  Schadenplatz-Rapport alone. It carries everything that comes
+                  back from `/feld` — the crew's and the driver's Freitext
+                  Meldungen, Angekommen und Einsatz beendet, die Abholung — and
+                  a tab named after one of its sections hides the rest. The
+                  `value` stays `rapport`: it is a deep link (`openOnTab`) and
+                  a notification target, not a label. */}
               <TabsTrigger value="rapport" className={tabTriggerClass}>
                 {t('detail.tabs.rapport')}
                 {/* Whitespace-only text nodes generate no box in a flex
                     container, so this costs nothing visually and keeps the
-                    trigger's accessible name from reading «Rapport·erfasst». */}
+                    trigger's accessible name from reading «Feld·Rapport». */}
                 {' '}
                 {/* Filed and draft are mutually exclusive board flags. «Entwurf»
                     is the one worth surfacing — somebody started and walked away
                     — so it must not hide behind a silent tab. Nothing is shown
-                    when no rapport exists at all; the card already carries that. */}
+                    when no rapport exists at all; the card already carries that.
+                    Both name the Rapport now: under «Feld» a bare «erfasst» no
+                    longer said *what* had been erfasst. */}
                 {(operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft) && (
                   <span className="text-2xs font-normal text-muted-foreground">
                     ·{' '}
@@ -1119,6 +1128,9 @@ export function OperationDetailContent({
             <RouteResourceSections
               resources={auftragResources ?? { vehicles: [], personnel: [], materials: [] }}
               viaLabel={viaAuftrag}
+              // Same map the standalone-Einsatz chips below already use: an
+              // Auftrag's vehicle is no more self-explanatory than an incident's.
+              vehicleDrivers={vehicleDrivers}
               onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
               onUnassign={(assignmentId) => void unassignResource(auftrag.id, assignmentId)}
               onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}

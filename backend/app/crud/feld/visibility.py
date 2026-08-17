@@ -21,6 +21,10 @@ exactly the moment the form is for. Driver rows are the opposite: the row exists
 because the vehicle is there, and when the vehicle is released the driver owes
 nothing and the row goes (decision 11).
 
+A resource can also be assigned to a whole **Auftrag** instead of to each stop,
+and those rows are released only when its last stop closes. ``is_active`` there
+is per stop and reads the incident's own status — see the route block below.
+
 **Only `crew` can owe a Schadenplatz-Rapport.** Not the driver who parked
 outside, not the trupp that only recced the place. That is why ``purpose`` exists
 on the assignment at all, and it is enforced here rather than hidden in the UI.
@@ -199,12 +203,32 @@ async def visible_by_personnel(
             Incident.deleted_at.is_(None),
         )
     )
-    driven_by_route: dict[uuid.UUID, list[uuid.UUID]] = {}
+    driven_by_route: dict[uuid.UUID, list[tuple[uuid.UUID, bool]]] = {}
     for resource_id, resource_type, unassigned_at, incident_id in route_rows.all():
+        incident = incidents.get(incident_id)
+        if incident is None:
+            continue
+        # **A closed stop is not live work, even while the route still is.**
+        #
+        # Route resources are released only when the Auftrag's LAST stop
+        # completes (`auto_release_group_resources_if_last_stop`) — correctly,
+        # the squad is still driving. But `is_active` answers a different
+        # question, "is this Schadenplatz still mine to work", and reading it
+        # off the route assignment alone froze every closed stop as the job in
+        # hand: the KP set it to «beendet» and the crew's and the driver's
+        # phones went on showing it at the top of the feed, indefinitely. The
+        # field surface shows no Schadenplatz-Status by design, so this flag is
+        # the whole of what tells them — it is what moves the row under
+        # «Früher» with «Nicht mehr zugeteilt».
+        #
+        # The row itself STAYS: the crew still owes it a Rapport, which is
+        # filed after they leave, and the per-incident path keeps released crew
+        # rows for exactly that reason.
+        still_live = unassigned_at is None and incident.status != "complete"
         if resource_type == "personnel":
-            offer(resource_id, incident_id, SOURCE_CREW, unassigned_at is None)
+            offer(resource_id, incident_id, SOURCE_CREW, still_live)
         elif resource_type == "vehicle" and unassigned_at is None:
-            driven_by_route.setdefault(resource_id, []).append(incident_id)
+            driven_by_route.setdefault(resource_id, []).append((incident_id, still_live))
 
     # ── driver: vehicles they drive, only while those are assigned ─────────
     driven = await db.execute(
@@ -240,8 +264,8 @@ async def visible_by_personnel(
         vehicle_names = {row[0]: row[1] for row in names.all()}
         for vehicle_id, stops in driven_by_route.items():
             for person_id in drivers_of.get(vehicle_id, []):
-                for incident_id in stops:
-                    offer(person_id, incident_id, SOURCE_DRIVER, True, vehicle_names.get(vehicle_id))
+                for incident_id, still_live in stops:
+                    offer(person_id, incident_id, SOURCE_DRIVER, still_live, vehicle_names.get(vehicle_id))
 
     # ── magazin: wherever material is still out ────────────────────────────
     magazin_rows = await db.execute(

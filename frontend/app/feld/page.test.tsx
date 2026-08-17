@@ -465,3 +465,58 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
     expect(mintFeldRekoLink).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * «Melden» belongs to the person, so it is on every page they can be on.
+ *
+ * It used to hang on the list alone, which put it exactly where the crew is
+ * not: somebody standing at a Schadenplatz — four taps deep, Rapport open — is
+ * the person who spots the next tree, and having to navigate back first is how
+ * a Meldung becomes a radio call. The suppression for the people AT the station
+ * stays: they type theirs on the board.
+ */
+describe('/feld offers «Melden» from the detail view as well', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    seedDevice()
+    document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+  })
+
+  const withFunctions = (functions: string[]) => {
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [assignment({ incident_id: 'inc-1' })],
+      message_chips: [],
+      functions,
+    })
+    setParams({ token: 'feld-token', incident_id: 'inc-1' })
+  }
+
+  it('shows the button and its sheet on the open Schadenplatz', async () => {
+    withFunctions([])
+    renderWithIntl(<FeldPage />)
+
+    // `feld-actions` is detail-only — the list never renders it.
+    await waitFor(() => expect(screen.getByTestId('feld-actions')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Melden' })).toBeInTheDocument()
+    // One sheet, not one per view: the node is built once and mounted by
+    // whichever view is on screen.
+    expect(screen.getAllByTestId('feld-melden-sheet')).toHaveLength(1)
+  })
+
+  it('stays away from the people who are AT the station', async () => {
+    // The Magazin and the KP report on the board; the button would be an
+    // invitation to do their job twice. (`kommandoposten` rather than
+    // `magazin`, which would also pull in the material endpoint.)
+    withFunctions(['kommandoposten'])
+    renderWithIntl(<FeldPage />)
+
+    await waitFor(() => expect(screen.getByTestId('feld-actions')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Melden' })).not.toBeInTheDocument()
+  })
+})

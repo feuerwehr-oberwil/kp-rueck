@@ -646,3 +646,81 @@ class TestTheRouteOwnsItsCrew:
         assert set(visible) == {first.id, second.id}
         assert all(source.kind == crud.SOURCE_DRIVER for source in visible.values())
         assert all(source.vehicle_name == "TLF 1" for source in visible.values())
+
+    @pytest.mark.asyncio
+    async def test_a_completed_stop_stops_being_live_for_the_route(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        """«Beendet» on one stop has to reach the phones standing at it.
+
+        The per-incident path says so by itself: completing an incident releases
+        its crew and its vehicles, so the row goes inactive (crew) or disappears
+        (driver) on the next poll. A ROUTE's resources are not released until the
+        last stop closes — correctly, they are still out — and that left every
+        Auftrag row on `/feld` frozen as live work: the driver of the TLF kept
+        reading the stop the KP had closed an hour ago as the current one, with
+        nothing on the page to say otherwise (the field surface deliberately does
+        not show the Schadenplatz-Status).
+        """
+        from app.models import IncidentGroup, IncidentGroupAssignment
+
+        first = await _incident(db_session, test_event, test_user, "Stop eins")
+        second = await _incident(db_session, test_event, test_user, "Stop zwei")
+        crew = await _person(db_session, "Suter Elias")
+        driver = await _person(db_session, "Keller Thomas")
+        vehicle = await _vehicle(db_session, "TLF 1")
+        await _function(db_session, test_event, driver, "driver", vehicle)
+        group = IncidentGroup(event_id=test_event.id, name="Auftrag Keller", position=0)
+        db_session.add(group)
+        await db_session.commit()
+        first.group_id, first.group_position = group.id, 0
+        second.group_id, second.group_position = group.id, 1
+        db_session.add_all(
+            [
+                IncidentGroupAssignment(incident_group_id=group.id, resource_type="personnel", resource_id=crew.id),
+                IncidentGroupAssignment(incident_group_id=group.id, resource_type="vehicle", resource_id=vehicle.id),
+            ]
+        )
+        # The KP closes the first stop. The route's resources stay assigned —
+        # the squad is still driving, stop two is open.
+        first.status = "complete"
+        await db_session.commit()
+
+        for person in (crew, driver):
+            visible = await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id)
+            # Both stops stay VISIBLE: the crew still owes the first one a
+            # Rapport, and the driver reading where they have been is not a leak.
+            assert set(visible) == {first.id, second.id}
+            assert visible[first.id].is_active is False
+            assert visible[second.id].is_active is True
+
+    @pytest.mark.asyncio
+    async def test_the_closed_stop_reads_as_past_on_the_phone(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        """…and the field row says so, which is the half the crew sees.
+
+        `is_active_assignment` is what puts a row under «Früher» with «Nicht mehr
+        zugeteilt» instead of leaving it at the top as the job in hand.
+        """
+        from app.models import IncidentGroup, IncidentGroupAssignment
+
+        stop = await _incident(db_session, test_event, test_user, "Kirchgasse 8")
+        driver = await _person(db_session, "Keller Thomas")
+        vehicle = await _vehicle(db_session, "TLF 1")
+        await _function(db_session, test_event, driver, "driver", vehicle)
+        group = IncidentGroup(event_id=test_event.id, name="Auftrag Keller", position=0)
+        db_session.add(group)
+        await db_session.commit()
+        stop.group_id, stop.group_position = group.id, 0
+        db_session.add(
+            IncidentGroupAssignment(incident_group_id=group.id, resource_type="vehicle", resource_id=vehicle.id)
+        )
+        stop.status = "complete"
+        await db_session.commit()
+
+        rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, driver.id)
+
+        row = next(r for r in rows if r["incident_id"] == stop.id)
+        assert row["source"] == crud.SOURCE_DRIVER
+        assert row["is_active_assignment"] is False
