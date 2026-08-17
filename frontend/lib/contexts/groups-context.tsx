@@ -8,6 +8,7 @@ import {
   type ApiIncidentGroup,
   type ApiIncidentGroupCreate,
   type ApiIncidentGroupUpdate,
+  type ApiPersonnel,
   type ApiVehicle,
   type GroupResourceType,
 } from "@/lib/api-client"
@@ -121,6 +122,19 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   // Vehicle name lookup — no dedicated vehicles context exists, so resolve the
   // route's vehicle assignments (which carry ids) to names via a light fetch.
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
+  /**
+   * The FULL roster, for name resolution only.
+   *
+   * `usePersonnel()` loads `checked_in_only: true`, and a route assignment
+   * outlives a check-out on purpose — the board warns and proceeds, and `/feld`
+   * lets somebody go home while still assigned. So the moment a crew member
+   * checks out, the context no longer knows their name and every consumer of
+   * `GroupResources` printed the raw UUID instead: the Auftrag card, the
+   * WhatsApp message, the Funkspruch and the printout.
+   *
+   * Fetched once, exactly like the vehicle list above and for the same reason.
+   */
+  const [roster, setRoster] = useState<ApiPersonnel[]>([])
 
   // Toast deduplication across an outage; matches the materials-context pattern.
   const hasShownErrorRef = useRef(false)
@@ -166,14 +180,22 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedEvent])
 
-  // Load the vehicle list once (name resolution for route vehicle assignments).
+  // Load the vehicle list and the roster once (name resolution for route
+  // assignments). Neither is event-scoped: both answer "what is this id called",
+  // and an id that is on a route is on it whatever the person's duty status is.
   useEffect(() => {
     if (authLoading || !isAuthenticated) return
     apiClient
       .getVehicles()
       .then((list) => setVehicles(list))
       .catch(() => {
-        // Silent: names fall back to ids until the list loads.
+        // Silent: names fall back to the placeholder until the list loads.
+      })
+    apiClient
+      .getAllPersonnel()
+      .then((list) => setRoster(list))
+      .catch(() => {
+        // Silent, same reason.
       })
   }, [authLoading, isAuthenticated])
 
@@ -623,31 +645,53 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [groups, refreshGroups],
   )
 
+  /**
+   * id → name for everybody who could be on a route.
+   *
+   * The live context wins where it has an answer (a rename lands there first);
+   * the roster fetched above covers everybody it dropped — which is anybody who
+   * has checked out, and they keep their route assignment.
+   */
+  const personnelNames = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const person of roster) names.set(String(person.id), person.name)
+    for (const person of personnel) names.set(person.id, person.name)
+    return names
+  }, [roster, personnel])
+
   const getGroupResources = useCallback(
     (groupId: string): GroupResources => {
       const g = groups.find((x) => x.id === groupId)
       if (!g) return EMPTY_RESOURCES
       const res: GroupResources = { vehicles: [], personnel: [], materials: [] }
+      // Whatever is missing, it is NEVER the id: a UUID in a chip is unreadable,
+      // and this name is also what goes into the Funkspruch, the WhatsApp text
+      // and the printout. A placeholder is wrong in a way an operator can see.
+      const unknown = translateOutsideReact("kanban.common.unknownResource")
       for (const a of g.assignments) {
         if (a.resourceType === "vehicle") {
           const v = vehicles.find((x) => String(x.id) === a.resourceId)
           res.vehicles.push({
             assignmentId: a.id,
             resourceId: a.resourceId,
-            name: v?.name ?? a.resourceId,
+            name: v?.name ?? unknown,
             driverStay: a.driverStay,
           })
         } else if (a.resourceType === "personnel") {
-          const p = personnel.find((x) => x.id === a.resourceId)
-          res.personnel.push({ assignmentId: a.id, resourceId: a.resourceId, name: p?.name ?? a.resourceId, isLeader: a.isLeader })
+          res.personnel.push({
+            assignmentId: a.id,
+            resourceId: a.resourceId,
+            name: personnelNames.get(a.resourceId) ?? unknown,
+            isLeader: a.isLeader,
+          })
         } else {
           const m = materials.find((x) => x.id === a.resourceId)
-          res.materials.push({ assignmentId: a.id, resourceId: a.resourceId, name: m?.name ?? a.resourceId })
+          res.materials.push({ assignmentId: a.id, resourceId: a.resourceId, name: m?.name ?? unknown })
         }
       }
       return res
     },
-    [groups, vehicles, personnel, materials],
+    [groups, vehicles, personnelNames, materials],
   )
 
   const groupResourcesFor = useCallback(

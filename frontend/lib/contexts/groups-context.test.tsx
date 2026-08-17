@@ -100,6 +100,7 @@ const reorderIncidentGroups = vi.fn()
 const reorderGroupStops = vi.fn()
 const addStopsToGroup = vi.fn()
 const removeStopFromGroup = vi.fn()
+const getAllPersonnel = vi.fn()
 const assignGroupResource = vi.fn()
 const unassignGroupResource = vi.fn()
 
@@ -108,6 +109,7 @@ vi.mock("@/lib/api-client", () => ({
     getIncidentGroups: (...a: unknown[]) => getIncidentGroups(...a),
     getSyncVersion: (...a: unknown[]) => getSyncVersion(...a),
     getVehicles: (...a: unknown[]) => getVehicles(...a),
+    getAllPersonnel: (...a: unknown[]) => getAllPersonnel(...a),
     createIncidentGroup: (...a: unknown[]) => createIncidentGroup(...a),
     updateIncidentGroup: (...a: unknown[]) => updateIncidentGroup(...a),
     deleteIncidentGroup: (...a: unknown[]) => deleteIncidentGroup(...a),
@@ -139,6 +141,7 @@ beforeEach(() => {
   getIncidentGroups.mockReset().mockResolvedValue([])
   getSyncVersion.mockReset().mockResolvedValue({ version: "v1" })
   getVehicles.mockReset().mockResolvedValue([])
+  getAllPersonnel.mockReset().mockResolvedValue([])
   createIncidentGroup.mockReset()
   updateIncidentGroup.mockReset()
   deleteIncidentGroup.mockReset()
@@ -359,8 +362,22 @@ describe("GroupsProvider — assign / unassign route resources", () => {
     expect(res.vehicles.map((v) => v.resourceId)).toEqual(["v1"])
     expect(res.personnel.map((p) => p.resourceId)).toEqual(["p1"])
     expect(res.materials.map((m) => m.resourceId)).toEqual(["m1"])
-    // Unresolved ids fall back to the id as the display name.
-    expect(res.vehicles[0].name).toBe("v1")
+    // A name that could not be resolved is NEVER the raw id — that string also
+    // goes into the Funkspruch, the WhatsApp text and the printout.
+    expect(res.vehicles[0].name).toBe("Unbekannt")
     expect(res.vehicles[0].assignmentId).toBe("a1")
+  })
+
+  it("names a route member who has checked out", async () => {
+    // The staging bug: `usePersonnel()` only carries checked-IN people, a route
+    // assignment deliberately outlives a check-out, and the chip fell back to
+    // the raw UUID. The roster is the list that still knows the name.
+    getAllPersonnel.mockResolvedValue([{ id: "p1", name: "BRUNNER Marco" }])
+    getIncidentGroups.mockResolvedValue([
+      apiGroup({ assignments: [apiAssignment({ id: "a2", resource_type: "personnel", resource_id: "p1" })] }),
+    ])
+
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.getGroupResources(GROUP_ID).personnel[0]?.name).toBe("BRUNNER Marco"))
   })
 })
