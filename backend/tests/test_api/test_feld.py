@@ -858,7 +858,8 @@ class TestBriefing:
         assert row["contact"] == "A. Bürgin"
         assert row["contact_phone"] == "079 000 00 00"
         assert row["crew"] == ["Muster Hans"]
-        assert row["vehicles"] == ["TLF 1"]
+        # Each vehicle line names its driver; None when the KP has not set one.
+        assert row["vehicles"] == [{"name": "TLF 1", "driver": None}]
         assert row["materials"] == [{"name": "Tauchpumpe", "count": 1}]
         assert row["reko"]["summary"] == "Keller 20 cm unter Wasser."
         assert row["reko"]["dangers"] == ["electrical"]

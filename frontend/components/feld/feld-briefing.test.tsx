@@ -50,7 +50,7 @@ describe('the field briefing (§18.22)', () => {
           contact: 'A. Bürgin',
           contact_phone: '079 000 00 00',
           crew: ['Muster Hans', 'Frey Marc'],
-          vehicles: ['TLF 1', 'MTW'],
+          vehicles: [{ name: 'TLF 1', driver: 'MÜLLER Beat' }, { name: 'MTW', driver: null }],
           materials: [
             { name: 'Tauchpumpe', count: 2 },
             { name: 'Nassauger', count: 1 },
@@ -68,7 +68,12 @@ describe('the field briefing (§18.22)', () => {
 
     expect(screen.getByText('Wasser im Keller, Steigleitung defekt')).toBeInTheDocument()
     expect(screen.getByText('Muster Hans, Frey Marc')).toBeInTheDocument()
-    expect(screen.getByText('TLF 1, MTW')).toBeInTheDocument()
+    // One line per vehicle, each naming its driver: a crew at the address has to
+    // be able to say who is sitting in the TLF. A vehicle without a named driver
+    // stays a bare name rather than "Fahrer: –".
+    expect(screen.getByText(/TLF 1/)).toBeInTheDocument()
+    expect(screen.getByText(/Fahrer: MÜLLER Beat/)).toBeInTheDocument()
+    expect(screen.getByText('MTW')).toBeInTheDocument()
     // Grouped by name: two of one pump is a count, not two lines.
     expect(screen.getByText('Tauchpumpe ×2, Nassauger')).toBeInTheDocument()
     expect(screen.getByText('Keller 20 cm unter Wasser.')).toBeInTheDocument()
@@ -117,7 +122,7 @@ describe('the condensed row', () => {
         assignment={assignment({
           description: 'Wasser im Keller',
           crew: ['Muster Hans'],
-          vehicles: ['TLF 1'],
+          vehicles: [{ name: 'TLF 1', driver: null }],
           materials: [{ name: 'Tauchpumpe', count: 1 }],
           reko: {
             summary: 'Keller 20 cm unter Wasser.',

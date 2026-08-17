@@ -1175,7 +1175,9 @@ class TestFieldBriefing:
         assert row["contact"] == "A. Bürgin"
         assert row["contact_phone"] == "079 000 00 00"
         assert sorted(row["crew"]) == ["Frey Marc", "Muster Hans"]
-        assert row["vehicles"] == ["TLF 1"]
+        # A vehicle line names its driver too — «TLF 1» alone left a crew at the
+        # address unable to say who is sitting in it. None here: nobody drives.
+        assert row["vehicles"] == [{"name": "TLF 1", "driver": None}]
         # Grouped by NAME: two units of one pump are "Tauchpumpe ×2".
         assert row["materials"] == [{"name": "Tauchpumpe", "count": 2}]
 
@@ -1199,7 +1201,7 @@ class TestFieldBriefing:
         row = (await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id))[0]
         assert row["is_active_assignment"] is False
         assert row["crew"] == ["Muster Hans"]
-        assert row["vehicles"] == ["TLF 1"]
+        assert row["vehicles"] == [{"name": "TLF 1", "driver": None}]
         assert row["materials"] == [{"name": "Tauchpumpe", "count": 1}]
 
     @pytest.mark.asyncio

@@ -564,6 +564,7 @@ async def get_feld_personnel_for_event(
 
 async def _briefings(
     db: AsyncSession,
+    event_id: uuid.UUID,
     incident_ids: list[uuid.UUID],
 ) -> dict[uuid.UUID, dict[str, Any]]:
     """What the board knows about these Schadenplätze, batched (§18.22).
@@ -602,12 +603,26 @@ async def _briefings(
             )
         ).all()
     )
-    route: dict[uuid.UUID, dict[str, list[str]]] = {}
+    # Who drives what, for this Ereignis. One query for the whole fleet: the
+    # driver is set per event (`EventSpecialFunction`), not per Schadenplatz.
+    driver_rows = await db.execute(
+        select(EventSpecialFunction.vehicle_id, Personnel.name)
+        .join(Personnel, Personnel.id == EventSpecialFunction.personnel_id)
+        .where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.function_type == "driver",
+            EventSpecialFunction.vehicle_id.is_not(None),
+        )
+    )
+    drivers: dict[uuid.UUID, str] = dict(driver_rows.all())
+
+    route: dict[uuid.UUID, dict[str, list[Any]]] = {}
     if group_of:
         route_result = await db.execute(
             select(
                 IncidentGroupAssignment.incident_group_id,
                 IncidentGroupAssignment.resource_type,
+                IncidentGroupAssignment.resource_id,
                 Personnel.name,
                 Vehicle.name,
                 Material.name,
@@ -638,13 +653,15 @@ async def _briefings(
                 IncidentGroupAssignment.unassigned_at.is_(None),
             )
         )
-        for group_id, resource_type, person_name, vehicle_name, material_name in route_result.all():
+        for group_id, resource_type, resource_id, person_name, vehicle_name, material_name in route_result.all():
             bucket = route.setdefault(group_id, {"crew": [], "vehicles": [], "materials": []})
             name = {"personnel": person_name, "vehicle": vehicle_name, "material": material_name}.get(resource_type)
             if not name:
                 continue
             key = {"personnel": "crew", "vehicle": "vehicles", "material": "materials"}[resource_type]
-            bucket[key].append(name)
+            bucket[key].append(
+                {"name": name, "driver": drivers.get(resource_id)} if resource_type == "vehicle" else name
+            )
 
     crew_result = await db.execute(
         select(IncidentAssignment.incident_id, Personnel.id, Personnel.name)
@@ -688,8 +705,9 @@ async def _briefings(
         if (incident_id, vehicle_id) in seen_vehicles:
             continue
         seen_vehicles.add((incident_id, vehicle_id))
-        if name not in briefings[incident_id]["vehicles"]:
-            briefings[incident_id]["vehicles"].append(name)
+        # A resource can sit at both levels (`_mirror`); one vehicle is one line.
+        if not any(line["name"] == name for line in briefings[incident_id]["vehicles"]):
+            briefings[incident_id]["vehicles"].append({"name": name, "driver": drivers.get(vehicle_id)})
 
     material_result = await db.execute(
         select(IncidentAssignment.incident_id, Material.name)
@@ -800,7 +818,7 @@ async def get_feld_assignments_for_personnel(
         )
     )
     group_names = {row[0]: row[1] for row in group_rows.all()}
-    briefings = await _briefings(db, mine_ids)
+    briefings = await _briefings(db, event_id, mine_ids)
     rekos = await _reko_briefings(db, mine_ids)
 
     rows: list[dict[str, Any]] = []
@@ -868,12 +886,29 @@ async def get_feld_assignments_for_personnel(
             }
         )
 
+    # Where each Auftrag sits in the list: at its earliest stop.
+    #
+    # Without this, the stops of one route sorted by their own kanban position —
+    # which is where the operator happened to drop each card in its status
+    # column, and has nothing to do with the order they are to be driven in.
+    # A crew read «Stopp 2» above «Stopp 1» and the numbers were the only thing
+    # saying otherwise. The route order IS the reason the KP grouped them.
+    group_rank: dict[uuid.UUID, int] = {}
+    for row in rows:
+        group_id = row["group_id"]
+        if group_id is None:
+            continue
+        group_rank[group_id] = min(group_rank.get(group_id, row["_position"]), row["_position"])
+
     # Same priority order the operator arranged on the board: still-assigned
-    # first, then the ones still missing a rapport, then the kanban order.
+    # first, then the ones still missing a rapport, then the kanban order — with
+    # a whole Auftrag travelling as one block, internally in route order.
     rows.sort(
         key=lambda row: (
             not row["is_active_assignment"],
             not row["_owes_rapport"],
+            group_rank[row["group_id"]] if row["group_id"] in group_rank else row["_position"],
+            row["group_position"] if row["group_id"] else 0,
             row["_position"],
             row["_created_at"],
         )

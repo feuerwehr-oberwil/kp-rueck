@@ -64,7 +64,12 @@ from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services import incident_display
 from ..services.photo_storage import photo_storage
-from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
+from ..services.settings import (
+    FELD_DRIVER_MESSAGE_CHIPS_KEY,
+    FELD_MESSAGE_CHIPS_KEY,
+    get_setting_value,
+    parse_message_chips,
+)
 from ..services.tokens import (
     FeldTokenClaims,
     generate_feld_token,
@@ -404,6 +409,7 @@ async def get_feld_assignments(
 
     assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
     chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
+    driver_chips = parse_message_chips(await get_setting_value(db, FELD_DRIVER_MESSAGE_CHIPS_KEY))
     checked_in = await crud.is_checked_in(db, event.id, personnel_id)
     functions = await crud.functions_for_personnel(db, event.id, personnel_id)
     # Only for somebody who actually drives — one extra query for a role most
@@ -431,6 +437,7 @@ async def get_feld_assignments(
             for a in assignments
         ],
         message_chips=chips,
+        driver_message_chips=driver_chips,
         reports=[
             schemas.FeldOwnReport(
                 **report,

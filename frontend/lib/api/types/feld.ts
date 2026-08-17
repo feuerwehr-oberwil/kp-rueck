@@ -61,6 +61,14 @@ export interface ApiFeldPersonnelListResponse {
   event_name: string
 }
 
+/** One vehicle on the briefing, with whoever drives it in this Ereignis.
+ *  `driver` is null when the KP has not named one — «TLF 1» alone left a crew
+ *  unable to say who is sitting outside in it. */
+export interface ApiFeldVehicleLine {
+  name: string
+  driver: string | null
+}
+
 /** One line of the briefing's material list: a name and how many of it. */
 export interface ApiFeldMaterialLine {
   name: string
@@ -96,7 +104,7 @@ export interface ApiFeldAssignment {
   contact: string | null
   contact_phone: string | null
   crew: string[]
-  vehicles: string[]
+  vehicles: ApiFeldVehicleLine[]
   materials: ApiFeldMaterialLine[]
   reko: ApiFeldReko | null
   location_address: string | null
@@ -189,6 +197,10 @@ export interface ApiFeldAssignmentsResponse {
    * same reasoning that already makes the outbound message bodies settings.
    */
   message_chips: string[]
+  /** The same, for a DRIVER row: a driver may not report «Angekommen» or
+   *  «Einsatz beendet», so the crew's chips read wrong for the person sitting
+   *  outside in the vehicle. Picked by the row's source, not by the person. */
+  driver_message_chips?: string[]
 }
 
 /**

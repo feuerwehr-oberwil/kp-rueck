@@ -65,3 +65,20 @@ export const DEFAULT_FELD_MESSAGE_CHIPS = [
   'fertig in ~30 Min',
   'Einsatzstelle übergeben',
 ].join('\n')
+
+/**
+ * The same, for a FAHRER row.
+ *
+ * A driver may not report «Angekommen» or «Einsatz beendet» — those are the
+ * working crew's statements about a Schadenplatz and the server refuses them —
+ * so «fertig in ~30 Min» is not a sentence the person sitting outside in the
+ * vehicle has. These are what a driver actually radios in.
+ */
+export const FELD_DRIVER_MESSAGE_CHIPS_KEY = 'feld.driver_message_chips'
+
+export const DEFAULT_FELD_DRIVER_MESSAGE_CHIPS = [
+  'Bin vor Ort',
+  'Fahrzeug parkiert',
+  'Fahre zurück ins Magazin',
+  'Warte auf Auftrag',
+].join('\n')

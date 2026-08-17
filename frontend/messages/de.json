@@ -536,7 +536,10 @@
       "radioAuftragContinue": "An alle {funkrufname}, Auftrag «{name}» weiter mit Stopp {pos}:",
       "auftragContext": "Auftrag «{name}» · Stopp {pos}/{total}",
       "copyWhatsapp": "WhatsApp-Nachricht kopieren",
-      "sendDivera": "Aufgebot senden"
+      "sendDivera": "Aufgebot senden",
+      "auftragBatchQuestion": "Der Auftrag «{name}» hat {count} weitere Stopps, die noch niemand angefahren hat.",
+      "auftragBatchAction": "{count, plural, one {Auch den anderen Stopp disponieren} other {Auch die anderen # Stopps disponieren}}",
+      "auftragBatchDone": "{count, plural, one {# weiterer Stopp disponiert} other {# weitere Stopps disponiert}}"
     },
     "card": {
       "priorityHighAria": "Hohe Priorität",
@@ -692,7 +695,9 @@
       "noMaterialsFound": "Keine Materialien gefunden",
       "noSelectableMaterials": "Keine Materialien",
       "allMaterialsAssigned": "Es sind keine Materialien erfasst",
-      "changes": "Änderungen"
+      "changes": "Änderungen",
+      "vehicleDriver": "Fahrer: {name}",
+      "vehicleNoDriver": "Kein Fahrer"
     },
     "transferReko": {
       "failed": "Übertragung fehlgeschlagen",
@@ -827,7 +832,10 @@
       "mapEmpty": "Keine verorteten Einsätze auf der Karte.",
       "legendSelected": "rot = ausgewählt",
       "legendOtherRoute": "farbig = schon in einem anderen Auftrag (wird verschoben)",
-      "legendUnassigned": "grau = in keinem Auftrag"
+      "legendUnassigned": "grau = in keinem Auftrag",
+      "hiddenCount": "{count} ausgeblendet",
+      "showGrouped": "In anderem Auftrag",
+      "showCompleted": "Abgeschlossene"
     },
     "auftragPicker": {
       "title": "An Auftrag verteilen",
@@ -1535,7 +1543,8 @@
           "sourceEnv": "Quelle: .env",
           "sourceDatabase": "Quelle: Datenbank",
           "notConfigured": "Noch kein Schlüssel gesetzt – Alarme über POST /api/alarms werden ohne Signaturprüfung angenommen."
-        }
+        },
+        "feldDriverChipsLabel": "Chips für Fahrer"
       },
       "demo": {
         "sync": "Synchronisation ist im Demo-Modus nicht verfügbar.",
@@ -2323,7 +2332,9 @@
       "seitCol": "Seit",
       "vorOrt": "vor Ort",
       "unknownAddress": "Ohne Adresse",
-      "footer": "KP Rück - Notfall-Ausdruck"
+      "footer": "KP Rück - Notfall-Ausdruck",
+      "fahrerCol": "Fahrer",
+      "ortCol": "Ort"
     },
     "map": {
       "noCoordinates": "Keine Einsätze mit Koordinaten vorhanden",
@@ -3191,7 +3202,8 @@
       "reko": "Reko",
       "rekoBy": "Reko von {name}, {time}",
       "rekoByName": "Reko von {name}",
-      "summaryFallback": "Meldung, Mannschaft und Material"
+      "summaryFallback": "Meldung, Mannschaft und Material",
+      "driver": "Fahrer: {name}"
     },
     "rapportState": {
       "none": "kein Rapport",

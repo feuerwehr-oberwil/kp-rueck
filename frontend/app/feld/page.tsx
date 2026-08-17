@@ -279,7 +279,11 @@ function FeldSurface() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   const [eventName, setEventName] = useState<string>('')
   // Station-configurable Freitext chips (decision 20), served with the list.
+  // Two sets: what a crew radios in, and what a DRIVER does — a driver may not
+  // report «Angekommen» or «Einsatz beendet» at all, so «fertig in ~30 Min»
+  // is not their sentence. The row's source picks, not the person's roles.
   const [messageChips, setMessageChips] = useState<string[]>([])
+  const [driverMessageChips, setDriverMessageChips] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
@@ -479,6 +483,7 @@ function FeldSurface() {
       const data = await apiClient.getFeldAssignments(personnelId, activeToken)
       setAssignments(data.assignments)
       setMessageChips(data.message_chips ?? [])
+      setDriverMessageChips(data.driver_message_chips ?? [])
       setEventName(data.event_name)
       setCheckedIn(Boolean(data.checked_in))
       const roles = data.functions ?? []
@@ -1067,7 +1072,7 @@ function FeldSurface() {
                 assignment={selectedAssignment}
                 personnelId={selectedPerson.personnel_id}
                 token={token}
-                messageChips={messageChips}
+                messageChips={selectedAssignment.source === 'driver' ? driverMessageChips : messageChips}
                 onReported={applyFieldReport}
               />
             )}

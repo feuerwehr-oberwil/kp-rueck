@@ -106,6 +106,8 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         "POST /incidents/{incident_id}/complete": "token",
         "POST /incidents/{incident_id}/pickup": "token",
         "PUT /incidents/{incident_id}/rapport": "token",
+        # Correcting a Meldung you sent in yourself, before the KP disponiert it.
+        "PUT /incidents/{incident_id}/report": "token",
         "POST /incidents/{incident_id}/photos": "token",
         "DELETE /incidents/{incident_id}/photos/{filename}": "token",
         "POST /incidents/{incident_id}/message": "token",
@@ -153,6 +155,12 @@ EXTERNAL_TWINS: dict[str, str] = {
         "POST /api/incidents/{incident_id}/field-report — sets pickup_needed/pickup_note"
     ),
     "PUT /api/feld/incidents/{incident_id}/rapport": "PUT /api/incidents/{incident_id}/rapport",
+    "PUT /api/feld/incidents/{incident_id}/report": (
+        "PATCH /api/incidents/{incident_id} — the board's own edit produces the identical "
+        "state (title, type, priority, address, description). The field door is the "
+        "narrower one: it refuses anybody but the person the row says reported it, and "
+        "only while the Schadenplatz is still «Eingegangen»."
+    ),
     "POST /api/feld/incidents/{incident_id}/photos": "POST /api/incidents/{incident_id}/rapport/photos",
     "DELETE /api/feld/incidents/{incident_id}/photos/{filename}": (
         "DELETE /api/incidents/{incident_id}/rapport/photos/{filename}"

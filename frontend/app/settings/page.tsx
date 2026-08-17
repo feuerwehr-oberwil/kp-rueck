@@ -37,7 +37,12 @@ import {
   WHATSAPP_INCIDENT_TEMPLATE_KEY,
   DEFAULT_WHATSAPP_INCIDENT_TEMPLATE,
 } from '@/lib/message-template';
-import { FELD_MESSAGE_CHIPS_KEY, DEFAULT_FELD_MESSAGE_CHIPS } from '@/lib/pickup';
+import {
+  FELD_MESSAGE_CHIPS_KEY,
+  DEFAULT_FELD_MESSAGE_CHIPS,
+  FELD_DRIVER_MESSAGE_CHIPS_KEY,
+  DEFAULT_FELD_DRIVER_MESSAGE_CHIPS,
+} from '@/lib/pickup';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -187,10 +192,13 @@ const SETTING_CONFIGS: SettingConfig[] = [
   // Station identity. All three have been PATCHable through the generic settings
   // endpoint since 0.4.0 (they are in the backend's DEFAULT_SETTINGS allowlist) –
   // what was missing is only this, the surface docs/SETUP.md already told operators
-  // to use. `seed.py` writes "Feuerwehr Musterstadt" at 47.5596 / 7.5886 on every
-  // fresh install, production included, so the failure mode is not a blank field:
-  // it is a placeholder nobody is prompted to replace, quietly centring the map and
+  // to use. `seed.py` writes "Feuerwehr Musterstadt" at 47.5596 / 7.5886 into a
+  // fresh PRODUCTION install, so the failure mode is not a blank field: it is a
+  // placeholder nobody is prompted to replace, quietly centring the map and
   // biasing every address search on a town the brigade has never been to.
+  // (Dev, demo and staging seed Oberwil instead — their sample incidents are
+  // real addresses there, and a matching home city is what makes the board
+  // strip it off them.)
   {
     key: 'firestation_name',
     type: 'text',
@@ -947,22 +955,25 @@ export default function SettingsPage() {
                 i18n: a brigade rewords them without a translation round – the
                 same reasoning that puts the message templates above on this
                 page instead of in de.json. One chip per line. */}
-            {(() => {
-              const key = FELD_MESSAGE_CHIPS_KEY;
-              const fallback = DEFAULT_FELD_MESSAGE_CHIPS;
-              const value = settings[key] !== undefined ? settings[key] : fallback;
-              const isCurrentlySaving = saving === key;
-              return (
-                <Card className="p-6 space-y-4">
-                  <div>
-                    <h3 className="font-medium">{t('page.alerting.feldChipsTitle')}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">{t('page.alerting.feldChipsDescription')}</p>
-                  </div>
-                  <div className="space-y-1.5">
+            {/* Two sets in one card: what a crew radios in, and what a FAHRER
+                does. A driver cannot report «Angekommen» or «Einsatz beendet»
+                at all, so the crew's chips are the wrong four for the person
+                sitting outside in the vehicle. */}
+            <Card className="p-6 space-y-4">
+              <div>
+                <h3 className="font-medium">{t('page.alerting.feldChipsTitle')}</h3>
+                <p className="text-xs text-muted-foreground mt-1">{t('page.alerting.feldChipsDescription')}</p>
+              </div>
+              {([
+                { key: FELD_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_MESSAGE_CHIPS, label: t('page.alerting.feldChipsLabel') },
+                { key: FELD_DRIVER_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_DRIVER_MESSAGE_CHIPS, label: t('page.alerting.feldDriverChipsLabel') },
+              ] as const).map(({ key, fallback, label }) => {
+                const value = settings[key] !== undefined ? settings[key] : fallback;
+                const isCurrentlySaving = saving === key;
+                return (
+                  <div key={key} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <Label className="text-sm font-semibold text-muted-foreground">
-                        {t('page.alerting.feldChipsLabel')}
-                      </Label>
+                      <Label className="text-sm font-semibold text-muted-foreground">{label}</Label>
                       <Button
                         variant="ghost"
                         size="xs"
@@ -986,9 +997,9 @@ export default function SettingsPage() {
                       disabled={!isEditor || isCurrentlySaving}
                     />
                   </div>
-                </Card>
-              );
-            })()}
+                );
+              })}
+            </Card>
             </DemoLock>
           </div>
         );

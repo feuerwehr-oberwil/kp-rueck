@@ -30,7 +30,7 @@ import { useTranslations } from 'next-intl'
 import { Binoculars, Package, Phone, TriangleAlert, Truck, Users } from 'lucide-react'
 
 import { FeldSection } from '@/components/feld/feld-section'
-import type { ApiFeldAssignment, ApiFeldMaterialLine } from '@/lib/api-client'
+import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
 import { getActiveLocale } from '@/lib/i18n-messages'
 
 /** The `DangersAssessment` keys the board renders badges for. */
@@ -74,6 +74,12 @@ export function FeldDangerBadges({ dangers, className }: { dangers: string[]; cl
 
 function materialLabel(line: ApiFeldMaterialLine): string {
   return line.count > 1 ? `${line.name} ×${line.count}` : line.name
+}
+
+/** Vehicle names alone — for the list row, which has one clamped line and no
+ *  room for who is driving. */
+function vehicleNames(lines: ApiFeldVehicleLine[]): string {
+  return lines.map(line => line.name).join(', ')
 }
 
 /**
@@ -138,7 +144,7 @@ export function FeldBriefing({
   // (the sentence that says what happened), falling back to what was sent.
   const summary =
     description?.replace(/\s+/g, ' ').trim() ||
-    [vehicles.join(', '), crew.length ? `${crew.length}` : ''].filter(Boolean).join(' · ') ||
+    [vehicleNames(vehicles), crew.length ? `${crew.length}` : ''].filter(Boolean).join(' · ') ||
     t('summaryFallback')
 
   const body = (
@@ -173,9 +179,21 @@ export function FeldBriefing({
         </BriefingRow>
       )}
 
+      {/* One line per vehicle, because each names its own driver. «TLF 1»
+          alone left a crew standing at an address unable to say who is sitting
+          in it — and the driver is exactly who they need when it has to move. */}
       {vehicles.length > 0 && (
         <BriefingRow icon={Truck} label={t('vehicles')}>
-          {vehicles.join(', ')}
+          <div className="space-y-0.5">
+            {vehicles.map(vehicle => (
+              <p key={vehicle.name}>
+                {vehicle.name}
+                {vehicle.driver && (
+                  <span className="text-muted-foreground"> · {t('driver', { name: vehicle.driver })}</span>
+                )}
+              </p>
+            ))}
+          </div>
         </BriefingRow>
       )}
 
@@ -240,7 +258,7 @@ export function FeldBriefingLine({ assignment }: { assignment: ApiFeldAssignment
       {vehicles.length > 0 && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Truck className="h-3 w-3 shrink-0" />
-          <span className="truncate">{vehicles.join(', ')}</span>
+          <span className="truncate">{vehicleNames(vehicles)}</span>
         </p>
       )}
       <FeldDangerBadges dangers={dangers} />

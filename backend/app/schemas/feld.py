@@ -104,6 +104,19 @@ class FeldAccessState(BaseModel):
     device_count: int
 
 
+class FeldVehicleLine(BaseModel):
+    """One vehicle on the briefing, with whoever is driving it.
+
+    The driver is a property of the Ereignis, not of the Schadenplatz — but
+    «TLF 1» on its own left a crew standing at an address unable to answer who
+    is sitting in it, and the driver is exactly the person they need when the
+    vehicle has to be moved. `driver` is None when the KP has not named one.
+    """
+
+    name: str
+    driver: str | None = None
+
+
 class FeldMaterialLine(BaseModel):
     """One line of the briefing's material list: a name and how many of it.
 
@@ -164,7 +177,7 @@ class FeldAssignment(BaseModel):
     contact: str | None = None
     contact_phone: str | None = None
     crew: list[str] = []
-    vehicles: list[str] = []
+    vehicles: list[FeldVehicleLine] = []
     materials: list[FeldMaterialLine] = []
     reko: FeldReko | None = None
     location_address: str | None = None
@@ -282,6 +295,11 @@ class FeldAssignmentsResponse(BaseModel):
     # tap away from this call, and a separate GET would be a second public
     # surface to guard for four strings.
     message_chips: list[str] = []
+    # The same chips for a DRIVER row. A driver cannot report «Angekommen» or
+    # «Einsatz beendet» (those are the crew's statements and the server refuses
+    # them), so the crew's chips read wrong for the person sitting outside in the
+    # vehicle. The page picks by the row's source, not by the person.
+    driver_message_chips: list[str] = []
     # What this person has REPORTED, which is not the same list as what they were
     # given to work on — see `own_reports`. Carried here rather than on its own
     # endpoint for the same reason as the chips: this response is already polled

@@ -21139,7 +21139,7 @@
           },
           "vehicles": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/FeldVehicleLine"
             },
             "type": "array",
             "title": "Vehicles",
@@ -21439,6 +21439,14 @@
             },
             "type": "array",
             "title": "Message Chips",
+            "default": []
+          },
+          "driver_message_chips": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Driver Message Chips",
             "default": []
           },
           "reports": {
@@ -22252,6 +22260,31 @@
         ],
         "title": "FeldUnlockResponse",
         "description": "The unlocked token, plus the picker it exists to let you read.\n\nBoth in one response because the only thing the caller can do next is find\ntheir own name, and a second round trip on a phone in the rain buys nothing."
+      },
+      "FeldVehicleLine": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "driver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FeldVehicleLine",
+        "description": "One vehicle on the briefing, with whoever is driving it.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one."
       },
       "FieldReportState": {
         "properties": {
