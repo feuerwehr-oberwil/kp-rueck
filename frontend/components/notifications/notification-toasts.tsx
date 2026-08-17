@@ -8,8 +8,21 @@ import { useIsMobile } from '@/components/ui/use-mobile'
 import { isStringArray, readJson, removeItem, writeJson } from '@/lib/utils/safe-storage'
 import { planToastBurst, TOAST_BURST_LIMIT } from '@/lib/notification-policy'
 
-/** Stable identity — see the note on the `offset` prop below. */
-const TOASTER_OFFSET = { right: '16px', bottom: '80px' }
+/**
+ * Where the stack sits. Stable identities — see the note on the `offset` prop.
+ *
+ * Desktop has nothing at the bottom of the board, so the stack sits close to the
+ * edge: the «Alle schliessen» pill takes the last 16px and the toasts start just
+ * above it. It used to float 80px up with the pill at 48px, leaving a band of
+ * empty screen underneath that made the whole group look detached from the
+ * corner it is anchored to.
+ *
+ * Mobile keeps its distance: the bottom navigation is fixed there (min 60px plus
+ * the safe-area inset), and a toast printed over the tab bar is a toast that
+ * eats a tap.
+ */
+const TOASTER_OFFSET = { right: '16px', bottom: '56px' }
+const TOASTER_OFFSET_MOBILE = { right: '16px', bottom: '116px' }
 
 const TOAST_DATA_KEY = 'shownToastData'
 const LEGACY_TOAST_IDS_KEY = 'shownToastIds'
@@ -208,14 +221,15 @@ export function NotificationToasts() {
   return (
     <Toaster
       position="bottom-right"
-      // Hug the right edge (16px) so the stack stays out of the central board, and
-      // sit just above the footer/nav (bottom floor is the footer + "Alle schliessen"
-      // pill). Cap the visible stack so tall warning bursts don't climb into content.
+      // Hug the bottom-right corner: 16px from the right, and just above the
+      // "Alle schliessen" pill that closes the stack (on mobile, above the tab
+      // bar instead). Cap the visible stack so tall warning bursts don't climb
+      // into content.
       //
       // A module constant, not an inline literal: a fresh object on every render
       // re-runs Sonner's positioning effect, which is what made toasts slide in
       // from somewhere other than where they belong during a burst.
-      offset={TOASTER_OFFSET}
+      offset={isMobile ? TOASTER_OFFSET_MOBILE : TOASTER_OFFSET}
       // Matches the burst budget (the "+N weitere" summary is counted inside it),
       // so a planned burst lands at once instead of trickling in as timers expire.
       visibleToasts={TOAST_BURST_LIMIT}
