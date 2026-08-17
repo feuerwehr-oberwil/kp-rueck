@@ -17,13 +17,14 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, MonitorCog, Navigation, Phone, Plus, Star, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, MonitorCog, Navigation, Phone, Plus, Star, Truck, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
   type ApiFeldPersonnel,
   type ApiFeldAssignment,
   type ApiFeldMaterialItem,
+  type ApiFeldOwnReport,
   type ApiFieldReportState,
   type ApiSchadenplatzRapport,
 } from '@/lib/api-client'
@@ -39,7 +40,9 @@ import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import { rapportApplies } from '@/lib/rapport-visibility'
+import { sortByName } from '@/lib/roster-order'
 import { navigationUrl } from '@/lib/navigation'
+import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 
 /** `code` is the door (plan 26): the link alone opens nothing, so the page asks
@@ -268,6 +271,7 @@ function FeldSurface() {
   const tCommon = useTranslations('reko.common')
   const tPickup = useTranslations('feld.pickup')
   const tRapport = useTranslations('feld.rapport')
+  const tReports = useTranslations('feld.reports')
 
   const [personnel, setPersonnel] = useState<ApiFeldPersonnel[]>([])
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
@@ -301,6 +305,19 @@ function FeldSurface() {
   // Which roles this person holds here. The roles are data (decision 5); which
   // sections they unlock stays code, deliberately.
   const [functions, setFunctions] = useState<string[]>([])
+  /** The vehicles this person drives here. Named, not just counted: see below. */
+  const [driverVehicles, setDriverVehicles] = useState<string[]>([])
+  /**
+   * What this person has REPORTED — not what they were given to work on.
+   *
+   * Without «wir übernehmen das gleich» a Meldung vanishes the moment it is
+   * sent: it belongs to no Schadenplatz of theirs, so the visibility union
+   * correctly refuses it, and a wrong house number was only fixable by radio.
+   * This list is the other half of that sentence.
+   */
+  const [reports, setReports] = useState<ApiFeldOwnReport[]>([])
+  /** The Meldung being corrected, if any. */
+  const [editingReport, setEditingReport] = useState<ApiFeldOwnReport | null>(null)
   /** Reporting a Schadenplatz is for whoever is standing in front of one. The
    *  Magazin and the Kommandoposten are at the station — the KP types theirs on
    *  the board. The Telefondienst is at the station too and keeps it, because
@@ -318,13 +335,45 @@ function FeldSurface() {
    * rows for. Telling them they have no job reads as the app not knowing what
    * they are for.
    */
+  /** The vehicles as one readable string — «TLF 1» or «TLF 1, MTW». */
+  const drivenVehicles = driverVehicles.join(', ')
   const emptyState: { title?: string; body?: string; Icon?: typeof Clock } = functions.includes(
     'telefondienst',
   )
     ? { title: t('roleEmpty.telefondienstTitle'), body: t('roleEmpty.telefondienstBody'), Icon: Phone }
     : functions.includes('kommandoposten')
       ? { title: t('roleEmpty.kommandopostenTitle'), body: t('roleEmpty.kommandopostenBody'), Icon: MonitorCog }
-      : {}
+      : // A driver whose vehicle has not been disponiert yet, and a Reko trupp
+        // waiting for an auftrag, are the two other people who were given a
+        // specific job and would otherwise read "melde dich beim KP" — which is
+        // the app telling them it does not know what they are here for. The
+        // vehicle is NAMED, because that is the whole content of the message.
+        drivenVehicles
+        ? {
+            title: t('roleEmpty.driverTitle', { vehicle: drivenVehicles }),
+            body: t('roleEmpty.driverBody', { vehicle: drivenVehicles }),
+            Icon: Truck,
+          }
+        : functions.includes('reko')
+          ? { title: t('roleEmpty.rekoTitle'), body: t('roleEmpty.rekoBody'), Icon: Binoculars }
+          : {}
+
+  /**
+   * What this person was given for THIS Ereignis, for the header.
+   *
+   * Not `personnel.role` — that is the rank on the roster («Gruppenführer») and
+   * it is the same at every Ereignis. The line that matters on a phone is the
+   * one that says what the KP gave *you tonight*, and for a driver that is a
+   * vehicle name. Falls back to the rank, then to the Ereignis.
+   */
+  const roleLine = [
+    drivenVehicles ? t('roles.driver', { vehicle: drivenVehicles }) : null,
+    ...(['reko', 'telefondienst', 'magazin', 'kommandoposten'] as const).map(role =>
+      functions.includes(role) ? t(`roles.${role}`) : null,
+    ),
+  ]
+    .filter(Boolean)
+    .join(' · ')
   // The Magazin's inventory. Only ever fetched for somebody holding the role —
   // the endpoint 403s for anybody else, which is what makes it defensible to
   // serve the whole station's material through a login-less door.
@@ -365,6 +414,7 @@ function FeldSurface() {
     setSelectedPerson(null)
     setPersonnel([])
     setAssignments([])
+    setReports([])
     setSelectedIncidentId(null)
     setSearchTerm('')
     setViewMode('code')
@@ -433,6 +483,8 @@ function FeldSurface() {
       setCheckedIn(Boolean(data.checked_in))
       const roles = data.functions ?? []
       setFunctions(roles)
+      setDriverVehicles(data.driver_vehicles ?? [])
+      setReports(data.reports ?? [])
       // Chased rather than awaited: the inventory is a second section, and a
       // crew standing at an address must not wait on the Magazin's table for
       // their own rows. A failure here leaves the last table standing.
@@ -676,7 +728,10 @@ function FeldSurface() {
   const handleNotMe = () => forgetDevice()
 
   const filteredPersonnel = useMemo(() => {
-    const sorted = [...personnel].sort((a, b) => a.name.localeCompare(b.name, getActiveLocale()))
+    // The board's Anwesenheit and the /check-in tablet order the same roster with
+    // the same comparator (`lib/roster-order.ts`). Deliberately NOT the UI locale:
+    // names are roster data, and the list must read the same on a French phone.
+    const sorted = sortByName(personnel)
     const term = searchTerm.trim().toLowerCase()
     if (!term) return sorted
     return sorted.filter(p => p.name.toLowerCase().includes(term) || (p.role ?? '').toLowerCase().includes(term))
@@ -841,9 +896,14 @@ function FeldSurface() {
   if (viewMode === 'list') {
     return (
       <div className="min-h-screen bg-background p-4 pb-20">
+        {/* The Ereignis is the heading. "Schadenplatz-Rapport" was the name of a
+            FORM, printed over the screen where somebody looks for themselves in
+            a list — and half the people reading it (Fahrer, Magazin, Telefon)
+            never file one. What they want confirmed after scanning a poster is
+            which Ereignis they just walked into. `t('title')` survives as the
+            fallback for the case that has no name yet. */}
         <div className="max-w-md mx-auto mb-6">
-          <h1 className="text-2xl font-semibold text-center mb-1">{t('title')}</h1>
-          {eventName && <p className="text-sm text-muted-foreground text-center">{eventName}</p>}
+          <h1 className="text-2xl font-semibold text-center mb-1">{eventName || t('title')}</h1>
           <p className="text-sm text-muted-foreground text-center mt-3">{t('picker.description')}</p>
         </div>
 
@@ -1090,7 +1150,7 @@ function FeldSurface() {
     <div className="min-h-screen bg-background pb-20">
       <FeldIdentityBar
         name={selectedPerson?.name ?? ''}
-        subtitle={selectedPerson?.role || eventName}
+        subtitle={roleLine || selectedPerson?.role || eventName}
         onNotMe={() => setConfirmNotMe(true)}
       />
 
@@ -1285,6 +1345,63 @@ function FeldSurface() {
           })
         )}
 
+        {/* Section: what I reported.
+            The third group of the one list, under «Früher» — same card shape,
+            no chevron, because these are not Schadenplätze anybody sent this
+            person to. Without it a Meldung disappears the second it is sent and
+            a wrong house number is a radio call. */}
+        {reports.length > 0 && (
+          <>
+            <p className="mb-2 mt-6 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {tReports('title')}
+            </p>
+            {reports.map(report => {
+              const address = report.location_display
+                ?? formatLocationForDisplay(report.location_address ?? '', getGlobalHomeCity())
+              // Three states, and `editable` is the server's own answer rather
+              // than the phone re-deriving it from a status vocabulary it should
+              // not have to know.
+              const state = report.editable
+                ? tReports('stateOpen')
+                : report.status === 'complete'
+                  ? tReports('stateDone')
+                  : report.vehicles.length > 0
+                    ? tReports('stateDispatchedWith', { vehicles: report.vehicles.join(', ') })
+                    : tReports('stateDispatched')
+              return (
+                <div
+                  key={report.incident_id}
+                  className={`rounded-xl p-4 ${report.editable ? 'bg-secondary/50' : 'bg-muted/30 opacity-70'}`}
+                >
+                  <h3 className="font-medium leading-tight">{address || report.title}</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {[formatTime(report.created_at), INCIDENT_TYPE_LABELS[asIncidentType(report.type)], report.description]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {state}
+                    </span>
+                    {/* Only while it is still the reporter's to change — once the
+                        KP has sent somebody, the vehicle name stands here
+                        instead and the correction goes over the radio. */}
+                    {report.editable && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingReport(report)}
+                        className="text-xs underline underline-offset-2 hover:text-foreground"
+                      >
+                        {tReports('edit')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
+
         {/* Checking IN is the crew's; checking out is not. Abmelden from a
             phone in a vehicle edits the roll call the KP is keeping — and the
             one person who cannot see that list is the one holding the phone.
@@ -1329,6 +1446,30 @@ function FeldSurface() {
             onReported={() => loadAssignments(selectedPerson.personnel_id)}
           />
         </>
+      )}
+
+      {/* The correction sheet — the same form, prefilled. Keyed by incident so
+          opening a second Meldung remounts it rather than showing the first
+          one's text. Mounted only while one is being corrected, which is what
+          keeps the create sheet's own state untouched. */}
+      {editingReport && token && selectedPerson && (
+        <FeldMeldenSheet
+          key={editingReport.incident_id}
+          open
+          onOpenChange={open => !open && setEditingReport(null)}
+          personnelId={selectedPerson.personnel_id}
+          token={token}
+          isPhoneDesk={functions.includes('telefondienst')}
+          editing={editingReport}
+          onReported={corrected => {
+            // Fold it back locally so the row changes under the thumb, and
+            // refetch for the board's side of the story (it may have been
+            // disponiert in the meantime).
+            setReports(prev => prev.map(item => (item.incident_id === corrected.incident_id ? corrected : item)))
+            setEditingReport(null)
+            loadAssignments(selectedPerson.personnel_id)
+          }}
+        />
       )}
 
       <ConfirmDialog

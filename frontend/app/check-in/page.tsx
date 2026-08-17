@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient } from '@/lib/websocket-client'
 import { RESOURCE_STATE_DOT_CLASSES } from '@/lib/resource-status'
+import { sortByName } from '@/lib/roster-order'
 import { cn } from '@/lib/utils'
 
 export default function CheckInPage() {
@@ -128,17 +129,15 @@ export default function CheckInPage() {
     }
   }
 
-  const filteredPersonnel = personnel
-    .filter(p =>
+  // Always alphabetical, and by the SAME comparator the Anwesenheit modal and the
+  // /feld picker use (`lib/roster-order.ts`) — three lists of the same roster that
+  // disagree on where the second Müller sits is three lists nobody can read.
+  const filteredPersonnel = sortByName(
+    personnel.filter(p =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.role && p.role.toLowerCase().includes(searchTerm.toLowerCase()))
     )
-    .sort((a, b) => {
-      // Always sort alphabetically by last name (first word in the name, format is "LAST FIRST")
-      const lastNameA = a.name.split(' ')[0].toLowerCase()
-      const lastNameB = b.name.split(' ')[0].toLowerCase()
-      return lastNameA.localeCompare(lastNameB)
-    })
+  )
 
   const stats = {
     total: personnel.length,

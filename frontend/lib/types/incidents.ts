@@ -157,6 +157,17 @@ export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
 }
 
 /**
+ * Narrow an API string back into the union, rather than casting it.
+ *
+ * The wire carries a plain `string` for the type; anything unrecognised falls
+ * back to the same default a new Meldung starts on, so an unknown value shows a
+ * label instead of `undefined` on a phone at 02:00.
+ */
+export function asIncidentType(value: string | undefined): IncidentType {
+  return value && value in INCIDENT_TYPE_LABELS ? (value as IncidentType) : 'elementarereignis'
+}
+
+/**
  * Human-readable labels for status values
  */
 export const STATUS_LABELS: Record<IncidentStatus, string> = {

@@ -12646,6 +12646,83 @@
         }
       }
     },
+    "/api/feld/incidents/{incident_id}/report": {
+      "put": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Correct Own Report",
+        "description": "Fix a Meldung you sent in yourself, before the KP disponiert it.\n\n**Not `_authorized_incident`.** That helper asks the visibility union \"is\nthis Schadenplatz yours to work on\", and the answer for a reported tree the\nKP has not dispatched is no — the reporter holds no assignment on it and\nshould not. The authorization here is a different, narrower sentence: *you\nare the person this row says reported it*, which is one column comparison\nand cannot be widened by anything the union later decides.\n\nTwo more walls behind it: the status must still be «Eingegangen» (once a\ncrew is driving to an address, that address is not the reporter's to change\nfrom a phone), and the incident must belong to the token's Ereignis.",
+        "operationId": "correct_own_report_api_feld_incidents__incident_id__report_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who reported it",
+              "title": "Personnel Id"
+            },
+            "description": "Who reported it"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldIncidentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldOwnReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents/{incident_id}/reko-link": {
       "post": {
         "tags": [
@@ -21332,6 +21409,14 @@
             "title": "Functions",
             "default": []
           },
+          "driver_vehicles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Driver Vehicles",
+            "default": []
+          },
           "event_id": {
             "type": "string",
             "format": "uuid",
@@ -21354,6 +21439,14 @@
             },
             "type": "array",
             "title": "Message Chips",
+            "default": []
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/FeldOwnReport"
+            },
+            "type": "array",
+            "title": "Reports",
             "default": []
           }
         },
@@ -21541,6 +21634,124 @@
         "title": "FeldIncidentCreated",
         "description": "What the phone gets back: the new Schadenplatz, and what became of it.\n\n``takeover`` says which of the three shapes happened, so the confirmation can\nbe specific — \"als Stop 3 im Auftrag\" reads very differently from \"gemeldet\"."
       },
+      "FeldIncidentUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentPriority"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          }
+        },
+        "type": "object",
+        "title": "FeldIncidentUpdate",
+        "description": "A correction to a Meldung that has not been disponiert yet.\n\nEvery field optional and `None` means \"unchanged\", not \"clear it\": the phone\nsends the form back and a Meldung whose description was fixed must not lose\nits address to an omitted key. Clearing a text field is done with `\"\"`.\n\nNo ``take_over`` — taking a Schadenplatz on happens once, at the moment of\nreporting, and re-running that logic on an edit would silently rebuild an\nAuftrag around a crew that has moved on since."
+      },
       "FeldMaterialItem": {
         "properties": {
           "material_id": {
@@ -21694,6 +21905,139 @@
         ],
         "title": "FeldMessageRequest",
         "description": "Freitext-Meldung an den KP — a chip or a typed sentence."
+      },
+      "FeldOwnReport": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable"
+          },
+          "vehicles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Vehicles",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "type",
+          "priority",
+          "status",
+          "created_at",
+          "editable"
+        ],
+        "title": "FeldOwnReport",
+        "description": "One Meldung this person sent in, for their own «Von mir gemeldet» list.\n\nCarries what the reporter needs to recognise it (address, time, what they\nwrote), what the board did with it (`status`, the vehicles on it), and\nwhether they may still correct it — `editable` is decided server-side by\n`report_is_editable`, so the phone never has to know the status vocabulary."
       },
       "FeldPersonnel": {
         "properties": {

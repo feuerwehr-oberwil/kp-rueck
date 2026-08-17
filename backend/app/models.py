@@ -511,6 +511,18 @@ class Incident(Base):
     # source_id), set when an incident is created from a pool alarm.
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="operator", server_default="operator")
     source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Who reported it from `/feld` — the firefighter who stood in front of it, or
+    # the Telefondienst who took the call. NULL for everything the KP created.
+    #
+    # `created_by` cannot carry this: it is a FK to `users`, and a field reporter
+    # has no login by design. The name used to live only in the audit row, which
+    # is fine for "who was that" and useless for the thing it is needed for —
+    # showing somebody the Meldungen they made, so a wrong house number can be
+    # corrected by the person who typed it instead of over the radio.
+    # SET NULL: deleting a person off the roster must not delete their Meldung.
+    reported_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # Manual sort order within a status column (lower = higher on the board). Operators
     # reorder cards to prioritize alarms; this is the persisted, shared order.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")

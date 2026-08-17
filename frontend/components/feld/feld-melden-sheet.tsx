@@ -22,11 +22,19 @@
  * The server decides which, and says so — the confirmation is specific because
  * "gespeichert" tells a crew nothing about whether the KP now expects them
  * there.
+ *
+ * **Two steps: erfassen, dann lesen.** This is the only entry on `/feld` that
+ * creates a Schadenplatz on the board — a wrong house number here sends a squad
+ * to the wrong street, and the crew cannot take it back from a phone. So the
+ * form hands over to a plain list of what was typed before anything is sent.
+ * The same argument the four field actions already make with their one-line
+ * "Stimmt das?" panel; this one has five answers to show instead of one, so it
+ * gets the step rather than a line.
  */
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, LocateFixed } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, LocateFixed } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -37,10 +45,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { FooterSheet } from '@/components/ui/footer-sheet'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { apiClient, type ApiFeldIncidentCreated } from '@/lib/api-client'
+import { apiClient, type ApiFeldIncidentCreated, type ApiFeldOwnReport } from '@/lib/api-client'
 import { reverseGeocode } from '@/lib/geocoding'
 import { PRIORITY_LABELS } from '@/lib/priority'
-import { INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
+import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
 
 /** The one label style the whole sheet uses — the same one `/alarm` uses, which
@@ -62,7 +70,7 @@ const FIELD_TYPES: IncidentType[] = [
   'diverse_einsaetze',
 ]
 
-interface FeldMeldenSheetProps {
+interface FeldMeldenSheetBase {
   open: boolean
   onOpenChange: (open: boolean) => void
   personnelId: string
@@ -71,6 +79,10 @@ interface FeldMeldenSheetProps {
    *  role rather than a page since plan 26 (decision 6), so the same sheet
    *  writes down a call when the person taking it is the one on the phone. */
   isPhoneDesk?: boolean
+}
+
+interface FeldMeldenCreateProps extends FeldMeldenSheetBase {
+  editing?: never
   /** False for a Reko trupp with no crew work of their own: they were sent to
    *  LOOK and report back, so «wir übernehmen das gleich» is not theirs to say.
    *  Somebody who is reko AND on a crew still gets the switch — see the page. */
@@ -79,28 +91,51 @@ interface FeldMeldenSheetProps {
   onReported: (result: ApiFeldIncidentCreated) => void
 }
 
-export function FeldMeldenSheet({
-  open,
-  onOpenChange,
-  personnelId,
-  token,
-  isPhoneDesk,
-  canTakeOver = true,
-  onReported,
-}: FeldMeldenSheetProps) {
+interface FeldMeldenEditProps extends FeldMeldenSheetBase {
+  /** The Meldung being corrected. Its presence is what puts the sheet in edit
+   *  mode — the form is the same one, prefilled, minus the two things that only
+   *  make sense once: «wir übernehmen das gleich» (taking a Schadenplatz on
+   *  happens at the moment of reporting, and re-running it on an edit would
+   *  rebuild an Auftrag around a crew that has moved on). */
+  editing: ApiFeldOwnReport
+  canTakeOver?: never
+  onReported: (result: ApiFeldOwnReport) => void
+}
+
+/** Two modes, one form. The union keeps `onReported` honest: a create hands back
+ *  what became of the Meldung, a correction hands back the corrected row. */
+export type FeldMeldenSheetProps = FeldMeldenCreateProps | FeldMeldenEditProps
+
+/** Same narrowing as `asIncidentType`, for the priority union. Local because
+ *  this is the only surface that reads a priority back off the wire. */
+function asPriority(value: string | undefined): IncidentPriority {
+  return value && value in PRIORITY_LABELS ? (value as IncidentPriority) : 'medium'
+}
+
+export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
+  const { open, onOpenChange, personnelId, token, isPhoneDesk } = props
+  const editing = props.editing ?? null
+  const canTakeOver = props.editing ? false : (props.canTakeOver ?? true)
   const t = useTranslations('feld.melden')
-  const [type, setType] = useState<IncidentType>('elementarereignis')
-  const [title, setTitle] = useState('')
-  const [priority, setPriority] = useState<IncidentPriority>('medium')
-  const [address, setAddress] = useState<string | null>(null)
-  const [lat, setLat] = useState<number | null>(null)
-  const [lng, setLng] = useState<number | null>(null)
-  const [description, setDescription] = useState('')
+  // Prefilled from the Meldung in edit mode. The page keys this component by
+  // incident id, so opening a different one remounts rather than carrying the
+  // last one's text across.
+  const [type, setType] = useState<IncidentType>(asIncidentType(editing?.type))
+  const [title, setTitle] = useState(editing?.title ?? '')
+  const [priority, setPriority] = useState<IncidentPriority>(asPriority(editing?.priority))
+  const [address, setAddress] = useState<string | null>(editing?.location_address ?? null)
+  const [lat, setLat] = useState<number | null>(editing?.location_lat ? Number(editing.location_lat) : null)
+  const [lng, setLng] = useState<number | null>(editing?.location_lng ? Number(editing.location_lng) : null)
+  const [description, setDescription] = useState(editing?.description ?? '')
   const [takeOver, setTakeOver] = useState(false)
-  const [contact, setContact] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
+  const [contact, setContact] = useState(editing?.contact ?? '')
+  const [contactPhone, setContactPhone] = useState(editing?.contact_phone ?? '')
   const [locating, setLocating] = useState(false)
   const [sending, setSending] = useState(false)
+  /** Which half of the sheet is on screen. `review` is never reachable with an
+   *  incomplete form — the step button carries the same rule the send button
+   *  used to. */
+  const [step, setStep] = useState<'form' | 'review'>('form')
 
   // The phone desk never gets the switch either: they are sitting at a phone,
   // not standing in front of the thing.
@@ -117,7 +152,46 @@ export function FeldMeldenSheet({
     setTakeOver(false)
     setContact('')
     setContactPhone('')
+    setStep('form')
   }
+
+  /** Closing the sheet always comes back to the form. The typed text survives —
+   *  a crew that swiped it away to read the address off a house wall must not
+   *  lose it — but coming back to a review screen for a Meldung they were in the
+   *  middle of writing reads as "this was already sent". */
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setStep('form')
+    onOpenChange(next)
+  }
+
+  /** What the review step lists, in the order the form asked for it. Rows with
+   *  nothing in them are dropped rather than shown empty: a dash next to
+   *  "Beschreibung" is a field somebody starts wondering whether they missed. */
+  const reviewRows: { label: string; value: string; hint?: string }[] = [
+    ...(isPhoneDesk ? [{ label: t('message'), value: title.trim() }] : []),
+    { label: t('what'), value: INCIDENT_TYPE_LABELS[type] },
+    ...(isPhoneDesk ? [{ label: t('priority'), value: PRIORITY_LABELS[priority] }] : []),
+    {
+      label: t('review.where'),
+      value: address?.trim() || (lat !== null && lng !== null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : ''),
+      // The pin is worth naming when there is also a street: it is what the map
+      // opens on, and a crew that tapped "Standort übernehmen" should see that
+      // it took.
+      hint: address?.trim() && lat !== null && lng !== null ? t('review.hasPin') : undefined,
+    },
+    { label: t('description'), value: description.trim() },
+    ...(isPhoneDesk ? [{ label: t('caller'), value: contact.trim() }] : []),
+    ...(isPhoneDesk ? [{ label: t('callerPhone'), value: contactPhone.trim() }] : []),
+    // Only when the switch was actually offered — "Übernahme: nein" for
+    // somebody who was never asked is an answer to a question they did not get.
+    ...(offerTakeOver
+      ? [{ label: t('review.takeOverLabel'), value: takeOver ? t('review.takeOverYes') : t('review.takeOverNo') }]
+      : []),
+  ].filter(row => row.value)
+
+  /** Not enough to send: the KP dispatches against a street, so one of address
+   *  or pin must exist, and the phone desk always writes down what was said. */
+  const incomplete = (!address?.trim() && lat === null) || (isPhoneDesk && !title.trim())
 
   /** The reporter is standing there, so their own position is the best address
    *  they have — and typing a street name one-handed in the rain is the worst. */
@@ -161,6 +235,26 @@ export function FeldMeldenSheet({
     if (isPhoneDesk && !meldung) return
     setSending(true)
     try {
+      if (props.editing) {
+        const corrected = await apiClient.updateFeldReport(props.editing.incident_id, personnelId, token, {
+          // The title follows the address only when it WAS the address — the
+          // server makes the same call, and sending it explicitly here would
+          // overwrite a title the phone desk typed.
+          title: isPhoneDesk ? meldung : null,
+          type,
+          priority,
+          location_address: street || null,
+          location_lat: lat === null ? null : lat.toFixed(6),
+          location_lng: lng === null ? null : lng.toFixed(6),
+          description: description.trim(),
+          contact: isPhoneDesk ? contact.trim() : null,
+          contact_phone: isPhoneDesk ? contactPhone.trim() : null,
+        })
+        toast.success(t('editSaved'))
+        props.onReported(corrected)
+        onOpenChange(false)
+        return
+      }
       const result = await apiClient.createFeldIncident(personnelId, token, {
         // The title is what the board shows on the card. The address is the
         // most useful thing a crew can put there and the one they always have.
@@ -177,20 +271,79 @@ export function FeldMeldenSheet({
         contact_phone: isPhoneDesk ? contactPhone.trim() || null : null,
       })
       toast.success(t(`confirm.${result.takeover}`))
-      onReported(result)
+      props.onReported(result)
       reset()
       onOpenChange(false)
     } catch (error) {
       console.error('Field report failed:', error)
-      toast.error(t('failed'))
+      // A correction refused because the KP got there first is not a failure of
+      // the phone — it is the answer, and the crew has to hear which one it was.
+      toast.error(
+        props.editing && error instanceof Error && error.message.includes('409')
+          ? t('editTooLate')
+          : t('failed'),
+      )
     } finally {
       setSending(false)
     }
   }
 
+  // ------------------------------------------------------------- review
+  // The same sheet, one step on: the form is gone and what was typed is a list.
+  // Nothing here is a control — the way to change something is the one button
+  // that says so, because a review screen with editable fields in it is just
+  // the form again with a more confident heading.
+  if (step === 'review') {
+    return (
+      <FooterSheet open={open} onOpenChange={handleOpenChange} className="max-w-md mx-auto px-4 py-4">
+        <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span>{t('review.stepForm')}</span>
+          <ChevronRight className="size-3" />
+          <span className="font-medium text-foreground">{t('review.stepCheck')}</span>
+        </p>
+        <h2 className="mb-3 text-lg font-semibold">{editing ? t('review.editTitle') : t('review.title')}</h2>
+
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-xl border border-border">
+            {reviewRows.map(row => (
+              <div
+                key={row.label}
+                className="flex gap-3 border-b border-border/50 px-3 py-2.5 text-sm last:border-b-0"
+              >
+                <span className="w-24 shrink-0 pt-px text-xs text-muted-foreground">{row.label}</span>
+                <span className="min-w-0 flex-1 leading-snug">
+                  {row.value}
+                  {row.hint && <span className="block text-xs text-muted-foreground">{row.hint}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <Button size="lg" className="w-full" onClick={submit} disabled={sending}>
+            {sending && <Loader2 className="size-4 animate-spin" />}
+            {editing ? t('editSubmit') : t('submit')}
+          </Button>
+          {/* Back, not "Abbrechen": the way out of the sheet is the sheet's own
+              swipe, and a crew that spotted a wrong house number wants the field
+              it is in — not their Meldung thrown away. */}
+          <Button variant="ghost" size="lg" className="w-full" disabled={sending} onClick={() => setStep('form')}>
+            <ChevronLeft className="size-4" />
+            {t('review.back')}
+          </Button>
+        </div>
+      </FooterSheet>
+    )
+  }
+
   return (
-    <FooterSheet open={open} onOpenChange={onOpenChange} className="max-w-md mx-auto px-4 py-4">
-      <h2 className="mb-3 text-lg font-semibold">{isPhoneDesk ? t('titlePhone') : t('title')}</h2>
+    <FooterSheet open={open} onOpenChange={handleOpenChange} className="max-w-md mx-auto px-4 py-4">
+      <h2 className="mb-3 text-lg font-semibold">
+        {editing ? t('editTitle') : isPhoneDesk ? t('titlePhone') : t('title')}
+      </h2>
+      {/* When it was sent, and that it can still be changed. The window closes
+          the moment the KP disponiert — saying so here is what stops a crew
+          discovering it at the "zu spät" toast. */}
+      {editing && <p className="-mt-2 mb-3 text-xs text-muted-foreground">{t('editHint')}</p>}
 
       <div className="space-y-4">
         {/* Four pills in the rain, all thirteen at the desk. The pills are not
@@ -371,14 +524,11 @@ export function FeldMeldenSheet({
           </label>
         )}
 
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={submit}
-          disabled={sending || (!address?.trim() && lat === null) || (isPhoneDesk && !title.trim())}
-        >
-          {sending && <Loader2 className="size-4 animate-spin" />}
-          {t('submit')}
+        {/* Not "absetzen": this button does not send anything, and a button that
+            claims it does is the fat-finger this step exists to catch. */}
+        <Button size="lg" className="w-full" onClick={() => setStep('review')} disabled={sending || incomplete}>
+          {t('review.next')}
+          <ChevronRight className="size-4" />
         </Button>
       </div>
     </FooterSheet>

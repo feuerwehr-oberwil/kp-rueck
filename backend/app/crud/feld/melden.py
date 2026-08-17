@@ -43,6 +43,7 @@ from ...models import (
     IncidentGroup,
     IncidentGroupAssignment,
     Personnel,
+    Vehicle,
 )
 from ...services.audit import log_action
 
@@ -187,9 +188,12 @@ async def create_field_report(
         status="incoming",
         source="intake" if took_a_call else "feld",
         # No user: this came through a login-less door. The audit row below
-        # carries the reporter's name instead, which is the thing an operator
-        # actually wants to know.
+        # carries the reporter's name too, which is what an operator reads.
         created_by=None,
+        # …and the id, which is what the reporter's own «Von mir gemeldet» list
+        # is read back by. The audit row cannot serve that: it is a log, and a
+        # correction has to find the incident, not the entry about it.
+        reported_by_personnel_id=person.id,
     )
     db.add(incident)
     await db.flush()
@@ -294,3 +298,155 @@ async def _take_over(
 def report_summary(incident: Incident, mode: TakeoverMode) -> dict[str, Any]:
     """What the phone needs back: the id, and what happened to it."""
     return {"incident_id": str(incident.id), "takeover": mode}
+
+
+#: While the Schadenplatz is still sitting in «Eingegangen», nobody has been sent
+#: anywhere and the reporter may still fix what they typed. The moment the KP
+#: disponiert it, a crew is driving to that address and the address stops being
+#: the reporter's to change — the correction goes over the radio, like it always
+#: did. This is the whole of the edit window, and it is enforced server-side.
+EDITABLE_STATUS = "incoming"
+
+
+def report_is_editable(incident: Incident) -> bool:
+    """Can the person who reported this still correct it?"""
+    return incident.status == EDITABLE_STATUS and incident.deleted_at is None
+
+
+async def own_reports(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+) -> list[dict[str, Any]]:
+    """The Meldungen this person made in this Ereignis, newest first.
+
+    **Not part of the visibility union**, on purpose. That union answers "which
+    Schadenplätze are mine to work on", and a reported tree the KP gave to
+    somebody else is not one — it would show up as an Auftrag the reporter does
+    not have. This answers a different question, "what did I send in", and it is
+    scoped by the same two-step: the caller is bound to this person, and rows are
+    matched on `reported_by_personnel_id`.
+    """
+    rows = await db.execute(
+        select(Incident)
+        .where(
+            Incident.event_id == event_id,
+            Incident.reported_by_personnel_id == personnel_id,
+            Incident.deleted_at.is_(None),
+        )
+        .order_by(Incident.created_at.desc())
+    )
+    incidents = list(rows.scalars().all())
+    if not incidents:
+        return []
+
+    # Which vehicles the KP put on each one. It is the only thing a reporter
+    # actually wants from the board's side of the story: "das TLF 2 fährt hin"
+    # is the answer to "hat das jemand gesehen?".
+    vehicle_rows = await db.execute(
+        select(IncidentAssignment.incident_id, Vehicle.name)
+        .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
+        .where(
+            IncidentAssignment.incident_id.in_([incident.id for incident in incidents]),
+            IncidentAssignment.resource_type == "vehicle",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+        .order_by(Vehicle.display_order, Vehicle.name)
+    )
+    vehicles: dict[uuid.UUID, list[str]] = {}
+    for incident_id, name in vehicle_rows.all():
+        vehicles.setdefault(incident_id, []).append(name)
+
+    return [
+        {
+            "incident_id": incident.id,
+            "title": incident.title,
+            "type": incident.type,
+            "priority": incident.priority,
+            "description": incident.description,
+            "location_address": incident.location_address,
+            "location_lat": incident.location_lat,
+            "location_lng": incident.location_lng,
+            "contact": incident.contact,
+            "contact_phone": incident.contact_phone,
+            "status": incident.status,
+            "created_at": incident.created_at,
+            "editable": report_is_editable(incident),
+            "vehicles": vehicles.get(incident.id, []),
+        }
+        for incident in incidents
+    ]
+
+
+async def update_field_report(
+    db: AsyncSession,
+    incident: Incident,
+    person: Personnel,
+    payload: schemas.FeldIncidentUpdate,
+    request: Request,
+) -> Incident:
+    """Correct a Meldung that has not been disponiert yet.
+
+    The caller has already been checked (`report_is_editable` plus the reporter
+    binding); this only writes and logs. Every field is optional — the phone
+    sends the whole form back, but a Meldung that only had its description fixed
+    must not have its address blanked by an omitted key.
+
+    **The title follows the address** when it was the address: a crew's Meldung
+    is titled with the street it is at (`create_field_report`), so correcting the
+    street and leaving «Hauptstrasse 12» on the board's card would make the
+    correction invisible exactly where it is read.
+    """
+    before = {
+        "title": incident.title,
+        "type": incident.type,
+        "priority": incident.priority,
+        "location_address": incident.location_address,
+        "description": incident.description,
+    }
+    old_address = incident.location_address
+
+    if payload.type is not None:
+        incident.type = payload.type
+    if payload.priority is not None:
+        incident.priority = payload.priority
+    if payload.description is not None:
+        incident.description = payload.description or None
+    if payload.location_address is not None:
+        incident.location_address = payload.location_address or None
+    if payload.location_lat is not None:
+        incident.location_lat = payload.location_lat
+    if payload.location_lng is not None:
+        incident.location_lng = payload.location_lng
+    if payload.contact is not None:
+        incident.contact = payload.contact or None
+    if payload.contact_phone is not None:
+        incident.contact_phone = payload.contact_phone or None
+    if payload.title is not None and payload.title.strip():
+        incident.title = payload.title.strip()
+    elif payload.location_address is not None and incident.title == old_address:
+        incident.title = incident.location_address or incident.title
+
+    await log_action(
+        db=db,
+        action_type="update",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=None,
+        changes={
+            "before": before,
+            "after": {
+                "title": incident.title,
+                "type": incident.type,
+                "priority": incident.priority,
+                "location_address": incident.location_address,
+                "description": incident.description,
+            },
+            "corrected_by": person.name,
+            "source": "feld",
+        },
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(incident)
+    return incident

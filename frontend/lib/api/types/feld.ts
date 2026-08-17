@@ -174,6 +174,12 @@ export interface ApiFeldAssignmentsResponse {
   /** The roles this person holds here (plan 26, decision 5). The roles are
    *  data; which sections they unlock stays code. */
   functions?: string[]
+  /** The vehicles this person drives here, by name. Empty for everybody else. */
+  driver_vehicles?: string[]
+  /** What this person has REPORTED — a different list from the assignments
+   *  above, and the only place a Meldung the KP has not dispatched is visible
+   *  to the person who sent it. */
+  reports?: ApiFeldOwnReport[]
   event_id: string
   event_name: string
   assignments: ApiFeldAssignment[]
@@ -542,6 +548,54 @@ export interface ApiFeldIncidentCreate {
   as_phone_call?: boolean
   contact?: string | null
   contact_phone?: string | null
+}
+
+/**
+ * A correction to a Meldung that has not been disponiert yet.
+ *
+ * Every field optional, and an omitted key means "unchanged" rather than
+ * "clear it" — the sheet sends the whole form back, and a Meldung whose
+ * description was fixed must not lose its address on the way.
+ */
+export interface ApiFeldIncidentUpdate {
+  title?: string | null
+  type?: string | null
+  priority?: string | null
+  location_address?: string | null
+  location_lat?: string | null
+  location_lng?: string | null
+  description?: string | null
+  contact?: string | null
+  contact_phone?: string | null
+}
+
+/**
+ * One Meldung this person sent in — the «Von mir gemeldet» list.
+ *
+ * NOT an assignment: a reported tree the KP gave to somebody else is not a
+ * Schadenplatz of theirs, and this list deliberately answers the other
+ * question, "what did I send in". `editable` is the server's answer to "may I
+ * still correct this", so the phone never has to know the status vocabulary.
+ */
+export interface ApiFeldOwnReport {
+  incident_id: string
+  title: string
+  type: string
+  priority: string
+  description: string | null
+  location_address: string | null
+  /** Server-formatted address (home city stripped), like every other row. */
+  location_display: string | null
+  location_lat: string | null
+  location_lng: string | null
+  contact: string | null
+  contact_phone: string | null
+  status: string
+  created_at: string
+  /** Still «Eingegangen»: nobody has been sent, so the reporter may fix it. */
+  editable: boolean
+  /** What the KP put on it — «das TLF 2 fährt hin». */
+  vehicles: string[]
 }
 
 /**

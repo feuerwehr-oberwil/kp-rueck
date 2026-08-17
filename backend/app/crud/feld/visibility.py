@@ -290,6 +290,34 @@ async def functions_for_personnel(
     return sorted({row[0] for row in result.all()})
 
 
+async def driver_vehicle_names(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+) -> list[str]:
+    """The vehicles this person drives in this Ereignis, by name.
+
+    `functions_for_personnel` answers "is this person a driver" and that is not
+    enough for the page to say anything useful: a driver whose vehicle has not
+    been disponiert yet has an EMPTY list of Schadenplätze, and the generic
+    "melde dich beim KP" underneath it reads as "we have no idea who you are" to
+    the one person who was given a specific job an hour ago. Naming the vehicle
+    turns that screen into "du fährst das TLF 1 — sobald es losgeht, steht es
+    hier", which is the truth.
+    """
+    result = await db.execute(
+        select(Vehicle.name)
+        .join(EventSpecialFunction, EventSpecialFunction.vehicle_id == Vehicle.id)
+        .where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.personnel_id == personnel_id,
+            EventSpecialFunction.function_type == "driver",
+        )
+        .order_by(Vehicle.display_order, Vehicle.name)
+    )
+    return [row[0] for row in result.all()]
+
+
 async def visible_incidents_for_personnel(
     db: AsyncSession,
     event_id: uuid.UUID,

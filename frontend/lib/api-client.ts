@@ -98,6 +98,8 @@ import {
   type ApiFeldClaimResponse,
   type ApiFeldIncidentCreate,
   type ApiFeldIncidentCreated,
+  type ApiFeldIncidentUpdate,
+  type ApiFeldOwnReport,
   type ApiFeldMaterialResponse,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
@@ -2042,6 +2044,24 @@ class ApiClient {
       `/api/feld/incidents?token=${encodeURIComponent(token)}&personnel_id=${personnelId}`,
       { method: 'POST', body: JSON.stringify(payload) },
     )
+  }
+
+  /**
+   * Correct a Meldung you sent in yourself, while it is still «Eingegangen».
+   *
+   * 409 once the KP has disponiert it — at that point a crew is driving to the
+   * address and it stops being the reporter's to change from a phone.
+   */
+  async updateFeldReport(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    payload: ApiFeldIncidentUpdate,
+  ): Promise<ApiFeldOwnReport> {
+    return this.request<ApiFeldOwnReport>(this.feldQuery(incidentId, 'report', personnelId, token), {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
   }
 
   /**

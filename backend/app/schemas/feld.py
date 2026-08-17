@@ -268,6 +268,12 @@ class FeldAssignmentsResponse(BaseModel):
     # are code. Names only — this grants nothing, every permission still goes
     # through the visibility union.
     functions: list[str] = []
+    # The vehicles this person drives here, by name. `functions` says "driver",
+    # which is not enough to tell somebody what they were given: a driver whose
+    # vehicle has not been disponiert has an empty list of Schadenplätze, and the
+    # page must be able to say "du fährst das TLF 1" instead of "melde dich beim
+    # KP" to the one person who already has a job.
+    driver_vehicles: list[str] = []
     event_id: UUID
     event_name: str
     assignments: list[FeldAssignment]
@@ -276,6 +282,12 @@ class FeldAssignmentsResponse(BaseModel):
     # tap away from this call, and a separate GET would be a second public
     # surface to guard for four strings.
     message_chips: list[str] = []
+    # What this person has REPORTED, which is not the same list as what they were
+    # given to work on — see `own_reports`. Carried here rather than on its own
+    # endpoint for the same reason as the chips: this response is already polled
+    # every ten seconds, and a second public surface for three rows is a second
+    # public surface to guard.
+    reports: list["FeldOwnReport"] = []
 
 
 # ============================================
@@ -816,6 +828,60 @@ class FeldIncidentCreate(BaseModel):
     _validate_description = field_validator("description")(  # type: ignore[attr-defined]
         IncidentBase.validate_description.__func__
     )
+
+
+class FeldIncidentUpdate(BaseModel):
+    """A correction to a Meldung that has not been disponiert yet.
+
+    Every field optional and `None` means "unchanged", not "clear it": the phone
+    sends the form back and a Meldung whose description was fixed must not lose
+    its address to an omitted key. Clearing a text field is done with `""`.
+
+    No ``take_over`` — taking a Schadenplatz on happens once, at the moment of
+    reporting, and re-running that logic on an edit would silently rebuild an
+    Auftrag around a crew that has moved on since.
+    """
+
+    title: str | None = None
+    type: IncidentType | None = None
+    priority: IncidentPriority | None = None
+    location_address: str | None = None
+    location_lat: str | Decimal | None = None
+    location_lng: str | Decimal | None = None
+    description: str | None = None
+    contact: str | None = None
+    contact_phone: str | None = None
+
+    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
+    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
+
+
+class FeldOwnReport(BaseModel):
+    """One Meldung this person sent in, for their own «Von mir gemeldet» list.
+
+    Carries what the reporter needs to recognise it (address, time, what they
+    wrote), what the board did with it (`status`, the vehicles on it), and
+    whether they may still correct it — `editable` is decided server-side by
+    `report_is_editable`, so the phone never has to know the status vocabulary.
+    """
+
+    incident_id: UUID
+    title: str
+    type: str
+    priority: str
+    description: str | None = None
+    location_address: str | None = None
+    location_display: str | None = None
+    location_lat: Decimal | None = None
+    location_lng: Decimal | None = None
+    contact: str | None = None
+    contact_phone: str | None = None
+    status: str
+    created_at: datetime
+    editable: bool
+    #: The vehicles the KP put on it — "das TLF 2 fährt hin", the one thing a
+    #: reporter wants back from the board.
+    vehicles: list[str] = []
 
 
 class FeldIncidentCreated(BaseModel):

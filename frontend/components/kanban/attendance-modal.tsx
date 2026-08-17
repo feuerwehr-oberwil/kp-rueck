@@ -39,6 +39,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient } from '@/lib/websocket-client'
 import { getActiveLocale } from '@/lib/i18n-messages'
+import { sortByName } from '@/lib/roster-order'
 import { cn } from '@/lib/utils'
 
 /** What a row shows. Derived, never stored — the two timestamps already say it. */
@@ -76,9 +77,13 @@ export function summarizeAttendance(people: ApiPersonnelListItem[]): {
  * Alphabetical by the name as written ("Nachname Vorname" here), stable across every
  * refresh and every tick. Sorting by state would be the natural instinct and is exactly
  * wrong: the list must not move while it is being read out.
+ *
+ * The comparator itself is shared with `/check-in` and the `/feld` picker
+ * (`lib/roster-order.ts`) — the same people, the same order, whichever surface
+ * somebody is looking for their name on.
  */
 export function sortAttendance(people: ApiPersonnelListItem[]): ApiPersonnelListItem[] {
-  return [...people].sort((a, b) => a.name.localeCompare(b.name, 'de-CH'))
+  return sortByName(people)
 }
 
 function formatTime(value: string | null | undefined): string | null {

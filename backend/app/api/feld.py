@@ -406,8 +406,13 @@ async def get_feld_assignments(
     chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
     checked_in = await crud.is_checked_in(db, event.id, personnel_id)
     functions = await crud.functions_for_personnel(db, event.id, personnel_id)
+    # Only for somebody who actually drives — one extra query for a role most
+    # people at an Ereignis do not hold.
+    driver_vehicles = await crud.driver_vehicle_names(db, event.id, personnel_id) if "driver" in functions else []
     # One read for the whole list, next to the chips read that is already here.
     home_city = await incident_display.get_home_city(db)
+
+    reports = await crud.own_reports(db, event.id, personnel_id)
 
     return schemas.FeldAssignmentsResponse(
         personnel_id=person.id,
@@ -415,6 +420,7 @@ async def get_feld_assignments(
         personnel_role=person.role,
         checked_in=checked_in,
         functions=functions,
+        driver_vehicles=driver_vehicles,
         event_id=event.id,
         event_name=event.name,
         assignments=[
@@ -425,6 +431,13 @@ async def get_feld_assignments(
             for a in assignments
         ],
         message_chips=chips,
+        reports=[
+            schemas.FeldOwnReport(
+                **report,
+                location_display=incident_display.location_display(report.get("location_address"), home_city),
+            )
+            for report in reports
+        ],
     )
 
 
@@ -696,6 +709,72 @@ async def report_new_incident(
     await broadcast_incident_update(str(incident.id), "created")
 
     return schemas.FeldIncidentCreated(incident_id=incident.id, takeover=mode)
+
+
+@router.put("/incidents/{incident_id}/report", response_model=schemas.FeldOwnReport)
+@limiter.limit(RateLimits.FELD)
+async def correct_own_report(
+    request: Request,
+    incident_id: uuid.UUID,
+    payload: schemas.FeldIncidentUpdate,
+    claims: FeldClaims,
+    personnel_id: uuid.UUID = Query(..., description="Who reported it"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldOwnReport:
+    """Fix a Meldung you sent in yourself, before the KP disponiert it.
+
+    **Not `_authorized_incident`.** That helper asks the visibility union "is
+    this Schadenplatz yours to work on", and the answer for a reported tree the
+    KP has not dispatched is no — the reporter holds no assignment on it and
+    should not. The authorization here is a different, narrower sentence: *you
+    are the person this row says reported it*, which is one column comparison
+    and cannot be widened by anything the union later decides.
+
+    Two more walls behind it: the status must still be «Eingegangen» (once a
+    crew is driving to an address, that address is not the reporter's to change
+    from a phone), and the incident must belong to the token's Ereignis.
+    """
+    person = await require_feld_person(db, claims, personnel_id, require_access=False)
+    incident = await db.get(Incident, incident_id)
+    if (
+        incident is None
+        or incident.event_id != claims.event_id
+        or incident.deleted_at is not None
+        or incident.reported_by_personnel_id != person.id
+    ):
+        # The same 403 whether it exists, belongs to another Ereignis or was
+        # somebody else's — a public token must not become a way to probe the
+        # board.
+        raise HTTPException(status_code=403, detail="Diese Meldung ist nicht deine.")
+    if not crud.report_is_editable(incident):
+        raise HTTPException(
+            status_code=409,
+            detail="Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk.",
+        )
+
+    updated = await crud.update_field_report(db, incident, person, payload, request)
+    # The board is looking at this card right now — a correction that only lands
+    # on the next poll is a correction the operator reads too late.
+    await broadcast_incident_update(str(updated.id), "updated")
+
+    home_city = await incident_display.get_home_city(db)
+    return schemas.FeldOwnReport(
+        incident_id=updated.id,
+        title=updated.title,
+        type=updated.type,
+        priority=updated.priority,
+        description=updated.description,
+        location_address=updated.location_address,
+        location_display=incident_display.location_display(updated.location_address, home_city),
+        location_lat=updated.location_lat,
+        location_lng=updated.location_lng,
+        contact=updated.contact,
+        contact_phone=updated.contact_phone,
+        status=updated.status,
+        created_at=updated.created_at,
+        editable=crud.report_is_editable(updated),
+        vehicles=[],
+    )
 
 
 @router.post("/incidents/{incident_id}/reko-link", response_model=dict)

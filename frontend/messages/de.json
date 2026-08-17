@@ -360,7 +360,8 @@
       "distributeToAuftrag": "An Auftrag verteilen",
       "newIncident": "Neuer Einsatz",
       "telefondienst": "Telefondienst",
-      "kommandoposten": "Kommandoposten"
+      "kommandoposten": "Kommandoposten",
+      "unknownResource": "Unbekannt"
     },
     "dashboard": {
       "loading": "Laden...",
@@ -2974,7 +2975,6 @@
       "printQr": "QR drucken",
       "copyLink": "Link kopieren",
       "openVehicles": "Fahrzeuge öffnen",
-      "assignDrivers": "Fahrer zuweisen",
       "openRekoMode": "Reko-Modus öffnen",
       "openAttendance": "Appell öffnen"
     },
@@ -3158,7 +3158,7 @@
     }
   },
   "feld": {
-    "title": "Schadenplatz-Rapport",
+    "title": "Feld",
     "accessRequired": "Zugriff erforderlich",
     "missingCode": "Zugriffscode fehlt. Bitte QR-Code scannen.",
     "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",
@@ -3443,7 +3443,25 @@
       "callerPhone": "Telefon",
       "message": "Meldung",
       "messagePlaceholder": "Was wurde gemeldet?",
-      "priority": "Priorität"
+      "priority": "Priorität",
+      "review": {
+        "stepForm": "Erfassen",
+        "stepCheck": "Stimmt das?",
+        "title": "Stimmt das so?",
+        "next": "Weiter",
+        "back": "Zurück zum Formular",
+        "where": "Ort",
+        "hasPin": "Standort erfasst",
+        "takeOverLabel": "Übernahme",
+        "takeOverYes": "Ja – wir fahren direkt hin",
+        "takeOverNo": "Nein – der KP disponiert",
+        "editTitle": "Stimmt das jetzt?"
+      },
+      "editTitle": "Meldung korrigieren",
+      "editHint": "Solange der KP niemanden geschickt hat, kannst du die Meldung noch ändern.",
+      "editSubmit": "Korrektur senden",
+      "editSaved": "Korrektur ist beim KP",
+      "editTooLate": "Der KP hat die Meldung bereits übernommen – bitte per Funk melden."
     },
     "attendance": {
       "notHereTitle": "Du bist nicht eingecheckt",
@@ -3466,7 +3484,26 @@
       "telefondienstTitle": "Du bist am Telefon",
       "telefondienstBody": "Anrufe hier erfassen – sie landen als Meldung beim KP.",
       "kommandopostenTitle": "Du bist im Kommandoposten",
-      "kommandopostenBody": "Du führst die Lage auf dem Board. Hier steht nur, was im Feld passiert."
+      "kommandopostenBody": "Du führst die Lage auf dem Board. Hier steht nur, was im Feld passiert.",
+      "driverTitle": "Du fährst {vehicle}",
+      "driverBody": "Sobald {vehicle} disponiert wird, erscheint die Einsatzstelle hier.",
+      "rekoTitle": "Du bist für die Reko eingeteilt",
+      "rekoBody": "Sobald dir der KP einen Erkundungsauftrag gibt, erscheint er hier."
+    },
+    "roles": {
+      "driver": "Fahrer {vehicle}",
+      "reko": "Reko",
+      "telefondienst": "Telefondienst",
+      "magazin": "Magazin",
+      "kommandoposten": "Kommandoposten"
+    },
+    "reports": {
+      "title": "Von mir gemeldet",
+      "stateOpen": "Beim KP",
+      "stateDispatched": "Disponiert",
+      "stateDispatchedWith": "Disponiert · {vehicles}",
+      "stateDone": "Abgeschlossen",
+      "edit": "Bearbeiten"
     }
   }
 }

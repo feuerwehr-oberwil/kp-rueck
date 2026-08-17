@@ -70,7 +70,6 @@
       "printQr": "Imprimer le QR",
       "copyLink": "Copier le lien",
       "openVehicles": "Ouvrir les véhicules",
-      "assignDrivers": "Attribuer les conducteurs",
       "openRekoMode": "Ouvrir le mode reconnaissance",
       "openAttendance": "Ouvrir l’appel"
     },
@@ -543,7 +542,7 @@
     }
   },
   "feld": {
-    "title": "Rapport de place sinistrée",
+    "title": "Terrain",
     "accessRequired": "Accès requis",
     "missingCode": "Code d’accès manquant. Scanne le code QR.",
     "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
@@ -828,7 +827,25 @@
       "callerPhone": "Téléphone",
       "message": "Message",
       "messagePlaceholder": "Qu'est-ce qui a été signalé ?",
-      "priority": "Priorité"
+      "priority": "Priorité",
+      "review": {
+        "stepForm": "Saisir",
+        "stepCheck": "C’est juste ?",
+        "title": "C’est bien ça ?",
+        "next": "Continuer",
+        "back": "Retour au formulaire",
+        "where": "Lieu",
+        "hasPin": "Position enregistrée",
+        "takeOverLabel": "Prise en charge",
+        "takeOverYes": "Oui – on y va directement",
+        "takeOverNo": "Non – le PC engage",
+        "editTitle": "C’est juste maintenant ?"
+      },
+      "editTitle": "Corriger l’annonce",
+      "editHint": "Tant que le PC n’a engagé personne, tu peux encore modifier l’annonce.",
+      "editSubmit": "Envoyer la correction",
+      "editSaved": "Correction transmise au PC",
+      "editTooLate": "Le PC a déjà repris l’annonce – annonce la correction par radio."
     },
     "attendance": {
       "notHereTitle": "Tu n'es pas enregistré",
@@ -851,7 +868,26 @@
       "telefondienstTitle": "Tu es au téléphone",
       "telefondienstBody": "Saisis les appels ici – ils arrivent au PC comme annonce.",
       "kommandopostenTitle": "Tu es au poste de commandement",
-      "kommandopostenBody": "Tu gères la situation sur le tableau. Ici, seul le terrain apparaît."
+      "kommandopostenBody": "Tu gères la situation sur le tableau. Ici, seul le terrain apparaît.",
+      "driverTitle": "Tu conduis {vehicle}",
+      "driverBody": "Dès que {vehicle} est engagé, l’intervention apparaît ici.",
+      "rekoTitle": "Tu es affecté à la reconnaissance",
+      "rekoBody": "Dès que le PC te donne un mandat de reconnaissance, il apparaît ici."
+    },
+    "roles": {
+      "driver": "Conducteur {vehicle}",
+      "reko": "Reco",
+      "telefondienst": "Service téléphonique",
+      "magazin": "Magasin",
+      "kommandoposten": "Poste de commandement"
+    },
+    "reports": {
+      "title": "Annoncé par moi",
+      "stateOpen": "Au PC",
+      "stateDispatched": "Engagé",
+      "stateDispatchedWith": "Engagé · {vehicles}",
+      "stateDone": "Terminé",
+      "edit": "Modifier"
     }
   },
   "help": {
@@ -1307,7 +1343,8 @@
       "distributeToAuftrag": "Répartir sur une mission",
       "newIncident": "Nouvelle intervention",
       "telefondienst": "Service téléphonique",
-      "kommandoposten": "Poste de commandement"
+      "kommandoposten": "Poste de commandement",
+      "unknownResource": "Inconnu"
     },
     "dashboard": {
       "loading": "Chargement...",

@@ -39,7 +39,14 @@ from .material import (
     material_return_attribution,
     material_return_units,
 )
-from .melden import create_field_report, report_summary
+from .melden import (
+    EDITABLE_STATUS,
+    create_field_report,
+    own_reports,
+    report_is_editable,
+    report_summary,
+    update_field_report,
+)
 from .rapport import (
     CONCURRENT_EDITOR_WINDOW,
     _board_material_units,
@@ -96,6 +103,7 @@ from .visibility import (
     _rapport_state,
     _rapport_states,
     _reko_briefings,
+    driver_vehicle_names,
     functions_for_personnel,
     get_authorized_incident,
     get_feld_assignments_for_personnel,
@@ -109,6 +117,7 @@ from .visibility import (
 __all__ = [
     "ARRIVAL_SOURCES",
     "CONCURRENT_EDITOR_WINDOW",
+    "EDITABLE_STATUS",
     "RAPPORT_SOURCES",
     "SOURCE_CREW",
     "SOURCE_DRIVER",
@@ -148,6 +157,7 @@ __all__ = [
     "create_claim",
     "create_field_report",
     "derive_personnel_count",
+    "driver_vehicle_names",
     "event_restliste",
     "field_report_state",
     "functions_for_personnel",
@@ -166,6 +176,7 @@ __all__ = [
     "material_return_units",
     "normalize_extra_materials",
     "normalize_extra_personnel",
+    "own_reports",
     "person_has_event_access",
     "reconcile_materials",
     "reconcile_personnel",
@@ -176,9 +187,11 @@ __all__ = [
     "record_pickup",
     "regenerate_code",
     "remove_photo",
+    "report_is_editable",
     "report_summary",
     "revoke_all_claims",
     "save_rapport",
+    "update_field_report",
     "visible_by_personnel",
     "visible_incidents_for_personnel",
 ]
