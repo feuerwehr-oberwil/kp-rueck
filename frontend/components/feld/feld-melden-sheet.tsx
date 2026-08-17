@@ -26,7 +26,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, ChevronsUpDown, Loader2, MapPin } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2, LocateFixed } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -224,34 +224,37 @@ export function FeldMeldenSheet({
         {/* The same control the phone desk gets on /alarm: type-ahead against
             the geocoder, a map to tap, coordinates to paste. A crew reporting a
             tree on a road it cannot name needs the map more than the KP does. */}
-        <div>
-          <LocationInput
-            address={address}
-            latitude={lat}
-            longitude={lng}
-            onAddressChange={setAddress}
-            onCoordinatesChange={(nextLat, nextLng) => {
-              setLat(nextLat)
-              setLng(nextLng)
-            }}
-            disabled={sending}
-          />
-          {/* Only for somebody standing in front of the thing. The phone desk
-              is sitting in the KP, so their position is the fire station — a
-              button that confidently fills in the wrong address. */}
-          {!isPhoneDesk && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={locate}
-              disabled={locating || sending}
-              className="mt-2"
-            >
-              {locating ? <Loader2 className="size-3.5 animate-spin" /> : <MapPin className="size-3.5" />}
-              {t('useLocation')}
-            </Button>
-          )}
-        </div>
+        <LocationInput
+          address={address}
+          latitude={lat}
+          longitude={lng}
+          onAddressChange={setAddress}
+          onCoordinatesChange={(nextLat, nextLng) => {
+            setLat(nextLat)
+            setLng(nextLng)
+          }}
+          disabled={sending}
+          // Third way of setting the same field, so it sits with the other two
+          // rather than on a line of its own underneath. Only for somebody
+          // standing in front of the thing: the phone desk's own position is
+          // the fire station, so the button would confidently fill in the
+          // wrong address.
+          extraAction={
+            isPhoneDesk ? undefined : (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={locate}
+                disabled={locating || sending}
+                title={t('useLocation')}
+                tabIndex={-1}
+              >
+                {locating ? <Loader2 className="size-4 animate-spin" /> : <LocateFixed className="size-4" />}
+              </Button>
+            )
+          }
+        />
 
         {/* Meldung, Priorität, Einsatzart — the three `/alarm` has and a crew
             in the field does not need. Somebody taking a call has both hands

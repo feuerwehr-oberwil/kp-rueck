@@ -12,7 +12,7 @@
  * Ensure backward compatibility when modifying props or behavior.
  */
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import dynamic from "next/dynamic"
 import { Label } from "@/components/ui/label"
@@ -43,6 +43,11 @@ interface LocationInputProps {
   geocodeInitialAddress?: boolean
   /** Show error styling for validation feedback */
   error?: boolean
+  /** An extra icon button in the same row as the map and coordinate buttons.
+   *  `/feld` puts "Standort übernehmen" there — a GPS action belongs with the
+   *  other two ways of setting the location, not on a line of its own
+   *  underneath, which is where it read as a leftover. */
+  extraAction?: ReactNode
   /** Row layout for the 420px side panel: the label sits left of the field
    *  instead of above it, and the map/coordinate buttons shrink to match. Same
    *  control either way — see components/kanban/detail-field.tsx. */
@@ -59,6 +64,7 @@ export function LocationInput({
   autoFocus = false,
   geocodeInitialAddress = true,
   error = false,
+  extraAction,
   dense = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
@@ -508,6 +514,8 @@ export function LocationInput({
           >
             <Navigation className={dense ? "size-3.5" : "size-4"} />
           </Button>
+
+          {extraAction}
         </div>
       </div>
 
