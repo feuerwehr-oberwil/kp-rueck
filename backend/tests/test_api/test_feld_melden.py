@@ -22,6 +22,7 @@ from app.models import (
     IncidentAssignment,
     IncidentGroup,
     IncidentGroupAssignment,
+    Notification,
     Personnel,
     User,
     Vehicle,
@@ -151,6 +152,56 @@ class TestMelden:
         assert response.status_code == 403
 
 
+class TestMeldungRaisesTheBell:
+    """A new Schadenplatz from the field is a notification, like everything else.
+
+    It was the one `/feld` action that raised none: angekommen, beendet, die
+    Abholung, eine Meldung im Thread and der Rapport all ring, and the one that
+    creates a whole Schadenplatz let a card appear in a column silently.
+    """
+
+    @staticmethod
+    async def _notifications(db: AsyncSession, incident_id: uuid.UUID) -> list[Notification]:
+        rows = await db.execute(select(Notification).where(Notification.incident_id == incident_id))
+        return list(rows.scalars().all())
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_plain_meldung_rings_as_info(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # `info`, because the Schadenplatz is sitting in Eingegangen — the column
+        # an operator watches for exactly this.
+        person = await _person(db_session)
+        await _assign(db_session, await _incident(db_session, test_event, test_user, "Baum"), person)
+
+        response = await _post(client, test_event, db_session, person)
+
+        incident_id = uuid.UUID(response.json()["incident_id"])
+        rows = await self._notifications(db_session, incident_id)
+        assert [(row.type, row.severity) for row in rows] == [("field_report", "info")]
+        assert "Rebbergweg 14" in rows[0].message
+        assert person.name in rows[0].message
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_taken_over_meldung_rings_louder(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # `warning`, because «wir übernehmen das gleich» puts the Schadenplatz
+        # straight into `enroute`: it never passes through Eingegangen, so a
+        # crew is driving to an address the KP has not been shown.
+        person = await _person(db_session)
+        await _assign(db_session, await _incident(db_session, test_event, test_user, "Baum"), person)
+
+        response = await _post(client, test_event, db_session, person, take_over=True)
+
+        incident_id = uuid.UUID(response.json()["incident_id"])
+        rows = await self._notifications(db_session, incident_id)
+        assert [(row.type, row.severity) for row in rows] == [("field_report", "warning")]
+        assert "direkt hin" in rows[0].message
+
+
 class TestTakeOver:
     """ "Wir übernehmen das gleich" — the three shapes it can take."""
 
@@ -196,6 +247,118 @@ class TestTakeOver:
             )
         )
         assert route.scalars().first() is not None
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_crew_assigned_to_the_route_itself_is_still_on_a_route(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The field failure this test exists for: the board can assign a squad to
+        # the AUFTRAG rather than to one of its stops, and then nobody has an
+        # `IncidentAssignment` row at all. The lookup only read those rows, so
+        # the reporter arrived here as "on nothing" — and «wir übernehmen das
+        # gleich» quietly assigned the Einsatzleiter alone to a Schadenplatz
+        # that never reached their Auftrag.
+        leader = await _person(db_session)
+        mate = await _person(db_session, "Frey Marc")
+        stop = await _incident(db_session, test_event, test_user, "Sturmholz 1")
+        group = IncidentGroup(event_id=test_event.id, name="Sturmholz Nord", position=0)
+        db_session.add(group)
+        await db_session.commit()
+        stop.group_id = group.id
+        stop.group_position = 0
+        for person, is_leader in ((leader, True), (mate, False)):
+            db_session.add(
+                IncidentGroupAssignment(
+                    incident_group_id=group.id,
+                    resource_type="personnel",
+                    resource_id=person.id,
+                    is_leader=is_leader,
+                )
+            )
+        await db_session.commit()
+
+        response = await _post(client, test_event, db_session, leader, take_over=True)
+
+        assert response.json()["takeover"] == "stop"
+        new = await db_session.get(Incident, uuid.UUID(response.json()["incident_id"]))
+        assert new is not None
+        assert new.group_id == group.id
+        assert new.group_position == 1
+        # Nobody was assigned to the incident directly — the route already covers
+        # it, and the whole squad comes with it because the route is what they
+        # were on.
+        direct = (
+            (await db_session.execute(select(IncidentAssignment).where(IncidentAssignment.incident_id == new.id)))
+            .scalars()
+            .all()
+        )
+        assert direct == []
+        route = (
+            (
+                await db_session.execute(
+                    select(IncidentGroupAssignment).where(
+                        IncidentGroupAssignment.incident_group_id == group.id,
+                        IncidentGroupAssignment.unassigned_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert {row.resource_id for row in route} == {leader.id, mate.id}
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_whole_squad_comes_along_not_just_the_reporter(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Everything they have in use, not only the person holding the phone:
+        # crew, the vehicle and the material on the job they are standing on all
+        # reach the new Auftrag, so the second stop arrives with what the first
+        # one has.
+        leader = await _person(db_session)
+        mate = await _person(db_session, "Frey Marc")
+        vehicle = Vehicle(id=uuid.uuid4(), name="TLF 2", type="TLF", status="available")
+        db_session.add(vehicle)
+        await db_session.commit()
+        first = await _incident(db_session, test_event, test_user, "Einzelner Baum")
+        await _assign(db_session, first, leader, is_leader=True)
+        await _assign(db_session, first, mate)
+        db_session.add(
+            IncidentAssignment(
+                incident_id=first.id,
+                resource_type="vehicle",
+                resource_id=vehicle.id,
+                purpose="crew",
+            )
+        )
+        await db_session.commit()
+
+        response = await _post(client, test_event, db_session, leader, take_over=True)
+
+        assert response.json()["takeover"] == "auftrag"
+        new = await db_session.get(Incident, uuid.UUID(response.json()["incident_id"]))
+        await db_session.refresh(first)
+        assert new is not None
+        # The job they were on is stop 1, the one they just took on is stop 2.
+        assert (first.group_position, new.group_position) == (0, 1)
+        route = (
+            (
+                await db_session.execute(
+                    select(IncidentGroupAssignment).where(IncidentGroupAssignment.incident_group_id == new.group_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert {(row.resource_type, row.resource_id) for row in route} == {
+            ("personnel", leader.id),
+            ("personnel", mate.id),
+            ("vehicle", vehicle.id),
+        }
+        # One Einsatzleiter on the route, and it is the one the stop already had.
+        assert [row.resource_id for row in route if row.is_leader] == [leader.id]
 
     @pytest.mark.asyncio
     @pytest.mark.api
