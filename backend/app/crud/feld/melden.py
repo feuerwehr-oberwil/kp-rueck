@@ -197,6 +197,11 @@ async def create_field_report(
     mode: TakeoverMode = "none"
     if payload.take_over:
         mode = await _take_over(db, event_id, person, incident)
+        # "Wir übernehmen das gleich" means somebody is on the way to it, so it
+        # does not sit in Eingegangen waiting to be disponiert — the crew just
+        # disponierte it themselves. Left as `incoming` this reads on the board
+        # as an unhandled alarm, which is the opposite of what was reported.
+        incident.status = "enroute"
 
     await log_action(
         db=db,
@@ -241,11 +246,11 @@ async def _take_over(
 
     # 2. On a single job: this is the second one, which makes it a route.
     if current is not None:
-        group = IncidentGroup(
-            event_id=event_id,
-            name=current.title or current.location_address or "Auftrag",
-            position=0,
-        )
+        # Named after the crew, which is how the KP talks about a route on the
+        # radio ("was macht Brunner?"). It outlives the reason for it if the
+        # crew changes — the board can rename it in two seconds, and a name
+        # somebody recognises beats a correct one nobody uses.
+        group = IncidentGroup(event_id=event_id, name=f"Auftrag {person.name}", position=0)
         db.add(group)
         await db.flush()
         current.group_id = group.id

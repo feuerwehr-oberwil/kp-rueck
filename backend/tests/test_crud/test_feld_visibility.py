@@ -535,3 +535,69 @@ class TestTheBoardsOlderRekoSignal:
 
         assert visible[incident.id].kind == crud.SOURCE_CREW
         assert visible[incident.id].owes_rapport is True
+
+
+class TestTheRouteOwnsItsCrew:
+    """An Auftrag's resources cover every stop — including for `/feld`.
+
+    `IncidentGroupAssignment` has always said resources belong to the route and
+    are shared across its stops, which is how a storm night is actually run: the
+    KP assigns the squad to the route, not to each tree. The union rule did not
+    read that table, so every crew assigned that way was invisible on the field
+    surface — they hold no personnel row on any stop, exactly like a driver
+    holds none at all. It looked like a bug in «Neue Meldung» and was older
+    and wider than that.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_crew_assigned_to_the_route_sees_every_stop(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.models import IncidentGroup, IncidentGroupAssignment
+
+        first = await _incident(db_session, test_event, test_user, "Stop eins")
+        second = await _incident(db_session, test_event, test_user, "Stop zwei")
+        person = await _person(db_session, "Brunner Marco")
+        group = IncidentGroup(event_id=test_event.id, name="Auftrag Brunner", position=0)
+        db_session.add(group)
+        await db_session.commit()
+        first.group_id, first.group_position = group.id, 0
+        second.group_id, second.group_position = group.id, 1
+        db_session.add(
+            IncidentGroupAssignment(incident_group_id=group.id, resource_type="personnel", resource_id=person.id)
+        )
+        await db_session.commit()
+
+        visible = await crud.visible_incidents_for_personnel(db_session, test_event.id, person.id)
+
+        assert set(visible) == {first.id, second.id}
+        # Crew, so the Rapport is theirs on both — the route is the assignment.
+        assert all(source.kind == crud.SOURCE_CREW for source in visible.values())
+        assert all(source.owes_rapport for source in visible.values())
+
+    @pytest.mark.asyncio
+    async def test_a_vehicle_on_the_route_puts_its_driver_on_every_stop(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.models import IncidentGroup, IncidentGroupAssignment
+
+        first = await _incident(db_session, test_event, test_user, "Stop eins")
+        second = await _incident(db_session, test_event, test_user, "Stop zwei")
+        driver = await _person(db_session, "Keller Thomas")
+        vehicle = await _vehicle(db_session, "TLF 1")
+        await _function(db_session, test_event, driver, "driver", vehicle)
+        group = IncidentGroup(event_id=test_event.id, name="Auftrag Keller", position=0)
+        db_session.add(group)
+        await db_session.commit()
+        first.group_id, first.group_position = group.id, 0
+        second.group_id, second.group_position = group.id, 1
+        db_session.add(
+            IncidentGroupAssignment(incident_group_id=group.id, resource_type="vehicle", resource_id=vehicle.id)
+        )
+        await db_session.commit()
+
+        visible = await crud.visible_incidents_for_personnel(db_session, test_event.id, driver.id)
+
+        assert set(visible) == {first.id, second.id}
+        assert all(source.kind == crud.SOURCE_DRIVER for source in visible.values())
+        assert all(source.vehicle_name == "TLF 1" for source in visible.values())

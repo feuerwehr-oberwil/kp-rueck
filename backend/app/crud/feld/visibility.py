@@ -41,6 +41,7 @@ from ...models import (
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
+    IncidentGroupAssignment,
     Material,
     Personnel,
     RekoReport,
@@ -177,6 +178,33 @@ async def visible_by_personnel(
         is_reko = purpose == SOURCE_REKO or person_id in reko_person_ids
         offer(person_id, incident_id, SOURCE_REKO if is_reko else SOURCE_CREW, unassigned_at is None)
 
+    # ── crew via the ROUTE: an Auftrag owns its resources ──────────────────
+    #
+    # `IncidentGroupAssignment` says resources belong to the Auftrag and are
+    # shared across all of its stops, which is how a storm night is actually
+    # run — the KP assigns the squad to the route, not to each tree. Until this
+    # existed here, every one of those crews was invisible on `/feld`: they hold
+    # no personnel row on any stop, exactly like a driver holds none at all.
+    route_rows = await db.execute(
+        select(
+            IncidentGroupAssignment.resource_id,
+            IncidentGroupAssignment.resource_type,
+            IncidentGroupAssignment.unassigned_at,
+            Incident.id,
+        )
+        .join(Incident, Incident.group_id == IncidentGroupAssignment.incident_group_id)
+        .where(
+            Incident.event_id == event_id,
+            Incident.deleted_at.is_(None),
+        )
+    )
+    driven_by_route: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for resource_id, resource_type, unassigned_at, incident_id in route_rows.all():
+        if resource_type == "personnel":
+            offer(resource_id, incident_id, SOURCE_CREW, unassigned_at is None)
+        elif resource_type == "vehicle" and unassigned_at is None:
+            driven_by_route.setdefault(resource_id, []).append(incident_id)
+
     # ── driver: vehicles they drive, only while those are assigned ─────────
     driven = await db.execute(
         select(EventSpecialFunction.personnel_id, EventSpecialFunction.vehicle_id).where(
@@ -205,6 +233,14 @@ async def visible_by_personnel(
         for incident_id, vehicle_id, vehicle_name in vehicle_rows.all():
             for person_id in drivers_of.get(vehicle_id, []):
                 offer(person_id, incident_id, SOURCE_DRIVER, True, vehicle_name)
+
+        # ...and a vehicle assigned to the ROUTE drives every stop on it.
+        names = await db.execute(select(Vehicle.id, Vehicle.name).where(Vehicle.id.in_(list(drivers_of))))
+        vehicle_names = {row[0]: row[1] for row in names.all()}
+        for vehicle_id, stops in driven_by_route.items():
+            for person_id in drivers_of.get(vehicle_id, []):
+                for incident_id in stops:
+                    offer(person_id, incident_id, SOURCE_DRIVER, True, vehicle_names.get(vehicle_id))
 
     # ── magazin: wherever material is still out ────────────────────────────
     magazin_rows = await db.execute(

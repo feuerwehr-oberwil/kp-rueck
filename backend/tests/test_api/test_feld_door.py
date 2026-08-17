@@ -142,19 +142,32 @@ class TestClaim:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_claiming_a_stranger_is_refused(
+    async def test_anybody_on_the_roster_may_name_themselves(
         self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
     ):
+        """This used to require having work in the Ereignis already, and that
+        was backwards: the picker is the roster now, so the people it refused
+        were exactly the ones the page grew for — somebody who has just walked
+        in and wants to check in, and a Telefondienst who is assigned to nothing
+        by definition. Worse, it refused them with "Zugriff erforderlich", which
+        reads as a fault rather than as "nothing here yet".
+        """
         await _person_on_an_incident(db_session, test_event, test_user)
-        stranger = Personnel(id=uuid.uuid4(), name="Nie Dabei", role="Feuerwehrmann", status="available")
-        db_session.add(stranger)
+        newcomer = Personnel(id=uuid.uuid4(), name="Neu Hier", role="Feuerwehrmann", status="available")
+        db_session.add(newcomer)
         await db_session.commit()
 
         response = await client.post(
             f"/api/feld/claim?token={generate_feld_token(test_event.id, unlocked=True)}",
-            json={"personnel_id": str(stranger.id)},
+            json={"personnel_id": str(newcomer.id)},
         )
-        assert response.status_code == 403
+        assert response.status_code == 200
+        # ...and their list is simply empty, which the page words as
+        # "noch kein Auftrag" rather than an error.
+        token = response.json()["token"]
+        feed = await client.get(f"/api/feld/assignments/{newcomer.id}?token={token}")
+        assert feed.status_code == 200
+        assert feed.json()["assignments"] == []
 
     @pytest.mark.asyncio
     @pytest.mark.api

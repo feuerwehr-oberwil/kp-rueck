@@ -325,7 +325,15 @@ async def claim_feld_person(
     if not claims.unlocked:
         raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
     event = await _load_event(db, claims.event_id)
-    if not await crud.person_has_event_access(db, event.id, payload.personnel_id):
+
+    # Anybody on the roster may name themselves. Requiring work first refused
+    # exactly the people the page now exists for — somebody who has just
+    # arrived and wants to check in, and a Telefondienst who is assigned to
+    # nothing by definition — and it did it with "Zugriff erforderlich", which
+    # reads as a fault rather than as "nothing here yet". The person must exist;
+    # the binding does the rest.
+    person = await db.get(Personnel, payload.personnel_id)
+    if person is None:
         raise HTTPException(
             status_code=403,
             detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
