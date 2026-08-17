@@ -222,6 +222,31 @@ function SituationBoard({
     [operations, selectedOperationId],
   )
 
+  /**
+   * The Aufträge, each with its stops in route order.
+   *
+   * A route was visible on this page only sideways — as the chip on a vehicle
+   * row — while the Einsätze column listed its stops scattered across four
+   * status sections with nothing saying they belong together. On a wall that is
+   * the one grouping an officer talks in («was macht Sturmtour Nord?»), so it
+   * leads the Einsätze column and the status sections keep the rest.
+   *
+   * Filtered stops only: typing in the search must narrow this list like every
+   * other, and `filterIncidents` already resolves an Auftrag NAME to its stops.
+   * A route whose stops all filtered out drops away with them.
+   */
+  const auftraege = useMemo(() => {
+    const byId = new Map(operations.map((op) => [op.id, op]))
+    return (detailGroups ?? groups)
+      .map((group) => ({
+        group,
+        stops: group.stopIds
+          .map((stopId) => byId.get(stopId))
+          .filter((op): op is Operation => Boolean(op)),
+      }))
+      .filter((row) => row.stops.length > 0)
+  }, [detailGroups, groups, operations])
+
   const incidentsByStatus = useMemo(() => {
     const groups: { colDef: typeof columns[number]; ops: Operation[] }[] = []
     for (const statusId of STATUS_ORDER) {
@@ -346,6 +371,37 @@ function SituationBoard({
           subtitle={t('incomingInProgress', { incoming: stats.incomingCount, inProgress: stats.activeOperations - stats.incomingCount })}
         />
         <div className="flex-1 overflow-y-auto">
+          {/* Aufträge first — the grouping the radio talks in. Each route names
+              its stops in the order they are driven, so «Stopp 2 von 3» is
+              readable from across the room without opening anything. */}
+          {auftraege.map(({ group, stops }) => (
+            <CollapsibleSection
+              key={group.id}
+              label={group.name}
+              count={stops.length}
+              badge={
+                <span className="shrink-0 text-[10px] xl:text-xs tabular-nums text-muted-foreground">
+                  {t('auftragStops', { count: stops.length })}
+                </span>
+              }
+              collapsed={sections.isCollapsed(`auftrag:${group.id}`)}
+              onToggle={() => sections.toggle(`auftrag:${group.id}`)}
+              headerClassName="bg-info/10"
+            >
+              <div className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
+                {stops.map((op, index) => (
+                  <div key={op.id} className="flex items-start gap-2">
+                    <span className="mt-2.5 w-5 shrink-0 text-right text-[11px] xl:text-xs font-semibold tabular-nums text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <IncidentRow operation={op} onClick={() => setSelectedOperationId(op.id)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          ))}
           {incidentsByStatus.length === 0 ? (
             <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">{t('noActiveIncidents')}</div>
           ) : (

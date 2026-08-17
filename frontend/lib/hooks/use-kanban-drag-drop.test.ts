@@ -7,25 +7,37 @@ import {
 import type { Material, Operation, Person } from "@/lib/contexts/operations-context"
 
 const ungrouped = { id: "op-2", status: "incoming", crew: [], materials: [] } as unknown as Operation
+/** A stop of an Auftrag — the case where a drop used to vanish. */
+const stop = {
+  id: "op-3",
+  status: "incoming",
+  groupId: "grp-1",
+  crew: [],
+  materials: [],
+} as unknown as Operation
 
 const assignPersonToOperation = vi.fn()
 const assignMaterialToOperation = vi.fn()
 const assignGroupResource = vi.fn()
 
-const deps = (occupiedMaterialIds: string[] = []) => ({
-  operations: [ungrouped],
+const notifyRefused = vi.fn()
+
+const deps = (occupiedMaterialIds: string[] = [], occupiedPersonnelIds: string[] = []) => ({
+  operations: [ungrouped, stop],
   assignPersonToOperation,
   assignRekoPersonToOperation: vi.fn(),
   assignMaterialToOperation,
   assignGroupResource,
   occupiedGroupResourceIds: {
     material: new Set(occupiedMaterialIds),
-    personnel: new Set<string>(),
+    personnel: new Set(occupiedPersonnelIds),
     vehicle: new Set<string>(),
   },
+  notifyRefused,
 })
 
 const onCard = { type: "operation-drop", operationId: "op-2", index: 0 }
+const onStop = { type: "operation-drop", operationId: "op-3", index: 0 }
 const busyMaterial = { id: "m-1", name: "Tauchpumpe", status: "assigned", consumable: false } as unknown as Material
 const busyPerson = { id: "p-1", name: "Muster Hans", status: "assigned" } as unknown as Person
 
@@ -33,6 +45,7 @@ beforeEach(() => {
   assignPersonToOperation.mockClear()
   assignMaterialToOperation.mockClear()
   assignGroupResource.mockClear()
+  notifyRefused.mockClear()
 })
 
 // The Doppelbelegung prompt lives in operations-context. A drop that never gets
@@ -51,6 +64,28 @@ describe("applyResourceDrop", () => {
   it("still refuses material an Auftrag holds — that conflict has no prompt", () => {
     applyResourceDrop({ type: "material", material: busyMaterial }, onCard, deps(["m-1"]))
     expect(assignMaterialToOperation).not.toHaveBeenCalled()
+  })
+
+  // The same rule on a STOP of an Auftrag. This path kept the
+  // `status === "available"` check the incident path had already dropped, so a
+  // busy person dropped on a stop did nothing whatsoever: no assignment, no
+  // prompt, no message. That is what "drag and drop doesn't work" was.
+  it("puts a person who is busy elsewhere on the stop's Auftrag", () => {
+    expect(applyResourceDrop({ type: "person", person: busyPerson }, onStop, deps())).toBe(true)
+    expect(assignGroupResource).toHaveBeenCalledWith("grp-1", "personnel", "p-1")
+    expect(notifyRefused).not.toHaveBeenCalled()
+  })
+
+  it("refuses a person another Auftrag already holds — and says so", () => {
+    applyResourceDrop({ type: "person", person: busyPerson }, onStop, deps([], ["p-1"]))
+    expect(assignGroupResource).not.toHaveBeenCalled()
+    expect(notifyRefused).toHaveBeenCalledWith("route-occupied")
+  })
+
+  it("refuses material another Auftrag holds — and says so", () => {
+    applyResourceDrop({ type: "material", material: busyMaterial }, onStop, deps(["m-1"]))
+    expect(assignGroupResource).not.toHaveBeenCalled()
+    expect(notifyRefused).toHaveBeenCalledWith("route-occupied")
   })
 
   it("leaves an operation card being moved to the monitor", () => {
