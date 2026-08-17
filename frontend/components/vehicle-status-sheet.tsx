@@ -447,14 +447,20 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         </div>
                       </div>
                     ) : (
-                      /* Desktop: one row, and a GRID rather than a flex.
-                         As a flex row every column sized against that row's own
-                         free width, so a vehicle carrying a clock and two badges
-                         squeezed its Einsatz cell left of the row below it — five
-                         rows, five different left edges for the same column. The
-                         tracks are fixed here, so the columns line up whatever a
-                         row happens to hold. */
-                      <div className="grid grid-cols-[140px_110px_minmax(0,1fr)_minmax(0,2fr)_74px_auto] items-center gap-3">
+                      /* Desktop: one row, one grid — and every track BEFORE the
+                         flexible one is a fixed width.
+
+                         Each row is its own grid, so any track that sizes from
+                         content or from leftover space lands somewhere different
+                         on every row. First this was a flex (each column sized
+                         against that row's free width); then a grid whose two
+                         `fr` tracks still shrank to make room for a trailing
+                         `auto` badge column — so the one vehicle carrying a clock
+                         AND two badges kept pulling its Einsatz cell left of the
+                         four rows below it. Fixed px up to the Einsatz column
+                         pins every left edge; only that column stretches, and the
+                         badges stay flush right because the rows are equal width. */
+                      <div className="grid grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto] items-center gap-3">
                         {/* Vehicle Icon and Name */}
                         <div className="flex items-center gap-2 min-w-0">
                           <Truck className="h-4 w-4 text-primary flex-shrink-0" />
