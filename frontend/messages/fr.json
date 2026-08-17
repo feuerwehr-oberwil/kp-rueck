@@ -248,8 +248,8 @@
       "noCrew": "Aucun effectif attribué",
       "vehiclesHeading": "Véhicules ({count})",
       "driver": "· conducteur : {name}",
-      "driverStays": "(reste)",
-      "driverReturns": "(rentre)",
+      "driverStays": "reste sur place",
+      "driverReturns": "rentre à la caserne",
       "noVehicles": "Aucun véhicule attribué",
       "materialsHeading": "Matériel ({count})",
       "noMaterials": "Aucun matériel attribué",
@@ -261,6 +261,7 @@
       "durationHours": "{hours} h",
       "contactPhone": "Téléphone",
       "intakeBadge": "Téléphone / guichet",
+      "feldBadge": "Du terrain",
       "rekoHeading": "Reconnaissance",
       "rekoOnSite": "sur place depuis {time}",
       "rekoPhotoAlt": "Photo de reconnaissance {index}",
@@ -300,6 +301,7 @@
       "noMaterial": "Aucun matériel saisi",
       "available": "disponibles",
       "freeOfTotal": "{free}/{total} libres",
+      "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
       "onIncidents": "{count, plural, one {# intervention} other {# interventions}}"
     },
     "tokenBoard": {
@@ -576,7 +578,10 @@
       "rekoBy": "Reconnaissance par {name}, {time}",
       "rekoByName": "Reconnaissance par {name}",
       "summaryFallback": "Annonce, effectif et matériel",
-      "driver": "Conducteur : {name}"
+      "driver": "Conducteur : {name}",
+      "vehicleViaAuftrag": "Mission – vient avec",
+      "vehicleStays": "reste sur place",
+      "vehicleReturns": "rentre à la caserne"
     },
     "rapportState": {
       "none": "pas de rapport",
@@ -622,12 +627,12 @@
       "waiting": "attend depuis {duration}",
       "waitingTooltip": "Attend depuis {duration}",
       "request": "Récupération",
-      "clear": "Récupération faite",
-      "clearConfirmTitle": "Récupération faite ?",
-      "clearConfirmBody": "La récupération disparaîtra ensuite de la carte, de la fiche et de la liste des restes. Ne confirme que si les gens sont vraiment partis.",
-      "clearConfirmBodyWaiting": "L’effectif attend depuis {duration}. La récupération disparaîtra ensuite de la carte, de la fiche et de la liste des restes – ne confirme que si les gens sont vraiment partis.",
-      "clearedToast": "Récupération faite.",
-      "clearFailed": "La récupération n’a pas pu être clôturée.",
+      "clear": "Récupération organisée",
+      "clearConfirmTitle": "Récupération organisée ?",
+      "clearConfirmBody": "La récupération disparaîtra ensuite de la carte, de la fiche et de la liste des restes. Ne confirme que si le transport est organisé.",
+      "clearConfirmBodyWaiting": "L’effectif attend depuis {duration}. La récupération disparaîtra ensuite de la carte, de la fiche et de la liste des restes – ne confirme que si le transport est organisé.",
+      "clearedToast": "Récupération organisée.",
+      "clearFailed": "La récupération n’a pas pu être organisée.",
       "followupQuestion": "Rentrez-vous par vos propres moyens ?",
       "selfReturn": "Nous rentrons seuls",
       "needPickup": "Nous devons être récupérés",
@@ -637,11 +642,11 @@
       "notePlaceholder": "Note (facultatif) : combien, où exactement"
     },
     "pickupPrompt": {
-      "title": "Récupération faite ?",
+      "title": "Récupération organisée ?",
       "assigned": "{vehicle} vient d’être affecté à {label} – une récupération y attend.",
       "returned": "{vehicle} est de retour à la caserne. Une récupération attend encore à {label}.",
       "waiting": "Attend depuis {duration}.",
-      "neverAutomatic": "Ne se fait jamais automatiquement – seule cette confirmation supprime la récupération.",
+      "neverAutomatic": "Ne s’organise jamais automatiquement – seule cette confirmation supprime la récupération.",
       "stillOpen": "Toujours en attente",
       "fallbackVehicle": "Un véhicule"
     },
@@ -734,6 +739,9 @@
       "lastSaved": "Enregistré provisoirement à {at}",
       "localRestored": "Brouillon local restauré.",
       "submit": "Clôturer le rapport",
+      "incompleteTitle": "Clôturer le rapport ?",
+      "incompleteBody": "{count, plural, one {Une section est encore vide} other {# sections sont encore vides}} – le rapport sera clôturé tel quel. Un complément reste possible, mais le PC travaille désormais avec ceci.",
+      "incompleteConfirm": "Clôturer quand même",
       "autosaveHint": "Enregistré en continu – pas besoin de clôturer.",
       "submitted": "Rapport saisi.",
       "submittedBadge": "Clôturé {at}",
@@ -864,7 +872,7 @@
       "state": {
         "in": "Magasin / inutilisé",
         "out": "En intervention",
-        "left": "Laissé sur place"
+        "left": "Encore sur place"
       }
     },
     "roleEmpty": {
@@ -1316,8 +1324,10 @@
       "funkrufname": "Indicatif radio : {callsign}",
       "driverStayTooltip": "Le conducteur reste sur place – cliquer pour le faire rentrer",
       "driverReturnTooltip": "Le conducteur rentre – cliquer pour le laisser sur place",
-      "driverStays": "reste",
+      "driverStays": "sur place",
       "driverReturns": "rentre",
+      "driverStaysFull": "reste sur place",
+      "driverReturnsFull": "rentre à la caserne",
       "meldung": "Annonce",
       "meldungPlaceholder": "Notes, particularités, dangers...",
       "einsatzart": "Genre d’intervention",
@@ -1325,6 +1335,8 @@
       "priority": "Priorité",
       "phoneReported": "Annoncé par téléphone",
       "phoneReportedDescription": "L’annonce est arrivée au PC par téléphone ou au guichet",
+      "feldReported": "Annoncé depuis le terrain",
+      "feldReportedDescription": "L’annonce vient d’une équipe qui était sur place",
       "contact": "Contact / annonceur",
       "contactPlaceholder": "Nom de la personne qui annonce",
       "contactPhone": "Numéro de téléphone",
@@ -1350,6 +1362,7 @@
       "assignVehicle": "Attribuer un véhicule",
       "assignMaterial": "Attribuer du matériel",
       "onlyAssignedVehicles": "Attribués uniquement",
+      "dropRefusedRouteOccupied": "Déjà pris par une autre mission – libérer là-bas d’abord.",
       "transferResources": "Transférer les ressources",
       "distributeToAuftrag": "Répartir sur une mission",
       "newIncident": "Nouvelle intervention",
@@ -1477,6 +1490,11 @@
       "assignVehicle": "Attribuer un véhicule",
       "endAnyway": "Terminer quand même"
     },
+    "nextStop": {
+      "title": "Démarrer le prochain arrêt ?",
+      "description": "<hl>{finished}</hl> est terminé et plus personne ne travaille sur la mission «{auftrag}». Prochain arrêt ouvert : <hl>{next}</hl>.",
+      "confirm": "Prochain arrêt en intervention"
+    },
     "rekoMissing": {
       "description": "<hl>{location}</hl> a été déplacée dans la colonne Reconnaissance, mais aucune personne de reconnaissance n’est encore attribuée. Sans attribution, personne ne reçoit le formulaire de reconnaissance. Veux-tu attribuer quelqu’un maintenant ou continuer quand même ?",
       "proceedAnyway": "Continuer quand même",
@@ -1539,6 +1557,7 @@
       "priorityMediumAria": "Priorité moyenne",
       "priorityLowAria": "Priorité basse",
       "intakeTooltip": "Saisie par téléphone / au guichet – à vérifier",
+      "feldTooltip": "Annoncé par une équipe sur le terrain – à vérifier",
       "rekoDoneTooltip": "Rapport de reconnaissance rempli",
       "showOnMap": "Afficher sur la carte",
       "onSiteSince": "sur place {time}",
@@ -1674,6 +1693,8 @@
       "specialFnConfirmBody": "{name} est déjà en intervention ({func}). L’attribuer quand même à l’effectif ?",
       "specialFnConfirmAction": "Attribuer quand même",
       "occupiedElsewhere": "En intervention",
+      "sectionFree": "Disponibles · {count}",
+      "sectionBusy": "Déjà en intervention · {count}",
       "occupiedConfirmTitle": "Double affectation ?",
       "occupiedConfirmBody": "{name} est déjà attribué : {label}. L’attribuer quand même ?",
       "occupiedConfirmAction": "Attribuer quand même",
@@ -2338,7 +2359,7 @@
       "timeMinutes": "il y a {minutes} min",
       "justNow": "à l’instant",
       "moveToActive": "Déplacer vers Intervention",
-      "moveToComplete": "Clôturer l’intervention"
+      "moveToComplete": "Vers Terminé / Retour"
     }
   },
   "print": {
@@ -2447,6 +2468,7 @@
       "zuFuss": "À pied",
       "nachbarhilfe": "Entraide",
       "phoneReported": "Annoncé par téléphone",
+      "feldReported": "Annoncé depuis le terrain",
       "since": "depuis {time}",
       "meldung": "Annonce",
       "interneNotizen": "Notes internes",
@@ -3507,9 +3529,9 @@
       "injectRapport": "Rapport arrivé",
       "injectFieldMessage": "Annonce du terrain",
       "injectPickupNeeded": "Annoncer une récupération nécessaire",
-      "injectPickupDone": "Annoncer la récupération faite",
+      "injectPickupDone": "Annoncer la récupération organisée",
       "arrivedReported": "Arrivée annoncée",
-      "pickupCleared": "Récupération faite",
+      "pickupCleared": "Récupération organisée",
       "rapportFiled": "Rapport saisi",
       "rapportFiledBy": "Saisi par {name} (terrain)",
       "rapportFiledByPhotos": "Saisi par {name} (terrain) · {count, plural, one {# photo} other {# photos}}",
