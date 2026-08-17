@@ -447,16 +447,22 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         </div>
                       </div>
                     ) : (
-                      /* Desktop: Horizontal row layout */
-                      <div className="flex items-center gap-3">
+                      /* Desktop: one row, and a GRID rather than a flex.
+                         As a flex row every column sized against that row's own
+                         free width, so a vehicle carrying a clock and two badges
+                         squeezed its Einsatz cell left of the row below it — five
+                         rows, five different left edges for the same column. The
+                         tracks are fixed here, so the columns line up whatever a
+                         row happens to hold. */
+                      <div className="grid grid-cols-[140px_110px_minmax(0,1fr)_minmax(0,2fr)_74px_auto] items-center gap-3">
                         {/* Vehicle Icon and Name */}
-                        <div className="flex items-center gap-2 min-w-[140px]">
+                        <div className="flex items-center gap-2 min-w-0">
                           <Truck className="h-4 w-4 text-primary flex-shrink-0" />
                           <span className="font-bold text-sm">{vehicle.name}</span>
                         </div>
 
                         {/* Radio Call Sign */}
-                        <div className="flex items-center gap-2 min-w-[100px]">
+                        <div className="flex items-center gap-2 min-w-0">
                           <Radio className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                           <span className="text-muted-foreground text-sm truncate">
                             {vehicle.radio_call_sign}
@@ -470,7 +476,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                         <button
                           onClick={(e) => handleOpenDriverDialog(vehicle, e)}
                           className={cn(
-                            "flex flex-1 basis-0 items-center gap-2 min-w-[150px] rounded px-1.5 py-0.5 -mx-1.5 transition-colors",
+                            "flex min-w-0 items-center gap-2 rounded px-1.5 py-0.5 -mx-1.5 transition-colors",
                             "hover:bg-muted/80 cursor-pointer group"
                           )}
                           title={vehicle.driver_name ? t('vehicleStatus.changeDriver') : t('vehicleStatus.assignDriver')}
@@ -488,7 +494,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             colour when the vehicle is route-assigned, else the incident
                             location. Twice the driver's share of the free width: an
                             address is the longer of the two. */}
-                        <div className="flex flex-[2] basis-0 items-center gap-2 min-w-0">
+                        <div className="flex min-w-0 items-center gap-2">
                           {auftrag ? (
                             <AuftragChip auftrag={auftrag} label={deploymentLabel} />
                           ) : (
@@ -501,18 +507,25 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           )}
                         </div>
 
-                        {/* Duration */}
-                        {vehicle.assignment_duration_minutes !== null && (
-                          <div className="flex items-center gap-2 min-w-[70px]">
-                            <Clock className="h-3 w-3 flex-shrink-0" />
-                            <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
-                              {formatDuration(vehicle.assignment_duration_minutes)}
-                            </span>
-                          </div>
-                        )}
+                        {/* Duration. The cell is always rendered, empty when a
+                            vehicle carries no clock: a conditional cell would
+                            collapse its track and pull the badges of that one row
+                            left, which is the misalignment this grid exists for. */}
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          {vehicle.assignment_duration_minutes !== null && (
+                            <>
+                              <Clock className="h-3 w-3 flex-shrink-0" />
+                              <span className={cn("text-xs font-medium", getDurationColor(vehicle.assignment_duration_minutes))}>
+                                {formatDuration(vehicle.assignment_duration_minutes)}
+                              </span>
+                            </>
+                          )}
+                        </div>
 
-                        {/* Status Badges */}
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {/* Status Badges — right-aligned in their own track, so
+                            «Verfügbar» sits under «Verfügbar» however many badges
+                            the row above carries. */}
+                        <div className="flex items-center justify-self-end gap-1.5">
                           {!vehicle.incident_id && vehicle.status === "available" && (
                             <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.available)}>
                               {t('vehicleStatus.available')}
