@@ -16,7 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints, FileText } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, FileText } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -327,6 +327,14 @@ function DraggableOperationBase({
     const element = ref.current
     if (!element) return
 
+    /** One place decides both hints, so they can never disagree: a card being
+     *  reordered gets the edge line and no ring, anything else gets the ring
+     *  and no line. */
+    const setDropHint = (reorder: boolean, selfData: Record<string | symbol, unknown>) => {
+      setIsOver(!reorder)
+      setClosestEdge(reorder ? extractClosestEdge(selfData) : null)
+    }
+
     return combine(
       ...(canDrag
         ? [
@@ -363,15 +371,25 @@ function DraggableOperationBase({
             { element, input, allowedEdges: ['top', 'bottom'] }
           )
         },
-        onDragEnter: ({ self }) => {
-          setIsOver(true)
-          const edge = extractClosestEdge(self.data)
-          setClosestEdge(edge)
-        },
-        onDrag: ({ self }) => {
-          const edge = extractClosestEdge(self.data)
-          setClosestEdge(edge)
-        },
+        // Two drops, two different questions — and until now one answer.
+        //
+        // Dragging a CARD over a card asks "where in the column?", and the
+        // closest-edge line is the right answer. Dragging a PERSON over a card
+        // asks "does this card take him?", and the same line answered "insert
+        // him between two cards", which is not a thing. It also pulled the aim
+        // to the gap BETWEEN cards, so the drop landed on the column instead of
+        // the card and looked like drag-and-drop was broken.
+        //
+        // So the edge line is now for card moves only, and a resource gets a
+        // ring around the card it would land on.
+        // Enter and move run the SAME body on purpose. An early return in
+        // `onDrag` left whatever `onDragEnter` had put there, so a card that
+        // never got a clean enter (the drag started on top of it, or the
+        // pointer crossed in from a sibling) kept a stale reorder line under a
+        // resource drag. Setting state to the value it already holds is a
+        // no-op in React, so the repetition costs nothing.
+        onDragEnter: ({ self, source }) => setDropHint(source.data.type === "operation", self.data),
+        onDrag: ({ self, source }) => setDropHint(source.data.type === "operation", self.data),
         onDragLeave: () => {
           setIsOver(false)
           setClosestEdge(null)
@@ -409,7 +427,12 @@ function DraggableOperationBase({
               // pulse the moment the pointer crosses it is hiding the one thing
               // the operator is scanning for.
               !isHighlighted && PRIORITY_CARD_CLASSES[priority],
-              isOver && 'bg-muted/20',
+              // The card a dragged person/Gerät would land on. A ring OUTSIDE
+              // the card (`ring-offset`) rather than a fill, so it reads as
+              // "this whole card takes it" and stays visible on every priority
+              // tint — the old `bg-muted/20` was invisible on all of them. Same
+              // treatment the side panel's Ressourcen block uses.
+              isOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background bg-primary/5',
               // "Hier steht sie" — the answer to a click in the sidebar. The old
               // treatment was bg-muted/30 plus a border tint, which was quieter
               // than the selected card right next to it and got lost on a board
@@ -500,6 +523,19 @@ function DraggableOperationBase({
                   title={t('card.intakeTooltip')}
                 >
                   <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                </div>
+              )}
+              {/* Where the Meldung came from, as its own glyph: the phone desk
+                  took a call, a Trupp stood in front of the thing. Both are
+                  "somebody outside the KP said there is something here", and the
+                  difference decides how much of it the operator re-checks — so
+                  it is drawn, not left to the source field in the detail. */}
+              {operation.source === 'feld' && (
+                <div
+                  className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30"
+                  title={t('card.feldTooltip')}
+                >
+                  <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                 </div>
               )}
               {operation.amWarten && (
@@ -814,11 +850,23 @@ function DraggableOperationBase({
                               <span className="text-muted-foreground"> ({driverName})</span>
                             )}
                           </span>
-                          {driverStay ? (
-                            <MapPin className="h-3 w-3 flex-shrink-0 text-muted-foreground/70" />
-                          ) : (
-                            <Undo2 className="h-3 w-3 flex-shrink-0 text-muted-foreground/40" />
-                          )}
+                          {/* Short form on the card — «vor Ort» / «zurück» —
+                              because a Kanban column holds three of these chips
+                              side by side. The full sentence is on the surfaces
+                              that have the room: the assign dialog, the wall and
+                              the phone. What it is NOT any more is two 12px
+                              glyphs at different opacities. */}
+                          <span
+                            className={cn(
+                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4",
+                              driverStay
+                                ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                                : "bg-muted-foreground/15 text-muted-foreground",
+                            )}
+                          >
+                            {driverStay ? <MapPin className="h-2.5 w-2.5 shrink-0" /> : <Undo2 className="h-2.5 w-2.5 shrink-0" />}
+                            {driverStay ? t('common.driverStays') : t('common.driverReturns')}
+                          </span>
                         </button>
                       </RemovableChip>
                       )

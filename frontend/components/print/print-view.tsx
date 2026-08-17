@@ -358,6 +358,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                   flags.push(op.nachbarhilfeNote ? `${t("nachbarhilfe")}: ${op.nachbarhilfeNote}` : t("nachbarhilfe"))
                 }
                 if (op.source === "intake") flags.push(t("phoneReported"))
+                if (op.source === "feld") flags.push(t("feldReported"))
 
                 // «Wer war draussen, was hat er gesehen» on one line: the Reko's
                 // name (with the time it got there), then what it reported.
