@@ -26,8 +26,6 @@ function tasks(overrides: Partial<Parameters<typeof generateChecklistTasks>[0]> 
     fallbackReady: false,
     onCopyCheckInLink: noop,
     onPrintCheckInLink: noop,
-    onCopyRekoLink: noop,
-    onPrintRekoLink: noop,
     onCopyAlarmLink: noop,
     onPrintAlarmLink: noop,
     onCopyFeldLink: noop,
@@ -117,7 +115,7 @@ describe('the setup checklist links into what it is asking for', () => {
   it('says who each shared link is for', () => {
     // "Link kopieren" does not say who is supposed to hold the slip, or how
     // many to print — which is exactly what a rare operator has to guess.
-    for (const id of ['personnel-checkin', 'share-reko-link', 'share-alarm-link', 'share-feld-link']) {
+    for (const id of ['personnel-checkin', 'share-alarm-link', 'share-feld-link']) {
       expect(byId(id, tasks())?.note).toBeTruthy()
     }
   })
@@ -126,9 +124,9 @@ describe('the setup checklist links into what it is asking for', () => {
 describe('a station shapes the checklist to how it actually works', () => {
   it('drops a hidden step so it cannot sit in the progress count forever', () => {
     const visible = applyChecklistSettings(tasks(), {
-      [CHECKLIST_HIDDEN_TASKS_KEY]: JSON.stringify(['share-reko-link']),
+      [CHECKLIST_HIDDEN_TASKS_KEY]: JSON.stringify(['share-alarm-link']),
     })
-    expect(visible.map(task => task.id)).not.toContain('share-reko-link')
+    expect(visible.map(task => task.id)).not.toContain('share-alarm-link')
     expect(visible).toHaveLength(tasks().length - 1)
   })
 
@@ -193,7 +191,7 @@ describe('the driver run covers exactly the vehicles nobody is driving', () => {
   })
 })
 
-describe('the four login-less links are all on the list', () => {
+describe('the login-less links are all on the list — and only once each', () => {
   // The Feld poster is the one a crew carries out of the door, and it was the one
   // missing here — the station's paper checklist said «Check-In, Telefonist und
   // Reko» because this list did. A crew that drove off without it has no way to
@@ -201,8 +199,15 @@ describe('the four login-less links are all on the list', () => {
   it('offers every link a crew or a caller needs, Feld included', () => {
     const ids = tasks().map(task => task.id)
     expect(ids).toEqual(
-      expect.arrayContaining(['personnel-checkin', 'share-reko-link', 'share-alarm-link', 'share-feld-link'])
+      expect.arrayContaining(['personnel-checkin', 'share-alarm-link', 'share-feld-link'])
     )
+  })
+
+  it('does not still list the Reko poster, which mints the same link as Feld', () => {
+    // `/reko-dashboard` is gone and a Reko auftrag opens from the crew's own
+    // page, so the Reko row had ended up minting `generateFeldLink` — one
+    // poster described twice, and an operator printing both for nothing.
+    expect(tasks().map(task => task.id)).not.toContain('share-reko-link')
   })
 
   it('names the Feld row from the catalogue, not from its own key', () => {

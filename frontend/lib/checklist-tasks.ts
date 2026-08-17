@@ -56,8 +56,8 @@ export const DEFAULT_WHATSAPP_MESSAGE_2 = `KP-Rück ist aktiv. Bitte Telefon mit
 
 // --- Station configuration of the checklist itself -------------------------
 // Which steps a station runs, and who its slips are for, are not the same
-// everywhere: a brigade without a Reko-Dashboard should not stare at a row it
-// will never tick, and "1 Ausdruck pro Fahrzeug" is Oberwil's number, not
+// everywhere: a brigade that never prints an Alarm-Plakat should not stare at a
+// row it will never tick, and "1 Ausdruck pro Fahrzeug" is Oberwil's number, not
 // everybody's. Both live in settings so an editor changes them without a deploy.
 /** JSON array of task ids the station has switched off. */
 export const CHECKLIST_HIDDEN_TASKS_KEY = 'checklist.hidden_tasks'
@@ -143,8 +143,8 @@ export function findVehiclesWithoutDriver(
 /**
  * Generate checklist tasks with current state.
  *
- * Link-sharing rows (check-in, Reko, Alarm, Feld) adapt their action: when a
- * thermal printer is reachable they print the QR, otherwise they copy the link.
+ * Link-sharing rows (check-in, Alarm, Feld) adapt their action: when a thermal
+ * printer is reachable they print the QR, otherwise they copy the link.
  * The WhatsApp row is handled specially by the component (two-message picker).
  */
 export function generateChecklistTasks(params: {
@@ -160,8 +160,6 @@ export function generateChecklistTasks(params: {
   fallbackReady: boolean
   onCopyCheckInLink: () => void
   onPrintCheckInLink: () => void
-  onCopyRekoLink: () => void
-  onPrintRekoLink: () => void
   onCopyAlarmLink: () => void
   onPrintAlarmLink: () => void
   onCopyFeldLink: () => void
@@ -240,19 +238,7 @@ export function generateChecklistTasks(params: {
       ]
     },
 
-    // 3. Share Reko link — share link or print QR
-    {
-      id: 'share-reko-link',
-      title: translateOutsideReact('checklist.tasks.share-reko-link.title'),
-      description: translateOutsideReact('checklist.tasks.share-reko-link.description'),
-      note: translateOutsideReact('checklist.tasks.share-reko-link.note'),
-      icon: Map,
-      priority: 'recommended',
-      completed: false,
-      actionButtons: [linkAction(params.onCopyRekoLink, params.onPrintRekoLink)]
-    },
-
-    // 4. Share Alarm link — share link or print QR
+    // 3. Share Alarm link — share link or print QR
     {
       id: 'share-alarm-link',
       title: translateOutsideReact('checklist.tasks.share-alarm-link.title'),
@@ -264,14 +250,19 @@ export function generateChecklistTasks(params: {
       actionButtons: [linkAction(params.onCopyAlarmLink, params.onPrintAlarmLink)]
     },
 
-    // 5. Share the Feld link — the one the crews carry out of the door, so it is
+    // 4. Share the Feld link — the one the crews carry out of the door, so it is
     //    the one poster that has to exist BEFORE anybody drives off. It replaced
     //    the paper Fahrzeugrapport: a Schadenplatz-Rapport is filled in on the
     //    phone behind this link, and a crew that left without it has no way to
     //    report anything but the radio.
-    //    ⚠️ An unbound /feld link is a credential for the whole Ereignis, not an
-    //    identity — whoever holds the printed slip can read and write as any crew
-    //    in it. That is why the slips get collected at the end (docs/SETUP.md §7).
+    //
+    //    It absorbed the Reko row, which used to sit above and by the end minted
+    //    the *same* link — `/reko-dashboard` is gone and a Reko auftrag opens
+    //    from the crew's own page now, so it was one poster described twice.
+    //
+    //    The printed slip is no longer a credential on its own (plan 26): it
+    //    buys the right to be asked for the Feld-Code, which is why the code
+    //    card sits directly under this row and belongs on the same poster.
     {
       id: 'share-feld-link',
       title: translateOutsideReact('checklist.tasks.share-feld-link.title'),
@@ -461,8 +452,6 @@ export function listChecklistTasks(): { id: string; title: string; defaultNote?:
     fallbackReady: false,
     onCopyCheckInLink: noop,
     onPrintCheckInLink: noop,
-    onCopyRekoLink: noop,
-    onPrintRekoLink: noop,
     onCopyAlarmLink: noop,
     onPrintAlarmLink: noop,
     onCopyFeldLink: noop,
@@ -544,8 +533,6 @@ export async function summarizeEventChecklist(
     fallbackReady: isFallbackReady(settings, printerStatus?.enabled ?? false),
     onCopyCheckInLink: noop,
     onPrintCheckInLink: noop,
-    onCopyRekoLink: noop,
-    onPrintRekoLink: noop,
     onCopyAlarmLink: noop,
     onPrintAlarmLink: noop,
     onCopyFeldLink: noop,

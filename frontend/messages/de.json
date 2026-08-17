@@ -107,7 +107,8 @@
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     },
     "dismissAllToasts": "Alle schliessen",
-    "redirecting": "Weiterleitung..."
+    "redirecting": "Weiterleitung...",
+    "telefondienst": "Telefondienst"
   },
   "nav": {
     "userMenu": {
@@ -2919,20 +2920,15 @@
         "description": "Mindestens 3 Personen für Einsatzbereitschaft",
         "note": "Für die Mannschaft · 1 Ausdruck im Magazin"
       },
-      "share-reko-link": {
-        "title": "Reko-Link teilen",
-        "description": "Reko-Personal Zugang zum Reko-Dashboard geben",
-        "note": "Für die Reko-Offiziere · 1 Ausdruck pro Reko-Trupp"
-      },
       "share-alarm-link": {
         "title": "Alarm-Link teilen",
-        "description": "Telefon-/Walk-in-Meldungen ermöglichen",
-        "note": "Für Telefondienst und Empfang im KP · 1 Ausdruck"
+        "description": "Meldungen von aussen: Walk-in am Schalter, Anrufe ohne KP-Zugang",
+        "note": "Für den Empfang im KP · 1 Ausdruck"
       },
       "share-feld-link": {
         "title": "Feld-Link teilen",
-        "description": "Trupps melden vom Schadenplatz und füllen den Rapport aus",
-        "note": "Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug"
+        "description": "Trupps melden vom Schadenplatz, füllen den Rapport aus und sehen ihre Aufträge",
+        "note": "Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug · Feld-Code gehört aufs gleiche Plakat"
       },
       "assign-reko": {
         "title": "Reko-Offiziere bestimmen",
@@ -2992,7 +2988,6 @@
       "copyFailed": "Link konnte nicht kopiert werden",
       "printFailed": "Druck fehlgeschlagen",
       "checkInCopyLabel": "Check-In Link",
-      "rekoCopyLabel": "Reko-Link",
       "alarmCopyLabel": "Alarm-Link",
       "feldCopyLabel": "Feld-Link",
       "testPrintQueued": "Testdruck eingereiht – warte auf Drucker…",
@@ -3008,8 +3003,6 @@
       "diveraSend": "Divera-Mitteilung",
       "checkInTitle": "Personal Check-In",
       "checkInSubtitle": "QR scannen zum Einchecken – funktioniert ohne Anmeldung.",
-      "rekoTitle": "Reko-Dashboard",
-      "rekoSubtitle": "Reko-Personal sieht Zuweisungen und füllt Formulare aus – ohne Anmeldung.",
       "alarmTitle": "Alarm-Link",
       "alarmSubtitle": "Neue Alarme erfassen (Telefon/Walk-in) – ohne Anmeldung.",
       "feldTitle": "Feld-Ansicht",
@@ -3467,10 +3460,10 @@
       "columnWhere": "Wo",
       "inMagazin": "Magazin",
       "state": {
-        "out": "draussen",
-        "left": "zurückgelassen",
-        "in": "da"
-      }
+        "left": "zurückgelassen"
+      },
+      "columnType": "Typ",
+      "columnGroup": "Gruppe"
     }
   }
 }

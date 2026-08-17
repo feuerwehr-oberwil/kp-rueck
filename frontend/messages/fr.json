@@ -17,20 +17,15 @@
         "description": "Au moins 3 personnes pour être opérationnel",
         "note": "Pour l’effectif · 1 exemplaire à la caserne"
       },
-      "share-reko-link": {
-        "title": "Partager le lien de reconnaissance",
-        "description": "Donner au personnel de reconnaissance l’accès à son tableau",
-        "note": "Pour les officiers de reconnaissance · 1 exemplaire par équipe"
-      },
       "share-alarm-link": {
-        "title": "Partager le lien d’alarme",
-        "description": "Permettre les annonces par téléphone ou au guichet",
-        "note": "Pour le téléphone et l’accueil au PC · 1 exemplaire"
+        "title": "Partager le lien d'alarme",
+        "description": "Annonces de l'extérieur : accueil au guichet, appels sans accès au PC",
+        "note": "Pour l'accueil au PC · 1 impression"
       },
       "share-feld-link": {
-        "title": "Partager le lien terrain",
-        "description": "Les équipes annoncent depuis leur site et remplissent le rapport",
-        "note": "Pour chaque équipe qui part · 1 exemplaire par véhicule"
+        "title": "Partager le lien Terrain",
+        "description": "Les équipes signalent depuis le lieu, remplissent le rapport et voient leurs missions",
+        "note": "Pour chaque équipe qui part · 1 impression par véhicule · le code Terrain va sur la même affiche"
       },
       "assign-reko": {
         "title": "Désigner les officiers de reconnaissance",
@@ -90,7 +85,6 @@
       "copyFailed": "Le lien n’a pas pu être copié",
       "printFailed": "Échec de l’impression",
       "checkInCopyLabel": "Lien d’arrivée",
-      "rekoCopyLabel": "Lien de reconnaissance",
       "alarmCopyLabel": "Lien d’alarme",
       "feldCopyLabel": "Lien terrain",
       "testPrintQueued": "Impression de test en file – en attente de l’imprimante…",
@@ -106,8 +100,6 @@
       "diveraSend": "Message Divera",
       "checkInTitle": "Arrivée du personnel",
       "checkInSubtitle": "Scanner le QR pour s’annoncer – fonctionne sans connexion.",
-      "rekoTitle": "Tableau de reconnaissance",
-      "rekoSubtitle": "Le personnel de reconnaissance voit ses attributions et remplit les formulaires – sans connexion.",
       "alarmTitle": "Lien d’alarme",
       "alarmSubtitle": "Saisir de nouvelles alarmes (téléphone/guichet) – sans connexion.",
       "feldTitle": "Vue terrain",
@@ -228,7 +220,8 @@
       "description": "Vue d’ensemble des interventions pour l’engagement de l’effectif et du matériel des sapeurs-pompiers."
     },
     "dismissAllToasts": "Tout fermer",
-    "redirecting": "Redirection..."
+    "redirecting": "Redirection...",
+    "telefondienst": "Service téléphonique"
   },
   "display": {
     "common": {
@@ -854,10 +847,10 @@
       "columnWhere": "Où",
       "inMagazin": "Magasin",
       "state": {
-        "out": "sorti",
-        "left": "laissé sur place",
-        "in": "présent"
-      }
+        "left": "laissé sur place"
+      },
+      "columnType": "Type",
+      "columnGroup": "Groupe"
     }
   },
   "help": {
