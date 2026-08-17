@@ -20,6 +20,11 @@ vi.mock("@/lib/contexts/groups-context", () => ({
   }),
 }))
 
+// The dialog names each vehicle's driver, which needs the event scope and a
+// live fetch. Neither is what these tests are about.
+vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => ({ selectedEvent: null }) }))
+vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({ useVehicleDrivers: () => new Map() }))
+
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 
 const material = (overrides: Partial<Material> = {}): Material => ({

@@ -12,6 +12,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
+import { useEvent } from "@/lib/contexts/event-context"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { cn } from "@/lib/utils"
@@ -87,6 +89,12 @@ export function ResourceAssignmentDialog({
   const { materialGroups } = useMaterials()
   const { operations } = useOperations()
   const { groups, getGroupResources } = useGroups()
+  const { selectedEvent } = useEvent()
+  // Who drives what, live. Assigning a vehicle without knowing whether anybody
+  // is driving it is how a Fahrzeug reaches a Schadenplatz on the board and
+  // nowhere else — the driver is the half of "TLF 1 is available" that the
+  // fleet list does not carry. Loaded only while the dialog is open.
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchFocused, setSearchFocused] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
@@ -182,14 +190,24 @@ export function ResourceAssignmentDialog({
     })
   }, [personnel, rekoPersonnelNames, assignedPersonnel, occupiedPersonnelIds, showOccupiedPersonnel])
 
-  // Describe a person's special function for the badge + confirm copy, or null.
-  const specialFunctionOf = (p: Person): { label: string; Icon: typeof Car } | null => {
-    if (p.isDriver) return { label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car }
-    if (p.isReko || rekoPersonnelNames.includes(p.name)) return { label: t('common.reko'), Icon: Binoculars }
-    if (p.isMagazin) return { label: t('common.magazin'), Icon: Package2 }
-    if (p.isTelefondienst) return { label: t('common.telefondienst'), Icon: Phone }
-    if (p.isKommandoposten) return { label: t('common.kommandoposten'), Icon: MonitorCog }
-    return null
+  /**
+   * Every role this person holds in the Ereignis — not just the first one.
+   *
+   * It used to return one, and the row then hid even that behind «Im Einsatz»
+   * when the person was busy elsewhere. Both cost the operator the answer they
+   * opened the dialog for: a Magaziner who also drives the TLF 1 read as
+   * «Reko», and somebody on a Schadenplatz read as «Im Einsatz» with no hint
+   * that taking them also takes the fleet's only driver. The driver's label
+   * names the VEHICLE, because «Fahrer» alone raises the question it answers.
+   */
+  const specialFunctionsOf = (p: Person): { label: string; Icon: typeof Car }[] => {
+    const functions: { label: string; Icon: typeof Car }[] = []
+    if (p.isDriver) functions.push({ label: p.driverVehicleName || t('assignmentDialog.driverBadge'), Icon: Car })
+    if (p.isReko || rekoPersonnelNames.includes(p.name)) functions.push({ label: t('common.reko'), Icon: Binoculars })
+    if (p.isMagazin) functions.push({ label: t('common.magazin'), Icon: Package2 })
+    if (p.isTelefondienst) functions.push({ label: t('common.telefondienst'), Icon: Phone })
+    if (p.isKommandoposten) functions.push({ label: t('common.kommandoposten'), Icon: MonitorCog })
+    return functions
   }
 
   const availableVehicles = useMemo(() => {
@@ -393,7 +411,7 @@ export function ResourceAssignmentDialog({
     }
     // Selecting someone already busy in a special function → confirm first, so a
     // driver/reko/magazin isn't double-booked by a stray tap.
-    if (specialFunctionOf(person)) {
+    if (specialFunctionsOf(person).length > 0) {
       setConfirmPerson(person)
       return
     }
@@ -802,7 +820,7 @@ export function ResourceAssignmentDialog({
                   {sortedFilteredPersonnel.map((person) => {
                     const isSelected = isPersonSelected(person.name)
                     const wasJustAssigned = justAssigned === person.id
-                    const special = specialFunctionOf(person)
+                    const special = specialFunctionsOf(person)
                     // Already on another incident/Auftrag → amber flag with the
                     // reference, taking precedence over the special-function badge.
                     const elsewhere = personElsewhereLabel(person)
@@ -813,7 +831,7 @@ export function ResourceAssignmentDialog({
                         className={cn(
                           "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
                           isSelected && "border-primary/30 bg-primary/5",
-                          (elsewhere || special) && !isSelected && "border-amber-500/40 bg-amber-500/5"
+                          (elsewhere || special.length > 0) && !isSelected && "border-amber-500/40 bg-amber-500/5"
                         )}
                       >
                         {isSelected ? (
@@ -826,25 +844,34 @@ export function ResourceAssignmentDialog({
                         )}
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate" title={person.name}>{person.name}</p>
-                          {elsewhere ? (
+                          {/* «Im Einsatz» and the Ereignis roles are different
+                              facts and both are shown: where somebody is now,
+                              and what taking them costs the Ereignis. The roles
+                              used to be hidden the moment the person was busy —
+                              exactly when the operator most needs to see that
+                              this is the TLF 1's driver. */}
+                          {elsewhere && (
                             <span
                               title={elsewhere.full}
-                              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+                              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
                             >
                               <Siren className="h-3 w-3 flex-shrink-0" />
                               <span className="truncate">{elsewhere.short}</span>
                             </span>
-                          ) : special ? (
+                          )}
+                          {special.map((fn) => (
                             <span
-                              title={special.label}
-                              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+                              key={fn.label}
+                              title={fn.label}
+                              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
                             >
-                              <special.Icon className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{special.label}</span>
+                              <fn.Icon className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{fn.label}</span>
                             </span>
-                          ) : person.role ? (
+                          ))}
+                          {!elsewhere && special.length === 0 && person.role && (
                             <p className="text-xs text-muted-foreground truncate">{person.role}</p>
-                          ) : null}
+                          )}
                         </div>
                       </button>
                     )
@@ -886,6 +913,7 @@ export function ResourceAssignmentDialog({
                     // it could only be set from the incident card — so a whole
                     // dispatch done through this dialog announced the wrong thing.
                     const stays = vehicleDriverStay?.get(vehicle.name) ?? false
+                    const driver = vehicleDrivers.get(vehicle.name)
                     const canSetStay = isAssigned && !!onToggleDriverStay
                     return (
                       <div
@@ -921,6 +949,23 @@ export function ResourceAssignmentDialog({
                             ) : (
                               <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
                             )}
+                            {/* Whether anybody is driving it — the half of "TLF 1
+                                is free" the fleet list does not carry. Said in
+                                both directions on purpose: a silent row would
+                                leave "no driver" and "not loaded yet" looking
+                                the same on the one screen where it decides
+                                whether the vehicle can actually roll. */}
+                            <p
+                              className={cn(
+                                "truncate text-2xs",
+                                driver ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400",
+                              )}
+                              title={driver ? t('assignmentDialog.vehicleDriver', { name: driver }) : undefined}
+                            >
+                              {driver
+                                ? t('assignmentDialog.vehicleDriver', { name: driver })
+                                : t('assignmentDialog.vehicleNoDriver')}
+                            </p>
                           </div>
                         </button>
                         {canSetStay && (
@@ -1185,7 +1230,8 @@ export function ResourceAssignmentDialog({
         confirmPerson
           ? t('assignmentDialog.specialFnConfirmBody', {
               name: confirmPerson.name,
-              func: specialFunctionOf(confirmPerson)?.label ?? '',
+              // Every role, so the confirm names what is actually being taken.
+              func: specialFunctionsOf(confirmPerson).map((f) => f.label).join(' · '),
             })
           : ''
       }

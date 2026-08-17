@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { Copy, Check, Printer, X, Radio, Siren } from "lucide-react"
+import { Copy, Check, Printer, X, Radio, Route, Siren } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,10 @@ import { RadioQuote } from "@/components/kanban/radio-quote"
 import type { GroupResources } from "@/lib/types/groups"
 
 const NO_ROUTE_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
+
+/** Statuses that mean "nobody has been sent here yet". Anything else says the
+ *  Auftrag is already under way, which is what closes the batch offer. */
+const PRE_DISPATCH_STATUSES = new Set(["incoming", "reko", "reko_done"])
 
 interface DisponiertTransitionDialogProps {
   open: boolean
@@ -56,7 +60,7 @@ export function DisponierTransitionDialog({
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
   const { groups, getGroupResources, recordAnnouncement } = useGroups()
-  const { operations } = useOperations()
+  const { operations, changeStatusToTop } = useOperations()
   const { selectedEvent } = useEvent()
   // Driver names weren't reaching the message before (the prop was never passed),
   // so the WhatsApp "Fahrer:" line was always blank — load them here.
@@ -115,6 +119,38 @@ export function DisponierTransitionDialog({
   if (!operation) return null
 
   const effectiveVehicleDrivers = vehicleDrivers ?? liveVehicleDrivers
+
+  /**
+   * The rest of the Auftrag, when this is the first stop to go out.
+   *
+   * A route is driven by one squad in one go — the KP disponiert the Auftrag,
+   * not a stop — but the board only knows how to move one card, so the other
+   * stops sat in «Eingegangen» looking unhandled while the crew was already
+   * working them. This offers the whole batch **once**: the moment any later
+   * stop is dispatched, the Auftrag is under way and each further one is the
+   * ordinary "next stop" move the Funkdurchsage above already describes.
+   */
+  const pendingStops = auftrag
+    ? operations.filter(
+        (op) =>
+          op.id !== operation.id &&
+          auftrag.stopIds.includes(op.id) &&
+          PRE_DISPATCH_STATUSES.has(op.status),
+      )
+    : []
+  const siblingsAlreadyOut = auftrag
+    ? operations.some(
+        (op) =>
+          op.id !== operation.id && auftrag.stopIds.includes(op.id) && !PRE_DISPATCH_STATUSES.has(op.status),
+      )
+    : false
+  const offerBatch = pendingStops.length > 0 && !siblingsAlreadyOut
+
+  const dispatchWholeAuftrag = () => {
+    for (const stop of pendingStops) changeStatusToTop(stop.id, "enroute")
+    toast.success(t("disponiert.auftragBatchDone", { count: pendingStops.length }))
+    onOpenChange(false)
+  }
 
   const stopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
   const auftragCtx = auftrag
@@ -205,6 +241,24 @@ export function DisponierTransitionDialog({
               </p>
             )}
           </div>
+
+          {/* The rest of the route, offered once — see `offerBatch`. Above the
+              copy/print row because it is a decision about the Einsatz, not a
+              way of passing the message on. */}
+          {offerBatch && (
+            <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
+              <p className="text-sm">
+                {t("disponiert.auftragBatchQuestion", {
+                  name: auftrag?.name ?? "",
+                  count: pendingStops.length,
+                })}
+              </p>
+              <Button className="w-full justify-start gap-2" onClick={dispatchWholeAuftrag}>
+                <Route className="h-4 w-4" />
+                {t("disponiert.auftragBatchAction", { count: pendingStops.length })}
+              </Button>
+            </div>
+          )}
 
           {/* Action buttons */}
           <div className="flex flex-col gap-2">
