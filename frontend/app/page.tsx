@@ -60,7 +60,8 @@ import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
-import { columns, findAuftragForStop } from "@/lib/kanban-utils"
+import { columns, findAuftragForStop, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
+import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
@@ -823,6 +824,13 @@ export default function FireStationDashboard() {
     requestStatusChange(operationId, newStatus)
   }, [operations, requestStatusChange])
 
+  // Which columns this screen has folded away. Seven columns do not fit on
+  // every command-post monitor, and the two that matter right now must not be
+  // behind a horizontal scrollbar. Per DEVICE, not per operator account: the
+  // fold answers «how wide is this monitor», which nobody wants inherited on
+  // the next machine — same hook, same reasoning as both wall boards.
+  const collapsedColumns = useCollapsedSections(BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS)
+
   // One-shot column sort: persist the chosen column's order without turning off
   // manual drag-and-drop ordering afterwards.
   const handleColumnSort = useCallback((columnId: string, key: 'priority' | 'age' | 'auftrag' | 'type') => {
@@ -859,9 +867,10 @@ export default function FireStationDashboard() {
       let nextIndex = 0
       return prev.map((op) => column.status.includes(op.status) ? columnOperations[nextIndex++] : op)
     })
+    // No toast: the column reorders under the operator's eyes, so confirming it
+    // in words is noise on a surface whose job is staying calm.
     reorderColumn(ordered)
-    toast.success(tDash('sort.applied'))
-  }, [operations, groups, setOperations, reorderColumn, tDash])
+  }, [operations, groups, setOperations, reorderColumn])
 
   // Open the "Ressourcen übertragen" dialog from the card context menu. Loads the
   // event's incidents as transfer targets (mirrors side-panel's handleOpenTransfer).
@@ -2114,6 +2123,8 @@ export default function FireStationDashboard() {
                       canDrag={isEditor}
                       onDragActiveChange={setBoardDragging}
                       onSort={isEditor ? handleColumnSort : undefined}
+                      isCollapsed={collapsedColumns.isCollapsed(column.id)}
+                      onToggleCollapsed={collapsedColumns.toggle}
                     />
                   )
                 })}

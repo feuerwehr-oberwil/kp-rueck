@@ -386,8 +386,7 @@
         "priority": "Nach Priorität",
         "age": "Nach Alter (älteste zuerst)",
         "auftrag": "Nach Auftrag",
-        "type": "Nach Typ",
-        "applied": "Spalte sortiert"
+        "type": "Nach Typ"
       },
       "noPersonnelCheckedIn": "Niemand angemeldet",
       "personnelLoading": "Personal wird geladen",
@@ -573,7 +572,10 @@
       "ariaLabel": "{title} column",
       "collapse": "Spalte einklappen",
       "dropHere": "Einsatz hier ablegen",
-      "empty": "Keine Einsätze"
+      "empty": "Keine Einsätze",
+      "collapsedHint": "{title} – {count} – zum Aufklappen klicken",
+      "overdueTitle": "{count} überfällig: {titles}",
+      "overdueMore": "… und {count} weitere"
     },
     "timeline": {
       "loadFailed": "Verlauf konnte nicht geladen werden.",
@@ -598,8 +600,8 @@
       "tabs": {
         "overview": "Übersicht",
         "reko": "Reko",
-        "rapport": "Rapport",
-        "rapportFiled": "erfasst",
+        "rapport": "Feld",
+        "rapportFiled": "Rapport",
         "rapportDraft": "Entwurf",
         "history": "Verlauf",
         "switchHint": "Tab wechseln"
@@ -983,7 +985,6 @@
       "driversSection": "Fahrer",
       "othersSection": "Andere",
       "inOperation": "Im Einsatz",
-      "current": "Aktuell",
       "noPersonsFound": "Keine Personen gefunden",
       "noAvailablePersons": "Keine verfügbaren Personen",
       "tryDifferentSearch": "Versuche einen anderen Suchbegriff",
@@ -2606,7 +2607,8 @@
       "infoTitle": "Information",
       "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
       "overflowDescription": "Im Benachrichtigungs-Panel ansehen.",
-      "overflowAction": "Öffnen"
+      "overflowAction": "Öffnen",
+      "openIncident": "Einsatz öffnen"
     },
     "sidebar": {
       "title": "Benachrichtigungen",
@@ -3145,7 +3147,16 @@
       "contactPhoneLabel": "Telefonnummer",
       "contactPhonePlaceholder": "z. B. 079 123 45 67",
       "submitting": "Wird übermittelt...",
-      "submit": "Alarm absenden"
+      "submit": "Alarm absenden",
+      "review": {
+        "stepForm": "Erfassen",
+        "stepCheck": "Stimmt das?",
+        "title": "Stimmt das so?",
+        "next": "Weiter",
+        "back": "Zurück zum Formular",
+        "where": "Ort",
+        "hasPin": "Standort erfasst"
+      }
     },
     "checkin": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",

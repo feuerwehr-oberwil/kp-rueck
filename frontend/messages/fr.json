@@ -993,7 +993,6 @@
       "driversSection": "Conducteurs",
       "othersSection": "Autres",
       "inOperation": "En intervention",
-      "current": "Actuel",
       "noPersonsFound": "Aucune personne trouvée",
       "noAvailablePersons": "Aucune personne disponible",
       "tryDifferentSearch": "Essaie un autre terme de recherche",
@@ -1155,7 +1154,16 @@
       "contactPhoneLabel": "Numéro de téléphone",
       "contactPhonePlaceholder": "p. ex. 079 123 45 67",
       "submitting": "Transmission...",
-      "submit": "Envoyer l’alarme"
+      "submit": "Envoyer l’alarme",
+      "review": {
+        "stepForm": "Saisir",
+        "stepCheck": "C’est juste ?",
+        "title": "C’est bien ça ?",
+        "next": "Continuer",
+        "back": "Retour au formulaire",
+        "where": "Lieu",
+        "hasPin": "Position enregistrée"
+      }
     },
     "checkin": {
       "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
@@ -1370,8 +1378,7 @@
         "priority": "Par priorité",
         "age": "Par ancienneté (les plus anciennes d’abord)",
         "auftrag": "Par mission",
-        "type": "Par genre",
-        "applied": "Colonne triée"
+        "type": "Par genre"
       },
       "noPersonnelCheckedIn": "Personne n’est annoncé",
       "personnelLoading": "Chargement du personnel",
@@ -1557,7 +1564,10 @@
       "ariaLabel": "colonne {title}",
       "collapse": "Replier la colonne",
       "dropHere": "Déposer l’intervention ici",
-      "empty": "Aucune intervention"
+      "empty": "Aucune intervention",
+      "collapsedHint": "{title} – {count} – cliquer pour déplier",
+      "overdueTitle": "{count} en retard : {titles}",
+      "overdueMore": "… et {count} de plus"
     },
     "timeline": {
       "loadFailed": "L’historique n’a pas pu être chargé.",
@@ -1582,8 +1592,8 @@
       "tabs": {
         "overview": "Vue d’ensemble",
         "reko": "Reconnaissance",
-        "rapport": "Rapport",
-        "rapportFiled": "saisi",
+        "rapport": "Terrain",
+        "rapportFiled": "Rapport",
         "rapportDraft": "Brouillon",
         "history": "Historique",
         "switchHint": "Changer d’onglet"
@@ -2302,7 +2312,8 @@
       "infoTitle": "Information",
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
       "overflowDescription": "À consulter dans le panneau des notifications.",
-      "overflowAction": "Ouvrir"
+      "overflowAction": "Ouvrir",
+      "openIncident": "Ouvrir l’intervention"
     },
     "sidebar": {
       "title": "Notifications",
