@@ -101,6 +101,7 @@ import {
   type ApiFeldIncidentUpdate,
   type ApiFeldOwnReport,
   type ApiFeldMaterialResponse,
+  type ApiFeldVehicleLine,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
   type ApiSchadenplatzRapport,
