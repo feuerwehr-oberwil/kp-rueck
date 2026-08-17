@@ -197,6 +197,10 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
           setLng(lo)
         }}
         disabled={submitting}
+        // The first thing a caller says is where. Autofocus used to sit on the
+        // Meldung below, so the operator typed the address into the wrong field
+        // or reached for the mouse before the sentence was finished.
+        autoFocus
       />
 
       {/* Meldung — what was reported (not the address, that's the location above) */}
@@ -211,7 +215,6 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
           placeholder={t('messagePlaceholder')}
           className="mt-2 h-12 text-base"
           required
-          autoFocus
         />
       </div>
 

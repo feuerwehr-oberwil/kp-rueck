@@ -439,6 +439,9 @@ export function LocationInput({
                       </div>
                       <button
                         type="button"
+                        // Picking must not blur the input first — see the note on
+                        // the result rows below.
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => commitFreetext(addressSearchQuery)}
                         className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-muted transition-colors cursor-pointer border-t"
                       >
@@ -463,6 +466,19 @@ export function LocationInput({
                         <button
                           key={result.id}
                           type="button"
+                          /**
+                           * Keep the focus in the input while the row is clicked.
+                           *
+                           * Without this the address was never applied: mousedown
+                           * blurred the field → `editing` went false → the sync
+                           * effect put the committed address (empty) back into the
+                           * query → the search effect saw fewer than 3 characters
+                           * and cleared `addressResults` → this very button
+                           * unmounted before mouseup, so `onClick` never fired.
+                           * The operator watched the list vanish and the field
+                           * keep their half-typed text.
+                           */
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => handleAddressSelect(result)}
                           onMouseEnter={() => setActiveIndex(index)}
                           aria-selected={index === activeIndex}
