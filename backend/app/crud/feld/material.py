@@ -348,10 +348,18 @@ async def material_overview(db: AsyncSession, event_id: uuid.UUID) -> list[dict[
 
     * ``out``  — an open assignment on a Schadenplatz. The *board* says so, and
       the board is the authority on where a unit is.
-    * ``left`` — the crew's rapport says it stayed behind and there is no
-      assignment to cross-check against (§18.35). Their word is the only source
-      there is, so it is shown as its own state rather than folded into ``out``.
+    * ``left`` — the crew's rapport says it stayed behind. **Either** a tracked
+      unit whose rapport row is ticked *vor Ort verblieben* (its assignment is
+      still open, which is exactly what keeps it on the Abholliste), **or** a
+      name the crew typed into "weiteres gebrauchtes Material" with no
+      assignment to cross-check against at all (§18.35).
     * ``in``   — neither: it is in the Magazin.
+
+    The tracked half used to be missing: ``left`` was derived only from the
+    untracked names, so a pump the crew had reported as left behind still read
+    *Im Einsatz* here — indistinguishable from one running in a cellar, on the
+    one screen whose job is to say what has to be fetched. It is the same set
+    the Restliste and the Abholliste already print.
 
     Sorted by name, because this list is read to find one thing.
     """
@@ -369,6 +377,14 @@ async def material_overview(db: AsyncSession, event_id: uuid.UUID) -> list[dict[
     out_by_material: dict[uuid.UUID, tuple[Incident, datetime | None]] = {}
     for material, incident, assigned_at in open_rows.all():
         out_by_material[material.id] = (incident, assigned_at)
+
+    # Which of those open assignments the crew's rapport says stayed BEHIND
+    # rather than being in use. Same source as the Restliste, so the Magazin's
+    # list and the Abholliste can never disagree about what has to be fetched.
+    restliste = await event_restliste(db, event_id)
+    left_material_ids = {
+        row["material_id"] for row in restliste["material_on_site"] if row.get("material_id") is not None
+    }
 
     all_materials = await db.execute(
         select(Material, MaterialGroup.name)
@@ -388,14 +404,13 @@ async def material_overview(db: AsyncSession, event_id: uuid.UUID) -> list[dict[
                 "incident_id": placed[0].id if placed else None,
                 "at": (placed[0].location_address or placed[0].title) if placed else None,
                 "since": placed[1] if placed else None,
-                "state": "out" if placed else "in",
+                "state": ("left" if material.id in left_material_ids else "out") if placed else "in",
             }
         )
 
     # Consumables and anything else a crew wrote into "weiteres gebrauchtes
     # Material" and left behind. These have no Material row at all — that is the
     # nature of the field, and why the Restliste carries them separately too.
-    restliste = await event_restliste(db, event_id)
     for row in restliste["material_on_site"]:
         if row.get("material_id") is not None:
             continue

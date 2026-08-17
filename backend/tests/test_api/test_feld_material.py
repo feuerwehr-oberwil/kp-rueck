@@ -24,6 +24,7 @@ from app.models import (
     IncidentAssignment,
     Material,
     Personnel,
+    SchadenplatzReport,
     User,
 )
 from tests.conftest import feld_device_token
@@ -96,6 +97,50 @@ async def test_the_list_says_where_each_unit_is(
     # hangs off no Schadenplatz and therefore appeared nowhere.
     assert rows["Tauchpumpe 2"]["state"] == "in"
     assert rows["Tauchpumpe 2"]["at"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_unit_the_crew_left_behind_reads_as_left_not_as_in_use(
+    client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    # The distinction the Magazin's whole screen exists for: a pump RUNNING in a
+    # cellar and a pump LYING at an address waiting to be fetched are the same
+    # open assignment on the board, and only the second one sends somebody
+    # driving in the morning. `left` used to be derived from the untracked names
+    # alone, so this row read «Im Einsatz» — indistinguishable from the pump
+    # that is still working. Same source as the Restliste and the Abholliste.
+    person = await _person(db_session)
+    await _magazin(db_session, test_event, person)
+    working = await _material(db_session, "Tauchpumpe 1", "Gestell 1")
+    stranded = await _material(db_session, "Nasssauger", "Gestell 2")
+    incident = await _incident(db_session, test_event, test_user, "Bahnweg 4")
+    rows = []
+    for material in (working, stranded):
+        assignment = IncidentAssignment(incident_id=incident.id, resource_type="material", resource_id=material.id)
+        db_session.add(assignment)
+        rows.append(assignment)
+    await db_session.commit()
+    db_session.add(
+        SchadenplatzReport(
+            incident_id=incident.id,
+            is_draft=False,
+            materials_json=[
+                {"assignment_id": str(rows[0].id), "used": True, "left_on_site": False},
+                {"assignment_id": str(rows[1].id), "used": True, "left_on_site": True},
+            ],
+        )
+    )
+    await db_session.commit()
+
+    token = await feld_device_token(db_session, test_event.id, person.id)
+    response = await client.get(f"/api/feld/material?token={token}&personnel_id={person.id}")
+
+    by_name = {row["name"]: row for row in response.json()["materials"]}
+    assert by_name["Tauchpumpe 1"]["state"] == "out"
+    assert by_name["Nasssauger"]["state"] == "left"
+    # …and it still names the address, because that is where somebody drives to.
+    assert by_name["Nasssauger"]["at"] == "Bahnweg 4"
 
 
 @pytest.mark.asyncio

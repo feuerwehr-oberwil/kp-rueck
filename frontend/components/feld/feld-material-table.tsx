@@ -17,9 +17,10 @@
  * better than a column repeating an address thirty-eight times.
  *
  * The three come from two different authorities — see `crud/feld/material.py`.
- * The board says what is assigned (`out`); the crew's rapport says what stayed
- * behind with no assignment to check against (`left`), which is why it is its
- * own list rather than folded into `out`; everything else is in the Magazin.
+ * The board says what is assigned; the crew's rapport says which of those units
+ * stayed behind (`left`), plus the ones it named with no assignment at all.
+ * That is why `left` is its own list rather than folded into `out`: "läuft im
+ * Keller" and "liegt dort und muss geholt werden" are different jobs.
  *
  * Alphabetical within each list, because this is read to **find one thing**.
  */
@@ -32,11 +33,12 @@ import type { ApiFeldMaterialItem } from '@/lib/api-client'
 /**
  * The lists, most-actionable first.
  *
- * `left` leads: a unit the crew's rapport says stayed behind is the only one
- * nobody has a plan for, and it is the one the board cannot cross-check. `out`
- * follows — that is the pickup round. The Magazin comes last because on a normal
- * night it is thirty-five of thirty-eight rows, and putting it first buried the
- * three that needed doing under a screen of things that did not.
+ * `left` leads and is the only one drawn in colour: a unit the crew says stayed
+ * behind is the pickup round, and it is the one thing on this screen that is
+ * WORK rather than inventory. `out` follows — in use, nothing to do about it
+ * yet. The Magazin comes last because on a normal night it is thirty-five of
+ * thirty-eight rows, and putting it first buried the three that needed doing
+ * under a screen of things that did not.
  */
 const SECTIONS = ['left', 'out', 'in'] as const
 
@@ -49,10 +51,15 @@ function MaterialList({ items }: { items: ApiFeldMaterialItem[] }) {
           className="flex items-baseline justify-between gap-3 py-2 text-sm"
         >
           <span className="font-medium">{item.name}</span>
-          {/* The shelf it belongs on — the only "where" a Materialwart needs,
-              because it is where the thing goes back to. */}
-          {item.home_location && (
-            <span className="shrink-0 text-xs text-muted-foreground">{item.home_location}</span>
+          {/* Normally the shelf it belongs on — the only "where" a Materialwart
+              needs, because it is where the thing goes back to. For a unit that
+              stayed behind the useful where is the opposite one: the address
+              somebody has to drive to. A pickup list without a street on it is
+              a list nobody can act on. */}
+          {(item.state === 'left' ? item.at : item.home_location) && (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {item.state === 'left' ? item.at : item.home_location}
+            </span>
           )}
         </li>
       ))}
@@ -91,8 +98,25 @@ export function FeldMaterialTable({ materials }: { materials: ApiFeldMaterialIte
       <div className="space-y-4">
         {SECTIONS.map(state =>
           byState[state].length === 0 ? null : (
-            <section key={state}>
-              <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            // «Noch vor Ort» is the only list with something to DO on it, so it
+            // is the only one that is coloured: amber heading, amber rule, and
+            // a tinted box around the rows. The other two are inventory, and an
+            // inventory heading that shouts is one an eye learns to skip —
+            // which is what happened to this one while it looked like the
+            // others.
+            <section
+              key={state}
+              className={
+                state === 'left'
+                  ? 'rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2'
+                  : undefined
+              }
+            >
+              <h3
+                className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
+                  state === 'left' ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
+                }`}
+              >
                 {t(`state.${state}`)} · {byState[state].length}
               </h3>
               <MaterialList items={byState[state]} />
