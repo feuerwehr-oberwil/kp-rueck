@@ -44,7 +44,16 @@
       "Storm situations",
       "Several events at once"
     ],
-    "note": "Grown out of the real operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since."
+    "note": "Grown out of the real operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since.",
+    "own": {
+      "h2": "Your data stays with you.",
+      "p": "KP Rück is open source and runs on a machine in your own station or in your own cloud. Incidents, crews, vehicles and equipment stay under your control.",
+      "items": [
+        "No licence fees",
+        "No vendor lock-in",
+        "Run it yourself, extend it yourself"
+      ]
+    }
   },
   "tenet": {
     "eyebrow": "The benchmark",

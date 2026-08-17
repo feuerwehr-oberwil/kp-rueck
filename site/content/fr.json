@@ -45,7 +45,16 @@
       "Intempéries",
       "Plusieurs événements à la fois"
     ],
-    "note": "Né du service opérationnel réel des\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a>\n        – éprouvé sur le terrain et développé en continu."
+    "note": "Né du service opérationnel réel des\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a>\n        – éprouvé sur le terrain et développé en continu.",
+    "own": {
+      "h2": "Vos données restent chez vous.",
+      "p": "KP Rück est open source et tourne sur votre propre machine à la caserne ou dans votre propre cloud. Interventions, personnel, véhicules et matériel restent sous votre contrôle.",
+      "items": [
+        "Aucun frais de licence",
+        "Aucune dépendance à un fournisseur",
+        "À exploiter et à faire évoluer vous-mêmes"
+      ]
+    }
   },
   "tenet": {
     "eyebrow": "La mesure de toute chose",
