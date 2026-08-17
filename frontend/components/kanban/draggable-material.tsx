@@ -26,6 +26,9 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
   const onSite = materialOnSite.get(material.id)
 
   const isConsumable = material.consumable
+  // Two different ways of being spoken for, one treatment: assigned to a
+  // Schadenplatz, or standing at an address waiting to be fetched.
+  const isOccupied = !isConsumable && (materialResourceState(material) === "assigned" || !!onSite)
   // Busy material drags too — the drop asks (move / doppelt belegen / abbrechen)
   // rather than the sidebar silently refusing. Same reasoning as the crew list.
   const canDrag = !disabled
@@ -54,9 +57,11 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
         "group border border-border/50 bg-card/80 backdrop-blur-sm px-3 py-2 gap-0 transition-all hover:bg-muted/50 hover:border-border",
         canDrag && "draggable",
         isDragging && "dragging",
-        // Same surface for every card — see the note in draggable-person.tsx.
-        // Consumable and assigned state read from the status icon and badges,
-        // not from a tint or opacity that also swallows the border.
+        // Same border and fill for every card, and a lighter card for one that
+        // is spoken for — see the note in draggable-person.tsx for what was
+        // tried, reverted, and why only the opacity came back. A consumable
+        // never dims: stock handed out does not make the depot empty.
+        isOccupied && "opacity-60 hover:opacity-100",
         !canDrag && !isConsumable && material.status === "assigned" && "cursor-not-allowed",
         !canDrag && !isConsumable && material.status !== "assigned" && "cursor-pointer"
       )}

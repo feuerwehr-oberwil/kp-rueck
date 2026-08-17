@@ -58,6 +58,35 @@ interface ResourceAssignmentDialogProps {
  *  card subtitle, `full` untruncated for the hover title and confirm copy. */
 type OccupancyLabel = { short: string; full: string }
 
+/**
+ * The rule above one of the two blocks the lists are split into.
+ *
+ * Deliberately a rule and not a `<Separator/>` with a label beside it: the
+ * heading has to be readable as "everything below this is spoken for" while the
+ * eye is moving, which is why the busy one is amber and the free one is not.
+ */
+function ListSection({ label, tone, children }: { label: string; tone: 'free' | 'busy'; children: React.ReactNode }) {
+  return (
+    <section>
+      <h3
+        className={cn(
+          "mb-2 flex items-center gap-2.5 text-2xs font-semibold uppercase tracking-wide",
+          tone === 'busy' ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+        )}
+      >
+        {label}
+        <span
+          className={cn(
+            "h-px flex-1",
+            tone === 'busy' ? "bg-amber-500/30" : "bg-border/60",
+          )}
+        />
+      </h3>
+      {children}
+    </section>
+  )
+}
+
 export function ResourceAssignmentDialog({
   open,
   onOpenChange,
@@ -531,6 +560,56 @@ export function ResourceAssignmentDialog({
     return { groups, ungrouped }
   }, [sortedFilteredMaterials, materialGroups])
 
+  /**
+   * Free first, spoken-for underneath — the dialog's answer to "wen kann ich
+   * nehmen".
+   *
+   * An occupied row was already amber-flagged, and that was the whole of it: the
+   * flagged rows sat scattered through the grid, so finding three free people in
+   * a roster of forty meant reading all forty. Sinking them under a heading
+   * turns that into one eye movement, and the amber line stays for the rows that
+   * still say *where* somebody is.
+   *
+   * Nothing is hidden and nothing is disabled — the bottom block is still
+   * clickable and still opens the Doppelbelegung confirm. This orders the list;
+   * it does not take a decision away from the operator.
+   *
+   * "Busy" is exactly what the row already draws in amber: bound to another
+   * Schadenplatz or Auftrag, or holding an Ereignis role (a Reko trupp, the
+   * TLF 1's driver). A resource on THIS target is never busy — it is selected.
+   *
+   * Module groups stay whole and stay on top: a module is a unit, and splitting
+   * its contents across two headings would be a worse lie than the scatter this
+   * fixes. Occupied items inside an expanded module keep the amber flag.
+   */
+  const crewSections = (() => {
+    const free: Person[] = []
+    const busy: Person[] = []
+    for (const person of sortedFilteredPersonnel) {
+      const isBusy = !!personElsewhereLabel(person) || specialFunctionsOf(person).length > 0
+      ;(isBusy ? busy : free).push(person)
+    }
+    return { free, busy, ordered: [...free, ...busy] }
+  })()
+
+  const vehicleSections = (() => {
+    const free: typeof filteredVehicles = []
+    const busy: typeof filteredVehicles = []
+    for (const vehicle of filteredVehicles) {
+      (vehicleElsewhereLabel(vehicle) ? busy : free).push(vehicle)
+    }
+    return { free, busy, ordered: [...free, ...busy] }
+  })()
+
+  const ungroupedMaterialSections = (() => {
+    const free: Material[] = []
+    const busy: Material[] = []
+    for (const material of groupedFilteredMaterials.ungrouped) {
+      (occupiedElsewhereMaterialIds.has(material.id) ? busy : free).push(material)
+    }
+    return { free, busy }
+  })()
+
   // Quick number-key assignment (1..9): toggle the Nth visible item of the active
   // resource type — the same action as clicking it. The onAssign*/onRemove*
   // callbacks are wired by the parent, so in route-assign mode this assigns to the
@@ -543,14 +622,16 @@ export function ResourceAssignmentDialog({
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
       if (e.key.length !== 1 || e.key < "1" || e.key > "9") return
       const idx = Number(e.key) - 1
+      // Indexed in the order the grid DRAWS them (free block, then the
+      // spoken-for block) — «3» has to be the third tile on screen.
       if (resourceType === "vehicles") {
-        const v = filteredVehicles[idx]
+        const v = vehicleSections.ordered[idx]
         if (v) {
           e.preventDefault()
           handleToggleVehicle(v)
         }
       } else if (resourceType === "crew") {
-        const p = sortedFilteredPersonnel[idx]
+        const p = crewSections.ordered[idx]
         if (p) {
           e.preventDefault()
           handleTogglePersonSelection(p)
@@ -558,7 +639,8 @@ export function ResourceAssignmentDialog({
       } else if (resourceType === "materials") {
         const flat = [
           ...groupedFilteredMaterials.groups.flatMap((g) => g.materials),
-          ...groupedFilteredMaterials.ungrouped,
+          ...ungroupedMaterialSections.free,
+          ...ungroupedMaterialSections.busy,
         ]
         const m = flat[idx]
         if (m) {
@@ -700,6 +782,204 @@ export function ResourceAssignmentDialog({
     return false
   }, [resourceType, selectedPersonnel, selectedMaterials, assignedPersonnel, assignedMaterials])
 
+  /** One crew tile. Lifted out of the grid so the free and the spoken-for
+   *  block can draw the same thing without a second copy of it. */
+  const renderPersonTile = (person: Person) => {
+    const isSelected = isPersonSelected(person.name)
+    const wasJustAssigned = justAssigned === person.id
+    const special = specialFunctionsOf(person)
+    // Already on another incident/Auftrag → amber flag with the
+    // reference, taking precedence over the special-function badge.
+    const elsewhere = personElsewhereLabel(person)
+    return (
+      <button
+        key={person.id}
+        onClick={() => handleTogglePersonSelection(person)}
+        className={cn(
+          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+          isSelected && "border-primary/30 bg-primary/5",
+          (elsewhere || special.length > 0) && !isSelected && "border-amber-500/40 bg-amber-500/5"
+        )}
+      >
+        {isSelected ? (
+          <CheckCircle className={cn(
+            "h-5 w-5 text-emerald-500 flex-shrink-0",
+            wasJustAssigned && "animate-checkmark-spring"
+          )} />
+        ) : (
+          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+        )}
+        <div className="min-w-0">
+          <p className="font-medium text-sm truncate" title={person.name}>{person.name}</p>
+          {/* «Im Einsatz» and the Ereignis roles are different
+              facts and both are shown: where somebody is now,
+              and what taking them costs the Ereignis. The roles
+              used to be hidden the moment the person was busy —
+              exactly when the operator most needs to see that
+              this is the TLF 1's driver. */}
+          {elsewhere && (
+            <span
+              title={elsewhere.full}
+              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+            >
+              <Siren className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{elsewhere.short}</span>
+            </span>
+          )}
+          {special.map((fn) => (
+            <span
+              key={fn.label}
+              title={fn.label}
+              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+            >
+              <fn.Icon className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{fn.label}</span>
+            </span>
+          ))}
+          {!elsewhere && special.length === 0 && person.role && (
+            <p className="text-xs text-muted-foreground truncate">{person.role}</p>
+          )}
+        </div>
+      </button>
+    )
+  }
+
+  /** One vehicle row — shared by the free and the spoken-for block. */
+  const renderVehicleTile = (vehicle: { id: string; name: string; type: string }) => {
+    const isAssigned = isVehicleAssigned(vehicle.name)
+    const wasJustAssigned = justAssigned === vehicle.id
+    // Already on another incident/Auftrag → amber flag with the
+    // reference, matching the crew special-function treatment.
+    const elsewhere = vehicleElsewhereLabel(vehicle)
+    // «bleibt vor Ort» vs «kehrt zurück». Assigning here used to
+    // drop that decision on the floor: the flag exists from the
+    // moment the vehicle is assigned (defaulting to «zurück»),
+    // it is read out on the radio and printed on the slip, but
+    // it could only be set from the incident card — so a whole
+    // dispatch done through this dialog announced the wrong thing.
+    const stays = vehicleDriverStay?.get(vehicle.name) ?? false
+    const driver = vehicleDrivers.get(vehicle.name)
+    const canSetStay = isAssigned && !!onToggleDriverStay
+    return (
+      <div
+        key={vehicle.id}
+        className={cn(
+          "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all hover-delight",
+          isAssigned && "border-primary/30 bg-primary/5",
+          elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5"
+        )}
+      >
+        <button
+          onClick={() => handleToggleVehicle(vehicle)}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left"
+        >
+          {isAssigned ? (
+            <CheckCircle className={cn(
+              "h-5 w-5 text-emerald-500 flex-shrink-0",
+              wasJustAssigned && "animate-checkmark-spring"
+            )} />
+          ) : (
+            <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+          )}
+          <div className="min-w-0">
+            <p className="font-medium text-sm truncate" title={vehicle.name}>{vehicle.name}</p>
+            {elsewhere ? (
+              <span
+                title={elsewhere.full}
+                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+              >
+                <Siren className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{elsewhere.short}</span>
+              </span>
+            ) : (
+              <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
+            )}
+            {/* Whether anybody is driving it — the half of "TLF 1
+                is free" the fleet list does not carry. Said in
+                both directions on purpose: a silent row would
+                leave "no driver" and "not loaded yet" looking
+                the same on the one screen where it decides
+                whether the vehicle can actually roll. */}
+            <p
+              className={cn(
+                "truncate text-2xs",
+                driver ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400",
+              )}
+              title={driver ? t('assignmentDialog.vehicleDriver', { name: driver }) : undefined}
+            >
+              {driver
+                ? t('assignmentDialog.vehicleDriver', { name: driver })
+                : t('assignmentDialog.vehicleNoDriver')}
+            </p>
+          </div>
+        </button>
+        {canSetStay && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleDriverStay!(vehicle.name)
+            }}
+            className={cn(
+              "flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-1.5 py-1 text-2xs font-medium transition-colors",
+              stays
+                ? "bg-amber-500/20 text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
+                : "bg-muted text-muted-foreground hover:bg-muted/70",
+            )}
+            title={stays ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
+            aria-pressed={stays}
+          >
+            {stays ? <MapPin className="h-3 w-3" /> : <Undo2 className="h-3 w-3" />}
+            {/* Full sentence here: this dialog is where the
+                decision is MADE, and «bleibt» alone left the
+                operator working out what the alternative was. */}
+            {stays ? t('common.driverStaysFull') : t('common.driverReturnsFull')}
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  /** One ungrouped material tile — shared by both blocks. */
+  const renderMaterialTile = (material: Material) => {
+    const isSelected = isMaterialSelected(material.id)
+    const wasJustAssigned = justAssigned === material.id
+    const elsewhere = materialElsewhereLabel(material)
+    return (
+      <button
+        key={material.id}
+        onClick={() => handleToggleMaterialSelection(material)}
+        className={cn(
+          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+          isSelected && "border-primary/30 bg-primary/5",
+          elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5"
+        )}
+      >
+        {isSelected ? (
+          <CheckCircle className={cn(
+            "h-5 w-5 text-emerald-500 flex-shrink-0",
+            wasJustAssigned && "animate-checkmark-spring"
+          )} />
+        ) : (
+          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+        )}
+        <div className="min-w-0">
+          <p className="font-medium text-sm truncate" title={material.name}>{material.name}</p>
+          {elsewhere ? (
+            <span
+              title={elsewhere.full}
+              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+            >
+              <Siren className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{elsewhere.short}</span>
+            </span>
+          ) : (
+            <p className="text-xs text-muted-foreground truncate">{material.category}</p>
+          )}
+        </div>
+      </button>
+    )
+  }
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -838,180 +1118,61 @@ export function ResourceAssignmentDialog({
           <ScrollArea className="flex-1 min-h-0 pr-2">
             <div className="space-y-2">
               {resourceType === 'crew' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {sortedFilteredPersonnel.map((person) => {
-                    const isSelected = isPersonSelected(person.name)
-                    const wasJustAssigned = justAssigned === person.id
-                    const special = specialFunctionsOf(person)
-                    // Already on another incident/Auftrag → amber flag with the
-                    // reference, taking precedence over the special-function badge.
-                    const elsewhere = personElsewhereLabel(person)
-                    return (
-                      <button
-                        key={person.id}
-                        onClick={() => handleTogglePersonSelection(person)}
-                        className={cn(
-                          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                          isSelected && "border-primary/30 bg-primary/5",
-                          (elsewhere || special.length > 0) && !isSelected && "border-amber-500/40 bg-amber-500/5"
-                        )}
-                      >
-                        {isSelected ? (
-                          <CheckCircle className={cn(
-                            "h-5 w-5 text-emerald-500 flex-shrink-0",
-                            wasJustAssigned && "animate-checkmark-spring"
-                          )} />
-                        ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate" title={person.name}>{person.name}</p>
-                          {/* «Im Einsatz» and the Ereignis roles are different
-                              facts and both are shown: where somebody is now,
-                              and what taking them costs the Ereignis. The roles
-                              used to be hidden the moment the person was busy —
-                              exactly when the operator most needs to see that
-                              this is the TLF 1's driver. */}
-                          {elsewhere && (
-                            <span
-                              title={elsewhere.full}
-                              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
-                            >
-                              <Siren className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{elsewhere.short}</span>
-                            </span>
-                          )}
-                          {special.map((fn) => (
-                            <span
-                              key={fn.label}
-                              title={fn.label}
-                              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
-                            >
-                              <fn.Icon className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{fn.label}</span>
-                            </span>
-                          ))}
-                          {!elsewhere && special.length === 0 && person.role && (
-                            <p className="text-xs text-muted-foreground truncate">{person.role}</p>
-                          )}
-                        </div>
-                      </button>
-                    )
-                  })}
+                <div className="space-y-4">
+                  {crewSections.free.length > 0 && (
+                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: crewSections.free.length })}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {crewSections.free.map(renderPersonTile)}
+                      </div>
+                    </ListSection>
+                  )}
+                  {crewSections.busy.length > 0 && (
+                    <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: crewSections.busy.length })}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {crewSections.busy.map(renderPersonTile)}
+                      </div>
+                    </ListSection>
+                  )}
                 </div>
               )}
 
               {resourceType === 'vehicles' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {onToggleZuFuss && (
-                    <button
-                      onClick={onToggleZuFuss}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                        zuFuss && "border-primary/30 bg-primary/5"
-                      )}
-                    >
-                      {zuFuss ? (
-                        <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
-                      ) : (
-                        <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{t('common.zuFuss')}</p>
-                        <p className="text-xs text-muted-foreground truncate">{t('assignmentDialog.noVehicle')}</p>
-                      </div>
-                    </button>
-                  )}
-                  {filteredVehicles.map((vehicle) => {
-                    const isAssigned = isVehicleAssigned(vehicle.name)
-                    const wasJustAssigned = justAssigned === vehicle.id
-                    // Already on another incident/Auftrag → amber flag with the
-                    // reference, matching the crew special-function treatment.
-                    const elsewhere = vehicleElsewhereLabel(vehicle)
-                    // «bleibt vor Ort» vs «kehrt zurück». Assigning here used to
-                    // drop that decision on the floor: the flag exists from the
-                    // moment the vehicle is assigned (defaulting to «zurück»),
-                    // it is read out on the radio and printed on the slip, but
-                    // it could only be set from the incident card — so a whole
-                    // dispatch done through this dialog announced the wrong thing.
-                    const stays = vehicleDriverStay?.get(vehicle.name) ?? false
-                    const driver = vehicleDrivers.get(vehicle.name)
-                    const canSetStay = isAssigned && !!onToggleDriverStay
-                    return (
-                      <div
-                        key={vehicle.id}
-                        className={cn(
-                          "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all hover-delight",
-                          isAssigned && "border-primary/30 bg-primary/5",
-                          elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5"
-                        )}
-                      >
-                        <button
-                          onClick={() => handleToggleVehicle(vehicle)}
-                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left"
-                        >
-                          {isAssigned ? (
-                            <CheckCircle className={cn(
-                              "h-5 w-5 text-emerald-500 flex-shrink-0",
-                              wasJustAssigned && "animate-checkmark-spring"
-                            )} />
-                          ) : (
-                            <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate" title={vehicle.name}>{vehicle.name}</p>
-                            {elsewhere ? (
-                              <span
-                                title={elsewhere.full}
-                                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
-                              >
-                                <Siren className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{elsewhere.short}</span>
-                              </span>
-                            ) : (
-                              <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
-                            )}
-                            {/* Whether anybody is driving it — the half of "TLF 1
-                                is free" the fleet list does not carry. Said in
-                                both directions on purpose: a silent row would
-                                leave "no driver" and "not loaded yet" looking
-                                the same on the one screen where it decides
-                                whether the vehicle can actually roll. */}
-                            <p
-                              className={cn(
-                                "truncate text-2xs",
-                                driver ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400",
-                              )}
-                              title={driver ? t('assignmentDialog.vehicleDriver', { name: driver }) : undefined}
-                            >
-                              {driver
-                                ? t('assignmentDialog.vehicleDriver', { name: driver })
-                                : t('assignmentDialog.vehicleNoDriver')}
-                            </p>
-                          </div>
-                        </button>
-                        {canSetStay && (
+                <div className="space-y-4">
+                  {(vehicleSections.free.length > 0 || !!onToggleZuFuss) && (
+                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: vehicleSections.free.length })}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {/* «Zu Fuss» is not a vehicle and is never spoken for,
+                            so it leads the free block. */}
+                        {onToggleZuFuss && (
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onToggleDriverStay!(vehicle.name)
-                            }}
+                            onClick={onToggleZuFuss}
                             className={cn(
-                              "flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-1.5 py-1 text-2xs font-medium transition-colors",
-                              stays
-                                ? "bg-primary/15 text-foreground hover:bg-primary/25"
-                                : "bg-muted text-muted-foreground hover:bg-muted/70",
+                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+                              zuFuss && "border-primary/30 bg-primary/5"
                             )}
-                            title={stays ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
-                            aria-pressed={stays}
                           >
-                            {stays ? <MapPin className="h-3 w-3" /> : <Undo2 className="h-3 w-3" />}
-                            {stays ? t('common.driverStays') : t('common.driverReturns')}
+                            {zuFuss ? (
+                              <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                            ) : (
+                              <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{t('common.zuFuss')}</p>
+                              <p className="text-xs text-muted-foreground truncate">{t('assignmentDialog.noVehicle')}</p>
+                            </div>
                           </button>
                         )}
+                        {vehicleSections.free.map(renderVehicleTile)}
                       </div>
-                    )
-                  })}
+                    </ListSection>
+                  )}
+                  {vehicleSections.busy.length > 0 && (
+                    <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: vehicleSections.busy.length })}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {vehicleSections.busy.map(renderVehicleTile)}
+                      </div>
+                    </ListSection>
+                  )}
                 </div>
               )}
 
@@ -1136,49 +1297,21 @@ export function ResourceAssignmentDialog({
                       </div>
                     )
                   })}
-                  {/* Ungrouped materials */}
-                  {groupedFilteredMaterials.ungrouped.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {groupedFilteredMaterials.ungrouped.map((material) => {
-                        const isSelected = isMaterialSelected(material.id)
-                        const wasJustAssigned = justAssigned === material.id
-                        const elsewhere = materialElsewhereLabel(material)
-                        return (
-                          <button
-                            key={material.id}
-                            onClick={() => handleToggleMaterialSelection(material)}
-                            className={cn(
-                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                              isSelected && "border-primary/30 bg-primary/5",
-                              elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5"
-                            )}
-                          >
-                            {isSelected ? (
-                              <CheckCircle className={cn(
-                                "h-5 w-5 text-emerald-500 flex-shrink-0",
-                                wasJustAssigned && "animate-checkmark-spring"
-                              )} />
-                            ) : (
-                              <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm truncate" title={material.name}>{material.name}</p>
-                              {elsewhere ? (
-                                <span
-                                  title={elsewhere.full}
-                                  className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
-                                >
-                                  <Siren className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{elsewhere.short}</span>
-                                </span>
-                              ) : (
-                                <p className="text-xs text-muted-foreground truncate">{material.category}</p>
-                              )}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
+                  {/* Ungrouped materials — free first, spoken-for underneath.
+                      Module groups above stay whole: a module is a unit. */}
+                  {ungroupedMaterialSections.free.length > 0 && (
+                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: ungroupedMaterialSections.free.length })}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {ungroupedMaterialSections.free.map(renderMaterialTile)}
+                      </div>
+                    </ListSection>
+                  )}
+                  {ungroupedMaterialSections.busy.length > 0 && (
+                    <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: ungroupedMaterialSections.busy.length })}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {ungroupedMaterialSections.busy.map(renderMaterialTile)}
+                      </div>
+                    </ListSection>
                   )}
                 </>
               )}

@@ -139,13 +139,19 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
           canDrag && "draggable",
           isDragging && "dragging",
           isDragging && person.isDriver && "ring-2 ring-blue-500/50",
-          // Every card keeps the SAME surface — same border, same fill. State is
-          // carried by the status icon (amber minus = in use, emerald check =
-          // available) and the badges, never by fading or tinting the card.
-          // Earlier variants used `opacity-60`, `bg-muted/30` and `border-border/30`
-          // for the assigned/reko cases; side by side in one column that read as
-          // "some cards have a border and some don't", which is worse than the
-          // small amount of information the tint carried.
+          // Every card keeps the same BORDER and the same FILL — that part of
+          // the earlier note stands. What was tried and reverted was
+          // `opacity-60` together with `bg-muted/30` and `border-border/30`, and
+          // it was the border going soft that made one column read as "some
+          // cards have a border and some don't".
+          //
+          // The opacity is back on its own. Scanning a roster of forty for
+          // somebody free was a hunt for a 12px minus against a 12px check, in
+          // colours a quarter of a second apart; who is available has to be
+          // answerable at a glance down the column, and that is what a second
+          // channel buys. Hover brings the card back to full strength, so
+          // nothing dimmed is ever hard to read while it is being read.
+          isOccupied && !isDoubleBooked && "opacity-60 hover:opacity-100",
           !canDrag && person.status === "assigned" && "cursor-not-allowed",
           !canDrag && person.status !== "assigned" && "cursor-pointer",
           // Double-booked is the one exception: a genuine conflict the operator
