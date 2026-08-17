@@ -24,7 +24,6 @@ import {
   DEFAULT_WHATSAPP_MESSAGE_1,
   DEFAULT_WHATSAPP_MESSAGE_2,
 } from '@/lib/checklist-tasks'
-import { useOperations } from '@/lib/contexts/operations-context'
 import { cn, copyToClipboard } from '@/lib/utils'
 import { isBooleanRecord, readJson, writeJson } from '@/lib/utils/safe-storage'
 
@@ -53,9 +52,6 @@ export function EventSetupChecklist({
   onOpenAttendance,
   onSendDiveraMessage,
 }: EventSetupChecklistProps) {
-  // The driver prompt is queued through the context, not opened here — it is mounted in
-  // the root layout, so it survives this popover being dismissed.
-  const { promptDriversForVehicles } = useOperations()
   const t = useTranslations('checklist.setup')
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
@@ -258,12 +254,6 @@ export function EventSetupChecklist({
         onOpenVehicles: () => {
           onDismiss()
           onOpenVehicles?.()
-        },
-        // Hand the whole run over at once: the prompt lives in the root layout, so it
-        // outlives this popover closing underneath it.
-        onAssignDrivers: () => {
-          onDismiss()
-          promptDriversForVehicles(findVehiclesWithoutDriver(vehicles, specialFunctions))
         },
         onOpenAttendance: () => {
           onDismiss()

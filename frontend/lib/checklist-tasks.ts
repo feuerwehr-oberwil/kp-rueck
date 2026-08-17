@@ -1,4 +1,4 @@
-import { LucideIcon, Binoculars, MessageCircle, User, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
+import { LucideIcon, Binoculars, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { getTileBaseUrl } from '@/lib/env'
 import { translateOutsideReact } from '@/lib/i18n-messages'
@@ -169,9 +169,7 @@ export function generateChecklistTasks(params: {
   onOpenFallbackSettings: () => void
   /** Opens the Fahrzeuge sheet, where a driver is set per vehicle. */
   onOpenVehicles: () => void
-  /** Starts a run through every vehicle that still has no driver. */
-  onAssignDrivers: () => void
-  /** How many vehicles still have nobody driving them — 0 hides the run button. */
+  /** How many vehicles still have nobody driving them — shown as the row's count. */
   vehiclesWithoutDriver: number
   /** Opens the Appell — the board's own roll-call, where the count on this row is made. */
   onOpenAttendance: () => void
@@ -299,10 +297,14 @@ export function generateChecklistTasks(params: {
       ]
     },
 
-    // 6. Assign drivers — the row's own promise is "alle Fahrzeuge benötigen einen
-    //    Fahrer", so the first button walks every driverless vehicle in one pass
-    //    rather than making the operator find each one. The Fahrzeuge sheet stays
-    //    alongside it for looking at the fleet rather than working through it.
+    // 6. Assign drivers — one button, into the Fahrzeuge sheet.
+    //
+    //    There used to be a second one that walked every driverless vehicle
+    //    through the «Fahrer für X» modal in a run. It was dropped: the order was
+    //    whatever the fleet query returned, each step named one vehicle with
+    //    nothing around it, and an operator four modals deep had no way to see
+    //    which of them were still open. The sheet shows the whole fleet with its
+    //    drivers at once, which is the same job with the context left in.
     {
       id: 'assign-drivers',
       title: translateOutsideReact('checklist.tasks.assign-drivers.title'),
@@ -316,16 +318,6 @@ export function generateChecklistTasks(params: {
         details: translateOutsideReact('checklist.tasks.assign-drivers.details', { count: params.driverAssignments, total: params.totalVehicles })
       },
       actionButtons: [
-        ...(params.vehiclesWithoutDriver > 0
-          ? [
-              {
-                label: translateOutsideReact('checklist.actions.assignDrivers'),
-                icon: User,
-                variant: 'outline' as const,
-                onClick: params.onAssignDrivers
-              }
-            ]
-          : []),
         {
           label: translateOutsideReact('checklist.actions.openVehicles'),
           icon: Truck,
@@ -460,7 +452,6 @@ export function listChecklistTasks(): { id: string; title: string; defaultNote?:
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
-    onAssignDrivers: noop,
     vehiclesWithoutDriver: 0,
     onOpenAttendance: noop,
   }).map((task) => ({ id: task.id, title: task.title, defaultNote: task.note }))
@@ -541,7 +532,6 @@ export async function summarizeEventChecklist(
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
-    onAssignDrivers: noop,
     vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
     onOpenAttendance: noop,
   })

@@ -235,18 +235,13 @@ interface OperationsContextType {
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string, force?: boolean) => void
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
-  /** The vehicle the driver prompt is currently asking about — the head of a queue,
-   * so a single assignment and a walk through every driverless vehicle are the same
-   * mechanism. Set when a vehicle is assigned to an incident but has no driver yet,
-   * or by promptDriversForVehicles. The user may dismiss the prompt to leave the
-   * vehicle without a driver. Cleared via clearVehicleNeedingDriver. */
+  /** The vehicle the driver prompt is asking about: set when a vehicle is assigned
+   * to an incident and nobody is driving it. Exactly one at a time — the setup
+   * checklist used to queue a run through every driverless vehicle here, and that
+   * went to the Fahrzeuge sheet instead, where the whole fleet is visible at once.
+   * The user may dismiss the prompt to leave the vehicle without a driver. */
   vehicleNeedingDriver: { vehicleId: string; vehicleName: string; incidentId?: string } | null
-  /** Queue a run of vehicles for the driver prompt — used by the setup checklist to
-   * walk every driverless vehicle in one pass instead of one trip per vehicle. */
-  promptDriversForVehicles: (vehicles: { vehicleId: string; vehicleName: string }[]) => void
-  /** Drop the current vehicle and ask about the next one, if any. */
-  advanceVehicleNeedingDriver: () => void
-  /** Stop the run entirely — what dismissing the prompt means. */
+  /** Close the prompt — both after assigning and on dismissal. */
   clearVehicleNeedingDriver: () => void
   /** Set when a resource is being assigned to an incident while it is still
    * assigned to one or more other incidents. The UI prompts the operator to
@@ -348,20 +343,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   const [incidentTotal, setIncidentTotal] = useState<number | null>(null)
-  // Vehicles waiting for a driver, oldest first. A single vehicle assigned without a
-  // driver is a queue of one; the setup checklist queues every driverless vehicle so
-  // the operator makes one pass instead of one trip per vehicle. Empty when there is
-  // nothing to prompt for.
-  const [driverPromptQueue, setDriverPromptQueue] = useState<
-    { vehicleId: string; vehicleName: string; incidentId?: string }[]
-  >([])
-  const vehicleNeedingDriver = driverPromptQueue[0] ?? null
-  const promptDriversForVehicles = useCallback(
-    (vehicles: { vehicleId: string; vehicleName: string }[]) => setDriverPromptQueue(vehicles),
-    []
-  )
-  const advanceVehicleNeedingDriver = useCallback(() => setDriverPromptQueue((queue) => queue.slice(1)), [])
-  const clearVehicleNeedingDriver = useCallback(() => setDriverPromptQueue([]), [])
+  // The one vehicle that was just put on an incident with nobody driving it, or
+  // null. It was a queue while the setup checklist walked every driverless vehicle
+  // through the same prompt; that run is gone, and a queue that can only ever hold
+  // one entry is a queue pretending.
+  const [vehicleNeedingDriver, setVehicleNeedingDriver] = useState<
+    { vehicleId: string; vehicleName: string; incidentId?: string } | null
+  >(null)
+  const clearVehicleNeedingDriver = useCallback(() => setVehicleNeedingDriver(null), [])
   const [resourceConflict, setResourceConflict] = useState<OperationsContextType["resourceConflict"]>(null)
   const [materialOnSite, setMaterialOnSite] = useState<OperationsContextType["materialOnSite"]>(new Map())
 
@@ -2004,7 +1993,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             if (!hasDriver && stillAssigned) {
               // Carrying the incident is what lets the prompt offer to take the
               // vehicle back off it when nobody is found to drive it.
-              setDriverPromptQueue([{ vehicleId, vehicleName, incidentId: operationId }])
+              setVehicleNeedingDriver({ vehicleId, vehicleName, incidentId: operationId })
             }
           } catch (err) {
             console.error("Failed to check vehicle driver state:", err)
@@ -2266,8 +2255,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         assignMaterialToOperation,
         assignVehicleToOperation,
         vehicleNeedingDriver,
-        promptDriversForVehicles,
-        advanceVehicleNeedingDriver,
         clearVehicleNeedingDriver,
         resourceConflict,
         materialOnSite,

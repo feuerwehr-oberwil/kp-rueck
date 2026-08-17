@@ -34,7 +34,6 @@ function tasks(overrides: Partial<Parameters<typeof generateChecklistTasks>[0]> 
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
-    onAssignDrivers: noop,
     vehiclesWithoutDriver: 3,
     onOpenAttendance: noop,
     ...overrides,
@@ -44,30 +43,17 @@ function tasks(overrides: Partial<Parameters<typeof generateChecklistTasks>[0]> 
 const byId = (id: string, list: ChecklistTaskState[]) => list.find(task => task.id === id)
 
 describe('the setup checklist links into what it is asking for', () => {
-  it('starts a driver run from the driver step, before offering the fleet', () => {
-    // The row's promise is that every vehicle has a driver, so the first button
-    // walks the ones that don't. Counting the gap and then making the operator go
-    // and find each vehicle is the thing being fixed.
-    const onAssignDrivers = vi.fn()
+  it('sends the driver step into the Fahrzeuge sheet, driverless or not', () => {
+    // One destination, whether three vehicles are missing a driver or none is.
+    // The modal run that used to sit here named one vehicle at a time in whatever
+    // order the fleet query returned — the sheet shows the fleet with its drivers.
     const onOpenVehicles = vi.fn()
-    const task = byId('assign-drivers', tasks({ onAssignDrivers, onOpenVehicles }))
-
-    expect(task?.actionButtons).toHaveLength(2)
-    task?.actionButtons?.[0].onClick?.()
-    expect(onAssignDrivers).toHaveBeenCalledOnce()
-    task?.actionButtons?.[1].onClick?.()
-    expect(onOpenVehicles).toHaveBeenCalledOnce()
-  })
-
-  it('drops the driver run once every vehicle has somebody driving it', () => {
-    // Nothing left to walk through, so the button would open an empty run. The
-    // Fahrzeuge sheet stays — looking at the fleet is still a reasonable thing to do.
-    const onOpenVehicles = vi.fn()
-    const task = byId('assign-drivers', tasks({ vehiclesWithoutDriver: 0, onOpenVehicles }))
-
-    expect(task?.actionButtons).toHaveLength(1)
-    task?.actionButtons?.[0].onClick?.()
-    expect(onOpenVehicles).toHaveBeenCalledOnce()
+    for (const vehiclesWithoutDriver of [3, 0]) {
+      const task = byId('assign-drivers', tasks({ vehiclesWithoutDriver, onOpenVehicles }))
+      expect(task?.actionButtons).toHaveLength(1)
+      task?.actionButtons?.[0].onClick?.()
+    }
+    expect(onOpenVehicles).toHaveBeenCalledTimes(2)
   })
 
   it('offers both ways into the check-in step', () => {

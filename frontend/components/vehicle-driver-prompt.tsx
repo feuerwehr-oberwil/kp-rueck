@@ -22,18 +22,19 @@ import { DriverAssignmentDialog } from "./driver-assignment-dialog"
  * Fahrer lassen" is one tap, because the driver is sometimes decided on the
  * forecourt a minute later.
  *
- * The queue behind it holds either one vehicle (just assigned to an incident with
- * nobody driving it) or every driverless vehicle, when the setup checklist starts a
- * run. Assigning a driver moves to the next vehicle; closing ends the run, because
- * a dismiss means "not now" and re-asking would be nagging.
+ * **One vehicle, always.** The setup checklist used to start a *run* through this
+ * prompt — every driverless vehicle in turn, in whatever order the fleet query
+ * returned, each step a modal naming one vehicle with nothing around it. That is
+ * now the Fahrzeuge sheet, which shows the fleet and its drivers at once. What is
+ * left here is the case the prompt was actually good at: this one vehicle, just
+ * now, is rolling with nobody driving it.
  *
  * Mounted once in the root layout so it covers every assignment entry point
- * (kanban drag-drop, map, command palette, context menu, setup checklist).
+ * (kanban drag-drop, map, command palette, context menu).
  */
 export function VehicleDriverPrompt() {
   const {
     vehicleNeedingDriver,
-    advanceVehicleNeedingDriver,
     clearVehicleNeedingDriver,
     personnel,
     operations,
@@ -53,8 +54,9 @@ export function VehicleDriverPrompt() {
   } | null>(null)
 
   // The dialog closes itself right after a successful assignment, so "closed" alone
-  // cannot tell an assignment from a dismissal — and the two mean opposite things for
-  // a run. onDriverAssigned always fires first, which is what this records.
+  // cannot tell an assignment from a dismissal — and only a dismissal should ask
+  // whether the vehicle comes back off the incident. onDriverAssigned always fires
+  // first, which is what this records.
   const assignedRef = useRef(false)
 
   // Load the event's special functions so the dialog can exclude personnel who
@@ -113,19 +115,13 @@ export function VehicleDriverPrompt() {
         if (open) return
         if (assignedRef.current) {
           assignedRef.current = false
-          advanceVehicleNeedingDriver()
-        } else {
-          // A run started from the setup checklist carries no incident — there
-          // is nothing to take the vehicle off, and "not now" is the whole
-          // answer there.
-          if (vehicleNeedingDriver.incidentId) {
-            setDriverless({
-              vehicleName: vehicleNeedingDriver.vehicleName,
-              incidentId: vehicleNeedingDriver.incidentId,
-            })
-          }
-          clearVehicleNeedingDriver()
+        } else if (vehicleNeedingDriver.incidentId) {
+          setDriverless({
+            vehicleName: vehicleNeedingDriver.vehicleName,
+            incidentId: vehicleNeedingDriver.incidentId,
+          })
         }
+        clearVehicleNeedingDriver()
       }}
       vehicleId={vehicleNeedingDriver.vehicleId}
       vehicleName={vehicleNeedingDriver.vehicleName}
