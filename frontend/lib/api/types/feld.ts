@@ -552,6 +552,9 @@ export interface ApiFeldIncidentCreate {
   location_lat?: string | null
   location_lng?: string | null
   description?: string | null
+  /** «Weitere Hinweise» — the board's Notizen. Kept apart from `description`,
+   *  which IS the Meldung the card prints and the radio reads out. */
+  internal_notes?: string | null
   /** "Wir übernehmen das gleich" — see `ApiFeldIncidentCreated.takeover`. */
   take_over?: boolean
   /** The Telefondienst variant: a call written down, not a thing seen. Only
@@ -577,6 +580,7 @@ export interface ApiFeldIncidentUpdate {
   location_lat?: string | null
   location_lng?: string | null
   description?: string | null
+  internal_notes?: string | null
   contact?: string | null
   contact_phone?: string | null
 }
@@ -595,6 +599,8 @@ export interface ApiFeldOwnReport {
   type: string
   priority: string
   description: string | null
+  /** «Weitere Hinweise», so a correction prefills what was actually typed. */
+  internal_notes: string | null
   location_address: string | null
   /** Server-formatted address (home city stripped), like every other row. */
   location_display: string | null

@@ -80,6 +80,25 @@ describe('FeldMeldenSheet', () => {
     expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
   })
 
+  it('starts the phone desk at Niedrig and offers the number pad', async () => {
+    const user = userEvent.setup()
+    render({ isPhoneDesk: true })
+
+    // The number pad is `type`, not `inputMode` alone — this form is filled in
+    // on a phone, and it was a text field there.
+    expect(screen.getByLabelText('Telefon')).toHaveAttribute('type', 'tel')
+
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    await user.type(screen.getByLabelText(/Meldung/), 'Wasser im Keller')
+    await user.click(screen.getByRole('button', { name: 'Weiter' }))
+
+    // Most Meldungen are ordinary; «Mittel» on every new card says nothing.
+    expect(screen.getByText('Niedrig')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Meldung absetzen' }))
+    await waitFor(() => expect(createFeldIncident).toHaveBeenCalledTimes(1))
+    expect(createFeldIncident.mock.calls[0][2]).toMatchObject({ priority: 'low' })
+  })
+
   it('corrects a Meldung it was handed, prefilled and without the takeover switch', async () => {
     const user = userEvent.setup()
     const onReported = vi.fn()
@@ -89,6 +108,7 @@ describe('FeldMeldenSheet', () => {
       type: 'oelwehr',
       priority: 'medium',
       description: 'Ölspur',
+      internal_notes: null,
       location_address: 'Hauptstrasse 12',
       location_display: 'Hauptstrasse 12',
       location_lat: null,

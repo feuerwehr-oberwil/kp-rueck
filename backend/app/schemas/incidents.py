@@ -142,9 +142,17 @@ class PublicIncidentCreate(BaseModel):
     """Lean schema for alarms created via the public token-gated intake form.
 
     Intentionally narrow: a phone operator / walk-in only provides the essentials.
-    The event comes from the token, status is forced to ``incoming`` and
-    operator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later
-    by an editor on the board. Validators mirror ``IncidentBase``.
+    The event comes from the token, status is forced to ``incoming`` and the
+    operator-only flags (nachbarhilfe, am_warten, zu_fuss, the Auftrag, …) are set
+    later by an editor on the board. Validators mirror ``IncidentBase``.
+
+    The two free-text columns are NOT interchangeable, and the form's two text
+    fields land in them the way the board reads them: ``description`` is what the
+    board labels «Meldung» — what the caller said the thing IS — and
+    ``internal_notes`` is «Notizen», the extra hints that came with the call.
+    Before this, the form's Meldung went into ``title``, which the board only ever
+    shows as a fallback for a missing address, so the one sentence the caller
+    actually gave was invisible on a card that had an address.
     """
 
     title: str
@@ -153,9 +161,10 @@ class PublicIncidentCreate(BaseModel):
     location_address: str | None = None
     location_lat: str | Decimal | None = None
     location_lng: str | Decimal | None = None
-    description: str | None = None
+    description: str | None = None  # «Meldung» — what was reported
     contact: str | None = None  # "Melder / Anrufer"
     contact_phone: str | None = None  # Direct phone number
+    internal_notes: str | None = None  # «Notizen» — further hints from the call
 
     # Reuse the shared validators from IncidentBase. `.__func__` unwraps the classmethod so it
     # can be re-registered here; mypy sees the already-bound method and doesn't model the
@@ -165,6 +174,9 @@ class PublicIncidentCreate(BaseModel):
     _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
     _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
     _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
+    # Same rule for the notes: free text through a login-less door needs the same
+    # 2000-character cap, and the same strip, as the Meldung next to it.
+    _validate_notes = field_validator("internal_notes")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
 
 
 class IncidentUpdate(BaseModel):

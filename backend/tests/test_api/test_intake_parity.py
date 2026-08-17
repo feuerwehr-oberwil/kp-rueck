@@ -17,9 +17,13 @@ the day it lands.
 The public form's row is the reference: an editor-created intake incident has to
 match it column for column, because the point is that the two are the same fact
 arriving through different doors. Everything the board sets and the lean public
-form cannot (`internal_notes`, the flags, the Auftrag) is left at its default in
-the comparison, and `created_by` is the audit trail — the one column that must
-differ, since a KP-typed card does have an author.
+form cannot (the flags, the Auftrag) is left at its default in the comparison,
+and `created_by` is the audit trail — the one column that must differ, since a
+KP-typed card does have an author.
+
+`internal_notes` is compared rather than skipped since the phone desk's «Weitere
+Hinweise» writes it: the caller's extras are the board's «Notizen» on both sides
+of the door.
 """
 
 from uuid import uuid4
@@ -45,6 +49,7 @@ ALARM = {
     "description": "Baum liegt quer über beide Spuren",
     "contact": "Hans Muster",
     "contact_phone": "079 123 45 67",
+    "internal_notes": "Anwohner wartet vor dem Haus",
 }
 
 # Columns that carry the alarm itself. `created_by` is deliberately absent: it is
@@ -61,6 +66,7 @@ ALARM_COLUMNS = [
     "description",
     "contact",
     "contact_phone",
+    "internal_notes",
     "status",
     "source",
     "source_ref",

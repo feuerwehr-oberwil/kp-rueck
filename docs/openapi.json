@@ -21574,6 +21574,17 @@
             ],
             "title": "Description"
           },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
           "take_over": {
             "type": "boolean",
             "title": "Take Over",
@@ -21732,6 +21743,17 @@
               }
             ],
             "title": "Description"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
           },
           "contact": {
             "anyOf": [
@@ -21943,6 +21965,17 @@
               }
             ],
             "title": "Description"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
           },
           "location_address": {
             "anyOf": [
@@ -26386,6 +26419,17 @@
               }
             ],
             "title": "Contact Phone"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
           }
         },
         "type": "object",
@@ -26395,7 +26439,7 @@
           "priority"
         ],
         "title": "PublicIncidentCreate",
-        "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and\noperator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later\nby an editor on the board. Validators mirror ``IncidentBase``."
+        "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and the\noperator-only flags (nachbarhilfe, am_warten, zu_fuss, the Auftrag, …) are set\nlater by an editor on the board. Validators mirror ``IncidentBase``.\n\nThe two free-text columns are NOT interchangeable, and the form's two text\nfields land in them the way the board reads them: ``description`` is what the\nboard labels «Meldung» — what the caller said the thing IS — and\n``internal_notes`` is «Notizen», the extra hints that came with the call.\nBefore this, the form's Meldung went into ``title``, which the board only ever\nshows as a fallback for a missing address, so the one sentence the caller\nactually gave was invisible on a card that had an address."
       },
       "RapportExtraMaterialRow": {
         "properties": {

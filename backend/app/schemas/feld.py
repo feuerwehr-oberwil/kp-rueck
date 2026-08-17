@@ -830,6 +830,11 @@ class FeldIncidentCreate(BaseModel):
     location_lat: str | Decimal | None = None
     location_lng: str | Decimal | None = None
     description: str | None = None
+    # What the caller added beyond the Meldung itself. Lands in the incident's
+    # `internal_notes`, i.e. the board's «Notizen» — the same split `/alarm`
+    # makes. Putting it in `description` would overwrite the Meldung, which is
+    # what the board prints on the card and reads out on the radio.
+    internal_notes: str | None = None
     take_over: bool = False
     # The Telefondienst variant (plan 26, decision 6): the phone desk is a ROLE,
     # not a page. Somebody holding it is writing down a call, so the report gets
@@ -867,6 +872,7 @@ class FeldIncidentUpdate(BaseModel):
     location_lat: str | Decimal | None = None
     location_lng: str | Decimal | None = None
     description: str | None = None
+    internal_notes: str | None = None
     contact: str | None = None
     contact_phone: str | None = None
 
@@ -888,6 +894,8 @@ class FeldOwnReport(BaseModel):
     type: str
     priority: str
     description: str | None = None
+    # Carried so a correction prefills what the reporter actually typed.
+    internal_notes: str | None = None
     location_address: str | None = None
     location_display: str | None = None
     location_lat: Decimal | None = None

@@ -771,6 +771,7 @@ async def correct_own_report(
         type=updated.type,
         priority=updated.priority,
         description=updated.description,
+        internal_notes=updated.internal_notes,
         location_address=updated.location_address,
         location_display=incident_display.location_display(updated.location_address, home_city),
         location_lat=updated.location_lat,

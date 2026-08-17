@@ -177,6 +177,8 @@ async def create_field_report(
         type=payload.type,
         priority=payload.priority,
         description=payload.description,
+        # «Weitere Hinweise» is not the Meldung — see FeldIncidentCreate.
+        internal_notes=payload.internal_notes,
         location_address=payload.location_address,
         location_lat=payload.location_lat,
         location_lng=payload.location_lng,
@@ -403,6 +405,7 @@ async def update_field_report(
         "priority": incident.priority,
         "location_address": incident.location_address,
         "description": incident.description,
+        "internal_notes": incident.internal_notes,
     }
     old_address = incident.location_address
 
@@ -412,6 +415,8 @@ async def update_field_report(
         incident.priority = payload.priority
     if payload.description is not None:
         incident.description = payload.description or None
+    if payload.internal_notes is not None:
+        incident.internal_notes = payload.internal_notes or None
     if payload.location_address is not None:
         incident.location_address = payload.location_address or None
     if payload.location_lat is not None:

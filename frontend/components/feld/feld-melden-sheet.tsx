@@ -50,6 +50,7 @@ import { reverseGeocode } from '@/lib/geocoding'
 import { PRIORITY_LABELS } from '@/lib/priority'
 import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
+import { sanitizePhoneInput } from '@/lib/utils'
 
 /** The one label style the whole sheet uses — the same one `/alarm` uses, which
  *  is what stopped the location field (its own component) looking like a
@@ -106,10 +107,15 @@ interface FeldMeldenEditProps extends FeldMeldenSheetBase {
  *  what became of the Meldung, a correction hands back the corrected row. */
 export type FeldMeldenSheetProps = FeldMeldenCreateProps | FeldMeldenEditProps
 
+/** Low, in every form that creates an incident. Most Meldungen are ordinary —
+ *  a board where every new card claims «Mittel» has nothing left to say "this
+ *  one" with, and the card tables already read `low` as the quiet default. */
+const DEFAULT_PRIORITY: IncidentPriority = 'low'
+
 /** Same narrowing as `asIncidentType`, for the priority union. Local because
  *  this is the only surface that reads a priority back off the wire. */
 function asPriority(value: string | undefined): IncidentPriority {
-  return value && value in PRIORITY_LABELS ? (value as IncidentPriority) : 'medium'
+  return value && value in PRIORITY_LABELS ? (value as IncidentPriority) : DEFAULT_PRIORITY
 }
 
 export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
@@ -144,7 +150,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
   const reset = () => {
     setType('elementarereignis')
     setTitle('')
-    setPriority('medium')
+    setPriority(DEFAULT_PRIORITY)
     setAddress(null)
     setLat(null)
     setLng(null)
@@ -237,16 +243,17 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
     try {
       if (props.editing) {
         const corrected = await apiClient.updateFeldReport(props.editing.incident_id, personnelId, token, {
-          // The title follows the address only when it WAS the address — the
-          // server makes the same call, and sending it explicitly here would
-          // overwrite a title the phone desk typed.
-          title: isPhoneDesk ? meldung : null,
+          // No title: the server keeps it following the address, which is what
+          // the card's heading is. Sending one here would freeze a heading that
+          // no longer matches the street the correction just changed.
+          title: null,
           type,
           priority,
           location_address: street || null,
           location_lat: lat === null ? null : lat.toFixed(6),
           location_lng: lng === null ? null : lng.toFixed(6),
-          description: description.trim(),
+          description: isPhoneDesk ? meldung : description.trim(),
+          internal_notes: isPhoneDesk ? description.trim() : null,
           contact: isPhoneDesk ? contact.trim() : null,
           contact_phone: isPhoneDesk ? contactPhone.trim() : null,
         })
@@ -256,15 +263,23 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         return
       }
       const result = await apiClient.createFeldIncident(personnelId, token, {
-        // The title is what the board shows on the card. The address is the
-        // most useful thing a crew can put there and the one they always have.
-        title: meldung || street || INCIDENT_TYPE_LABELS[type],
+        // The card's heading is the ADDRESS — the same choice the board's own
+        // «Neuer Einsatz» makes (`title: operation.location`), falling back to
+        // what was reported when there is no street.
+        title: street || meldung || INCIDENT_TYPE_LABELS[type],
         type,
         priority,
         location_address: street || null,
         location_lat: lat === null ? null : lat.toFixed(6),
         location_lng: lng === null ? null : lng.toFixed(6),
-        description: description.trim() || null,
+        // The phone desk types the Meldung and, separately, further notes: the
+        // Meldung is what the board prints on the card and reads out, the notes
+        // are «Notizen». A crew has no second field — what they saw IS the
+        // Meldung — so theirs stays the description and adds no notes. Before
+        // this, the desk's Meldung went into `title` (invisible the moment
+        // there was an address) and the notes overwrote the Meldung.
+        description: (isPhoneDesk ? meldung : description.trim()) || null,
+        internal_notes: isPhoneDesk ? description.trim() || null : null,
         take_over: takeOver,
         as_phone_call: Boolean(isPhoneDesk),
         contact: isPhoneDesk ? contact.trim() || null : null,
@@ -483,8 +498,10 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         {/* The Melder — only for somebody taking a call. A firefighter standing
             in front of the thing IS the Melder, and their name is already on
             the audit row, so asking them who reported it is asking twice. */}
+        {/* Two rows, not two columns: half a phone width holds neither a name
+            nor a Swiss number without scrolling the text out of sight. */}
         {isPhoneDesk && (
-          <div className="grid grid-cols-2 gap-2">
+          <>
             <div>
               <Label htmlFor="feld-melden-contact" className={LABEL}>
                 {t('caller')}
@@ -500,15 +517,18 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
               <Label htmlFor="feld-melden-phone" className={LABEL}>
                 {t('callerPhone')}
               </Label>
+              {/* `type="tel"` is what puts the number pad up; `inputMode` alone
+                  left it a text field on the phone this form is used on. */}
               <Input
                 id="feld-melden-phone"
+                type="tel"
                 inputMode="tel"
                 value={contactPhone}
-                onChange={event => setContactPhone(event.target.value)}
+                onChange={event => setContactPhone(sanitizePhoneInput(event.target.value))}
                 className="mt-2"
               />
             </div>
-          </div>
+          </>
         )}
 
         {/* The switch the phone desk could never have: the person reporting is

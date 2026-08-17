@@ -2355,9 +2355,12 @@ class ApiClient {
     location_address?: string | null
     location_lat?: string | null
     location_lng?: string | null
+    /** The board's «Meldung» — what the caller said the thing is. */
     description?: string | null
     contact?: string | null
     contact_phone?: string | null
+    /** The board's «Notizen» — the further hints that came with the call. */
+    internal_notes?: string | null
   }): Promise<{ id: string }> {
     return this.request<{ id: string }>(
       `/api/intake/alarm?token=${encodeURIComponent(token)}`,
