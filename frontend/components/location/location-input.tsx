@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
+import { SHEET_LAYER_ATTR } from "@/components/ui/footer-sheet"
 import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { searchAddress, geocodeAddress } from "@/lib/geocoding"
@@ -401,6 +402,12 @@ export function LocationInput({
               </div>
             </PopoverAnchor>
             <PopoverContent
+              // The list is portalled to the end of <body>, so to anything that
+              // asks "did that click land outside?" it is outside — which is how
+              // picking an address inside the /feld «Neue Meldung» slide-up used
+              // to dismiss the whole sheet and throw the form away. This says the
+              // list belongs to whatever panel the field sits in.
+              {...{ [SHEET_LAYER_ATTR]: '' }}
               // Trigger width as the FLOOR, not the size: in the side panel the
               // field is ~250px wide, and an address list that narrow truncates
               // exactly the part that distinguishes two streets of the same name.

@@ -800,6 +800,22 @@
   filter: saturate(0) brightness(0.6) contrast(1.1);
 }
 
+/* Leaflet's image markers keep the size Leaflet gave them.
+   `Icon._setIconStyles` writes the size and the anchor together — an inline
+   25x41 with a matching -12px/-41px offset — and Leaflet puts `role="button"`
+   on every keyboard-reachable marker. That made the mobile touch-target floor
+   in @layer base (`[role="button"] { min-width/height: 44px }`) apply to the
+   pin: on a phone it grew to 44x44, lost its aspect ratio and no longer pointed
+   at the spot it marks, because the anchor was still the one for 25x41. A
+   marker is not a tap target that can be enlarged on its own.
+   Unlayered on purpose — that is what beats the @layer base rule.
+   `img` only: the div-based incident markers keep the sizing map-view.tsx
+   gives them (and the scale-down right below). */
+.leaflet-container .leaflet-marker-pane img {
+  min-width: 0;
+  min-height: 0;
+}
+
 /* Incident markers are sized in JS (24/32px) for wall monitors. On small
    screens that reads as oversized, so scale the inner svg down. Scaling the
    svg (not the .custom-marker wrapper, which Leaflet transforms for
