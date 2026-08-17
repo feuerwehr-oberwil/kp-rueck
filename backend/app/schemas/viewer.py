@@ -57,7 +57,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-from .events import FunctionType
 from .groups import GroupProgress
 from .incidents import AssignedVehicle, IncidentPriority, IncidentStatus, IncidentType
 
@@ -225,6 +224,8 @@ class ViewerSpecialFunction(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     personnel_id: UUID
-    function_type: FunctionType
+    # `str`, not the enum — same reason as `EventSpecialFunctionResponse`: the
+    # lookup table is the authority, and a station's own role must not 500 here.
+    function_type: str
     vehicle_id: UUID | None = None
     vehicle_name: str | None = None

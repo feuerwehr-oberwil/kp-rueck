@@ -20672,7 +20672,8 @@
             "title": "Personnel Name"
           },
           "function_type": {
-            "$ref": "#/components/schemas/FunctionType"
+            "type": "string",
+            "title": "Function Type"
           },
           "vehicle_id": {
             "anyOf": [
@@ -22093,10 +22094,11 @@
           "driver",
           "reko",
           "magazin",
-          "telefondienst"
+          "telefondienst",
+          "kommandoposten"
         ],
         "title": "FunctionType",
-        "description": "The roles this release knows by name.\n\nKept as an enum for the three the code actually *behaves* differently for,\nand for a readable OpenAPI. It is no longer the authority: since plan 26\n(decision 5) the values live in ``special_function_types`` so a station can\nadd its own without a migration, and the API validates against that table.\nA role this enum has never heard of is therefore accepted and simply gets\nthe default treatment — which is the whole point of making it data."
+        "description": "The roles this release knows by name — documentation, not validation.\n\nKept as an enum for the ones the code actually *behaves* differently for and\nfor a readable OpenAPI. It is not the authority: since plan 26 (decision 5)\nthe values live in ``special_function_types`` so a station can add its own\nwithout a migration, and ``crud.special_functions`` validates against that\ntable.\n\nWhich is why nothing **types a field with it any more.** It used to sit on\nthe response schema, so a role the enum had never heard of was accepted on\nthe way in and then 500'd on the way out — the create schema said ``str``\nand the response said enum, and the docstring promised the behaviour the\nresponse denied. `kommandoposten` is the role that found it."
       },
       "GenerateEmergencyRequest": {
         "properties": {
