@@ -3443,9 +3443,7 @@
       "callerPhone": "Telefon",
       "message": "Meldung",
       "messagePlaceholder": "Was wurde gemeldet?",
-      "priority": "Priorität",
-      "typeSearch": "Einsatzart suchen…",
-      "typeNotFound": "Keine Einsatzart gefunden."
+      "priority": "Priorität"
     },
     "attendance": {
       "notHereTitle": "Du bist nicht eingecheckt",
@@ -3458,14 +3456,17 @@
       "title": "Material",
       "empty": "Kein Material erfasst.",
       "summary": "{out} von {total} draussen",
-      "columnMaterial": "Material",
-      "columnWhere": "Wo",
-      "inMagazin": "Magazin",
       "state": {
-        "left": "zurückgelassen"
-      },
-      "columnType": "Typ",
-      "columnGroup": "Gruppe"
+        "in": "Magazin / unbenutzt",
+        "out": "Im Einsatz",
+        "left": "Vor Ort gelassen"
+      }
+    },
+    "roleEmpty": {
+      "telefondienstTitle": "Du bist am Telefon",
+      "telefondienstBody": "Anrufe hier erfassen – sie landen als Meldung beim KP.",
+      "kommandopostenTitle": "Du bist im Kommandoposten",
+      "kommandopostenBody": "Du führst die Lage auf dem Board. Hier steht nur, was im Feld passiert."
     }
   }
 }

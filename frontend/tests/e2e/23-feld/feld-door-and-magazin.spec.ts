@@ -305,29 +305,28 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
       await feld.open(fixture.link, fixture.code);
       await feld.pickPerson(magazin.name);
 
-      // The table, headed by the one number they want first.
-      const table = phone.getByRole('table');
-      await expect(table).toBeVisible({ timeout: FELD_TIMEOUT });
-      await expect(phone.getByText(/von \d+ draussen/)).toBeVisible();
+      // Three lists, headed by the one number they want first. Not a table with
+      // a «Wo» column: the Materialwart does not need the street, they need to
+      // know whether a unit is in the Magazin, out, or left behind — and four
+      // columns meant scrolling a phone sideways to read the one that mattered.
+      await expect(phone.getByText(/von \d+ draussen/)).toBeVisible({ timeout: FELD_TIMEOUT });
+      await expect(phone.getByRole('heading', { name: /Im Einsatz/ })).toBeVisible();
+      await expect(phone.getByRole('heading', { name: /Magazin \/ unbenutzt/ })).toBeVisible();
 
-      // The unit that is out names the Schadenplatz it is standing on. There is
-      // no status chip beside it and there should not be: «Wo» saying an address
-      // rather than «Magazin» IS the status, and a word repeating that carried
-      // nothing of its own.
-      const out = table.getByRole('row').filter({ hasText: street(fixture.incident) }).first();
-      await expect(out).toBeVisible();
-      // (The summary line above the table still counts them — "1 von N
-       // draussen" is the number a Materialwart wants before reading any row.)
-      await expect(table.getByText('draussen')).toHaveCount(0);
+      // Exactly the one unit under «Im Einsatz» — and the address nowhere on
+      // the page, which is the whole point of dropping the column.
+      await expect(phone.getByRole('heading', { name: 'Im Einsatz · 1' })).toBeVisible();
+      await expect(phone.getByText(street(fixture.incident))).toHaveCount(0);
 
       // …and the stand-in it replaced is gone: no Schadenplatz row, no source
-      // tag, no explanatory sentence, because the table says all three better.
+      // tag, no explanatory sentence, because the lists say all three better.
       await expect(feld.assignmentRow(street(fixture.incident))).toHaveCount(0);
       await expect(phone.getByText('Material von hier ist noch nicht zurück')).toHaveCount(0);
       await expect(phone.getByText('kein Rapport')).toHaveCount(0);
 
-      // «Melden» stays: noticing something is not a crew privilege.
-      await expect(phone.getByRole('button', { name: 'Melden', exact: true })).toBeVisible();
+      // No «Melden»: the Magazin is at the station, and reporting a Schadenplatz
+      // is for the people standing in front of one.
+      await expect(phone.getByRole('button', { name: 'Melden', exact: true })).toHaveCount(0);
     } finally {
       await phone.context().close();
     }

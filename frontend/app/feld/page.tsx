@@ -17,7 +17,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Navigation, Plus, Star, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, MonitorCog, Navigation, Phone, Plus, Star, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
@@ -266,7 +266,6 @@ function FeldSurface() {
   const preselectIncidentId = searchParams.get('incident_id')
   const t = useTranslations('feld')
   const tCommon = useTranslations('reko.common')
-  const tStatus = useTranslations('kanban.statusLabels')
   const tPickup = useTranslations('feld.pickup')
   const tRapport = useTranslations('feld.rapport')
 
@@ -302,6 +301,30 @@ function FeldSurface() {
   // Which roles this person holds here. The roles are data (decision 5); which
   // sections they unlock stays code, deliberately.
   const [functions, setFunctions] = useState<string[]>([])
+  /** Reporting a Schadenplatz is for whoever is standing in front of one. The
+   *  Magazin and the Kommandoposten are at the station — the KP types theirs on
+   *  the board. The Telefondienst is at the station too and keeps it, because
+   *  their form writes down somebody *else's* report. */
+  const atTheStation = (roles: string[]) =>
+    !roles.includes('telefondienst') &&
+    (roles.includes('magazin') || roles.includes('kommandoposten'))
+
+  /**
+   * What an empty list means for THIS person.
+   *
+   * "Noch kein Auftrag" is right for a crew waiting to be sent somewhere and
+   * wrong for everybody with a role: somebody on the phone desk or running the
+   * board has not been told nothing, they are doing the thing this page has no
+   * rows for. Telling them they have no job reads as the app not knowing what
+   * they are for.
+   */
+  const emptyState: { title?: string; body?: string; Icon?: typeof Clock } = functions.includes(
+    'telefondienst',
+  )
+    ? { title: t('roleEmpty.telefondienstTitle'), body: t('roleEmpty.telefondienstBody'), Icon: Phone }
+    : functions.includes('kommandoposten')
+      ? { title: t('roleEmpty.kommandopostenTitle'), body: t('roleEmpty.kommandopostenBody'), Icon: MonitorCog }
+      : {}
   // The Magazin's inventory. Only ever fetched for somebody holding the role —
   // the endpoint 403s for anybody else, which is what makes it defensible to
   // serve the whole station's material through a login-less door.
@@ -941,8 +964,11 @@ function FeldSurface() {
               {selectedAssignment.source !== 'reko' && (
                 <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
               )}
+              {/* The Schadenplatz-Status is gone from here too, for the same
+                  reason it left the rows: it is the KP's workflow. What is left
+                  are the crew's OWN timestamps — when they arrived, when they
+                  said they were done — which are facts about them. */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>{tStatus(selectedAssignment.incident_status)}</span>
                 {selectedAssignment.arrived_at && (
                   <span>
                     {/* Said differently when the automation saw it (§18.24), so
@@ -1099,21 +1125,31 @@ function FeldSurface() {
         {loadingAssignments ? null : feed.length === 0 && !functions.includes('magazin') ? (
           <div className="py-12 text-center animate-in fade-in duration-300">
             <div className="h-12 w-12 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-              <Clock className="h-6 w-6 text-muted-foreground" />
+              {emptyState.Icon ? (
+                <emptyState.Icon className="h-6 w-6 text-muted-foreground" />
+              ) : (
+                <Clock className="h-6 w-6 text-muted-foreground" />
+              )}
             </div>
             {/* Checked in with nothing to do is NOT the same as being unknown —
                 and saying so is the whole reason the picker may now be the
                 roster (decision 10). It answers the question actually being
-                asked: wissen die überhaupt, dass ich da bin? */}
-            {checkedIn && (
-              <p className="mb-2 text-base font-medium">{t('attendance.hereNoJob')}</p>
+                asked: wissen die überhaupt, dass ich da bin?
+                Somebody holding a role has a better answer than that: an empty
+                list is not "nothing for you", it is their job. */}
+            {(checkedIn || emptyState.title) && (
+              <p className="mb-2 text-base font-medium">
+                {emptyState.title ?? t('attendance.hereNoJob')}
+              </p>
             )}
             {/* Visibility is "only mine" and it is enforced server-side, so a
                 crew redirected by radio genuinely cannot file until the KP
                 assigns them. This sentence is the whole mitigation for that
                 decision — an empty page without it turns a policy into a bug
                 report. */}
-            <p className="text-sm text-muted-foreground px-2">{t('assignments.empty')}</p>
+            <p className="text-sm text-muted-foreground px-2">
+              {emptyState.body ?? t('assignments.empty')}
+            </p>
           </div>
         ) : (
           feed.map((assignment, index) => {
@@ -1203,16 +1239,16 @@ function FeldSurface() {
                   {assignmentRapportApplies(assignment) && (
                     <RapportStateChip state={assignment.rapport_state} />
                   )}
-                  {/* A Reko row says what it IS and what tapping does, and drops
-                      the status: "Reko" as a Schadenplatz-Status next to a Reko
-                      auftrag is the same word twice meaning two things. */}
-                  {assignment.source === 'reko' ? (
+                  {/* No Schadenplatz-Status here. «Disponiert / Anfahrt», «Im
+                      Einsatz» are the KP's own workflow, and a crew standing on
+                      the job reads them as a claim about themselves that the
+                      board happens to be a step behind on. What they owe and
+                      what tapping does is the whole message. */}
+                  {assignment.source === 'reko' && (
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
                       <FileText className="h-3 w-3" />
                       {t('source.rekoAction')}
                     </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">{tStatus(assignment.incident_status)}</span>
                   )}
                   {!assignment.is_active_assignment && (
                     <span className="text-xs text-muted-foreground">{t('assignments.released')}</span>
@@ -1264,7 +1300,7 @@ function FeldSurface() {
       {/* «＋ Melden» — the crew reporting something they are standing in front
           of. A floating button because it is the one action on this page that
           is not about a row: it belongs to the person, not to a Schadenplatz. */}
-      {token && selectedPerson && (
+      {token && selectedPerson && !atTheStation(functions) && (
         <>
           <button
             type="button"

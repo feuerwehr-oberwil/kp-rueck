@@ -828,9 +828,7 @@
       "callerPhone": "Téléphone",
       "message": "Message",
       "messagePlaceholder": "Qu'est-ce qui a été signalé ?",
-      "priority": "Priorité",
-      "typeSearch": "Rechercher un type d'intervention…",
-      "typeNotFound": "Aucun type d'intervention trouvé."
+      "priority": "Priorité"
     },
     "attendance": {
       "notHereTitle": "Tu n'es pas enregistré",
@@ -843,14 +841,17 @@
       "title": "Matériel",
       "empty": "Aucun matériel enregistré.",
       "summary": "{out} sur {total} en intervention",
-      "columnMaterial": "Matériel",
-      "columnWhere": "Où",
-      "inMagazin": "Magasin",
       "state": {
-        "left": "laissé sur place"
-      },
-      "columnType": "Type",
-      "columnGroup": "Groupe"
+        "in": "Magasin / inutilisé",
+        "out": "En intervention",
+        "left": "Laissé sur place"
+      }
+    },
+    "roleEmpty": {
+      "telefondienstTitle": "Tu es au téléphone",
+      "telefondienstBody": "Saisis les appels ici – ils arrivent au PC comme annonce.",
+      "kommandopostenTitle": "Tu es au poste de commandement",
+      "kommandopostenBody": "Tu gères la situation sur le tableau. Ici, seul le terrain apparaît."
     }
   },
   "help": {
