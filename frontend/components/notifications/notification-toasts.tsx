@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast, Toaster } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
@@ -99,6 +100,15 @@ export function NotificationToasts() {
     canNavigateToIncident,
   } = useNotifications()
   const isMobile = useIsMobile()
+  // `/feld` is the crew's surface, and it is quiet for the same reason the phone
+  // is — but on ITS OWN account rather than on the viewport's. An officer who
+  // opens `/feld` on a laptop is still logged in to the board, so the board's
+  // notifications followed them in: a crew standing in the rain got «Einsatz
+  // überfällig» about a Schadenplatz that is none of their business, on a page
+  // whose whole design is four buttons and nothing else. The board's traffic is
+  // for the KP.
+  const pathname = usePathname()
+  const isQuietSurface = isMobile || (pathname?.startsWith('/feld') ?? false)
   // Non-critical toast lifetime (ms), configurable in notification settings.
   const toastDurationMs = Math.max(2, settings.toast_duration_seconds || 8) * 1000
   const tCommon = useTranslations('kanban.common')
@@ -112,12 +122,13 @@ export function NotificationToasts() {
   const shownToastIds = useRef<Set<string>>(null!)
   shownToastIds.current ??= cleanupOldToastIds()
 
-  // Mobile is a viewing-first surface (mainly used to spawn training incidents),
-  // so it should stay quiet: suppress non-critical toasts app-wide while small.
-  // Genuine action failures (toast.error) still surface; the notification→toast
-  // mapping below is skipped entirely on mobile.
+  // Mobile is a viewing-first surface (mainly used to spawn training incidents)
+  // and `/feld` belongs to a crew, so both stay quiet: suppress non-critical
+  // toasts app-wide there. Genuine action failures (`toast.error`) still
+  // surface — a Meldung that did not go through has to say so — and the
+  // notification→toast mapping below is skipped entirely.
   useEffect(() => {
-    if (!isMobile) return
+    if (!isQuietSurface) return
     const t = toast as unknown as Record<string, (...args: unknown[]) => unknown>
     const noop = () => ''
     const originals: Record<string, (...args: unknown[]) => unknown> = {}
@@ -128,12 +139,12 @@ export function NotificationToasts() {
     return () => {
       for (const key of Object.keys(originals)) t[key] = originals[key]
     }
-  }, [isMobile])
+  }, [isQuietSurface])
 
   useEffect(() => {
     // Don't show toasts when sidebar is open - notifications are visible there.
-    // On mobile, don't surface incident/notification toasts at all.
-    if (isSidebarOpen || isMobile) {
+    // On mobile and on /feld, don't surface incident/notification toasts at all.
+    if (isSidebarOpen || isQuietSurface) {
       return
     }
 
@@ -256,6 +267,7 @@ export function NotificationToasts() {
     notifications,
     dismissNotification,
     isSidebarOpen,
+    isQuietSurface,
     toastDurationMs,
     openSidebar,
     navigateToIncident,

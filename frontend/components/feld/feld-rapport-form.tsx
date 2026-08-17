@@ -41,6 +41,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { FeldMaterialChecklist } from '@/components/feld/feld-material-checklist'
 import { FeldPersonnelChecklist } from '@/components/feld/feld-personnel-checklist'
 import { FeldSection, type FeldSectionState } from '@/components/feld/feld-section'
@@ -375,6 +376,9 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  /** Is the "…are you sure, these are empty" question on screen? */
+  const [confirmGaps, setConfirmGaps] = useState(false)
+
   /** Files the rapport — and files it again for every later correction. */
   const handleSubmit = async () => {
     if (inFlightRef.current || disabled) return
@@ -462,7 +466,16 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   useEffect(() => {
     if (!autoFocusKurzbericht || disabled || isLoading || didAutoFocus.current) return
     didAutoFocus.current = true
-    kurzberichtRef.current?.focus()
+    const field = kurzberichtRef.current
+    if (!field) return
+    field.focus()
+    // …with the caret AFTER what is already written. A textarea whose value was
+    // set programmatically focuses at offset 0, so an operator taking a
+    // correction over the radio started typing into the middle of the sentence
+    // the crew had filed. `setSelectionRange` is also what collapses the
+    // select-all some browsers do on focus.
+    const end = field.value.length
+    field.setSelectionRange(end, end)
   }, [autoFocusKurzbericht, disabled, isLoading])
 
   if (isLoading) {
@@ -533,6 +546,26 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   // else's answer is worse than showing a field nobody needs.
   const showOwnerBlock = !isKp || ownerSummary.length > 0
   const showHandover = !isKp || Boolean(formData.handed_over_to.trim())
+
+  /**
+   * The sections that are still empty when «Rapport abschliessen» is tapped.
+   *
+   * Not a gate — decision 10 stands, and a blocking form during a storm is a
+   * form people defeat with empty boxes. This is the one question in between:
+   * the tap is irreversible in the operator's eyes (the board goes green, the
+   * Restliste stops asking), and a rapport filed with four empty blocks is
+   * almost always a fat finger rather than a decision.
+   *
+   * Eigentümerdaten only count where the block is actually on screen: the KP
+   * mount hides it when nobody filled it, and asking about a field somebody
+   * cannot see is worse than not asking.
+   */
+  const emptySections = [
+    !kurzberichtSummary ? t('sections.kurzbericht') : null,
+    peopleCount === 0 ? t('sections.confirm') : null,
+    materialCount === 0 ? t('material.title') : null,
+    showOwnerBlock && !ownerSummary ? t('sections.owner') : null,
+  ].filter((section): section is string => section !== null)
 
   return (
     <div className="space-y-3">
@@ -816,12 +849,38 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             )}
           </div>
         ) : (
-          <Button type="button" className="w-full" disabled={readOnly || isSubmitting} onClick={handleSubmit}>
+          <Button
+            type="button"
+            className="w-full"
+            disabled={readOnly || isSubmitting}
+            // The question only guards the FIRST filing. «Änderungen senden»
+            // above re-files a rapport somebody already confirmed once, and
+            // asking again there would ask about gaps that were a decision.
+            onClick={() => (emptySections.length > 0 ? setConfirmGaps(true) : void handleSubmit())}
+          >
             {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             {t('submit')}
           </Button>
         )}
       </div>
+
+      {/* Not a blocker: every way out of this dialog files or cancels, and the
+          list is there so the crew can see WHAT is empty without closing it and
+          scrolling. Escape and Abbrechen leave the form as it is. */}
+      <ConfirmDialog
+        open={confirmGaps}
+        onOpenChange={setConfirmGaps}
+        title={t('incompleteTitle')}
+        description={t('incompleteBody', { count: emptySections.length })}
+        confirmText={t('incompleteConfirm')}
+        onConfirm={handleSubmit}
+      >
+        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          {emptySections.map(section => (
+            <li key={section}>{section}</li>
+          ))}
+        </ul>
+      </ConfirmDialog>
     </div>
   )
 }

@@ -1474,16 +1474,12 @@ function FeldSurface() {
           </>
         )}
 
-        {/* Checking IN is the crew's; checking out is not. Abmelden from a
-            phone in a vehicle edits the roll call the KP is keeping — and the
-            one person who cannot see that list is the one holding the phone.
-            The line stays as a statement, without the button. */}
-        {checkedIn && (
-          <div className="flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2.5">
-            <span className="size-2 shrink-0 rounded-full bg-success" />
-            <span className="flex-1 text-xs text-muted-foreground">{t('attendance.here')}</span>
-          </div>
-        )}
+        {/* No «Eingecheckt» row. Checking IN is the crew's and checking out is
+            not — abmelden from a phone in a vehicle edits the roll call the KP
+            is keeping — so what was left was a button-less statement of
+            something the page already proves: you are looking at your own
+            Einsätze, which nobody who is not checked in ever sees. The
+            not-checked-in case still speaks for itself, loudly, above. */}
       </div>
 
       {/* The floating «＋ Melden», built once above — see `meldenFab`. */}
