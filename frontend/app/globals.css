@@ -324,8 +324,12 @@
       font-size: max(16px, 1rem);
     }
 
-    /* Ensure minimum touch target sizes (44x44px for iOS guidelines) */
-    button,
+    /* Ensure minimum touch target sizes (44x44px for iOS guidelines).
+       `[role="switch"]` is excluded: a Radix Switch renders a <button>, so this
+       rule squared it into a 44x44 blob wherever one appeared on a phone. A
+       switch is not a tap-anywhere target — its ROW is, and the rows that carry
+       one are labels wrapping the whole thing. */
+    button:not([role="switch"]),
     a,
     [role="button"],
     .interactive-element {
