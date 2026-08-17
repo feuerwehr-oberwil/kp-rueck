@@ -17,7 +17,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Plus, Star, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Navigation, Plus, Star, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
@@ -39,6 +39,7 @@ import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import { rapportApplies } from '@/lib/rapport-visibility'
+import { navigationUrl } from '@/lib/navigation'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 
 /** `code` is the door (plan 26): the link alone opens nothing, so the page asks
@@ -876,6 +877,7 @@ function FeldSurface() {
     // fallback for a payload that predates it — same as everywhere else.
     const address = selectedAssignment.location_display
       ?? formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
+    const navigateUrl = navigationUrl(selectedAssignment)
     return (
       <div className="min-h-screen bg-background pb-20">
         {/* The address, always on screen. Folded blocks mean a crew can be four
@@ -907,9 +909,28 @@ function FeldSurface() {
                 {/* The page's h1. The address leads because that is what a crew
                     standing on a street matches against; the incident title
                     rides in the bar above and is not said twice. */}
-                <h1 className="flex items-start gap-1.5 text-base font-semibold leading-tight">
-                  {address && <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />}
-                  <span>{address || selectedAssignment.incident_title}</span>
+                {/* Tappable: the next thing that happens after reading this is
+                    somebody drives, and re-typing a street name into another app
+                    one-handed is both slow and the easiest place all night to
+                    fat-finger it. Falls back to plain text when the Schadenplatz
+                    has neither a pin nor an address — see `lib/navigation.ts`. */}
+                <h1 className="text-base font-semibold leading-tight">
+                  {navigateUrl ? (
+                    <a
+                      href={navigateUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-1.5 underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
+                    >
+                      <Navigation className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>{address || selectedAssignment.incident_title}</span>
+                    </a>
+                  ) : (
+                    <span className="flex items-start gap-1.5">
+                      {address && <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />}
+                      <span>{address || selectedAssignment.incident_title}</span>
+                    </span>
+                  )}
                 </h1>
                 {/* No chip on a Schadenplatz nobody was ever sent to: "kein
                     Rapport" would read as a to-do the crew cannot do. */}
@@ -1113,6 +1134,7 @@ function FeldSurface() {
             const startsAuftrag =
               auftragCount > 1 &&
               (index === 0 || feed[index - 1].group_id !== assignment.group_id)
+            const rowNavigateUrl = navigationUrl(assignment)
             return (
               <div key={`group-${assignment.incident_id}`}>
               {startsPast && (
@@ -1132,6 +1154,7 @@ function FeldSurface() {
                   <span className="h-px flex-1 bg-border" />
                 </div>
               )}
+              <div className="relative">
               <button
                 onClick={() => openAssignment(assignment)}
                 className={`w-full cursor-pointer text-left rounded-xl p-4 transition-colors ${
@@ -1204,6 +1227,23 @@ function FeldSurface() {
                   )}
                 </div>
               </button>
+              {/* Straight into the phone's maps app. Sits OVER the row rather
+                  than inside it: the row is a <button>, and an <a> nested in one
+                  is invalid markup that iOS resolves by making neither work. */}
+              {rowNavigateUrl && (
+                <a
+                  href={rowNavigateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={event => event.stopPropagation()}
+                  title={t('assignments.navigate')}
+                  aria-label={t('assignments.navigate')}
+                  className="absolute bottom-3 right-3 grid size-9 place-items-center rounded-lg bg-background/80 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                >
+                  <Navigation className="size-4" />
+                </a>
+              )}
+              </div>
               </div>
             )
           })
