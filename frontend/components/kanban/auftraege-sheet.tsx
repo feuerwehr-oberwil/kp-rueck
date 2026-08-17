@@ -546,6 +546,7 @@ function AuftragCard({
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
   const headerRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)
   const [isDropOver, setIsDropOver] = useState(false)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
 
@@ -606,9 +607,33 @@ function AuftragCard({
     })
   }, [group.id, canEdit])
 
+  /**
+   * Opening an Auftrag shows the Auftrag, not just the header it was opened by.
+   *
+   * The card expands downwards inside a scroll container, so a route near the
+   * bottom of the list unfolded almost entirely below the fold: the operator
+   * clicked to see the Mannschaft and the stops, and got a chevron that had
+   * turned. `block: "nearest"` scrolls the least amount that brings the card
+   * into view — and for a card taller than the sheet it lines the top up, which
+   * is the half you want when the rest cannot fit anyway.
+   *
+   * One frame late on purpose: the expanded content has to be laid out before
+   * there is a height worth measuring.
+   */
+  useEffect(() => {
+    if (!expanded) return
+    const frame = requestAnimationFrame(() => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [expanded])
+
   return (
     <div
-      ref={registerRowRef}
+      ref={(el) => {
+        cardRef.current = el
+        registerRowRef(el)
+      }}
       // The Auftrag card is the ONE strong boundary: a raised card with a route-
       // coloured left accent. Its inner sub-sections are borderless peers, so the
       // primary visual split is always between Aufträge, not within one.

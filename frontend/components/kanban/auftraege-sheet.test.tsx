@@ -257,6 +257,28 @@ describe("AuftraegeSheet — Ressourcen (route-owned)", () => {
     expect(await screen.findByText("TLF 1 (Muster Hans)")).toBeInTheDocument()
   })
 
+  it("brings the whole card into view when it is opened, not just its header", async () => {
+    // The card expands downwards inside a scroll container, so a route near the
+    // bottom used to unfold below the fold: the chevron turned and nothing else
+    // appeared to happen.
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      state.groups = [grp({ stopIds: [] })]
+      const user = userEvent.setup()
+      renderSheet()
+
+      await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
+
+      // One frame late: the expanded content has to be laid out first.
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+      expect(scrollIntoView.mock.calls[0][0]).toMatchObject({ block: "nearest" })
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
   it("assigns to the ROUTE even with zero stops", async () => {
     state.groups = [grp({ stopIds: [] })]
     const onAssignRouteResource = vi.fn()
