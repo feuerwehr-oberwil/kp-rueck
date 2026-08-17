@@ -897,7 +897,10 @@ class TestBriefing:
                 incident_group_id=group.id,
                 resource_type="vehicle",
                 resource_id=vehicle.id,
-                # …and parked at the address rather than driving back.
+                # Set on the row — and deliberately NOT reported. An Auftrag has
+                # no driver-stay toggle, so this column is a copy no operator can
+                # correct; answering «bleibt» / «fährt zurück» off it would be the
+                # board deciding something nobody decided. `stays` stays None.
                 driver_stay=True,
             )
         )
@@ -907,7 +910,7 @@ class TestBriefing:
             f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
         )
         row = response.json()["assignments"][0]
-        assert row["vehicles"] == [{"name": "TLF 2", "driver": None, "stays": True, "via_auftrag": True}]
+        assert row["vehicles"] == [{"name": "TLF 2", "driver": None, "stays": None, "via_auftrag": True}]
 
     @pytest.mark.asyncio
     @pytest.mark.api
