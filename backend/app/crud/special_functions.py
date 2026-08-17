@@ -56,9 +56,7 @@ async def create_special_function(
     # station added is as valid as one that shipped. The FK would refuse an
     # unknown key anyway; asking first turns a 500 into a 400 that says which
     # value was wrong.
-    known = await db.scalar(
-        select(SpecialFunctionType.key).where(SpecialFunctionType.key == assignment.function_type)
-    )
+    known = await db.scalar(select(SpecialFunctionType.key).where(SpecialFunctionType.key == assignment.function_type))
     if known is None:
         raise ValueError(f"Unbekannte Funktion: {assignment.function_type}")
 

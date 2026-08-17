@@ -97,9 +97,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_constraint("fk_special_function_type", "event_special_functions", type_="foreignkey")
     # Anything using a role added after this migration has nowhere to go back to.
-    op.execute(
-        sa.text("DELETE FROM event_special_functions WHERE function_type NOT IN ('driver', 'reko', 'magazin')")
-    )
+    op.execute(sa.text("DELETE FROM event_special_functions WHERE function_type NOT IN ('driver', 'reko', 'magazin')"))
     op.create_check_constraint(
         "valid_function_type",
         "event_special_functions",
