@@ -29,8 +29,16 @@ import { Package } from 'lucide-react'
 
 import type { ApiFeldMaterialItem } from '@/lib/api-client'
 
-/** The lists, in the order the Magazin asked for them. */
-const SECTIONS = ['in', 'out', 'left'] as const
+/**
+ * The lists, most-actionable first.
+ *
+ * `left` leads: a unit the crew's rapport says stayed behind is the only one
+ * nobody has a plan for, and it is the one the board cannot cross-check. `out`
+ * follows — that is the pickup round. The Magazin comes last because on a normal
+ * night it is thirty-five of thirty-eight rows, and putting it first buried the
+ * three that needed doing under a screen of things that did not.
+ */
+const SECTIONS = ['left', 'out', 'in'] as const
 
 function MaterialList({ items }: { items: ApiFeldMaterialItem[] }) {
   return (
