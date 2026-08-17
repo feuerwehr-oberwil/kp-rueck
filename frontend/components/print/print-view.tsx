@@ -8,6 +8,7 @@ import type { GroupResources } from "@/lib/types/groups"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { compareByName } from "@/lib/roster-order"
 import { formatClockTime as formatTime } from "@/lib/incident-time"
 import { columns } from "@/lib/kanban-utils"
 import { isLocated } from "@/lib/utils/route-geo"
@@ -221,9 +222,10 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             eventFunction: eventFunctions?.get(p.id) ?? "",
             state: p.status === "assigned" ? "assigned" : "available",
           }))
-    rosterRows.sort(
-      (a, b) => ROSTER_RANK[a.state] - ROSTER_RANK[b.state] || a.name.localeCompare(b.name, "de")
-    )
+    // In-use first, then the roll-call order: flat alphabetical, the same rule
+    // (and the same comparator) the Anwesenheit modal and /check-in use. `"de"`
+    // was close enough to be invisible until an Ö met a French-language device.
+    rosterRows.sort((a, b) => ROSTER_RANK[a.state] - ROSTER_RANK[b.state] || compareByName(a, b))
     const presentCount = rosterRows.filter((row) => row.state !== "left").length
     const attendanceSummary = attendance?.length ? summarizeAttendance(attendance) : null
 

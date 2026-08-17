@@ -292,7 +292,7 @@ async def _build_board_payload(
                     EventAttendance.checked_in.is_(True),
                 )
             )
-            .order_by(Personnel.role_sort_order, Personnel.name)
+            .order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
         )
         for p, checked_in_by_user_id in checked_in_personnel_result.all():
             # Determine if this person is assigned to any active incident

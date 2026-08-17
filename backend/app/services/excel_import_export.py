@@ -723,6 +723,10 @@ async def import_data(
 
 async def export_data_to_excel(db: AsyncSession) -> BytesIO:
     """Export all personnel, vehicles, and materials to Excel."""
+    # Flat alphabetical, deliberately: an export is a data dump that the
+    # recipient re-sorts in their spreadsheet, and `test_personnel_sorted_by_name`
+    # pins that contract. The RANK order belongs on the surfaces somebody reads
+    # top-to-bottom (the board, the printed roster), not here.
     personnel_result = await db.execute(select(Personnel).order_by(Personnel.name))
     personnel = personnel_result.scalars().all()
     vehicle_result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))

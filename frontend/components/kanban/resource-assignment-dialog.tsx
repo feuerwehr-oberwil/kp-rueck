@@ -16,6 +16,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { getActiveLocale } from "@/lib/i18n-messages"
+import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
 
 interface ResourceAssignmentDialogProps {
@@ -298,7 +299,23 @@ export function ResourceAssignmentDialog({
           : resourceType === 'materials'
             ? selectableMaterials.map(m => m.category)
             : []
-    return [...new Set(source)].sort((a, b) => a.localeCompare(b))
+    // Ranks keep the station's OWN order (the same `role_sort_order` the list
+    // below them uses); everything else is alphabetical. Sorting the rank chips
+    // alphabetically made the chip row read «AdF · Gruppenführer · Offizier»
+    // over a list that runs the other way round — two orders for one thing, on
+    // one screen.
+    if (resourceType === 'crew') {
+      const seen = new Set<string>()
+      const ranks: string[] = []
+      for (const person of [...selectablePersonnel].sort(compareByRankThenName)) {
+        const rank = person.role
+        if (!rank || seen.has(rank)) continue
+        seen.add(rank)
+        ranks.push(rank)
+      }
+      return ranks
+    }
+    return [...new Set(source)].sort((a, b) => a.localeCompare(b, 'de-CH'))
   }, [resourceType, selectablePersonnel, availableVehicles, selectableMaterials])
 
   // Second chip row for materials: functional type (e.g. "Wasser") as a quick
@@ -313,7 +330,7 @@ export function ResourceAssignmentDialog({
     }
     return [...byType.entries()]
       .map(([type, count]) => ({ type, count }))
-      .sort((a, b) => a.type.localeCompare(b.type))
+      .sort((a, b) => a.type.localeCompare(b.type, 'de-CH'))
   }, [resourceType, selectableMaterials])
 
   // Filter resources by search query + quick category filter
@@ -325,15 +342,20 @@ export function ResourceAssignmentDialog({
     )
   }, [selectablePersonnel, searchQuery, categoryFilter])
 
-  // Sort the final crew list by role sort order, then assigned-first, then name.
+  /**
+   * Rank first, assigned-first inside a rank, then the name.
+   *
+   * The rank legs used to collate with `getActiveLocale()` — the UI language —
+   * so a French-speaking operator got a different sequence than the board next
+   * to them. Names and rank labels are roster data (`lib/roster-order.ts`), not
+   * interface copy. The assigned-first leg stays in the middle: it is about
+   * this dialog, not about the roster.
+   */
   const sortedFilteredPersonnel = useMemo(() => {
     return [...filteredPersonnel].sort((a, b) => {
-      if (a.role !== b.role) {
-        if (a.roleSortOrder !== b.roleSortOrder) return (a.roleSortOrder ?? 0) - (b.roleSortOrder ?? 0)
-        return (a.role ?? "").localeCompare(b.role ?? "", getActiveLocale())
-      }
+      if (a.role !== b.role) return compareByRankThenName(a, b)
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return (a.name ?? "").localeCompare(b.name ?? "", getActiveLocale())
+      return compareByName(a, b)
     })
   }, [filteredPersonnel])
 

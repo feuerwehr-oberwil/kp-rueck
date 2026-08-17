@@ -28,3 +28,30 @@ export function compareByName(a: { name: string }, b: { name: string }): number 
 export function sortByName<T extends { name: string }>(people: readonly T[]): T[] {
   return [...people].sort(compareByName)
 }
+
+/** A row that also carries where its rank sits in the station's own order. */
+export interface RankedPerson {
+  name: string
+  role?: string | null
+  roleSortOrder?: number | null
+}
+
+/**
+ * Rank first, then name — for the surfaces that GROUP by Grad.
+ *
+ * Two orders are correct in this app, and the difference is what the list is
+ * for. A roll call is read out name by name and is flat alphabetical
+ * (`compareByName`): somebody hunting for their own name must not have to know
+ * their rank first. A picker the KP assigns *from* is grouped by rank, because
+ * "wer ist als Offizier noch frei" is the question it answers.
+ *
+ * `role_sort_order` is the station's own ordering, editable in Einstellungen —
+ * the rank *label* is only the tie-break behind it, and `de-CH` there for the
+ * same reason names use it: rank names are roster data, not interface copy.
+ */
+export function compareByRankThenName(a: RankedPerson, b: RankedPerson): number {
+  const rank = (a.roleSortOrder ?? 0) - (b.roleSortOrder ?? 0)
+  if (rank !== 0) return rank
+  const label = (a.role ?? '').localeCompare(b.role ?? '', 'de-CH')
+  return label !== 0 ? label : compareByName(a, b)
+}

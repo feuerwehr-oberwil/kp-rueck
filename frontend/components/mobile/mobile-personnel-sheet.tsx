@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { SearchInput } from "@/components/ui/search-input"
+import { compareByRankThenName } from "@/lib/roster-order"
 import { Badge } from "@/components/ui/badge"
 import { Users } from "lucide-react"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
@@ -39,10 +40,12 @@ export function MobilePersonnelSheet({
     )
   }, [personnel, searchQuery])
 
-  // Group by role
+  // Grouped by Grad, in the station's own order, alphabetical inside a group —
+  // the same rule the board's crew sidebar uses, so the phone and the desk do
+  // not disagree about where a name sits.
   const groupedPersonnel = useMemo(() => {
     const groups: Record<string, Person[]> = {}
-    filteredPersonnel.forEach((person) => {
+    ;[...filteredPersonnel].sort(compareByRankThenName).forEach((person) => {
       const role = person.role || t("roleOther")
       if (!groups[role]) groups[role] = []
       groups[role].push(person)

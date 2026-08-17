@@ -329,7 +329,14 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
     leader_ids = {a.resource_id for a in active_assignments if a.resource_type == "personnel" and a.is_leader}
     crew = []
     if personnel_ids:
-        personnel_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
+        # Ordered, because the EL-first sort below is STABLE: without this the
+        # rest of the crew printed in whatever order Postgres returned rows,
+        # which differs between two prints of the same slip.
+        personnel_result = await db.execute(
+            select(Personnel)
+            .where(Personnel.id.in_(personnel_ids))
+            .order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
+        )
         for p in personnel_result.scalars().all():
             if p.id not in reko_personnel_ids:
                 crew.append({"name": p.name, "role": p.role, "is_leader": p.id in leader_ids})
