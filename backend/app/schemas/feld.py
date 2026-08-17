@@ -230,8 +230,14 @@ class FeldMaterialItem(BaseModel):
 
     material_id: UUID | None = None
     name: str
-    #: Where it lives when it is not out — the depot shelf, not the Schadenplatz.
+    #: The three axes a station files its material by, and they are genuinely
+    #: three (see the material settings): `type` is what a thing IS
+    #: (Pumpe, Beleuchtung), `home_location` is the depot shelf it lives on, and
+    #: `group` is the module it is packed with (Modul 1, Ölwehr). The Magazin
+    #: reads all three to find one unit, so all three are columns.
+    type: str | None = None
     home_location: str | None = None
+    group: str | None = None
     #: The Schadenplatz it is on right now. None = it is in the Magazin.
     incident_id: UUID | None = None
     at: str | None = None

@@ -16,6 +16,7 @@ from ...models import (
     Incident,
     IncidentAssignment,
     Material,
+    MaterialGroup,
     SchadenplatzReport,
 )
 from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies
@@ -369,15 +370,21 @@ async def material_overview(db: AsyncSession, event_id: uuid.UUID) -> list[dict[
     for material, incident, assigned_at in open_rows.all():
         out_by_material[material.id] = (incident, assigned_at)
 
-    all_materials = await db.execute(select(Material).order_by(Material.name))
+    all_materials = await db.execute(
+        select(Material, MaterialGroup.name)
+        .outerjoin(MaterialGroup, MaterialGroup.id == Material.group_id)
+        .order_by(Material.name)
+    )
     items: list[dict[str, Any]] = []
-    for material in all_materials.scalars().all():
+    for material, group_name in all_materials.all():
         placed = out_by_material.get(material.id)
         items.append(
             {
                 "material_id": material.id,
                 "name": material.name,
+                "type": material.type or None,
                 "home_location": material.location or None,
+                "group": group_name,
                 "incident_id": placed[0].id if placed else None,
                 "at": (placed[0].location_address or placed[0].title) if placed else None,
                 "since": placed[1] if placed else None,
@@ -396,7 +403,9 @@ async def material_overview(db: AsyncSession, event_id: uuid.UUID) -> list[dict[
             {
                 "material_id": None,
                 "name": row["name"],
+                "type": None,
                 "home_location": None,
+                "group": None,
                 "incident_id": row["incident_id"],
                 "at": row.get("location_address") or row.get("incident_title"),
                 "since": None,

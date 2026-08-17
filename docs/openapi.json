@@ -21558,6 +21558,17 @@
             "type": "string",
             "title": "Name"
           },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
           "home_location": {
             "anyOf": [
               {
@@ -21568,6 +21579,17 @@
               }
             ],
             "title": "Home Location"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
           },
           "incident_id": {
             "anyOf": [

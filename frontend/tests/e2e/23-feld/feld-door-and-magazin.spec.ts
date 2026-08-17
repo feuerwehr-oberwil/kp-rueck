@@ -310,10 +310,15 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
       await expect(table).toBeVisible({ timeout: FELD_TIMEOUT });
       await expect(phone.getByText(/von \d+ draussen/)).toBeVisible();
 
-      // The unit that is out names the Schadenplatz it is standing on…
-      const out = table.getByRole('row').filter({ hasText: 'draussen' }).first();
+      // The unit that is out names the Schadenplatz it is standing on. There is
+      // no status chip beside it and there should not be: «Wo» saying an address
+      // rather than «Magazin» IS the status, and a word repeating that carried
+      // nothing of its own.
+      const out = table.getByRole('row').filter({ hasText: street(fixture.incident) }).first();
       await expect(out).toBeVisible();
-      await expect(out).toContainText(street(fixture.incident));
+      // (The summary line above the table still counts them — "1 von N
+       // draussen" is the number a Materialwart wants before reading any row.)
+      await expect(table.getByText('draussen')).toHaveCount(0);
 
       // …and the stand-in it replaced is gone: no Schadenplatz row, no source
       // tag, no explanatory sentence, because the table says all three better.

@@ -147,8 +147,12 @@ export interface ApiFeldAssignment {
 export interface ApiFeldMaterialItem {
   material_id: string | null
   name: string
-  /** Where it lives when it is not out — the depot shelf, not the Schadenplatz. */
+  /** The three axes a station files its material by: `type` is what a thing IS
+   *  (Pumpe, Beleuchtung), `home_location` the depot shelf it lives on, `group`
+   *  the module it is packed with. The Magazin reads all three to find a unit. */
+  type: string | null
   home_location: string | null
+  group: string | null
   incident_id: string | null
   at: string | null
   since: string | null
