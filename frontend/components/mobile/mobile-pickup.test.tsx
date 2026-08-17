@@ -14,7 +14,7 @@ import type { Material, Operation } from '@/lib/contexts/operations-context'
  *    ignores the pickup leaves an amber chip on a crew that was collected an
  *    hour ago, which is worse than never showing it.
  *
- *  * The phone is a VIEWING surface. «Abholung erledigt» erases the waiting
+ *  * The phone is a VIEWING surface. «Abholung disponiert» erases the waiting
  *    time — the only record of how long they stood at the kerb — so the chip
  *    here is a label, and the KP clears it from the board or the Lagekarte.
  *    Nothing but a test stops the next person passing `canEdit` through for
@@ -120,7 +120,7 @@ describe('the Abholung chip on the phone list', () => {
     expect(screen.queryByText('Abholung')).not.toBeInTheDocument()
   })
 
-  it('is a label, never the «Abholung erledigt» button', () => {
+  it('is a label, never the «Abholung disponiert» button', () => {
     renderWithIntl(listCard(WAITING))
     expect(screen.queryByRole('button', { name: /Abholung/ })).not.toBeInTheDocument()
   })
@@ -141,6 +141,6 @@ describe('the Abholung banner in the phone detail sheet', () => {
 
   it('offers no clear button, not even to an editor', () => {
     renderWithIntl(sheet(WAITING, true))
-    expect(screen.queryByRole('button', { name: 'Abholung erledigt' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Abholung disponiert' })).not.toBeInTheDocument()
   })
 })

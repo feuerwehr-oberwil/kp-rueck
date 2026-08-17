@@ -233,7 +233,7 @@ export function MobileIncidentDetailSheet({
           {/* Abholung (decision 24) — the `banner` variant, the same shape the
               desktop detail uses, because this sheet is the phone's detail
               surface. Read-only (`canEdit={false}`): the phone is for looking,
-              and «Abholung erledigt» is irreversible — it erases the waiting
+              and «Abholung disponiert» is irreversible — it erases the waiting
               time, which is the only record of how long the crew stood there.
               Not gated on status: completing the card releases the crew while
               they are still at the address. */}

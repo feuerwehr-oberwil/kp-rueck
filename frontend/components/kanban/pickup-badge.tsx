@@ -51,7 +51,7 @@ interface PickupBadgeProps {
   className?: string
   /**
    * Which incident this pickup belongs to. Supplying it makes the chip the
-   * KP's "Abholung erledigt" control; leaving it out keeps the chip a label.
+   * KP's "Abholung disponiert" control; leaving it out keeps the chip a label.
    */
   incidentId?: string
   /** False for a viewer — the chip stays readable and stops being a button. */
@@ -129,7 +129,7 @@ export function PickupBadge({
 
   // The dialog is a portal in the DOM but still a CHILD in the React tree, and
   // React bubbles portalled events to the React parent. So a click on
-  // "Abholung erledigt" – or on Abbrechen, or anywhere on the overlay – reached
+  // "Abholung disponiert" – or on Abbrechen, or anywhere on the overlay – reached
   // the kanban card's own onClick and opened the incident behind the dialog.
   // `display: contents` so this wrapper adds no box of its own to the row it
   // sits in (the dialog itself renders elsewhere).
@@ -155,7 +155,7 @@ export function PickupBadge({
     // Amber rather than the nudge's primary tint: «Abholung» is amber
     // everywhere else on the board, and the colour is the fastest read.
     // No dismiss X: the waiting crew does not go away by being waved away, so
-    // «Abholung erledigt» is the only way out (§18.9).
+    // «Abholung disponiert» is the only way out (§18.9).
     return (
       <>
         <div

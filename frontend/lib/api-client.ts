@@ -101,7 +101,6 @@ import {
   type ApiFeldIncidentUpdate,
   type ApiFeldOwnReport,
   type ApiFeldMaterialResponse,
-  type ApiFeldVehicleLine,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
   type ApiSchadenplatzRapport,
@@ -1763,7 +1762,7 @@ class ApiClient {
     )
   }
 
-  /** Inject "Abholung nötig" / "Abholung erledigt" on its own – the crew that
+  /** Inject "Abholung nötig" / "Abholung disponiert" on its own – the crew that
    *  asks for a lift an hour after "Einsatz beendet", or reports the bus has
    *  been. Omit `note` and the backend derives one from the situation. */
   async simulatePickup(

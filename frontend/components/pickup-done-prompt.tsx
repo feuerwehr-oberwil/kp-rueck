@@ -23,7 +23,7 @@ import { getIncidentRefLabel } from "@/lib/incident-types"
 import { formatPickupWaiting } from "@/lib/pickup"
 
 /**
- * "Abholung erledigt?" — the ASK, from the vehicle side (plan 25, §18.9).
+ * "Abholung disponiert?" — the ASK, from the vehicle side (plan 25, §18.9).
  *
  * `/feld` lost its "Abgeholt" button because nobody in the field presses it,
  * which leaves the amber chip standing until a human decides it is done. Two
