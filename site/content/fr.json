@@ -2,9 +2,9 @@
   "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers, et la démo tourne en allemand. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
   "meta": {
     "title": "KP Rück – le tableau d’intervention du poste de commandement",
-    "description": "KP Rück reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé.",
+    "description": "KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
     "ogTitle": "KP Rück – le tableau d’intervention du poste de commandement",
-    "ogDescription": "Reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé."
+    "ogDescription": "Le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source."
   },
   "nav": {
     "aria": "Navigation principale",

@@ -1,9 +1,9 @@
 {
   "meta": {
     "title": "KP Rück – the incident board for the command post",
-    "description": "KP Rück turns the magnetic board in the rear command post into a digital one: incidents, crews, vehicles and equipment on a single board – live on every device, open source and self-hosted.",
+    "description": "KP Rück is the digital magnetic board in the rear command post: incidents, crews, vehicles and equipment – live on every device, open source.",
     "ogTitle": "KP Rück – the incident board for the command post",
-    "ogDescription": "Turns the magnetic board in the rear command post into a digital one: incidents, crews, vehicles and equipment on a single board – live on every device, open source and self-hosted."
+    "ogDescription": "The digital magnetic board in the rear command post: incidents, crews, vehicles and equipment – live on every device, open source."
   },
   "nav": {
     "aria": "Main navigation",
