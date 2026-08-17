@@ -677,14 +677,36 @@ async def _briefings(
                 IncidentGroupAssignment.unassigned_at.is_(None),
             )
         )
-        for group_id, resource_type, resource_id, person_name, vehicle_name, material_name in route_result.all():
+        for (
+            group_id,
+            resource_type,
+            resource_id,
+            person_name,
+            vehicle_name,
+            material_name,
+        ) in route_result.all():
             bucket = route.setdefault(group_id, {"crew": [], "vehicles": [], "materials": []})
             name = {"personnel": person_name, "vehicle": vehicle_name, "material": material_name}.get(resource_type)
             if not name:
                 continue
             key = {"personnel": "crew", "vehicle": "vehicles", "material": "materials"}[resource_type]
             bucket[key].append(
-                {"name": name, "driver": drivers.get(resource_id)} if resource_type == "vehicle" else name
+                # `via_auftrag` is what makes "kommt das mit?" answerable: this
+                # row belongs to the ROUTE and is therefore on every stop of it.
+                #
+                # `stays` stays None: an Auftrag has no driver-stay toggle
+                # (`GroupAssignmentUpdate` is `is_leader` and nothing else), so
+                # the column here is a copy nobody can correct. Saying «fährt
+                # zurück» on that basis would be the board answering a question
+                # it was never asked — see `FeldVehicleLine`.
+                {
+                    "name": name,
+                    "driver": drivers.get(resource_id),
+                    "stays": None,
+                    "via_auftrag": True,
+                }
+                if resource_type == "vehicle"
+                else name
             )
 
     crew_result = await db.execute(
@@ -716,7 +738,7 @@ async def _briefings(
             briefings[incident_id]["crew"].append(name)
 
     vehicle_result = await db.execute(
-        select(IncidentAssignment.incident_id, Vehicle.id, Vehicle.name)
+        select(IncidentAssignment.incident_id, Vehicle.id, Vehicle.name, IncidentAssignment.driver_stay)
         .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
         .where(
             IncidentAssignment.incident_id.in_(incident_ids),
@@ -725,13 +747,22 @@ async def _briefings(
         .order_by(Vehicle.display_order, Vehicle.name)
     )
     seen_vehicles: set[tuple[uuid.UUID, uuid.UUID]] = set()
-    for incident_id, vehicle_id, name in vehicle_result.all():
+    for incident_id, vehicle_id, name, driver_stay in vehicle_result.all():
         if (incident_id, vehicle_id) in seen_vehicles:
             continue
         seen_vehicles.add((incident_id, vehicle_id))
         # A resource can sit at both levels (`_mirror`); one vehicle is one line.
+        # The route's copy wins when there is one — it is the truthful answer to
+        # "does this come with us to the next stop".
         if not any(line["name"] == name for line in briefings[incident_id]["vehicles"]):
-            briefings[incident_id]["vehicles"].append({"name": name, "driver": drivers.get(vehicle_id)})
+            briefings[incident_id]["vehicles"].append(
+                {
+                    "name": name,
+                    "driver": drivers.get(vehicle_id),
+                    "stays": bool(driver_stay),
+                    "via_auftrag": False,
+                }
+            )
 
     material_result = await db.execute(
         select(IncidentAssignment.incident_id, Material.name)

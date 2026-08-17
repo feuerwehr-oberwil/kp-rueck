@@ -105,16 +105,38 @@ class FeldAccessState(BaseModel):
 
 
 class FeldVehicleLine(BaseModel):
-    """One vehicle on the briefing, with whoever is driving it.
+    """One vehicle on the briefing: who drives it, whether it stays, whose it is.
 
     The driver is a property of the Ereignis, not of the Schadenplatz — but
     «TLF 1» on its own left a crew standing at an address unable to answer who
     is sitting in it, and the driver is exactly the person they need when the
     vehicle has to be moved. `driver` is None when the KP has not named one.
+
+    The other two answer the question a crew actually asks about a vehicle on
+    their slip — *kommt das mit?*:
+
+    * ``stays`` is the board's driver-stay flag: False means the driver takes it
+      back to the Magazin once the crew is dropped off, True that it is parked
+      at the address for the duration.
+
+      **None when nobody can answer.** A route-level vehicle has no toggle —
+      ``GroupAssignmentUpdate`` carries ``is_leader`` and nothing else, so its
+      ``driver_stay`` column is whatever ``_mirror`` copied or the DB default,
+      and no operator can change it. Sending `False` there would print «fährt
+      zurück» on a phone as if somebody had decided it. An absent flag is not
+      the same statement as "he is coming back" — the same rule the board's own
+      `DriverStayGlyph` follows, where `undefined` draws nothing.
+    * ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is
+      shared across every stop of the route and comes along to the next one.
+      A vehicle booked on this Schadenplatz alone does not. `/feld` rendered
+      both identically, which is why a route's TLF read as if it belonged to
+      the one address the crew happened to be standing at.
     """
 
     name: str
     driver: str | None = None
+    stays: bool | None = None
+    via_auftrag: bool = False
 
 
 class FeldMaterialLine(BaseModel):

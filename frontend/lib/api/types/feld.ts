@@ -67,6 +67,17 @@ export interface ApiFeldPersonnelListResponse {
 export interface ApiFeldVehicleLine {
   name: string
   driver: string | null
+  /** The board's driver-stay flag: does it park here, or drive back once the
+   *  crew is dropped off? **null when nobody can answer** — a route-level
+   *  vehicle has no toggle, so the column behind it is a copy no operator can
+   *  correct. Absent means absent, never «fährt zurück». */
+  stays?: boolean | null
+  /** True when the vehicle belongs to the **Auftrag** rather than to this one
+   *  Schadenplatz — an Auftrag's resources are shared across all of its stops,
+   *  so it comes along to the next one. `/feld` used to render both the same,
+   *  which is why a route's TLF read as belonging to the address the crew was
+   *  standing at. */
+  via_auftrag?: boolean
 }
 
 /** One line of the briefing's material list: a name and how many of it. */
@@ -164,8 +175,9 @@ export interface ApiFeldMaterialItem {
   incident_id: string | null
   at: string | null
   since: string | null
-  /** `out` = the board has it assigned and open · `left` = a rapport says it
-   *  stayed behind with no assignment to check against · `in` = in the Magazin. */
+  /** `out` = the board has it assigned and it is in use · `left` = a rapport
+   *  says it stayed behind (whether or not there is still an assignment to
+   *  check against) · `in` = in the Magazin. */
   state: 'out' | 'left' | 'in'
 }
 

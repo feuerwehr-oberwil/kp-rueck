@@ -858,12 +858,56 @@ class TestBriefing:
         assert row["contact"] == "A. Bürgin"
         assert row["contact_phone"] == "079 000 00 00"
         assert row["crew"] == ["Muster Hans"]
-        # Each vehicle line names its driver; None when the KP has not set one.
-        assert row["vehicles"] == [{"name": "TLF 1", "driver": None}]
+        # Each vehicle line names its driver (None when the KP has not set one),
+        # whether it stays at the address, and whether it belongs to the Auftrag
+        # — the three facts a crew asks about a vehicle on their slip. This one
+        # is booked on the Schadenplatz itself, so it does not travel.
+        assert row["vehicles"] == [{"name": "TLF 1", "driver": None, "stays": False, "via_auftrag": False}]
         assert row["materials"] == [{"name": "Tauchpumpe", "count": 1}]
         assert row["reko"]["summary"] == "Keller 20 cm unter Wasser."
         assert row["reko"]["dangers"] == ["electrical"]
         assert row["reko"]["submitted_by_name"] == "Frey Marc"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_routes_vehicle_says_it_belongs_to_the_route(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        # «Kommt das TLF mit?» — the question a crew asks about a vehicle on
+        # their slip, and the one `/feld` could not answer: a route's vehicle
+        # and a Schadenplatz's rendered identically, so a TLF that follows the
+        # squad to the next stop looked like it belonged to this address.
+        from app.models import IncidentGroup, IncidentGroupAssignment
+
+        incident = await _make_incident(db_session, test_event, test_user, "Sturmholz 1")
+        person = await _make_person(db_session, "Muster Hans")
+        await _assign(db_session, incident, person)
+        group = IncidentGroup(event_id=test_event.id, name="Sturmholz Nord", position=0)
+        vehicle = Vehicle(id=uuid4(), name="TLF 2", type="TLF", status="available")
+        db_session.add_all([group, vehicle])
+        await db_session.commit()
+        incident.group_id = group.id
+        incident.group_position = 0
+        db_session.add(
+            IncidentGroupAssignment(
+                incident_group_id=group.id,
+                resource_type="vehicle",
+                resource_id=vehicle.id,
+                # …and parked at the address rather than driving back.
+                driver_stay=True,
+            )
+        )
+        await db_session.commit()
+
+        response = await client.get(
+            f"/api/feld/assignments/{person.id}?token={await feld_device_token(db_session, test_event.id, person.id)}"
+        )
+        row = response.json()["assignments"][0]
+        assert row["vehicles"] == [{"name": "TLF 2", "driver": None, "stays": True, "via_auftrag": True}]
 
     @pytest.mark.asyncio
     @pytest.mark.api

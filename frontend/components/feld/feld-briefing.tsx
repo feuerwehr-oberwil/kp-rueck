@@ -27,7 +27,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { Binoculars, Package, Phone, TriangleAlert, Truck, Users } from 'lucide-react'
+import { Binoculars, MapPin, Package, Phone, TriangleAlert, Truck, Undo2, Users, Waypoints } from 'lucide-react'
 
 import { FeldSection } from '@/components/feld/feld-section'
 import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
@@ -179,17 +179,45 @@ export function FeldBriefing({
         </BriefingRow>
       )}
 
-      {/* One line per vehicle, because each names its own driver. «TLF 1»
-          alone left a crew standing at an address unable to say who is sitting
-          in it — and the driver is exactly who they need when it has to move. */}
+      {/* One line per vehicle, and three facts on it, because those are the
+          three a crew standing at an address actually asks about a vehicle:
+          WHO is sitting in it (it is the person you need when it has to move),
+          whether it BELONGS to the Auftrag (an Auftrag's vehicles are shared
+          across every stop, so it comes to the next one — a Schadenplatz's do
+          not), and whether it STAYS here or drives back once you are dropped
+          off. «TLF 1» on its own answered none of them. */}
       {vehicles.length > 0 && (
         <BriefingRow icon={Truck} label={t('vehicles')}>
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {vehicles.map(vehicle => (
-              <p key={vehicle.name}>
-                {vehicle.name}
-                {vehicle.driver && (
-                  <span className="text-muted-foreground"> · {t('driver', { name: vehicle.driver })}</span>
+              <p key={vehicle.name} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                <span>
+                  {vehicle.name}
+                  {vehicle.driver && (
+                    <span className="text-muted-foreground"> · {t('driver', { name: vehicle.driver })}</span>
+                  )}
+                </span>
+                {vehicle.via_auftrag && (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-info/15 px-1.5 py-0.5 text-[11px] font-medium text-info">
+                    <Waypoints className="h-3 w-3 shrink-0" />
+                    {t('vehicleViaAuftrag')}
+                  </span>
+                )}
+                {/* Amber for the one that costs something — the same colour the
+                    board gives it. A vehicle parked at the address is blocked
+                    in; one that drives back is the normal state of the world.
+                    Nothing at all when the answer is null: an Auftrag has no
+                    driver-stay toggle, so «fährt zurück» there would be the
+                    board answering for a decision nobody made. */}
+                {vehicle.stays !== null && vehicle.stays !== undefined && (
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+                      vehicle.stays ? 'bg-warning/15 text-warning-foreground' : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {vehicle.stays ? <MapPin className="h-3 w-3 shrink-0" /> : <Undo2 className="h-3 w-3 shrink-0" />}
+                    {t(vehicle.stays ? 'vehicleStays' : 'vehicleReturns')}
+                  </span>
                 )}
               </p>
             ))}

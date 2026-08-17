@@ -22310,6 +22310,16 @@
               }
             ],
             "title": "Driver"
+          },
+          "stays": {
+            "type": "boolean",
+            "title": "Stays",
+            "default": false
+          },
+          "via_auftrag": {
+            "type": "boolean",
+            "title": "Via Auftrag",
+            "default": false
           }
         },
         "type": "object",
@@ -22317,7 +22327,7 @@
           "name"
         ],
         "title": "FeldVehicleLine",
-        "description": "One vehicle on the briefing, with whoever is driving it.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one."
+        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag. False (the default the board\n  writes on every assignment) means the driver takes it back to the Magazin\n  once the crew is dropped off; True means it is parked at the address for\n  the duration.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
       },
       "FieldReportState": {
         "properties": {
@@ -25411,7 +25421,8 @@
           "field_arrived",
           "field_complete",
           "field_message",
-          "field_pickup"
+          "field_pickup",
+          "field_report"
         ],
         "title": "NotificationType",
         "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."

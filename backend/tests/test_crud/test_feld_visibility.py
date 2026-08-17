@@ -611,7 +611,8 @@ class TestTheRouteOwnsItsCrew:
 
         row = next(r for r in rows if r["incident_id"] == stop.id)
         assert set(row["crew"]) == {"Graf Thomas", "Suter Elias"}
-        assert row["vehicles"] == [{"name": "MTW", "driver": None}]
+        # The route owns it, so it travels with the squad to the next stop.
+        assert row["vehicles"] == [{"name": "MTW", "driver": None, "stays": False, "via_auftrag": True}]
         # The Auftrag's leader leads every stop on it.
         assert row["leader_personnel_id"] == leader.id
         assert row["leader_name"] == "Graf Thomas"
