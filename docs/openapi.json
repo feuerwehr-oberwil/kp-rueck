@@ -12247,6 +12247,61 @@
         }
       }
     },
+    "/api/feld/material": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Feld Material",
+        "description": "Every material in the station and where it is — the Magazin's own view.\n\n**Gated on the role, not on an assignment.** Every other read on this door\nis \"only what is yours\"; this one is deliberately the whole inventory,\nbecause that is the job — a Materialwart who can only see the units that\nhappen to hang off their own Schadenplätze cannot answer \"wo ist die zweite\nTauchpumpe?\", which is the question they are actually asked. So the check is\nthat the person holds `magazin` in this Ereignis; anyone else gets 403 and\nthe phone never offers them the section.\n\nNothing here names a person or a Melder — it is equipment and addresses the\nsame crew can already read off their own rows.",
+        "operationId": "get_feld_material_api_feld_material_get",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldMaterialResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents/{incident_id}/arrived": {
       "post": {
         "tags": [
@@ -21195,6 +21250,40 @@
               }
             ],
             "title": "Leader Name"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "group_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Position"
           }
         },
         "type": "object",
@@ -21451,6 +21540,88 @@
         "title": "FeldIncidentCreated",
         "description": "What the phone gets back: the new Schadenplatz, and what became of it.\n\n``takeover`` says which of the three shapes happened, so the confirmation can\nbe specific — \"als Stop 3 im Auftrag\" reads very differently from \"gemeldet\"."
       },
+      "FeldMaterialItem": {
+        "properties": {
+          "material_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "home_location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Location"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "out",
+              "left",
+              "in"
+            ],
+            "title": "State",
+            "default": "in"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FeldMaterialItem",
+        "description": "One piece of material and where it is right now — the Magazin's own view.\n\nThe Magazin person used to get a list of *Schadenplätze* their material was\nattached to, which answers the wrong question: they are looking after the\nmaterial, not the incidents. One row per unit, and `at` is either the\nSchadenplatz it is standing on or nothing at all, which means the Magazin."
+      },
       "FeldMaterialLine": {
         "properties": {
           "name": {
@@ -21469,6 +21640,21 @@
         ],
         "title": "FeldMaterialLine",
         "description": "One line of the briefing's material list: a name and how many of it.\n\nGrouped by NAME rather than listed per assignment — \"Tauchpumpe ×2\" is what\na crew reads off a slip, while the per-unit rows (keyed on the assignment,\nwith their two ticks) are the *rapport's* job and live in\n``RapportMaterialRow``. Two lists, two questions: this one says what came\nwith you, that one asks what you did with it."
+      },
+      "FeldMaterialResponse": {
+        "properties": {
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/FeldMaterialItem"
+            },
+            "type": "array",
+            "title": "Materials",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "FeldMaterialResponse",
+        "description": "Every material in the station, with where it currently is."
       },
       "FeldMessageRequest": {
         "properties": {

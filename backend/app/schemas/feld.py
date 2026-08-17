@@ -209,6 +209,43 @@ class FeldAssignment(BaseModel):
     # "kein EL erfasst" rather than a blank line.
     leader_personnel_id: UUID | None = None
     leader_name: str | None = None
+    # The Auftrag this Schadenplatz is a stop of, if any (plan 26 + plan 12).
+    # A route-assigned crew holds no row on any stop, so without this their two
+    # Schadenplätze read as two unrelated jobs — which is the opposite of what
+    # an Auftrag is for. `group_position` is 0-based; the phone numbers the
+    # stops from it so the crew drives them in the order the KP set.
+    group_id: UUID | None = None
+    group_name: str | None = None
+    group_position: int | None = None
+
+
+class FeldMaterialItem(BaseModel):
+    """One piece of material and where it is right now — the Magazin's own view.
+
+    The Magazin person used to get a list of *Schadenplätze* their material was
+    attached to, which answers the wrong question: they are looking after the
+    material, not the incidents. One row per unit, and `at` is either the
+    Schadenplatz it is standing on or nothing at all, which means the Magazin.
+    """
+
+    material_id: UUID | None = None
+    name: str
+    #: Where it lives when it is not out — the depot shelf, not the Schadenplatz.
+    home_location: str | None = None
+    #: The Schadenplatz it is on right now. None = it is in the Magazin.
+    incident_id: UUID | None = None
+    at: str | None = None
+    #: Since when it has been out, so an Abholliste can be read in time order.
+    since: datetime | None = None
+    #: 'out' (assigned and open), 'left' (the crew's rapport says it stayed
+    #: behind, with no assignment to cross-check) or 'in' (in the Magazin).
+    state: Literal["out", "left", "in"] = "in"
+
+
+class FeldMaterialResponse(BaseModel):
+    """Every material in the station, with where it currently is."""
+
+    materials: list[FeldMaterialItem] = []
 
 
 class FeldAssignmentsResponse(BaseModel):

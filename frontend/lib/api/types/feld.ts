@@ -133,6 +133,32 @@ export interface ApiFeldAssignment {
   /** The EL of THIS incident. Both null = "kein EL erfasst", never a blank line. */
   leader_personnel_id: string | null
   leader_name: string | null
+  /** The Auftrag this Schadenplatz is a stop of. A route-assigned crew holds no
+   *  row on any stop, so without this their stops read as unrelated jobs — and
+   *  the order they are driven in is the reason the Auftrag exists at all.
+   *  `group_position` is 0-based; the list numbers the stops from it. */
+  group_id: string | null
+  group_name: string | null
+  group_position: number | null
+}
+
+/** One unit and where it is right now — the Magazin's own view (plan 26).
+ *  `at` names the Schadenplatz it is standing on; null means the Magazin. */
+export interface ApiFeldMaterialItem {
+  material_id: string | null
+  name: string
+  /** Where it lives when it is not out — the depot shelf, not the Schadenplatz. */
+  home_location: string | null
+  incident_id: string | null
+  at: string | null
+  since: string | null
+  /** `out` = the board has it assigned and open · `left` = a rapport says it
+   *  stayed behind with no assignment to check against · `in` = in the Magazin. */
+  state: 'out' | 'left' | 'in'
+}
+
+export interface ApiFeldMaterialResponse {
+  materials: ApiFeldMaterialItem[]
 }
 
 export interface ApiFeldAssignmentsResponse {

@@ -98,6 +98,7 @@ import {
   type ApiFeldClaimResponse,
   type ApiFeldIncidentCreate,
   type ApiFeldIncidentCreated,
+  type ApiFeldMaterialResponse,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
   type ApiSchadenplatzRapport,
@@ -2077,6 +2078,20 @@ class ApiClient {
   async getFeldAssignments(personnelId: string, token: string): Promise<ApiFeldAssignmentsResponse> {
     return this.request<ApiFeldAssignmentsResponse>(
       `/api/feld/assignments/${personnelId}?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  /**
+   * Every material in the station and where it is — the Magazin's own view.
+   *
+   * The one read on this door that is not "only what is yours": a Materialwart
+   * who sees only the units hanging off their own Schadenplätze cannot answer
+   * "wo ist die zweite Tauchpumpe?". Gated on holding `magazin` in the Ereignis,
+   * so it 403s for anybody else and the page never offers them the section.
+   */
+  async getFeldMaterial(personnelId: string, token: string): Promise<ApiFeldMaterialResponse> {
+    return this.request<ApiFeldMaterialResponse>(
+      `/api/feld/material?token=${encodeURIComponent(token)}&personnel_id=${personnelId}`
     )
   }
 

@@ -428,6 +428,38 @@ async def get_feld_assignments(
     )
 
 
+@router.get("/material", response_model=schemas.FeldMaterialResponse)
+@limiter.limit(RateLimits.FELD)
+async def get_feld_material(
+    request: Request,
+    personnel_id: uuid.UUID,
+    claims: FeldClaims,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldMaterialResponse:
+    """Every material in the station and where it is — the Magazin's own view.
+
+    **Gated on the role, not on an assignment.** Every other read on this door
+    is "only what is yours"; this one is deliberately the whole inventory,
+    because that is the job — a Materialwart who can only see the units that
+    happen to hang off their own Schadenplätze cannot answer "wo ist die zweite
+    Tauchpumpe?", which is the question they are actually asked. So the check is
+    that the person holds `magazin` in this Ereignis; anyone else gets 403 and
+    the phone never offers them the section.
+
+    Nothing here names a person or a Melder — it is equipment and addresses the
+    same crew can already read off their own rows.
+    """
+    event = await _load_event(db, claims.event_id)
+    await require_feld_person(db, claims, personnel_id, require_access=False)
+
+    functions = await crud.functions_for_personnel(db, event.id, personnel_id)
+    if "magazin" not in functions:
+        raise HTTPException(status_code=403, detail="Diese Person führt in diesem Ereignis nicht das Magazin.")
+
+    items = await crud.material_overview(db, event.id)
+    return schemas.FeldMaterialResponse(materials=[schemas.FeldMaterialItem(**item) for item in items])
+
+
 # ============================================
 # The four field actions (phase 1)
 # ============================================

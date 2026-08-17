@@ -35,6 +35,7 @@ from .access import (
 from .material import (
     event_restliste,
     material_left_on_site_named,
+    material_overview,
     material_return_attribution,
     material_return_units,
 )
@@ -160,6 +161,7 @@ __all__ = [
     "is_checked_in",
     "live_device_count",
     "material_left_on_site_named",
+    "material_overview",
     "material_return_attribution",
     "material_return_units",
     "normalize_extra_materials",

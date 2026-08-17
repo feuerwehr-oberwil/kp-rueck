@@ -333,3 +333,76 @@ async def material_return_attribution(
         return None, None, False
     names = await _names(db, report)
     return names["updated_by_name"] or names["created_by_name"], report.submitted_at, report.is_draft
+
+
+async def material_overview(db: AsyncSession, event_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Every material in the station, and where it is right now.
+
+    The Magazin person's own view (plan 26). They used to be handed the list of
+    *Schadenplätze* their material happened to be attached to, which answers the
+    wrong question — they are looking after the material, not the incidents, and
+    "wo ist die zweite Tauchpumpe?" was unanswerable from a list of addresses.
+
+    Three states, and they come from two different authorities:
+
+    * ``out``  — an open assignment on a Schadenplatz. The *board* says so, and
+      the board is the authority on where a unit is.
+    * ``left`` — the crew's rapport says it stayed behind and there is no
+      assignment to cross-check against (§18.35). Their word is the only source
+      there is, so it is shown as its own state rather than folded into ``out``.
+    * ``in``   — neither: it is in the Magazin.
+
+    Sorted by name, because this list is read to find one thing.
+    """
+    open_rows = await db.execute(
+        select(Material, Incident, IncidentAssignment.assigned_at)
+        .join(IncidentAssignment, IncidentAssignment.resource_id == Material.id)
+        .join(Incident, Incident.id == IncidentAssignment.incident_id)
+        .where(
+            Incident.event_id == event_id,
+            Incident.deleted_at.is_(None),
+            IncidentAssignment.resource_type == "material",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+    )
+    out_by_material: dict[uuid.UUID, tuple[Incident, datetime | None]] = {}
+    for material, incident, assigned_at in open_rows.all():
+        out_by_material[material.id] = (incident, assigned_at)
+
+    all_materials = await db.execute(select(Material).order_by(Material.name))
+    items: list[dict[str, Any]] = []
+    for material in all_materials.scalars().all():
+        placed = out_by_material.get(material.id)
+        items.append(
+            {
+                "material_id": material.id,
+                "name": material.name,
+                "home_location": material.location or None,
+                "incident_id": placed[0].id if placed else None,
+                "at": (placed[0].location_address or placed[0].title) if placed else None,
+                "since": placed[1] if placed else None,
+                "state": "out" if placed else "in",
+            }
+        )
+
+    # Consumables and anything else a crew wrote into "weiteres gebrauchtes
+    # Material" and left behind. These have no Material row at all — that is the
+    # nature of the field, and why the Restliste carries them separately too.
+    restliste = await event_restliste(db, event_id)
+    for row in restliste["material_on_site"]:
+        if row.get("material_id") is not None:
+            continue
+        items.append(
+            {
+                "material_id": None,
+                "name": row["name"],
+                "home_location": None,
+                "incident_id": row["incident_id"],
+                "at": row.get("location_address") or row.get("incident_title"),
+                "since": None,
+                "state": "left",
+            }
+        )
+
+    items.sort(key=lambda item: item["name"].lower())
+    return items

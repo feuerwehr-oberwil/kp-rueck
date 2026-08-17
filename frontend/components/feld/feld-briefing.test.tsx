@@ -34,6 +34,9 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     pickup_requested_at: null,
     leader_personnel_id: null,
     leader_name: null,
+    group_id: null,
+    group_name: null,
+    group_position: null,
     ...overrides,
   }
 }
