@@ -17,18 +17,20 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Plus, Star, User } from 'lucide-react'
+import { ArrowLeft, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, Plus, Star, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
   type ApiFeldPersonnel,
   type ApiFeldAssignment,
+  type ApiFeldMaterialItem,
   type ApiFieldReportState,
   type ApiSchadenplatzRapport,
 } from '@/lib/api-client'
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FeldIdentityBar, clearFeldName, writeFeldName } from '@/components/feld/feld-identity-bar'
+import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
@@ -299,6 +301,10 @@ function FeldSurface() {
   // Which roles this person holds here. The roles are data (decision 5); which
   // sections they unlock stays code, deliberately.
   const [functions, setFunctions] = useState<string[]>([])
+  // The Magazin's inventory. Only ever fetched for somebody holding the role —
+  // the endpoint 403s for anybody else, which is what makes it defensible to
+  // serve the whole station's material through a login-less door.
+  const [materials, setMaterials] = useState<ApiFeldMaterialItem[]>([])
   // Attendance: the individual half of the roll call (decision 10). The door
   // tablet stays its own page; this is somebody saying "ich bin da" from the
   // vehicle, and — the part that was missing entirely — "ich rücke ab".
@@ -401,7 +407,19 @@ function FeldSurface() {
       setMessageChips(data.message_chips ?? [])
       setEventName(data.event_name)
       setCheckedIn(Boolean(data.checked_in))
-      setFunctions(data.functions ?? [])
+      const roles = data.functions ?? []
+      setFunctions(roles)
+      // Chased rather than awaited: the inventory is a second section, and a
+      // crew standing at an address must not wait on the Magazin's table for
+      // their own rows. A failure here leaves the last table standing.
+      if (roles.includes('magazin')) {
+        apiClient
+          .getFeldMaterial(personnelId, activeToken)
+          .then(result => setMaterials(result.materials))
+          .catch(error => console.error('Failed to load the material list:', error))
+      } else {
+        setMaterials([])
+      }
       // A device coming back from its cookie has no picker to have chosen from,
       // so the person is restored from the response it was going to fetch
       // anyway — one round trip, not two, and no picker for somebody who has
@@ -655,9 +673,37 @@ function FeldSurface() {
    * buckets on top and leaves ties alone.
    */
   const feed = useMemo(
-    () => [...assignments].sort((a, b) => feedBucket(a) - feedBucket(b)),
-    [assignments],
+    () =>
+      assignments
+        // A `magazin` row was never really a Schadenplatz of theirs — it was a
+        // list of incidents standing in for a list of material, because there
+        // was no other place to say "your pump is still out". There is now, so
+        // the stand-in goes; anyone holding the role reads the table instead.
+        .filter(a => a.source !== 'magazin' || !functions.includes('magazin'))
+        .sort((a, b) => feedBucket(a) - feedBucket(b)),
+    [assignments, functions],
   )
+
+  /**
+   * Which rows belong to an Auftrag, and how many stops it has.
+   *
+   * A crew assigned to the *route* holds no row on any stop, so their two
+   * Schadenplätze arrive looking like two unrelated jobs — which is the exact
+   * opposite of what an Auftrag says. The list puts them under one heading and
+   * numbers them, because the order they are driven in is the reason the KP
+   * grouped them in the first place.
+   *
+   * Counted over the whole feed rather than per render position: a stop that
+   * sorted into a different bucket must still say "2 von 3", not "1 von 1".
+   */
+  const auftragSizes = useMemo(() => {
+    const sizes = new Map<string, number>()
+    for (const assignment of feed) {
+      if (!assignment.group_id) continue
+      sizes.set(assignment.group_id, (sizes.get(assignment.group_id) ?? 0) + 1)
+    }
+    return sizes
+  }, [feed])
 
   /**
    * Fold the server's answer to a field action back into the list row.
@@ -1013,7 +1059,23 @@ function FeldSurface() {
           </section>
         )}
 
-        {loadingAssignments ? null : assignments.length === 0 ? (
+        {/* The Magazin's section. Above the feed for somebody whose job this
+            is — a Materialwart opens the page to look at material, and their own
+            Schadenplätze (if any) are the smaller half of their night. */}
+        {functions.includes('magazin') && (
+          <section className="mb-6 rounded-xl bg-secondary/30 p-4">
+            <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t('material.title')}
+            </h2>
+            <FeldMaterialTable materials={materials} />
+          </section>
+        )}
+
+        {/* "Noch kein Auftrag" is for somebody whose page is otherwise empty.
+            A Materialwart reading a full table of material has not been told
+            nothing — telling them they have no job would contradict the screen
+            they are looking at. */}
+        {loadingAssignments ? null : feed.length === 0 && !functions.includes('magazin') ? (
           <div className="py-12 text-center animate-in fade-in duration-300">
             <div className="h-12 w-12 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
               <Clock className="h-6 w-6 text-muted-foreground" />
@@ -1040,6 +1102,17 @@ function FeldSurface() {
             // is live work in the order it needs doing; below is what you have
             // already left and may still owe a Rapport for.
             const startsPast = !assignment.is_active_assignment && (index === 0 || feed[index - 1].is_active_assignment)
+            // Behind you AND settled: nothing on this row is waiting for you.
+            // It stays on the list — a crew filing at 02:00 needs to find what
+            // they did — but it stops competing with the rows that are.
+            const settled = !assignment.is_active_assignment && !owesRapport(assignment)
+            // The heading opens once per Auftrag, at its first row in this feed.
+            // Only when it actually has more than one stop here: a heading over
+            // a single row is a label pretending to be a group.
+            const auftragCount = assignment.group_id ? (auftragSizes.get(assignment.group_id) ?? 0) : 0
+            const startsAuftrag =
+              auftragCount > 1 &&
+              (index === 0 || feed[index - 1].group_id !== assignment.group_id)
             return (
               <div key={`group-${assignment.incident_id}`}>
               {startsPast && (
@@ -1047,20 +1120,42 @@ function FeldSurface() {
                   {t('assignments.past')}
                 </p>
               )}
+              {startsAuftrag && (
+                <div className="mb-2 mt-4 flex items-center gap-2">
+                  <Waypoints className="h-3.5 w-3.5 shrink-0 text-info" />
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {t('assignments.auftrag', {
+                      name: assignment.group_name ?? '',
+                      count: auftragCount,
+                    })}
+                  </span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+              )}
               <button
                 onClick={() => openAssignment(assignment)}
                 className={`w-full cursor-pointer text-left rounded-xl p-4 transition-colors ${
                   assignment.is_active_assignment
                     ? 'bg-secondary/50 hover:bg-secondary'
                     : 'bg-muted/30 hover:bg-muted/50'
-                }`}
+                } ${settled ? 'opacity-60 hover:opacity-100' : ''}`}
               >
                 {/* Address first, Meldung underneath — the same order the detail
                     view and the board's own cards use. A crew standing on a
                     street matches the street, not the dispatcher's title for it;
                     the title stays as the fallback when there is no address. */}
                 <div className="flex items-start justify-between gap-3 mb-1.5">
-                  <h3 className="font-medium leading-tight">{address || assignment.incident_title}</h3>
+                  <h3 className="flex min-w-0 items-start gap-2 font-medium leading-tight">
+                    {/* Which stop of the route this is. The number is the whole
+                        reason a crew reads the group as an Auftrag rather than
+                        a coincidence — it says what to drive to next. */}
+                    {startsAuftrag || (auftragCount > 1 && assignment.group_position !== null) ? (
+                      <span className="mt-0.5 inline-grid size-5 shrink-0 place-items-center rounded-full bg-info text-[11px] font-bold text-white">
+                        {(assignment.group_position ?? 0) + 1}
+                      </span>
+                    ) : null}
+                    <span className="min-w-0">{address || assignment.incident_title}</span>
+                  </h3>
                   <div className="flex shrink-0 items-center gap-2">
                     <SourceLabel assignment={assignment} />
                     <ChevronRight className="h-4 w-4 text-muted-foreground mt-0.5" />

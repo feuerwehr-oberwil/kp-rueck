@@ -284,56 +284,45 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
     }
   });
 
-  test('der Magazinwart sieht den Schadenplatz seines Materials — und sonst nichts', async ({
+  test('der Magazinwart sieht eine Materialtabelle — nicht eine Liste von Einsätzen', async ({
     authenticatedPage,
     browser,
   }) => {
     // No crew at all on this Ereignis: this person is assigned to nothing,
     // drives nothing and was sent nowhere. Material still standing out there is
-    // their ONLY thread to the Schadenplatz.
-    // "Depot" and not "Magazin" in the address on purpose: the row's source tag
-    // IS the word Magazin, and a street called Magazinweg would make that
-    // assertion pass on the heading instead.
+    // their ONLY thread to the Schadenplatz — which is what puts them in the
+    // picker at all, and that half of the union is unchanged.
+    //
+    // What changed is what they get once they are in. They used to be handed
+    // the *Schadenplatz* their material happened to hang off, which answers the
+    // wrong question: they look after the material, not the incidents, and a
+    // unit sitting safely in the Magazin appeared nowhere at all.
     const fixture = await arrangeField(authenticatedPage, 'Depot', { crew: false, magazin: true });
     const magazin = fixture.magazin!;
 
     const { page: phone, feld } = await fieldPhone(browser);
     try {
       await feld.open(fixture.link, fixture.code);
-
-      // In the picker despite holding no assignment row anywhere — the union in
-      // `crud/feld/visibility.py` is what puts them there, and a picker built
-      // from assignments alone would leave the Magazin with a page that says
-      // "keine Person gefunden".
       await feld.pickPerson(magazin.name);
 
-      const row = feld.assignmentRow(street(fixture.incident));
-      await expect(row).toBeVisible({ timeout: FELD_TIMEOUT });
-      // Label the exception: an own assignment carries no tag, this one has to
-      // say why a Schadenplatz nobody sent them to is on their list.
-      await expect(row.getByText('Magazin', { exact: true })).toBeVisible();
-      await expect(row.getByText('Material von hier ist noch nicht zurück')).toBeVisible();
-      // No Rapport chip either — "kein Rapport" would read as a to-do that is
-      // not theirs and that the server would refuse.
-      await expect(row.getByText('kein Rapport')).toHaveCount(0);
+      // The table, headed by the one number they want first.
+      const table = phone.getByRole('table');
+      await expect(table).toBeVisible({ timeout: FELD_TIMEOUT });
+      await expect(phone.getByText(/von \d+ draussen/)).toBeVisible();
 
-      await feld.openAssignment(street(fixture.incident));
+      // The unit that is out names the Schadenplatz it is standing on…
+      const out = table.getByRole('row').filter({ hasText: 'draussen' }).first();
+      await expect(out).toBeVisible();
+      await expect(out).toContainText(street(fixture.incident));
 
-      // Read-only, deliberately (decision 11): Angekommen, Einsatz beendet and
-      // Abholung are the crew's three reports and the server answers all three
-      // with a 403 from here. Buttons that 403 are worse than buttons that are
-      // not there.
-      await expect(feld.arrivedButton).toHaveCount(0);
-      await expect(feld.completeButton).toHaveCount(0);
-      await expect(feld.pickupButton).toHaveCount(0);
-      // «Meldung» stays: noticing something is not a crew privilege.
-      await expect(phone.getByRole('button', { name: 'Meldung' })).toBeVisible();
+      // …and the stand-in it replaced is gone: no Schadenplatz row, no source
+      // tag, no explanatory sentence, because the table says all three better.
+      await expect(feld.assignmentRow(street(fixture.incident))).toHaveCount(0);
+      await expect(phone.getByText('Material von hier ist noch nicht zurück')).toHaveCount(0);
+      await expect(phone.getByText('kein Rapport')).toHaveCount(0);
 
-      // And no Rapport form — not the fields, not the submit, not even the
-      // section heading. The paper form belongs to the crew that worked here.
-      await expect(feld.kurzberichtField).toHaveCount(0);
-      await expect(feld.submitRapportButton).toHaveCount(0);
-      await expect(phone.getByText('Schadenplatz-Rapport')).toHaveCount(0);
+      // «Melden» stays: noticing something is not a crew privilege.
+      await expect(phone.getByRole('button', { name: 'Melden', exact: true })).toBeVisible();
     } finally {
       await phone.context().close();
     }

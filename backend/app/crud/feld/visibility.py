@@ -41,6 +41,7 @@ from ...models import (
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
+    IncidentGroup,
     IncidentGroupAssignment,
     Material,
     Personnel,
@@ -650,6 +651,15 @@ async def get_feld_assignments_for_personnel(
     # the whole list, so a crew with fourteen rows still costs one round trip.
     dispatched = await dispatched_incident_ids(db, [incidents[incident_id] for incident_id in mine_ids])
     leaders = await get_incident_leaders(db, mine_ids)
+    # The Auftrag each stop belongs to. A route-assigned crew holds no row on
+    # any stop, so without the name their Schadenplätze look like unrelated
+    # jobs — and the order is the whole point of grouping them.
+    group_rows = await db.execute(
+        select(IncidentGroup.id, IncidentGroup.name).where(
+            IncidentGroup.id.in_({incidents[i].group_id for i in mine_ids if incidents[i].group_id})
+        )
+    )
+    group_names = {row[0]: row[1] for row in group_rows.all()}
     briefings = await _briefings(db, mine_ids)
     rekos = await _reko_briefings(db, mine_ids)
 
@@ -702,6 +712,9 @@ async def get_feld_assignments_for_personnel(
                 "pickup_requested_at": incident.pickup_requested_at,
                 "leader_personnel_id": leader[0] if leader else None,
                 "leader_name": leader[1] if leader else None,
+                "group_id": incident.group_id,
+                "group_name": group_names.get(incident.group_id) if incident.group_id else None,
+                "group_position": incident.group_position if incident.group_id else None,
                 # Sort-only, stripped below. "Owes a rapport" rather than "has
                 # none": a Schadenplatz that was never disponiert owes nothing,
                 # so it must not be sorted up as if it were the crew's homework.
