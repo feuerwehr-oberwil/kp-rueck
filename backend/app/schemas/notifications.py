@@ -42,6 +42,7 @@ class NotificationType(str, Enum):
     FIELD_COMPLETE = "field_complete"
     FIELD_MESSAGE = "field_message"
     FIELD_PICKUP = "field_pickup"
+    FIELD_REPORT = "field_report"
 
 
 class NotificationResponse(BaseModel):

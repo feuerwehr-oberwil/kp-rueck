@@ -19,6 +19,8 @@ export type NotificationType =
   | 'field_complete'
   | 'field_message'
   | 'field_pickup'
+  // A whole new Schadenplatz, reported by somebody standing in front of it.
+  | 'field_report'
 
 export interface Notification {
   id: string

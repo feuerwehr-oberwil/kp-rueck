@@ -27,6 +27,10 @@ export type ToastPolicy = 'urgent' | 'normal' | 'quiet'
 const TYPE_POLICY: Partial<Record<NotificationType, ToastPolicy>> = {
   field_pickup: 'urgent',
   field_message: 'urgent',
+  // A Schadenplatz that did not exist a second ago. Nothing else on the board
+  // announces it — the card just appears in a column, and a taken-over one does
+  // not even appear there.
+  field_report: 'urgent',
   rapport_submitted: 'normal',
   field_complete: 'normal',
   field_arrived: 'quiet',

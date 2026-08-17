@@ -1347,11 +1347,14 @@ class Notification(Base):
             "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
             "'missing_location', 'event_size_limit', 'reko_submitted', 'reko_arrived', "
             "'training_emergency', 'vehicle_arrived', "
-            # Field reporting (/feld). 'field_pickup' is the only warning of the five —
-            # a crew waiting to be collected is the one field event that is time-critical
-            # for the KP; the rest are info.
+            # Field reporting (/feld). 'field_pickup' is the only one that is
+            # always a warning — a crew waiting to be collected is the field
+            # event that is time-critical for the KP. 'field_report' (a new
+            # Schadenplatz reported from the field) picks its severity per
+            # Meldung: info while it sits in Eingegangen, warning when the crew
+            # took it on and it skipped that column entirely.
             "'rapport_submitted', 'field_arrived', 'field_complete', 'field_message', "
-            "'field_pickup'"
+            "'field_pickup', 'field_report'"
             ")",
             name="valid_notification_type",
         ),

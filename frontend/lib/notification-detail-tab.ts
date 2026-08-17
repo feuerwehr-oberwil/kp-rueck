@@ -20,6 +20,9 @@ const TAB_BY_TYPE: Record<string, OperationDetailTab> = {
   field_arrived: "rapport",
   field_complete: "rapport",
   field_pickup: "rapport",
+  // A brand-new Schadenplatz: Übersicht is where it gets dispatched from, and
+  // there is no rapport or Reko to read yet.
+  field_report: "overview",
   // Reko has a tab of its own again: the Reko-Berichte are written and read at a
   // different moment than everything the crew sends from the Schadenplatz, and
   // one tab holding both was one tab nobody could see the end of.
