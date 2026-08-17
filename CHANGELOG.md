@@ -58,9 +58,10 @@ will keep holding.
   nothing is transferred and the job they are on keeps its own status. On a single job, that job
   and the new one become a route.
 
-- **The roll call reaches the field.** Checking in — and, for the first time anywhere, **ich
-  rücke ab** — from the crew's own page. The tablet at the door keeps its page; this is the
-  individual half, and it writes the same attendance record.
+- **The roll call reaches the field.** Checking in from the crew's own page — the tablet at the
+  door keeps its page, this is the individual half, and it writes the same attendance record.
+  Checking *out* is deliberately not offered: abmelden from a phone in a vehicle edits the list
+  the KP is keeping, and the one person who cannot see that list is the one holding the phone.
 
 - **Roles are data.** A station can add a Verkehrsdienst without a migration. What a role *does*
   stays in code — the table lets you name a role, not invent a permission model. Ships with
@@ -72,8 +73,14 @@ will keep holding.
 - **The board footer's QR buttons became one "Links & QR" sheet**, each row naming who the link
   is for, on desktop and mobile alike. Clicking a QR enlarges it — for the recurring case of
   somebody standing in the KP without the poster — and the enlarged Feld QR carries the code,
-  since the QR alone no longer gets anybody in. Check-In and Anzeige keep their own buttons:
-  one carries the Appell, the other picks which display to show.
+  since the QR alone no longer gets anybody in. Check-In and Anzeige keep their own buttons —
+  one carries the Appell, the other picks which display to show — and are therefore *not* in the
+  sheet: the same link in two places with two different sets of controls is how an operator ends
+  up in the wrong one.
+
+- **«Wo» on a field Meldung is the board's own location field.** Search, suggestions and a map to
+  tap, instead of a box to type a street into one-handed in the rain. **Standort übernehmen** is
+  reverse-geocoded into it: a coordinate is not something the KP can read out over the radio.
 
 ### Removed
 
@@ -83,6 +90,18 @@ will keep holding.
   moved to `/api/reko`.
 
 ### Fixed
+
+- **A crew assigned to an Auftrag saw nothing at all.** Resources assigned to a *route* cover
+  every stop on it — which is how a storm night is actually run, the KP puts the squad on the
+  route rather than on each tree — but the field surface only ever read per-incident rows. Those
+  crews got an empty list while standing on the job. It surfaced through «wir übernehmen das
+  gleich», which appended a stop and then showed the reporter nothing, and the same button left
+  the new Schadenplatz in *Eingegangen*, where the board reads it as an unhandled alarm while the
+  crew is already driving to it.
+
+- **Ticking somebody present in the Appell did not add them to the sidebar.** The board's roster
+  is everybody checked in, so the write was correct and simply told nobody until something else
+  happened to reload the board.
 
 - **A Reko trupp was being asked to file a Schadenplatz-Rapport for a place it had only looked
   at.** A Reko person is assigned with an ordinary assignment row, and only the event-wide
