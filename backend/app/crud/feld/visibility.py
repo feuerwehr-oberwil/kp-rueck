@@ -33,7 +33,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
@@ -389,6 +389,10 @@ async def get_incident_leaders(
 
     Incidents nobody ever led stay absent from the mapping; the caller renders
     "kein EL erfasst" for them, never a blank line (decision 22).
+
+    The Auftrag's leader leads every stop on it. A squad the KP put on the route
+    holds no row on any stop, so their Einsatzleiter was nowhere to be found and
+    each stop read "kein EL erfasst" — to the crew he was standing with.
     """
     if not incident_ids:
         return {}
@@ -404,6 +408,35 @@ async def get_incident_leaders(
     active: dict[uuid.UUID, set[uuid.UUID]] = {}
     for incident_id, personnel_id in active_result.all():
         active.setdefault(incident_id, set()).add(personnel_id)
+
+    # The Auftrag's leader, read in as each stop's own.
+    group_of = dict(
+        (
+            await db.execute(
+                select(Incident.id, Incident.group_id).where(
+                    Incident.id.in_(incident_ids), Incident.group_id.is_not(None)
+                )
+            )
+        ).all()
+    )
+    if group_of:
+        route_leaders = await db.execute(
+            select(
+                IncidentGroupAssignment.incident_group_id,
+                IncidentGroupAssignment.resource_id,
+            ).where(
+                IncidentGroupAssignment.incident_group_id.in_(set(group_of.values())),
+                IncidentGroupAssignment.resource_type == "personnel",
+                IncidentGroupAssignment.unassigned_at.is_(None),
+                IncidentGroupAssignment.is_leader.is_(True),
+            )
+        )
+        by_group: dict[uuid.UUID, set[uuid.UUID]] = {}
+        for group_id, personnel_id in route_leaders.all():
+            by_group.setdefault(group_id, set()).add(personnel_id)
+        for incident_id, group_id in group_of.items():
+            if group_id in by_group:
+                active.setdefault(incident_id, set()).update(by_group[group_id])
 
     incidents_result = await db.execute(select(Incident).where(Incident.id.in_(incident_ids)))
     resolved: dict[uuid.UUID, uuid.UUID] = {}
@@ -507,19 +540,83 @@ async def _briefings(
 ) -> dict[uuid.UUID, dict[str, Any]]:
     """What the board knows about these Schadenplätze, batched (§18.22).
 
-    Crew, vehicles and material per incident in **three** queries for the whole
-    list, not three per row: a storm night is forty Schadenplätze and this
+    Crew, vehicles and material per incident in **four** queries for the whole
+    list, not four per row: a storm night is forty Schadenplätze and this
     response is refetched on every window focus.
 
     Released rows are included, deliberately — see ``FeldAssignment``. The unit
     of a material line is its NAME: two identical pumps are "Tauchpumpe ×2",
     because a crew reads a slip, not an assignment table.
+
+    **Route-level resources count as this stop's.** An Auftrag owns its
+    resources and shares them across every stop, so a squad the KP put on the
+    route holds no row on any of them — and a briefing built from per-incident
+    rows alone showed those crews an empty one: no colleagues, no vehicle, on
+    the very Schadenplatz they were standing on. The fourth query folds the
+    Auftrag's resources into each of its stops, which is what the Auftrag says
+    they are.
     """
     briefings: dict[uuid.UUID, dict[str, Any]] = {
         incident_id: {"crew": [], "vehicles": [], "materials": []} for incident_id in incident_ids
     }
     if not incident_ids:
         return briefings
+
+    # Which of these stops belong to an Auftrag, so its resources can be read
+    # in as theirs. Only active route rows: a released one is a resource the
+    # board has taken off the whole route.
+    group_of = dict(
+        (
+            await db.execute(
+                select(Incident.id, Incident.group_id).where(
+                    Incident.id.in_(incident_ids), Incident.group_id.is_not(None)
+                )
+            )
+        ).all()
+    )
+    route: dict[uuid.UUID, dict[str, list[str]]] = {}
+    if group_of:
+        route_result = await db.execute(
+            select(
+                IncidentGroupAssignment.incident_group_id,
+                IncidentGroupAssignment.resource_type,
+                Personnel.name,
+                Vehicle.name,
+                Material.name,
+            )
+            .outerjoin(
+                Personnel,
+                and_(
+                    Personnel.id == IncidentGroupAssignment.resource_id,
+                    IncidentGroupAssignment.resource_type == "personnel",
+                ),
+            )
+            .outerjoin(
+                Vehicle,
+                and_(
+                    Vehicle.id == IncidentGroupAssignment.resource_id,
+                    IncidentGroupAssignment.resource_type == "vehicle",
+                ),
+            )
+            .outerjoin(
+                Material,
+                and_(
+                    Material.id == IncidentGroupAssignment.resource_id,
+                    IncidentGroupAssignment.resource_type == "material",
+                ),
+            )
+            .where(
+                IncidentGroupAssignment.incident_group_id.in_(set(group_of.values())),
+                IncidentGroupAssignment.unassigned_at.is_(None),
+            )
+        )
+        for group_id, resource_type, person_name, vehicle_name, material_name in route_result.all():
+            bucket = route.setdefault(group_id, {"crew": [], "vehicles": [], "materials": []})
+            name = {"personnel": person_name, "vehicle": vehicle_name, "material": material_name}.get(resource_type)
+            if not name:
+                continue
+            key = {"personnel": "crew", "vehicle": "vehicles", "material": "materials"}[resource_type]
+            bucket[key].append(name)
 
     crew_result = await db.execute(
         select(IncidentAssignment.incident_id, Personnel.id, Personnel.name)
@@ -530,6 +627,13 @@ async def _briefings(
         )
         .order_by(Personnel.name)
     )
+    for incident_id, group_id in group_of.items():
+        shared = route.get(group_id)
+        if not shared:
+            continue
+        briefings[incident_id]["crew"].extend(shared["crew"])
+        briefings[incident_id]["vehicles"].extend(shared["vehicles"])
+
     seen_crew: set[tuple[uuid.UUID, uuid.UUID]] = set()
     for incident_id, personnel_id, name in crew_result.all():
         # One person can hold several rows on one incident (assigned, released,
@@ -537,7 +641,10 @@ async def _briefings(
         if (incident_id, personnel_id) in seen_crew:
             continue
         seen_crew.add((incident_id, personnel_id))
-        briefings[incident_id]["crew"].append(name)
+        # A resource can sit at both levels — `_mirror` puts it there on purpose
+        # (crud/feld/melden.py). One person is one line on the slip either way.
+        if name not in briefings[incident_id]["crew"]:
+            briefings[incident_id]["crew"].append(name)
 
     vehicle_result = await db.execute(
         select(IncidentAssignment.incident_id, Vehicle.id, Vehicle.name)
@@ -553,7 +660,8 @@ async def _briefings(
         if (incident_id, vehicle_id) in seen_vehicles:
             continue
         seen_vehicles.add((incident_id, vehicle_id))
-        briefings[incident_id]["vehicles"].append(name)
+        if name not in briefings[incident_id]["vehicles"]:
+            briefings[incident_id]["vehicles"].append(name)
 
     material_result = await db.execute(
         select(IncidentAssignment.incident_id, Material.name)
@@ -564,7 +672,11 @@ async def _briefings(
         )
         .order_by(Material.location_sort_order, Material.location, Material.name)
     )
-    for incident_id, name in material_result.all():
+    material_pairs = [(incident_id, name) for incident_id, name in material_result.all()]
+    for incident_id, group_id in group_of.items():
+        for name in route.get(group_id, {}).get("materials", []):
+            material_pairs.append((incident_id, name))
+    for incident_id, name in material_pairs:
         lines: list[dict[str, Any]] = briefings[incident_id]["materials"]
         for line in lines:
             if line["name"] == name:

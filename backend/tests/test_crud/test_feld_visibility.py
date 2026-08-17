@@ -576,6 +576,51 @@ class TestTheRouteOwnsItsCrew:
         assert all(source.owes_rapport for source in visible.values())
 
     @pytest.mark.asyncio
+    async def test_the_stop_is_briefed_with_the_routes_crew_vehicle_and_leader(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Being able to SEE the stop was only half of it. The briefing and the
+        # Einsatzleiter were built from per-incident rows too, so the crew that
+        # could finally find their Schadenplatz opened it to "keine Ressourcen"
+        # and "kein EL erfasst" — while standing next to both.
+        from app.models import IncidentGroup, IncidentGroupAssignment
+
+        stop = await _incident(db_session, test_event, test_user, "Kirchgasse 8")
+        leader = await _person(db_session, "Graf Thomas")
+        mate = await _person(db_session, "Suter Elias")
+        vehicle = await _vehicle(db_session, "MTW")
+        group = IncidentGroup(event_id=test_event.id, name="Auftrag Graf", position=0)
+        db_session.add(group)
+        await db_session.commit()
+        stop.group_id, stop.group_position = group.id, 0
+        db_session.add_all(
+            [
+                IncidentGroupAssignment(
+                    incident_group_id=group.id,
+                    resource_type="personnel",
+                    resource_id=leader.id,
+                    is_leader=True,
+                ),
+                IncidentGroupAssignment(incident_group_id=group.id, resource_type="personnel", resource_id=mate.id),
+                IncidentGroupAssignment(incident_group_id=group.id, resource_type="vehicle", resource_id=vehicle.id),
+            ]
+        )
+        await db_session.commit()
+
+        rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, leader.id)
+
+        row = next(r for r in rows if r["incident_id"] == stop.id)
+        assert set(row["crew"]) == {"Graf Thomas", "Suter Elias"}
+        assert row["vehicles"] == ["MTW"]
+        # The Auftrag's leader leads every stop on it.
+        assert row["leader_personnel_id"] == leader.id
+        assert row["leader_name"] == "Graf Thomas"
+        # And the row says which Auftrag it belongs to, so the list can group it.
+        assert row["group_id"] == group.id
+        assert row["group_name"] == "Auftrag Graf"
+        assert row["group_position"] == 0
+
+    @pytest.mark.asyncio
     async def test_a_vehicle_on_the_route_puts_its_driver_on_every_stop(
         self, db_session: AsyncSession, test_event: Event, test_user: User
     ):
