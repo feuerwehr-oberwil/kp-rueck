@@ -241,6 +241,13 @@ async def _take_over(
         )
         incident.group_id = current.group_id
         incident.group_position = (max_pos + 1) if max_pos is not None else 0
+        # Belonging to the Auftrag is not the same as the Auftrag having a crew.
+        # A squad can be working a stop with everybody assigned to that *stop* —
+        # which is what the board's own assign flow writes — and then the route
+        # owns nobody, so a new stop appended here would arrive empty and the
+        # crew standing on it would be the only people who could not see it.
+        # Mirroring first is what makes "the route's resources cover it" true.
+        await _mirror(db, current.group_id, current.id)
         await db.flush()
         return "stop"
 

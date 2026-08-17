@@ -183,6 +183,20 @@ class TestTakeOver:
         await db_session.refresh(first)
         assert first.group_position == 0
 
+        # …and the crew really does cover the new stop. The Auftrag owned nobody
+        # before this call: everybody was assigned to the FIRST stop, which is
+        # what the board's own assign flow writes. Appending a stop without
+        # lifting them would hand the crew a Schadenplatz their own phone denies.
+        route = await db_session.execute(
+            select(IncidentGroupAssignment).where(
+                IncidentGroupAssignment.incident_group_id == group.id,
+                IncidentGroupAssignment.resource_type == "personnel",
+                IncidentGroupAssignment.resource_id == person.id,
+                IncidentGroupAssignment.unassigned_at.is_(None),
+            )
+        )
+        assert route.scalars().first() is not None
+
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_a_crew_on_one_job_opens_an_auftrag_and_keeps_working(
