@@ -32,11 +32,15 @@ function SheetPortal({
 function SheetOverlay({
   className,
   overlayOffset,
+  rightInset,
   elevated,
   nonModal,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Overlay> & {
   overlayOffset?: string
+  /** CSS length keeping the overlay (and, via SheetContent, a bottom sheet)
+   *  clear of a right-side panel — e.g. the open notification sidebar. */
+  rightInset?: string
   elevated?: boolean
   nonModal?: boolean
 }) {
@@ -56,7 +60,14 @@ function SheetOverlay({
           elevated ? 'z-[70]' : 'z-50',
           className,
         )}
-        style={overlayOffset ? { bottom: overlayOffset } : undefined}
+        style={
+          overlayOffset || rightInset
+            ? {
+                ...(overlayOffset ? { bottom: overlayOffset } : undefined),
+                ...(rightInset ? { right: rightInset } : undefined),
+              }
+            : undefined
+        }
       />
     )
   }
@@ -72,7 +83,14 @@ function SheetOverlay({
         elevated ? 'z-[70]' : 'z-50',
         className,
       )}
-      style={overlayOffset ? { bottom: overlayOffset } : undefined}
+      style={
+        overlayOffset || rightInset
+          ? {
+              ...(overlayOffset ? { bottom: overlayOffset } : undefined),
+              ...(rightInset ? { right: rightInset } : undefined),
+            }
+          : undefined
+      }
       {...props}
     />
   )
@@ -84,6 +102,7 @@ function SheetContent({
   side = 'right',
   hideCloseButton = false,
   overlayOffset,
+  rightInset,
   elevated = false,
   nonModal = false,
   onInteractOutside,
@@ -93,12 +112,16 @@ function SheetContent({
   side?: 'top' | 'right' | 'bottom' | 'left'
   hideCloseButton?: boolean
   overlayOffset?: string
+  /** Keeps a bottom sheet AND its backdrop clear of a right-side panel (the
+   *  open notification sidebar) so the two sit side by side instead of the
+   *  sheet sliding underneath. CSS length; only applied to `side="bottom"`. */
+  rightInset?: string
   elevated?: boolean
   nonModal?: boolean
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay overlayOffset={overlayOffset} elevated={elevated} nonModal={nonModal} />
+      <SheetOverlay overlayOffset={overlayOffset} rightInset={rightInset} elevated={elevated} nonModal={nonModal} />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         // Dismissing a toast must never dismiss the slide-up behind it; any
@@ -127,6 +150,7 @@ function SheetContent({
         // behind the footer toolbar.
         style={{
           ...(side === 'bottom' && overlayOffset ? { bottom: overlayOffset } : undefined),
+          ...(side === 'bottom' && rightInset ? { right: rightInset } : undefined),
           ...style,
         }}
         {...props}

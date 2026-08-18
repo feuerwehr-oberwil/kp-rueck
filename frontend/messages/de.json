@@ -100,7 +100,9 @@
       "priorityHigh": "Priorität: Hoch",
       "toggleZuFuss": "Zu Fuss umschalten",
       "assignVehicle": "Fahrzeug {number} zuweisen/entfernen",
-      "deleteIncident": "Einsatz löschen"
+      "deleteIncident": "Einsatz löschen",
+      "linksAndQr": "Links & QR",
+      "mapColorBy": "Färben nach: {mode}"
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -170,9 +172,6 @@
       "newEvent": "Neues Ereignis",
       "allEvents": "Alle Ereignisse",
       "quickActions": "Schnellzugriff",
-      "checkInQr": "Check-In QR-Code",
-      "reko": "Reko",
-      "display": "Display",
       "personnel": "Personal",
       "vehicles": "Fahrzeuge",
       "print": "Drucken",
@@ -403,36 +402,19 @@
       "createMaterialInSettings": "In den Einstellungen anlegen",
       "scanCheckInQr": "Check-In QR-Code scannen",
       "boardPrintSent": "Board-Druckauftrag gesendet",
-      "qrPrintSent": "QR-Druckauftrag gesendet",
-      "selectEventFirst": "Bitte wähle zuerst ein Ereignis aus.",
-      "qrGenerateFailed": "QR-Code konnte nicht generiert werden. Bitte versuche es erneut.",
       "rekoLinkFailed": "Reko-Link konnte nicht generiert werden. Bitte versuche es erneut.",
-      "displayLinkFailed": "Display-Link konnte nicht generiert werden. Bitte versuche es erneut.",
       "alarmLinkFailed": "Alarm-Link konnte nicht generiert werden. Bitte versuche es erneut.",
       "materialReturned": "Material zurückgegeben",
       "readiness": "Checkliste",
-      "checkIn": "Check-In",
-      "display": "Display",
       "alarm": "Alarm",
       "vehicles": "Fahrzeuge",
       "print": "Drucken",
       "printTitle": "Drucken & Export – Bon, A4, Datei",
       "trainingControl": "Übungs-Steuerung",
       "commands": "Befehle",
-      "checkInSheetTitle": "Personal Check-In",
-      "checkInSheetDescription": "QR-Code scannen oder Link teilen für mobilen Zugriff",
-      "checkInSheetHint": "Personal kann diesen QR-Code scannen um sich einzuchecken. Funktioniert ohne Anmeldung.",
       "rekoSheetTitle": "Reko Dashboard",
       "rekoSheetDescription": "QR-Code scannen oder Link teilen für Reko-Personal",
       "rekoSheetHint": "Reko-Personal kann Zuweisungen sehen und Formulare ausfüllen. Funktioniert ohne Anmeldung.",
-      "displaySheetTitle": "Display teilen",
-      "displaySheetDescription": "QR-Code scannen oder Link teilen für die Display-Übersicht (Nur-Lesen)",
-      "displaySheetHint": "Jeder mit diesem Link sieht die aktuelle Einsatzübersicht auf einem Display. Funktioniert ohne Anmeldung, nur Lesen.",
-      "displayView": {
-        "board": "Board",
-        "map": "Karte",
-        "status": "Status"
-      },
       "alarmSheetTitle": "Alarm-Link",
       "alarmSheetDescription": "QR-Code scannen oder Link teilen, um Alarme ohne Anmeldung zu erfassen (z. B. Telefon / Walk-in)",
       "alarmSheetHint": "Jeder mit diesem Link kann neue Alarme erfassen. Funktioniert ohne Anmeldung. Erfasste Alarme erscheinen als Telefon/Walk-in zur Prüfung.",
@@ -563,7 +545,6 @@
       "persCount": "{count} Pers.",
       "changeReko": "Reko ändern",
       "assignReko": "Reko zuweisen",
-      "markZuFuss": "Zu Fuss markieren",
       "removeNachbarhilfe": "Nachbarhilfe entfernen",
       "markNachbarhilfe": "Als Nachbarhilfe markieren",
       "removeAmWarten": "Am Warten entfernen",
@@ -893,7 +874,7 @@
         "subtitle": "Für alle im Einsatz"
       },
       "checkin": {
-        "title": "Anwesenheit",
+        "title": "Check-In",
         "subtitle": "Check-in am Eingang"
       },
       "display": {
@@ -1151,7 +1132,6 @@
     "page": {
       "loading": "Karte wird geladen…",
       "title": "Lagekarte",
-      "backToBoard": "Zurück zum Board",
       "activeBadge": "{count} Aktiv",
       "incidentsHeading": "Einsätze ({count})",
       "labels": "Labels",
@@ -2195,9 +2175,6 @@
       "photoAlt": "Reko-Foto {number}",
       "photoAltBy": "Reko-Foto {number} von {name}",
       "additionalNotes": "Zusätzliche Notizen",
-      "rekoBy": "Reko von: {name}",
-      "submittedAt": "Übermittelt: {date}",
-      "updatedAt": "Aktualisiert: {date}",
       "relevantShort": "Relevant",
       "notRelevantShort": "Nicht relevant",
       "photoCount": "{count, plural, one {# Foto} other {# Fotos}}",
@@ -2208,7 +2185,9 @@
       "cancel": "Abbrechen",
       "radioHint": "Was der Trupp über Funk meldet, hier erfassen. Wird als KP-Erfassung vermerkt.",
       "saved": "Reko-Bericht gespeichert",
-      "saveFailed": "Speichern fehlgeschlagen"
+      "saveFailed": "Speichern fehlgeschlagen",
+      "submittedShort": "Übermittelt {time}",
+      "updatedShort": "aktualisiert {time}"
     },
     "dummyGenerator": {
       "title": "Übungs-Modus",
@@ -2578,7 +2557,8 @@
       "driveToIncident": "Fahrt zu Einsatz",
       "vehicleOnScene": "Fahrzeug vor Ort",
       "fieldComplete": "Einsatz beendet",
-      "driveToMagazin": "Rückfahrt Magazin"
+      "driveToMagazin": "Rückfahrt Magazin",
+      "rapport": "Rapport eingetroffen"
     },
     "settings": {
       "saveFailed": "Fehler beim Speichern der Einstellung",
@@ -2780,7 +2760,9 @@
       "arrivalHintDescription": "Der Einsatz steht aktuell nicht auf Disponiert – die Fahrt läuft, aber ohne Ankunfts-Abfrage.",
       "startFailed": "Simulation konnte nicht gestartet werden",
       "returnFailed": "Rückfahrt konnte nicht gestartet werden",
-      "stopFailed": "Simulation konnte nicht gestoppt werden"
+      "stopFailed": "Simulation konnte nicht gestoppt werden",
+      "magazinMissing": "Magazin-Koordinaten fehlen – in Einstellungen → GPS hinterlegen.",
+      "magazinMissingLink": "Zu den Einstellungen"
     },
     "banner": {
       "linkTitle": "Zur Übungs-Steuerung",
@@ -2831,7 +2813,6 @@
       "rapportFiledBy": "Erfasst von {name} (Feld)",
       "rapportFiledByPhotos": "Erfasst von {name} (Feld) · {count, plural, one {# Foto} other {# Fotos}}",
       "fieldMessageSent": "Meldung vom Feld eingetroffen",
-      "rapportLabel": "Schadenplatz-Rapporte",
       "rapportBulk": "Rapporte eintreffen lassen",
       "rapportFiling": "Rapporte treffen ein...",
       "rapportHint": "Erfasst 80 % der Rapporte der abgeschlossenen Schadenplätze. Der Rest fehlt absichtlich – genau das steht in der Restliste.",
@@ -2845,7 +2826,18 @@
       "pickupRequired": "Abholung nötig",
       "pickupAuto": "Lage entscheidet",
       "pickupNeeded": "Abholung nötig",
-      "pickupNeededDescription": "Der Trupp wartet vor Ort – die Abholung ist auf der Karte und in der Restliste."
+      "pickupNeededDescription": "Der Trupp wartet vor Ort – die Abholung ist auf der Karte und in der Restliste.",
+      "fieldReportLabel": "Meldung vom Feld einspielen",
+      "fieldReportIncidentPlaceholder": "Einsatz mit Trupp wählen…",
+      "fieldReportPlaceholder": "Was meldet der Trupp?",
+      "fieldReportSend": "Melden",
+      "fieldReportSending": "Wird gemeldet…",
+      "fieldReportSent": "Meldung vom Feld eingegangen",
+      "fieldReportExample1": "Person in Wohnung vermutet",
+      "fieldReportExample2": "Gasgeruch im UG",
+      "fieldReportExample3": "Weiterer Baum auf der Strasse",
+      "fieldReportNoIncidents": "Kein offener Einsatz mit zugeteiltem Trupp – eine Meldung vom Feld braucht einen Trupp im Feld.",
+      "fieldReportHint": "Der Trupp des gewählten Einsatzes meldet einen neuen Schadenplatz – die Meldung trifft wie eine echte ein (Glocke, Eingegangen)."
     }
   },
   "sync": {
@@ -2952,7 +2944,7 @@
       "share-alarm-link": {
         "title": "Alarm-Link teilen",
         "description": "Meldungen von aussen: Walk-in am Schalter, Anrufe ohne KP-Zugang",
-        "note": "Für den Empfang im KP · 1 Ausdruck"
+        "note": "Für den Telefonistendienst · 1 Ausdruck"
       },
       "share-feld-link": {
         "title": "Feld-Link teilen",
@@ -2989,21 +2981,14 @@
         "detailsInactive": "Kein automatischer Board-Snapshot eingerichtet",
         "setup": "Einrichten",
         "description": "Auto-Druck (Thermo) oder Lageblatt Auto-Download für den Ausfall"
-      },
-      "configure-map-mode": {
-        "title": "Offline-Karten einrichten",
-        "detailsAvailable": "Offline-Karten verfügbar",
-        "detailsNotSetup": "Nicht eingerichtet",
-        "mapSetup": "Karten-Setup",
-        "description": "Optional: Karten ohne Internet nutzen"
       }
     },
     "actions": {
       "printQr": "QR drucken",
       "copyLink": "Link kopieren",
       "openVehicles": "Fahrzeuge öffnen",
-      "openRekoMode": "Reko-Modus öffnen",
-      "openAttendance": "Appell öffnen"
+      "openAttendance": "Appell öffnen",
+      "chooseReko": "Reko-Offiziere wählen"
     },
     "setup": {
       "title": "Setup-Checkliste",
@@ -3021,9 +3006,6 @@
       "testPrintQueued": "Testdruck eingereiht – warte auf Drucker…",
       "testPrintQueuedDescription": "Der Drucker-Status wird automatisch aktualisiert.",
       "testPrintFailed": "Testdruck konnte nicht gestartet werden",
-      "tileSetupTitle": "Tile-Setup",
-      "tileSetupDescription": "Öffne die Hilfe-Seite für Anleitungen zur Offline-Karten-Einrichtung.",
-      "tileSetupAction": "Zur Hilfe",
       "whatsappCopied": "WhatsApp-Nachricht {number} kopiert",
       "whatsappCopiedDescription": "In WhatsApp einfügen und senden, danach manuell abhaken.",
       "copyError": "Fehler beim Kopieren",
@@ -3041,6 +3023,13 @@
       "critical": "Erforderlich",
       "recommended": "Empfohlen",
       "optional": "Optional"
+    },
+    "rekoPicker": {
+      "title": "Reko-Offiziere wählen",
+      "description": "Angemeldete Person antippen, um sie als Reko zu markieren. Adressen verteilt der Reko-Modus auf der Karte.",
+      "marked": "{name} als Reko markiert",
+      "failed": "Hat nicht geklappt. Nochmals versuchen.",
+      "done": "Fertig"
     }
   },
   "display": {
@@ -3463,7 +3452,9 @@
       "regenerateTitle": "Neuen Feld-Code erstellen?",
       "regenerateDescription": "Neue Geräte brauchen ab sofort den neuen Code. Wer bereits angemeldet ist, arbeitet ungestört weiter – es wird niemand abgemeldet.",
       "revokeTitle": "Alle Geräte abmelden?",
-      "revokeDescription": "{count, plural, one {# Gerät ist} other {# Geräte sind}} angemeldet. Alle müssen den Code neu eingeben – auch Mannschaften, die gerade unterwegs sind. Ein neuer Code allein meldet niemanden ab."
+      "revokeDescription": "{count, plural, one {# Gerät ist} other {# Geräte sind}} angemeldet. Alle müssen den Code neu eingeben – auch Mannschaften, die gerade unterwegs sind. Ein neuer Code allein meldet niemanden ab.",
+      "copyCode": "Code kopieren",
+      "codeCopied": "Feld-Code kopiert"
     },
     "melden": {
       "fab": "Melden",

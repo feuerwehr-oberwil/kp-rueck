@@ -157,6 +157,12 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
         side="bottom"
         hideCloseButton={!isMobile}
         overlayOffset={isMobile ? undefined : footerOffset}
+        // Desktop: stop at the notification sidebar's edge instead of sliding
+        // underneath it. The sidebar publishes its width as a root CSS var
+        // while open (persistent-notification-sidebar.tsx); 0px otherwise, so
+        // this is a no-op when the sidebar is closed. Backdrop follows too, so
+        // the sidebar is neither dimmed nor covered — side by side, sane z.
+        rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
         nonModal={!isMobile}
         className={className}
         style={style}

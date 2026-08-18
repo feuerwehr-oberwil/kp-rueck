@@ -1485,7 +1485,12 @@ export function OperationDetailContent({
               is a different moment from everything below, which is why it is no
               longer stacked on top of it. */}
           <TabsContent value="reko" className={tabPanelClass}>
-            <div className="space-y-4 py-4">
+            {/* Same two-column pattern as Übersicht: the Auftrag (who is sent,
+                and the links to send them with) in the LEFT column, everything
+                that comes BACK (the Funkmeldung, the filed Berichte, the entry
+                surface) in the RIGHT. The panel mount stays a single stacked
+                column in this same order — 420px has no second column. */}
+            <div className={tabGridClass}>
               {/* Der Reko-Auftrag: wer schaut es an, und alles, was daran
                   geändert wird. Moved here off Übersicht — Reko was split
                   across two tabs, with the tab NAMED Reko holding only the
@@ -1582,7 +1587,7 @@ export function OperationDetailContent({
                 )}
               </div>
 
-              <div className="border-t border-border pt-4">
+              <div className={tabColumnBreakClass}>
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
@@ -1590,9 +1595,10 @@ export function OperationDetailContent({
                 // it sits with the reports in the data column — not across both,
                 // where it read as a heading for the entry surface too.
                 dataSlot={<FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />}
-                // Two columns where there is width: what was reported on the
-                // left, what the operator writes on the right.
-                layout={dense ? 'stacked' : 'split'}
+                // Stacked in both mounts now: this column is half the modal —
+                // the tab's own grid took over the side-by-side reading, with
+                // the Auftrag on the left and everything reported on the right.
+                layout="stacked"
                 // Deep-linked with the entry form open. «Reko-Details öffnen»
                 // in the completion gate answers "no Reko report was filled in",
                 // so it has to land on the form, not on a tab with a button.

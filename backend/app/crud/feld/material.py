@@ -19,8 +19,10 @@ from ...models import (
     MaterialGroup,
     SchadenplatzReport,
 )
+from ...schemas.feld import RapportMaterialDecision
 from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies
 from .rapport import _board_material_units, _is_answered, _names, normalize_extra_materials, reconcile_materials
+from .reports import _broadcast
 from .visibility import _rapport_state
 
 # ============================================
@@ -278,6 +280,74 @@ async def material_return_units(
         }
         (left if row["left_on_site"] else returned).append(unit)
     return returned, left
+
+
+async def apply_material_decisions(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    decisions: list[RapportMaterialDecision],
+) -> bool:
+    """Write the KP's confirmed «Vor Ort / Magazin» answers back into the rapport.
+
+    The completion gate asks where every unit stays; until now «Vor Ort» changed
+    nothing, so the Restliste kept showing whatever the crew's checklist said —
+    or nothing at all when the crew never ticked it. This makes the operator's
+    click the recorded answer: ``left_on_site`` on the matching checklist row
+    (by ``material_id``) or "Weiteres Material" entry (by ``name``).
+
+    Deliberately narrow:
+
+    * Only rows the rapport already has are touched — no rapport row, no write
+      (``False``; an incident that was never dispatched has nothing to record).
+      Missing rows are skipped silently for the same reason.
+    * Consumables never change: a used consumable is gone (decision 26) and
+      ``reconcile_materials`` would strip the flag again anyway.
+    * The rapport's draft/filed state stays as it is — confirming material
+      whereabouts is not filing a rapport on the crew's behalf.
+    """
+    result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
+    report = result.scalar_one_or_none()
+    if report is None:
+        return False
+
+    by_material = {str(d.material_id): d.left_on_site for d in decisions if d.material_id is not None}
+    by_name = {d.name.strip().lower(): d.left_on_site for d in decisions if d.material_id is None and d.name}
+
+    changed = False
+
+    rows: list[dict[str, Any]] = []
+    for raw in report.materials_json or []:
+        if (
+            isinstance(raw, dict)
+            and not raw.get("consumable")
+            and raw.get("material_id")
+            and str(raw["material_id"]) in by_material
+        ):
+            wanted = by_material[str(raw["material_id"])]
+            if bool(raw.get("left_on_site")) != wanted:
+                raw = {**raw, "left_on_site": wanted}
+                changed = True
+        rows.append(raw)
+
+    extras = normalize_extra_materials(report.extra_materials_json)
+    for entry in extras:
+        wanted = by_name.get(entry["name"].lower())
+        if wanted is not None and entry["left_on_site"] != wanted:
+            entry["left_on_site"] = wanted
+            changed = True
+
+    if changed:
+        # Reassigned (not mutated in place) so SQLAlchemy sees the JSONB change.
+        report.materials_json = rows
+        report.extra_materials_json = extras
+        await db.commit()
+        # The Restliste / material-on-site panel reads these flags — tell the
+        # boards to refetch instead of waiting out the poll.
+        await _broadcast(incident)
+    # True whenever a rapport row was there to answer to — a decision that
+    # matches what the rapport already said is applied, not skipped.
+    return True
 
 
 async def material_left_on_site_named(

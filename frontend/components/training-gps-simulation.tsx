@@ -16,8 +16,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { Satellite, Play, Square, Home, Gauge, Lock } from 'lucide-react';
+import { Satellite, Play, Square, Home, Gauge, Lock, AlertTriangle } from 'lucide-react';
 import { useGpsSimSpeed, GPS_SIM_SPEED_MIN, GPS_SIM_SPEED_MAX } from '@/lib/hooks/use-gps-sim-speed';
 import { formatEta, liveDrive } from '@/lib/gps-sim';
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils';
@@ -46,6 +47,10 @@ export function TrainingGpsSimulation() {
   // The backend refuses simulated drives in demo mode. Ask up front so the
   // rows render disabled with a reason instead of failing on click.
   const [demoLocked, setDemoLocked] = useState(false);
+  // Preflight for the Magazin target: the backend 400s a "magazin" drive when
+  // gps.station_lat/lng are not set (the legacy firestation_* pair does NOT
+  // count). Check once so the trainer is warned BEFORE hitting the error.
+  const [magazinConfigured, setMagazinConfigured] = useState(true);
 
   const refreshDrives = useCallback(async () => {
     try {
@@ -59,6 +64,15 @@ export function TrainingGpsSimulation() {
   useEffect(() => {
     apiClient.getVehicles().then(setVehicles).catch(() => setVehicles([]));
     apiClient.getDemoStatus().then((status) => setDemoLocked(!!status?.demo)).catch(() => {});
+    apiClient
+      .getAllSettings()
+      .then((settings) => {
+        // Exactly the pair the backend parses for the Magazin target.
+        const lat = parseFloat(settings['gps.station_lat'] ?? '');
+        const lng = parseFloat(settings['gps.station_lng'] ?? '');
+        setMagazinConfigured(Number.isFinite(lat) && Number.isFinite(lng));
+      })
+      .catch(() => {}); // unknown → don't block; the backend error still catches it
     refreshDrives();
     // Live status via WS, plus a light poll so drive states stay fresh.
     const unsubscribe = wsClient.on('gps_sim_status', () => refreshDrives());
@@ -203,7 +217,7 @@ export function TrainingGpsSimulation() {
   };
 
   return (
-    <Card className="mt-4">
+    <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -247,6 +261,17 @@ export function TrainingGpsSimulation() {
             {t('lockedDemo')}
           </p>
         )}
+        {!magazinConfigured && (
+          <p className="flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-xs text-warning-foreground">
+            <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>
+              {t('magazinMissing')}{' '}
+              <Link href="/settings" className="underline underline-offset-2 hover:text-foreground">
+                {t('magazinMissingLink')}
+              </Link>
+            </span>
+          </p>
+        )}
         {vehicles.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t('noVehicles')}</p>
         ) : (
@@ -278,9 +303,10 @@ export function TrainingGpsSimulation() {
                     {drive.kind === 'incident' && drive.eta_seconds <= 5 && !busy && (
                       <Button
                         onClick={() => handleReturn(vehicle)}
+                        disabled={!magazinConfigured}
                         size="sm"
                         className="flex-shrink-0"
-                        title={t('returnTitle')}
+                        title={magazinConfigured ? t('returnTitle') : t('magazinMissing')}
                       >
                         <Home className="size-3.5" />
                         {t('returnButton')}
@@ -313,7 +339,7 @@ export function TrainingGpsSimulation() {
                             {t.label}
                           </SelectItem>
                         ))}
-                        <SelectItem value={MAGAZIN_TARGET}>
+                        <SelectItem value={MAGAZIN_TARGET} disabled={!magazinConfigured}>
                           <span className="flex items-center gap-1.5">
                             <Home className="h-3.5 w-3.5" />
                             {t('magazinTarget')}
@@ -321,12 +347,25 @@ export function TrainingGpsSimulation() {
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                    {/* The default target can resolve to Magazin (vehicle in
+                        Einsatz/Rückfahrt) — guard start too, not only the picker. */}
                     <Button
                       onClick={() => handleStart(vehicle)}
-                      disabled={busy || demoLocked || !targetFor(vehicle.id)}
+                      disabled={
+                        busy ||
+                        demoLocked ||
+                        !targetFor(vehicle.id) ||
+                        (targetFor(vehicle.id) === MAGAZIN_TARGET && !magazinConfigured)
+                      }
                       size="sm"
                       className="flex-shrink-0"
-                      title={demoLocked ? t('lockedDemo') : undefined}
+                      title={
+                        demoLocked
+                          ? t('lockedDemo')
+                          : targetFor(vehicle.id) === MAGAZIN_TARGET && !magazinConfigured
+                            ? t('magazinMissing')
+                            : undefined
+                      }
                     >
                       <Play className="size-3.5" />
                       {t('startDrive')}

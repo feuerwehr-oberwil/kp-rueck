@@ -11,17 +11,20 @@
  * Reko is gone from the list rather than merged: `/feld` absorbed it, and a Reko
  * auftrag now opens the form straight from the crew's own page.
  *
- * Check-In and Anzeige are not here either, and for the opposite reason: they
- * kept their own footer pills because their sheets do more than share a link
- * (the Appell; picking which display the token opens). Listing them here too
- * meant the same link in two places with two different sets of controls — so
- * this sheet holds only the links that live nowhere else.
+ * Check-In and Anzeige held out longest as their own pills (the Appell; picking
+ * which display the token opens), but they are folded in now too:
+ *
+ * * **Check-In leads**, and the Appell rides along as a row — the roll call is
+ *   the other half of the same job, so it lives next to the link that feeds it.
+ * * **Anzeige shares only the base `/display` link.** The board/map/status
+ *   picker moved to where it belongs: the `/display` overview page itself,
+ *   which forwards the token to whichever wall page is chosen on site.
  *
  * Two things that are not just tidying:
  *
- * * **The Feld-Code rides along at the top.** Since plan 26 the QR alone gets
- *   nobody in, so printing or reading out a link without its code strands
- *   whoever scans it.
+ * * **The Feld-Code rides along, right above the Feld link.** Since plan 26 the
+ *   QR alone gets nobody in, so printing or reading out a link without its code
+ *   strands whoever scans it. The code itself is click-to-copy.
  * * **Clicking a QR enlarges it**, for the recurring case of somebody standing
  *   in the KP without the poster: click, hold up the screen, done. The enlarged
  *   Feld QR shows the code underneath it for the same reason.
@@ -30,7 +33,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { useTranslations } from "next-intl"
-import { Check, Copy, ExternalLink, Printer } from "lucide-react"
+import { Check, Copy, ExternalLink, Printer, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { FooterSheet } from "@/components/ui/footer-sheet"
@@ -41,8 +44,8 @@ import { FeldAccessCard } from "@/components/feld/feld-access-card"
 import { apiClient } from "@/lib/api-client"
 import { copyToClipboard } from "@/lib/utils"
 
-/** The links that live only here, in the order the KP needs them on a callout. */
-const LINK_KEYS = ["feld", "alarm"] as const
+/** The links the board hands out, in the order the KP needs them on a callout. */
+const LINK_KEYS = ["checkin", "feld", "alarm", "display"] as const
 type LinkKey = (typeof LINK_KEYS)[number]
 
 interface LinksQrSheetProps {
@@ -51,27 +54,47 @@ interface LinksQrSheetProps {
   eventId: string | null
   /** Whether the thermal agent is reachable — no print button without one. */
   printerEnabled?: boolean
+  /** Opens the Appell — the page closes this sheet first (two layers is one too many). */
+  onOpenAttendance?: () => void
 }
 
-export function LinksQrSheet({ open, onOpenChange, eventId, printerEnabled }: LinksQrSheetProps) {
+export function LinksQrSheet({
+  open,
+  onOpenChange,
+  eventId,
+  printerEnabled,
+  onOpenAttendance,
+}: LinksQrSheetProps) {
   const t = useTranslations("kanban.links")
   const tCommon = useTranslations("kanban.common")
+  const tAttendance = useTranslations("kanban.attendance")
   const [urls, setUrls] = useState<Partial<Record<LinkKey, string>>>({})
   const [copied, setCopied] = useState<LinkKey | null>(null)
   const [enlarged, setEnlarged] = useState<LinkKey | null>(null)
+  // The Appell row's count — a label, not live state; the Appell itself
+  // refreshes it on every write.
+  const [attendance, setAttendance] = useState<{ present: number; total: number } | null>(null)
 
-  const generate = useCallback(
-    async (key: LinkKey, id: string): Promise<string> => {
-      const response =
-        key === "feld" ? await apiClient.generateFeldLink(id) : await apiClient.generateAlarmLink(id)
-      return `${window.location.origin}${response.link}`
-    },
-    [],
-  )
+  const generate = useCallback(async (key: LinkKey, id: string): Promise<string> => {
+    if (key === "display") {
+      // The read-only share token, pointed at the /display OVERVIEW rather than
+      // one wall page: the picker there forwards the token to board/map/status,
+      // so one link covers all three and the sub-link picker could go.
+      const response = await apiClient.generateViewerLink(id)
+      return `${window.location.origin}/display?token=${response.token}`
+    }
+    const response =
+      key === "checkin"
+        ? await apiClient.generateCheckInLink(id)
+        : key === "feld"
+          ? await apiClient.generateFeldLink(id)
+          : await apiClient.generateAlarmLink(id)
+    return `${window.location.origin}${response.link}`
+  }, [])
 
-  // Both at once when the sheet opens. Each is a separate mint and they are
+  // All at once when the sheet opens. Each is a separate mint and they are
   // independent, so one failing (a provider off, a permission) must not take the
-  // other down with it.
+  // others down with it.
   useEffect(() => {
     if (!open || !eventId) return
     let cancelled = false
@@ -92,6 +115,21 @@ export function LinksQrSheet({ open, onOpenChange, eventId, printerEnabled }: Li
       cancelled = true
     }
   }, [open, eventId, generate])
+
+  // The Appell row's count, fetched only while the sheet showing it is open.
+  useEffect(() => {
+    if (!open || !eventId) return
+    let cancelled = false
+    apiClient
+      .getEventCheckInStats(eventId)
+      .then(stats => {
+        if (!cancelled) setAttendance({ present: stats.checked_in, total: stats.total_available })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [open, eventId])
 
   const handleCopy = async (key: LinkKey) => {
     const url = urls[key]
@@ -123,6 +161,57 @@ export function LinksQrSheet({ open, onOpenChange, eventId, printerEnabled }: Li
     }
   }
 
+  const linkRow = (key: LinkKey) => {
+    const url = urls[key]
+    return (
+      <div key={key} className="flex items-center gap-3 rounded-lg border border-border/60 p-2.5">
+        {/* Clickable: the KP holds the screen up and somebody scans it. */}
+        <button
+          type="button"
+          onClick={() => url && setEnlarged(key)}
+          disabled={!url}
+          title={t("enlarge")}
+          className="shrink-0 rounded-md bg-white p-1.5 disabled:opacity-40"
+        >
+          {url ? (
+            <QRCodeSVG value={url} size={44} level="M" includeMargin={false} />
+          ) : (
+            <div className="size-[44px]" />
+          )}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          {/* The name does the explaining. A second line spelling out
+              who it is for ("Tablet an der Tür – Anwesenheit") was the
+              same fact twice, and the longer half was the vaguer one. */}
+          <div className="text-sm font-medium">{t(`${key}.title`)}</div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button variant="ghost" size="sm" asChild disabled={!url} title={tCommon("openInNewTab")}>
+            <a href={url ?? "#"} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="size-3.5" />
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleCopy(key)} disabled={!url}>
+            {copied === key ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+          </Button>
+          {printerEnabled && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePrint(key)}
+              disabled={!url}
+              title={tCommon("printQrCode")}
+            >
+              <Printer className="size-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <FooterSheet
@@ -139,63 +228,31 @@ export function LinksQrSheet({ open, onOpenChange, eventId, printerEnabled }: Li
           <SheetDescription>{t("description")}</SheetDescription>
         </SheetHeader>
 
-        {eventId && (
-          <div className="mb-3">
-            <FeldAccessCard eventId={eventId} />
-          </div>
-        )}
-
+        {/* Order is the callout: crew checks in, the roll call watches it,
+            the Feld poster (code + link) goes out of the door, the Alarm link
+            goes to the phone desk, and the wall display comes last. */}
         <div className="space-y-2">
-          {LINK_KEYS.map(key => {
-            const url = urls[key]
-            return (
-              <div key={key} className="flex items-center gap-3 rounded-lg border border-border/60 p-2.5">
-                {/* Clickable: the KP holds the screen up and somebody scans it. */}
-                <button
-                  type="button"
-                  onClick={() => url && setEnlarged(key)}
-                  disabled={!url}
-                  title={t("enlarge")}
-                  className="shrink-0 rounded-md bg-white p-1.5 disabled:opacity-40"
-                >
-                  {url ? (
-                    <QRCodeSVG value={url} size={44} level="M" includeMargin={false} />
-                  ) : (
-                    <div className="size-[44px]" />
-                  )}
-                </button>
+          {linkRow("checkin")}
 
-                <div className="min-w-0 flex-1">
-                  {/* The name does the explaining. A second line spelling out
-                      who it is for ("Tablet an der Tür – Anwesenheit") was the
-                      same fact twice, and the longer half was the vaguer one. */}
-                  <div className="text-sm font-medium">{t(`${key}.title`)}</div>
-                </div>
+          {eventId && (
+            <div className="flex items-center gap-3 rounded-lg border border-border/60 px-2.5 py-2">
+              <Users className="size-4 shrink-0 text-muted-foreground" />
+              <span className="text-sm font-medium">{tAttendance("rowLabel")}</span>
+              <span className="flex-1 text-sm text-muted-foreground">
+                {attendance
+                  ? tAttendance("rowCount", { present: attendance.present, total: attendance.total })
+                  : ""}
+              </span>
+              <Button size="sm" variant="outline" onClick={onOpenAttendance}>
+                {tAttendance("open")}
+              </Button>
+            </div>
+          )}
 
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Button variant="ghost" size="sm" asChild disabled={!url} title={tCommon("openInNewTab")}>
-                    <a href={url ?? "#"} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="size-3.5" />
-                    </a>
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleCopy(key)} disabled={!url}>
-                    {copied === key ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
-                  </Button>
-                  {printerEnabled && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePrint(key)}
-                      disabled={!url}
-                      title={tCommon("printQrCode")}
-                    >
-                      <Printer className="size-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+          {eventId && <FeldAccessCard eventId={eventId} />}
+          {linkRow("feld")}
+          {linkRow("alarm")}
+          {linkRow("display")}
         </div>
       </FooterSheet>
 

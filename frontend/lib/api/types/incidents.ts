@@ -115,6 +115,10 @@ export interface ApiIncident {
   pickup_note?: string | null
   pickup_requested_at?: string | null
   pickup_requested_by?: string | null
+  /** The effective Einsatzleiter's name: the active is_leader assignment when
+   *  one exists, the leader of record otherwise — so a CLOSED incident (whose
+   *  assignments were released) still names who led it. */
+  leader_name?: string | null
   /** Server-computed short label for location_address (home city stripped).
    *  "" when the address is only the home city; null/absent when no address. */
   location_display?: string | null

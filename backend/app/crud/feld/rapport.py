@@ -1010,7 +1010,11 @@ async def save_rapport(
     await db.commit()
     await db.refresh(report)
 
-    if submitting and was_draft and incident.event_id:
+    # Field crews only: a rapport typed at the KP itself (the board mount
+    # autosaves with `is_draft: false`) must not ring the KP's own bell — the
+    # operator would be toasting themselves. The audit entry above keeps the
+    # kp/feld provenance either way.
+    if submitting and was_draft and incident.event_id and actor.is_field:
         await create_field_notification(
             db,
             notification_type="rapport_submitted",

@@ -7,6 +7,8 @@ import type { WebSocketStatus } from "@/lib/websocket-client";
 let mockLastSyncAt: Date | null = null;
 let mockWsStatus: WebSocketStatus = "disconnected";
 let statusListener: ((status: WebSocketStatus) => void) | null = null;
+let mockRestReachable = true;
+let restListener: ((reachable: boolean) => void) | null = null;
 
 vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => ({ lastSyncAt: mockLastSyncAt }),
@@ -25,12 +27,24 @@ vi.mock("@/lib/websocket-client", () => ({
   },
 }));
 
+vi.mock("@/lib/api-client", () => ({
+  getRestReachable: () => mockRestReachable,
+  onRestReachableChange: (cb: (reachable: boolean) => void) => {
+    restListener = cb;
+    return () => {
+      restListener = null;
+    };
+  },
+}));
+
 import { StaleDataBanner } from "@/components/stale-data-banner";
 
 beforeEach(() => {
   mockLastSyncAt = null;
   mockWsStatus = "disconnected";
   statusListener = null;
+  mockRestReachable = true;
+  restListener = null;
 });
 
 describe("StaleDataBanner", () => {
@@ -56,6 +70,29 @@ describe("StaleDataBanner", () => {
       screen.getByText(/Verbindung verloren/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/Polling läuft/i);
+  });
+
+  it("shows on a REST outage even while the WebSocket claims connected", () => {
+    mockWsStatus = "connected";
+    mockLastSyncAt = new Date(Date.now() - 2_000);
+    mockRestReachable = false;
+    renderWithIntl(<StaleDataBanner />);
+    expect(screen.getByText(/Verbindung verloren/i)).toBeInTheDocument();
+  });
+
+  it("hides again when the api-client reports REST reachable", () => {
+    mockWsStatus = "connected";
+    mockLastSyncAt = new Date(Date.now() - 2_000);
+    mockRestReachable = false;
+    renderWithIntl(<StaleDataBanner />);
+    expect(screen.getByText(/Verbindung verloren/i)).toBeInTheDocument();
+
+    act(() => {
+      mockRestReachable = true;
+      restListener?.(true);
+    });
+
+    expect(screen.queryByText(/Verbindung verloren/i)).not.toBeInTheDocument();
   });
 
   it("re-renders when wsClient signals reconnection", () => {

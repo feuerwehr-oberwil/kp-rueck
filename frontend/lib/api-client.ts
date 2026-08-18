@@ -234,6 +234,59 @@ export interface ApiViewerData {
  */
 const REQUEST_TIMEOUT_MS = 20_000
 
+// ── REST connectivity (module-level, one per tab) ────────────────────────────
+// Mirrors the notification-context outage pattern: ONE persistent toast per
+// outage (fixed id, Infinity duration) instead of a new "Verbindungsfehler"
+// toast per failed poll, dismissed by the first request that gets through
+// again. Consumers (the stale-data banner) subscribe so a REST outage raises
+// the permanent band even while the WebSocket still claims to be connected.
+const CONNECTION_TOAST_ID = 'api-connection-lost'
+let restReachable = true
+let outageToastVisible = false
+const restListeners = new Set<(reachable: boolean) => void>()
+
+/** Last known REST reachability: false after a request exhausted its retries
+ *  on a network-layer failure, true again once any request is answered. */
+export function getRestReachable(): boolean {
+  return restReachable
+}
+
+/** Subscribe to reachability transitions. Returns an unsubscribe function. */
+export function onRestReachableChange(listener: (reachable: boolean) => void): () => void {
+  restListeners.add(listener)
+  return () => {
+    restListeners.delete(listener)
+  }
+}
+
+function setRestReachable(reachable: boolean) {
+  if (restReachable === reachable) return
+  restReachable = reachable
+  restListeners.forEach((listener) => listener(reachable))
+}
+
+/** A request exhausted its retries on a network-layer failure. */
+function markRestUnreachable(skipToast: boolean) {
+  setRestReachable(false)
+  if (!skipToast && !outageToastVisible) {
+    outageToastVisible = true
+    toast.error(translateOutsideReact('errors.api.connectionTitle'), {
+      id: CONNECTION_TOAST_ID,
+      description: translateOutsideReact('errors.api.connectionDescription'),
+      duration: Infinity,
+    })
+  }
+}
+
+/** A request was answered (any status code): the server is reachable again. */
+function markRestReachable() {
+  setRestReachable(true)
+  if (outageToastVisible) {
+    outageToastVisible = false
+    toast.dismiss(CONNECTION_TOAST_ID)
+  }
+}
+
 class ApiClient {
   // No constructor needed - URL is resolved dynamically per request
 
@@ -293,6 +346,10 @@ class ApiClient {
             ...options?.headers,
           },
         })
+
+        // The server answered (any status): the connection works. Clears the
+        // outage toast/state the moment the first request gets through again.
+        markRestReachable()
 
         if (!response.ok) {
           let errorText = ''
@@ -396,12 +453,11 @@ class ApiClient {
             continue // Retry
           }
 
-          // Final network error
-          if (!skipToast) {
-            toast.error(translateOutsideReact('errors.api.connectionTitle'), {
-              description: translateOutsideReact('errors.api.connectionDescription'),
-            })
-          }
+          // Final network error. ONE persistent toast per outage instead of
+          // one per failed request — 50 polls during an outage used to stack
+          // 50 "Verbindungsfehler" toasts. Also flips the reachability flag
+          // the stale-data banner subscribes to.
+          markRestUnreachable(skipToast)
           if (isGetRequest) {
             // Reads degrade softly: polling callers treat undefined as "no
             // fresh data" and keep showing the last known state.
@@ -1751,6 +1807,21 @@ class ApiClient {
     )
   }
 
+  /** Inject «Neue Meldung»: the crew of `incidentId` reports a fresh emergency
+   *  in free text. Goes through the real `/feld` creation path on the backend,
+   *  so a genuine `source='feld'` Schadenplatz lands in Eingegangen — bell,
+   *  audit provenance and all. Needs assigned personnel on the incident. */
+  async simulateFieldReport(
+    eventId: string,
+    incidentId: string,
+    text: string
+  ): Promise<{ incident_id: string; reported_by: string; message: string }> {
+    return this.request<{ incident_id: string; reported_by: string; message: string }>(
+      `/api/training/events/${eventId}/simulate/field-report/${incidentId}`,
+      { method: 'POST', body: JSON.stringify({ text }) }
+    )
+  }
+
   /** Inject "Angekommen": the crew reports it is on the Schadenplatz. Stamps
    *  `arrived_at` on the Schadenplatz-Rapport through the same CRUD the `/feld`
    *  button uses. A second call never moves an arrival that is already
@@ -2274,6 +2345,23 @@ class ApiClient {
     // reach a half-typed checklist by accident. Server-side default is strict.
     const query = options.includeDraft ? '?include_draft=true' : ''
     return this.request<ApiMaterialReturnResponse>(`/api/incidents/${incidentId}/rapport/material-return${query}`)
+  }
+
+  /**
+   * The completion gate's write-back: where the KP decided each unit stays.
+   * «Vor Ort» sets `left_on_site` on the rapport's checklist row (or a
+   * "Weiteres Material" entry, addressed by `name`), «Magazin» clears it — so
+   * the Restliste reflects the confirmed decision, not only the crew's tick.
+   * `applied` is false when the incident has no rapport row to write to.
+   */
+  async applyRapportMaterialDecisions(
+    incidentId: string,
+    decisions: { material_id?: string | null; name?: string | null; left_on_site: boolean }[],
+  ): Promise<{ applied: boolean }> {
+    return this.request<{ applied: boolean }>(`/api/incidents/${incidentId}/rapport/material-return`, {
+      method: 'PATCH',
+      body: JSON.stringify({ decisions }),
+    })
   }
 
   async getAvailableRekoPersonnel(incidentId: string): Promise<ApiAvailableRekoPersonnelResponse> {

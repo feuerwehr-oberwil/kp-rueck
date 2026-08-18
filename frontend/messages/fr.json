@@ -20,7 +20,7 @@
       "share-alarm-link": {
         "title": "Partager le lien d'alarme",
         "description": "Annonces de l'extérieur : accueil au guichet, appels sans accès au PC",
-        "note": "Pour l'accueil au PC · 1 impression"
+        "note": "Pour le service téléphonique · 1 impression"
       },
       "share-feld-link": {
         "title": "Partager le lien Terrain",
@@ -57,21 +57,14 @@
         "detailsInactive": "Aucun instantané automatique du tableau configuré",
         "setup": "Configurer",
         "description": "Impression automatique (thermique) ou téléchargement automatique de la feuille de situation en cas de panne"
-      },
-      "configure-map-mode": {
-        "title": "Mettre en place les cartes hors ligne",
-        "detailsAvailable": "Cartes hors ligne disponibles",
-        "detailsNotSetup": "Non configuré",
-        "mapSetup": "Configuration des cartes",
-        "description": "Facultatif : utiliser les cartes sans Internet"
       }
     },
     "actions": {
       "printQr": "Imprimer le QR",
       "copyLink": "Copier le lien",
       "openVehicles": "Ouvrir les véhicules",
-      "openRekoMode": "Ouvrir le mode reconnaissance",
-      "openAttendance": "Ouvrir l’appel"
+      "openAttendance": "Ouvrir l’appel",
+      "chooseReko": "Choisir les officiers de reconnaissance"
     },
     "setup": {
       "title": "Liste de contrôle de mise en place",
@@ -89,9 +82,6 @@
       "testPrintQueued": "Impression de test en file – en attente de l’imprimante…",
       "testPrintQueuedDescription": "L’état de l’imprimante est actualisé automatiquement.",
       "testPrintFailed": "L’impression de test n’a pas pu être lancée",
-      "tileSetupTitle": "Configuration des tuiles",
-      "tileSetupDescription": "Ouvre la page d’aide pour les instructions de mise en place des cartes hors ligne.",
-      "tileSetupAction": "Vers l’aide",
       "whatsappCopied": "Message WhatsApp {number} copié",
       "whatsappCopiedDescription": "Colle-le dans WhatsApp et envoie-le, puis coche manuellement.",
       "copyError": "Erreur lors de la copie",
@@ -109,6 +99,13 @@
       "critical": "Requis",
       "recommended": "Recommandé",
       "optional": "Facultatif"
+    },
+    "rekoPicker": {
+      "title": "Choisir les officiers de reconnaissance",
+      "description": "Touche une personne annoncée pour la marquer comme reconnaissance. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
+      "marked": "{name} marqué comme reconnaissance",
+      "failed": "Échec. Réessaie.",
+      "done": "Terminé"
     }
   },
   "common": {
@@ -212,7 +209,9 @@
       "priorityHigh": "Priorité : haute",
       "toggleZuFuss": "Basculer « à pied »",
       "assignVehicle": "Attribuer/retirer le véhicule {number}",
-      "deleteIncident": "Supprimer l’intervention"
+      "deleteIncident": "Supprimer l’intervention",
+      "linksAndQr": "Liens & QR",
+      "mapColorBy": "Colorer par : {mode}"
     },
     "meta": {
       "title": "Tableau de bord KP Rück",
@@ -811,7 +810,9 @@
       "regenerateTitle": "Créer un nouveau code terrain ?",
       "regenerateDescription": "Les nouveaux appareils auront besoin du nouveau code. Les appareils déjà connectés continuent sans interruption – personne n'est déconnecté.",
       "revokeTitle": "Déconnecter tous les appareils ?",
-      "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les équipes en intervention. Un nouveau code seul ne déconnecte personne."
+      "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les équipes en intervention. Un nouveau code seul ne déconnecte personne.",
+      "copyCode": "Copier le code",
+      "codeCopied": "Code terrain copié"
     },
     "melden": {
       "fab": "Annoncer",
@@ -1405,36 +1406,19 @@
       "createMaterialInSettings": "Créer dans les réglages",
       "scanCheckInQr": "Scanner le code QR d’arrivée",
       "boardPrintSent": "Travail d’impression du tableau envoyé",
-      "qrPrintSent": "Travail d’impression du QR envoyé",
-      "selectEventFirst": "Choisis d’abord un événement.",
-      "qrGenerateFailed": "Le code QR n’a pas pu être généré. Réessaie.",
       "rekoLinkFailed": "Le lien de reconnaissance n’a pas pu être généré. Réessaie.",
-      "displayLinkFailed": "Le lien d’affichage n’a pas pu être généré. Réessaie.",
       "alarmLinkFailed": "Le lien d’alarme n’a pas pu être généré. Réessaie.",
       "materialReturned": "Matériel rendu",
       "readiness": "Checklist",
-      "checkIn": "Arrivée",
-      "display": "Affichage",
       "alarm": "Alarme",
       "vehicles": "Véhicules",
       "print": "Imprimer",
       "printTitle": "Imprimer et exporter – ticket, A4, fichier",
       "trainingControl": "Commande d’exercice",
       "commands": "Commandes",
-      "checkInSheetTitle": "Arrivée du personnel",
-      "checkInSheetDescription": "Scanner le code QR ou partager le lien pour un accès mobile",
-      "checkInSheetHint": "Le personnel peut scanner ce code QR pour s’annoncer. Fonctionne sans connexion.",
       "rekoSheetTitle": "Tableau de reconnaissance",
       "rekoSheetDescription": "Scanner le code QR ou partager le lien pour le personnel de reconnaissance",
       "rekoSheetHint": "Le personnel de reconnaissance voit ses attributions et remplit les formulaires. Fonctionne sans connexion.",
-      "displaySheetTitle": "Partager l’affichage",
-      "displaySheetDescription": "Scanner le code QR ou partager le lien pour la vue d’ensemble des affichages (lecture seule)",
-      "displaySheetHint": "Toute personne disposant de ce lien voit la vue d’ensemble actuelle des interventions sur un écran. Fonctionne sans connexion, en lecture seule.",
-      "displayView": {
-        "board": "Tableau",
-        "map": "Carte",
-        "status": "État"
-      },
       "alarmSheetTitle": "Lien d’alarme",
       "alarmSheetDescription": "Scanner le code QR ou partager le lien pour saisir des alarmes sans connexion (p. ex. téléphone / guichet)",
       "alarmSheetHint": "Toute personne disposant de ce lien peut saisir de nouvelles alarmes. Fonctionne sans connexion. Les alarmes saisies apparaissent comme téléphone/guichet pour vérification.",
@@ -1565,7 +1549,6 @@
       "persCount": "{count} pers.",
       "changeReko": "Changer la reconnaissance",
       "assignReko": "Attribuer la reconnaissance",
-      "markZuFuss": "Marquer « à pied »",
       "removeNachbarhilfe": "Retirer l’entraide",
       "markNachbarhilfe": "Marquer comme entraide",
       "removeAmWarten": "Retirer « en attente »",
@@ -1895,7 +1878,7 @@
         "subtitle": "Pour toutes les équipes"
       },
       "checkin": {
-        "title": "Présence",
+        "title": "Arrivée",
         "subtitle": "Check-in à l'entrée"
       },
       "display": {
@@ -1957,7 +1940,6 @@
     "page": {
       "loading": "Chargement de la carte…",
       "title": "Carte de situation",
-      "backToBoard": "Retour au tableau",
       "activeBadge": "{count} en cours",
       "incidentsHeading": "Interventions ({count})",
       "labels": "Étiquettes",
@@ -2152,9 +2134,6 @@
       "newEvent": "Nouvel événement",
       "allEvents": "Tous les événements",
       "quickActions": "Accès rapide",
-      "checkInQr": "Code QR d’arrivée",
-      "reko": "Reconnaissance",
-      "display": "Affichage",
       "personnel": "Personnel",
       "vehicles": "Véhicules",
       "print": "Imprimer",
@@ -2292,7 +2271,8 @@
       "driveToIncident": "Course vers l’intervention",
       "vehicleOnScene": "Véhicule sur place",
       "fieldComplete": "Intervention terminée",
-      "driveToMagazin": "Retour à la caserne"
+      "driveToMagazin": "Retour à la caserne",
+      "rapport": "Rapport arrivé"
     },
     "settings": {
       "saveFailed": "Erreur lors de l’enregistrement du réglage",
@@ -2648,9 +2628,6 @@
       "photoAlt": "Photo de reconnaissance {number}",
       "photoAltBy": "Photo de reconnaissance {number} de {name}",
       "additionalNotes": "Notes complémentaires",
-      "rekoBy": "Reconnaissance par : {name}",
-      "submittedAt": "Transmise : {date}",
-      "updatedAt": "Actualisée : {date}",
       "relevantShort": "Pertinente",
       "notRelevantShort": "Non pertinente",
       "photoCount": "{count, plural, one {# photo} other {# photos}}",
@@ -2661,7 +2638,9 @@
       "cancel": "Annuler",
       "radioHint": "Saisis ici ce que le groupe annonce par radio. Sera noté comme saisie du PC.",
       "saved": "Rapport de reconnaissance enregistré",
-      "saveFailed": "Échec de l’enregistrement"
+      "saveFailed": "Échec de l’enregistrement",
+      "submittedShort": "Transmis {time}",
+      "updatedShort": "mis à jour {time}"
     },
     "dummyGenerator": {
       "title": "Mode exercice",
@@ -3485,7 +3464,9 @@
       "arrivalHintDescription": "L’intervention n’est actuellement pas sur Engagé – la course se déroule, mais sans demande d’arrivée.",
       "startFailed": "La simulation n’a pas pu être démarrée",
       "returnFailed": "Le retour n’a pas pu être démarré",
-      "stopFailed": "La simulation n’a pas pu être arrêtée"
+      "stopFailed": "La simulation n’a pas pu être arrêtée",
+      "magazinMissing": "Les coordonnées de la caserne manquent – à saisir dans Réglages → GPS.",
+      "magazinMissingLink": "Ouvrir les réglages"
     },
     "banner": {
       "linkTitle": "Vers la commande d’exercice",
@@ -3536,7 +3517,6 @@
       "rapportFiledBy": "Saisi par {name} (terrain)",
       "rapportFiledByPhotos": "Saisi par {name} (terrain) · {count, plural, one {# photo} other {# photos}}",
       "fieldMessageSent": "Annonce du terrain arrivée",
-      "rapportLabel": "Rapports de place sinistrée",
       "rapportBulk": "Faire arriver les rapports",
       "rapportFiling": "Les rapports arrivent...",
       "rapportHint": "Saisit 80 % des rapports des places sinistrées terminées. Le reste manque volontairement – c’est précisément ce que montre la liste des restes.",
@@ -3550,7 +3530,18 @@
       "pickupRequired": "Récupération nécessaire",
       "pickupAuto": "La situation décide",
       "pickupNeeded": "Récupération nécessaire",
-      "pickupNeededDescription": "Le groupe attend sur place – la récupération est sur la carte et dans la liste des restes."
+      "pickupNeededDescription": "Le groupe attend sur place – la récupération est sur la carte et dans la liste des restes.",
+      "fieldReportLabel": "Injecter une annonce du terrain",
+      "fieldReportIncidentPlaceholder": "Choisir une intervention avec équipe…",
+      "fieldReportPlaceholder": "Qu’annonce l’équipe ?",
+      "fieldReportSend": "Annoncer",
+      "fieldReportSending": "Annonce en cours…",
+      "fieldReportSent": "Annonce du terrain reçue",
+      "fieldReportExample1": "Personne présumée dans l’appartement",
+      "fieldReportExample2": "Odeur de gaz au sous-sol",
+      "fieldReportExample3": "Encore un arbre sur la route",
+      "fieldReportNoIncidents": "Aucune intervention ouverte avec une équipe assignée – une annonce du terrain nécessite une équipe sur le terrain.",
+      "fieldReportHint": "L’équipe de l’intervention choisie annonce une nouvelle place sinistrée – l’annonce arrive comme une vraie (cloche, Reçu)."
     }
   }
 }

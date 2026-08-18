@@ -318,18 +318,22 @@ interface RekoReportCardProps {
 }
 
 /**
- * A report timestamp, to the minute. Nobody reads a Reko-Bericht to the second,
- * and `toLocaleString()`'s default seconds were what pushed the provenance
- * footer onto a second line as soon as the submitter's name stood next to it.
+ * A report timestamp, to the minute — and only the clock while it is today's.
+ * The provenance sits inline next to the verdict now, and «18.08.2026, 19:34»
+ * says nothing that «19:34» does not during the incident it belongs to. The
+ * date comes back the moment it stops being today, which is when it starts
+ * carrying information (a report being reread days later).
  */
 function formatStamp(iso: string): string {
-  return new Date(iso).toLocaleString('de-CH', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const date = new Date(iso)
+  const time = date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+  const now = new Date()
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  if (isToday) return time
+  return `${date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${time}`
 }
 
 function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCardProps) {
@@ -402,7 +406,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             prose and has to read well, `tight` for everything that is a label,
             a chip or a value. The verdict used to reserve a 24px line box for a
             16px word and pushed its own rule down with it. */}
-        <div className="flex items-center gap-2 border-b pb-2 mb-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b pb-2 mb-3">
           {report.is_relevant ? (
             <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
           ) : (
@@ -410,6 +414,15 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
           )}
           <span className="font-medium leading-tight">
             {report.is_relevant ? t('relevant') : t('notNeeded')}
+          </span>
+          {/* Provenance rides on the verdict line, small and muted — the heavy
+              three-part footer it replaces was a full row of chrome saying one
+              line's worth of facts. «aktualisiert» only appears once it differs
+              from the submit, because "unchanged" is not information. */}
+          <span className="text-xs leading-tight text-muted-foreground">
+            {t('submittedShort', { time: formatStamp(report.submitted_at) })}
+            {report.updated_at !== report.submitted_at &&
+              ` · ${t('updatedShort', { time: formatStamp(report.updated_at) })}`}
           </span>
           <div className="ml-auto flex items-center gap-2">
             {report.submitted_by_personnel_name && (
@@ -524,17 +537,6 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             </div>
           )}
 
-          {/* Provenance, one wrapping row: two timestamps are one line's worth
-              of information. */}
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground border-t pt-2">
-            {report.submitted_by_personnel_name && (
-              <span>{t('rekoBy', { name: report.submitted_by_personnel_name })}</span>
-            )}
-            <span>{t('submittedAt', { date: formatStamp(report.submitted_at) })}</span>
-            {report.updated_at !== report.submitted_at && (
-              <span>{t('updatedAt', { date: formatStamp(report.updated_at) })}</span>
-            )}
-          </div>
         </div>
       </div>
     </div>
@@ -567,8 +569,10 @@ function RekoReportCardCompact({ report }: RekoReportCardProps) {
             <span className="font-medium text-xs">
               {report.is_relevant ? t('relevantShort') : t('notRelevantShort')}
             </span>
+            {/* Same rule as the current card's provenance: today's reports say
+                only the clock, older ones bring the date back. */}
             <span className="text-xs text-muted-foreground">
-              {new Date(report.submitted_at).toLocaleDateString('de-CH')}
+              {formatStamp(report.submitted_at)}
             </span>
           </div>
 

@@ -1,6 +1,5 @@
-import { LucideIcon, Binoculars, MessageCircle, Users, Truck, Package, Map, Printer, Copy, LifeBuoy } from 'lucide-react'
+import { LucideIcon, Binoculars, MessageCircle, Users, Truck, Package, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
-import { getTileBaseUrl } from '@/lib/env'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { LAGEBLATT_AUTODOWNLOAD_KEY } from '@/components/settings/fallback-settings'
 import { isBooleanRecord, readJson } from '@/lib/utils/safe-storage'
@@ -154,7 +153,6 @@ export function generateChecklistTasks(params: {
   driverAssignments: number
   rekoOfficers: number
   magazinStaff: number
-  mapTilesAvailable: boolean
   printerEnabled: boolean
   printerAgentOnline: boolean
   fallbackReady: boolean
@@ -164,7 +162,6 @@ export function generateChecklistTasks(params: {
   onPrintAlarmLink: () => void
   onCopyFeldLink: () => void
   onPrintFeldLink: () => void
-  onShowTileSetup: () => void
   onTestPrint: () => void
   onOpenFallbackSettings: () => void
   /** Opens the Fahrzeuge sheet, where a driver is set per vehicle. */
@@ -173,6 +170,8 @@ export function generateChecklistTasks(params: {
   vehiclesWithoutDriver: number
   /** Opens the Appell — the board's own roll-call, where the count on this row is made. */
   onOpenAttendance: () => void
+  /** Opens the Reko picker — mark checked-in people as Reko without leaving the board. */
+  onOpenRekoPicker: () => void
 }): ChecklistTaskState[] {
   const printerAvailable = params.printerEnabled && params.printerAgentOnline
 
@@ -272,10 +271,11 @@ export function generateChecklistTasks(params: {
       actionButtons: [linkAction(params.onCopyFeldLink, params.onPrintFeldLink)]
     },
 
-    // 5. Assign reconnaissance officers — the Reko-Modus on the map is where
-    //    a checked-in person is marked as Reko *and* handed their first
-    //    addresses, so the row links straight into it rather than describing
-    //    where to look.
+    // 5. Assign reconnaissance officers — a picker right here, so the step is
+    //    done where it is read. The row used to link into the map's Reko-Modus,
+    //    which marks people too — but it also does dispatching, and the setup
+    //    step is only «wer ist Reko». The Reko-Modus stays reachable from the
+    //    map for handing out addresses.
     {
       id: 'assign-reko',
       title: translateOutsideReact('checklist.tasks.assign-reko.title'),
@@ -289,10 +289,10 @@ export function generateChecklistTasks(params: {
       },
       actionButtons: [
         {
-          label: translateOutsideReact('checklist.actions.openRekoMode'),
+          label: translateOutsideReact('checklist.actions.chooseReko'),
           icon: Binoculars,
           variant: 'outline',
-          href: '/map?mode=reko'
+          onClick: params.onOpenRekoPicker
         }
       ]
     },
@@ -394,30 +394,11 @@ export function generateChecklistTasks(params: {
           onClick: params.onOpenFallbackSettings
         }
       ]
-    },
-
-    // 10. Configure offline maps (Optional)
-    {
-      id: 'configure-map-mode',
-      title: translateOutsideReact('checklist.tasks.configure-map-mode.title'),
-      description: translateOutsideReact('checklist.tasks.configure-map-mode.description'),
-      icon: Map,
-      priority: 'optional',
-      completed: params.mapTilesAvailable,
-      metadata: {
-        details: params.mapTilesAvailable
-          ? translateOutsideReact('checklist.tasks.configure-map-mode.detailsAvailable')
-          : translateOutsideReact('checklist.tasks.configure-map-mode.detailsNotSetup')
-      },
-      actionButtons: [
-        {
-          label: translateOutsideReact('checklist.tasks.configure-map-mode.mapSetup'),
-          icon: Map,
-          variant: 'outline',
-          onClick: params.onShowTileSetup
-        }
-      ]
     }
+
+    // There used to be a 10th row, «Offline-Karten einrichten». It only ever
+    // mattered for a locally self-hosted stack with its own tile server, and
+    // probing /tiles/health on every open cost more than the row was worth.
   ]
 }
 
@@ -438,7 +419,6 @@ export function listChecklistTasks(): { id: string; title: string; defaultNote?:
     driverAssignments: 0,
     rekoOfficers: 0,
     magazinStaff: 0,
-    mapTilesAvailable: false,
     printerEnabled: false,
     printerAgentOnline: false,
     fallbackReady: false,
@@ -448,12 +428,12 @@ export function listChecklistTasks(): { id: string; title: string; defaultNote?:
     onPrintAlarmLink: noop,
     onCopyFeldLink: noop,
     onPrintFeldLink: noop,
-    onShowTileSetup: noop,
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
     vehiclesWithoutDriver: 0,
     onOpenAttendance: noop,
+    onOpenRekoPicker: noop,
   }).map((task) => ({ id: task.id, title: task.title, defaultNote: task.note }))
 }
 
@@ -475,16 +455,20 @@ export function checklistOverridesKey(eventId: string): string {
 }
 
 /**
- * Effective completion = the operator's explicit override if set, otherwise the
- * auto-detected state. Every row is freely tickable AND un-tickable.
+ * Effective completion. A row the system can SEE is done (a Reko is marked,
+ * every vehicle has its driver, the printer answers) is done — a stored manual
+ * un-tick must not outlive the fact. Overrides used to have the unconditional
+ * last word, and one stray toggle of the «Reko bestimmen» row (the whole row is
+ * the click target) pinned it un-ticked on that device forever: marking a Reko
+ * afterwards never tripped the checklist again. Overrides still work both ways
+ * on every row whose auto state is false — which includes all manual rows.
  */
 export function isTaskComplete(
   task: ChecklistTaskState,
   overrides: Record<string, boolean>
 ): boolean {
-  return Object.prototype.hasOwnProperty.call(overrides, task.id)
-    ? overrides[task.id]
-    : task.completed
+  if (task.completed) return true
+  return Object.prototype.hasOwnProperty.call(overrides, task.id) ? overrides[task.id] : false
 }
 
 /**
@@ -503,13 +487,6 @@ export async function summarizeEventChecklist(
     apiClient.getAllSettings().catch(() => ({}) as Record<string, string>),
   ])
 
-  let mapTilesAvailable = false
-  try {
-    mapTilesAvailable = (await fetch(`${getTileBaseUrl()}/health`)).ok
-  } catch {
-    mapTilesAvailable = false
-  }
-
   const noop = () => {}
   const tasks = generateChecklistTasks({
     eventId,
@@ -518,7 +495,6 @@ export async function summarizeEventChecklist(
     driverAssignments: specialFunctions.filter((f) => f.function_type === 'driver').length,
     rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
     magazinStaff: specialFunctions.filter((f) => f.function_type === 'magazin').length,
-    mapTilesAvailable,
     printerEnabled: printerStatus?.enabled ?? false,
     printerAgentOnline: printerStatus?.agent_online ?? false,
     fallbackReady: isFallbackReady(settings, printerStatus?.enabled ?? false),
@@ -528,12 +504,12 @@ export async function summarizeEventChecklist(
     onPrintAlarmLink: noop,
     onCopyFeldLink: noop,
     onPrintFeldLink: noop,
-    onShowTileSetup: noop,
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
     vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
     onOpenAttendance: noop,
+    onOpenRekoPicker: noop,
   })
 
   // The station's own selection of steps — the badge must count what the

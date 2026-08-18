@@ -109,13 +109,17 @@ export function IncidentParticipants({
                 const Icon = participantIcon(p)
                 const from = formatClockTime(new Date(p.first_assigned_at))
                 const to = p.last_released_at ? formatClockTime(new Date(p.last_released_at)) : null
+                // One falsy check for style AND text: `p.name ?? …` let an
+                // empty-string name through as a blank row while the class
+                // already styled it as deleted. Whitespace-only counts as empty.
+                const name = p.name?.trim() || null
                 return (
                   <li key={`${p.resource_type}:${p.resource_id}`} className="flex items-center gap-2 text-xs">
                     <Icon className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                     {/* Read-only: who LED the incident is part of the record. */}
                     <LeaderBadge isLeader={p.is_leader} />
-                    <span className={cn("min-w-0 flex-1 truncate", !p.name && "italic text-muted-foreground")}>
-                      {p.name ?? t("deletedResource")}
+                    <span className={cn("min-w-0 flex-1 truncate", !name && "italic text-muted-foreground")}>
+                      {name ?? t("deletedResource")}
                     </span>
                     {p.stints > 1 && (
                       <span className="flex-shrink-0 text-muted-foreground/70" title={t("stints", { count: p.stints })}>

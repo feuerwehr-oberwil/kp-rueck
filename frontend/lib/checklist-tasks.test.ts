@@ -20,7 +20,6 @@ function tasks(overrides: Partial<Parameters<typeof generateChecklistTasks>[0]> 
     driverAssignments: 0,
     rekoOfficers: 0,
     magazinStaff: 0,
-    mapTilesAvailable: false,
     printerEnabled: false,
     printerAgentOnline: false,
     fallbackReady: false,
@@ -30,12 +29,12 @@ function tasks(overrides: Partial<Parameters<typeof generateChecklistTasks>[0]> 
     onPrintAlarmLink: noop,
     onCopyFeldLink: noop,
     onPrintFeldLink: noop,
-    onShowTileSetup: noop,
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
     vehiclesWithoutDriver: 3,
     onOpenAttendance: noop,
+    onOpenRekoPicker: noop,
     ...overrides,
   })
 }
@@ -68,10 +67,14 @@ describe('the setup checklist links into what it is asking for', () => {
     expect(onOpenAttendance).toHaveBeenCalledOnce()
   })
 
-  it('links the Reko step into the map’s Reko-Modus', () => {
-    // Marking a person as Reko and handing them their first addresses happen in
-    // the same panel, so the row goes there rather than describing it.
-    expect(byId('assign-reko', tasks())?.actionButtons?.[0].href).toBe('/map?mode=reko')
+  it('opens the Reko picker instead of leaving for the map', () => {
+    // The setup step is «wer ist Reko» — a picker on the board answers it.
+    // Handing out addresses stays with the map's Reko-Modus.
+    const onOpenRekoPicker = vi.fn()
+    const task = byId('assign-reko', tasks({ onOpenRekoPicker }))
+    expect(task?.actionButtons?.[0].href).toBeUndefined()
+    task?.actionButtons?.[0].onClick?.()
+    expect(onOpenRekoPicker).toHaveBeenCalledOnce()
   })
 
   it('leaves the Magazin step as plain text', () => {
@@ -221,15 +224,23 @@ describe('the login-less links are all on the list — and only once each', () =
   })
 })
 
-describe('completion still comes from live state, overrides winning', () => {
+describe('completion comes from live state, and live state has the last word', () => {
   it('ticks the driver row only once every vehicle has one', () => {
     expect(byId('assign-drivers', tasks({ driverAssignments: 2 }))?.completed).toBe(false)
     expect(byId('assign-drivers', tasks({ driverAssignments: 3 }))?.completed).toBe(true)
   })
 
-  it('lets the operator override either way', () => {
-    const task = byId('assign-drivers', tasks({ driverAssignments: 3 }))!
-    expect(isTaskComplete(task, {})).toBe(true)
-    expect(isTaskComplete(task, { 'assign-drivers': false })).toBe(false)
+  it('lets a stale un-tick not outlive the fact', () => {
+    // A stored `false` used to pin an auto-detected row un-ticked forever —
+    // marking a Reko afterwards never tripped the checklist again on that
+    // device. Once the system can see the step is done, it is done.
+    const done = byId('assign-reko', tasks({ rekoOfficers: 1 }))!
+    expect(isTaskComplete(done, { 'assign-reko': false })).toBe(true)
+
+    // While the system cannot see it, the operator's tick works both ways.
+    const open = byId('assign-reko', tasks({ rekoOfficers: 0 }))!
+    expect(isTaskComplete(open, {})).toBe(false)
+    expect(isTaskComplete(open, { 'assign-reko': true })).toBe(true)
+    expect(isTaskComplete(open, { 'assign-reko': false })).toBe(false)
   })
 })

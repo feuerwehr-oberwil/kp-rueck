@@ -668,25 +668,28 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       // and this name is also what goes into the Funkspruch, the WhatsApp text
       // and the printout. A placeholder is wrong in a way an operator can see.
       const unknown = translateOutsideReact("kanban.common.unknownResource")
+      // `|| unknown` on a TRIMMED name, not `?? unknown`: an empty or
+      // whitespace-only name would otherwise render as a blank chip, which is
+      // worse than «Unbekannt» — it looks like nothing is assigned at all.
       for (const a of g.assignments) {
         if (a.resourceType === "vehicle") {
           const v = vehicles.find((x) => String(x.id) === a.resourceId)
           res.vehicles.push({
             assignmentId: a.id,
             resourceId: a.resourceId,
-            name: v?.name ?? unknown,
+            name: v?.name?.trim() || unknown,
             driverStay: a.driverStay,
           })
         } else if (a.resourceType === "personnel") {
           res.personnel.push({
             assignmentId: a.id,
             resourceId: a.resourceId,
-            name: personnelNames.get(a.resourceId) ?? unknown,
+            name: personnelNames.get(a.resourceId)?.trim() || unknown,
             isLeader: a.isLeader,
           })
         } else {
           const m = materials.find((x) => x.id === a.resourceId)
-          res.materials.push({ assignmentId: a.id, resourceId: a.resourceId, name: m?.name ?? unknown })
+          res.materials.push({ assignmentId: a.id, resourceId: a.resourceId, name: m?.name?.trim() || unknown })
         }
       }
       return res

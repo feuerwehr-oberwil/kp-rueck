@@ -65,6 +65,7 @@ const ACTION_ICONS: Record<string, typeof MapPin> = {
   vehicle_on_scene: Truck,
   field_complete: Flag,
   drive_to_magazin: Home,
+  rapport: ClipboardCheck,
 };
 
 
@@ -82,6 +83,10 @@ export function TrainingSimulationControls() {
   // The incident whose "Kommt ihr selbst zurück?" question is open (decision 24).
   const [pickupPrompt, setPickupPrompt] = useState<Operation | null>(null);
   const [isFilingRapports, setIsFilingRapports] = useState(false);
+  // Simulated «Neue Meldung»: which incident's Trupp reports, and what they say.
+  const [fieldReportIncidentId, setFieldReportIncidentId] = useState('');
+  const [fieldReportText, setFieldReportText] = useState('');
+  const [isSendingFieldReport, setIsSendingFieldReport] = useState(false);
 
   // GPS drive simulation: vehicles for name→id lookup, active drives for the
   // per-row progress state. The backend refuses simulations in demo mode, so
@@ -159,6 +164,13 @@ export function TrainingSimulationControls() {
     });
   }, [operations, now, drives, gpsSimAvailable]);
 
+  // Incidents whose crew can report something new — a Meldung needs a Trupp
+  // standing somewhere (the backend refuses one without assigned personnel).
+  const crewedOps = useMemo(
+    () => operations.filter((op) => op.status !== 'complete' && op.crew.length > 0),
+    [operations]
+  );
+
   if (!selectedEvent?.training_flag) {
     return null;
   }
@@ -173,6 +185,13 @@ export function TrainingSimulationControls() {
 
   const handleAdvance = async (op: Operation, action: NextAction) => {
     if (!selectedEvent) return;
+
+    // The rapport step IS the existing per-incident inject — same endpoint,
+    // same toast, just surfaced as a lifecycle step instead of a menu item.
+    if (action.kind === 'rapport') {
+      await handleInject(op, 'rapport');
+      return;
+    }
 
     // Plain status transitions reuse the optimistic one-click board move.
     if (action.kind === 'status' && action.targetStatus) {
@@ -284,6 +303,29 @@ export function TrainingSimulationControls() {
     }
   };
 
+  // Simulated «Neue Meldung» (plan 26 §3): the chosen incident's Trupp reports
+  // a fresh emergency in free text. The backend routes it through the REAL
+  // field creation path, so it arrives exactly like a crew's Meldung — bell,
+  // Eingegangen column, provenance and all.
+  const handleSendFieldReport = async () => {
+    if (!selectedEvent || !fieldReportIncidentId || !fieldReportText.trim()) return;
+    setIsSendingFieldReport(true);
+    try {
+      const result = await apiClient.simulateFieldReport(
+        selectedEvent.id,
+        fieldReportIncidentId,
+        fieldReportText.trim()
+      );
+      toast.success(t('fieldReportSent'), { description: result.message });
+      setFieldReportText('');
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : t('injectFailed');
+      toast.error(tCommon('error'), { description: detail });
+    } finally {
+      setIsSendingFieldReport(false);
+    }
+  };
+
   // "Kommt ihr selbst zurück?" — the one follow-up "Einsatz beendet" asks in
   // the field (decision 24). Answering nothing lets the backend preselect it
   // from the situation (zu Fuss / kein Fahrzeug = meist gestrandet); the
@@ -366,7 +408,7 @@ export function TrainingSimulationControls() {
   };
 
   return (
-    <Card className="mt-4">
+    <Card>
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2">
@@ -382,10 +424,26 @@ export function TrainingSimulationControls() {
         {/* Conductor console — one recommended next step per open incident,
             most-overdue first. Due rows are highlighted; a tap advances. */}
         <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <ChevronRight className="h-4 w-4" />
-            {t('nextActions')}
-          </Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="flex items-center gap-2">
+              <ChevronRight className="h-4 w-4" />
+              {t('nextActions')}
+            </Label>
+            {/* Bulk rapports stay one click for storm drills (plan 25 §16):
+                twenty-three per-incident rapport steps would be twenty-three
+                clicks — and the missing fifth is deliberate (the Restliste). */}
+            <Button
+              onClick={handleSimulateRapports}
+              disabled={isFilingRapports}
+              variant="ghost"
+              size="xs"
+              className="text-muted-foreground"
+              title={t('rapportHint')}
+            >
+              <ClipboardCheck className="size-3.5" />
+              {isFilingRapports ? t('rapportFiling') : t('rapportBulk')}
+            </Button>
+          </div>
           {rows.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               {t('noOpenActions')}
@@ -578,27 +636,70 @@ export function TrainingSimulationControls() {
 
         <Separator />
 
-        {/* Schadenplatz-Rapporte in bulk (plan 25 §16). Twenty-three
-            Schadenplätze would otherwise be twenty-three clicks — and the fifth
-            that stays missing is deliberate: that is the Restliste. */}
+        {/* Simulated «Neue Meldung»: a Trupp mentions a fresh emergency. Goes
+            through the real field intake, so the KP trains the real path —
+            triage in Eingegangen, disposition — instead of a trainer shortcut
+            that plants a finished card. */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
-            <ClipboardCheck className="h-4 w-4" />
-            {t('rapportLabel')}
+            <MessageSquare className="h-4 w-4" />
+            {t('fieldReportLabel')}
           </Label>
-          <Button
-            onClick={handleSimulateRapports}
-            disabled={isFilingRapports}
-            variant="outline"
-            size="sm"
-            className="w-full"
-          >
-            <ClipboardCheck className="size-3.5" />
-            {isFilingRapports ? t('rapportFiling') : t('rapportBulk')}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            {t('rapportHint')}
-          </p>
+          {crewedOps.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{t('fieldReportNoIncidents')}</p>
+          ) : (
+            <>
+              <Select value={fieldReportIncidentId} onValueChange={setFieldReportIncidentId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t('fieldReportIncidentPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {crewedOps.map((op) => (
+                    <SelectItem key={op.id} value={op.id}>
+                      {formatLocation(op.location) || op.incidentType}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={fieldReportText}
+                  onChange={(e) => setFieldReportText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSendFieldReport();
+                  }}
+                  placeholder={t('fieldReportPlaceholder')}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSendFieldReport}
+                  disabled={isSendingFieldReport || !fieldReportIncidentId || !fieldReportText.trim()}
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0"
+                >
+                  <MessageSquare className="size-3.5" />
+                  {isSendingFieldReport ? t('fieldReportSending') : t('fieldReportSend')}
+                </Button>
+              </div>
+              {/* Canned examples — quick-fills, not sends: the trainer can
+                  still edit before the Meldung goes out. */}
+              <div className="flex flex-wrap gap-1.5">
+                {[t('fieldReportExample1'), t('fieldReportExample2'), t('fieldReportExample3')].map((example) => (
+                  <Button
+                    key={example}
+                    variant="outline"
+                    size="xs"
+                    className="text-muted-foreground"
+                    onClick={() => setFieldReportText(example)}
+                  >
+                    {example}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">{t('fieldReportHint')}</p>
+            </>
+          )}
         </div>
       </CardContent>
 

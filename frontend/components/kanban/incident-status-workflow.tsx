@@ -457,6 +457,22 @@ export function useIncidentStatusWorkflow({
       .filter((item) => materialChoice(item) === "vorort")
       .map((item) => item.id)
 
+    // Write the confirmed answers back into the rapport: «Vor Ort» persists as
+    // `left_on_site` (so the Restliste / Abholliste show the unit), «Magazin»
+    // clears a crew's earlier tick. Fire-and-forget on purpose — an incident
+    // that never had a rapport has nothing to record (the server answers
+    // `applied: false`), and the board release below is independent of it.
+    // Consumables are excluded the same way the dialog excludes them: a used
+    // consumable is gone and can never be "vor Ort".
+    const rapportDecisions = materialDecisionItems
+      .filter((item) => !item.consumable)
+      .map((item) => ({ material_id: item.id, left_on_site: materialChoice(item) === "vorort" }))
+    if (rapportDecisions.length > 0) {
+      void apiClient
+        .applyRapportMaterialDecisions(materialDecisionOperation.id, rapportDecisions)
+        .catch((error) => console.error("Failed to write material decisions back to the rapport:", error))
+    }
+
     for (const item of returnedItems) {
       if (item.assignmentId && materialDecisionOperation.groupId) {
         void unassignGroupResource(materialDecisionOperation.groupId, item.assignmentId)

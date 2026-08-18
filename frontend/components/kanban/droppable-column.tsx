@@ -223,7 +223,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   // auto-folded column the moment a card was dragged over it, which swapped the
   // strip for a full column mid-drag — the drop target unmounted under the
   // pointer and re-registered somewhere else. The strip is a real drop target
-  // instead (it widens and lights up), so a drag can land on a folded column
+  // instead (it lights up), so a drag can land on a folded column
   // without the board re-laying itself out under the cursor.
   const isCollapsed = isFoldedByOperator || (isEmpty && !isManuallyExpanded && !isLargeScreen)
 
@@ -303,7 +303,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   }, [column.id, isCollapsed])
 
   // Folded view — a narrow strip, and still a full drop target: an incident can
-  // be dragged straight onto it (the strip widens and lights up on drag-over)
+  // be dragged straight onto it (the strip lights up on drag-over)
   // without the column having to unfold first.
   //
   // A real <button>, so the fold is reachable and reversible from the keyboard
@@ -315,9 +315,13 @@ export const DroppableColumn = memo(function DroppableColumn({
         ref={(el) => { dropRef.current = el }}
         data-column={column.id}
         className={cn(
-          "flex w-12 flex-shrink-0 cursor-pointer flex-col items-center gap-2 rounded-lg border border-border py-3 transition-all hover:w-16 hover:bg-foreground/5",
+          // Width is CONSTANT: hover and drag-over speak through colour only.
+          // The strip used to grow to w-16 on both, which shifted every column
+          // to its right whenever the pointer crossed it — nothing on the board
+          // may move because the pointer moved.
+          "flex w-12 flex-shrink-0 cursor-pointer flex-col items-center gap-2 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/10",
           column.color,
-          isOver && "drop-zone-active w-16"
+          isOver && "drop-zone-active"
         )}
         onClick={expand}
         aria-expanded={false}
@@ -422,7 +426,13 @@ export const DroppableColumn = memo(function DroppableColumn({
           // scroll. Containing BOTH axes made it swallow every horizontal
           // trackpad delta instead of chaining it to `#kanban-main`, which left
           // the board's own scrollbar as the only way to pan sideways.
-          "flex-1 space-y-3 overflow-y-auto overscroll-y-contain p-2 rounded-lg transition-all min-h-[200px] relative",
+          // Horizontal inset is px-1 (4px), not the old p-2: cards span the
+          // column, and 4px is exactly what the card's drag-over cue needs —
+          // ring-2 + ring-offset-2 sit outside the card's border box and this
+          // container clips (overflow-y:auto computes overflow-x to auto, and a
+          // box-shadow never scrolls). The right 4px doubles as the scrollbar
+          // gutter so the bar does not sit on the cards.
+          "flex-1 space-y-3 overflow-y-auto overscroll-y-contain py-2 px-1 rounded-lg transition-all min-h-[200px] relative",
           isOver && operations.length === 0 && "drop-zone-active"
         )}
         role="region"

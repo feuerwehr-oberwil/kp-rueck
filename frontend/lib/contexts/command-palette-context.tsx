@@ -12,6 +12,8 @@ export interface CommandPaletteHandlers {
   onToggleAuftraege?: () => void
   /** Opens the Drucken-Sheet (Thermodruck, Status drucken, Export) — key «D». */
   onTogglePrint?: () => void
+  /** Opens the Links & QR sheet (Check-In, Feld, Alarm, Anzeige) — key «T». */
+  onToggleLinks?: () => void
   /** Open the Aufträge sheet focused on a specific route (from palette search). */
   onOpenAuftrag?: (groupId: string) => void
   onToggleNotifications?: () => void
@@ -41,6 +43,8 @@ export interface CommandPaletteHandlers {
   onToggleMapLines?: () => void
   onFocusVehicle?: (vehicleNumber: number) => void
   onMapResetZoom?: () => void
+  /** «Färben nach» — marker colouring dimension (keys P/K/F/T/A on the map). */
+  onSetMapColorBy?: (dimension: 'priority' | 'reko' | 'vehicle' | 'type' | 'auftrag') => void
   mapVehicleNames?: string[]
   // Incident search focus (page-specific input; falls back to #search-input)
   onFocusIncidentSearch?: () => void

@@ -34,7 +34,6 @@ from ..middleware.rate_limit import RateLimits, limiter
 from ..services import incident_display
 from ..services.audit import log_action
 from ..services.incident_leader import effective_leader_ids
-from ..services.notification_service import create_reko_arrived_notification
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_group_update, broadcast_incident_update, broadcast_reko_update
 
@@ -479,10 +478,14 @@ async def set_reko_arrived(
 
     The KP twin of `POST /api/reko/{incident_id}/arrived`, which is a form-token
     route and therefore had nowhere to put a message that arrived by radio. It
-    reuses `crud.mark_reko_arrived`'s body with the token lookup replaced, fires
-    the same notification and broadcasts the same two WebSocket events — **a
-    board watching for a field message must not be able to tell the difference
-    in anything except the provenance line.**
+    reuses `crud.mark_reko_arrived`'s body with the token lookup replaced and
+    broadcasts the same two WebSocket events — **a board watching for a field
+    message must not be able to tell the difference in anything except the
+    provenance line.** The one deliberate difference: no `reko_arrived`
+    notification. The message came over the KP's own radio and the operator is
+    logging it — a bell/toast here would notify the KP of its own action (same
+    rule as the KP-filed rapport). The field path (`POST /api/reko/…/arrived`)
+    keeps notifying.
 
     Idempotent, correctable and clearable: absent `arrived_at` means "now" and
     leaves an existing arrival alone, an explicit one lands at the time the
@@ -516,19 +519,6 @@ async def set_reko_arrived(
     await db.commit()
 
     arrived_at = report.arrived_at if report else None
-
-    # The same notification the field path fires. `arrived_by_name` stays None:
-    # no operator is the Reko crew, and naming one would be exactly the guessed
-    # attribution the provenance rule forbids (decision 6).
-    if arrived_at is not None and incident.event_id:
-        await create_reko_arrived_notification(
-            db=db,
-            incident_id=incident.id,
-            event_id=incident.event_id,
-            incident_title=incident.title or incident.location_address or "Unbekannt",
-            arrived_by_name=None,
-            incident_address=incident.location_address,
-        )
 
     background_tasks.add_task(
         broadcast_incident_update,
@@ -692,6 +682,33 @@ async def get_rapport_material_return(
         rapport_submitted_at=submitted_at,
         rapport_is_draft=is_draft,
     )
+
+
+@router.patch("/{incident_id}/rapport/material-return", response_model=schemas.RapportMaterialDecisionsResponse)
+async def apply_rapport_material_decisions(
+    incident_id: uuid.UUID,
+    payload: schemas.RapportMaterialDecisionsRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.RapportMaterialDecisionsResponse:
+    """The completion gate's write-back: where the KP decided each unit stays.
+
+    The GET above is the gate's prefill; this is the confirmed answer going the
+    other way. «Vor Ort» sets ``left_on_site`` on the rapport's checklist row
+    (or "Weiteres Material" entry, addressed by name), «Magazin» clears it — so
+    the Restliste and the Abholliste reflect the KP's decision rather than only
+    what the crew happened to tick.
+
+    Deliberately a no-op (``applied: false``) when the incident has no rapport
+    row at all: a Schadenplatz that was never dispatched has nothing to record,
+    and the board's own release — which the gate performs separately — is the
+    whole story there.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    applied = await feld_crud.apply_material_decisions(db, incident, decisions=payload.decisions)
+    return schemas.RapportMaterialDecisionsResponse(applied=applied)
 
 
 @router.get("/{incident_id}/history", response_model=list[schemas.StatusTransitionResponse])

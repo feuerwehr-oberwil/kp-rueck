@@ -199,7 +199,9 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
     await expect(sheet).toBeVisible({ timeout: 3000 });
 
     await expect(sheet.getByRole('heading', { name: 'Schnellzugriff' })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Check-In QR-Code' })).toBeVisible();
+    // The link sheets were consolidated: the quick action is «Links & QR» now,
+    // not the old per-link «Check-In QR-Code» entry.
+    await expect(sheet.getByRole('button', { name: 'Links & QR' })).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Personal' })).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Fahrzeuge' })).toBeVisible();
   });

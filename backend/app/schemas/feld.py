@@ -833,6 +833,33 @@ class MaterialReturnResponse(BaseModel):
     rapport_is_draft: bool = False
 
 
+class RapportMaterialDecision(BaseModel):
+    """One unit's confirmed whereabouts, decided by the KP in the completion gate.
+
+    ``material_id`` addresses the roster units on the rapport's checklist;
+    ``name`` (without an id) addresses a "Weiteres gebrauchtes Material" entry,
+    which never had one. ``left_on_site`` True is «Vor Ort», False is «Magazin».
+    """
+
+    material_id: UUID | None = None
+    name: str | None = None
+    left_on_site: bool
+
+
+class RapportMaterialDecisionsRequest(BaseModel):
+    """The completion gate's write-back: the KP confirmed where each unit stays."""
+
+    decisions: list[RapportMaterialDecision] = []
+
+
+class RapportMaterialDecisionsResponse(BaseModel):
+    """``applied`` is False when the incident has no rapport row to write to —
+    a Schadenplatz that was never dispatched has nothing to record, and the
+    gate's decision is complete without it (the board release already happened)."""
+
+    applied: bool = False
+
+
 class FeldIncidentCreate(BaseModel):
     """«Neue Meldung» — a Schadenplatz reported by somebody standing in front of it.
 

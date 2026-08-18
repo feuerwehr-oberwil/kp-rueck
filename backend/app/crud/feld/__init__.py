@@ -33,6 +33,7 @@ from .access import (
     revoke_all_claims,
 )
 from .material import (
+    apply_material_decisions,
     event_restliste,
     material_left_on_site_named,
     material_overview,
@@ -152,6 +153,7 @@ __all__ = [
     "_route_assigned_ids",
     "_stamp_updated_by",
     "add_photo",
+    "apply_material_decisions",
     "claim_is_live",
     "code_matches",
     "create_claim",

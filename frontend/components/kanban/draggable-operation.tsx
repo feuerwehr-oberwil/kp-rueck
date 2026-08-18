@@ -16,7 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, FileText } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, FileText, FileCheck } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -572,23 +572,26 @@ function DraggableOperationBase({
                   <Binoculars className="h-4 w-4 text-muted-foreground/80" />
                 </button>
               )}
-              {/* The Schadenplatz-Rapport — ONE glyph, two brightnesses. Filed =
-                  a quiet chip; missing on a card that already reached `complete`
-                  = the same paper dimmed, so the gap is visible without a dialog
-                  and without a block (decision 10 — a blocking gate is a gate
-                  people defeat with empty forms). */}
-              {/* Both brightnesses open the detail's Rapport tab: on a filed one
+              {/* The Schadenplatz-Rapport, filed or missing. Filed = the TICKED
+                  paper in success green — it lights up the same for a crew's
+                  rapport and one typed in the KP, and it must, because a grey
+                  FileText next to the grey Binoculars was unreadable as
+                  "erledigt". Missing on a card that already reached `complete`
+                  = the plain paper dimmed, so the gap is visible without a
+                  dialog and without a block (decision 10 — a blocking gate is
+                  a gate people defeat with empty forms). */}
+              {/* Both states open the detail's Rapport tab: on a filed one
                   that is where it is read, and on a missing one that is where it
                   gets written — the gap is the reason to click. */}
               {operation.hasSchadenplatzRapport ? (
                 <button
                   type="button"
                   onClick={openDetailFrom('rapport')}
-                  className="p-1.5 rounded-md bg-muted/60 transition-colors hover:bg-muted"
+                  className="p-1.5 rounded-md bg-success/10 transition-colors hover:bg-success/20"
                   title={tFeld('cardRapportTooltip')}
                   aria-label={tFeld('cardRapportTooltip')}
                 >
-                  <FileText className="h-4 w-4 text-muted-foreground/80" />
+                  <FileCheck className="h-4 w-4 text-success" />
                 </button>
               ) : operation.status === 'complete' && rapportApplies({
                   hasBeenDispatched: operation.hasBeenDispatched,
@@ -726,15 +729,22 @@ function DraggableOperationBase({
                 <div className="flex items-start gap-1.5" onClick={openDetailFrom('reko')}>
                   <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
+                    {/* `min-w-0 max-w-full shrink` overrides the Badge base's
+                        `shrink-0` (twMerge) so a lone chip SHRINKS and truncates
+                        its text instead of forcing the row onto a second line;
+                        the remove X keeps `shrink-0` so it never disappears.
+                        Same treatment on every chip row of this card. */}
                     <RemovableChip
                       variant="secondary"
-                      className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                      className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
                       onRemove={() => onRemoveReko?.()}
                       removeTitle={t('common.removeNamed', { name: operation.assignedReko.name })}
-                      removeButtonClassName="hover:text-destructive cursor-pointer"
+                      removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                       removeIconClassName="h-2.5 w-2.5"
                     >
-                      <span>{operation.assignedReko.name}</span>
+                      {/* Never an empty chip: a name the roster lost renders as
+                          «Unbekannt», not as a blank pill. */}
+                      <span className="truncate">{operation.assignedReko.name.trim() || t('common.unknownResource')}</span>
                     </RemovableChip>
                     {/* Show arrival time if on site but report not yet submitted */}
                     {operation.rekoArrivedAt && !operation.hasCompletedReko && (
@@ -758,7 +768,7 @@ function DraggableOperationBase({
                           key={crewName}
                           variant="secondary"
                           className={cn(
-                            "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
+                            "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
                             isConflict && "border border-warning/60 text-warning-foreground bg-warning/10",
                           )}
                           title={
@@ -768,7 +778,7 @@ function DraggableOperationBase({
                           }
                           onRemove={() => onRemoveCrew(crewName)}
                           removeTitle={t('common.removeNamed', { name: crewName })}
-                          removeButtonClassName="hover:text-destructive cursor-pointer"
+                          removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                           removeIconClassName="h-2.5 w-2.5"
                         >
                           {/* Leading chip glyphs are h-3 throughout the card (the
@@ -779,7 +789,7 @@ function DraggableOperationBase({
                               star only renders for whoever actually holds the
                               role, so the chip row stays as dense as it was. */}
                           <LeaderBadge isLeader={operation.leaderName === crewName} />
-                          <span>{crewName}</span>
+                          <span className="truncate">{crewName.trim() || t('common.unknownResource')}</span>
                         </RemovableChip>
                       )
                     })}
@@ -807,14 +817,14 @@ function DraggableOperationBase({
                     {operation.zuFuss && (
                       <RemovableChip
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                        className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
                         onRemove={() => onToggleZuFuss?.()}
                         removeTitle={t('common.removeZuFuss')}
-                        removeButtonClassName="hover:text-destructive cursor-pointer"
+                        removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
                       >
                         <Footprints className="h-3 w-3 flex-shrink-0" />
-                        <span>{t('common.zuFuss')}</span>
+                        <span className="truncate">{t('common.zuFuss')}</span>
                       </RemovableChip>
                     )}
                     {operation.vehicles.map((vehicleName) => {
@@ -829,11 +839,11 @@ function DraggableOperationBase({
                       <RemovableChip
                         key={vehicleName}
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
+                        className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
                         title={callsign ? t('common.funkrufname', { callsign }) : undefined}
                         onRemove={() => onRemoveVehicle(vehicleName)}
                         removeTitle={t('common.removeNamed', { name: vehicleName })}
-                        removeButtonClassName="hover:text-destructive cursor-pointer"
+                        removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
                       >
                         <button
@@ -841,10 +851,14 @@ function DraggableOperationBase({
                             e.stopPropagation()
                             onToggleDriverStay?.(vehicleName)
                           }}
-                          className="flex items-center gap-1 cursor-pointer"
+                          // min-w-0 so the NAME truncates while the status pill
+                          // (shrink-0 below) stays whole — a long
+                          // «Name · Funkrufname (Fahrer)» must never wrap the
+                          // chip onto a second line.
+                          className="flex min-w-0 items-center gap-1 cursor-pointer"
                           title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                         >
-                          <span>
+                          <span className="truncate">
                             {vehicleName}{callsign ? ` · ${callsign}` : ''}
                             {driverName && (
                               <span className="text-muted-foreground"> ({driverName})</span>
@@ -895,14 +909,14 @@ function DraggableOperationBase({
                             <RemovableChip
                               key={`group-${group.id}`}
                               variant="secondary"
-                              className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                              className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
                               onRemove={() => matIds.forEach((matId) => onRemoveMaterial(matId))}
                               removeTitle={t('common.removeNamed', { name: group.name })}
-                              removeButtonClassName="hover:text-destructive cursor-pointer"
+                              removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                               removeIconClassName="h-2.5 w-2.5"
                             >
                               <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-                              <span>{group.name}</span>
+                              <span className="truncate">{group.name}</span>
                             </RemovableChip>
                           ))}
                           {/* Ungrouped materials shown individually */}
@@ -919,16 +933,16 @@ function DraggableOperationBase({
                                 key={idx}
                                 variant="secondary"
                                 className={cn(
-                                  "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
+                                  "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
                                   onSite && "bg-warning/15 text-warning-foreground",
                                 )}
                                 onRemove={() => onRemoveMaterial(materialId)}
                                 removeTitle={t('common.removeNamed', { name: material?.name || materialId })}
-                                removeButtonClassName="hover:text-destructive cursor-pointer"
+                                removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                                 removeIconClassName="h-2.5 w-2.5"
                               >
                                 {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
-                                <span>{material?.name || materialId}</span>
+                                <span className="truncate">{material?.name || materialId}</span>
                               </RemovableChip>
                             )
                           })}
@@ -1104,16 +1118,12 @@ function DraggableOperationBase({
           </>
         )}
 
-        {/* Markieren — quick status flags */}
-        {(onToggleZuFuss || onToggleNachbarhilfe || onToggleAmWarten) && (
+        {/* Markieren — quick status flags. «Zu Fuss» is deliberately NOT here
+            any more: it lives in the vehicle assignment dialog (where the
+            not-a-vehicle choice belongs) and on the card's own zu-Fuss chip. */}
+        {(onToggleNachbarhilfe || onToggleAmWarten) && (
           <>
             <ContextMenuSeparator />
-            {onToggleZuFuss && (
-              <ContextMenuItem onClick={() => onToggleZuFuss()}>
-                <Footprints className="mr-2 h-4 w-4" />
-                {operation.zuFuss ? t('common.removeZuFuss') : t('card.markZuFuss')}
-              </ContextMenuItem>
-            )}
             {onToggleNachbarhilfe && (
               <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
                 <Building2 className="mr-2 h-4 w-4" />

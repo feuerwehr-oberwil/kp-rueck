@@ -24,12 +24,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { KeyRound, Loader2, RefreshCw } from 'lucide-react'
+import { Check, Copy, KeyRound, Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { apiClient } from '@/lib/api-client'
+import { copyToClipboard } from '@/lib/utils'
 import type { ApiFeldAccessState } from '@/lib/api/types'
 
 interface FeldAccessCardProps {
@@ -40,6 +41,7 @@ export function FeldAccessCard({ eventId }: FeldAccessCardProps) {
   const t = useTranslations('feld.access')
   const [state, setState] = useState<ApiFeldAccessState | null>(null)
   const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [confirmRevoke, setConfirmRevoke] = useState(false)
 
@@ -109,10 +111,32 @@ export function FeldAccessCard({ eventId }: FeldAccessCardProps) {
       </div>
       <div className="mt-1 flex items-end justify-between gap-3">
         {/* Tabular figures and wide tracking: read out across a command post,
-            typed on a phone in the rain. */}
-        <div className="font-mono text-3xl font-semibold leading-none tracking-[0.28em] tabular-nums">
-          {state.code}
-        </div>
+            typed on a phone in the rain. Clicking the code copies it — for the
+            recurring case of pasting it into a chat next to the link. */}
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await copyToClipboard(state.code)
+              setCopied(true)
+              toast.success(t('codeCopied'))
+              setTimeout(() => setCopied(false), 2000)
+            } catch {
+              toast.error(t('failed'))
+            }
+          }}
+          title={t('copyCode')}
+          className="group flex items-center gap-2 rounded-md text-left"
+        >
+          <span className="font-mono text-3xl font-semibold leading-none tracking-[0.28em] tabular-nums">
+            {state.code}
+          </span>
+          {copied ? (
+            <Check className="size-3.5 shrink-0 text-success" />
+          ) : (
+            <Copy className="size-3.5 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" />
+          )}
+        </button>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button variant="ghost" size="xs" onClick={() => setConfirmRegenerate(true)} disabled={busy}>
             {busy ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}

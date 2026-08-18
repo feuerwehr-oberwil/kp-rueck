@@ -290,6 +290,12 @@ class IncidentResponse(IncidentBase):
     pickup_note: str | None = None
     pickup_requested_at: datetime | None = None
     pickup_requested_by: UUID | None = None
+    # The effective Einsatzleiter's name (services.incident_leader): the active
+    # `is_leader` assignment when one exists, the leader of record
+    # (`Incident.leader_personnel_id`) otherwise. Carried on the list response
+    # because a CLOSED incident has no assignments left — the board can only
+    # name who led it (the person the KP phones about the rapport) from here.
+    leader_name: str | None = None
     # Server-computed short label for location_address (home city stripped) so
     # clients can render the final string on first paint — no reformat flash
     # once the home_city setting loads client-side. "" when the address is only

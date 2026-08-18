@@ -34,6 +34,11 @@ const TYPE_POLICY: Partial<Record<NotificationType, ToastPolicy>> = {
   rapport_submitted: 'normal',
   field_complete: 'normal',
   field_arrived: 'quiet',
+  // Reko: «vor Ort» and the filed Bericht are worth a toast while there is
+  // room, but neither demands an answer from the KP the way a pickup does.
+  // Listed explicitly so the pair no longer rides on the severity fallback.
+  reko_arrived: 'normal',
+  reko_submitted: 'normal',
 }
 
 export function toastPolicyFor(notification: Pick<Notification, 'type' | 'severity'>): ToastPolicy {

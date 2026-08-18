@@ -21,6 +21,11 @@ export type NotificationType =
   | 'field_pickup'
   // A whole new Schadenplatz, reported by somebody standing in front of it.
   | 'field_report'
+  // Reconnaissance: the crew tapped «Ich bin vor Ort» on /reko, or filed its
+  // Bericht. Only the field paths notify — the KP logging the same facts from
+  // a radio message must not ring its own bell (suppressed server-side).
+  | 'reko_arrived'
+  | 'reko_submitted'
 
 export interface Notification {
   id: string

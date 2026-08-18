@@ -25,6 +25,8 @@ vi.mock("@/lib/api-client", () => ({
     getVehicles: async () => mockVehicles,
     getGpsSimulations: async () => mockState.drives,
     getDemoStatus: async () => mockState.demo,
+    // Magazin coords present so the preflight warning stays out of these tests.
+    getAllSettings: async () => ({ "gps.station_lat": "47.5164", "gps.station_lng": "7.5618" }),
     startGpsSimulation,
     stopGpsSimulation: vi.fn(async () => ({ stopped: 1 })),
     setGpsSimulationSpeed: vi.fn(async () => ({})),

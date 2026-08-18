@@ -87,7 +87,7 @@ export function TrainingAutogenControls() {
   };
 
   return (
-    <Card className="mt-4">
+    <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div>

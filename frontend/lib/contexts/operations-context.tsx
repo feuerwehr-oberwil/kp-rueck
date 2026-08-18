@@ -172,7 +172,13 @@ export interface Operation {
   assignedReko: { id: string; name: string } | null
   /** Name of the crew member marked Einsatzleiter for THIS incident, or null.
    *  A stop that belongs to an Auftrag takes its leader from the route instead
-   *  (the route owns the resources), so this stays null there. */
+   *  (the route owns the resources).
+   *  Seeded from the backend's `leader_name` (the effective leader — active
+   *  `is_leader` assignment, or the leader of record once the crew is
+   *  released), then overwritten by the live `is_leader` assignment when one
+   *  exists. That is what keeps it non-null on CLOSED incidents, where the
+   *  assignments are gone but somebody still has to be phoned about the
+   *  rapport. */
   leaderName: string | null
   crewAssignments: Map<string, string>
   materialAssignments: Map<string, string>
@@ -552,7 +558,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       hasBeenDispatched: incident.has_been_dispatched ?? false,
       rekoSummary: null,
       assignedReko: null,
-      leaderName: null,
+      // The backend's effective leader; the assignment loop below overwrites
+      // it with the live `is_leader` flag whenever one exists.
+      leaderName: incident.leader_name ?? null,
       crewAssignments: new Map(),
       materialAssignments: new Map(),
       vehicleAssignments: new Map(),

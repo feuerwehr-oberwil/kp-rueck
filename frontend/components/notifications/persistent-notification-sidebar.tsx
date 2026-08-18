@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Bell, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,7 +20,21 @@ export function PersistentNotificationSidebar() {
   // Never render when logged out — isSidebarOpen is persisted in localStorage,
   // so a session that opened it and then logged out would otherwise show an
   // empty sidebar shell over the login screen.
-  if (isMobile || !isSidebarOpen || !isAuthenticated) return null
+  const visible = !isMobile && isSidebarOpen && isAuthenticated
+
+  // Publish the sidebar's width as a root CSS var while open. Fixed-position
+  // layers (the footer sheets) live outside the flex row that makes room for
+  // this panel, so they read the var to inset their right edge instead of
+  // sliding underneath it. Must match the `w-80` below.
+  useEffect(() => {
+    if (!visible) return
+    document.documentElement.style.setProperty('--notification-sidebar-width', '20rem')
+    return () => {
+      document.documentElement.style.removeProperty('--notification-sidebar-width')
+    }
+  }, [visible])
+
+  if (!visible) return null
 
   const activeNotifications = notifications.filter((n) => !n.dismissed)
   const historicalNotifications = notifications

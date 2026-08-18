@@ -480,6 +480,11 @@ class Incident(Base):
     # provenance, carried as its own flag rather than folded into the NULL: the
     # board must not word a machine's inference as "im KP erfasst".
     field_arrived_by_automation: bool
+    # The effective Einsatzleiter's name (services.incident_leader): the active
+    # `is_leader` assignment when one exists, `leader_personnel_id` otherwise.
+    # Batched on so a completed incident — whose assignments were released —
+    # can still say who to call about it.
+    leader_name: str | None
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 

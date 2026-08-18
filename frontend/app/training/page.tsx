@@ -75,11 +75,21 @@ export default function TrainingPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-20 md:pb-8">
-          <div className="max-w-4xl mx-auto">
-            <TrainingControls />
-            <TrainingAutogenControls />
-            <TrainingSimulationControls />
-            <TrainingGpsSimulation />
+          {/* Desktop (xl+): two columns so the whole console fits with minimal
+              scrolling — left is "create work" (generation + autogen), right is
+              "run the field" (Nächste Aktionen + GPS drives), the pair a trainer
+              actually works during a drill. Below xl everything stacks. */}
+          <div className="mx-auto max-w-4xl xl:max-w-7xl">
+            <div className="flex flex-col gap-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
+              <div className="flex flex-col gap-4">
+                <TrainingControls />
+                <TrainingAutogenControls />
+              </div>
+              <div className="flex flex-col gap-4">
+                <TrainingSimulationControls />
+                <TrainingGpsSimulation />
+              </div>
+            </div>
           </div>
         </main>
 

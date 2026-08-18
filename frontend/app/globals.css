@@ -79,7 +79,12 @@
   --muted-foreground: oklch(0.60 0.01 250);
   --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.60 0.26 28);
+  /* Deeper + lower-chroma than the old 0.60/0.26 (which rendered as pure
+     rgb(245,0,0) — harsh, and only 4.05:1 under the 0.98 foreground). This
+     value measures 5.07:1 against the destructive-foreground and 3.47:1
+     against --background, so solid destructive buttons pass WCAG AA without
+     the washed-out `dark:bg-destructive/60` opacity trick. */
+  --destructive: oklch(0.55 0.20 27);
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.42 0.012 250);
   --input: oklch(0.29 0.012 250);

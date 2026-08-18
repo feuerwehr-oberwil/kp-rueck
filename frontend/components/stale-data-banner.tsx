@@ -9,6 +9,7 @@ import { de } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { useOperations } from "@/lib/contexts/operations-context";
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client";
+import { getRestReachable, onRestReachableChange } from "@/lib/api-client";
 import { shouldShowStaleBanner } from "@/lib/stale-data";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +17,9 @@ import { cn } from "@/lib/utils";
  * Top-of-app banner that warns operators when realtime updates have been
  * silent for long enough that on-screen data may be out of date. Triggered
  * when the WebSocket is not connected AND the last successful operations
- * load is older than the staleness threshold. Polling continues in the
+ * load is older than the staleness threshold — or immediately when the
+ * api-client reports REST unreachable (repeated connection failures), even
+ * if the WebSocket still claims to be connected. Polling continues in the
  * background even when this is showing.
  *
  * Carries a "Neu verbinden" action because socket.io gives up permanently
@@ -28,6 +31,7 @@ export function StaleDataBanner() {
   const t = useTranslations('common.staleDataBanner');
   const { lastSyncAt, refreshOperations } = useOperations();
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>(wsClient.getStatus());
+  const [restReachable, setRestReachable] = useState<boolean>(getRestReachable());
   const [now, setNow] = useState<Date>(() => new Date());
   const [reconnecting, setReconnecting] = useState(false);
 
@@ -36,11 +40,15 @@ export function StaleDataBanner() {
   }, []);
 
   useEffect(() => {
+    return onRestReachableChange(setRestReachable);
+  }, []);
+
+  useEffect(() => {
     const intervalId = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(intervalId);
   }, []);
 
-  const visible = shouldShowStaleBanner({ wsStatus, lastSyncAt, now });
+  const visible = shouldShowStaleBanner({ wsStatus, lastSyncAt, now, restReachable });
 
   const handleReconnect = async () => {
     setReconnecting(true);

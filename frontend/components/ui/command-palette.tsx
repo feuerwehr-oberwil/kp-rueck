@@ -44,6 +44,8 @@ import {
   ChevronDown,
   Waypoints,
   Printer,
+  Palette,
+  QrCode,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -58,6 +60,9 @@ export function openCommandPalette() {
 
 export function CommandPalette() {
   const t = useTranslations('common.commandPalette')
+  // The «Färben nach» mode names — reused from the map's own Ansicht menu so
+  // the palette and the dropdown can never disagree on what a mode is called.
+  const tMapColorBy = useTranslations('map.colorBy')
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
@@ -70,6 +75,7 @@ export function CommandPalette() {
     onToggleVehicleStatus,
     onToggleAuftraege,
     onTogglePrint,
+    onToggleLinks,
     onOpenAuftrag,
     onToggleNotifications,
     onToggleSidePanel,
@@ -88,6 +94,7 @@ export function CommandPalette() {
     onToggleMapLines,
     onFocusVehicle,
     onMapResetZoom,
+    onSetMapColorBy,
     mapVehicleNames = [],
     onFocusIncidentSearch,
     hasSelectedIncident = false,
@@ -231,6 +238,13 @@ export function CommandPalette() {
                   <span className="ml-auto text-xs text-muted-foreground">D</span>
                 </CommandItem>
               )}
+              {onToggleLinks && (
+                <CommandItem onSelect={() => runCommand(onToggleLinks)}>
+                  <QrCode className="mr-2 h-4 w-4" />
+                  <span>{t('linksAndQr')}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">T</span>
+                </CommandItem>
+              )}
               {onRefresh && (
                 <CommandItem onSelect={() => runCommand(onRefresh)}>
                   <RefreshCw className="mr-2 h-4 w-4" />
@@ -337,6 +351,25 @@ export function CommandPalette() {
                       <span className="ml-auto text-xs text-muted-foreground">Z</span>
                     </CommandItem>
                   )}
+                  {/* «Färben nach» — hint letters mirror COLOR_BY_SHORTCUTS in
+                      app/map/page.tsx (German mnemonics P/K/F/T/A). */}
+                  {onSetMapColorBy &&
+                    ([
+                      ['P', 'priority'],
+                      ['K', 'reko'],
+                      ['F', 'vehicle'],
+                      ['T', 'type'],
+                      ['A', 'auftrag'],
+                    ] as const).map(([key, dim]) => (
+                      <CommandItem
+                        key={`map-color-by-${dim}`}
+                        onSelect={() => runCommand(() => onSetMapColorBy(dim))}
+                      >
+                        <Palette className="mr-2 h-4 w-4" />
+                        <span>{t('mapColorBy', { mode: tMapColorBy(dim) })}</span>
+                        <span className="ml-auto text-xs text-muted-foreground">{key}</span>
+                      </CommandItem>
+                    ))}
                   {onFocusVehicle &&
                     [1, 2, 3, 4, 5].map((n) => (
                       <CommandItem
