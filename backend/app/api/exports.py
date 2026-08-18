@@ -18,6 +18,7 @@ from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import AuditLog, Event
 from ..services.audit_export_service import (
+    EventReportData,
     collect_event_report_data,
     export_event_audit_excel,
     get_safe_filename,
@@ -26,6 +27,7 @@ from ..services.branding import get_report_logo
 from ..services.excel_import_export import export_einsaetze_excel
 from ..services.lageblatt_service import build_lageblatt_pdf
 from ..services.pdf_report_service import build_event_report_pdf
+from ..services.photo_storage import ExportPhoto, photo_storage
 from ..services.settings import get_setting_value
 from ..utils.errors import ErrorMessages
 
@@ -56,6 +58,32 @@ def slugify_event_name(name: str) -> str:
     lowered = name.lower().translate(_UMLAUT_MAP)
     slug = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
     return slug or "ereignis"
+
+
+def _collect_report_photos(data: EventReportData) -> dict[uuid.UUID, list[ExportPhoto]]:
+    """Load every Reko/Rapport photo of the event off disk, keyed by incident.
+
+    Blocking file I/O — run via ``asyncio.to_thread``, like the PDF builders that
+    consume the result. A Reko resubmission carries the previous report's
+    ``photos_json`` forward, so the same filename can sit on several reports of one
+    incident — deduped here so no photo prints twice. Problems (missing file, over
+    the size cap) come back as note-only entries; nothing here ever raises.
+    """
+    photos: dict[uuid.UUID, list[ExportPhoto]] = {}
+    seen: set[tuple[uuid.UUID, str]] = set()
+
+    def add(incident_id: uuid.UUID, filenames: list[str] | None, source: str) -> None:
+        for name in filenames or []:
+            if (incident_id, name) in seen:
+                continue
+            seen.add((incident_id, name))
+            photos.setdefault(incident_id, []).append(photo_storage.load_export_photo(incident_id, name, source))
+
+    for reko in data.reko_reports:
+        add(reko.incident_id, reko.photos_json, "Reko")
+    for rapport in data.schadenplatz_reports:
+        add(rapport.incident_id, rapport.photos_json, "Rapport")
+    return photos
 
 
 @router.post("/events/{event_id}/audit")
@@ -179,6 +207,7 @@ async def export_event_report(
         funkrufname = await get_setting_value(db, "funkrufname", "")
         home_city = await get_setting_value(db, "home_city", "")
         logo = await get_report_logo(db)
+        photos = await asyncio.to_thread(_collect_report_photos, data)
         pdf_bytes = await asyncio.to_thread(
             build_event_report_pdf,
             data,
@@ -186,6 +215,7 @@ async def export_event_report(
             funkrufname,
             home_city,
             logo,
+            photos,
         )
 
         # Audit-log the export (same pattern as the Excel export).
@@ -252,7 +282,8 @@ async def export_event_lageblatt(
     try:
         data = await collect_event_report_data(db, event_id)
         home_city = await get_setting_value(db, "home_city", "")
-        pdf_bytes = await asyncio.to_thread(build_lageblatt_pdf, data, home_city)
+        photos = await asyncio.to_thread(_collect_report_photos, data)
+        pdf_bytes = await asyncio.to_thread(build_lageblatt_pdf, data, home_city, photos)
 
         date_str = datetime.now(UTC).strftime("%Y-%m-%d-%H%M")
         filename = f"lageblatt-{slugify_event_name(event.name)}-{date_str}.pdf"

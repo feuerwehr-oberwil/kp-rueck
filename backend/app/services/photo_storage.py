@@ -4,7 +4,9 @@ import asyncio
 import io
 import logging
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 # Optional MIME type detection for enhanced security
 try:
@@ -45,6 +47,27 @@ MAX_IMAGE_PIXELS = 50_000_000
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 settings = get_settings()
+
+#: Byte cap for a single photo embedded in a PDF export. ReportLab embeds the ORIGINAL
+#: file bytes regardless of the drawn size, so an oversized file would balloon the
+#: document. The upload pipeline recompresses everything to ≤1920px JPEG, which lands
+#: far below this — the cap only catches files that reached the directory some other way.
+MAX_EXPORT_PHOTO_BYTES = 10 * 1024 * 1024
+
+
+class ExportPhoto(NamedTuple):
+    """One stored photo resolved for a PDF export.
+
+    ``data`` carries the JPEG bytes when the file was readable; otherwise it is
+    ``None`` and ``note`` says why, in the report's language (German). A photo
+    problem costs the export one image, never the document.
+    """
+
+    source: str  # caption prefix: "Reko" or "Rapport"
+    filename: str
+    data: bytes | None
+    note: str | None
+    taken_at: datetime | None  # file mtime = upload time; None when unknown
 
 
 class PhotoStorageService:
@@ -328,6 +351,30 @@ class PhotoStorageService:
             raise HTTPException(status_code=400, detail="Invalid path") from None
 
         return file_path if file_path.exists() else None
+
+    def load_export_photo(self, incident_id: uuid.UUID, filename: str, source: str) -> ExportPhoto:
+        """Resolve one stored photo for a PDF export (blocking — run off the event loop).
+
+        Never raises: a missing, unreadable or oversized file comes back as an
+        :class:`ExportPhoto` whose ``note`` explains the gap, so the exports can
+        print a small line instead of failing.
+        """
+        try:
+            path = self.get_photo_path(incident_id, filename)
+        except HTTPException:
+            # A filename that fails the UUID.jpg / traversal checks cannot be a stored
+            # photo of ours — for an export that is the same situation as a missing file.
+            path = None
+        if path is None:
+            return ExportPhoto(source, filename, None, f"Foto fehlt: {filename}", None)
+        try:
+            stat = path.stat()
+            if stat.st_size > MAX_EXPORT_PHOTO_BYTES:
+                return ExportPhoto(source, filename, None, f"Foto zu gross für Export: {filename}", None)
+            taken_at = datetime.fromtimestamp(stat.st_mtime, tz=UTC)
+            return ExportPhoto(source, filename, path.read_bytes(), None, taken_at)
+        except OSError:
+            return ExportPhoto(source, filename, None, f"Foto fehlt: {filename}", None)
 
     def delete_photo(self, incident_id: uuid.UUID, filename: str) -> bool:
         """

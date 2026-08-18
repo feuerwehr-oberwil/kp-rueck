@@ -12,7 +12,7 @@ Swiss spelling) so plan 06 (i18n) can localise later by swapping the dict.
 
 import re
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
@@ -43,6 +43,7 @@ from reportlab.platypus import (
 from ..models import Incident, IncidentAssignment, RekoReport, SchadenplatzReport
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
+from .photo_storage import ExportPhoto
 
 # ---------------------------------------------------------------------------
 # Strings (German, Swiss spelling). i18n seam for plan 06.
@@ -160,6 +161,8 @@ LABELS: dict[str, str] = {
     "reko_amended_kp": "Ergänzt im KP durch {name} (Funkmeldung), {at}",
     "reko_arrived_field": "Vor Ort {at} (Feld)",
     "reko_arrived_kp": "Vor Ort {at} (Funkmeldung)",
+    # Photos attached by the field (Reko form and Schadenplatz-Rapport alike).
+    "photos": "Fotos",
     # Schadenplatz-Rapport (plan 25, §7)
     "rapport": "Schadenplatz-Rapport",
     "rapport_draft": "Entwurf, noch nicht abgeschlossen",
@@ -312,6 +315,14 @@ _LOGO_MAX_H = 18 * mm
 #: this and the heading moves to the next page with its content instead of sitting alone
 #: at the bottom announcing something the reader has to turn the page to find.
 _SECTION_MIN_SPACE = 32 * mm
+
+#: Photo thumbnails in the incident detail blocks: three per row, height-capped.
+#: ReportLab embeds the ORIGINAL bytes whatever box we draw them into, so these
+#: numbers are purely layout — big enough to recognise a scene, small enough that
+#: a full Reko (20 photos) costs about two pages rather than ten.
+_PHOTO_PER_ROW = 3
+_PHOTO_MAX_H = 55 * mm
+_PHOTO_GAP = 4  # points of air between neighbouring thumbnails
 
 
 def _fmt_dt(dt: datetime | None) -> str:
@@ -1230,6 +1241,71 @@ def _logo_flowable(logo: bytes | None) -> Image | None:
     return img
 
 
+def photo_grid(
+    photos: Sequence[ExportPhoto],
+    per_row: int,
+    cell_w: float,
+    max_h: float,
+    style: ParagraphStyle,
+) -> list[Any]:
+    """Thumbnail rows for one incident's photos, captioned "Reko"/"Rapport" + upload time.
+
+    Shared by the Einsatzbericht and the Lageblatt (which passes its own smaller
+    sizes). Each row is a two-line table — images above, captions below — with
+    ``splitByRow=0`` so a caption never strands on the next page (the whole row
+    moves instead; a KeepTogether here would nest inside the callers' own
+    KeepTogether, which mis-measures). Photos that came back without bytes
+    (missing file, over the export cap) and photos ReportLab cannot read become
+    small note lines after the grid instead of failing the document — the
+    :func:`_logo_flowable` rule. Returns ``[]`` for no photos.
+    """
+    cells: list[tuple[Image, Paragraph]] = []
+    notes: list[str] = []
+    for photo in photos:
+        if photo.data is None:
+            notes.append(photo.note or f"Foto fehlt: {photo.filename}")
+            continue
+        try:
+            iw, ih = ImageReader(BytesIO(photo.data)).getSize()
+            if iw <= 0 or ih <= 0:
+                raise ValueError("empty image")
+            scale = min((cell_w - _PHOTO_GAP) / iw, max_h / ih, 1.0)
+            img = Image(BytesIO(photo.data), width=iw * scale, height=ih * scale)
+        except Exception:  # a broken file never fails an export
+            notes.append(f"Foto fehlt: {photo.filename}")
+            continue
+        img.hAlign = "LEFT"
+        caption = photo.source if photo.taken_at is None else f"{photo.source} · {_fmt_dt(photo.taken_at)}"
+        cells.append((img, Paragraph(escape(caption), style)))
+
+    flow: list[Any] = []
+    for start in range(0, len(cells), per_row):
+        chunk = cells[start : start + per_row]
+        pad = [""] * (per_row - len(chunk))
+        table = Table(
+            [[c[0] for c in chunk] + pad, [c[1] for c in chunk] + pad],
+            colWidths=[cell_w] * per_row,
+            hAlign="LEFT",
+            splitByRow=0,
+        )
+        table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, 0), "BOTTOM"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), _PHOTO_GAP),
+                    ("TOPPADDING", (0, 0), (-1, 0), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 1),
+                    ("TOPPADDING", (0, 1), (-1, 1), 0),
+                    ("BOTTOMPADDING", (0, 1), (-1, 1), 3),
+                ]
+            )
+        )
+        flow.append(table)
+    flow.extend(Paragraph(escape(note), style) for note in notes)
+    return flow
+
+
 def _cover(
     data: EventReportData,
     generated_by: str,
@@ -1780,7 +1856,12 @@ def _bullet_field(label: str, items: list[str], styles: dict[str, ParagraphStyle
 
 
 def _incident_detail(
-    data: EventReportData, inc: Incident, index: int, styles: dict[str, ParagraphStyle], home_city: str = ""
+    data: EventReportData,
+    inc: Incident,
+    index: int,
+    styles: dict[str, ParagraphStyle],
+    home_city: str = "",
+    photos: Sequence[ExportPhoto] = (),
 ) -> list[Any]:
     """Build the detail block flowables for a single incident."""
     # Heading = address (the incident's "name"); fall back to title, then the dash.
@@ -1896,6 +1977,16 @@ def _incident_detail(
     report = rapport_by_incident(data).get(inc.id)
     if report is not None:
         block.extend(_rapport_block(data, inc, report, styles))
+
+    # Fotos vom Feld — Reko and Rapport photos in one grid, each caption naming its
+    # source. Last in the block: they illustrate the record above, they are not it.
+    # No photos → no heading (the `_maybe_field` reasoning).
+    grid = photo_grid(photos, _PHOTO_PER_ROW, _CONTENT_W / _PHOTO_PER_ROW, _PHOTO_MAX_H, styles["meta"])
+    if grid:
+        first, *rest = grid
+        # The sub-heading travels with the first row, same rule as every heading here.
+        block.append(KeepTogether([Spacer(1, 3), _p(LABELS["photos"], styles["subsection"]), first]))
+        block.extend(rest)
 
     block.append(Spacer(1, 8))
     return block
@@ -2081,6 +2172,7 @@ def build_event_report_pdf(
     funkrufname: str = "",
     home_city: str = "",
     logo: bytes | None = None,
+    photos: Mapping[uuid.UUID, Sequence[ExportPhoto]] | None = None,
 ) -> bytes:
     """Render the after-action report PDF.
 
@@ -2091,6 +2183,8 @@ def build_event_report_pdf(
         home_city: Configured home city; locations equal to it are hidden.
         logo: Station logo as PNG/JPEG bytes (``services.branding.get_report_logo``).
             ``None`` – or anything unreadable – simply renders no letterhead.
+        photos: Pre-loaded Reko/Rapport photos per incident id (the caller reads the
+            files — this builder stays free of I/O). ``None`` renders no photo blocks.
 
     Returns:
         The finished PDF document as ``bytes`` (starts with ``%PDF``).
@@ -2167,7 +2261,7 @@ def build_event_report_pdf(
         # overleaf instead of buying a whole page.
         details_heading = _section(LABELS["details_title"], styles, LABELS["details_hint"])
         for idx, inc in enumerate(data.incidents, 1):
-            block = _incident_detail(data, inc, idx, styles, home_city)
+            block = _incident_detail(data, inc, idx, styles, home_city, (photos or {}).get(inc.id, ()))
             if idx == 1:
                 block = [*details_heading, *block]
             story.extend(block)
