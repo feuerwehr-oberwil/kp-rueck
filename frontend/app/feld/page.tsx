@@ -231,11 +231,26 @@ function SourceReason({ assignment }: { assignment: ApiFeldAssignment }) {
   return <p className="mb-1.5 text-xs text-muted-foreground">{t(`${assignment.source}Reason`)}</p>
 }
 
+/**
+ * What this Schadenplatz still wants from you, as one chip.
+ *
+ * The scale used to run the wrong way. `none` — the only state that means «du
+ * schuldest noch etwas» — wore the same grey as every inert chip on the page,
+ * while `submitted`, the state with nothing left to do, got the strongest
+ * colour. Next to «Nicht mehr zugeteilt», also grey, the two quiet signals
+ * added up to "this card is finished" on a card whose line above says in red
+ * that the Rapport is your job.
+ *
+ * So colour answers ONE question — is there work here? — and both open states
+ * carry it. The word answers the second: `kein Rapport` has not been started,
+ * `Entwurf` has. The fill keeps them apart without spending a second colour on
+ * a distinction that is secondary to «offen ja/nein».
+ */
 function RapportStateChip({ state }: { state: ApiFeldAssignment['rapport_state'] }) {
   const t = useTranslations('feld.rapportState')
   const styles: Record<ApiFeldAssignment['rapport_state'], string> = {
-    none: 'bg-muted text-muted-foreground',
-    draft: 'bg-warning/15 text-warning',
+    none: 'bg-warning/20 text-warning-foreground',
+    draft: 'border border-warning/50 text-warning',
     submitted: 'bg-success/15 text-success',
   }
   return (
