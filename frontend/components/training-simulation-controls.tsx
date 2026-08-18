@@ -72,6 +72,8 @@ const ACTION_ICONS: Record<string, typeof MapPin> = {
 export function TrainingSimulationControls() {
   const t = useTranslations('training.simulation');
   const tCommon = useTranslations('training.common');
+  // Reuses the GPS card's warning copy for the same missing-Magazin case.
+  const tGps = useTranslations('training.gpsSim');
   const { selectedEvent } = useEvent();
   const { operations, changeStatusToTop, formatLocation } = useOperations();
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -95,6 +97,11 @@ export function TrainingSimulationControls() {
   const [drives, setDrives] = useState<ApiGpsSimDrive[]>([]);
   const [drivesFetchedAt, setDrivesFetchedAt] = useState(() => Date.now());
   const [gpsSimAvailable, setGpsSimAvailable] = useState(true);
+  // Same preflight as the GPS card (training-gps-simulation.tsx): a «Rückfahrt
+  // Magazin» drive 400s when gps.station_lat/lng are unset, so warn on the
+  // button instead of after the click. Defaults to true — no false warning
+  // while settings are still loading; the backend error stays the backstop.
+  const [magazinConfigured, setMagazinConfigured] = useState(true);
   const [speedKmh] = useGpsSimSpeed();
 
   const refreshDrives = useCallback(async () => {
@@ -109,6 +116,15 @@ export function TrainingSimulationControls() {
   useEffect(() => {
     apiClient.getVehicles().then(setVehicles).catch(() => setVehicles([]));
     apiClient.getDemoStatus().then((status) => setGpsSimAvailable(!status?.demo)).catch(() => {});
+    apiClient
+      .getAllSettings()
+      .then((settings) => {
+        // Exactly the pair the backend parses for the Magazin target.
+        const lat = parseFloat(settings['gps.station_lat'] ?? '');
+        const lng = parseFloat(settings['gps.station_lng'] ?? '');
+        setMagazinConfigured(Number.isFinite(lat) && Number.isFinite(lng));
+      })
+      .catch(() => {}); // unknown → don't block; the backend error still catches it
     refreshDrives();
     const unsubscribe = wsClient.on('gps_sim_status', () => refreshDrives());
     const interval = setInterval(refreshDrives, 3000);
@@ -499,15 +515,24 @@ export function TrainingSimulationControls() {
                           );
                         }
                         const isPrimary = idx === 0;
+                        // The return drive needs the Magazin coordinates — warn
+                        // on the button, same preflight as the GPS card.
+                        const needsMagazin = action.kind === 'gps_return' && !magazinConfigured;
                         return (
                           <Button
                             key={action.key}
                             onClick={() => handleAdvance(op, action)}
-                            disabled={busy}
+                            disabled={busy || needsMagazin}
                             variant={due && isPrimary ? 'default' : 'outline'}
                             size="sm"
                             className="flex-shrink-0"
-                            title={due && isPrimary ? t('recommendedAction') : undefined}
+                            title={
+                              needsMagazin
+                                ? tGps('magazinMissing')
+                                : due && isPrimary
+                                  ? t('recommendedAction')
+                                  : undefined
+                            }
                           >
                             <Icon className="size-3.5" />
                             {action.label}

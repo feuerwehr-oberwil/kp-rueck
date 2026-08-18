@@ -358,6 +358,7 @@ function AttendanceRow({
   onClick: () => void
 }) {
   const t = useTranslations('kanban.attendance')
+  const tCommon = useTranslations('kanban.common')
   const state = attendanceState(person)
   const unavailable = person.status === 'unavailable'
   const since = formatTime(person.checked_in_at)
@@ -386,7 +387,7 @@ function AttendanceRow({
         <Circle className="size-4 shrink-0 text-muted-foreground" />
       )}
 
-      <span className="min-w-0 flex-1 truncate">{person.name}</span>
+      <span className="min-w-0 flex-1 truncate">{person.name.trim() || tCommon('unknownResource')}</span>
 
       {assignedAt && (
         <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">

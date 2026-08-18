@@ -21,7 +21,14 @@ from ...models import (
 )
 from ...schemas.feld import RapportMaterialDecision
 from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies
-from .rapport import _board_material_units, _is_answered, _names, normalize_extra_materials, reconcile_materials
+from .rapport import (
+    _board_material_units,
+    _is_answered,
+    _jsonable_materials,
+    _names,
+    normalize_extra_materials,
+    reconcile_materials,
+)
 from .reports import _broadcast
 from .visibility import _rapport_state
 
@@ -298,9 +305,12 @@ async def apply_material_decisions(
 
     Deliberately narrow:
 
-    * Only rows the rapport already has are touched — no rapport row, no write
-      (``False``; an incident that was never dispatched has nothing to record).
-      Missing rows are skipped silently for the same reason.
+    * No rapport row, no write (``False``; an incident that was never dispatched
+      has nothing to record). But a row that EXISTS is reconciled against the
+      board first, exactly like ``save_rapport`` — a rapport created without its
+      checklist (a KP save that only carried the Kurzbericht, a photo-only row)
+      has ``materials_json`` still null, and answering into the void would drop
+      the operator's «Vor Ort» while reporting ``applied: true``.
     * Consumables never change: a used consumable is gone (decision 26) and
       ``reconcile_materials`` would strip the flag again anyway.
     * The rapport's draft/filed state stays as it is — confirming material
@@ -316,19 +326,18 @@ async def apply_material_decisions(
 
     changed = False
 
-    rows: list[dict[str, Any]] = []
-    for raw in report.materials_json or []:
-        if (
-            isinstance(raw, dict)
-            and not raw.get("consumable")
-            and raw.get("material_id")
-            and str(raw["material_id"]) in by_material
-        ):
-            wanted = by_material[str(raw["material_id"])]
-            if bool(raw.get("left_on_site")) != wanted:
-                raw = {**raw, "left_on_site": wanted}
-                changed = True
-        rows.append(raw)
+    # Reconcile FIRST, then answer — same order as `save_rapport`, for the same
+    # reason: the board's units have to exist as rows before a decision can land
+    # on them. A stored checklist keeps every answer it already carries.
+    board_units, board_by_assignment = await _board_material_units(db, incident.id)
+    rows = reconcile_materials(report.materials_json, board_units, board_by_assignment)
+    for row in rows:
+        if row.get("consumable") or not row.get("material_id"):
+            continue
+        wanted = by_material.get(str(row["material_id"]))
+        if wanted is not None and bool(row.get("left_on_site")) != wanted:
+            row["left_on_site"] = wanted
+            changed = True
 
     extras = normalize_extra_materials(report.extra_materials_json)
     for entry in extras:
@@ -339,7 +348,7 @@ async def apply_material_decisions(
 
     if changed:
         # Reassigned (not mutated in place) so SQLAlchemy sees the JSONB change.
-        report.materials_json = rows
+        report.materials_json = _jsonable_materials(rows)
         report.extra_materials_json = extras
         await db.commit()
         # The Restliste / material-on-site panel reads these flags — tell the

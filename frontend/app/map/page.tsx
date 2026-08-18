@@ -83,9 +83,11 @@ const MapView = dynamic(() => import("@/components/map-view"), {
  * so the same TLF looked like two different things depending on which surface
  * you were looking at. `max-w-full` on top of the shared classes because the
  * rail is 320px and a long Gerätename has to ellipsise rather than push the
- * card sideways.
+ * card sideways. `min-w-0 shrink` override the Badge base's `shrink-0`
+ * (twMerge) — without them a lone long chip refuses to shrink and shoves the
+ * row past the card edge instead of truncating; same guard as the board card.
  */
-const RAIL_CHIP = "text-xs px-1.5 py-0.5 font-normal max-w-full"
+const RAIL_CHIP = "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal"
 
 /**
  * Plain-letter shortcuts for «Färben nach», German mnemonics: P­riorität,
@@ -1302,7 +1304,7 @@ export default function MapPage() {
                           {isExpanded && incident.assigned_vehicles && incident.assigned_vehicles.length > 0 && (
                             <div className="flex items-start gap-2">
                               <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex flex-wrap gap-1.5 flex-1">
+                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
                                 {/* Same «Name · Funkrufname (Fahrer)» line as the
                                     board card, so the same TLF reads the same on
                                     both surfaces. Truncates inside the chip — the
@@ -1334,7 +1336,7 @@ export default function MapPage() {
                           {isExpanded && incident.assigned_personnel && incident.assigned_personnel.length > 0 && (
                             <div className="flex items-start gap-2">
                               <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex flex-wrap gap-1.5 flex-1">
+                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
                                 {/* Full names, same chips as the board card —
                                     the rail used to shorten to initials, which
                                     made the same person look different on the
@@ -1373,7 +1375,7 @@ export default function MapPage() {
                           {isExpanded && incident.assigned_materials && incident.assigned_materials.length > 0 && (
                             <div className="flex items-start gap-2">
                               <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex flex-wrap gap-1.5 flex-1">
+                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
                                 {/* Was hard-cut at 15 characters, which turned
                                     «Tauchpumpe gross» into «Tauchpumpe gro»
                                     with nothing to say it had been cut. The

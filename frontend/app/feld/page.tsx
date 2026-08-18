@@ -286,6 +286,7 @@ function FeldSurface() {
   const tCommon = useTranslations('reko.common')
   const tPickup = useTranslations('feld.pickup')
   const tRapport = useTranslations('feld.rapport')
+  const tKanbanCommon = useTranslations('kanban.common')
   const tReports = useTranslations('feld.reports')
 
   const [personnel, setPersonnel] = useState<ApiFeldPersonnel[]>([])
@@ -1001,7 +1002,7 @@ function FeldSurface() {
                     <User className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{person.name}</div>
+                    <div className="font-medium truncate">{person.name.trim() || tKanbanCommon('unknownResource')}</div>
                     {person.role && <div className="text-sm text-muted-foreground truncate">{person.role}</div>}
                   </div>
                   <div className="flex-shrink-0 text-right">

@@ -2106,10 +2106,8 @@ export default function FireStationDashboard() {
           <SidePanel
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
-            // Same trick the Personen-Leiste's reopen tab uses on the left: out
-            // of flow, so a folded panel costs the board no width. Only while
-            // the Material-Leiste is folded too — otherwise there IS something
-            // at this edge and the tab belongs beside it, not on top of it.
+            // Collapsed, the panel renders nothing here — its reopen tab lives
+            // in the w-7 gutter above, beside the Material-Leiste's.
             selectedOperation={selectedOperation}
             onOpenOnMap={() =>
               router.push(selectedOperation ? `/map?highlight=${selectedOperation.id}` : '/map')

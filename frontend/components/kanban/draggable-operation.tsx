@@ -1251,6 +1251,11 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     // Drawn next to the vehicle name, and edited in the fleet settings without
     // the incident itself changing at all.
     prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleCallsigns?.get(v) === nextProps.operation.vehicleCallsigns?.get(v)) &&
+    // The driver in «Name · Funkrufname (Fahrer)» lives OUTSIDE the operation —
+    // useVehicleDrivers hands out a new Map identity per load, so identity is
+    // the change signal. Without this a reassigned driver stayed stale on the
+    // card until the incident itself changed.
+    prevProps.vehicleDrivers === nextProps.vehicleDrivers &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&

@@ -410,10 +410,10 @@ export function MobileIncidentDetailSheet({
                       a wrapped badge row is exactly where a name gets lost.
                       The «EL» mark rides along — sorting alone only helps if
                       you already know the list is sorted. */}
-                  {sortCrewByLeader(operation.crew, operation.leaderName).map((member) => (
-                    <RemovableChip key={member} variant="secondary" className="text-sm max-w-full font-normal">
+                  {sortCrewByLeader(operation.crew, operation.leaderName).map((member, idx) => (
+                    <RemovableChip key={member.trim() || idx} variant="secondary" className="text-sm max-w-full font-normal">
                       <LeaderBadge isLeader={operation.leaderName === member} />
-                      <span>{member}</span>
+                      <span>{member.trim() || tKanban('common.unknownResource')}</span>
                     </RemovableChip>
                   ))}
                 </div>

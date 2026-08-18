@@ -306,6 +306,9 @@ export function AuftraegeSheet({
           side="bottom"
           hideCloseButton={!isMobile}
           overlayOffset={isMobile ? undefined : footerOffset}
+          // Same sidebar handshake as FooterSheet: stop at the notification
+          // sidebar's edge instead of centering against the covered viewport.
+          rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
           nonModal={!isMobile}
           className="flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall"
           style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
