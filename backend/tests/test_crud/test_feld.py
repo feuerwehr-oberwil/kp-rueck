@@ -1178,8 +1178,9 @@ class TestFieldBriefing:
         # A vehicle line names its driver too — «TLF 1» alone left a crew at the
         # address unable to say who is sitting in it. None here: nobody drives.
         assert row["vehicles"] == [{"name": "TLF 1", "driver": None, "stays": False, "via_auftrag": False}]
-        # Grouped by NAME: two units of one pump are "Tauchpumpe ×2".
-        assert row["materials"] == [{"name": "Tauchpumpe", "count": 2}]
+        # Grouped per NAME and DEPOT: two units of one pump from one shelf are
+        # one line with a count — and the line says where to fetch them.
+        assert row["materials"] == [{"name": "Tauchpumpe", "count": 2, "location": "Depot"}]
 
     @pytest.mark.asyncio
     async def test_a_released_crew_still_reads_its_own_briefing(
@@ -1188,7 +1189,18 @@ class TestFieldBriefing:
         # Completing an incident releases everything while the crew is still at
         # the address filing. A briefing that empties out underneath them is
         # worse than one naming a vehicle that has already driven off.
+        #
+        # The shape is the completion cascade's own (§P2 add-on): `completed_at`
+        # is stamped first, so the releases sit at/after it — a row released
+        # BEFORE completion is a KP correction and rightly disappears
+        # (`TestBriefingReleaseFilter` in test_feld_visibility.py). Materials
+        # are excluded from the cascade and stay assigned.
+        from datetime import UTC, datetime
+
         incident = await _incident(db_session, test_event, test_user)
+        incident.status = "complete"
+        incident.completed_at = datetime.now(UTC)
+        await db_session.commit()
         me = Personnel(id=uuid.uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
         vehicle = Vehicle(id=uuid.uuid4(), name="TLF 1", type="TLF", status="available")
         db_session.add_all([me, vehicle])
@@ -1196,13 +1208,13 @@ class TestFieldBriefing:
         await _assign(db_session, incident, "personnel", me.id, released=True)
         await _assign(db_session, incident, "vehicle", vehicle.id, released=True)
         pump = await _material(db_session, "Tauchpumpe")
-        await _assign(db_session, incident, "material", pump.id, released=True)
+        await _assign(db_session, incident, "material", pump.id)
 
         row = (await crud.get_feld_assignments_for_personnel(db_session, test_event.id, me.id))[0]
         assert row["is_active_assignment"] is False
         assert row["crew"] == ["Muster Hans"]
         assert row["vehicles"] == [{"name": "TLF 1", "driver": None, "stays": False, "via_auftrag": False}]
-        assert row["materials"] == [{"name": "Tauchpumpe", "count": 1}]
+        assert row["materials"] == [{"name": "Tauchpumpe", "count": 1, "location": "Depot"}]
 
     @pytest.mark.asyncio
     async def test_a_person_assigned_twice_is_one_name(
@@ -1438,5 +1450,9 @@ class TestFieldActionsReachTheBoardLive:
         assert await crud.record_arrival(db_session, incident, actor=actor, at=now, only_if_unset=True)
         assert await crud.record_field_complete(db_session, incident, actor=actor, at=now)
 
-        assert len(sent) == 2
+        # Three, not two: the incident starts `active`, so the arrival moves
+        # nothing, but «beendet» auto-moves the card (sweep 27 §P3.3) and that
+        # move announces itself with its own status broadcast.
+        assert len(sent) == 3
+        assert {"id": str(incident.id), "status": "returning"} in [payload for payload, _action in sent]
         assert sent[-1][0]["field_complete_reported_at"] is not None

@@ -24,7 +24,15 @@ async def get_or_create_reko_report(
 
     Allows resuming forms (loads existing draft or submitted report).
     When creating a new draft, pre-fills with data from the latest submitted
-    report by this personnel (for "Ergänzung" workflow).
+    report of the incident (the "Ergänzung" workflow).
+
+    The prefill is deliberately NOT filtered by person. Reports are keyed on
+    the token, and every freshly minted link is a new token — so a filter on
+    ``submitted_by_personnel_id`` meant any report whose author the row did not
+    name was invisible to the next form: the training simulator's reports carry
+    no personnel at all, and a direct link opened after the Übungssteuerung had
+    already filed one landed on a blank page instead of the report it was sent
+    to amend.
 
     Args:
         db: Database session
@@ -61,20 +69,19 @@ async def get_or_create_reko_report(
             await db.refresh(report)
         return report
 
-    # Check for existing submitted report by this personnel to pre-fill from
-    previous_report = None
-    if personnel_id:
-        prev_result = await db.execute(
-            select(RekoReport)
-            .where(
-                RekoReport.incident_id == incident_id,
-                RekoReport.submitted_by_personnel_id == personnel_id,
-                RekoReport.is_draft == False,  # noqa: E712
-            )
-            .order_by(RekoReport.submitted_at.desc())
-            .limit(1)
+    # The latest submitted report of THIS incident, whoever filed it — the
+    # prefill for the "Ergänzung" case (see the docstring for why the person
+    # filter had to go).
+    prev_result = await db.execute(
+        select(RekoReport)
+        .where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.is_draft == False,  # noqa: E712
         )
-        previous_report = prev_result.scalar_one_or_none()
+        .order_by(RekoReport.submitted_at.desc())
+        .limit(1)
+    )
+    previous_report = prev_result.scalar_one_or_none()
 
     # Create new draft, pre-filled with previous submission data if available
     if previous_report:
@@ -269,7 +276,8 @@ async def mark_reko_arrived(
 
     # Check if incident exists
     incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
-    if not incident_result.scalar_one_or_none():
+    incident = incident_result.scalar_one_or_none()
+    if not incident:
         raise ValueError("Incident not found")
 
     # Try to find existing report with this token
@@ -283,6 +291,7 @@ async def mark_reko_arrived(
     )
     report = result.scalar_one_or_none()
 
+    newly_arrived = False
     if not report:
         # Create new draft report with arrived_at
         report = RekoReport(
@@ -292,13 +301,39 @@ async def mark_reko_arrived(
             arrived_at=datetime.now(UTC),
         )
         db.add(report)
+        newly_arrived = True
     else:
         # Update existing report with arrived_at if not already set
         if not report.arrived_at:
             report.arrived_at = datetime.now(UTC)
+            newly_arrived = True
 
     await db.commit()
     await db.refresh(report)
+
+    # «Reko vor Ort» rings the bell — HERE, not in the API route, so every
+    # token path notifies: the crew's tap on /reko AND the Übungssteuerung's
+    # simulate step, which calls this function directly and used to arrive on
+    # the board without a sound. Only on the FIRST arrival — the tap is
+    # idempotent, and a re-tap is not a second crew. The KP's own radio entry
+    # (`set_reko_arrived_by_user` below) stays deliberately silent.
+    if newly_arrived and incident.event_id:
+        from ..services.notification_service import create_reko_arrived_notification
+
+        arrived_by_name = None
+        if report.submitted_by_personnel_id:
+            await db.refresh(report, ["submitted_by_personnel"])
+            if report.submitted_by_personnel:
+                arrived_by_name = report.submitted_by_personnel.name
+
+        await create_reko_arrived_notification(
+            db=db,
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            incident_title=incident.title or incident.location_address or "Unbekannt",
+            arrived_by_name=arrived_by_name,
+            incident_address=incident.location_address,
+        )
 
     return report
 

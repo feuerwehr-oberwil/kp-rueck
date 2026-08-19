@@ -26,7 +26,6 @@ interface UseKanbanDragDropProps {
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string) => void
   assignVehicleToOperation?: (vehicleId: string, vehicleName: string, operationId: string) => void
-  setDraggingItem?: (item: Person | Material | Operation | null) => void
   onOperationDrop?: (operationId: string) => void
   onStatusChange?: (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => void
   /** Aufträge (incident groups) — present so views without the Aufträge feature
@@ -402,7 +401,6 @@ export function useKanbanDragDrop({
   assignRekoPersonToOperation,
   assignMaterialToOperation,
   assignVehicleToOperation,
-  setDraggingItem,
   onOperationDrop,
   onStatusChange,
   groups,
@@ -419,28 +417,7 @@ export function useKanbanDragDrop({
     const { monitorForElements } = require('@atlaskit/pragmatic-drag-and-drop/element/adapter')
 
     return monitorForElements({
-      onDragStart({ source }: DragMonitorPayload) {
-        if (!setDraggingItem) return
-
-        const data = source.data
-        if (data.type === "person") {
-          setDraggingItem(data.person as Person)
-        } else if (data.type === "material") {
-          setDraggingItem(data.material as Material)
-        } else if (data.type === "material-group") {
-          // Use first material as representative for drag preview
-          const materials = data.materials as Material[]
-          if (materials.length > 0) setDraggingItem(materials[0])
-        } else if (data.type === "operation") {
-          setDraggingItem(data.operation as Operation)
-        }
-      },
-
       onDrop({ source, location }: DragMonitorPayload) {
-        if (setDraggingItem) {
-          setDraggingItem(null)
-        }
-
         const destination = location.current.dropTargets[0]
         if (!destination) return
 
@@ -477,5 +454,5 @@ export function useKanbanDragDrop({
         })
       },
     })
-  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, setDraggingItem, onOperationDrop, onStatusChange, groups, addStopsToGroup, assignGroupResource, occupiedGroupResourceIds, notifyRefused])
+  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, groups, addStopsToGroup, assignGroupResource, occupiedGroupResourceIds, notifyRefused])
 }

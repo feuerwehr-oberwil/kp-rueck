@@ -678,6 +678,9 @@ interface MapViewProps {
   resetZoomTrigger?: number // Counter to trigger zoom reset
   panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
   statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
+  /** One incident rendered regardless of statusFilters — a deep link
+   *  (`?highlight=`) to a closed incident, shown without touching the filters. */
+  filterExceptionId?: string | null
   showAssignmentLines?: boolean // Show animated lines from vehicles to assigned incidents
   showDistances?: boolean // Show vehicle→incident distance labels on assignments
   showLabels?: boolean // Show permanent labels on incident markers
@@ -716,6 +719,7 @@ export default function MapView({
   resetZoomTrigger = 0,
   panTrigger = 0,
   statusFilters = { open: true, active: true, completed: false },
+  filterExceptionId = null,
   showAssignmentLines = true,
   showDistances = false,
   showLabels = true,
@@ -982,15 +986,18 @@ export default function MapView({
     return clusters
   }, [mappedVehiclePositions, vehicles])
 
-  // Filter incidents with valid coordinates and based on status filters
+  // Filter incidents with valid coordinates and based on status filters.
+  // `filterExceptionId` (a deep link to a closed incident) passes the status
+  // gate unconditionally — it is rendered on top of the filters, not by them.
   const mappableIncidents = useMemo(
     () =>
       incidents.filter((inc) => {
         if (inc.location_lat === null || inc.location_lng === null) return false
+        if (inc.id === filterExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
         return group && statusFilters[group]
       }),
-    [incidents, statusFilters]
+    [incidents, statusFilters, filterExceptionId]
   )
 
   // Find incidents without valid coordinates (based on same status filters)
@@ -998,10 +1005,11 @@ export default function MapView({
     () =>
       incidents.filter((inc) => {
         if (inc.location_lat !== null && inc.location_lng !== null) return false
+        if (inc.id === filterExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
         return group && statusFilters[group]
       }),
-    [incidents, statusFilters]
+    [incidents, statusFilters, filterExceptionId]
   )
 
   const visibleRouteOperations = useMemo(() => {

@@ -245,6 +245,8 @@ export function DisplayIncidentCard({
                 hasBeenDispatched: operation.hasBeenDispatched,
                 status: operation.status,
                 hasReport: operation.hasSchadenplatzRapportDraft,
+                // «Kein Einsatz nötig» + closed = no rapport is due (§P2.7).
+                rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
               }) ? (
               <div className="p-1.5 rounded-md bg-muted/40" title={tFeld("cardNoRapportTooltip")}>
                 <FileText className="h-4 w-4 text-muted-foreground/40" />

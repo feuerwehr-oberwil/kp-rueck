@@ -711,7 +711,7 @@ async def update_incident_status(
     db: AsyncSession,
     incident_id: uuid.UUID,
     new_status: str,
-    current_user: User,
+    current_user: User | None,
     request: Request | None,
     notes: str | None = None,
 ) -> Incident | None:
@@ -724,6 +724,15 @@ async def update_incident_status(
     HTTP request to attribute, and ``log_action`` already handles a missing one by
     recording no IP/user-agent. The chain below (auto-release, unassign) accepts the
     same None for the same reason.
+
+    ``current_user`` is None for a FIELD-originated transition (sweep 27 §P3.3):
+    a crew tapping «Angekommen»/«Einsatz beendet» on `/feld` moves the card
+    itself, and attributing that to any user would fake provenance — the GPS
+    automation has a system user because it IS a system, but a field tap is a
+    named crew member who holds no user row. The transition and audit rows carry
+    no user then; `notes` and the audit's `source: feld` say who and why.
+    Such transitions never enter or leave `complete` — closing a Schadenplatz
+    stays the operator's decision, and the release cascade requires an actor.
 
     When status is changed to 'complete', automatically releases personnel
     and vehicles (but keeps materials assigned as they may be left on site).
@@ -745,16 +754,20 @@ async def update_incident_status(
         incident_id=incident.id,
         from_status=old_status,
         to_status=new_status,
-        user_id=current_user.id,
+        user_id=current_user.id if current_user else None,
         notes=notes,
     )
     db.add(transition)
 
     # Entering complete always runs release side effects, even after reopening.
     if new_status == "complete" and old_status != "complete":
+        if current_user is None:
+            raise ValueError("Completing an incident requires an acting user")
         incident.completed_at = datetime.now(UTC)
         await _apply_completion_release(db, incident, transition, current_user, request)
     elif old_status == "complete":
+        if current_user is None:
+            raise ValueError("Reopening a completed incident requires an acting user")
         incident.completed_at = None
         await _undo_completion_release(db, incident, current_user, request)
 
@@ -768,6 +781,9 @@ async def update_incident_status(
         changes={
             "status": {"before": old_status, "after": new_status},
             "notes": notes,
+            # The one caller that passes no user is the field auto-move; the
+            # Einsatztagebuch tells the provenances apart by this.
+            **({"source": "feld"} if current_user is None else {}),
         },
         request=request,
     )

@@ -46,6 +46,7 @@ import {
   Printer,
   Palette,
   QrCode,
+  FileText,
 } from "lucide-react"
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -76,6 +77,7 @@ export function CommandPalette() {
     onToggleAuftraege,
     onTogglePrint,
     onToggleLinks,
+    onToggleRapporte,
     onOpenAuftrag,
     onToggleNotifications,
     onToggleSidePanel,
@@ -243,6 +245,13 @@ export function CommandPalette() {
                   <QrCode className="mr-2 h-4 w-4" />
                   <span>{t('linksAndQr')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">T</span>
+                </CommandItem>
+              )}
+              {onToggleRapporte && (
+                <CommandItem onSelect={() => runCommand(onToggleRapporte)}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>{t('rapporte')}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">O</span>
                 </CommandItem>
               )}
               {onRefresh && (

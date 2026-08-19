@@ -8,15 +8,18 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
-# The only two provenances an editor may claim from the board (plan 26 §6).
+# The provenances an editor may claim from the board (plan 26 §6, sweep 27 §P5b.3).
 # "operator" = typed in at the KP, "intake" = the operator took the call and
-# says so. Everything else that writes `Incident.source` — the Divera adapter,
-# the generic alarm webhooks, the training generator — keeps its own write path
-# and passes the slug as a keyword to `crud.create_incident`; those names are
-# reserved (`schemas.alarms.RESERVED_ALARM_SOURCES`) and a board request naming
-# one is a 422. A card claiming to come from a system that has never heard of it
-# is a worse lie than the one this field exists to fix.
-EditorIncidentSource = Literal["operator", "intake"]
+# says so, "feld" = a Trupp standing in front of the thing reported it — usually
+# written by `/feld` itself, but the KP may also claim it for a radio message
+# they typed in ("Vom Feld gemeldet"). Everything else that writes
+# `Incident.source` — the Divera adapter, the generic alarm webhooks, the
+# training generator — keeps its own write path and passes the slug as a keyword
+# to `crud.create_incident`; those names are reserved
+# (`schemas.alarms.RESERVED_ALARM_SOURCES`) and a board request naming one is a
+# 422. A card claiming to come from a system that has never heard of it is a
+# worse lie than the one this field exists to fix.
+EditorIncidentSource = Literal["operator", "intake", "feld"]
 
 
 class IncidentType(str, Enum):
@@ -363,10 +366,13 @@ class IncidentTimelineEvent(BaseModel):
     - status_change → from_status, to_status, notes
     - assignment    → assignment_action ('assigned' | 'unassigned'),
                       resource_type, resource_name
-    - field_message → message, source ('feld' | 'kp')
+    - field_message → message, source ('feld' | 'kp' — a crew's sentence, or an
+                      operator typing what came over the radio)
+    - kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,
+                      going the OTHER way — sweep 27 §P3.2)
     """
 
-    event_type: str  # 'status_change' | 'assignment' | 'field_message'
+    event_type: str  # 'status_change' | 'assignment' | 'field_message' | 'kp_message'
     timestamp: datetime
     actor_name: str | None = None
 

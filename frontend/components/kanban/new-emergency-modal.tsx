@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Phone, Plus } from 'lucide-react'
+import { Axe, Phone, Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { LocationInput } from "@/components/location/location-input"
@@ -49,9 +49,10 @@ export function NewEmergencyModal({
     crew: [] as string[],
     materials: [] as string[],
     notes: "",
-    // "Telefonisch gemeldet" — off by default, because typing a card on the
-    // board IS the operator case (plan 26 §6).
-    source: "operator" as "operator" | "intake",
+    // "Telefonisch gemeldet" / "Vom Feld gemeldet" — off by default, because
+    // typing a card on the board IS the operator case (plan 26 §6). One value,
+    // two switches: a Meldung came over the phone OR from a Trupp, never both.
+    source: "operator" as "operator" | "intake" | "feld",
     contact: "",
     contactPhone: "",
     internalNotes: "",
@@ -245,35 +246,46 @@ export function NewEmergencyModal({
           </div>
 
           {/* Provenance, then who, then the number — one sentence: somebody
-              phoned, this is who, this is the number. It sits here rather than
-              at the top of the form because the operator is already in these
-              fields when they take a call; a selector above would add a step to
-              the board's most-used modal just to confirm the normal case. */}
-          <div
-            className="rounded-lg border border-border p-3 cursor-pointer select-none"
-            onClick={() =>
-              setFormData((prev) => ({ ...prev, source: prev.source === 'intake' ? 'operator' : 'intake' }))
-            }
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <Label className="text-sm font-semibold pointer-events-none">
-                    {t('common.phoneReported')}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">{t('common.phoneReportedDescription')}</p>
-                </div>
-              </div>
-              <Switch
-                aria-label={t('common.phoneReported')}
-                checked={formData.source === 'intake'}
-                onCheckedChange={(checked) =>
-                  setFormData((prev) => ({ ...prev, source: checked ? 'intake' : 'operator' }))
+              phoned (or a Trupp radioed it in), this is who, this is the number.
+              It sits here rather than at the top of the form because the
+              operator is already in these fields when they take a call; a
+              selector above would add a step to the board's most-used modal
+              just to confirm the normal case. Two switches over ONE source
+              value: turning one on turns the other off. The whole row toggles,
+              not just the switch. */}
+          <div className="rounded-lg border border-border">
+            {(
+              [
+                { value: 'intake', icon: Phone, label: 'phoneReported' },
+                { value: 'feld', icon: Axe, label: 'feldReported' },
+              ] as const
+            ).map(({ value, icon: Icon, label }) => (
+              <div
+                key={value}
+                className="flex items-center justify-between gap-3 p-3 cursor-pointer select-none border-b border-border/50 last:border-b-0"
+                onClick={() =>
+                  setFormData((prev) => ({ ...prev, source: prev.source === value ? 'operator' : value }))
                 }
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-semibold pointer-events-none">
+                      {t(`common.${label}`)}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">{t(`common.${label}Description`)}</p>
+                  </div>
+                </div>
+                <Switch
+                  aria-label={t(`common.${label}`)}
+                  checked={formData.source === value}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, source: checked ? value : 'operator' }))
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            ))}
           </div>
 
           {/* Contact */}

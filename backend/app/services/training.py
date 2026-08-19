@@ -145,14 +145,11 @@ class TrainingGenerator:
         if not templates:
             raise ValueError(f"No templates found for category: {category}")
 
-        # Select random template and location. Avoid addresses already used by a
-        # still-active incident in this event so two open alarms don't share an
-        # address (the seeded location pool is small, so plain random.choice
-        # collided often). Fall back to the full pool once it's exhausted.
+        # Select random template and location, avoiding address repeats — see
+        # _pick_location for the preference order.
         template = random.choice(templates)
-        used_addresses = await self._active_addresses(event_id)
-        free_locations = [loc for loc in self._cache_locations if loc.get_full_address() not in used_addresses]
-        location = random.choice(free_locations or self._cache_locations)
+        active_addresses, used_addresses = await self._event_addresses(event_id)
+        location = self._pick_location(self._cache_locations, active_addresses, used_addresses)
 
         incident = await self._create_incident_from(
             event_id,
@@ -272,9 +269,8 @@ class TrainingGenerator:
             raise ValueError(f"No templates found for category: {category}")
 
         template = random.choice(templates)
-        used_addresses = await self._active_addresses(event_id)
-        free_locations = [loc for loc in self._cache_locations if loc.get_full_address() not in used_addresses]
-        location = random.choice(free_locations or self._cache_locations)
+        active_addresses, used_addresses = await self._event_addresses(event_id)
+        location = self._pick_location(self._cache_locations, active_addresses, used_addresses)
 
         # Negative divera_id keeps simulated alarms clear of real Divera IDs
         # (which are positive). Retry on the unlikely collision.
@@ -312,15 +308,60 @@ class TrainingGenerator:
         )
         return emergency
 
-    async def _active_addresses(self, event_id: UUID) -> set[str]:
-        """Addresses of still-active (not yet completed) incidents in the event."""
+    @staticmethod
+    def _pick_location(
+        locations: list[TrainingLocation],
+        active_addresses: set[str],
+        used_addresses: set[str],
+    ) -> TrainingLocation:
+        """Pick a spawn location, keeping address repeats rare.
+
+        Preference order: an address this event has never seen → one without a
+        still-active incident → the whole pool (only when everything is taken).
+        The middle tier is the hard rule (two open alarms must not share an
+        address); the first tier is what keeps a long exercise from circling
+        back to a Schadenplatz the trainees just closed.
+        """
+        fresh = [loc for loc in locations if loc.get_full_address() not in used_addresses]
+        if fresh:
+            return random.choice(fresh)
+        inactive = [loc for loc in locations if loc.get_full_address() not in active_addresses]
+        return random.choice(inactive or locations)
+
+    async def _event_addresses(self, event_id: UUID) -> tuple[set[str], set[str]]:
+        """(active, ever-used) incident addresses of this event.
+
+        Unattached simulated pool alarms count as active too — they are exercise
+        load that will land on this board, and a generated incident at the same
+        address would read as a duplicate the moment the alarm is attached.
+        """
         result = await self.db.execute(
-            select(Incident.location_address).where(
+            select(Incident.location_address, Incident.completed_at).where(
                 Incident.event_id == event_id,
-                Incident.completed_at.is_(None),
+                Incident.deleted_at.is_(None),
             )
         )
-        return {addr for (addr,) in result.all() if addr}
+        active: set[str] = set()
+        used: set[str] = set()
+        for addr, completed_at in result.all():
+            if not addr:
+                continue
+            used.add(addr)
+            if completed_at is None:
+                active.add(addr)
+
+        pool_result = await self.db.execute(
+            select(DiveraEmergency.address).where(
+                DiveraEmergency.is_training.is_(True),
+                DiveraEmergency.is_archived.is_(False),
+                DiveraEmergency.attached_to_event_id.is_(None),
+            )
+        )
+        for (addr,) in pool_result.all():
+            if addr:
+                used.add(addr)
+                active.add(addr)
+        return active, used
 
 
 async def generate_training_emergency(

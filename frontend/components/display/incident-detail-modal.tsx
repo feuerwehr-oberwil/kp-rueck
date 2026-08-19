@@ -588,6 +588,8 @@ export function IncidentDetailModal({
                     isLoading={timeline.isLoading}
                     failed={timeline.failed}
                     onRetry={timeline.reload}
+                    // The wall reads, it does not dispatch — no send box here.
+                    canEdit={false}
                   />
                 </div>
                 {/* Editor only — `GET /incidents/{id}/rapport` is CurrentEditor
@@ -611,6 +613,8 @@ export function IncidentDetailModal({
                     hasBeenDispatched: operation.hasBeenDispatched,
                     status: operation.status,
                     hasReport: operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft,
+                    // «Kein Einsatz nötig» + closed = no rapport is due (§P2.7).
+                    rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
                   })}
                 />
                 )}

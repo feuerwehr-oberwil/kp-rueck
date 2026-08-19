@@ -5,9 +5,14 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast, Toaster } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
+import { useOperations } from '@/lib/contexts/operations-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { isStringArray, readJson, removeItem, writeJson } from '@/lib/utils/safe-storage'
-import { planToastBurst, TOAST_BURST_LIMIT } from '@/lib/notification-policy'
+import {
+  planToastBurst,
+  supersededNewIncidentNotifications,
+  TOAST_BURST_LIMIT,
+} from '@/lib/notification-policy'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
 
 /**
@@ -121,6 +126,23 @@ export function NotificationToasts() {
   // of this root-layout component.
   const shownToastIds = useRef<Set<string>>(null!)
   shownToastIds.current ??= cleanupOldToastIds()
+
+  // Silence "new emergency" notifications the board has overtaken: once the
+  // incident has a Reko assigned or moved past the column it was announced in,
+  // the KP has plainly seen it. Dismissed server-side (the bell quiets on every
+  // board, and the row lands in the history) and the on-screen toast goes with
+  // it. The ref keeps one in-flight dismiss from being re-fired on every poll
+  // until the server echoes it back as dismissed.
+  const { operations } = useOperations()
+  const silencedIds = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    for (const id of supersededNewIncidentNotifications(notifications, operations)) {
+      if (silencedIds.current.has(id)) continue
+      silencedIds.current.add(id)
+      toast.dismiss(id)
+      void dismissNotification(id)
+    }
+  }, [notifications, operations, dismissNotification])
 
   // Mobile is a viewing-first surface (mainly used to spawn training incidents)
   // and `/feld` belongs to a crew, so both stay quiet: suppress non-critical

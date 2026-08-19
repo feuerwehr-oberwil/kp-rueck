@@ -161,10 +161,19 @@ export function LinksQrSheet({
     }
   }
 
-  const linkRow = (key: LinkKey) => {
+  /** One link row. `bare` drops the row's own border so it can stack inside a
+   *  grouped container (divide-y draws the seams there instead). */
+  const linkRow = (key: LinkKey, bare = false) => {
     const url = urls[key]
     return (
-      <div key={key} className="flex items-center gap-3 rounded-lg border border-border/60 p-2.5">
+      <div
+        key={key}
+        className={
+          bare
+            ? "flex items-center gap-3 p-2.5"
+            : "flex items-center gap-3 rounded-lg border border-border/60 p-2.5"
+        }
+      >
         {/* Clickable: the KP holds the screen up and somebody scans it. */}
         <button
           type="button"
@@ -228,31 +237,58 @@ export function LinksQrSheet({
           <SheetDescription>{t("description")}</SheetDescription>
         </SheetHeader>
 
-        {/* Order is the callout: crew checks in, the roll call watches it,
-            the Feld poster (code + link) goes out of the door, the Alarm link
-            goes to the phone desk, and the wall display comes last. */}
-        <div className="space-y-2">
-          {linkRow("checkin")}
-
-          {eventId && (
-            <div className="flex items-center gap-3 rounded-lg border border-border/60 px-2.5 py-2">
-              <Users className="size-4 shrink-0 text-muted-foreground" />
-              <span className="text-sm font-medium">{tAttendance("rowLabel")}</span>
-              <span className="flex-1 text-sm text-muted-foreground">
-                {attendance
-                  ? tAttendance("rowCount", { present: attendance.present, total: attendance.total })
-                  : ""}
-              </span>
-              <Button size="sm" variant="outline" onClick={onOpenAttendance}>
-                {tAttendance("open")}
-              </Button>
+        {/* Order is the callout: crew checks in (the roll call watches it),
+            the Feld poster (link + code) goes out of the door, and the phone
+            desk / wall display come last. Three labelled groups instead of a
+            flat row list — the Anwesenheit row and the Feld-Code used to sit
+            wedged between QR rows they had nothing to do with. */}
+        <div className="space-y-3">
+          {/* Check-In and the Appell it feeds — the two halves of one job. */}
+          <section>
+            <p className="mb-1 px-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("groupCheckin")}
+            </p>
+            <div className="rounded-lg border border-border/60 divide-y divide-border/50">
+              {linkRow("checkin", true)}
+              {eventId && (
+                <div className="flex items-center gap-3 px-2.5 py-2">
+                  <Users className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-medium">{tAttendance("rowLabel")}</span>
+                  <span className="flex-1 text-sm text-muted-foreground">
+                    {attendance
+                      ? tAttendance("rowCount", { present: attendance.present, total: attendance.total })
+                      : ""}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={onOpenAttendance}>
+                    {tAttendance("open")}
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
+          </section>
 
-          {eventId && <FeldAccessCard eventId={eventId} />}
-          {linkRow("feld")}
-          {linkRow("alarm")}
-          {linkRow("display")}
+          {/* The Feld link and the code without which it is useless (plan 26):
+              one group, so they leave the KP together. */}
+          <section>
+            <p className="mb-1 px-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("groupFeld")}
+            </p>
+            <div className="rounded-lg border border-border/60 divide-y divide-border/50">
+              {linkRow("feld", true)}
+              {eventId && <FeldAccessCard eventId={eventId} bare />}
+            </div>
+          </section>
+
+          {/* The phone desk's intake link and the wall display. */}
+          <section>
+            <p className="mb-1 px-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("groupOther")}
+            </p>
+            <div className="rounded-lg border border-border/60 divide-y divide-border/50">
+              {linkRow("alarm", true)}
+              {linkRow("display", true)}
+            </div>
+          </section>
         </div>
       </FooterSheet>
 

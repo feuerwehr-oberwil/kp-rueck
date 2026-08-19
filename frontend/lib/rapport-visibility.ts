@@ -29,19 +29,32 @@ export function isDispatchedStatus(status: string): boolean {
  * unreachable — not on data that predates this rule, and not on a card whose
  * history says it was never dispatched. Hiding written work is a worse failure
  * than an empty form on a card that skipped the board.
+ *
+ * `rekoNotRelevant` is the one thing that beats `hasBeenDispatched`: the Reko
+ * said «Kein Einsatz nötig», the KP closed the card, nobody started a rapport
+ * — then there was nothing to report on, however the card's status history
+ * reads. The history lies exactly here: the GPS automation and the training
+ * simulator both walk a card through `active` when the *Reko's* vehicle
+ * reaches the address, which is a recce, not work. The rule stays scoped to
+ * closed cards — while the incident is open, a dispatch can still follow the
+ * verdict, and the rapport must be there when it does.
  */
 export function rapportApplies({
   hasBeenDispatched,
   status,
   hasReport,
+  rekoNotRelevant,
 }: {
   hasBeenDispatched?: boolean
   /** The card's current status — covers the optimistic move described above. */
   status?: string
   /** A rapport row exists, filed or draft. */
   hasReport?: boolean
+  /** The latest submitted Reko says «Kein Einsatz nötig». */
+  rekoNotRelevant?: boolean
 }): boolean {
   if (hasReport) return true
+  if (rekoNotRelevant && status === "complete") return false
   if (hasBeenDispatched) return true
   return status !== undefined && isDispatchedStatus(status)
 }

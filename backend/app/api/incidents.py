@@ -28,6 +28,7 @@ from ..config import settings
 from ..crud import events as events_crud
 from ..crud import feld as feld_crud
 from ..crud import incidents as crud
+from ..crud import kp_messages as kp_messages_crud
 from ..crud import reko as reko_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
@@ -35,7 +36,12 @@ from ..services import incident_display
 from ..services.audit import log_action
 from ..services.incident_leader import effective_leader_ids
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_group_update, broadcast_incident_update, broadcast_reko_update
+from ..websocket_manager import (
+    broadcast_group_update,
+    broadcast_incident_update,
+    broadcast_kp_message_update,
+    broadcast_reko_update,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -200,15 +206,37 @@ async def get_sync_version(
     ga_assigned_latest = ga_row[1]
     ga_unassigned_latest = ga_row[2]
 
+    # Field-report tables: Reko (arrived_at, submission) and Schadenplatz-Rapport
+    # (arrival, pickup, rapport filing) don't touch Incident.updated_at, so without
+    # this the polling fallback never noticed them — with the WebSocket down, the
+    # board and the Übungssteuerung showed stale field state until a manual reload.
+    reko_result = await db.execute(
+        select(sa_func.max(models.RekoReport.updated_at))
+        .join(models.Incident, models.RekoReport.incident_id == models.Incident.id)
+        .where(models.Incident.event_id == event_id)
+        .where(models.Incident.deleted_at.is_(None))
+    )
+    reko_latest = reko_result.scalar_one_or_none()
+
+    report_result = await db.execute(
+        select(sa_func.max(models.SchadenplatzReport.updated_at))
+        .join(models.Incident, models.SchadenplatzReport.incident_id == models.Incident.id)
+        .where(models.Incident.event_id == event_id)
+        .where(models.Incident.deleted_at.is_(None))
+    )
+    report_latest = report_result.scalar_one_or_none()
+
     # Combine into version string
     latest_str = latest.isoformat() if latest else "0"
     a_latest_str = a_latest.isoformat() if a_latest else "0"
     g_latest_str = g_latest.isoformat() if g_latest else "0"
     ga_assigned_str = ga_assigned_latest.isoformat() if ga_assigned_latest else "0"
     ga_unassigned_str = ga_unassigned_latest.isoformat() if ga_unassigned_latest else "0"
+    reko_str = reko_latest.isoformat() if reko_latest else "0"
+    report_str = report_latest.isoformat() if report_latest else "0"
     version = (
         f"{count}-{latest_str}-{a_count}-{a_latest_str}-{g_count}-{g_latest_str}-"
-        f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}"
+        f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}-{reko_str}-{report_str}"
     )
     return {"version": version}
 
@@ -463,6 +491,61 @@ async def set_field_report(
         await feld_crud.record_pickup(db, incident, actor=actor, needed=True, note=payload.pickup_note, request=request)
 
     return schemas.FieldReportState(**await feld_crud.field_report_state(db, incident))
+
+
+@router.get("/{incident_id}/field-messages", response_model=list[schemas.KpFieldMessage])
+async def list_field_messages(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> list[models.IncidentFieldMessage]:
+    """The KP's messages to this Schadenplatz's squad, oldest first."""
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    return await kp_messages_crud.messages_for_incident(db, incident_id)
+
+
+@router.post("/{incident_id}/field-messages", response_model=schemas.KpFieldMessage, status_code=201)
+async def send_field_message(
+    incident_id: uuid.UUID,
+    payload: schemas.KpFieldMessageCreate,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> models.IncidentFieldMessage:
+    """«Meldung an den Trupp» — the KP's half of the field message loop (sweep 27 §P3.2).
+
+    Symmetric to the crew's Freitext-Meldung, and deliberately as small: one
+    sentence, timestamped, with the sender's display name. The squad reads it on
+    `/feld`, where it rides the polled assignments payload; the incident's
+    Verlauf and the Meldungen thread read it back via `/timeline`.
+
+    No notification — a bell that tells the KP what the KP just typed would be
+    noise. The broadcast keeps other open boards in step.
+    """
+    if not payload.message.strip():
+        raise HTTPException(status_code=422, detail="Leere Meldung")
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+
+    row = await kp_messages_crud.create_kp_message(
+        db, incident, user=current_user, message=payload.message, request=request
+    )
+    background_tasks.add_task(
+        broadcast_kp_message_update,
+        {
+            "id": str(row.id),
+            "incident_id": str(incident_id),
+            "message": row.message,
+            "author_name": row.author_name,
+            "created_at": row.created_at.isoformat(),
+        },
+        "created",
+    )
+    return row
 
 
 @router.post("/{incident_id}/reko-arrived", response_model=schemas.RekoArrivedState)
@@ -872,6 +955,12 @@ async def get_incident_timeline(
     )
     field_messages = messages_result.all()
 
+    # …and the KP's own messages to the squad (sweep 27 §P3.2). They have a
+    # table (`incident_field_messages`) because `/feld` has to read them back;
+    # here they interleave with the crew's sentences so the thread shows both
+    # halves of the conversation.
+    kp_messages = await kp_messages_crud.messages_for_incident(db, incident_id)
+
     # Bulk-fetch resource names so we don't N+1 query
     personnel_ids = {a.resource_id for a, _ in assignments if a.resource_type == "personnel"}
     vehicle_ids = {a.resource_id for a, _ in assignments if a.resource_type == "vehicle"}
@@ -964,6 +1053,17 @@ async def get_incident_timeline(
             )
         )
 
+    for kp_message in kp_messages:
+        events.append(
+            schemas.IncidentTimelineEvent(
+                event_type="kp_message",
+                timestamp=kp_message.created_at,
+                actor_name=kp_message.author_name,
+                message=kp_message.message,
+                source="kp",
+            )
+        )
+
     events.sort(key=lambda e: e.timestamp)
 
     # Collapse near-duplicate events: same payload within a short time window
@@ -976,7 +1076,7 @@ async def get_incident_timeline(
         # Messages are never deduplicated. They are human input, they are the
         # one kind of entry here nobody can reconstruct from board state, and a
         # crew tapping the same chip twice is itself information.
-        if event.event_type == "field_message":
+        if event.event_type in ("field_message", "kp_message"):
             deduped.append(event)
             continue
         payload_key = (

@@ -3,6 +3,7 @@
  */
 
 import { io, Socket } from 'socket.io-client'
+import { fetchWsToken } from './auth-client'
 import { getWsUrl } from './env'
 
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
@@ -92,6 +93,22 @@ class WebSocketClient {
       reconnectionAttempts: this.maxReconnectAttempts,
       withCredentials: true,
       path: '/socket.io/',
+      // The split-origin handshake (sweep 27 §P3.4). On Railway staging and
+      // prod (kp.fwo.li → kp-api.fwo.li) the session cookie is first-party to
+      // the FRONTEND origin and never reaches the backend socket, so every
+      // connect was rejected under WS_REQUIRE_AUTH and clients silently lived
+      // on the 5s polling fallback. The token is fetched same-origin (the
+      // cookie rides along there) and passed in the auth payload; the backend
+      // accepts either credential.
+      //
+      // A FUNCTION, not an object, and that is load-bearing: socket.io calls
+      // it before every (re)connection attempt, so a reconnect after the
+      // 60-second token expired gets a fresh one instead of replaying a dead
+      // credential. Sessionless pages (display/viewer without login) get null
+      // and connect without a token — unchanged behaviour.
+      auth: (cb) => {
+        void fetchWsToken().then(token => cb(token ? { token } : {}))
+      },
     })
 
     this.setupEventHandlers()

@@ -57,6 +57,47 @@ def get_role_from_environ(environ: dict[str, Any]) -> str | None:
         return None
 
 
+def get_role_from_ws_auth(auth: dict[str, Any] | None) -> str | None:
+    """Extract the user role from the Socket.IO `auth` payload (sweep 27 §P3.4).
+
+    The payload carries a short-lived `ws` token minted by GET /api/auth/ws-token
+    — the split-origin answer: the `access_token` cookie is first-party to the
+    FRONTEND origin and never reaches the backend socket, so cookie auth alone
+    rejected every connect on Railway staging and prod (kp.fwo.li → kp-api.fwo.li)
+    and clients silently lived on the 5s polling fallback.
+
+    Only `type == "ws"` is accepted: an access token must not double as a
+    connect credential, and this token opens no HTTP endpoint. Returns None for
+    missing/invalid/expired tokens — never raises.
+    """
+    try:
+        if not auth:
+            return None
+        token = auth.get("token")
+        if not token or not isinstance(token, str):
+            return None
+
+        from .auth.security import decode_token
+
+        payload = decode_token(token)
+        if payload.get("type") != "ws":
+            return None
+        role = payload.get("role")
+        return role if isinstance(role, str) else None
+    except Exception:
+        return None
+
+
+def resolve_connect_role(environ: dict[str, Any], auth: dict[str, Any] | None) -> str | None:
+    """The connect's role, from EITHER credential.
+
+    Cookie first (same-origin deployments, unchanged), then the auth-payload
+    token (split-origin). Both absent/invalid → None, and `ws_require_auth`
+    decides whether that connect is allowed at all.
+    """
+    return get_role_from_environ(environ) or get_role_from_ws_auth(auth)
+
+
 def _is_production() -> bool:
     """Check if running in production environment."""
     return is_production_environment()
@@ -173,9 +214,14 @@ class WebSocketManager:
         if sid in self.user_sessions:
             self.user_sessions[sid]["last_activity"] = time.time()
 
-    async def connect(self, sid: str, environ: dict[str, Any]) -> None:
-        """Handle new WebSocket connection."""
-        role = get_role_from_environ(environ)
+    async def connect(self, sid: str, environ: dict[str, Any], role: str | None = None) -> None:
+        """Handle new WebSocket connection.
+
+        ``role`` is the already-resolved role from the connect handler (cookie
+        OR auth-payload token); when omitted it is derived from the cookie
+        alone, which keeps the existing direct callers and tests working.
+        """
+        role = role or get_role_from_environ(environ)
         if role is None:
             # Logged so post-launch logs show whether strict mode (WS_REQUIRE_AUTH) is feasible
             logger.info(f"Client {sid} connected unauthenticated (origin: {environ.get('HTTP_ORIGIN', 'unknown')})")
@@ -326,14 +372,20 @@ ws_manager = WebSocketManager()
 # every handler it wraps "untyped" — the handlers below are annotated; the gap is the
 # library's. Drop these ignores if python-socketio ever ships type information.
 @sio.event  # type: ignore[untyped-decorator]
-async def connect(sid: str, environ: dict[str, Any]) -> bool | None:
-    """Handle client connection."""
-    if settings.ws_require_auth and get_role_from_environ(environ) is None:
+async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None = None) -> bool | None:
+    """Handle client connection.
+
+    Two credentials, either is enough (sweep 27 §P3.4): the `access_token`
+    cookie (same-origin deployments, unchanged) or a short-lived `ws` token in
+    the Socket.IO `auth` payload (split-origin, where the cookie never arrives).
+    """
+    role = resolve_connect_role(environ, auth)
+    if settings.ws_require_auth and role is None:
         logger.info(
             f"Rejected unauthenticated WebSocket connect: {sid} (origin: {environ.get('HTTP_ORIGIN', 'unknown')})"
         )
         return False
-    await ws_manager.connect(sid, environ)
+    await ws_manager.connect(sid, environ, role=role)
     await sio.emit("connected", {"message": "Connected to KP Rück WebSocket"}, to=sid)
     return True
 
@@ -446,6 +498,15 @@ async def broadcast_special_function_update(data: dict[str, Any], action: str = 
 async def broadcast_reko_update(reko_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast reko report updates to all clients in operations room."""
     await ws_manager.broadcast_update("reko_update", {"action": action, "data": reko_data}, room="operations")
+
+
+async def broadcast_kp_message_update(message_data: dict[str, Any], action: str = "created") -> None:
+    """Broadcast a KP → Trupp message (sweep 27 §P3.2) to the operations room.
+
+    Keeps a second open board's Meldungen thread in step without a refetch; the
+    squad's phone itself reads the message off its 10s assignments poll.
+    """
+    await ws_manager.broadcast_update("kp_message_update", {"action": action, "data": message_data}, room="operations")
 
 
 async def broadcast_vehicle_positions(positions_data: list[dict[str, Any]]) -> None:

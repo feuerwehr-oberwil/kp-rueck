@@ -40,4 +40,31 @@ describe("rapportApplies", () => {
   it("says no when it knows nothing at all", () => {
     expect(rapportApplies({})).toBe(false)
   })
+
+  // §P2.7: kein Einsatz nötig + closed directly during/after the Reko + nothing
+  // done = no rapport request. The status history lies exactly here — the GPS
+  // automation and the training simulator walk a card through `active` when the
+  // Reko's own vehicle reaches the address.
+  it("asks nobody for a rapport on a closed «Kein Einsatz nötig» card", () => {
+    expect(
+      rapportApplies({ hasBeenDispatched: true, status: "complete", rekoNotRelevant: true }),
+    ).toBe(false)
+    expect(
+      rapportApplies({ hasBeenDispatched: false, status: "complete", rekoNotRelevant: true }),
+    ).toBe(false)
+  })
+
+  it("keeps the rapport while the «Kein Einsatz nötig» card is still open", () => {
+    // A dispatch can still follow the verdict — the KP overruling the Reko is
+    // rare but real, and the rapport must be there when it happens.
+    expect(
+      rapportApplies({ hasBeenDispatched: true, status: "active", rekoNotRelevant: true }),
+    ).toBe(true)
+  })
+
+  it("never lets the verdict hide work somebody already wrote down", () => {
+    expect(
+      rapportApplies({ status: "complete", rekoNotRelevant: true, hasReport: true }),
+    ).toBe(true)
+  })
 })

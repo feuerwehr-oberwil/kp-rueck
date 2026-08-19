@@ -345,6 +345,7 @@
           <tr><td>Telephone notes on slips of paper</td><td>A reporting form that hangs on the incident</td></tr>
           <tr><td>Excel list for crews and vehicles</td><td>A live overview that keeps itself up to date</td></tr>
           <tr><td>WhatsApp group for reports back</td><td>Structured reports with photos</td></tr>
+          <tr><td>A radio message for every status change</td><td>Status and reports straight from the crew – the radio channel stays clear</td></tr>
           <tr><td>Report after the incident</td><td>The report builds up during it</td></tr>
         </tbody>
       </table>
@@ -410,11 +411,41 @@
 
   <section class="sibling">
     <div class="wrap">
-      <div class="sibling-txt">
-        <p class="eyebrow">Related project</p>
-        <h2>KP Rück keeps the overview at the rear. KP Front commands at the front.</h2>
-        <p><strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – the two can hand alarms to each other, but neither needs the other.</p>
-        <a class="btn btn-ghost" href="https://kp-front.ch">Take a look at KP Front<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">Related project</p>
+          <h2>KP Rück keeps the overview at the rear. KP Front commands at the front.</h2>
+          <p><strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – the two can hand alarms to each other, but neither needs the other.</p>
+          <a class="btn btn-ghost" href="https://kp-front.ch">Take a look at KP Front<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>Running both – without setting everything up twice</h3>
+          <dl>
+            <div class="setup-row">
+              <dt>Dispatch</dt>
+              <dd>The same payload for both. Your dispatch integration is built once; each app only gets its own address.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Divera access</dt>
+              <dd>One key for both – the same alarms, the same roster. <span class="opt">optional</span></dd>
+            </div>
+            <div class="setup-row">
+              <dt>Print agent</dt>
+              <dd>One service in the station serves both apps and both kinds of printer.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Roster</dt>
+              <dd>The same source in the same file format – the same person on both sides.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Keywords</dt>
+              <dd>The same alarm keyword list, so the same classification in both apps.</dd>
+            </div>
+          </dl>
+          <p class="setup-foot"><strong>Database, updates and login stay separate.</strong> Neither one needs the other to run.
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guide: both on one server →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -527,7 +558,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

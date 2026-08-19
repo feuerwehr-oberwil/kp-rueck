@@ -21,6 +21,7 @@ from ...models import (
     User,
 )
 from ...services.audit import log_action
+from ...services.incident_display import get_home_city, location_display
 from ...services.notification_service import create_field_notification
 from ...websocket_manager import broadcast_incident_update
 
@@ -98,9 +99,15 @@ class FieldActor:
         return " · im KP erfasst"
 
 
-def _location(incident: Incident) -> str:
-    """How a Schadenplatz is named in a notification: address first."""
-    return incident.location_address or incident.title or "Unbekannt"
+async def _location(db: AsyncSession, incident: Incident) -> str:
+    """How a Schadenplatz is named in a notification: the SHORT address first.
+
+    Same label the board card wears — street + number, home town stripped
+    (`location_display`) — so a notification never says «Mühlemattstrasse 8,
+    4104 Oberwil» about a card that reads «Mühlemattstrasse 8» (§19.2).
+    """
+    home_city = await get_home_city(db)
+    return location_display(incident.location_address, home_city) or incident.title or "Unbekannt"
 
 
 async def _get_or_create_report(
@@ -139,6 +146,67 @@ def _stamp_updated_by(report: SchadenplatzReport, actor: FieldActor) -> None:
     else:
         report.updated_by_personnel_id = None
         report.updated_by_user_id = actor.user.id if actor.user else None
+
+
+#: The board's column order — the only ordering of statuses that exists. Used to
+#: make the auto-move strictly forward: a report about a card that is already at
+#: (or past) the target column must not drag it backwards.
+_STATUS_FLOW = ("incoming", "reko", "reko_done", "enroute", "active", "returning", "complete")
+
+#: The column titles as the board wears them, for the notification sentence.
+_STATUS_LABEL = {"active": "Einsatz", "returning": "Beendet / Rückfahrt"}
+
+
+async def _auto_move(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    target: str,
+    actor: FieldActor,
+    request: Request | None,
+) -> bool:
+    """Field said it, the board follows (sweep 27 §P3.3).
+
+    «Angekommen» moves the card to EINSATZ, «Einsatz beendet» to BEENDET /
+    RÜCKFAHRT — exactly the two moves the FieldStatusNudge used to *ask* about,
+    applied instead of asked, because the answer was always yes. Only for a
+    genuine `/feld` tap (``actor.is_field``): a KP radio entry keeps the nudge
+    as its manual path (the operator may be recording history, not news), and
+    the GPS automation runs its own advance.
+
+    Strictly forward, never into or out of `complete`: closing a Schadenplatz
+    stays the operator's decision, unchanged.
+
+    Goes through ``update_incident_status`` — the same path a drag takes — so
+    the transition row, the audit entry (user None, ``source: feld``) and the
+    auto-print on entering EINSATZ all behave exactly as if the operator had
+    moved the card. Imported lazily: ``crud.incidents`` imports this package.
+    """
+    try:
+        if _STATUS_FLOW.index(incident.status) >= _STATUS_FLOW.index(target):
+            return False
+    except ValueError:
+        # An unknown status must never be "moved forward" from.
+        return False
+
+    from ..incidents import update_incident_status
+
+    who = actor.personnel_name or "Feld"
+    verb = "angekommen" if target == "active" else "beendet"
+    updated = await update_incident_status(
+        db,
+        incident.id,
+        target,
+        current_user=None,
+        request=request,
+        notes=f"Automatisch – Feld meldet {verb} ({who})",
+    )
+    if updated is None:
+        return False
+    # The board is watching this card: say the status moved without waiting for
+    # the poll. Same partial shape the GPS advance sends.
+    await broadcast_incident_update({"id": str(incident.id), "status": target}, "update")
+    return True
 
 
 async def _broadcast(incident: Incident) -> None:
@@ -191,6 +259,10 @@ async def record_arrival(
     move a timestamp the KP has already acted on. The KP path leaves it False so
     an operator can correct or clear the time (``at=None``).
 
+    A genuine field tap also **moves the card to EINSATZ** (sweep 27 §P3.3, see
+    ``_auto_move``) — the nudge that used to ask is answered before it is asked.
+    KP and automation writers move nothing here.
+
     Returns whether anything changed — the caller only notifies when it did.
 
     The arrival carries its **own** ``arrived_by_*`` pair rather than borrowing
@@ -227,13 +299,22 @@ async def record_arrival(
     await db.commit()
     await db.refresh(report)
 
+    moved = False
+    if at is not None and actor.is_field:
+        moved = await _auto_move(db, incident, target="active", actor=actor, request=request)
+
     if at is not None and incident.event_id:
+        message = f"Angekommen: {await _location(db, incident)}{actor.suffix}"
+        if moved:
+            # The toast is the announcement of the move (§P3.3) — the card has
+            # already gone where the sentence says.
+            message += f" – Karte in «{_STATUS_LABEL['active']}» verschoben"
         await create_field_notification(
             db,
             notification_type="field_arrived",
             incident_id=incident.id,
             event_id=incident.event_id,
-            message=f"Angekommen: {_location(incident)}{actor.suffix}",
+            message=message,
         )
     await _broadcast(incident)
     return True
@@ -248,13 +329,14 @@ async def record_field_complete(
     only_if_unset: bool = False,
     request: Request | None = None,
 ) -> bool:
-    """ "Einsatz beendet" — the field reports it, the operator decides to close.
+    """ "Einsatz beendet" — the field reports it, the KP still closes.
 
-    **Does not change ``Incident.status``**, which is the rule the column's own
-    comment states: a Schadenplatz is finished when the KP says so, and a crew
-    that has packed up is not the same fact as a card in `complete`. This is the
-    first real writer of ``field_complete_reported_at`` — until now only the
-    training simulator could set it.
+    A genuine field tap moves the card to BEENDET / RÜCKFAHRT (sweep 27 §P3.3,
+    ``_auto_move``) — that column IS the state the crew just described, and the
+    nudge that used to ask this always got a yes. What stays the operator's
+    alone is `complete`: closing a Schadenplatz runs the release cascade and the
+    material gate, and no field report does that. KP writes move nothing — an
+    operator recording a radio message keeps the nudge as the manual path.
 
     ``field_complete_reported_by`` stays NULL for a KP write (decision 28); the
     audit-log entry carries the user instead.
@@ -284,13 +366,20 @@ async def record_field_complete(
     await db.commit()
     await db.refresh(incident)
 
+    moved = False
+    if at is not None and actor.is_field:
+        moved = await _auto_move(db, incident, target="returning", actor=actor, request=request)
+
     if at is not None and incident.event_id:
+        message = f"Einsatz beendet gemeldet: {await _location(db, incident)}{actor.suffix}"
+        if moved:
+            message += f" – Karte in «{_STATUS_LABEL['returning']}» verschoben"
         await create_field_notification(
             db,
             notification_type="field_complete",
             incident_id=incident.id,
             event_id=incident.event_id,
-            message=f"Einsatz beendet gemeldet: {_location(incident)}{actor.suffix}",
+            message=message,
         )
     await _broadcast(incident)
     return True
@@ -352,7 +441,7 @@ async def record_pickup(
                 notification_type="field_pickup",
                 incident_id=incident.id,
                 event_id=incident.event_id,
-                message=f"Abholung nötig: {_location(incident)}{detail}{actor.suffix}",
+                message=f"Abholung nötig: {await _location(db, incident)}{detail}{actor.suffix}",
                 # The only warning of the five. A waiting crew is the one field
                 # event that is time-critical for the KP.
                 severity="warning",
@@ -363,7 +452,7 @@ async def record_pickup(
                 notification_type="field_pickup",
                 incident_id=incident.id,
                 event_id=incident.event_id,
-                message=f"Abholung erledigt: {_location(incident)}{actor.suffix}",
+                message=f"Abholung erledigt: {await _location(db, incident)}{actor.suffix}",
             )
     await _broadcast(incident)
     return True
@@ -412,7 +501,9 @@ async def record_field_message(
             notification_type="field_message",
             incident_id=incident.id,
             event_id=incident.event_id,
-            message=f"Meldung vom Feld ({who}) – {_location(incident)}: {text}" if who else f"Meldung vom Feld: {text}",
+            message=f"Meldung vom Feld ({who}) – {await _location(db, incident)}: {text}"
+            if who
+            else f"Meldung vom Feld: {text}",
         )
     await _broadcast(incident)
     return notification

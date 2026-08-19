@@ -14,6 +14,8 @@ export interface CommandPaletteHandlers {
   onTogglePrint?: () => void
   /** Opens the Links & QR sheet (Check-In, Feld, Alarm, Anzeige) — key «T». */
   onToggleLinks?: () => void
+  /** Opens the Schadenplatz-Rapporte backlog sheet — key «O» (offene Rapporte). */
+  onToggleRapporte?: () => void
   /** Open the Aufträge sheet focused on a specific route (from palette search). */
   onOpenAuftrag?: (groupId: string) => void
   onToggleNotifications?: () => void

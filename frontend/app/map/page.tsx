@@ -653,11 +653,21 @@ export default function MapPage() {
     return arr
   }, [operations, colorBy, groups, t])
 
+  // «Auf der Karte öffnen» on an abgeschlossener Einsatz: the deep-linked
+  // incident must show even when its status group (Beendet, hidden by default)
+  // is filtered out. It rides as a one-time exception ON TOP of the filters —
+  // the filter toggles themselves stay untouched (Bastian's decided behavior).
+  // The exception lasts exactly as long as that incident stays selected;
+  // picking anything else lets the normal filters take over again.
+  const deepLinkExceptionId =
+    highlightParam && selectedIncidentId === highlightParam ? highlightParam : null
+
   // Filter incidents based on status group filters and search query
   const activeIncidents = useMemo(
     () => {
       // Filter by status group
       const filtered = incidents.filter((inc) => {
+        if (inc.id === deepLinkExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
         return group && statusFilters[group]
       })
@@ -673,7 +683,7 @@ export default function MapPage() {
         (inc.status in STATUS_LABELS && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
-    [incidents, searchQuery, statusFilters, tIncidents, tKanban]
+    [incidents, searchQuery, statusFilters, deepLinkExceptionId, tIncidents, tKanban]
   )
 
   // Toggle status filter
@@ -970,6 +980,7 @@ export default function MapPage() {
               resetZoomTrigger={resetZoomTrigger}
               panTrigger={panTrigger}
               statusFilters={statusFilters}
+              filterExceptionId={deepLinkExceptionId}
               showAssignmentLines={showAssignmentLines}
               showDistances={showDistances}
               showLabels={showLabels}

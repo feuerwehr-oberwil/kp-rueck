@@ -4,7 +4,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { TrainingControls } from "@/components/training-controls"
-import { TrainingAutogenControls } from "@/components/training-autogen-controls"
+import { TrainingCheckinCard } from "@/components/training-checkin-card"
 import { TrainingSimulationControls } from "@/components/training-simulation-controls"
 import { TrainingGpsSimulation } from "@/components/training-gps-simulation"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -76,14 +76,15 @@ export default function TrainingPage() {
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-20 md:pb-8">
           {/* Desktop (xl+): two columns so the whole console fits with minimal
-              scrolling — left is "create work" (generation + autogen), right is
-              "run the field" (Nächste Aktionen + GPS drives), the pair a trainer
-              actually works during a drill. Below xl everything stacks. */}
+              scrolling — left is "prepare the exercise" (generation incl.
+              Automatik + Personal einchecken), right is "run the field"
+              (Nächste Aktionen + GPS drives), the pair a trainer actually works
+              during a drill. Below xl everything stacks. */}
           <div className="mx-auto max-w-4xl xl:max-w-7xl">
             <div className="flex flex-col gap-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
               <div className="flex flex-col gap-4">
                 <TrainingControls />
-                <TrainingAutogenControls />
+                <TrainingCheckinCard />
               </div>
               <div className="flex flex-col gap-4">
                 <TrainingSimulationControls />

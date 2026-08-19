@@ -392,7 +392,13 @@ class EventSpecialFunction(Base):
     personnel_id: Mapped[UUID] = mapped_column(
         ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    function_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    # RESTRICT: deleting a function type with active assignments must fail loudly,
+    # not quietly strip the Ereignis of its Reko (mirrors fk_special_function_type).
+    function_type: Mapped[str] = mapped_column(
+        String(20),
+        ForeignKey("special_function_types.key", ondelete="RESTRICT", name="fk_special_function_type"),
+        nullable=False,
+    )
 
     # For driver assignments: which vehicle they drive
     vehicle_id: Mapped[UUID | None] = mapped_column(
@@ -885,6 +891,9 @@ class IncidentAssignment(Base):
         Index("idx_assignments_unassigned", "unassigned_at"),
         # Compound index for active assignment queries: finding all active resources for an incident
         Index("idx_assignments_incident_active", "incident_id", "resource_type", "unassigned_at"),
+        # Every /feld visibility query filters personnel rows by purpose, so the
+        # index carries it alongside the columns those queries already use.
+        Index("idx_assignments_personnel_purpose", "resource_id", "resource_type", "purpose"),
         # One Einsatzleiter per incident, enforced in the database rather than by
         # convention: two concurrent editors each promoting someone would
         # otherwise leave the board showing two leaders and no way to tell which
@@ -1190,6 +1199,38 @@ class SchadenplatzReport(Base):
     incident: Mapped["Incident"] = relationship("Incident", back_populates="schadenplatz_report")
 
     __table_args__ = (UniqueConstraint("incident_id", name="uq_schadenplatz_report_incident"),)
+
+
+class IncidentFieldMessage(Base):
+    """A short free-text message from the KP to the squad at one Schadenplatz (sweep 27 §P3.2).
+
+    The mirror of the crew's «Meldung vom Feld» — which needs no table because it
+    becomes a notification (how the KP sees it now) plus an audit entry (how it
+    survives). The KP has neither: `/feld` reads no notifications and no audit
+    log, so a message going the other way needs a row the assignments payload can
+    carry. Deliberately not a chat: one direction, no threads, no read receipts —
+    a timestamped sentence with the sender's display name, exactly what a radio
+    message is.
+
+    ``author_name`` is denormalised at write time on purpose: `/feld` is a
+    login-less door and must not join against ``users`` to render a name, and the
+    name as it was when the message was sent is the honest record anyway.
+    """
+
+    __tablename__ = "incident_field_messages"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    author_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_by: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("idx_incident_field_messages_incident", "incident_id"),)
 
 
 # ============================================

@@ -473,14 +473,28 @@ async def test_generate_reko_link(editor_client: AsyncClient, test_incident: Inc
 async def test_generate_reko_link_with_personnel(
     editor_client: AsyncClient, test_incident: Incident, test_personnel: Personnel
 ):
-    """Test generating reko form link with personnel."""
+    """With a person the direct link is a `/feld` deep link on a BOUND token
+    (§P2.1): the person lands on the field surface already authenticated, and
+    the incident rides along as the deep link. The person never appears in the
+    URL as plain text — they are inside the token, where the server checks them.
+    """
+    from app.services.tokens import validate_feld_token
+
     response = await editor_client.post(
         f"/api/reko/generate-link?incident_id={test_incident.id}&personnel_id={test_personnel.id}"
     )
     assert response.status_code == 200
     data = response.json()
     assert data["personnel_id"] == str(test_personnel.id)
-    assert str(test_personnel.id) in data["link"]
+    assert data["link"].startswith("/feld?token=")
+    assert f"incident_id={test_incident.id}" in data["link"]
+
+    claims = validate_feld_token(data["token"])
+    assert claims is not None
+    assert claims.personnel_id == test_personnel.id
+    assert claims.unlocked is True
+    assert claims.claim_id is not None
+    assert claims.event_id == test_incident.event_id
 
 
 @pytest.mark.asyncio

@@ -125,7 +125,7 @@ export interface Operation {
   groupId: string | null
   /** Order of this stop within its Auftrag (lower = earlier). 0 when ungrouped. */
   groupPosition: number
-  source?: string // Origin: "operator" (dashboard) or "intake" (public token form). Absent for locally-created ops.
+  source?: string // Origin: "operator" (dashboard), "intake" (phone/walk-in), "feld" (a Trupp), or a delivering system's slug. Absent for locally-created ops.
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
@@ -1450,10 +1450,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         if (batchedUpdates.amWarten !== undefined) apiUpdates.am_warten = batchedUpdates.amWarten
         if (batchedUpdates.amWartenNote !== undefined) apiUpdates.am_warten_note = batchedUpdates.amWartenNote
         if (batchedUpdates.zuFuss !== undefined) apiUpdates.zu_fuss = batchedUpdates.zuFuss
-        // Provenance correction (plan 26 decision 8). Only the two an editor may
-        // claim travel: a card that arrived from Divera keeps its own slug, and
-        // sending it back would be a 422 on an unrelated edit.
-        if (batchedUpdates.source === 'operator' || batchedUpdates.source === 'intake') {
+        // Provenance correction (plan 26 decision 8). Only the values an editor
+        // may claim travel — operator, intake ("Telefonisch gemeldet") and feld
+        // ("Vom Feld gemeldet"): a card that arrived from Divera keeps its own
+        // slug, and sending it back would be a 422 on an unrelated edit.
+        if (
+          batchedUpdates.source === 'operator' ||
+          batchedUpdates.source === 'intake' ||
+          batchedUpdates.source === 'feld'
+        ) {
           apiUpdates.source = batchedUpdates.source
         }
 
@@ -1601,10 +1606,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           // Attach to an Auftrag at creation when the caller preset a group
           // (streamlined "+ Stop" flow) — backend stamps group_position.
           group_id: operation.groupId ?? null,
-          // "Telefonisch gemeldet" on the new-emergency modal. Anything else the
-          // caller might carry (a webhook slug on a copied operation) is not an
-          // editor's to claim, so it collapses to the operator default.
-          source: operation.source === 'intake' ? ('intake' as const) : ('operator' as const),
+          // "Telefonisch gemeldet" / "Vom Feld gemeldet" on the new-emergency
+          // modal. Anything else the caller might carry (a webhook slug on a
+          // copied operation) is not an editor's to claim, so it collapses to
+          // the operator default.
+          source: (operation.source === 'intake' || operation.source === 'feld'
+            ? operation.source
+            : 'operator') as ApiIncidentCreate['source'],
         }
 
         const apiIncident = await apiClient.createIncident(incidentData)

@@ -75,3 +75,27 @@ describe("useResourceFiltering — availableOnly", () => {
     expect(names(result.current.groupedPersonnel)).toEqual(["Frei Anna"])
   })
 })
+
+// The search must find people by the Ereignis function they carry — the person
+// on the phone desk IS "telefondienst" for the operator typing that.
+describe("useResourceFiltering — search by special function", () => {
+  const ROSTER = [
+    person({ name: "Telefon Fritz", isTelefondienst: true }),
+    person({ name: "Posten Gina", isKommandoposten: true }),
+    person({ name: "Frei Anna" }),
+  ]
+
+  it("finds the Telefondienst by function name", () => {
+    const { result } = renderHook(() =>
+      useResourceFiltering(ROSTER, [], "telefondienst", "", "Andere"),
+    )
+    expect(names(result.current.groupedPersonnel)).toEqual(["Telefon Fritz"])
+  })
+
+  it("finds the Kommandoposten by function name", () => {
+    const { result } = renderHook(() =>
+      useResourceFiltering(ROSTER, [], "kommandoposten", "", "Andere"),
+    )
+    expect(names(result.current.groupedPersonnel)).toEqual(["Posten Gina"])
+  })
+})

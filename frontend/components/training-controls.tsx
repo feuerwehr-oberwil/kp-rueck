@@ -7,7 +7,9 @@ import { useOperations } from '@/lib/contexts/operations-context';
 import { apiClient, type ApiEmergencyTemplate, type ApiTrainingLocation } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -19,6 +21,7 @@ import {
   Target,
   MapPin,
   Phone,
+  Timer,
   X,
 } from 'lucide-react';
 import {
@@ -56,6 +59,16 @@ export function TrainingControls() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [isDispatching, setIsDispatching] = useState(false);
 
+  // Automatik (backend auto-generation monitor, training_autogen_task.py) —
+  // lives in this card since the 2026-08-19 restructure: it is just another way
+  // of generating emergencies, not a feature of its own. All knobs are plain
+  // settings; the monitor picks changes up within ~5s — no restart needed.
+  const [autogenLoaded, setAutogenLoaded] = useState(false);
+  const [autogenEnabled, setAutogenEnabled] = useState(false);
+  const [autogenIntervalMin, setAutogenIntervalMin] = useState(5);
+  const [autogenMax, setAutogenMax] = useState(50);
+  const [autogenSaving, setAutogenSaving] = useState(false);
+
   // Lazy-load template/location pools (only once when this panel mounts in a
   // training event).
   useEffect(() => {
@@ -70,6 +83,23 @@ export function TrainingControls() {
         // silent — picker just stays disabled
       });
   }, [selectedEvent?.training_flag, pickerLoaded]);
+
+  // Load the Automatik settings once per mount in a training event.
+  useEffect(() => {
+    if (!selectedEvent?.training_flag || autogenLoaded) return;
+    apiClient
+      .getAllSettings()
+      .then((settings) => {
+        setAutogenEnabled(settings['training_autogen_enabled'] === 'true');
+        setAutogenIntervalMin(parseFloat(settings['training_autogen_interval_min']) || 5);
+        setAutogenMax(parseInt(settings['training_autogen_max_emergencies']) || 50);
+        setAutogenLoaded(true);
+      })
+      .catch(() => {
+        // settings unavailable — section stays with defaults, toggle still works
+        setAutogenLoaded(true);
+      });
+  }, [selectedEvent?.training_flag, autogenLoaded]);
 
   // Sort templates by (category, title) so the dropdown reads predictably.
   const sortedTemplates = useMemo(
@@ -184,6 +214,45 @@ export function TrainingControls() {
     });
     // Pin wins over seeded selection — clear the dropdown for clarity.
     setSelectedLocationId('');
+  };
+
+  // Automatik handlers — plain setting writes, the backend monitor does the rest.
+  const saveAutogenSetting = async (key: string, value: string): Promise<boolean> => {
+    setAutogenSaving(true);
+    try {
+      await apiClient.updateSetting(key, value);
+      return true;
+    } catch {
+      toast.error(t('autogen.saveFailed'));
+      return false;
+    } finally {
+      setAutogenSaving(false);
+    }
+  };
+
+  const handleAutogenToggle = async (on: boolean) => {
+    setAutogenEnabled(on);
+    if (!(await saveAutogenSetting('training_autogen_enabled', on ? 'true' : 'false'))) {
+      setAutogenEnabled(!on);
+      return;
+    }
+    toast.success(on ? t('autogen.started') : t('autogen.stopped'), {
+      description: on
+        ? t('autogen.startedDescription', { interval: autogenIntervalMin })
+        : t('autogen.stoppedDescription'),
+    });
+  };
+
+  const handleAutogenIntervalCommit = async (value: number) => {
+    const clamped = Math.max(1, Math.min(60, value));
+    setAutogenIntervalMin(clamped);
+    await saveAutogenSetting('training_autogen_interval_min', String(clamped));
+  };
+
+  const handleAutogenMaxCommit = async (value: number) => {
+    const clamped = Math.max(1, Math.min(200, value));
+    setAutogenMax(clamped);
+    await saveAutogenSetting('training_autogen_max_emergencies', String(clamped));
   };
 
   const handleGenerateBurst = async () => {
@@ -376,6 +445,61 @@ export function TrainingControls() {
           </Button>
           <p className="text-xs text-muted-foreground">
             {t('controls.burstHint')}
+          </p>
+        </div>
+
+        <Separator />
+
+        {/* Automatik: the background generator, same knobs as before it moved
+            in here — the switch is the section header's control. */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="flex items-center gap-2">
+              <Timer className="h-4 w-4 text-emerald-600" />
+              {t('autogen.title')}
+            </Label>
+            <Switch
+              checked={autogenEnabled}
+              onCheckedChange={handleAutogenToggle}
+              disabled={!autogenLoaded || autogenSaving}
+              aria-label={t('autogen.toggleAria')}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">{t('autogen.description')}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="autogen-interval" className="text-xs text-muted-foreground">
+                {t('autogen.intervalLabel')}
+              </Label>
+              <Input
+                id="autogen-interval"
+                type="number"
+                min={1}
+                max={60}
+                value={autogenIntervalMin}
+                disabled={!autogenLoaded}
+                onChange={(e) => setAutogenIntervalMin(parseFloat(e.target.value) || 1)}
+                onBlur={(e) => handleAutogenIntervalCommit(parseFloat(e.target.value) || 5)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="autogen-max" className="text-xs text-muted-foreground">
+                {t('autogen.maxLabel')}
+              </Label>
+              <Input
+                id="autogen-max"
+                type="number"
+                min={1}
+                max={200}
+                value={autogenMax}
+                disabled={!autogenLoaded}
+                onChange={(e) => setAutogenMax(parseInt(e.target.value) || 1)}
+                onBlur={(e) => handleAutogenMaxCommit(parseInt(e.target.value) || 50)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t('autogen.hint')}
           </p>
         </div>
       </CardContent>

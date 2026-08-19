@@ -16,7 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, FileText, FileCheck } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, FileText, FileCheck, XCircle } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -167,6 +167,9 @@ function DraggableOperationBase({
   const t = useTranslations('kanban')
   const tPrint = useTranslations('print.toasts')
   const tFeld = useTranslations('feld.board')
+  // The board's own wording for the Reko verdict — one label per fact, so the
+  // card and the detail never disagree about what «Kein Einsatz nötig» is called.
+  const tRekoSection = useTranslations('reko.reportSection')
   const trackPrint = usePrintJobToast()
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -597,6 +600,7 @@ function DraggableOperationBase({
                   hasBeenDispatched: operation.hasBeenDispatched,
                   status: operation.status,
                   hasReport: operation.hasSchadenplatzRapportDraft,
+                  rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
                 }) ? (
                 <button
                   type="button"
@@ -1032,10 +1036,27 @@ function DraggableOperationBase({
               somebody went and looked at is a different kind of statement from
               everything above it. Its own switch, not the Meldung's (§18.12), so
               the rule disappears with the block on a card without a Reko. */}
-          {showRekoSummary && operation.rekoSummary && (
+          {/* Rendered only when the block has something to say. A «Kein Einsatz
+              nötig» report used to carry no dangers and no counts, so the block
+              was a section rule over nothing — the stray line under the Meldung
+              (image #19). The verdict itself is now the message (§P2.5). */}
+          {showRekoSummary && operation.rekoSummary && Boolean(
+            operation.rekoSummary.isRelevant === false ||
+            (operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0) ||
+            operation.rekoSummary.personnelCount ||
+            operation.rekoSummary.estimatedDuration
+          ) && (
             // What the Reko found — so the block opens the Reko tab, which is
             // where the whole report is.
             <div className={cn(SECTION_RULE, "space-y-3")} onClick={openDetailFrom('reko')}>
+              {/* The Reko's verdict, where it says «nothing to do here»: the
+                  one sentence that tells an operator this card can close. */}
+              {operation.rekoSummary.isRelevant === false && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <XCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>{tRekoSection('notNeeded')}</span>
+                </div>
+              )}
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   {/* Chips, so the same offset the resource rows use (mt-1), and
@@ -1052,14 +1073,16 @@ function DraggableOperationBase({
                 </div>
               )}
 
-              <div className="text-xs text-muted-foreground">
-                {operation.rekoSummary.personnelCount && (
-                  <span className="mr-3">{t('card.persCount', { count: operation.rekoSummary.personnelCount })}</span>
-                )}
-                {operation.rekoSummary.estimatedDuration && (
-                  <span>{operation.rekoSummary.estimatedDuration}h</span>
-                )}
-              </div>
+              {Boolean(operation.rekoSummary.personnelCount || operation.rekoSummary.estimatedDuration) && (
+                <div className="text-xs text-muted-foreground">
+                  {operation.rekoSummary.personnelCount && (
+                    <span className="mr-3">{t('card.persCount', { count: operation.rekoSummary.personnelCount })}</span>
+                  )}
+                  {operation.rekoSummary.estimatedDuration && (
+                    <span>{operation.rekoSummary.estimatedDuration}h</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1194,7 +1217,9 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
       nextProps.operation.rekoSummary?.dangerTypes ?? []
     ) ||
     (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||
-    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration)
+    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration) ||
+    // The card renders the verdict now («Kein Einsatz nötig», §P2.5).
+    (prevProps.operation.rekoSummary?.isRelevant !== nextProps.operation.rekoSummary?.isRelevant)
 
   // Check if assigned reko has changed. The card draws the name, so a person
   // renamed under the same id has to get through here too.

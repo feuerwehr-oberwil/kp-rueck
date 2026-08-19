@@ -123,6 +123,9 @@ export function RekoReportForm({
   // tab and a mouse. Same fields, same order, same component — only the scale
   // differs, so the board's mount stops spending a screen and a half on eight
   // answers. See components/kanban/detail-field.tsx for the same reasoning.
+  // Dense rows carry NO rules between them (image #15): the fixed label column
+  // is what aligns the form, and a border under every row was four heavy lines
+  // saying nothing the whitespace does not.
   const dense = isKp
   const [relevantMissing, setRelevantMissing] = useState(false)
 
@@ -159,7 +162,7 @@ export function RekoReportForm({
   return (
     <form onSubmit={handleSubmit} className={cn(dense ? "space-y-3" : "space-y-5")}>
       {/* Section 1: Basic Confirmation */}
-      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "space-y-3")}>
+      <div className={cn(dense ? "flex items-center gap-2" : "space-y-3")}>
         <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
           <Label className={cn(
             "text-muted-foreground",
@@ -197,7 +200,7 @@ export function RekoReportForm({
       {!dense && <Separator />}
 
       {/* Section 2: Dangers Assessment */}
-      <div className={cn(dense ? "flex items-start gap-2 border-b border-border/50 py-1" : "space-y-3")}>
+      <div className={cn(dense ? "flex items-start gap-2" : "space-y-3")}>
         <Label className={cn(
           "text-muted-foreground",
           dense ? "w-[104px] shrink-0 pt-1 text-xs font-normal" : "text-sm font-medium tracking-wide",
@@ -254,7 +257,7 @@ export function RekoReportForm({
       {!dense && <Separator />}
 
       {/* Section 3: Effort Assessment */}
-      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "space-y-3")}>
+      <div className={cn(dense ? "flex items-center gap-2" : "space-y-3")}>
         <Label className={cn(
           "text-muted-foreground",
           dense ? "w-[104px] shrink-0 text-xs font-normal" : "text-sm font-medium tracking-wide",
@@ -330,7 +333,7 @@ export function RekoReportForm({
       {!dense && <Separator />}
 
       {/* Section 4: Power Supply */}
-      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "space-y-3")}>
+      <div className={cn(dense ? "flex items-center gap-2" : "space-y-3")}>
         <Label className={cn(
           "text-muted-foreground",
           dense ? "w-[104px] shrink-0 text-xs font-normal" : "text-sm font-medium tracking-wide",

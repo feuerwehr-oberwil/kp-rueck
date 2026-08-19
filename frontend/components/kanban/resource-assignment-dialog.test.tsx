@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
 import type { Material } from "@/lib/contexts/materials-context"
+import type { Person } from "@/lib/contexts/operations-context"
 
 vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => ({ operations: [] }),
@@ -96,6 +97,58 @@ describe("material double-booking guard", () => {
     // Ticked immediately – the confirm never opens.
     await waitFor(() => expect(screen.getByText("Änderungen")).toBeDefined())
     expect(screen.queryByText("Doppelbelegung?")).toBeNull()
+  })
+})
+
+describe("special functions in the crew list", () => {
+  const person = (over: Partial<Person> & { name: string }): Person =>
+    ({ id: over.name, role: "Soldat", status: "available", ...over }) as Person
+
+  function renderCrew(personnel: Person[]) {
+    return renderWithIntl(
+      <ResourceAssignmentDialog
+        open
+        onOpenChange={vi.fn()}
+        resourceType="crew"
+        operationId="incident-1"
+        personnel={personnel}
+        vehicles={[]}
+        materials={[]}
+        assignedPersonnel={[]}
+        assignedVehicles={[]}
+        assignedMaterials={[]}
+        onAssignPerson={vi.fn()}
+        onAssignVehicle={vi.fn()}
+        onAssignMaterial={vi.fn()}
+        onRemovePerson={vi.fn()}
+        onRemoveVehicle={vi.fn()}
+        onRemoveMaterial={vi.fn()}
+      />,
+    )
+  }
+
+  it("shows the function, never a generic «Im Einsatz», for a special-function person", () => {
+    // The context marks special-function people `status: "assigned"` although
+    // they are on no incident — the tile must not read that as «Im Einsatz»
+    // (Image #16: «Im Einsatz» + «TLF» on a driver who was sitting in the KP).
+    renderCrew([person({ name: "Egger Olivier", status: "assigned", isTelefondienst: true })])
+
+    const tile = screen.getByRole("button", { name: /Egger Olivier/ })
+    expect(tile.textContent).toContain("Telefondienst")
+    expect(tile.textContent).not.toContain("Im Einsatz")
+  })
+
+  it("finds a person by their special function in the search", async () => {
+    const user = userEvent.setup()
+    renderCrew([
+      person({ name: "Egger Olivier", isKommandoposten: true }),
+      person({ name: "Frei Anna" }),
+    ])
+
+    await user.type(screen.getByPlaceholderText("Suchen..."), "kommandoposten")
+
+    expect(screen.getByRole("button", { name: /Egger Olivier/ })).toBeDefined()
+    expect(screen.queryByRole("button", { name: /Frei Anna/ })).toBeNull()
   })
 })
 

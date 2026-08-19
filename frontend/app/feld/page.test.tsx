@@ -276,6 +276,32 @@ describe('/feld before the Schadenplatz was disponiert', () => {
 
     expect(screen.getByTestId('feld-rapport-form')).toBeInTheDocument()
   })
+
+  it('says the board status as one quiet labelled word (§P3.1)', async () => {
+    await openDetail({ incident_status: 'enroute', has_been_dispatched: true })
+
+    // Labelled as the KP's word — the ack that the KP acted on the Meldung.
+    expect(screen.getByText('KP: Disponiert / Anfahrt')).toBeInTheDocument()
+  })
+
+  it('shows the KP\'s messages to the squad (§P3.2)', async () => {
+    await openDetail({
+      incident_status: 'active',
+      has_been_dispatched: true,
+      kp_messages: [
+        {
+          id: 'm-1',
+          incident_id: 'inc-1',
+          message: 'Rückzug über die Hauptstrasse',
+          author_name: 'B. Eichenberger',
+          created_at: '2026-08-19T18:30:00Z',
+        },
+      ],
+    })
+
+    expect(screen.getByText('Meldungen vom KP')).toBeInTheDocument()
+    expect(screen.getByText('Rückzug über die Hauptstrasse')).toBeInTheDocument()
+  })
 })
 
 /**
@@ -435,7 +461,9 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
       personnel_role: 'Offizier',
       event_id: 'e-1',
       event_name: 'Sturm Oberwil',
-      assignments: [assignment({ source: 'reko' })],
+      // Status `reko`: a LIVE auftrag. From «Disponiert» on the window closes
+      // and the row opens as a plain detail instead — see the suite below.
+      assignments: [assignment({ source: 'reko', incident_status: 'reko' })],
       message_chips: [],
     })
   })
@@ -518,5 +546,106 @@ describe('/feld offers «Melden» from the detail view as well', () => {
 
     await waitFor(() => expect(screen.getByTestId('feld-actions')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Melden' })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * The board's direct Reko link carries a *bound* token (§P2.1): the person it
+ * was sent to lands here already authenticated — no code, no picker — and the
+ * incident deep link then routes a Reko auftrag straight into the form.
+ */
+describe('/feld with a person-bound link token', () => {
+  // Shape only, never verified client-side: the server checks the signature on
+  // every request. header.payload.signature with a base64url payload.
+  const boundToken = [
+    btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })),
+    btoa(JSON.stringify({ type: 'feld', unlocked: true, personnel_id: 'p-1', claim_id: 'c-1', event_id: 'e-1' })),
+    'signature',
+  ].join('.')
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    // An earlier suite moves the document to /feld, which makes the
+    // path-scoped incident cookie readable here — clear that variant too.
+    document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [assignment()],
+      message_chips: [],
+    })
+  })
+
+  it('skips the code and the picker on a fresh phone', async () => {
+    setParams({ token: boundToken })
+    renderWithIntl(<FeldPage />)
+
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledWith('p-1', boundToken))
+    expect(await screen.findByText('Hauptstrasse 1')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Code eingeben' })).not.toBeInTheDocument()
+    expect(unlockFeld).not.toHaveBeenCalled()
+    expect(claimFeldPerson).not.toHaveBeenCalled()
+  })
+
+  it('outranks whatever the device remembered — the link names its own person', async () => {
+    seedDevice()
+    setParams({ token: boundToken })
+    renderWithIntl(<FeldPage />)
+
+    // The bound token from the URL, not the stored `bound-token` cookie.
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledWith('p-1', boundToken))
+  })
+})
+
+/**
+ * §P2.6 — the Reko person's window closes when the KP disponierts without
+ * waiting for the Meldung: the row moves under «Früher», the form stops being
+ * offered, and the tap opens a plain detail instead of minting a form token.
+ */
+describe('/feld when the Reko window has closed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    seedDevice()
+    // An earlier suite moves the document to /feld, which makes the
+    // path-scoped incident cookie readable here — clear that variant too.
+    document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [assignment({ source: 'reko', incident_status: 'enroute', reko: null })],
+      message_chips: [],
+    })
+  })
+
+  it('lists the auftrag under «Früher» and stops offering «Reko erfassen»', async () => {
+    setParams({ token: 'feld-token' })
+    renderWithIntl(<FeldPage />)
+
+    expect(await screen.findByText('Früher')).toBeInTheDocument()
+    expect(screen.queryByText('Reko erfassen')).not.toBeInTheDocument()
+    expect(screen.getByText('Ohne Reko disponiert – keine Meldung mehr nötig')).toBeInTheDocument()
+  })
+
+  it('opens the detail on tap instead of minting a form link', async () => {
+    setParams({ token: 'feld-token' })
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByText('Hauptstrasse 1'))
+
+    expect(mintFeldRekoLink).not.toHaveBeenCalled()
+    expect(routerPush).not.toHaveBeenCalled()
+    // The read-only detail: actions (Meldung) mount, the rapport never does —
+    // a Reko row owes none.
+    await waitFor(() => expect(screen.getByTestId('feld-actions')).toBeInTheDocument())
+    expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
   })
 })

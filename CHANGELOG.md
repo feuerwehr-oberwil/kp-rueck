@@ -68,7 +68,38 @@ will keep holding.
   **Telefondienst**, which makes the phone desk a role rather than a page: the same «Meldung»
   sheet writes down a call, with the Melder, landing as a phone report.
 
+- **The KP can answer.** «Meldung an den Trupp» — a short free-text message from the incident's
+  Meldungen thread to the squad's `/feld` page, the mirror of the Meldung vom Feld. One
+  direction, no chat: a timestamped sentence with the sender's name, kept in the incident's
+  Verlauf and the Einsatztagebuch like the crew's own words.
+
+- **The field sees that the KP acted.** An open Abholung on `/feld` now says «Vom KP gesehen»
+  once the warning was dismissed and «KP hat Mowa disponiert» once a vehicle was dispatched
+  after the request — and when the KP clears the request, the crew reads «Abholung disponiert»
+  instead of watching it silently vanish. All derived from what the board already does; no
+  operator ever clicks an acknowledge. The detail header also carries the board's status as one
+  quiet labelled word («KP: Disponiert»), which is the ack for everything else.
+
 ### Changed
+
+- **Field reports move the card themselves.** «Angekommen» puts the Schadenplatz in EINSATZ,
+  «Einsatz beendet» in BEENDET / RÜCKFAHRT — announced by the toast, recorded field-originated
+  in the Verlauf, strictly forward, and never into `complete` (closing stays the operator's,
+  with the release cascade and the material gate). The old «verschieben?» nudge survives only
+  where it is genuinely ambiguous: an operator logging a radio message may be recording
+  history, not news.
+
+- **The WebSocket works on split-origin deployments.** The Socket.IO connect authenticated via
+  the session cookie, which never reaches the backend when the API lives on its own domain
+  (Railway, kp.fwo.li → kp-api.fwo.li) — every connect was rejected and clients silently lived
+  on the 5-second polling fallback. The client now fetches a 60-second connect token
+  same-origin and passes it in the Socket.IO auth payload; the backend accepts either
+  credential, so same-origin stations are untouched.
+
+- **The sidebar tooltip stopped claiming an Einsatz that does not exist.** Hovering a person's
+  status icon now names the incident (short address) or the Auftrag they are actually on, or
+  their function («Fahrer Mowa», «Telefondienst») — the bare «Im Einsatz» is gone for mere
+  function holders.
 
 - **The board footer's QR buttons became one "Links & QR" sheet**, each row naming who the link
   is for, on desktop and mobile alike. Clicking a QR enlarges it — for the recurring case of
@@ -81,6 +112,20 @@ will keep holding.
 - **«Wo» on a field Meldung is the board's own location field.** Search, suggestions and a map to
   tap, instead of a box to type a street into one-handed in the rain. **Standort übernehmen** is
   reverse-geocoded into it: a coordinate is not something the KP can read out over the radio.
+
+- **One dispatch payload now really does work against both KP Rück and KP Front.** The two apps
+  had converged the *shape* of `POST /api/alarms` and left the *limits* apart, with nothing
+  comparing them — so a relay built against one met a 422 from the other on its second
+  integration. `source` is now capped at 16 characters here, matching KP Front's column (nothing
+  shipped is longer than `training`), and the reserved-slug sets are a real union rather than a
+  claimed one: `feld` was reserved here and free there. The portable subset is pinned as cases in
+  `docs/alarm-intake-conformance.json`, byte-identical in both repositories, together with the
+  payloads the two legitimately answer differently so that list cannot grow unnoticed. A new
+  `alarm-contract-drift` CI job is the only thing that compares the two copies — the same split
+  the telemetry, alarm-vocabulary and roster-snapshot contracts already use. ⚠️ **If your
+  dispatch system sends a `source` slug longer than 16 characters, shorten it**; it was accepted
+  before this release and is refused now. `docs/RUNNING-BOTH.md` §3 has the five rules that keep
+  a body portable — it previously said the opposite, that the payloads were not interchangeable.
 
 ### Removed
 

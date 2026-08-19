@@ -106,6 +106,11 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
   const completed = Boolean(assignment.field_complete_reported_at)
   const pickupNeeded = assignment.pickup_needed
   const pickupSince = toDate(assignment.pickup_requested_at)
+  // The vehicles parked at (or travelling with) this Schadenplatz — everything
+  // whose driver did not «fährt zurück» (stays === false). If one is standing
+  // outside, «Wir fahren selbst» is the answer the follow-up should lead with,
+  // and an Abholung is almost certainly a mis-tap.
+  const vehiclesOnSite = assignment.vehicles.filter(vehicle => vehicle.stays !== false).map(vehicle => vehicle.name)
 
   // The confirmation is a receipt, not a permanent banner — but it has to stay
   // long enough to be read by somebody holding a hose. A failure never expires:
@@ -267,7 +272,11 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
         </Button>
       </div>
 
-      {/* Standing state, so a crew that already asked does not ask twice. */}
+      {/* Standing state, so a crew that already asked does not ask twice.
+          Since sweep 27 §P3.1 it also answers the question the crew is actually
+          standing there with — hat das jemand gesehen? — from real KP actions:
+          a vehicle dispatched after the request, or the dismissed warning bell.
+          Derived server-side; no operator ever clicks an "acknowledge". */}
       {pickupNeeded && (
         <div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
           <p className="font-medium">
@@ -278,6 +287,29 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
             <p className="text-xs opacity-80">{tPickup('waiting', { duration: formatPickupWaiting(pickupSince) })}</p>
           )}
           {assignment.pickup_note && <p className="text-xs opacity-80">{assignment.pickup_note}</p>}
+          {assignment.pickup_vehicle ? (
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold">
+              <Check className="size-3.5 shrink-0" />
+              {tPickup('ackVehicle', { vehicle: assignment.pickup_vehicle })}
+            </p>
+          ) : assignment.pickup_seen ? (
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium opacity-90">
+              <Check className="size-3.5 shrink-0" />
+              {tPickup('ackSeen')}
+            </p>
+          ) : null}
+        </div>
+      )}
+
+      {/* The request was answered: the KP cleared it, which its own UI words as
+          «Abholung disponiert». Without this line the amber box just vanished —
+          to a crew in the rain, indistinguishable from a lost request. */}
+      {!pickupNeeded && assignment.pickup_resolved_at && (
+        <div className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
+          <p className="flex items-center gap-1.5 font-medium">
+            <Check className="size-4 shrink-0" />
+            {tPickup('ackResolved', { time: formatPickupSince(toDate(assignment.pickup_resolved_at)) })}
+          </p>
         </div>
       )}
 
@@ -354,25 +386,46 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
         </div>
       )}
 
-      {/* --- The follow-up (decision 24) ------------------------------------ */}
+      {/* --- The follow-up (decision 24) ------------------------------------
+          With a vehicle standing at the address the answer is known: «Wir
+          fahren selbst» leads as the primary choice and the Abholung drops to
+          a quiet second — marked redundant, not disabled, because the vehicle
+          leaving without the crew (driver called away) is rare but real. */}
       {panel === 'pickup-followup' && (
         <div className="rounded-lg border border-border p-3 space-y-3">
           <p className="text-sm font-medium">{tPickup('followupQuestion')}</p>
+          {vehiclesOnSite.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {tPickup('hasVehicleHint', { vehicle: vehiclesOnSite.join(', ') })}
+            </p>
+          )}
           <Input
             placeholder={tPickup('notePlaceholder')}
             value={note}
             onChange={e => setNote(e.target.value)}
             className="text-sm"
           />
-          <div className="grid grid-cols-1 gap-2">
-            <Button size="lg" variant="outline" disabled={busy} onClick={() => handlePickup(false)}>
-              {tPickup('selfReturn')}
-            </Button>
-            <Button size="lg" disabled={busy} onClick={() => handlePickup(true)}>
-              {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
-              {tPickup('needPickup')}
-            </Button>
-          </div>
+          {vehiclesOnSite.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2">
+              <Button size="lg" disabled={busy} onClick={() => handlePickup(false)}>
+                {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
+                {tPickup('selfReturn')}
+              </Button>
+              <Button size="lg" variant="outline" disabled={busy} onClick={() => handlePickup(true)}>
+                {tPickup('needPickup')}
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2">
+              <Button size="lg" variant="outline" disabled={busy} onClick={() => handlePickup(false)}>
+                {tPickup('selfReturn')}
+              </Button>
+              <Button size="lg" disabled={busy} onClick={() => handlePickup(true)}>
+                {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
+                {tPickup('needPickup')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

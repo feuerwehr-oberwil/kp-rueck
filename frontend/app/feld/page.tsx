@@ -17,7 +17,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, MonitorCog, Navigation, Phone, Plus, Star, Truck, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Star, Truck, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
@@ -60,9 +60,9 @@ type ViewMode = 'code' | 'list' | 'assignments' | 'detail'
  * is the requirement the whole surface exists for.
  */
 function feedBucket(assignment: ApiFeldAssignment): number {
-  if (assignment.is_active_assignment && assignment.arrived_at) return 0 // jetzt: standing there
+  if (isLiveAssignment(assignment) && assignment.arrived_at) return 0 // jetzt: standing there
   if (owesRapport(assignment)) return 1 // abgerückt, aber offen
-  if (assignment.is_active_assignment) return 2 // unterwegs
+  if (isLiveAssignment(assignment)) return 2 // unterwegs
   return 3
 }
 
@@ -71,6 +71,31 @@ function feedBucket(assignment: ApiFeldAssignment): number {
  *  a Schadenplatz somebody has already left stays near the top. */
 function owesRapport(assignment: ApiFeldAssignment): boolean {
   return assignment.rapport_state !== 'submitted' && assignmentRapportApplies(assignment)
+}
+
+/** Statuses from «Disponiert» on — the KP has moved past the recce. */
+const REKO_WINDOW_CLOSED_STATUSES = new Set(['enroute', 'active', 'returning', 'complete'])
+
+/**
+ * The Reko person's contribution window is over: the Schadenplatz was
+ * disponiert (or later) without a Reko-Meldung ever landing. The KP has
+ * decided on other grounds, so a Reko filed now would brief nobody — the row
+ * moves under «Früher» and stops offering the form.
+ */
+function rekoWindowClosed(assignment: ApiFeldAssignment): boolean {
+  return (
+    assignment.source === 'reko' &&
+    !assignment.reko &&
+    REKO_WINDOW_CLOSED_STATUSES.has(assignment.incident_status)
+  )
+}
+
+/** What the feed treats as live work: still assigned, and — for a Reko row —
+ *  the window still open. The assignment flag alone kept a stale Reko auftrag
+ *  sorted above finished work forever, because Reko assignments are never
+ *  formally released. */
+function isLiveAssignment(assignment: ApiFeldAssignment): boolean {
+  return assignment.is_active_assignment && !rekoWindowClosed(assignment)
 }
 
 /** Who this phone belongs to, and which Schadenplatz it was last looking at.
@@ -112,11 +137,60 @@ function clearCookie(name: string) {
   document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld`
 }
 
+/**
+ * Reads a person-bound link token WITHOUT verifying it.
+ *
+ * The board's direct Reko link carries a *bound* feld token (the strength the
+ * code exchange mints — plan 26, decision 18), so the person it was sent to
+ * lands here already authenticated: no code screen, no picker. Decoding is
+ * routing only — it decides which screens to skip; the server verifies the
+ * signature on every request, so a forged payload buys an empty list, never
+ * access.
+ */
+function decodeBoundFeldToken(token: string): { personnelId: string } | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    if (payload?.type === 'feld' && payload.unlocked && payload.personnel_id && payload.claim_id) {
+      return { personnelId: String(payload.personnel_id) }
+    }
+  } catch {
+    // Not a readable JWT — the poster-token path below handles it.
+  }
+  return null
+}
+
 function formatTime(value: string | null): string {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
+}
+
+/** The board's statuses, as `feld.kpStatus.*` names them. A closed set — the
+ *  guard keeps a future status from crashing `t()` on every phone at once. */
+const KP_STATUS_KEYS = new Set([
+  'incoming',
+  'reko',
+  'reko_done',
+  'enroute',
+  'active',
+  'returning',
+  'complete',
+])
+
+/**
+ * «KP: Im Einsatz» — the board's status, said quietly on the detail (§P3.1).
+ *
+ * The rows still carry no status, and the old reasoning there still holds (a
+ * crew reads «Anfahrt» on the job they are standing on as a claim about
+ * themselves). The detail is different: it is where a squad waits for the KP
+ * to act on what they reported, and «Disponiert» appearing here IS the ack.
+ * Labelled as the KP's word, not as a fact about the crew.
+ */
+function KpStatusLine({ status }: { status: string }) {
+  const t = useTranslations('feld')
+  if (!KP_STATUS_KEYS.has(status)) return null
+  return <span>{t('detail.kpStatus', { status: t(`kpStatus.${status}`) })}</span>
 }
 
 /**
@@ -165,6 +239,8 @@ function incidentHasRapport(assignment: ApiFeldAssignment): boolean {
     hasBeenDispatched: assignment.has_been_dispatched,
     status: assignment.incident_status,
     hasReport: assignment.rapport_state !== 'none',
+    // «Kein Einsatz nötig» + closed = nothing was done here, no rapport (§P2.7).
+    rekoNotRelevant: assignment.reko?.is_relevant === false,
   })
 }
 
@@ -520,7 +596,9 @@ function FeldSurface() {
       // A device coming back from its cookie has no picker to have chosen from,
       // so the person is restored from the response it was going to fetch
       // anyway — one round trip, not two, and no picker for somebody who has
-      // already said who they are.
+      // already said who they are. The /reko name cookie rides along, so a
+      // bound-link or cookie-restored device still signs its Reko form.
+      writeFeldName(data.personnel_name)
       setSelectedPerson(prev => prev ?? {
         personnel_id: data.personnel_id,
         name: data.personnel_name,
@@ -558,6 +636,20 @@ function FeldSurface() {
   useEffect(() => {
     if (!linkToken) {
       setError(t('missingCode'))
+      setLoading(false)
+      return
+    }
+    // A person-bound link (the board's direct Reko link) IS the credential:
+    // whoever just opened it was sent it by name, so it outranks whatever this
+    // device remembered — same rule as the slip preselect outranking the
+    // incident memory. Adopting it is idempotent; no server call happens here.
+    const bound = decodeBoundFeldToken(linkToken)
+    if (bound) {
+      setDeviceToken(linkToken)
+      writeCookie(TOKEN_COOKIE, linkToken)
+      writeCookie(PERSON_COOKIE, bound.personnelId)
+      setViewMode('assignments')
+      loadAssignments(bound.personnelId, { token: linkToken })
       setLoading(false)
       return
     }
@@ -612,9 +704,13 @@ function FeldSurface() {
    * out to look at one place and report back — there is nothing else for them to
    * do here, so a page of Aktionen and a Rapport section is a page of things
    * that are not theirs. (The server agrees: half those buttons would 403.)
+   *
+   * Unless the window has closed (`rekoWindowClosed`): a Schadenplatz the KP
+   * disponierte without waiting for the Reko opens as a plain read-only detail
+   * — offering the form there would collect a briefing nobody reads.
    */
   const openAssignment = useCallback(async (assignment: ApiFeldAssignment) => {
-    if (assignment.source === 'reko' && token && selectedPerson) {
+    if (assignment.source === 'reko' && !rekoWindowClosed(assignment) && token && selectedPerson) {
       try {
         const { link } = await apiClient.mintFeldRekoLink(
           assignment.incident_id,
@@ -1098,11 +1194,12 @@ function FeldSurface() {
               {selectedAssignment.source !== 'reko' && (
                 <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
               )}
-              {/* The Schadenplatz-Status is gone from here too, for the same
-                  reason it left the rows: it is the KP's workflow. What is left
-                  are the crew's OWN timestamps — when they arrived, when they
-                  said they were done — which are facts about them. */}
+              {/* The crew's own timestamps, plus — since sweep 27 §P3.1 — the
+                  board's status as one quiet, labelled word. The rows still
+                  carry no status; the detail is where a squad waits for the KP
+                  to act on what it reported, and «KP: Disponiert» is the ack. */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <KpStatusLine status={selectedAssignment.incident_status} />
                 {selectedAssignment.arrived_at && (
                   <span>
                     {/* Said differently when the automation saw it (§18.24), so
@@ -1155,7 +1252,32 @@ function FeldSurface() {
               />
             )}
 
-
+            {/* Section: «Meldungen vom KP» (sweep 27 §P3.2) — the other half of
+                the Meldung loop. On the KP's side a field Meldung is an urgent
+                toast; here the KP's sentence gets the one tinted card on the
+                page, directly under the actions it usually answers. Newest
+                last, thread order — same rule as the KP's own thread. */}
+            {(selectedAssignment.kp_messages?.length ?? 0) > 0 && (
+              <section className="rounded-xl border border-primary/25 bg-primary/5 p-4">
+                <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                  <MessageSquare className="h-4 w-4 shrink-0 text-primary" />
+                  {t('kpMessages.title')}
+                </h2>
+                <ol className="space-y-2">
+                  {(selectedAssignment.kp_messages ?? []).map(kpMessage => (
+                    <li key={kpMessage.id} className="text-sm">
+                      <p className="text-xs text-muted-foreground">
+                        {t('kpMessages.from', {
+                          name: kpMessage.author_name,
+                          time: formatTime(kpMessage.created_at),
+                        })}
+                      </p>
+                      <p className="break-words">{kpMessage.message}</p>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
 
             {/* Section: the Schadenplatz-Rapport itself — the paper
                 replacement. The SAME component the board's detail mounts
@@ -1305,12 +1427,14 @@ function FeldSurface() {
               ?? formatLocationForDisplay(assignment.location_address ?? '', getGlobalHomeCity())
             // The one split worth making: what is behind you. Everything above
             // is live work in the order it needs doing; below is what you have
-            // already left and may still owe a Rapport for.
-            const startsPast = !assignment.is_active_assignment && (index === 0 || feed[index - 1].is_active_assignment)
+            // already left and may still owe a Rapport for. A Reko row whose
+            // window closed counts as behind you too — the KP moved on.
+            const live = isLiveAssignment(assignment)
+            const startsPast = !live && (index === 0 || isLiveAssignment(feed[index - 1]))
             // Behind you AND settled: nothing on this row is waiting for you.
             // It stays on the list — a crew filing at 02:00 needs to find what
             // they did — but it stops competing with the rows that are.
-            const settled = !assignment.is_active_assignment && !owesRapport(assignment)
+            const settled = !live && !owesRapport(assignment)
             // The heading opens once per Auftrag, at its first row in this feed.
             // Only when it actually has more than one stop here: a heading over
             // a single row is a label pretending to be a group.
@@ -1319,6 +1443,8 @@ function FeldSurface() {
               auftragCount > 1 &&
               (index === 0 || feed[index - 1].group_id !== assignment.group_id)
             const rowNavigateUrl = navigationUrl(assignment)
+            const kpMessages = assignment.kp_messages ?? []
+            const lastKpMessage = kpMessages.length > 0 ? kpMessages[kpMessages.length - 1] : null
             return (
               <div key={`group-${assignment.incident_id}`}>
               {startsPast && (
@@ -1342,7 +1468,7 @@ function FeldSurface() {
               <button
                 onClick={() => openAssignment(assignment)}
                 className={`w-full cursor-pointer text-left rounded-xl p-4 transition-colors ${
-                  assignment.is_active_assignment
+                  live
                     ? 'bg-secondary/50 hover:bg-secondary'
                     : 'bg-muted/30 hover:bg-muted/50'
                 } ${settled ? 'opacity-60 hover:opacity-100' : ''}`}
@@ -1383,6 +1509,14 @@ function FeldSurface() {
                     which of six rows you open (§18.22). The rest of the
                     briefing is one tap away and stays there. */}
                 <FeldBriefingLine assignment={assignment} />
+                {/* The KP's latest sentence to this squad (§P3.2), one line so
+                    a message is noticed without opening the row. */}
+                {lastKpMessage && (
+                  <p className="mb-1.5 flex items-start gap-1.5 text-xs font-medium text-primary">
+                    <MessageSquare className="mt-px h-3.5 w-3.5 shrink-0" />
+                    <span className="min-w-0 truncate">{lastKpMessage.message}</span>
+                  </p>
+                )}
                 <div className="flex flex-wrap items-center gap-2">
                   {assignmentRapportApplies(assignment) && (
                     <RapportStateChip state={assignment.rapport_state} />
@@ -1392,11 +1526,16 @@ function FeldSurface() {
                       the job reads them as a claim about themselves that the
                       board happens to be a step behind on. What they owe and
                       what tapping does is the whole message. */}
-                  {assignment.source === 'reko' && (
+                  {/* «Reko erfassen» only while a Reko can still change what
+                      the KP does; a closed window says so instead (item P2.6). */}
+                  {assignment.source === 'reko' && !rekoWindowClosed(assignment) && (
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
                       <FileText className="h-3 w-3" />
                       {t('source.rekoAction')}
                     </span>
+                  )}
+                  {rekoWindowClosed(assignment) && (
+                    <span className="text-xs text-muted-foreground">{t('source.rekoClosed')}</span>
                   )}
                   {!assignment.is_active_assignment && (
                     <span className="text-xs text-muted-foreground">{t('assignments.released')}</span>

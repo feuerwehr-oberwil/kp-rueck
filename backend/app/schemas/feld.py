@@ -142,15 +142,18 @@ class FeldVehicleLine(BaseModel):
 class FeldMaterialLine(BaseModel):
     """One line of the briefing's material list: a name and how many of it.
 
-    Grouped by NAME rather than listed per assignment — "Tauchpumpe ×2" is what
-    a crew reads off a slip, while the per-unit rows (keyed on the assignment,
-    with their two ticks) are the *rapport's* job and live in
-    ``RapportMaterialRow``. Two lists, two questions: this one says what came
-    with you, that one asks what you did with it.
+    Grouped per NAME and DEPOT rather than listed per assignment — two
+    identical pumps from one shelf are one line with a count, while the
+    per-unit rows (keyed on the assignment, with their two ticks) are the
+    *rapport's* job and live in ``RapportMaterialRow``. Two lists, two
+    questions: this one says what comes with you and **where to fetch it**
+    (``location`` is the depot off the material catalogue), that one asks what
+    you did with it.
     """
 
     name: str
     count: int = 1
+    location: str | None = None
 
 
 class FeldReko(BaseModel):
@@ -165,8 +168,34 @@ class FeldReko(BaseModel):
     summary: str | None = None
     notes: str | None = None
     dangers: list[str] = []
+    #: The report's verdict. ``False`` («Kein Einsatz nötig») feeds the rapport
+    #: gate: an incident the Reko declared irrelevant and the KP closed without
+    #: dispatching work owes nobody a Schadenplatz-Rapport.
+    is_relevant: bool | None = None
     submitted_at: datetime | None = None
     submitted_by_name: str | None = None
+
+
+class KpFieldMessage(BaseModel):
+    """One «Meldung an den Trupp» — KP → field, the mirror of the Freitext-Meldung.
+
+    ``author_name`` is the sender's display name, denormalised at write time:
+    `/feld` is a login-less door and must not resolve users to render a name.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    incident_id: UUID
+    message: str
+    author_name: str
+    created_at: datetime
+
+
+class KpFieldMessageCreate(BaseModel):
+    """The KP's payload: one sentence, same length cap as the field's own."""
+
+    message: str = Field(min_length=1, max_length=500)
 
 
 class FeldAssignment(BaseModel):
@@ -239,6 +268,21 @@ class FeldAssignment(BaseModel):
     pickup_needed: bool = False
     pickup_note: str | None = None
     pickup_requested_at: datetime | None = None
+    # Acks, derived from real KP actions — never a claim the KP has to click
+    # (sweep 27 §P3.1). While the request is open: `pickup_seen` says the KP
+    # dismissed the warning bell, `pickup_vehicle` names a vehicle the board
+    # dispatched to this Schadenplatz AFTER the request — "Mowa disponiert" is
+    # the answer a waiting crew is actually after. Once the KP clears the flag
+    # (its own UI words that as «Abholung disponiert»), `pickup_resolved_at`
+    # carries the moment, so the request does not just silently vanish from the
+    # crew's phone.
+    pickup_seen: bool = False
+    pickup_vehicle: str | None = None
+    pickup_resolved_at: datetime | None = None
+    # «Meldungen vom KP» — what the board sent this squad (sweep 27 §P3.2).
+    # Rides on the polled assignments payload like everything else the phone
+    # reads; a second endpoint would be a second public surface to guard.
+    kp_messages: list[KpFieldMessage] = []
     # The Einsatzleiter of THIS incident (decision 22): briefed, never enforced.
     # Both stay None when nobody carries the role, which the UI must render as
     # "kein EL erfasst" rather than a blank line.

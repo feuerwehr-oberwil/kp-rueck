@@ -102,6 +102,7 @@
       "assignVehicle": "Fahrzeug {number} zuweisen/entfernen",
       "deleteIncident": "Einsatz löschen",
       "linksAndQr": "Links & QR",
+      "rapporte": "Rapporte öffnen",
       "mapColorBy": "Färben nach: {mode}"
     },
     "meta": {
@@ -577,7 +578,8 @@
       "empty": "Noch keine Einträge.",
       "removed": "entfernt",
       "assigned": "zugewiesen",
-      "unknown": "(unbekannt)"
+      "unknown": "(unbekannt)",
+      "kpMessageVerb": "an Trupp"
     },
     "newEmergency": {
       "validationTitle": "Bitte fülle alle Pflichtfelder aus",
@@ -606,8 +608,6 @@
       "meldungPlaceholder": "Eingegangene Meldung, Schadensbild...",
       "nachbarhilfeDescription": "Einsatz mit Nachbarfeuerwehr-Beteiligung",
       "noCrew": "Keine Mannschaft zugewiesen",
-      "ohneFahrzeug": "Ohne Fahrzeug",
-      "loadingVehicles": "Lade Fahrzeuge...",
       "noVehicles": "Keine Fahrzeuge zugewiesen",
       "removeVehicle": "Fahrzeug entfernen",
       "leaderFailed": "Einsatzleiter konnte nicht gesetzt werden.",
@@ -665,7 +665,6 @@
       "vehiclesAssigned": "{count, plural, one {# Fahrzeug zugewiesen} other {# Fahrzeuge zugewiesen}}",
       "zuFussSuffix": ", Zu Fuss",
       "quickSelectByType": "Nach Typ:",
-      "showAllPersonnel": "Alle anzeigen",
       "vehicleOnSceneHint": "{name} ist bereits diesem Einsatz zugewiesen",
       "driverBadge": "Fahrer",
       "specialFnConfirmTitle": "Doppelbelegung?",
@@ -703,7 +702,9 @@
       "noOthers": "Keine anderen Reko-Personen verfügbar"
     },
     "person": {
-      "doubleBookedTooltip": "Auf {count} Einsätzen – Doppelbelegung"
+      "doubleBookedTooltip": "Auf {count} Einsätzen – Doppelbelegung",
+      "driverFunction": "Fahrer {vehicle}",
+      "engagedTooltip": "Im Einsatz: {label}"
     },
     "material": {
       "consumable": "Verbrauchsmaterial",
@@ -869,6 +870,9 @@
       "title": "Links & QR",
       "description": "Was die Mannschaft, das Tablet an der Tür und der Wandbildschirm öffnen.",
       "enlarge": "QR vergrössern",
+      "groupCheckin": "Check-In & Anwesenheit",
+      "groupFeld": "Feld",
+      "groupOther": "Weitere Links",
       "feld": {
         "title": "Feld – Mannschaft",
         "subtitle": "Für alle im Einsatz"
@@ -1069,6 +1073,15 @@
       "namePlaceholder": "Name eingeben...",
       "adding": "Wird hinzugefügt...",
       "add": "Hinzufügen"
+    },
+    "mobileCard": {
+      "leader": "EL: {name}",
+      "noRapport": "kein Rapport",
+      "meldung": "Meldung",
+      "crew": "Mannschaft",
+      "vehicles": "Fahrzeuge",
+      "reko": "Reko",
+      "driver": "Fahrer: {name}"
     },
     "mobileDetail": {
       "copied": "In Zwischenablage kopiert",
@@ -2733,12 +2746,25 @@
       "intervalLabel": "Intervall (Min.)",
       "maxLabel": "Max. Einsätze",
       "hint": "Wirkt auf die neueste aktive Übung. In den ersten 30 Minuten läuft die Generierung mit doppeltem Tempo (heisse Phase).",
-      "stop": "Automatik stoppen",
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "started": "Automatik gestartet",
       "stopped": "Automatik gestoppt",
       "startedDescription": "Neue Alarme alle ~{interval} Min (erste 30 Min doppeltes Tempo).",
       "stoppedDescription": "Es werden keine Einsätze mehr automatisch generiert."
+    },
+    "checkin": {
+      "title": "Personal einchecken",
+      "description": "Checkt zufällige verfügbare Personen ein – sofort oder gestaffelt, wie AdF wirklich eintreffen",
+      "countAria": "Anzahl Personen",
+      "immediately": "sofort",
+      "overMinutes": "über {count} Min",
+      "checkingIn": "Wird eingecheckt...",
+      "checkin": "Einchecken",
+      "scheduled": "{count, plural, one {# Check-in geplant} other {# Check-ins geplant}}",
+      "scheduledDescription": "Die Personen checken über die nächsten {minutes} Minuten ein.",
+      "noMorePersons": "Keine weiteren Personen verfügbar",
+      "noMorePersonsDescription": "Alle verfügbaren Personen sind bereits eingecheckt.",
+      "failed": "Fehler beim Simulieren der Check-ins"
     },
     "gpsSim": {
       "title": "GPS-Simulation",
@@ -2779,23 +2805,15 @@
       "injectTitle": "Inject: Lage verschärfen, Verstärkung, Fahrzeugausfall, Meldungen vom Feld",
       "inject": "Inject",
       "injectEscalate": "Lage verschärft sich",
+      "injectEscalateDesc": "Lagemeldung vom Feld: es wird schlimmer – Priorität geht auf hoch.",
       "injectReinforcement": "Verstärkung anfordern",
+      "injectReinforcementDesc": "Der Trupp fordert Leute oder Material an – was kommt, entscheidet das KP.",
       "injectBreakdown": "Fahrzeug fällt aus",
+      "injectBreakdownDesc": "Ein zugewiesenes Fahrzeug fällt aus – das KP muss Ersatz disponieren.",
       "footer": "Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). \"Fahrt zu Einsatz\" und \"Rückfahrt Magazin\" starten GPS-Fahrten – Ankunft und Rückkehr melden sich über die GPS-Abfrage. \"Fahrzeug vor Ort\" meldet zugleich \"Angekommen\". \"Einsatz beendet\" erscheint nur hier – das Board informierst du selbst (z. B. per Funk).",
-      "checkinLabel": "Personal einchecken",
-      "immediately": "sofort",
-      "overMinutes": "über {count} Min",
-      "checkingIn": "Wird eingecheckt...",
-      "checkin": "Einchecken",
-      "checkinHint": "Checkt zufällige verfügbare Personen ein – sofort oder gestaffelt, wie AdF wirklich eintreffen",
       "noVehicleFound": "Kein Fahrzeug für die Fahrt gefunden",
       "noVehicleFoundDescription": "Die zugewiesenen Fahrzeuge sind unbekannt oder bereits unterwegs.",
       "actionFailed": "Aktion fehlgeschlagen",
-      "checkinsScheduled": "{count, plural, one {# Check-in geplant} other {# Check-ins geplant}}",
-      "checkinsScheduledDescription": "Die Personen checken über die nächsten {minutes} Minuten ein.",
-      "noMorePersons": "Keine weiteren Personen verfügbar",
-      "noMorePersonsDescription": "Alle verfügbaren Personen sind bereits eingecheckt.",
-      "checkinFailed": "Fehler beim Simulieren der Check-ins",
       "escalated": "Lage verschärft",
       "escalatedDescription": "Priorität hoch – Lagemeldung ist auf der Karte und in den Meldungen.",
       "reinforcementRequested": "Verstärkung angefordert",
@@ -2803,10 +2821,15 @@
       "vehicleBrokenDownDescription": "Der Operator muss Ersatz disponieren.",
       "injectFailed": "Inject fehlgeschlagen",
       "injectArrived": "Angekommen melden",
+      "injectArrivedDesc": "Der Trupp meldet sich am Schadenplatz – setzt die Ankunftszeit.",
       "injectRapport": "Rapport eingetroffen",
+      "injectRapportDesc": "Ein ausgefüllter Schadenplatz-Rapport trifft ein.",
       "injectFieldMessage": "Meldung vom Feld",
+      "injectFieldMessageDesc": "Kurze Meldung des Trupps ans KP – Glocke und Journal.",
       "injectPickupNeeded": "Abholung nötig melden",
+      "injectPickupNeededDesc": "Der Trupp steht ohne Fahrzeug da und braucht eine Abholung.",
       "injectPickupDone": "Abholung disponiert melden",
+      "injectPickupDoneDesc": "Die Abholung ist erfolgt – die Warnung wird aufgehoben.",
       "arrivedReported": "Angekommen gemeldet",
       "pickupCleared": "Abholung disponiert",
       "rapportFiled": "Rapport erfasst",
@@ -3238,7 +3261,8 @@
       "arrivedAt": "Angekommen: {time}",
       "arrivedAtAuto": "Angekommen (GPS): {time}",
       "completeAt": "Einsatz beendet: {time}",
-      "rapportTitle": "Schadenplatz-Rapport"
+      "rapportTitle": "Schadenplatz-Rapport",
+      "kpStatus": "KP: {status}"
     },
     "actions": {
       "title": "Meldungen an den KP",
@@ -3280,7 +3304,11 @@
       "requestQuestion": "Ihr kommt nicht selbst zurück?",
       "alreadyRequested": "Die Abholung ist beim KP gemeldet. Notiz anpassen?",
       "updateNote": "Notiz aktualisieren",
-      "notePlaceholder": "Notiz (optional): wie viele, wo genau"
+      "notePlaceholder": "Notiz (optional): wie viele, wo genau",
+      "hasVehicleHint": "{vehicle} steht bei euch vor Ort.",
+      "ackSeen": "Vom KP gesehen",
+      "ackVehicle": "KP hat {vehicle} disponiert",
+      "ackResolved": "Abholung disponiert · {time}"
     },
     "pickupPrompt": {
       "title": "Abholung disponiert?",
@@ -3308,8 +3336,10 @@
       "pickup": "Abholung nötig",
       "fromField": "vom Feld, {name}, {time}",
       "fromKp": "im KP erfasst, {time}",
-      "fromReko": "von der Reko, {time}",
       "fromAutomation": "automatisch (GPS), {time}",
+      "fromFieldPlain": "vom Feld, {name}",
+      "fromKpPlain": "im KP erfasst",
+      "fromRekoPlain": "von der Reko",
       "unknownPerson": "unbekannt",
       "timeLabel": "Zeit für «{what}»",
       "pickupNotePlaceholder": "Notiz: wie viele, wo genau",
@@ -3318,7 +3348,11 @@
       "messagesTitle": "Meldungen vom Feld",
       "messagesEmpty": "Noch keine Meldungen.",
       "messagesLoadFailed": "Meldungen konnten nicht geladen werden.",
-      "messagesRetry": "Erneut versuchen"
+      "messagesRetry": "Erneut versuchen",
+      "toField": "an den Trupp, {name}, {time}",
+      "send": "An Trupp senden",
+      "sendPlaceholder": "Meldung an den Trupp…",
+      "sendFailed": "Meldung konnte nicht gesendet werden"
     },
     "rapport": {
       "sectionTitle": "Schadenplatz-Rapport",
@@ -3439,7 +3473,8 @@
       "magazin": "Magazin",
       "rekoReason": "Vom KP als Reko zugeteilt",
       "magazinReason": "Material von hier ist noch nicht zurück",
-      "rekoAction": "Reko erfassen"
+      "rekoAction": "Reko erfassen",
+      "rekoClosed": "Ohne Reko disponiert – keine Meldung mehr nötig"
     },
     "access": {
       "label": "Feld-Code",
@@ -3542,6 +3577,19 @@
       "stateDispatchedWith": "Disponiert · {vehicles}",
       "stateDone": "Abgeschlossen",
       "edit": "Bearbeiten"
+    },
+    "kpStatus": {
+      "incoming": "Eingegangen",
+      "reko": "Reko",
+      "reko_done": "Reko abgeschlossen",
+      "enroute": "Disponiert / Anfahrt",
+      "active": "Im Einsatz",
+      "returning": "Beendet / Rückfahrt",
+      "complete": "Abgeschlossen"
+    },
+    "kpMessages": {
+      "title": "Meldungen vom KP",
+      "from": "KP · {name} · {time}"
     }
   }
 }

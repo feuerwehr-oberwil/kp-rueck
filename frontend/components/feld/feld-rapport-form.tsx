@@ -107,6 +107,14 @@ interface FeldRapportFormProps {
 
 const AUTOSAVE_MS = 30000
 /**
+ * How long "X bearbeitet diesen Rapport gerade" stays true after X's last
+ * save. Mirrors ``CONCURRENT_EDITOR_WINDOW`` in `crud/feld/rapport.py`: the
+ * server scopes the flag to this window on every response, but the form loads
+ * once — without a client-side clock the banner outlived its window for as
+ * long as the detail stayed open, naming an editor who had long stopped.
+ */
+export const CONCURRENT_EDITOR_TTL_MS = 5 * 60 * 1000
+/**
  * The KP's own beat. The 30 s interval is a phone's compromise — a modal an
  * operator closes after dictating two sentences must not lose them, so the KP
  * mount also saves shortly after the typing stops (and once more on close).
@@ -216,6 +224,23 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   // late draft-save can un-submit it) and therefore cannot say "a request is in
   // flight right now".
   const inFlightRef = useRef(false)
+
+  // The concurrent-editor banner expires on its own (§P2.8): a timer clears it
+  // the moment the server's window would — every save response re-seeds it,
+  // because saves come back through `get_rapport` with the flag re-evaluated.
+  const concurrentAt = rapport?.concurrent_editor?.at ?? null
+  const [concurrentExpired, setConcurrentExpired] = useState(false)
+  useEffect(() => {
+    setConcurrentExpired(false)
+    if (!concurrentAt) return
+    const remaining = CONCURRENT_EDITOR_TTL_MS - (Date.now() - new Date(concurrentAt).getTime())
+    if (remaining <= 0) {
+      setConcurrentExpired(true)
+      return
+    }
+    const timer = setTimeout(() => setConcurrentExpired(true), remaining)
+    return () => clearTimeout(timer)
+  }, [concurrentAt])
 
   const key = localStorageKey(incidentId)
 
@@ -582,8 +607,9 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
 
       {/* Visibility, not a lock (§3): two crews on one Schadenplatz overwriting
           each other's Kurzbericht is an accepted cost, and a real lock in the
-          field is worse than the problem it solves. */}
-      {rapport.concurrent_editor && (
+          field is worse than the problem it solves. Expires with the window —
+          see CONCURRENT_EDITOR_TTL_MS. */}
+      {rapport.concurrent_editor && !concurrentExpired && (
         <div className="flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>

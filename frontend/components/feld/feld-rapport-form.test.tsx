@@ -352,3 +352,45 @@ describe('the rapport is folded into blocks on /feld', () => {
     expect(await screen.findByText('Kein Material erfasst.')).toBeVisible()
   })
 })
+
+describe('the concurrent-editor banner expires (§P2.8)', () => {
+  const editing = (at: string) =>
+    rapport({
+      exists: true,
+      updated_at: at,
+      updated_by_name: 'Burri Alessandro',
+      concurrent_editor: { name: 'Burri Alessandro', at, in_kp: false },
+    })
+
+  it('shows while the other side saved within the window', async () => {
+    const load = vi.fn().mockResolvedValue(editing(new Date().toISOString()))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    expect(await screen.findByText(/bearbeitet diesen Rapport gerade/)).toBeInTheDocument()
+  })
+
+  it('never shows a banner whose window already lapsed at load', async () => {
+    // A stale response (offline queue, dropped tab) must not resurrect a lock.
+    const load = vi.fn().mockResolvedValue(editing(new Date(Date.now() - 6 * 60 * 1000).toISOString()))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await screen.findByPlaceholderText('Lage, Tätigkeit, Material')
+    expect(screen.queryByText(/bearbeitet diesen Rapport gerade/)).toBeNull()
+  })
+
+  it('clears the banner on its own when the editor stops', async () => {
+    // The server scopes the flag to 5 minutes since the last save, but the
+    // form loads once — without the client-side clock the banner named an
+    // editor who had long stopped, for as long as the detail stayed open.
+    // `shouldAdvanceTime` keeps promises and waitFor alive while the 5-minute
+    // banner timeout stays under manual control.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const load = vi.fn().mockResolvedValue(editing(new Date().toISOString()))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    expect(await screen.findByText(/bearbeitet diesen Rapport gerade/)).toBeInTheDocument()
+
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 1000)
+    expect(screen.queryByText(/bearbeitet diesen Rapport gerade/)).toBeNull()
+  })
+})

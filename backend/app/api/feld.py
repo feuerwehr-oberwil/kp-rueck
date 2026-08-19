@@ -560,7 +560,9 @@ async def report_arrived(
     "Angekommen" — the crew is at the Schadenplatz.
 
     Upserts the Schadenplatz-Rapport row (that is why `is_draft` defaults to
-    True: a row exists long before any form does) and stamps `arrived_at`.
+    True: a row exists long before any form does), stamps `arrived_at`, and
+    **moves the card to EINSATZ** (sweep 27 §P3.3 — the board follows the field
+    instead of asking; strictly forward, see `crud/feld/reports._auto_move`).
 
     **Idempotent.** A second tap does nothing — a crew re-opening the page and
     hitting the big button again must not move a timestamp the KP has acted on.
@@ -590,8 +592,9 @@ async def report_field_complete(
     "Einsatz beendet" — the crew has finished here.
 
     Stamps `field_complete_reported_at` + `field_complete_reported_by` and
-    **does not change `Incident.status`**: closing a Schadenplatz stays the
-    operator's decision, which is the rule the column's own comment states.
+    **moves the card to BEENDET / RÜCKFAHRT** (sweep 27 §P3.3) — that column IS
+    the state the crew just described. `complete` stays the operator's alone:
+    closing a Schadenplatz runs the release cascade and the material gate.
 
     The client asks the Abholung follow-up ("Kommt ihr selbst zurück?")
     immediately afterwards and sends the answer to `/pickup` — deliberately a

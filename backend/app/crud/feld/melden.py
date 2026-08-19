@@ -50,6 +50,7 @@ from ...models import (
 )
 from ...services.audit import log_action
 from ...services.notification_service import create_field_notification
+from .reports import _location
 
 #: What happened to the new Schadenplatz, so the phone can say so in one line.
 TakeoverMode = Literal["none", "stop", "auftrag", "solo"]
@@ -242,8 +243,10 @@ async def create_field_report(
     ``source='feld'`` rather than ``'intake'``: both are somebody outside the KP
     saying "there is something here", but one is a phone call taken by an
     operator and the other is a known firefighter standing in front of it. The
-    board draws them differently for that reason, and an editor cannot claim
-    either (they are not in ``EditorIncidentSource``).
+    board draws them differently for that reason. (Since sweep 27 an editor may
+    also claim both — «Telefonisch gemeldet» / «Vom Feld gemeldet» — for the
+    call or radio message they typed in themselves; this path stays the
+    authoritative writer for reports that really came through ``/feld``.)
     """
     # The Telefondienst variant (decision 6). Claiming it is not enough —
     # holding the role is, and the server checks rather than trusting the flag,
@@ -312,7 +315,7 @@ async def create_field_report(
     # is looking, while a taken-over one is already `enroute` and never passes
     # through that column at all — a crew is driving to an address nobody at the
     # KP has been told about.
-    label = incident.location_address or incident.title
+    label = await _location(db, incident)
     if mode == "none":
         message = f"Meldung vom Feld: {label} ({person.name})"
     else:

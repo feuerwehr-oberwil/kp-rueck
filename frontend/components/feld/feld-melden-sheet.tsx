@@ -368,28 +368,29 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
       {editing && <p className="-mt-2 mb-3 text-xs text-muted-foreground">{t('editHint')}</p>}
 
       <div className="space-y-4">
-        {/* Four pills in the rain, all thirteen at the desk. The pills are not
-            a lesser version of the picker — they are the four a storm night is
-            made of, reachable in one tap with a wet glove. */}
+        {/* Four options in the rain, all thirteen at the desk. A Select rather
+            than the old pill row: four pills wrapped onto two ragged lines on a
+            phone, and «Elementarereignis» is the right default on a storm night
+            anyway — the other three are one tap into the dropdown. The KP
+            re-types a wrong guess in two seconds. */}
         {!isPhoneDesk && (
           <div>
             <Label className={LABEL}>{t('what')}</Label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {FIELD_TYPES.map(option => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setType(option)}
-                  className={`min-h-9 rounded-lg border px-3 text-sm transition-colors ${
-                    type === option
-                      ? 'border-transparent bg-primary text-primary-foreground'
-                      : 'border-border bg-muted hover:bg-secondary'
-                  }`}
-                >
-                  {INCIDENT_TYPE_LABELS[option]}
-                </button>
-              ))}
-            </div>
+            <Select value={type} onValueChange={value => setType(value as IncidentType)}>
+              <SelectTrigger className="mt-2 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {/* A correction can carry a type the KP set that is not one of
+                    the field four — keep it selectable instead of blanking the
+                    trigger. */}
+                {(FIELD_TYPES.includes(type) ? FIELD_TYPES : [type, ...FIELD_TYPES]).map(option => (
+                  <SelectItem key={option} value={option}>
+                    {INCIDENT_TYPE_LABELS[option]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 

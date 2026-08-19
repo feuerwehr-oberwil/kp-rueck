@@ -1,4 +1,6 @@
+import { columns } from '@/lib/kanban-utils'
 import type { Notification, NotificationType } from '@/lib/types/notification'
+import type { IncidentStatus } from '@/lib/types/incidents'
 
 /**
  * How loudly a notification is allowed to interrupt the operator.
@@ -21,8 +23,6 @@ export type ToastPolicy = 'urgent' | 'normal' | 'quiet'
  * The field pair that is urgent is the pair a crew cannot resolve by itself: a
  * crew waiting to be collected, and a free-text Meldung somebody typed on a
  * phone in the rain — both are addressed *at* the KP and expect an answer.
- * "Angekommen" is the quiet one: it is a confirmation of something the KP
- * already ordered, and it is on the card anyway.
  */
 const TYPE_POLICY: Partial<Record<NotificationType, ToastPolicy>> = {
   field_pickup: 'urgent',
@@ -33,7 +33,11 @@ const TYPE_POLICY: Partial<Record<NotificationType, ToastPolicy>> = {
   field_report: 'urgent',
   rapport_submitted: 'normal',
   field_complete: 'normal',
-  field_arrived: 'quiet',
+  // Was 'quiet' while an arrival changed nothing on the board. Since the
+  // auto-move (sweep 27 §P3.3) a field «Angekommen» MOVES the card to EINSATZ,
+  // and the toast is the announcement of that move — the message itself says
+  // «Karte in „Einsatz" verschoben».
+  field_arrived: 'normal',
   // Reko: «vor Ort» and the filed Bericht are worth a toast while there is
   // room, but neither demands an answer from the KP the way a pickup does.
   // Listed explicitly so the pair no longer rides on the severity fallback.
@@ -114,4 +118,59 @@ export function planToastBurst(
   })
 
   return { toast, overflow: normal.slice(room), quiet }
+}
+
+/** The one board order, shared with `notification-field-action.ts`. */
+const STATUS_ORDER: IncidentStatus[] = columns.map((column) => column.id)
+
+function statusRank(status: IncidentStatus): number {
+  const index = STATUS_ORDER.indexOf(status)
+  return index === -1 ? 0 : index
+}
+
+/** The slice of an Operation the supersede check reads. */
+export interface SupersedeOperation {
+  id: string
+  status: IncidentStatus
+  assignedReko?: { id: string; name: string } | null
+}
+
+/**
+ * "New emergency" notifications the KP has visibly overtaken.
+ *
+ * A `field_report` announces a Schadenplatz that just appeared on the board.
+ * Once its incident has moved on — a Reko assigned, disponiert, anything past
+ * the column it was announced in — the KP has plainly seen it, and the pending
+ * toast / unread row is stale noise. Returns the ids to dismiss.
+ *
+ * Two birth columns, told apart by severity (the shape they are created with
+ * in `crud/feld/melden.py`): a plain Meldung (`info`) is born in EINGEGANGEN,
+ * a taken-over one («Trupp fährt direkt hin», `warning`) is born already in
+ * DISPONIERT — silencing that one at `enroute` would swallow the exact warning
+ * it exists for, so it only counts as overtaken beyond it.
+ *
+ * An incident the board does not know is left alone: during load the
+ * operations list is briefly empty, and "not loaded yet" must not read as
+ * "already handled".
+ */
+export function supersededNewIncidentNotifications(
+  notifications: Pick<Notification, 'id' | 'type' | 'severity' | 'incident_id' | 'dismissed'>[],
+  operations: SupersedeOperation[]
+): string[] {
+  const operationsById = new Map(operations.map((operation) => [operation.id, operation]))
+
+  return notifications
+    .filter((notification) => {
+      if (notification.type !== 'field_report' || notification.dismissed || !notification.incident_id) {
+        return false
+      }
+      const operation = operationsById.get(notification.incident_id)
+      if (!operation) return false
+
+      const bornIn: IncidentStatus = notification.severity === 'warning' ? 'enroute' : 'incoming'
+      if (statusRank(operation.status) > statusRank(bornIn)) return true
+      // A Reko assigned while the card still sits in EINGEGANGEN is a KP action too.
+      return bornIn === 'incoming' && operation.assignedReko != null
+    })
+    .map((notification) => notification.id)
 }

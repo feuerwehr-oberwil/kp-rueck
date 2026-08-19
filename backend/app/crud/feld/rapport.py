@@ -1020,7 +1020,7 @@ async def save_rapport(
             notification_type="rapport_submitted",
             incident_id=incident.id,
             event_id=incident.event_id,
-            message=f"Rapport erfasst: {_location(incident)}{actor.suffix}",
+            message=f"Rapport erfasst: {await _location(db, incident)}{actor.suffix}",
         )
     await _broadcast(incident)
 

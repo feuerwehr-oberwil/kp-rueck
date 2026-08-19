@@ -19,7 +19,7 @@
  */
 
 import { useTranslations } from "next-intl"
-import { ArrowRight, Loader2, MessageSquare, Package, Truck, UserMinus, UserPlus } from "lucide-react"
+import { ArrowRight, Loader2, MessageSquare, Package, Send, Truck, UserMinus, UserPlus } from "lucide-react"
 
 import type { ApiIncidentTimelineEvent } from "@/lib/api-client"
 import { STATUS_LABELS } from "@/lib/types/incidents"
@@ -75,7 +75,7 @@ export function IncidentTimeline({ events, isLoading, failed, onRetry, className
 
 function TimelineRow({ event }: { event: ApiIncidentTimelineEvent }) {
   const time = formatTime(event.timestamp)
-  const isMessage = event.event_type === "field_message"
+  const isMessage = event.event_type === "field_message" || event.event_type === "kp_message"
   return (
     <li className={cn("flex gap-3 px-3 py-2 text-xs", isMessage ? "items-start" : "items-center")}>
       <span className={cn("shrink-0 font-mono tabular-nums text-muted-foreground", isMessage && "pt-px")}>{time}</span>
@@ -97,6 +97,11 @@ function EventIcon({ event }: { event: ApiIncidentTimelineEvent }) {
   }
   if (event.event_type === "field_message") {
     return <MessageSquare className="mt-px h-3.5 w-3.5 shrink-0 text-info" />
+  }
+  if (event.event_type === "kp_message") {
+    // The KP's own «Meldung an den Trupp» (§P3.2) — outbound, so not the
+    // inbound message's info tint.
+    return <Send className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
   }
   if (event.event_type === "assignment") {
     if (event.resource_type === "vehicle") {
@@ -141,6 +146,18 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
       <>
         <span className="font-medium text-foreground">{who}</span>
         <span className="text-muted-foreground">: </span>
+        <span className="text-foreground">{event.message}</span>
+      </>
+    )
+  }
+
+  if (event.event_type === "kp_message") {
+    // «B. Eichenberger an Trupp: …» — the outbound direction said in two words.
+    const who = event.actor_name ?? t('timeline.unknown')
+    return (
+      <>
+        <span className="font-medium text-foreground">{who}</span>
+        <span className="text-muted-foreground"> {t('timeline.kpMessageVerb')}: </span>
         <span className="text-foreground">{event.message}</span>
       </>
     )

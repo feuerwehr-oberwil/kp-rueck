@@ -72,8 +72,9 @@ export function FeldDangerBadges({ dangers, className }: { dangers: string[]; cl
   )
 }
 
+/** «2 × Motorsäge» — the count spelled out in front, never a trailing «×2». */
 function materialLabel(line: ApiFeldMaterialLine): string {
-  return line.count > 1 ? `${line.name} ×${line.count}` : line.name
+  return line.count > 1 ? `${line.count} × ${line.name}` : line.name
 }
 
 /** Vehicle names alone — for the list row, which has one clamped line and no
@@ -225,9 +226,23 @@ export function FeldBriefing({
         </BriefingRow>
       )}
 
+      {/* One line per material entry, with WHERE it lives (§P2 add-on): the
+          squad reads this to pack the vehicle, and «Motorsäge ×2, Tauchpumpe»
+          in one run-on line answered neither how many lines to fetch nor from
+          which shelf. The depot rides muted after the name — same shape the
+          vehicle lines above give their driver. */}
       {materials.length > 0 && (
         <BriefingRow icon={Package} label={t('material')}>
-          {materials.map(materialLabel).join(', ')}
+          <div className="space-y-1">
+            {materials.map(line => (
+              <p key={`${line.name}·${line.location ?? ''}`}>
+                <span>{materialLabel(line)}</span>
+                {line.location && (
+                  <span className="text-muted-foreground"> · {line.location}</span>
+                )}
+              </p>
+            ))}
+          </div>
         </BriefingRow>
       )}
 

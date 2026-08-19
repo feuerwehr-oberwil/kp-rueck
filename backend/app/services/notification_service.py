@@ -17,6 +17,11 @@ from ..schemas import NotificationSettings
 # Warnungen panel names a status the way the rest of the app names it. Importing rather than
 # re-typing them: three copies of this map is how «Reko abgeschlossen» and «reko_done» ended up
 # on screen at the same time.
+# Same reuse for the address: `location_display` is the label the board card
+# wears (street + number, home town stripped), and a notification must name a
+# Schadenplatz the way the card does — never «…strasse 8, 4104 Oberwil» about a
+# card that reads «…strasse 8».
+from .incident_display import get_home_city, location_display
 from .pdf_report_service import STATUS_LABELS
 
 logger = logging.getLogger(__name__)
@@ -146,6 +151,10 @@ async def _check_time_based_alerts(
     if not incidents:
         return notifications
 
+    # One home-city read for the whole sweep; every message below names its
+    # incident by the short address, the way the board card does.
+    home_city = await get_home_city(db)
+
     # OPTIMIZATION: Batch query all status transitions at once instead of N queries
     # Get the most recent transition to current status for all incidents in one query
 
@@ -199,7 +208,7 @@ async def _check_time_based_alerts(
                     type="time_overdue",
                     severity="warning",
                     message=(
-                        f"{incident.location_address or incident.title}: {duration_str} "
+                        f"{location_display(incident.location_address, home_city) or incident.title}: {duration_str} "
                         f"im Status «{STATUS_LABELS.get(incident.status, incident.status)}»"
                     ),
                     incident_id=incident.id,
@@ -230,7 +239,7 @@ async def _check_time_based_alerts(
                     Notification(
                         type="time_overdue",
                         severity="warning",
-                        message=f"{incident.location_address or incident.title}: seit {duration_str} abgeschlossen, nicht archiviert",
+                        message=f"{location_display(incident.location_address, home_city) or incident.title}: seit {duration_str} abgeschlossen, nicht archiviert",
                         incident_id=incident.id,
                         event_id=event_id,
                     )
@@ -521,6 +530,8 @@ async def _check_geofence_alerts(
         )
         assignments = result.all()
 
+        home_city = await get_home_city(db) if assignments else ""
+
         for _assignment, incident, vehicle in assignments:
             vp = position_by_name.get(vehicle.name.lower())
             if vp is None:
@@ -538,7 +549,10 @@ async def _check_geofence_alerts(
                     Notification(
                         type="vehicle_arrived",
                         severity="info",
-                        message=f"{vehicle.name} vor Ort: {incident.title or incident.location_address or 'Einsatz'}",
+                        message=(
+                            f"{vehicle.name} vor Ort: "
+                            f"{location_display(incident.location_address, home_city) or incident.title or 'Einsatz'}"
+                        ),
                         incident_id=incident.id,
                         event_id=event_id,
                     )
@@ -746,8 +760,8 @@ async def create_reko_notification(
     Returns:
         Created notification
     """
-    # Use address as primary identifier
-    location = incident_address or incident_title
+    # Use the short address as primary identifier — same label as the card.
+    location = location_display(incident_address, await get_home_city(db)) or incident_title
 
     # Build structured message
     parts = [f"Reko abgeschlossen: {location}"]
@@ -905,8 +919,8 @@ async def create_reko_arrived_notification(
     Returns:
         Created notification
     """
-    # Use address as primary identifier, fall back to title
-    location = incident_address or incident_title
+    # Use the short address as primary identifier, fall back to title
+    location = location_display(incident_address, await get_home_city(db)) or incident_title
     message = f"Reko vor Ort: {arrived_by_name} bei {location}" if arrived_by_name else f"Reko vor Ort: {location}"
 
     notification = Notification(

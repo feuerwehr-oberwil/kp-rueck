@@ -46,9 +46,9 @@ from ..websocket_manager import (
 
 logger = get_logger(__name__)
 from ..services.audit import log_action
-from ..services.notification_service import create_reko_arrived_notification
 from ..services.photo_storage import photo_storage
 from ..services.tokens import (
+    generate_feld_token,
     generate_form_token,
     validate_form_token,
     validate_viewer_token,
@@ -368,26 +368,13 @@ async def mark_reko_arrived(
     try:
         report = await crud.mark_reko_arrived(db, incident_id, token)
 
-        # Fetch incident for notification
+        # The «Reko vor Ort» notification is raised inside `crud.mark_reko_arrived`
+        # (first arrival only), so the Übungssteuerung's simulate path — which
+        # calls the CRUD function directly — rings the same bell as this route.
+
+        # Fetch incident for the response details
         incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
         incident = incident_result.scalar_one_or_none()
-
-        if incident and incident.event_id:
-            # Get personnel name if available
-            arrived_by_name = None
-            if report.submitted_by_personnel_id:
-                await db.refresh(report, ["submitted_by_personnel"])
-                if report.submitted_by_personnel:
-                    arrived_by_name = report.submitted_by_personnel.name
-
-            await create_reko_arrived_notification(
-                db=db,
-                incident_id=incident.id,
-                event_id=incident.event_id,
-                incident_title=incident.title or incident.location_address or "Unbekannt",
-                arrived_by_name=arrived_by_name,
-                incident_address=incident.location_address,
-            )
 
         # Convert to response schema with incident details
         response_data = schemas.RekoReportResponse.model_validate(report)
@@ -428,19 +415,23 @@ async def generate_reko_link(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """
-    Generate Reko form link for an incident.
+    Generate the direct Reko link for an incident (editor/admin only).
 
-    Editor/admin only. The field surface mints its own form token through
-    `POST /api/feld/incidents/{id}/reko-link`, which runs the `/feld` two-step
-    first — so a leaked form link still cannot mint fresh tokens for arbitrary
-    incidents, and neither door had to learn about the other.
+    **With a `personnel_id` this is a `/feld` link, not a bare form link.** The
+    link the KP sends the Reko person carries a *bound* feld token — the same
+    strength the code exchange mints (plan 26, decision 18) — plus the incident
+    as a deep link. Opening it lands the person on the field surface already
+    authenticated as themselves, and `/feld` routes a Reko auftrag straight
+    into the form. No code entry, no picker, and the Rapport/Meldung machinery
+    is one tap away instead of on "a separate page".
 
-    Args:
-        incident_id: The incident this reko is for
-        form_type: Type of form (default: reko)
-        personnel_id: Optional personnel who will do the reko
+    The bound token is shorter-lived than the poster's (72 h vs 30 days): it is
+    a personal credential travelling through a messenger, and the person can
+    always re-enter through the poster QR once it expires. It is backed by a
+    device claim, so "alle Geräte abmelden" recalls it like any other device.
 
-    Returns shareable link with token.
+    Without a `personnel_id` (no Reko assigned) the old per-incident `/reko`
+    form link is returned unchanged.
     """
     # The `/reko-dashboard` door is gone with the page (plan 26, decision 24).
     # The field surface mints its own form token through `/feld` after running
@@ -449,10 +440,34 @@ async def generate_reko_link(
     if user.role not in ("editor", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich")
 
+    incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if incident is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INVALID_REQUEST)
+
+    if personnel_id is not None and incident.event_id is not None:
+        # Imported here to keep the reko router free of a module-level feld
+        # dependency — the two doors stay strangers except for this mint.
+        from ..crud import feld as feld_crud
+
+        claim = await feld_crud.create_claim(db, incident.event_id, personnel_id)
+        token = generate_feld_token(
+            incident.event_id,
+            personnel_id=personnel_id,
+            unlocked=True,
+            claim_id=claim.id,
+            expires_hours=72,
+        )
+        link = f"/feld?token={token}&incident_id={incident_id}"
+        return {
+            "incident_id": incident_id,
+            "token": token,
+            "link": link,
+            "personnel_id": personnel_id,
+            "qr_code_url": f"/api/qr?data={link}",
+        }
+
     token = generate_form_token(str(incident_id), form_type)
     link = f"/reko?incident_id={incident_id}&token={token}"
-    if personnel_id:
-        link += f"&personnel_id={personnel_id}"
 
     return {
         "incident_id": incident_id,

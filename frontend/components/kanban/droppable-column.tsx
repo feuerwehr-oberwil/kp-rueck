@@ -445,18 +445,13 @@ export const DroppableColumn = memo(function DroppableColumn({
           </div>
         )}
 
-        {/* Empty state with collapse hint */}
+        {/* Empty state. Plain text, no hover/cursor affordance: it used to be a
+            button that folded the column, but nothing about it said so — it read
+            as something clickable that "doesn't work". Folding lives on the
+            header's own control, where it is labelled. */}
         {isEmpty && !isOver && (
           <div className="flex items-center justify-center h-32">
-            <button
-              onClick={() => {
-                requestKeepInView()
-                setIsManuallyExpanded(false)
-              }}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {t('column.empty')}
-            </button>
+            <p className="text-sm text-muted-foreground/70 select-none">{t('column.empty')}</p>
           </div>
         )}
 

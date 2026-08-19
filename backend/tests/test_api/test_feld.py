@@ -863,7 +863,7 @@ class TestBriefing:
         # — the three facts a crew asks about a vehicle on their slip. This one
         # is booked on the Schadenplatz itself, so it does not travel.
         assert row["vehicles"] == [{"name": "TLF 1", "driver": None, "stays": False, "via_auftrag": False}]
-        assert row["materials"] == [{"name": "Tauchpumpe", "count": 1}]
+        assert row["materials"] == [{"name": "Tauchpumpe", "count": 1, "location": "Depot"}]
         assert row["reko"]["summary"] == "Keller 20 cm unter Wasser."
         assert row["reko"]["dangers"] == ["electrical"]
         assert row["reko"]["submitted_by_name"] == "Frey Marc"
@@ -1054,17 +1054,17 @@ class TestFieldComplete:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_stamps_both_columns_and_does_not_move_status(
+    async def test_stamps_both_columns_and_moves_the_card_to_returning(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
         test_event: Event,
         test_user: User,
     ):
-        # The rule the column's own comment states: the field reports, the
-        # operator decides to close. This is also the first real writer of
-        # `field_complete_reported_at` — until now only the training simulator
-        # could set it.
+        # Since sweep 27 §P3.3 the field tap moves the card itself: BEENDET /
+        # RÜCKFAHRT is the state the crew just described. `complete` stays the
+        # operator's alone — that boundary is pinned in
+        # tests/test_crud/test_feld_auto_move.py.
         incident = await _make_incident(db_session, test_event, test_user, "Sturmschaden")
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
@@ -1082,7 +1082,7 @@ class TestFieldComplete:
         await db_session.refresh(incident)
         assert incident.field_complete_reported_at is not None
         assert incident.field_complete_reported_by == person.id
-        assert incident.status == "active"
+        assert incident.status == "returning"
 
     @pytest.mark.asyncio
     @pytest.mark.api

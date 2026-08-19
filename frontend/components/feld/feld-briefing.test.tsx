@@ -52,8 +52,8 @@ describe('the field briefing (§18.22)', () => {
           crew: ['Muster Hans', 'Frey Marc'],
           vehicles: [{ name: 'TLF 1', driver: 'MÜLLER Beat' }, { name: 'MTW', driver: null }],
           materials: [
-            { name: 'Tauchpumpe', count: 2 },
-            { name: 'Nassauger', count: 1 },
+            { name: 'Tauchpumpe', count: 2, location: 'Magazin 1' },
+            { name: 'Nassauger', count: 1, location: null },
           ],
           reko: {
             summary: 'Keller 20 cm unter Wasser.',
@@ -74,8 +74,11 @@ describe('the field briefing (§18.22)', () => {
     expect(screen.getByText(/TLF 1/)).toBeInTheDocument()
     expect(screen.getByText(/Fahrer: MÜLLER Beat/)).toBeInTheDocument()
     expect(screen.getByText('MTW')).toBeInTheDocument()
-    // Grouped by name: two of one pump is a count, not two lines.
-    expect(screen.getByText('Tauchpumpe ×2, Nassauger')).toBeInTheDocument()
+    // One line per material entry, count spelled out in front, with the depot
+    // it is fetched from (§P2 add-on) — never an abbreviated «Tauchpumpe ×2».
+    expect(screen.getByText('2 × Tauchpumpe')).toBeInTheDocument()
+    expect(screen.getByText(/Magazin 1/)).toBeInTheDocument()
+    expect(screen.getByText('Nassauger')).toBeInTheDocument()
     expect(screen.getByText('Keller 20 cm unter Wasser.')).toBeInTheDocument()
     expect(screen.getByText('Zugang über Hinterhof.')).toBeInTheDocument()
     // The board's own hazard wording, not a second one.

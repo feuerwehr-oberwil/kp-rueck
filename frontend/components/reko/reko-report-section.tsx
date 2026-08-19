@@ -354,7 +354,40 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
    * paragraph — it is a label and a value like the rest, and one emphasis rule
    * for all of them beats a bold label here and a plain one there.
    */
-  const facts: { label: string; value: string }[] = []
+  const dangers = report.dangers_json
+  const dangerLabels: string[] = []
+  if (dangers?.fire) dangerLabels.push(t('dangerBadges.fire'))
+  if (dangers?.fire_danger) dangerLabels.push(t('dangerBadges.fire_danger'))
+  if (dangers?.explosion) dangerLabels.push(t('dangerBadges.explosion'))
+  if (dangers?.collapse) dangerLabels.push(t('dangerBadges.collapse'))
+  if (dangers?.chemical) dangerLabels.push(t('dangerBadges.chemical'))
+  if (dangers?.electrical) dangerLabels.push(t('dangerBadges.electrical'))
+  const hasDangers = dangerLabels.length > 0 || !!dangers?.other_notes
+
+  const facts: { label: string; value: ReactNode }[] = []
+  // Gefahren lead the grid as a labelled row like Mannschaft and Dauer — the
+  // hazard itself stays highlighted (warning chips), the row around it does
+  // not shout. It used to be a block of its own above the grid, which made one
+  // fact of the report richer chrome than all the others.
+  if (hasDangers) {
+    facts.push({
+      label: t('dangers'),
+      value: (
+        <span className="flex flex-wrap items-center gap-1">
+          {dangerLabels.map(label => (
+            <Badge
+              key={label}
+              variant="outline"
+              className="border-warning/40 bg-warning/10 text-warning-foreground"
+            >
+              {label}
+            </Badge>
+          ))}
+          {dangers?.other_notes && <span className="leading-tight">{dangers.other_notes}</span>}
+        </span>
+      ),
+    })
+  }
   if (report.effort_json?.personnel_count) {
     facts.push({
       label: t('personnelLabel'),
@@ -386,15 +419,18 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
     facts.push({ label: t('additionalNotes'), value: report.additional_notes })
   }
 
-  const dangers = report.dangers_json
-  const dangerLabels: string[] = []
-  if (dangers?.fire) dangerLabels.push(t('dangerBadges.fire'))
-  if (dangers?.fire_danger) dangerLabels.push(t('dangerBadges.fire_danger'))
-  if (dangers?.explosion) dangerLabels.push(t('dangerBadges.explosion'))
-  if (dangers?.collapse) dangerLabels.push(t('dangerBadges.collapse'))
-  if (dangers?.chemical) dangerLabels.push(t('dangerBadges.chemical'))
-  if (dangers?.electrical) dangerLabels.push(t('dangerBadges.electrical'))
-  const hasDangers = dangerLabels.length > 0 || !!dangers?.other_notes
+  // «aktualisiert» compares the RENDERED stamps, not the raw ISO strings: a
+  // submit and its own commit differ by milliseconds, and «Übermittelt 17:57 ·
+  // aktualisiert 17:57» is a sentence that says nothing twice.
+  const submittedStamp = formatStamp(report.submitted_at)
+  const updatedStamp = formatStamp(report.updated_at)
+
+  // «Kein Einsatz nötig» often IS the whole report — no verdict rule and no
+  // body then, instead of a divider with nothing on the far side (image #20).
+  const hasBody =
+    Boolean(report.summary_text) ||
+    facts.length > 0 ||
+    Boolean(report.photos_json && report.photos_json.length > 0)
 
   return (
     <div className="rounded-lg border">
@@ -406,7 +442,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             prose and has to read well, `tight` for everything that is a label,
             a chip or a value. The verdict used to reserve a 24px line box for a
             16px word and pushed its own rule down with it. */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b pb-2 mb-3">
+        <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'border-b pb-2 mb-3')}>
           {report.is_relevant ? (
             <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
           ) : (
@@ -420,9 +456,8 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
               line's worth of facts. «aktualisiert» only appears once it differs
               from the submit, because "unchanged" is not information. */}
           <span className="text-xs leading-tight text-muted-foreground">
-            {t('submittedShort', { time: formatStamp(report.submitted_at) })}
-            {report.updated_at !== report.submitted_at &&
-              ` · ${t('updatedShort', { time: formatStamp(report.updated_at) })}`}
+            {t('submittedShort', { time: submittedStamp })}
+            {updatedStamp !== submittedStamp && ` · ${t('updatedShort', { time: updatedStamp })}`}
           </span>
           <div className="ml-auto flex items-center gap-2">
             {report.submitted_by_personnel_name && (
@@ -455,45 +490,12 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             <p className="text-base leading-snug">{report.summary_text}</p>
           )}
 
-          {/* Dangers — label and chips share the row; the word stays, so nothing
-              here is a bare icon.
-
-              Warning-toned outline chips, not solid `destructive` pills: a
-              saturated red block was the brightest object on the card and it
-              outshouted the finding above it, which is the sentence somebody
-              reads to decide what to send. The board card and the wall card
-              already render this same danger list as outline badges, and the
-              display's own Reko block already tints it warning — this is those
-              two put together, so one danger looks like one danger wherever it
-              is read. The note below is a fact, not an aside, and reads in the
-              foreground like every other value on the card. */}
-          {hasDangers && (
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <AlertTriangle className="h-4 w-4 text-warning-foreground" />
-                  {t('dangers')}
-                </span>
-                {dangerLabels.map((label) => (
-                  <Badge
-                    key={label}
-                    variant="outline"
-                    className="border-warning/40 bg-warning/10 text-warning-foreground"
-                  >
-                    {label}
-                  </Badge>
-                ))}
-              </div>
-              {dangers?.other_notes && (
-                <p className="text-sm leading-tight">{dangers.other_notes}</p>
-              )}
-            </div>
-          )}
-
-          {/* Effort, power and notes — one definition grid, muted label column,
-              foreground value column. */}
+          {/* Dangers, effort, power and notes — ONE definition grid, muted
+              label column, foreground value column. Gefahren sit in it like
+              Mannschaft and Dauer (image #14); only the hazard chips carry the
+              warning tint, so the highlight marks the fact, not the row. */}
           {facts.length > 0 && (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-sm leading-tight">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm leading-tight">
               {facts.map(({ label, value }) => (
                 <Fragment key={label}>
                   <dt className="text-muted-foreground">{label}</dt>

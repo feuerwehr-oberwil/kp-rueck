@@ -198,6 +198,10 @@
         "with": "Des annonces structurées avec photos"
       },
       {
+        "today": "Un message radio pour chaque changement de statut",
+        "with": "Statut et annonces directement du groupe – le canal radio reste libre"
+      },
+      {
         "today": "Rapport après l’intervention",
         "with": "Le rapport naît pendant l’intervention"
       }
@@ -261,7 +265,34 @@
     "eyebrow": "Projet apparenté",
     "h2": "KP Rück garde la vue d’ensemble à l’arrière. KP Front conduit à l’avant.",
     "p": "<strong>KP Front</strong> reproduit sous forme numérique la carte de situation et la table\n          de conduite sur les lieux : signes conventionnels, plans d’objet et surveillance PR, même\n          sans réseau. Application distincte, même écriture – les deux peuvent se transmettre des\n          alarmes, mais n’ont pas besoin l’une de l’autre.",
-    "cta": "Découvrir KP Front"
+    "cta": "Découvrir KP Front",
+    "setup": {
+      "h3": "Exploiter les deux – sans tout configurer deux fois",
+      "rows": [
+        {
+          "dt": "Alarme",
+          "dd": "La même charge utile pour les deux. Le raccordement de votre système d’alarme se fait une fois ; chaque application ne reçoit que sa propre adresse."
+        },
+        {
+          "dt": "Accès Divera",
+          "dd": "Une seule clé pour les deux – mêmes alarmes, même personnel. <span class=\"opt\">facultatif</span>"
+        },
+        {
+          "dt": "Agent d’impression",
+          "dd": "Un seul service au local dessert les deux applications et les deux types d’imprimante."
+        },
+        {
+          "dt": "Liste du personnel",
+          "dd": "La même source dans le même format de fichier – la même personne des deux côtés."
+        },
+        {
+          "dt": "Mots-clés",
+          "dd": "La même liste de mots-clés d’alarme, donc le même classement dans les deux applications."
+        }
+      ],
+      "foot": "<strong>Base de données, mises à jour et connexion restent séparées.</strong> Aucune des deux n’a besoin de l’autre pour fonctionner.",
+      "link": "Guide : les deux sur un même serveur"
+    }
   },
   "faq": {
     "eyebrow": "Questions &amp; réponses",

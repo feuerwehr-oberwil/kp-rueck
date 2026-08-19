@@ -703,3 +703,47 @@ async def test_me_endpoint_response_schema(authenticated_editor_client: AsyncCli
 
     # Should NOT include password_hash
     assert "password_hash" not in data
+
+
+# ============================================
+# WebSocket token (sweep 27 §P3.4)
+# ============================================
+
+
+@pytest.mark.asyncio
+async def test_ws_token_requires_a_session(client: AsyncClient):
+    """No cookie, no token — the endpoint is what makes the token trustworthy."""
+    response = await client.get("/api/auth/ws-token")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_ws_token_is_short_lived_and_carries_the_role(
+    authenticated_editor_client: AsyncClient,
+):
+    from app.auth.security import WS_TOKEN_EXPIRE_SECONDS, decode_token
+
+    response = await authenticated_editor_client.get("/api/auth/ws-token")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["expires_in"] == WS_TOKEN_EXPIRE_SECONDS
+
+    payload = decode_token(data["token"])
+    # Its own type: it opens no HTTP endpoint and an access token is not it.
+    assert payload["type"] == "ws"
+    assert payload["role"] == "editor"
+    lifetime = payload["exp"] - payload["iat"]
+    assert lifetime <= WS_TOKEN_EXPIRE_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_ws_token_is_not_an_access_token(authenticated_editor_client: AsyncClient):
+    """The 60-second connect credential must not open the HTTP door."""
+    response = await authenticated_editor_client.get("/api/auth/ws-token")
+    token = response.json()["token"]
+
+    # A fresh, cookie-less client presenting the ws token as the access cookie.
+    authenticated_editor_client.cookies.clear()
+    authenticated_editor_client.cookies.set("access_token", token)
+    me = await authenticated_editor_client.get("/api/auth/me")
+    assert me.status_code == 401

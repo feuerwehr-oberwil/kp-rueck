@@ -321,7 +321,12 @@ export function LocationInput({
     longitude <= 180
 
   return (
-    <div className={cn(dense ? "space-y-1" : "space-y-4")}>
+    // No blanket vertical spacing here: the coordinate drawer below is collapsed
+    // to zero height most of the time, and a `space-y-*` on this wrapper still
+    // gave the collapsed drawer its margin — phantom air between the address row
+    // and whatever field the host form puts next. The drawer brings its own
+    // margin only while it is open.
+    <div>
       {/* Address Input with Autocomplete */}
       <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "min-h-[40px]")}>
         <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
@@ -352,10 +357,13 @@ export function LocationInput({
           <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
             <PopoverAnchor asChild>
               <div ref={anchorRef} className="relative flex-1">
-                <MapPin className={cn(
-                  "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
-                  dense ? "left-1.5 size-3.5" : "left-3",
-                )} />
+                {/* Dense only: the side panel's borderless row needs the pin to
+                    read as a field at all. In a normal form the icon made this
+                    the one input styled unlike its siblings, so there it is a
+                    plain Input like every other field. */}
+                {dense && (
+                  <MapPin className="pointer-events-none absolute top-1/2 left-1.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                )}
                 <Input
                   id="location_address"
                   ref={searchInputRef}
@@ -391,7 +399,6 @@ export function LocationInput({
                   }}
                   onKeyDown={handleAddressKeyDown}
                   className={cn(
-                    "pl-9",
                     // Transparent border + constant padding: focusing must not
                     // move the text the operator just clicked on.
                     dense &&
@@ -542,12 +549,13 @@ export function LocationInput({
         </div>
       </div>
 
-      {/* Coordinates Input - Hidden by default, shown when button clicked */}
+      {/* Coordinates Input - Hidden by default, shown when button clicked.
+          The margin exists only while open — see the wrapper note above. */}
       <div
         className={cn(
           "grid transition-all duration-200 ease-in-out",
           showCoordinates
-            ? "grid-rows-[1fr] opacity-100"
+            ? cn("grid-rows-[1fr] opacity-100", dense ? "mt-1" : "mt-3")
             : "grid-rows-[0fr] opacity-0"
         )}
       >

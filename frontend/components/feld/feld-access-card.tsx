@@ -35,9 +35,12 @@ import type { ApiFeldAccessState } from '@/lib/api/types'
 
 interface FeldAccessCardProps {
   eventId: string
+  /** Drop the card's own border/background so it can sit as a row inside a
+   *  grouped container (the Links & QR sheet's Feld group). */
+  bare?: boolean
 }
 
-export function FeldAccessCard({ eventId }: FeldAccessCardProps) {
+export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   const t = useTranslations('feld.access')
   const [state, setState] = useState<ApiFeldAccessState | null>(null)
   const [busy, setBusy] = useState(false)
@@ -90,7 +93,7 @@ export function FeldAccessCard({ eventId }: FeldAccessCardProps) {
   // on a footer sheet means the row under the cursor moves as you reach for it.
   if (!state) {
     return (
-      <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5" aria-hidden>
+      <div className={bare ? 'px-3 py-2.5' : 'rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5'} aria-hidden>
         <div className="h-4 w-24 rounded bg-muted" />
         <div className="mt-1 h-8 w-32 rounded bg-muted/70" />
       </div>
@@ -98,7 +101,7 @@ export function FeldAccessCard({ eventId }: FeldAccessCardProps) {
   }
 
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+    <div className={bare ? 'px-3 py-2.5' : 'rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5'}>
       {/* The code leads and gets the room. It is the one thing on this card
           somebody reads off a screen and types on a phone; the two maintenance
           buttons are rare and sit out of its way rather than beside it. */}

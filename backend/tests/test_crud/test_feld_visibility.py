@@ -16,7 +16,7 @@ can owe a Schadenplatz-Rapport.**
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -725,3 +725,264 @@ class TestTheRouteOwnsItsCrew:
         row = next(r for r in rows if r["incident_id"] == stop.id)
         assert row["source"] == crud.SOURCE_DRIVER
         assert row["is_active_assignment"] is False
+
+
+class TestBriefingReleaseFilter:
+    """§P2 add-on: the briefing shows what is on the Schadenplatz, not history.
+
+    The staging bug: TLF picked at 16:36:38, corrected to Pio at 16:36:40 —
+    and the feld page told the squad both vehicles were theirs, because the
+    briefing queries never filtered ``unassigned_at``. The one legitimate
+    released case is the completion cascade, whose stamps sit at/after
+    ``completed_at``.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_corrected_vehicle_pick_leaves_the_briefing(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user, "Wasserleitung")
+        person = await _person(db_session, "Suter Jonas")
+        await _assign(db_session, incident, "personnel", person.id)
+        tlf = await _vehicle(db_session, "TLF")
+        pio = await _vehicle(db_session, "Pio")
+        # The KP's mis-pick, corrected one second later.
+        await _assign(db_session, incident, "vehicle", tlf.id, released=True)
+        await _assign(db_session, incident, "vehicle", pio.id)
+
+        rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, person.id)
+
+        assert [line["name"] for line in rows[0]["vehicles"]] == ["Pio"]
+
+    @pytest.mark.asyncio
+    async def test_a_reassigned_person_leaves_the_briefing_crew(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user, "Sturmschaden")
+        stays = await _person(db_session, "Bleibt Anna")
+        moved = await _person(db_session, "Weg Bruno")
+        await _assign(db_session, incident, "personnel", stays.id)
+        await _assign(db_session, incident, "personnel", moved.id, released=True)
+
+        rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, stays.id)
+
+        assert rows[0]["crew"] == ["Bleibt Anna"]
+
+    @pytest.mark.asyncio
+    async def test_the_completion_cascade_keeps_the_briefing(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Completing auto-releases everything while the crew is physically
+        # still at the address filing — those rows must stay readable.
+        incident = await _incident(db_session, test_event, test_user, "Abgeschlossen", status="complete")
+        incident.completed_at = datetime.now(UTC)
+        await db_session.commit()
+        person = await _person(db_session, "Frei Lea")
+        vehicle = await _vehicle(db_session, "MTW")
+        # Released AFTER completed_at — the cascade's own stamp order.
+        await _assign(db_session, incident, "personnel", person.id, released=True)
+        await _assign(db_session, incident, "vehicle", vehicle.id, released=True)
+
+        rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, person.id)
+
+        assert rows[0]["crew"] == ["Frei Lea"]
+        assert [line["name"] for line in rows[0]["vehicles"]] == ["MTW"]
+
+    @pytest.mark.asyncio
+    async def test_returned_material_leaves_the_briefing_and_the_line_names_its_depot(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user, "Keller")
+        person = await _person(db_session, "Huber Tim")
+        await _assign(db_session, incident, "personnel", person.id)
+        out = Material(id=uuid.uuid4(), name="Tauchpumpe", type="Sonstiges", location="Magazin 1", status="available")
+        back = Material(id=uuid.uuid4(), name="Besen", type="Sonstiges", location="Magazin 1", status="available")
+        db_session.add_all([out, back])
+        await db_session.commit()
+        await _assign(db_session, incident, "material", out.id)
+        await _assign(db_session, incident, "material", back.id, released=True)
+
+        rows = await crud.get_feld_assignments_for_personnel(db_session, test_event.id, person.id)
+
+        assert rows[0]["materials"] == [{"name": "Tauchpumpe", "count": 1, "location": "Magazin 1"}]
+
+
+class TestKeinEinsatzNoetigOwesNoRapport:
+    """§P2.7 — kein Einsatz nötig + closed + nothing done = no rapport request.
+
+    The status history lies exactly here: the GPS automation and the training
+    simulator both walk a card through ``active`` when the Reko's own vehicle
+    reaches the address, so ``dispatched`` alone demands a rapport for a recce.
+    """
+
+    async def _closed_after_recce(self, db: AsyncSession, event: Event, user: User, title: str) -> Incident:
+        from app.models import StatusTransition
+
+        incident = await _incident(db, event, user, title, status="complete")
+        # The polluted history: the automation dragged it through `active`.
+        db.add(StatusTransition(incident_id=incident.id, from_status="reko", to_status="active"))
+        db.add(StatusTransition(incident_id=incident.id, from_status="active", to_status="complete"))
+        await db.commit()
+        return incident
+
+    @pytest.mark.asyncio
+    async def test_a_closed_kein_einsatz_noetig_counts_toward_nobody(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.models import RekoReport
+
+        incident = await self._closed_after_recce(db_session, test_event, test_user, "Nichts")
+        db_session.add(RekoReport(incident_id=incident.id, token="t-1", is_draft=False, is_relevant=False))
+        await db_session.commit()
+        person = await _person(db_session, "Egger Sven")
+        await _assign(db_session, incident, "personnel", person.id, released=True)
+
+        rows = await crud.get_feld_personnel_for_event(db_session, test_event.id)
+        me = next(row for row in rows if row["personnel_id"] == person.id)
+
+        assert me["missing_rapport_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_without_the_verdict_the_rapport_is_still_owed(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await self._closed_after_recce(db_session, test_event, test_user, "Arbeit")
+        person = await _person(db_session, "Vogt Mia")
+        await _assign(db_session, incident, "personnel", person.id, released=True)
+
+        rows = await crud.get_feld_personnel_for_event(db_session, test_event.id)
+        me = next(row for row in rows if row["personnel_id"] == person.id)
+
+        assert me["missing_rapport_count"] == 1
+
+
+# ============================================
+# Pickup acks (sweep 27 §P3.1)
+# ============================================
+
+
+class TestPickupAcks:
+    """Acks derived from real KP actions — nobody ever clicks an "acknowledge".
+
+    Through `get_feld_assignments_for_personnel`, because the payload is what
+    the phone actually reads.
+    """
+
+    async def _row(self, db: AsyncSession, event: Event, person: Personnel, incident: Incident) -> dict:
+        rows = await crud.get_feld_assignments_for_personnel(db, event.id, person.id)
+        return next(row for row in rows if row["incident_id"] == incident.id)
+
+    async def _requested(self, db: AsyncSession, event: Event, user: User, person: Personnel) -> Incident:
+        incident = await _incident(db, event, user, "Wartende Crew")
+        await _assign(db, incident, "personnel", person.id)
+        incident.pickup_needed = True
+        # In the past, explicitly: the test session runs inside ONE outer
+        # transaction, so a server-default `now()` (= transaction start) on a
+        # later row would land BEFORE a python-clock "now" written here.
+        incident.pickup_requested_at = datetime.now(UTC) - timedelta(minutes=10)
+        incident.pickup_requested_by = person.id
+        await db.commit()
+        return incident
+
+    @pytest.mark.asyncio
+    async def test_a_dismissed_pickup_bell_reads_as_gesehen(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.models import Notification
+
+        person = await _person(db_session, "Egger Olivier")
+        incident = await self._requested(db_session, test_event, test_user, person)
+
+        row = await self._row(db_session, test_event, person, incident)
+        assert row["pickup_seen"] is False
+
+        db_session.add(
+            Notification(
+                type="field_pickup",
+                severity="warning",
+                message="Abholung nötig",
+                incident_id=incident.id,
+                event_id=test_event.id,
+                dismissed=True,
+                # Explicit: the server default is the transaction-start clock,
+                # which under the test fixture predates the request itself.
+                created_at=datetime.now(UTC),
+            )
+        )
+        await db_session.commit()
+
+        row = await self._row(db_session, test_event, person, incident)
+        assert row["pickup_seen"] is True
+
+    @pytest.mark.asyncio
+    async def test_a_vehicle_dispatched_after_the_request_is_the_ack(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        person = await _person(db_session, "Egger Olivier")
+        incident = await self._requested(db_session, test_event, test_user, person)
+
+        # A vehicle that was already there is not a pickup.
+        before = await _vehicle(db_session, "TLF 1")
+        early = IncidentAssignment(
+            incident_id=incident.id,
+            resource_type="vehicle",
+            resource_id=before.id,
+            assigned_at=datetime.now(UTC) - timedelta(hours=1),
+        )
+        db_session.add(early)
+        await db_session.commit()
+
+        row = await self._row(db_session, test_event, person, incident)
+        assert row["pickup_vehicle"] is None
+
+        # One dispatched after the request is exactly «Mowa disponiert».
+        mowa = await _vehicle(db_session, "Mowa")
+        db_session.add(
+            IncidentAssignment(
+                incident_id=incident.id,
+                resource_type="vehicle",
+                resource_id=mowa.id,
+                # Explicit for the same transaction-clock reason as above.
+                assigned_at=datetime.now(UTC),
+            )
+        )
+        await db_session.commit()
+
+        row = await self._row(db_session, test_event, person, incident)
+        assert row["pickup_vehicle"] == "Mowa"
+
+    @pytest.mark.asyncio
+    async def test_a_kp_clear_reads_as_disponiert_but_a_crew_clear_does_not(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from app.models import AuditLog
+
+        person = await _person(db_session, "Egger Olivier")
+        incident = await _incident(db_session, test_event, test_user, "Erledigte Abholung")
+        await _assign(db_session, incident, "personnel", person.id)
+
+        # The crew's own «Wir fahren selbst» is no ack.
+        db_session.add(
+            AuditLog(
+                action_type="field_pickup_cleared",
+                resource_type="incident",
+                resource_id=incident.id,
+                changes_json={"pickup_needed": False, "source": "feld"},
+            )
+        )
+        await db_session.commit()
+        row = await self._row(db_session, test_event, person, incident)
+        assert row["pickup_resolved_at"] is None
+
+        # The KP clearing it — its UI words that as «Abholung disponiert» — is.
+        db_session.add(
+            AuditLog(
+                action_type="field_pickup_cleared",
+                resource_type="incident",
+                resource_id=incident.id,
+                changes_json={"pickup_needed": False, "source": "kp"},
+            )
+        )
+        await db_session.commit()
+        row = await self._row(db_session, test_event, person, incident)
+        assert row["pickup_resolved_at"] is not None

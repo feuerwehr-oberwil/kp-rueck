@@ -69,6 +69,8 @@ export interface KanbanShortcutsActions {
   onTogglePrint: () => void
   /** Opens/closes the Links & QR sheet (Check-In, Feld, Alarm, Anzeige). */
   onToggleLinks: () => void
+  /** Opens/closes the Schadenplatz-Rapporte backlog sheet. */
+  onToggleRapporte: () => void
   /** Switch side panel to Map view (no-op if collapsed). */
   onSidePanelMap: () => void
   /** Toggle the notification sidebar. */
@@ -297,6 +299,15 @@ export function useKanbanShortcuts(
       if ((e.key === "t" || e.key === "T") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         actions.onToggleLinks()
+        return
+      }
+      // «Offene Rapporte» — the Schadenplatz-Rapporte backlog. `o` because `r`
+      // is refresh; letter-matched like its siblings (a letter key prints the
+      // same character on QWERTZ and QWERTY, so e.key is safe here — only the
+      // Shift+digit bindings above need e.code).
+      if ((e.key === "o" || e.key === "O") && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        actions.onToggleRapporte()
         return
       }
 

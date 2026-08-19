@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2 } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
+import { personMatchesQuery } from "@/lib/resource-status"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -138,9 +139,6 @@ export function ResourceAssignmentDialog({
   // Materials-only quick filter: functional type (e.g. "Wasser") — narrows the
   // visible list like the depot chips, never pre-selects anything.
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
-  // Crew-only quick filter: when on, also show people already assigned to
-  // another incident/Auftrag (amber-flagged, confirm-guarded).
-  const [showOccupiedPersonnel, setShowOccupiedPersonnel] = useState(false)
 
   // Local selection state for crew and materials (deferred assignment)
   // These track which items are SELECTED (checked) in the dialog, separate from actual assigned state
@@ -179,46 +177,19 @@ export function ResourceAssignmentDialog({
       setCategoryFilter(null)
       setTypeFilter(null)
       setShowOnlyAssignedVehicles(false)
-      setShowOccupiedPersonnel(false)
     }
   }, [open])
   useEffect(() => {
     setCategoryFilter(null)
     setTypeFilter(null)
     setShowOnlyAssignedVehicles(false)
-    setShowOccupiedPersonnel(false)
   }, [resourceType])
 
-  // Get resources that can be shown in the dialog
-  // For crew: show available personnel OR personnel already assigned to THIS operation (for deselection)
-  // Exclude Reko personnel UNLESS they're already assigned to this operation's crew (for removal)
-  const selectablePersonnel = useMemo(() => {
-    return personnel.filter(p => {
-      const isAssignedToCrew = assignedPersonnel.includes(p.name)
-
-      // Always show if already assigned to this operation's crew (allows deselection)
-      if (isAssignedToCrew) return true
-      // Quick filter ON: show everyone — people bound elsewhere appear
-      // amber-flagged and need a confirm before selection.
-      if (showOccupiedPersonnel) return true
-      if (occupiedPersonnelIds.has(p.id)) return false
-
-      // People with a special function (Reko / driver / magazin) used to be hidden
-      // outright. Show them now — flagged with a badge — so they can be assigned
-      // after an explicit "double-booking?" confirm instead of silently vanishing.
-      const hasSpecialFunction =
-        p.isReko ||
-        p.isDriver ||
-        p.isMagazin ||
-        p.isTelefondienst ||
-        p.isKommandoposten ||
-        rekoPersonnelNames.includes(p.name)
-      if (hasSpecialFunction) return true
-
-      // Show available personnel
-      return p.status === 'available'
-    })
-  }, [personnel, rekoPersonnelNames, assignedPersonnel, occupiedPersonnelIds, showOccupiedPersonnel])
+  // Everyone checked in is selectable. People bound to another incident/Auftrag
+  // or holding a special function sink into the «Bereits im Einsatz» block below
+  // (amber-flagged, confirm-guarded) instead of being hidden — the old
+  // «Alle anzeigen» toggle predated that split and is gone with it.
+  const selectablePersonnel = personnel
 
   /**
    * Every role this person holds in the Ereignis — not just the first one.
@@ -314,7 +285,12 @@ export function ResourceAssignmentDialog({
   const personElsewhereLabel = (person: Person): OccupancyLabel | null => {
     if (assignedPersonnel.includes(person.name)) return null
     if (personOccupancy.has(person.name)) return personOccupancy.get(person.name)!
-    if (occupiedPersonnelIds.has(person.id) || person.status === 'assigned') return genericElsewhereLabel()
+    // Deliberately NOT falling back on `status === 'assigned'`: the context sets
+    // that flag for special-function people too (Fahrer, Telefondienst, …), and
+    // the generic «Im Einsatz» next to their function badge claimed an incident
+    // that does not exist. If somebody IS on an incident or Auftrag, the two
+    // lookups above name it (short address / route name).
+    if (occupiedPersonnelIds.has(person.id)) return genericElsewhereLabel()
     return null
   }
 
@@ -362,11 +338,12 @@ export function ResourceAssignmentDialog({
       .sort((a, b) => a.type.localeCompare(b.type, 'de-CH'))
   }, [resourceType, selectableMaterials])
 
-  // Filter resources by search query + quick category filter
+  // Filter resources by search query + quick category filter. The shared
+  // matcher also finds people by their special function ("telefondienst",
+  // "kommandoposten", a driver's vehicle name) — see lib/resource-status.ts.
   const filteredPersonnel = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
     return selectablePersonnel.filter(p =>
-      (!query || p.name.toLowerCase().includes(query)) &&
+      personMatchesQuery(p, searchQuery) &&
       (!categoryFilter || p.role === categoryFilter)
     )
   }, [selectablePersonnel, searchQuery, categoryFilter])
@@ -804,7 +781,7 @@ export function ResourceAssignmentDialog({
         {isSelected ? (
           <CheckCircle className={cn(
             "h-5 w-5 text-emerald-500 flex-shrink-0",
-            wasJustAssigned && "animate-checkmark-spring"
+            wasJustAssigned && "animate-check-appear"
           )} />
         ) : (
           <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -876,7 +853,7 @@ export function ResourceAssignmentDialog({
           {isAssigned ? (
             <CheckCircle className={cn(
               "h-5 w-5 text-emerald-500 flex-shrink-0",
-              wasJustAssigned && "animate-checkmark-spring"
+              wasJustAssigned && "animate-check-appear"
             )} />
           ) : (
             <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -939,11 +916,15 @@ export function ResourceAssignmentDialog({
     )
   }
 
-  /** One ungrouped material tile — shared by both blocks. */
+  /** One material tile — shared by the free block, the spoken-for block and
+   *  the expanded module groups. */
   const renderMaterialTile = (material: Material) => {
     const isSelected = isMaterialSelected(material.id)
     const wasJustAssigned = justAssigned === material.id
     const elsewhere = materialElsewhereLabel(material)
+    // This material's depot IS a vehicle already assigned to the target (e.g.
+    // Mowa): its stock is on scene. Emphasis only — nothing gets preselected.
+    const vehicleOnScene = !elsewhere && assignedVehicles.includes(material.category)
     return (
       <button
         key={material.id}
@@ -951,13 +932,14 @@ export function ResourceAssignmentDialog({
         className={cn(
           "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
           isSelected && "border-primary/30 bg-primary/5",
-          elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5"
+          elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5",
+          vehicleOnScene && !isSelected && "border-emerald-500/30"
         )}
       >
         {isSelected ? (
           <CheckCircle className={cn(
             "h-5 w-5 text-emerald-500 flex-shrink-0",
-            wasJustAssigned && "animate-checkmark-spring"
+            wasJustAssigned && "animate-check-appear"
           )} />
         ) : (
           <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -971,6 +953,14 @@ export function ResourceAssignmentDialog({
             >
               <Siren className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{elsewhere.short}</span>
+            </span>
+          ) : vehicleOnScene ? (
+            <span
+              title={t('assignmentDialog.vehicleOnSceneHint', { name: material.category })}
+              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-emerald-600 dark:text-emerald-400"
+            >
+              <Truck className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{material.category}</span>
             </span>
           ) : (
             <p className="text-xs text-muted-foreground truncate">{material.category}</p>
@@ -1075,24 +1065,6 @@ export function ResourceAssignmentDialog({
                   </button>
                 )
               })}
-            </div>
-          )}
-
-          {/* Crew-only quick filter: also show people already assigned to
-              another incident/Auftrag (default hides them). */}
-          {resourceType === 'crew' && (
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setShowOccupiedPersonnel((v) => !v)}
-                className={cn(
-                  "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
-                  showOccupiedPersonnel
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                )}
-              >
-                {t('assignmentDialog.showAllPersonnel')}
-              </button>
             </div>
           )}
 
@@ -1222,7 +1194,7 @@ export function ResourceAssignmentDialog({
                               {allSelected ? (
                                 <CheckCircle className={cn(
                                   "h-5 w-5 text-emerald-500 flex-shrink-0",
-                                  wasJustAssigned && "animate-checkmark-spring"
+                                  wasJustAssigned && "animate-check-appear"
                                 )} />
                               ) : someSelected ? (
                                 <CheckCircle className="h-5 w-5 text-emerald-500/50 flex-shrink-0" />
@@ -1248,50 +1220,12 @@ export function ResourceAssignmentDialog({
                             )}
                           </button>
                         </div>
-                        {/* Expanded individual materials — same 3-col card grid as
+                        {/* Expanded individual materials — the same tile as
                             ungrouped items, slightly inset so they read as the
                             module's contents. */}
                         {isExpanded && (
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-4 border-l-2 border-border/40 ml-3">
-                            {groupMats.map((material) => {
-                              const isSelected = isMaterialSelected(material.id)
-                              const matJustAssigned = justAssigned === material.id
-                              const elsewhere = materialElsewhereLabel(material)
-                              return (
-                                <button
-                                  key={material.id}
-                                  onClick={() => handleToggleMaterialSelection(material)}
-                                  className={cn(
-                                    "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                                    isSelected && "border-primary/30 bg-primary/5",
-                                    elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5"
-                                  )}
-                                >
-                                  {isSelected ? (
-                                    <CheckCircle className={cn(
-                                      "h-5 w-5 text-emerald-500 flex-shrink-0",
-                                      matJustAssigned && "animate-checkmark-spring"
-                                    )} />
-                                  ) : (
-                                    <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                                  )}
-                                  <div className="min-w-0">
-                                    <p className="font-medium text-sm truncate" title={material.name}>{material.name}</p>
-                                    {elsewhere ? (
-                                      <span
-                                        title={elsewhere.full}
-                                        className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
-                                      >
-                                        <Siren className="h-3 w-3 flex-shrink-0" />
-                                        <span className="truncate">{elsewhere.short}</span>
-                                      </span>
-                                    ) : (
-                                      <p className="text-xs text-muted-foreground truncate">{material.category}</p>
-                                    )}
-                                  </div>
-                                </button>
-                              )
-                            })}
+                            {groupMats.map(renderMaterialTile)}
                           </div>
                         )}
                       </div>

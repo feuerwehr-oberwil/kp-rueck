@@ -80,6 +80,46 @@ export function isPersonOccupied(
 }
 
 /**
+ * Does this person match a free-text roster query?
+ *
+ * Name, rank and tags are the obvious half; the other half is the Ereignis
+ * role the person carries – typing "telefondienst" or "kommandoposten" has to
+ * find the person holding that function, exactly like "reko" and "fahrer"
+ * (and the driver's vehicle name) always did. One matcher, shared by the
+ * sidebar filter and the assignment dialog, so the two searches can never
+ * disagree about who "Telefondienst" is.
+ */
+export function personMatchesQuery(
+  p: {
+    name: string
+    role?: string | null
+    tags?: string[] | null
+    isReko?: boolean
+    isDriver?: boolean
+    driverVehicleName?: string | null
+    isMagazin?: boolean
+    isTelefondienst?: boolean
+    isKommandoposten?: boolean
+  },
+  query: string,
+): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return (
+    p.name.toLowerCase().includes(q) ||
+    // role is null for quick-added people — don't crash the search
+    (!!p.role && p.role.toLowerCase().includes(q)) ||
+    (!!p.isReko && "reko".includes(q)) ||
+    (!!p.isDriver && ("fahrer".includes(q) || "driver".includes(q))) ||
+    (!!p.driverVehicleName && p.driverVehicleName.toLowerCase().includes(q)) ||
+    (!!p.isMagazin && "magazin".includes(q)) ||
+    (!!p.isTelefondienst && "telefondienst".includes(q)) ||
+    (!!p.isKommandoposten && "kommandoposten".includes(q)) ||
+    (!!p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
+  )
+}
+
+/**
  * A material's availability as the board must READ it.
  *
  * Consumables (Ölbindemittel, Schaummittel, Bindevlies …) are stocked, not lent out: handing some

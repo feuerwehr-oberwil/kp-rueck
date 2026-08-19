@@ -850,6 +850,72 @@
         }
       }
     },
+    "/api/auth/ws-token": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Get Ws Token",
+        "description": "A short-lived token for the Socket.IO connect (sweep 27 §P3.4).\n\nThe socket's own auth reads the `access_token` cookie, which never reaches\nthe backend on split-origin deployments (Railway staging, kp.fwo.li →\nkp-api.fwo.li) — every connect was rejected under `ws_require_auth` and\nclients silently fell back to 5s polling. The frontend fetches this token\nsame-origin through its proxy (the cookie rides along HERE), then passes it\nin the Socket.IO `auth` payload; the connect handler accepts either.\n\nNot rate-limited beyond the client's own behaviour: it is fetched once per\nconnection attempt, requires a valid session, and grants nothing but a\n60-second connect.",
+        "operationId": "get_ws_token_api_auth_ws_token_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WsTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/microsoft-config": {
       "get": {
         "tags": [
@@ -4770,6 +4836,170 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/field-messages": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "List Field Messages",
+        "description": "The KP's messages to this Schadenplatz's squad, oldest first.",
+        "operationId": "list_field_messages_api_incidents__incident_id__field_messages_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KpFieldMessage"
+                  },
+                  "title": "Response List Field Messages Api Incidents  Incident Id  Field Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Send Field Message",
+        "description": "«Meldung an den Trupp» — the KP's half of the field message loop (sweep 27 §P3.2).\n\nSymmetric to the crew's Freitext-Meldung, and deliberately as small: one\nsentence, timestamped, with the sender's display name. The squad reads it on\n`/feld`, where it rides the polled assignments payload; the incident's\nVerlauf and the Meldungen thread read it back via `/timeline`.\n\nNo notification — a bell that tells the KP what the KP just typed would be\nnoise. The broadcast keeps other open boards in step.",
+        "operationId": "send_field_message_api_incidents__incident_id__field_messages_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KpFieldMessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KpFieldMessage"
                 }
               }
             }
@@ -11058,7 +11288,7 @@
           "reko"
         ],
         "summary": "Generate Reko Link",
-        "description": "Generate Reko form link for an incident.\n\nEditor/admin only. The field surface mints its own form token through\n`POST /api/feld/incidents/{id}/reko-link`, which runs the `/feld` two-step\nfirst — so a leaked form link still cannot mint fresh tokens for arbitrary\nincidents, and neither door had to learn about the other.\n\nArgs:\n    incident_id: The incident this reko is for\n    form_type: Type of form (default: reko)\n    personnel_id: Optional personnel who will do the reko\n\nReturns shareable link with token.",
+        "description": "Generate the direct Reko link for an incident (editor/admin only).\n\n**With a `personnel_id` this is a `/feld` link, not a bare form link.** The\nlink the KP sends the Reko person carries a *bound* feld token — the same\nstrength the code exchange mints (plan 26, decision 18) — plus the incident\nas a deep link. Opening it lands the person on the field surface already\nauthenticated as themselves, and `/feld` routes a Reko auftrag straight\ninto the form. No code entry, no picker, and the Rapport/Meldung machinery\nis one tap away instead of on \"a separate page\".\n\nThe bound token is shorter-lived than the poster's (72 h vs 30 days): it is\na personal credential travelling through a messenger, and the person can\nalways re-enter through the poster QR once it expires. It is backed by a\ndevice claim, so \"alle Geräte abmelden\" recalls it like any other device.\n\nWithout a `personnel_id` (no Reko assigned) the old per-incident `/reko`\nform link is returned unchanged.",
         "operationId": "generate_reko_link_api_reko_generate_link_post",
         "parameters": [
           {
@@ -12392,7 +12622,7 @@
           "feld"
         ],
         "summary": "Report Arrived",
-        "description": "\"Angekommen\" — the crew is at the Schadenplatz.\n\nUpserts the Schadenplatz-Rapport row (that is why `is_draft` defaults to\nTrue: a row exists long before any form does) and stamps `arrived_at`.\n\n**Idempotent.** A second tap does nothing — a crew re-opening the page and\nhitting the big button again must not move a timestamp the KP has acted on.",
+        "description": "\"Angekommen\" — the crew is at the Schadenplatz.\n\nUpserts the Schadenplatz-Rapport row (that is why `is_draft` defaults to\nTrue: a row exists long before any form does), stamps `arrived_at`, and\n**moves the card to EINSATZ** (sweep 27 §P3.3 — the board follows the field\ninstead of asking; strictly forward, see `crud/feld/reports._auto_move`).\n\n**Idempotent.** A second tap does nothing — a crew re-opening the page and\nhitting the big button again must not move a timestamp the KP has acted on.",
         "operationId": "report_arrived_api_feld_incidents__incident_id__arrived_post",
         "parameters": [
           {
@@ -12459,7 +12689,7 @@
           "feld"
         ],
         "summary": "Report Field Complete",
-        "description": "\"Einsatz beendet\" — the crew has finished here.\n\nStamps `field_complete_reported_at` + `field_complete_reported_by` and\n**does not change `Incident.status`**: closing a Schadenplatz stays the\noperator's decision, which is the rule the column's own comment states.\n\nThe client asks the Abholung follow-up (\"Kommt ihr selbst zurück?\")\nimmediately afterwards and sends the answer to `/pickup` — deliberately a\nsecond call, so the *beendet* report reaches the KP even if the crew walks\naway from the question.",
+        "description": "\"Einsatz beendet\" — the crew has finished here.\n\nStamps `field_complete_reported_at` + `field_complete_reported_by` and\n**moves the card to BEENDET / RÜCKFAHRT** (sweep 27 §P3.3) — that column IS\nthe state the crew just described. `complete` stays the operator's alone:\nclosing a Schadenplatz runs the release cascade and the material gate.\n\nThe client asks the Abholung follow-up (\"Kommt ihr selbst zurück?\")\nimmediately afterwards and sends the answer to `/pickup` — deliberately a\nsecond call, so the *beendet* report reaches the KP even if the crew walks\naway from the question.",
         "operationId": "report_field_complete_api_feld_incidents__incident_id__complete_post",
         "parameters": [
           {
@@ -18514,7 +18744,7 @@
         "properties": {
           "source": {
             "type": "string",
-            "maxLength": 20,
+            "maxLength": 16,
             "title": "Source",
             "default": "webhook"
           },
@@ -21486,6 +21716,42 @@
             ],
             "title": "Pickup Requested At"
           },
+          "pickup_seen": {
+            "type": "boolean",
+            "title": "Pickup Seen",
+            "default": false
+          },
+          "pickup_vehicle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Vehicle"
+          },
+          "pickup_resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Resolved At"
+          },
+          "kp_messages": {
+            "items": {
+              "$ref": "#/components/schemas/KpFieldMessage"
+            },
+            "type": "array",
+            "title": "Kp Messages",
+            "default": []
+          },
           "leader_personnel_id": {
             "anyOf": [
               {
@@ -22076,6 +22342,17 @@
             "type": "integer",
             "title": "Count",
             "default": 1
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
           }
         },
         "type": "object",
@@ -22083,7 +22360,7 @@
           "name"
         ],
         "title": "FeldMaterialLine",
-        "description": "One line of the briefing's material list: a name and how many of it.\n\nGrouped by NAME rather than listed per assignment — \"Tauchpumpe ×2\" is what\na crew reads off a slip, while the per-unit rows (keyed on the assignment,\nwith their two ticks) are the *rapport's* job and live in\n``RapportMaterialRow``. Two lists, two questions: this one says what came\nwith you, that one asks what you did with it."
+        "description": "One line of the briefing's material list: a name and how many of it.\n\nGrouped per NAME and DEPOT rather than listed per assignment — two\nidentical pumps from one shelf are one line with a count, while the\nper-unit rows (keyed on the assignment, with their two ticks) are the\n*rapport's* job and live in ``RapportMaterialRow``. Two lists, two\nquestions: this one says what comes with you and **where to fetch it**\n(``location`` is the depot off the material catalogue), that one asks what\nyou did with it."
       },
       "FeldMaterialResponse": {
         "properties": {
@@ -22396,6 +22673,17 @@
             "type": "array",
             "title": "Dangers",
             "default": []
+          },
+          "is_relevant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Relevant"
           },
           "submitted_at": {
             "anyOf": [
@@ -23225,7 +23513,8 @@
             "type": "string",
             "enum": [
               "operator",
-              "intake"
+              "intake",
+              "feld"
             ],
             "title": "Source",
             "default": "operator"
@@ -24128,7 +24417,7 @@
           "timestamp"
         ],
         "title": "IncidentTimelineEvent",
-        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp')"
+        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)"
       },
       "IncidentTimelineResponse": {
         "properties": {
@@ -24372,7 +24661,8 @@
             "type": "string",
             "enum": [
               "operator",
-              "intake"
+              "intake",
+              "feld"
             ],
             "title": "Source",
             "default": "operator"
@@ -24486,6 +24776,59 @@
         ],
         "title": "KnownProvider",
         "description": "One provider this build knows about, whether or not this station uses it.\n\nThe four domain fields above answer *who is active here*. This list answers *what could I\npoint at* — which is what makes a domain a choice rather than a vendor, and it is the only\nplace a provider that nobody has configured can be discovered at all.\n\n``implemented`` is false for a provider whose contract is published but whose ingestion is\nnot built. An entry that is discoverable and honest about being inert is worth having; a\nregistry that quietly implies everything listed works is not."
+      },
+      "KpFieldMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "author_name": {
+            "type": "string",
+            "title": "Author Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "incident_id",
+          "message",
+          "author_name",
+          "created_at"
+        ],
+        "title": "KpFieldMessage",
+        "description": "One «Meldung an den Trupp» — KP → field, the mirror of the Freitext-Meldung.\n\n``author_name`` is the sender's display name, denormalised at write time:\n`/feld` is a login-less door and must not resolve users to render a name."
+      },
+      "KpFieldMessageCreate": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "KpFieldMessageCreate",
+        "description": "The KP's payload: one sentence, same length cap as the field's own."
       },
       "ManualDispatchRequest": {
         "properties": {
@@ -29613,6 +29956,25 @@
         "type": "object",
         "title": "VehicleUpdate",
         "description": "Schema for updating vehicle."
+      },
+      "WsTokenResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "expires_in"
+        ],
+        "title": "WsTokenResponse",
+        "description": "A short-lived Socket.IO connect token (sweep 27 §P3.4).\n\nFetched same-origin (the session cookie authenticates the request) right\nbefore `io(...)` and passed in the Socket.IO `auth` payload — the cookie\nitself never reaches the backend on a split-origin deployment."
       }
     }
   }

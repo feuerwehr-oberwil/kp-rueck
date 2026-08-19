@@ -8,6 +8,7 @@ import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
 import { RESOURCE_STATE_ICON_CLASSES, isPersonOccupied } from "@/lib/resource-status"
+import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import { Car, Binoculars, Package2, Phone, MonitorCog, Check, Minus, AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
@@ -17,9 +18,13 @@ interface DraggablePersonProps {
   disabled?: boolean
   /** When > 1, this person is currently on multiple incidents — surface a conflict badge. */
   assignmentCount?: number
+  /** Where this person actually is (incident label / Auftrag name), resolved by
+   *  the parent via `usePersonEngagements` — a prop, not a hook, so this
+   *  memoized card does not subscribe to the whole operations context (§P3.5). */
+  engagement?: PersonEngagement
 }
 
-function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: DraggablePersonProps) {
+function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engagement }: DraggablePersonProps) {
   const t = useTranslations('kanban')
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -122,6 +127,26 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
   // "nur verfügbare" filter so the filter and this icon can never disagree.
   const isOccupied = isPersonOccupied(person)
 
+  // WHY occupied, for the hover tooltip (§P3.5) — same rule as the assignment
+  // dialog's labels: a real engagement names the incident (short address) or
+  // the Auftrag; a mere function holder gets the function's name; the generic
+  // «Im Einsatz» is the last resort for an engagement nothing can resolve —
+  // never the answer for somebody who only carries a role.
+  const functionLabel = [
+    person.isDriver && person.driverVehicleName
+      ? t('person.driverFunction', { vehicle: person.driverVehicleName })
+      : null,
+    person.isReko ? t('common.reko') : null,
+    person.isMagazin ? t('common.magazin') : null,
+    person.isTelefondienst ? t('common.telefondienst') : null,
+    person.isKommandoposten ? t('common.kommandoposten') : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const occupiedTooltip = engagement
+    ? t('person.engagedTooltip', { label: engagement.full })
+    : functionLabel || t('common.inUse')
+
   return (
     <PersonContextMenu
       personnelId={person.id}
@@ -168,8 +193,8 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
                   "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
                   RESOURCE_STATE_ICON_CLASSES[isOccupied ? "assigned" : "available"],
                 )}
-                aria-label={isOccupied ? t('common.inUse') : t('common.available')}
-                title={isOccupied ? t('common.inUse') : t('common.available')}
+                aria-label={isOccupied ? occupiedTooltip : t('common.available')}
+                title={isOccupied ? occupiedTooltip : t('common.available')}
               >
                 {isOccupied ? (
                   <Minus className="h-3 w-3" />
@@ -238,6 +263,9 @@ export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) 
     prevProps.person.isKommandoposten === nextProps.person.isKommandoposten &&
     JSON.stringify(prevProps.person.tags) === JSON.stringify(nextProps.person.tags) &&
     prevProps.disabled === nextProps.disabled &&
-    prevProps.assignmentCount === nextProps.assignmentCount
+    prevProps.assignmentCount === nextProps.assignmentCount &&
+    // The engagement label is derived state — compare by value, not identity,
+    // because the parent's map is rebuilt on every operations change.
+    prevProps.engagement?.full === nextProps.engagement?.full
   )
 })

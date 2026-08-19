@@ -8,11 +8,12 @@ import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { NotificationCard } from '@/components/notifications/notification-card'
+import { requestIncidentHighlight } from '@/lib/notification-highlight'
 import { cn } from '@/lib/utils'
 
 export function PersistentNotificationSidebar() {
   const t = useTranslations('notifications.sidebar')
-  const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, navigateToIncident, canNavigateToIncident } = useNotifications()
+  const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, canNavigateToIncident } = useNotifications()
   const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
 
@@ -44,7 +45,15 @@ export function PersistentNotificationSidebar() {
   // Only the board registers a navigate handler. On every other page the rows
   // used to look clickable and do nothing — hand the card `undefined` there so
   // it renders as plain text instead.
-  const handleClickIncident = canNavigateToIncident ? navigateToIncident : undefined
+  //
+  // Clicking a row POINTS at the card — scroll into view plus the brief accent
+  // ring — while this sidebar stays open (§19.1). It used to open the detail
+  // modal over the board, which hid exactly the card the operator was asking
+  // about. Pointing is not resolving, so the row is not dismissed by the click;
+  // the ✕ still does that.
+  const handleClickIncident = canNavigateToIncident
+    ? (incidentId: string) => requestIncidentHighlight(incidentId)
+    : undefined
 
   return (
     <aside
@@ -101,6 +110,7 @@ export function PersistentNotificationSidebar() {
                   onDismiss={dismissNotification}
                   onClickIncident={handleClickIncident}
                   variant="compact"
+                  dismissOnClick={false}
                 />
               ))}
             </div>

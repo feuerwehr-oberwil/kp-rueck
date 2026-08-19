@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Person, Material, PersonRole } from '@/lib/contexts/operations-context'
-import { isPersonOccupied, materialResourceState } from '@/lib/resource-status'
+import { isPersonOccupied, materialResourceState, personMatchesQuery } from '@/lib/resource-status'
 import { compareByRankThenName } from '@/lib/roster-order'
 
 /**
@@ -29,17 +29,9 @@ export function useResourceFiltering(
         ? personnel.filter((p) => !isPersonOccupied(p))
         : personnel
       if (!personnelQuery) return base
-      const q = personnelQuery.toLowerCase()
-      return base.filter((p) =>
-        p.name.toLowerCase().includes(q) ||
-        // role is null for quick-added people — don't crash the search
-        (!!p.role && p.role.toLowerCase().includes(q)) ||
-        (p.isReko && 'reko'.includes(q)) ||
-        (p.isDriver && ('fahrer'.includes(q) || 'driver'.includes(q))) ||
-        (p.driverVehicleName && p.driverVehicleName.toLowerCase().includes(q)) ||
-        (p.isMagazin && 'magazin'.includes(q)) ||
-        (p.tags && p.tags.some(t => t.toLowerCase().includes(q)))
-      )
+      // Shared matcher (name / rank / tags / special functions incl.
+      // Telefondienst + Kommandoposten) — see lib/resource-status.ts.
+      return base.filter((p) => personMatchesQuery(p, personnelQuery))
     },
     [personnel, personnelQuery, personnelAvailableOnly]
   )

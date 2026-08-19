@@ -61,6 +61,7 @@ import {
   type ApiGroupAssignmentCreate,
   type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
+  type ApiKpFieldMessage,
   type ApiIncidentParticipantsResponse,
   type ApiRekoReportCreate,
   type ApiRekoReportUpdate,
@@ -924,6 +925,18 @@ class ApiClient {
 
   async getIncidentTimeline(id: string): Promise<ApiIncidentTimelineResponse> {
     return this.request<ApiIncidentTimelineResponse>(`/api/incidents/${id}/timeline`)
+  }
+
+  /** «Meldung an den Trupp» — the KP's half of the field message loop (§P3.2). */
+  async sendKpFieldMessage(incidentId: string, message: string): Promise<ApiKpFieldMessage> {
+    return this.request<ApiKpFieldMessage>(`/api/incidents/${incidentId}/field-messages`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
+  }
+
+  async getKpFieldMessages(incidentId: string): Promise<ApiKpFieldMessage[]> {
+    return this.request<ApiKpFieldMessage[]>(`/api/incidents/${incidentId}/field-messages`)
   }
 
   async deleteIncident(id: string): Promise<void> {

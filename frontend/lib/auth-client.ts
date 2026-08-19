@@ -183,6 +183,32 @@ export async function logout(): Promise<void> {
 }
 
 /**
+ * Fetch a short-lived Socket.IO connect token (sweep 27 §P3.4).
+ *
+ * Same-origin on purpose: the request goes through the frontend's own proxy, so
+ * the session cookie rides along — which it never does on the socket itself on
+ * a split-origin deployment (Railway staging, kp.fwo.li → kp-api.fwo.li). The
+ * token goes into the Socket.IO `auth` payload; the backend connect handler
+ * accepts either it or the cookie.
+ *
+ * Returns null when there is no session (viewer/display pages) or on any
+ * error — the socket then connects without a token, exactly as before.
+ */
+export async function fetchWsToken(): Promise<string | null> {
+  try {
+    const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/ws-token`, {
+      credentials: 'include',
+    }, 5000);
+    if (!response.ok) return null;
+    const data: unknown = await response.json();
+    const token = (data as { token?: unknown }).token;
+    return typeof token === 'string' ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Microsoft auth configuration from backend
  */
 export interface MicrosoftAuthConfig {

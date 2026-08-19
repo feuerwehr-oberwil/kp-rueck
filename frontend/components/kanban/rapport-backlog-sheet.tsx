@@ -55,6 +55,9 @@ export function isOpenRapport(operation: Operation): boolean {
     hasBeenDispatched: operation.hasBeenDispatched,
     status: operation.status,
     hasReport: operation.hasSchadenplatzRapportDraft,
+    // «Kein Einsatz nötig» + closed without a rapport ever starting = there
+    // was nothing to report on, whatever the status history claims (§P2.7).
+    rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
   })
 }
 

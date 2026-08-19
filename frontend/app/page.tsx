@@ -14,12 +14,11 @@ import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import Link from "next/link"
-import { Card } from "@/components/ui/card"
 import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight, Loader2 } from 'lucide-react'
+import { Plus, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight, Loader2 } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
@@ -51,6 +50,8 @@ import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
+import { usePersonEngagements } from "@/lib/hooks/use-person-engagements"
+import { useIncidentHighlightListener } from "@/lib/hooks/use-incident-highlight-listener"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
@@ -341,6 +342,9 @@ export default function FireStationDashboard() {
   }, [isLoaded])
 
   const doubleBookedPersons = useDoubleBookedPersons(operations)
+  // Where each person actually is, for the sidebar card's tooltip (§P3.5) —
+  // computed once here, passed down, so the memoized cards stay cheap.
+  const personEngagements = usePersonEngagements()
 
   const { materialGroups } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
@@ -432,6 +436,10 @@ export default function FireStationDashboard() {
     }, 100)
   }, [])
 
+  // Notification rows in the sidebar point at a card (highlight + scroll) while
+  // the sidebar stays open — decoupled via a window event, see notification-highlight.ts.
+  useIncidentHighlightListener(scrollToCard)
+
   // Update operation REKO summary when new report arrives
   const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: RekoSummary) => {
     setOperations(prev => prev.map(op => {
@@ -503,7 +511,6 @@ export default function FireStationDashboard() {
   }, [openIncidentDetail, operations])
 
   useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
-  const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = usePersistedState(LEFT_SIDEBAR_KEY, true, isBoolean)
   const [showRightSidebar, setShowRightSidebar] = usePersistedState(RIGHT_SIDEBAR_KEY, true, isBoolean)
@@ -1011,6 +1018,7 @@ export default function FireStationDashboard() {
       onToggleVehicleStatus: () => setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles'),
       onTogglePrint: () => setActiveFooterSheet(prev => prev === 'print' ? null : 'print'),
       onToggleLinks: () => setActiveFooterSheet(prev => prev === 'links' ? null : 'links'),
+      onToggleRapporte: () => setActiveFooterSheet(prev => prev === 'rapporte' ? null : 'rapporte'),
       onToggleAuftraege: () => setActiveFooterSheet(prev => {
         if (prev === 'auftraege') return null
         setAuftraegeFocusGroupId(null)
@@ -1241,15 +1249,16 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        // Vehicle, Aufträge, Drucken and Links footers are non-modal on
-        // desktop: keep their toggle keys (F / A / D / T) able to close them
-        // again. Every other shortcut still stops at an open sheet — it is only
-        // the key that opened this one that stays live.
+        // Vehicle, Aufträge, Drucken, Links and Rapporte footers are non-modal
+        // on desktop: keep their toggle keys (F / A / D / T / O) able to close
+        // them again. Every other shortcut still stops at an open sheet — it is
+        // only the key that opened this one that stays live.
         (!!activeFooterSheet &&
           activeFooterSheet !== 'vehicles' &&
           activeFooterSheet !== 'auftraege' &&
           activeFooterSheet !== 'print' &&
-          activeFooterSheet !== 'links') ||
+          activeFooterSheet !== 'links' &&
+          activeFooterSheet !== 'rapporte') ||
         deleteDialogOpen,
       hoveredOperationId,
       operations,
@@ -1305,6 +1314,7 @@ export default function FireStationDashboard() {
       onSidePanelMap: () => router.push(selectedOperationId ? `/map?highlight=${selectedOperationId}` : '/map'),
       onTogglePrint: () => setActiveFooterSheet((prev) => (prev === 'print' ? null : 'print')),
       onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
+      onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
       onToggleNotifications: toggleNotificationSidebar,
     },
   )
@@ -1333,7 +1343,6 @@ export default function FireStationDashboard() {
     assignRekoPersonToOperation,
     assignMaterialToOperation,
     assignVehicleToOperation: assignVehicleToIncidentWithConflict,
-    setDraggingItem,
     onOperationDrop: (operationId) => {
       // Auto-select dropped card in side panel
       setSelectedOperationId(operationId)
@@ -1936,6 +1945,7 @@ export default function FireStationDashboard() {
                               person={person}
                               onClick={() => handlePersonClick(person)}
                               assignmentCount={doubleBookedPersons.counts.get(person.name)}
+                              engagement={personEngagements.get(person.name)}
                             />
                           ))}
                         </div>
@@ -2562,41 +2572,6 @@ export default function FireStationDashboard() {
           </>
         )}
       </div>
-
-      {/* Drag Preview Overlay */}
-      {draggingItem && (
-        <div
-          style={{
-            position: 'fixed',
-            pointerEvents: 'none',
-            zIndex: 9999,
-            left: 0,
-            top: 0,
-          }}
-        >
-          {"role" in draggingItem ? (
-            <Card className="cursor-move border border-primary bg-card p-3 shadow-2xl opacity-80">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="font-medium text-sm text-foreground">{draggingItem.name}</span>
-              </div>
-            </Card>
-          ) : "category" in draggingItem ? (
-            <Card className="cursor-move border border-primary bg-card p-3 shadow-2xl opacity-80">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-primary" />
-                <span className="font-medium text-sm text-foreground">{draggingItem.name}</span>
-              </div>
-            </Card>
-          ) : (
-            <Card className="cursor-move border-2 border-primary p-4 shadow-2xl bg-card/90 backdrop-blur opacity-80">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-foreground">{draggingItem.location}</span>
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
 
       <OperationDetailModal
         operation={selectedOperation}

@@ -80,10 +80,13 @@ export interface ApiFeldVehicleLine {
   via_auftrag?: boolean
 }
 
-/** One line of the briefing's material list: a name and how many of it. */
+/** One line of the briefing's material list: a name, how many of it, and the
+ *  depot it lives in (`Material.location`) — the squad has to know where to
+ *  fetch it. Grouped per (name, depot); null when the catalogue names none. */
 export interface ApiFeldMaterialLine {
   name: string
   count: number
+  location?: string | null
 }
 
 /**
@@ -96,8 +99,22 @@ export interface ApiFeldReko {
   summary: string | null
   notes: string | null
   dangers: string[]
+  /** The verdict: `false` = «Kein Einsatz nötig». Feeds the rapport gate — an
+   *  incident the Reko declared irrelevant and the KP closed owes no rapport. */
+  is_relevant?: boolean | null
   submitted_at: string | null
   submitted_by_name: string | null
+}
+
+/** One «Meldung an den Trupp» — KP → field (sweep 27 §P3.2). `author_name` is
+ *  the sender's display name, denormalised server-side: the login-less phone
+ *  never resolves users. */
+export interface ApiFeldKpMessage {
+  id: string
+  incident_id: string
+  message: string
+  author_name: string
+  created_at: string
 }
 
 export interface ApiFeldAssignment {
@@ -107,9 +124,10 @@ export interface ApiFeldAssignment {
   incident_status: string
   /**
    * The briefing (§18.22): the Meldung, the Melder, what the board dispatched
-   * and what the Reko found. Released crew/vehicles/material stay in the lists
-   * for the same reason the row itself survives its own release — completing an
-   * incident releases everything while the crew is still at the address filing.
+   * and what the Reko found. Rows the KP released mid-incident (a corrected
+   * pick, a resource moved on) are filtered out server-side; only the
+   * completion cascade's releases stay — completing an incident releases
+   * everything while the crew is still at the address filing.
    */
   description: string | null
   contact: string | null
@@ -149,6 +167,17 @@ export interface ApiFeldAssignment {
   pickup_needed: boolean
   pickup_note: string | null
   pickup_requested_at: string | null
+  /** Acks, derived from real KP actions (sweep 27 §P3.1). While the request is
+   *  open: `pickup_seen` = the KP dismissed the warning bell, `pickup_vehicle`
+   *  = a vehicle was dispatched here AFTER the request («Mowa disponiert»).
+   *  Once the KP clears the flag, `pickup_resolved_at` carries the moment —
+   *  the request must not just silently vanish from the crew's phone. */
+  pickup_seen?: boolean
+  pickup_vehicle?: string | null
+  pickup_resolved_at?: string | null
+  /** «Meldungen vom KP» (§P3.2), oldest first — the board's messages to this
+   *  squad, riding the polled payload like everything else the phone reads. */
+  kp_messages?: ApiFeldKpMessage[]
   /** The EL of THIS incident. Both null = "kein EL erfasst", never a blank line. */
   leader_personnel_id: string | null
   leader_name: string | null

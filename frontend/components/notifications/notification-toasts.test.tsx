@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   navigateToIncident: vi.fn(),
   dismissNotification: vi.fn(),
   notifications: [] as Notification[],
+  operations: [] as Array<{ id: string; status: string; assignedReko?: { id: string; name: string } | null }>,
   canNavigateToIncident: true,
 }))
 
@@ -55,6 +56,10 @@ vi.mock("@/lib/contexts/notification-context", () => ({
   }),
 }))
 
+vi.mock("@/lib/contexts/operations-context", () => ({
+  useOperations: () => ({ operations: mocks.operations }),
+}))
+
 import { NotificationToasts } from "./notification-toasts"
 
 const fieldMessage = (overrides: Partial<Notification> = {}): Notification => ({
@@ -84,6 +89,9 @@ describe("NotificationToasts", () => {
   beforeEach(() => {
     mocks.toastCalls.length = 0
     mocks.canNavigateToIncident = true
+    mocks.operations = []
+    mocks.dismissNotification.mockClear()
+    mocks.dismiss.mockClear()
     // Node 26 ships no localStorage unless started with --localstorage-file, and
     // the component remembers which toasts it already showed in there. A fresh
     // in-memory store per test keeps one test's toast from silencing the next.
@@ -117,5 +125,34 @@ describe("NotificationToasts", () => {
   it("leaves the message as plain text when no page is listening for the navigation", () => {
     mocks.canNavigateToIncident = false
     expect(typeof toastDescription(fieldMessage())).toBe("string")
+  })
+
+  it("silences a new-emergency notification once the board has overtaken it", () => {
+    const notification = fieldMessage({ type: "field_report" })
+    mocks.notifications = [notification]
+    mocks.operations = [{ id: "incident-1", status: "enroute" }]
+
+    render(
+      <NextIntlClientProvider locale="de" messages={de}>
+        <NotificationToasts />
+      </NextIntlClientProvider>,
+    )
+
+    expect(mocks.dismissNotification).toHaveBeenCalledWith(notification.id)
+    expect(mocks.dismiss).toHaveBeenCalledWith(notification.id)
+  })
+
+  it("leaves a new-emergency notification alone while its incident still waits", () => {
+    const notification = fieldMessage({ type: "field_report" })
+    mocks.notifications = [notification]
+    mocks.operations = [{ id: "incident-1", status: "incoming" }]
+
+    render(
+      <NextIntlClientProvider locale="de" messages={de}>
+        <NotificationToasts />
+      </NextIntlClientProvider>,
+    )
+
+    expect(mocks.dismissNotification).not.toHaveBeenCalled()
   })
 })

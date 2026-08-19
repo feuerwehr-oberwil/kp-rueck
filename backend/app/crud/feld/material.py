@@ -20,7 +20,7 @@ from ...models import (
     SchadenplatzReport,
 )
 from ...schemas.feld import RapportMaterialDecision
-from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies
+from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies, reko_not_relevant_ids
 from .rapport import (
     _board_material_units,
     _is_answered,
@@ -73,10 +73,18 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
     # has to count the same population on both sides of the "von", or the
     # sentence quietly lies about how much is left.
     dispatched = await dispatched_incident_ids(db, incidents)
+    # …and neither does one the Reko declared irrelevant and the KP closed
+    # without work (§P2.7) — same rule as every other rapport surface.
+    not_relevant = await reko_not_relevant_ids(db, [incident.id for incident in incidents])
     rapport_relevant = {
         incident.id
         for incident in incidents
-        if rapport_applies(dispatched=incident.id in dispatched, has_report=incident.id in reports)
+        if rapport_applies(
+            dispatched=incident.id in dispatched,
+            has_report=incident.id in reports,
+            reko_not_relevant=incident.id in not_relevant,
+            status=incident.status,
+        )
     }
 
     # Every material assignment in the event that is STILL open, in one query.

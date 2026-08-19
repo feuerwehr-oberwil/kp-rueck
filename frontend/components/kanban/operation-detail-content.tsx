@@ -9,10 +9,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Waypoints, type LucideIcon } from 'lucide-react'
+import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -64,15 +63,15 @@ import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import type { Incident } from "@/lib/types/incidents"
 
-/** Whether the provenance toggle applies to this card at all.
+/** Whether the provenance toggles apply to this card at all.
  *
- *  Only "operator" and "intake" are an editor's to claim. A card carrying
- *  "divera" or a webhook slug came from a delivering system; offering a switch
- *  that would relabel it as a phone call — and be refused with a 422 — is worse
- *  than not offering one. A locally-created card has no `source` yet and is the
- *  operator case. */
+ *  Only "operator", "intake" and "feld" are an editor's to claim ("Telefonisch
+ *  gemeldet" / "Vom Feld gemeldet"). A card carrying "divera" or a webhook slug
+ *  came from a delivering system; offering a switch that would relabel it as a
+ *  phone call — and be refused with a 422 — is worse than not offering one. A
+ *  locally-created card has no `source` yet and is the operator case. */
 function isEditorClaimedSource(source: string | undefined): boolean {
-  return !source || source === 'operator' || source === 'intake'
+  return !source || source === 'operator' || source === 'intake' || source === 'feld'
 }
 
 /**
@@ -159,6 +158,9 @@ export interface OperationDetailContentProps {
   onUpdate: (updates: Partial<Operation>) => void
   onDelete?: (operationId: string) => void
   materials: Material[]
+  /** Accepted for caller compatibility but no longer read: assigning a vehicle
+   *  goes through the full assignment dialog (`onAssignResource('vehicles')`),
+   *  not an inline picker. */
   onAssignVehicle?: (vehicleId: string, vehicleName: string, operationId: string) => void
   onRemoveVehicle?: (operationId: string, vehicleName: string) => void
   onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
@@ -184,7 +186,6 @@ export function OperationDetailContent({
   onUpdate,
   onDelete,
   materials,
-  onAssignVehicle,
   onRemoveVehicle,
   onAssignResource,
   onRemoveCrew,
@@ -280,7 +281,6 @@ export function OperationDetailContent({
   )
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, active)
-  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
@@ -322,7 +322,6 @@ export function OperationDetailContent({
     const loadVehicles = async () => {
       if (!active || !selectedEvent || !canEdit) return
 
-      setIsLoadingVehicles(true)
       try {
         const vehicles = await apiClient.getVehicles()
         const sorted = [...vehicles].sort((a, b) => a.display_order - b.display_order)
@@ -332,8 +331,6 @@ export function OperationDetailContent({
         toast.error(t('detail.vehiclesLoadFailed'), {
           description: t('detail.vehiclesLoadFailedDescription'),
         })
-      } finally {
-        setIsLoadingVehicles(false)
       }
     }
 
@@ -973,26 +970,36 @@ export function OperationDetailContent({
             />
           </DetailField>
 
-          {/* The three switches stand together: they are the same kind of
-              statement about the incident (how it came in, who it is for, why
-              it waits), and scattering them between the text fields made the
-              form read as five unrelated things. */}
-          {/* "Telefonisch gemeldet", correctable after the fact (plan 26
-              decision 8): the realistic order is "type it in, then realise it
-              was a phone call". Same place as in the new-emergency modal, and
-              the same sentence — somebody phoned, this is who, this is the
-              number. A card that arrived from a delivering system keeps its own
-              provenance and is not an operator's to relabel. */}
+          {/* The switches stand together: they are the same kind of statement
+              about the incident (how it came in, who it is for, why it waits),
+              and scattering them between the text fields made the form read as
+              five unrelated things. */}
+          {/* "Telefonisch gemeldet" / "Vom Feld gemeldet", correctable after
+              the fact (plan 26 decision 8): the realistic order is "type it in,
+              then realise it was a phone call — or a Trupp's radio message".
+              Same rows as in the new-emergency modal, two switches over ONE
+              source value, so turning one on turns the other off. A card that
+              arrived from a delivering system keeps its own provenance and is
+              not an operator's to relabel. */}
           {isEditorClaimedSource(operation.source) ? (
-            <DetailToggle
-              label={t('common.phoneReported')}
-              description={t('common.phoneReportedDescription')}
-
-              icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
-              checked={operation.source === 'intake'}
-              disabled={!canEdit}
-              onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
-            />
+            <>
+              <DetailToggle
+                label={t('common.phoneReported')}
+                description={t('common.phoneReportedDescription')}
+                icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
+                checked={operation.source === 'intake'}
+                disabled={!canEdit}
+                onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
+              />
+              <DetailToggle
+                label={t('common.feldReported')}
+                description={t('common.feldReportedDescription')}
+                icon={<Axe className="h-3.5 w-3.5 shrink-0" />}
+                checked={operation.source === 'feld'}
+                disabled={!canEdit}
+                onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'feld' : 'operator' })}
+              />
+            </>
           ) : null}
 
           {/* Nachbarhilfe Toggle */}
@@ -1237,104 +1244,25 @@ export function OperationDetailContent({
                     {t('common.vehiclesCount', { count: operation.vehicles.length })}
                   </span>
                 </div>
-                {canEdit && onAssignVehicle && onRemoveVehicle && <div className="flex items-center gap-1">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        className="px-2"
-                        title={t('common.assignVehicle')}
-                        tabIndex={0}
-                      >
-                        <Plus className="size-3.5" />
-                        {t('common.add')}
-                      </Button>
-                    </PopoverTrigger>
-                    {/* Opens to the LEFT of its trigger, and that is the whole point.
-                        The trigger sits in the modal's right-hand resource column; the
-                        modal's X sits above it in the same column. With the default
-                        `side="bottom"` the fleet list is taller than the space beneath
-                        the trigger, so Radix flips it upwards — measured at 1280x720:
-                        panel x 1024..1267 / y 26..362 against an X at x 1166..1198 /
-                        y 71..103. The panel lay straight over the close button, and a
-                        click aimed at it hit a vehicle row and silently assigned that
-                        vehicle: the operator believes they closed the modal and has in
-                        fact changed the incident.
-                        `side="left"` separates the two HORIZONTALLY: the panel's right
-                        edge is `triggerLeft - sideOffset` (1073), the X's left edge is
-                        1166. That clearance does not depend on the panel's height, on
-                        how long the station's fleet is, or on where Radix's collision
-                        limiter shifts the panel vertically — which a `collisionPadding`
-                        reserve or an explicit offset would all depend on. There is
-                        ~1080px to the left of the trigger and the panel is 256px wide,
-                        so it also never flips back to the right. Nothing shrinks: the
-                        list keeps its max-h-64 and Radix just shifts it to fit.
-                        It cannot merely move the collision onto the other resource
-                        buttons either — those all sit at x >= 1100, to the RIGHT of
-                        the panel. */}
-                    <PopoverContent className="w-64 p-2" side="left" align="start">
-                      <div className="space-y-1">
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                          {t('common.assignVehicle')}
-                        </div>
-                        <button
-                          onClick={() => {
-                            onUpdate({ zuFuss: !operation.zuFuss })
-                          }}
-                          className={cn(
-                            "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors",
-                            operation.zuFuss ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                          )}
-                        >
-                          <Footprints className="h-4 w-4 shrink-0" />
-                           <div className="text-left flex-1">
-                             <div className="font-medium">{t('common.zuFuss')}</div>
-                             <div className="text-xs text-muted-foreground">{t('detail.ohneFahrzeug')}</div>
-                           </div>
-                         </button>
-                        <div className="border-t border-border my-1" />
-                        {/* The fleet scrolls; the header and "Zu Fuss" stay pinned. A station's
-                            vehicle list only grows, and an unbounded column made Radix flip the
-                            whole popper off the top of the screen. max-h-64 ≈ 5 rows — dense
-                            enough for a desktop board, tall enough to show there is more. */}
-                        <div className="max-h-64 space-y-1 overflow-y-auto overscroll-contain">
-                        {isLoadingVehicles ? (
-                          <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                            {t('detail.loadingVehicles')}
-                          </div>
-                        ) : (
-                           availableVehicles.map((vehicle) => {
-                              const isAssigned = operation.vehicles.includes(vehicle.name)
-                              return (
-                                <button
-                                  key={vehicle.id}
-                                  onClick={() => {
-                                    if (isAssigned) {
-                                       onRemoveVehicle?.(operation.id, vehicle.name)
-                                    } else {
-                                       onAssignVehicle?.(vehicle.id, vehicle.name, operation.id)
-                                    }
-                                  }}
-                                  className={cn(
-                                    "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors",
-                                    isAssigned ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                                  )}
-                                >
-                                  <Truck className={cn("h-4 w-4 shrink-0", isAssigned ? "text-primary" : "text-muted-foreground")} />
-                                   <div className="text-left flex-1">
-                                     <div className="font-medium">{vehicle.name}</div>
-                                     <div className="text-xs text-muted-foreground">{vehicle.type}</div>
-                                   </div>
-                                 </button>
-                              )
-                            })
-                        )}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>}
+                {/* Opens the full assignment dialog, same as Mannschaft and
+                    Material. This used to be an inline dropdown of the fleet —
+                    a second, poorer vehicle picker without the driver info,
+                    «Zu Fuss» and the free/spoken-for split the dialog carries
+                    (and its popover kept colliding with the modal's close
+                    button). One picker, one behaviour. */}
+                {canEdit && onAssignResource && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => onAssignResource('vehicles', operation.id)}
+                    className="px-2"
+                    title={t('common.assignVehicle')}
+                    tabIndex={0}
+                  >
+                    <Plus className="size-3.5" />
+                    {t('common.add')}
+                  </Button>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {operation.zuFuss && (
@@ -1651,6 +1579,7 @@ export function OperationDetailContent({
                 isLoading={timeline.isLoading}
                 failed={timeline.failed}
                 onRetry={timeline.reload}
+                canEdit={canEdit}
               />
 
               {/* «Material zurück – freigeben» — the KP's own to-do, and it
@@ -1700,6 +1629,8 @@ export function OperationDetailContent({
                 hasBeenDispatched: operation.hasBeenDispatched,
                 status: operation.status,
                 hasReport: operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft,
+                // «Kein Einsatz nötig» + closed = no rapport is due (§P2.7).
+                rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
               })}
             />
             </div>

@@ -15,9 +15,12 @@ from app.services.training_simulation_data import (
     _NICE_LITER,
     _NICE_M,
     _SUMMARIES,
+    _dispatch_linked_summary,
     _get_elementar_subcategory,
+    _oil_action,
     _reconcile_with_summary,
     _resolve_summary_pool,
+    _water_action,
     classify_material_bucket,
     derive_scenario,
     generate_rapport_data,
@@ -573,16 +576,15 @@ class TestRapportGeneration:
             assert "damage_type" not in data
             assert "damage_type_other" not in data
 
-    def test_the_vehicle_checklist_is_answered_and_mostly_confirmed(self):
-        """Prefilled ticked, so the only thing a crew adds is the rare No."""
-        unticked = 0
-        for seed in range(300):
+    def test_the_vehicle_checklist_is_answered_and_confirmed_as_ticked(self):
+        """Prefilled ticked and left ticked — real crews practically never untick
+        a vehicle (testing feedback 2026-08-19), so the default profile keeps
+        every box confirmed. The untick drill stays available by raising
+        ``vehicle_absent`` deliberately."""
+        for seed in range(100):
             rows = self._generate(seed)["vehicles"]
             assert {row["vehicle_id"] for row in rows} == {unit["vehicle_id"] for unit in self.VEHICLES}
-            unticked += sum(1 for row in rows if row["present"] is False)
-        # 10 % per vehicle over 600 rows — often enough to train on, rare enough
-        # that it stays a signal.
-        assert 20 < unticked < 110
+            assert all(row["present"] is True for row in rows)
 
     def test_extra_material_is_a_list_and_sometimes_stays_on_site(self):
         """§18.35 — an exercise that never leaves a borrowed pump behind never
@@ -629,3 +631,41 @@ class TestRapportGeneration:
             data = self._generate(seed)
             assert data["is_draft"] is False
             assert data["kurzbericht"]
+
+
+class TestDispatchLinkedSummaryActions:
+    """The Massnahme follows the figure the crew FINDS, not the one reported.
+
+    Testing feedback 2026-08-19: «Gemeldet 50cm, vor Ort nur ~30cm. Bewohner hat
+    übertrieben, Kontrolle genügt.» was operationally wrong — 30cm of standing
+    water means pumping, whatever the caller said. The action text is now a
+    function of the corrected figure.
+    """
+
+    def test_water_action_scales_with_depth(self):
+        assert _water_action(3) == "Nasssauger genügt."
+        assert _water_action(5) == "Nasssauger genügt."
+        assert _water_action(20) == "Eine Tauchpumpe genügt."
+        assert _water_action(30) == "Eine Tauchpumpe genügt."
+        assert "Mehrere Pumpen" in _water_action(50)
+
+    def test_oil_action_scales_with_volume(self):
+        assert "Bindemittel genügt" in _oil_action(10)
+        assert "Entsorgung" in _oil_action(80)
+        assert "Fachberater" in _oil_action(200)
+
+    def test_standing_water_never_ends_in_kontrolle_genuegt(self):
+        """Over many rolls, a reported 50cm scene must always name a wet
+        Massnahme — never a mere control — and a corrected figure keeps the
+        Massnahme consistent with the corrected depth."""
+        for _ in range(300):
+            text = _dispatch_linked_summary("elementar_water", "Keller unter Wasser, ca. 50cm.")
+            assert text is not None
+            assert "Kontrolle genügt" not in text
+            assert any(word in text.lower() for word in ("pumpe", "pumpen", "nasssauger"))
+            match = re.search(r"~(\d+)cm", text)
+            if match and int(match.group(1)) > 30:
+                assert "Mehrere Pumpen" in text
+
+    def test_no_figure_in_dispatch_falls_back_to_pool(self):
+        assert _dispatch_linked_summary("elementar_water", "Keller unter Wasser.") is None

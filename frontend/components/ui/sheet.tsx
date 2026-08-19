@@ -6,6 +6,7 @@ import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
+import { OVERLAY_CLASS } from '@/components/ui/overlay'
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -56,7 +57,8 @@ function SheetOverlay({
       <div
         data-slot="sheet-overlay"
         className={cn(
-          'fixed inset-0 bg-black/50',
+          'fixed inset-0',
+          OVERLAY_CLASS,
           elevated ? 'z-[70]' : 'z-50',
           className,
         )}
@@ -79,7 +81,8 @@ function SheetOverlay({
         // NO exit animation — see the note in dialog.tsx. Measured on a closed
         // mobile sheet: overlay `closed`, the full 375x667 viewport, inline and
         // computed `pointer-events: auto`, still mounted 300ms after dismissal.
-        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 bg-black/50',
+        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0',
+        OVERLAY_CLASS,
         elevated ? 'z-[70]' : 'z-50',
         className,
       )}

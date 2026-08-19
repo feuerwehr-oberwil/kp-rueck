@@ -38,9 +38,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import and_, select
+from sqlalchemy import func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
+    AuditLog,
     EventAttendance,
     EventSpecialFunction,
     Incident,
@@ -48,12 +50,13 @@ from ...models import (
     IncidentGroup,
     IncidentGroupAssignment,
     Material,
+    Notification,
     Personnel,
     RekoReport,
     SchadenplatzReport,
     Vehicle,
 )
-from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies
+from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies, reko_not_relevant_ids
 from ...services.incident_leader import effective_leader_id
 from .reports import is_automation_user
 
@@ -554,11 +557,18 @@ async def get_feld_personnel_for_event(
 
     # A Schadenplatz nobody was ever sent to owes no rapport, so it must not
     # show up in the badge that tells somebody how much work is waiting for them.
+    # Nor does one the Reko declared irrelevant and the KP closed (§P2.7).
     dispatched = await dispatched_incident_ids(db, list(incidents.values()))
+    not_relevant = await reko_not_relevant_ids(db, incident_ids)
     owes_rapport = {
         incident_id
         for incident_id in incident_ids
-        if rapport_applies(dispatched=incident_id in dispatched, has_report=incident_id in reports)
+        if rapport_applies(
+            dispatched=incident_id in dispatched,
+            has_report=incident_id in reports,
+            reko_not_relevant=incident_id in not_relevant,
+            status=incidents[incident_id].status,
+        )
         and incident_id not in submitted
     }
 
@@ -597,9 +607,20 @@ async def _briefings(
     list, not four per row: a storm night is forty Schadenplätze and this
     response is refetched on every window focus.
 
-    Released rows are included, deliberately — see ``FeldAssignment``. The unit
-    of a material line is its NAME: two identical pumps are "Tauchpumpe ×2",
-    because a crew reads a slip, not an assignment table.
+    **Released rows are filtered — with one exception.** A row the KP
+    unassigned mid-incident is a correction (the wrong vehicle picked and fixed
+    a second later) or a resource moved elsewhere, and showing it told a crew
+    the TLF was theirs when only the Pio ever drove. The exception is the
+    completion cascade: completing an incident auto-releases everything while
+    the crew is physically still at the address filing, so rows whose release
+    stamp is at/after ``completed_at`` stay on the briefing. Material has no
+    completion cascade (it stays assigned, possibly left on site), so a
+    released material row always means "returned" and is always dropped.
+
+    The unit of a material line is its NAME per depot: two identical pumps
+    from one shelf are one line with a count, because a crew reads a slip, not
+    an assignment table — and the line carries WHERE the unit lives
+    (``Material.location``), because the squad has to know where to fetch it.
 
     **Route-level resources count as this stop's.** An Auftrag owns its
     resources and shares them across every stop, so a squad the KP put on the
@@ -627,6 +648,25 @@ async def _briefings(
             )
         ).all()
     )
+    # When each incident completed — the anchor for telling a completion-cascade
+    # release apart from a mid-incident correction (see the docstring).
+    # `completed_at` is stamped BEFORE the cascade runs (`crud/incidents.py`),
+    # so every row it releases carries a stamp >= this one.
+    completed_rows = await db.execute(
+        select(Incident.id, Incident.completed_at).where(
+            Incident.id.in_(incident_ids), Incident.completed_at.is_not(None)
+        )
+    )
+    completed_at_of: dict[uuid.UUID, Any] = dict(completed_rows.all())
+
+    def still_on_briefing(incident_id: uuid.UUID, unassigned_at: Any) -> bool:
+        """An active row, or one the completion cascade released — never a
+        mid-incident correction."""
+        if unassigned_at is None:
+            return True
+        completed_at = completed_at_of.get(incident_id)
+        return completed_at is not None and unassigned_at >= completed_at
+
     # Who drives what, for this Ereignis. One query for the whole fleet: the
     # driver is set per event (`EventSpecialFunction`), not per Schadenplatz.
     driver_rows = await db.execute(
@@ -710,7 +750,7 @@ async def _briefings(
             )
 
     crew_result = await db.execute(
-        select(IncidentAssignment.incident_id, Personnel.id, Personnel.name)
+        select(IncidentAssignment.incident_id, Personnel.id, Personnel.name, IncidentAssignment.unassigned_at)
         .join(Personnel, Personnel.id == IncidentAssignment.resource_id)
         .where(
             IncidentAssignment.incident_id.in_(incident_ids),
@@ -726,7 +766,9 @@ async def _briefings(
         briefings[incident_id]["vehicles"].extend(shared["vehicles"])
 
     seen_crew: set[tuple[uuid.UUID, uuid.UUID]] = set()
-    for incident_id, personnel_id, name in crew_result.all():
+    for incident_id, personnel_id, name, unassigned_at in crew_result.all():
+        if not still_on_briefing(incident_id, unassigned_at):
+            continue
         # One person can hold several rows on one incident (assigned, released,
         # re-assigned) and is still one person on the slip.
         if (incident_id, personnel_id) in seen_crew:
@@ -738,7 +780,13 @@ async def _briefings(
             briefings[incident_id]["crew"].append(name)
 
     vehicle_result = await db.execute(
-        select(IncidentAssignment.incident_id, Vehicle.id, Vehicle.name, IncidentAssignment.driver_stay)
+        select(
+            IncidentAssignment.incident_id,
+            Vehicle.id,
+            Vehicle.name,
+            IncidentAssignment.driver_stay,
+            IncidentAssignment.unassigned_at,
+        )
         .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
         .where(
             IncidentAssignment.incident_id.in_(incident_ids),
@@ -747,7 +795,9 @@ async def _briefings(
         .order_by(Vehicle.display_order, Vehicle.name)
     )
     seen_vehicles: set[tuple[uuid.UUID, uuid.UUID]] = set()
-    for incident_id, vehicle_id, name, driver_stay in vehicle_result.all():
+    for incident_id, vehicle_id, name, driver_stay, unassigned_at in vehicle_result.all():
+        if not still_on_briefing(incident_id, unassigned_at):
+            continue
         if (incident_id, vehicle_id) in seen_vehicles:
             continue
         seen_vehicles.add((incident_id, vehicle_id))
@@ -764,27 +814,35 @@ async def _briefings(
                 }
             )
 
+    # Material: active rows only — a released material row means «zurück im
+    # Magazin», never a completion cascade (materials are excluded from it).
     material_result = await db.execute(
-        select(IncidentAssignment.incident_id, Material.name)
+        select(IncidentAssignment.incident_id, Material.name, Material.location)
         .join(Material, Material.id == IncidentAssignment.resource_id)
         .where(
             IncidentAssignment.incident_id.in_(incident_ids),
             IncidentAssignment.resource_type == "material",
+            IncidentAssignment.unassigned_at.is_(None),
         )
         .order_by(Material.location_sort_order, Material.location, Material.name)
     )
-    material_pairs = [(incident_id, name) for incident_id, name in material_result.all()]
+    material_units = [(incident_id, name, location) for incident_id, name, location in material_result.all()]
     for incident_id, group_id in group_of.items():
         for name in route.get(group_id, {}).get("materials", []):
-            material_pairs.append((incident_id, name))
-    for incident_id, name in material_pairs:
+            # Route-level material carries no location join — the name-keyed
+            # line below simply stays location-less for it.
+            material_units.append((incident_id, name, None))
+    for incident_id, name, location in material_units:
         lines: list[dict[str, Any]] = briefings[incident_id]["materials"]
+        # One line per (name, depot): identical units from one shelf are one
+        # line with a count, units living in different depots stay apart —
+        # «wo holen?» is the question the line exists to answer.
         for line in lines:
-            if line["name"] == name:
+            if line["name"] == name and line.get("location") == (location or None):
                 line["count"] += 1
                 break
         else:
-            lines.append({"name": name, "count": 1})
+            lines.append({"name": name, "count": 1, "location": location or None})
 
     return briefings
 
@@ -826,10 +884,91 @@ async def _reko_briefings(
             "summary": report.summary_text or None,
             "notes": report.additional_notes or None,
             "dangers": [key for key in _DANGER_KEYS if dangers_raw.get(key)],
+            # «Kein Einsatz nötig» feeds the rapport gate: an incident the Reko
+            # declared irrelevant and the KP closed owes nobody a Rapport.
+            "is_relevant": report.is_relevant,
             "submitted_at": report.submitted_at,
             "submitted_by_name": personnel_name,
         }
     return briefings
+
+
+async def _pickup_acks(
+    db: AsyncSession,
+    incidents: dict[uuid.UUID, Incident],
+) -> dict[uuid.UUID, dict[str, Any]]:
+    """What the KP actually DID about each Abholung — derived, never claimed (§P3.1).
+
+    Three signals, all read off state real KP actions already write, so no
+    operator ever clicks an "acknowledge" button:
+
+    * ``pickup_seen`` — the `field_pickup` warning bell for the OPEN request was
+      dismissed. Dismissing a warning is the KP saying "gesehen".
+    * ``pickup_vehicle`` — a vehicle was put on this Schadenplatz AFTER the
+      request. That is what dispatching a pickup looks like on the board, and
+      «Mowa disponiert» is the sentence a waiting crew is actually after.
+    * ``pickup_resolved_at`` — the KP cleared the flag, which its own UI words
+      as «Abholung disponiert». Without this the request just vanished from the
+      crew's phone. Read off the audit log (`field_pickup_cleared`, source
+      `kp`) because clearing wipes the request columns; a crew's own «Wir
+      fahren selbst» carries source `feld` and is deliberately no ack.
+    """
+    acks: dict[uuid.UUID, dict[str, Any]] = {}
+    open_requests = {
+        incident_id: incident.pickup_requested_at
+        for incident_id, incident in incidents.items()
+        if incident.pickup_needed and incident.pickup_requested_at is not None
+    }
+    if open_requests:
+        dismissed = await db.execute(
+            select(Notification.incident_id, Notification.created_at).where(
+                Notification.incident_id.in_(list(open_requests)),
+                Notification.type == "field_pickup",
+                Notification.dismissed.is_(True),
+            )
+        )
+        for incident_id, created_at in dismissed.all():
+            requested_at = open_requests.get(incident_id)
+            # Only a dismissal of THIS request counts; an older pickup's bell
+            # says nothing about the one the crew is waiting on now.
+            if incident_id is None or requested_at is None or created_at < requested_at:
+                continue
+            acks.setdefault(incident_id, {})["pickup_seen"] = True
+
+        vehicles = await db.execute(
+            select(IncidentAssignment.incident_id, IncidentAssignment.assigned_at, Vehicle.name)
+            .join(Vehicle, Vehicle.id == IncidentAssignment.resource_id)
+            .where(
+                IncidentAssignment.incident_id.in_(list(open_requests)),
+                IncidentAssignment.resource_type == "vehicle",
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+            .order_by(IncidentAssignment.assigned_at)
+        )
+        for incident_id, assigned_at, name in vehicles.all():
+            requested_at = open_requests.get(incident_id)
+            if requested_at is None or assigned_at < requested_at:
+                continue
+            # Earliest dispatched-after-the-request vehicle wins (ordered query).
+            acks.setdefault(incident_id, {}).setdefault("pickup_vehicle", name)
+
+    cleared_candidates = [incident_id for incident_id, incident in incidents.items() if not incident.pickup_needed]
+    if cleared_candidates:
+        cleared = await db.execute(
+            select(AuditLog.resource_id, sa_func.max(AuditLog.timestamp))
+            .where(
+                AuditLog.resource_type == "incident",
+                AuditLog.resource_id.in_(cleared_candidates),
+                AuditLog.action_type == "field_pickup_cleared",
+                AuditLog.changes_json["source"].astext == "kp",
+            )
+            .group_by(AuditLog.resource_id)
+        )
+        for incident_id, at in cleared.all():
+            if incident_id is None:
+                continue
+            acks.setdefault(incident_id, {})["pickup_resolved_at"] = at
+    return acks
 
 
 async def get_feld_assignments_for_personnel(
@@ -875,6 +1014,13 @@ async def get_feld_assignments_for_personnel(
     group_names = {row[0]: row[1] for row in group_rows.all()}
     briefings = await _briefings(db, event_id, mine_ids)
     rekos = await _reko_briefings(db, mine_ids)
+    # The KP's side of the loop (sweep 27 §P3): what it did about an Abholung,
+    # and what it sent the squad. Lazy import — `crud.incidents` imports this
+    # package, and `crud.kp_messages` sits next to it.
+    from .. import kp_messages as kp_messages_crud
+
+    pickup_acks = await _pickup_acks(db, {incident_id: incidents[incident_id] for incident_id in mine_ids})
+    kp_messages = await kp_messages_crud.messages_for_incidents(db, mine_ids)
 
     rows: list[dict[str, Any]] = []
     for incident_id, is_active in mine.items():
@@ -883,6 +1029,7 @@ async def get_feld_assignments_for_personnel(
         leader = leaders.get(incident_id)
         briefing = briefings.get(incident_id, {})
         source = mine_sources[incident_id]
+        acks = pickup_acks.get(incident_id, {})
         rows.append(
             {
                 "incident_id": incident.id,
@@ -923,6 +1070,12 @@ async def get_feld_assignments_for_personnel(
                 "pickup_needed": incident.pickup_needed,
                 "pickup_note": incident.pickup_note,
                 "pickup_requested_at": incident.pickup_requested_at,
+                # Acks derived from real KP actions (§P3.1) — see `_pickup_acks`.
+                "pickup_seen": acks.get("pickup_seen", False),
+                "pickup_vehicle": acks.get("pickup_vehicle"),
+                "pickup_resolved_at": acks.get("pickup_resolved_at"),
+                # «Meldungen vom KP» (§P3.2), oldest first — thread order.
+                "kp_messages": kp_messages.get(incident_id, []),
                 "leader_personnel_id": leader[0] if leader else None,
                 "leader_name": leader[1] if leader else None,
                 "group_id": incident.group_id,
@@ -935,7 +1088,12 @@ async def get_feld_assignments_for_personnel(
                 # `source.owes_rapport` is guarding (decision 11).
                 "_owes_rapport": source.owes_rapport
                 and _rapport_state(report) != "submitted"
-                and rapport_applies(dispatched=incident_id in dispatched, has_report=report is not None),
+                and rapport_applies(
+                    dispatched=incident_id in dispatched,
+                    has_report=report is not None,
+                    reko_not_relevant=bool((reko := rekos.get(incident_id)) and reko.get("is_relevant") is False),
+                    status=incident.status,
+                ),
                 "_position": incident.position,
                 "_created_at": incident.created_at,
             }

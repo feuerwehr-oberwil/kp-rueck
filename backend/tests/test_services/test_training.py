@@ -999,3 +999,37 @@ class TestAttachTrainingPhotos:
             uuid.uuid4(), "brandbekaempfung", current_photos=["existing.jpg"], pool_dir=pool_dir
         )
         assert filenames == []  # limit reached -> save_photo refuses, we degrade
+
+
+class TestPickLocation:
+    """Repeat-location avoidance (testing sweep 2026-08-19 P1.4).
+
+    Preference order: never used in this event → not currently active → whole
+    pool. Two open alarms must never share an address while a fresh one exists.
+    """
+
+    @staticmethod
+    def _loc(street: str) -> TrainingLocation:
+        return TrainingLocation(street=street, house_number="1", postal_code="4104", city="Oberwil")
+
+    def test_prefers_addresses_the_event_has_never_seen(self):
+        locations = [self._loc("A"), self._loc("B"), self._loc("C")]
+        active = {locations[0].get_full_address()}
+        used = {locations[0].get_full_address(), locations[1].get_full_address()}
+        for _ in range(50):
+            picked = TrainingGenerator._pick_location(locations, active, used)
+            assert picked.street == "C"
+
+    def test_falls_back_to_inactive_when_all_were_used(self):
+        locations = [self._loc("A"), self._loc("B")]
+        used = {loc.get_full_address() for loc in locations}
+        active = {locations[0].get_full_address()}
+        for _ in range(50):
+            picked = TrainingGenerator._pick_location(locations, active, used)
+            assert picked.street == "B"
+
+    def test_full_pool_only_when_everything_is_active(self):
+        locations = [self._loc("A"), self._loc("B")]
+        everything = {loc.get_full_address() for loc in locations}
+        picked = TrainingGenerator._pick_location(locations, everything, everything)
+        assert picked in locations
