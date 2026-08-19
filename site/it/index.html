@@ -66,6 +66,8 @@
   ]
 }
 </script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -132,7 +134,10 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">TAVOLO · MALTEMPO · 17 INTERVENTI ATTIVI</span>
       </div>
-      <img src="../shots/board.jpg" alt="Tavolo operativo: colonne dall’arrivo alla chiusura, in mezzo le schede degli interventi, a sinistra il personale, a destra il materiale" width="1500" height="937">
+      <img src="../shots/board.webp"
+           srcset="../shots/board-992.webp 992w, ../shots/board.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Tavolo operativo: colonne dall’arrivo alla chiusura, in mezzo le schede degli interventi, a sinistra il personale, a destra il materiale" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -262,63 +267,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/display.jpg" alt="Vista proiettore: tutte le fasi dell’intervento affiancate su un solo schermo" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/display.webp" alt="Vista proiettore: tutte le fasi dell’intervento affiancate su un solo schermo" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Vista proiettore</div>
           <div class="cap-s">Per la parete del posto di comando in penombra: tutte le fasi affiancate, senza comandi</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/status.jpg" alt="Vista stato: veicoli, interventi, personale e materiale affiancati, ciascuno con disponibilità e assegnazione" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/status.webp" alt="Vista stato: veicoli, interventi, personale e materiale affiancati, ciascuno con disponibilità e assegnazione" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Stato</div>
           <div class="cap-s">Veicoli, interventi, personale e materiale affiancati – chi è libero, chi è impegnato, chi è dove</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/karte.jpg" alt="Vista mappa: interventi per priorità, posizioni dei veicoli e assegnazioni" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/karte.webp" alt="Vista mappa: interventi per priorità, posizioni dei veicoli e assegnazioni" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Mappa</div>
           <div class="cap-s">Tutti gli interventi per priorità, con le posizioni dei veicoli e le assegnazioni fra i due</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/disposition.jpg" alt="Stato dei veicoli: veicoli con nominativo radio, conducente, destinazione e stato" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/disposition.webp" alt="Stato dei veicoli: veicoli con nominativo radio, conducente, destinazione e stato" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Veicoli</div>
           <div class="cap-s">Nominativo radio, conducente, destinazione e stato di ogni veicolo a colpo d’occhio</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/meldung.jpg" alt="Modulo di segnalazione: indirizzo, segnalazione, priorità, tipo d’intervento e dati di chi segnala" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/meldung.webp" alt="Modulo di segnalazione: indirizzo, segnalazione, priorità, tipo d’intervento e dati di chi segnala" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Modulo di segnalazione</div>
           <div class="cap-s">Raccogliere in modo strutturato le segnalazioni telefoniche e chi si presenta di persona – con un link o un codice QR, senza account</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/reko.jpg" alt="Modulo di ricognizione: intervento, «sono sul posto» e pericoli da spuntare" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/reko.webp" alt="Modulo di ricognizione: intervento, «sono sul posto» e pericoli da spuntare" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Modulo di ricognizione</div>
           <div class="cap-s">Sul telefono privato della ricognizione: annunciarsi sul posto, spuntare i pericoli, allegare foto</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/feld.jpg" alt="Vista campo: il proprio luogo d’intervento con le segnalazioni al posto di comando, la situazione e la squadra" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/feld.webp" alt="Vista campo: il proprio luogo d’intervento con le segnalazioni al posto di comando, la situazione e la squadra" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Campo</div>
           <div class="cap-s">Ogni squadra vede solo i propri luoghi d’intervento – arrivati, da recuperare, intervento concluso, senza radio</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/auftraege.jpg" alt="Incarichi: più interventi raggruppati in un unico itinerario" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/auftraege.webp" alt="Incarichi: più interventi raggruppati in un unico itinerario" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Incarichi</div>
           <div class="cap-s">Più interventi come un solo itinerario – con squadra, mezzi e un ordine che il tavolo ottimizza per distanza</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/training.jpg" alt="Comandi esercitazione: generare interventi singoli o mirati, automatismo e simulazione sul campo" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/training.webp" alt="Comandi esercitazione: generare interventi singoli o mirati, automatismo e simulazione sul campo" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Esercitazione</div>
           <div class="cap-s">Immettere scenari d’esercitazione invece di inventarli – nettamente separati dal caso reale</div>

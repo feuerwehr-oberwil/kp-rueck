@@ -66,6 +66,8 @@
   ]
 }
 </script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -134,7 +136,10 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">BOARD · UNWETTER · 17 EINSÄTZE AKTIV</span>
       </div>
-      <img src="../shots/board.jpg" alt="Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite" width="1500" height="937">
+      <img src="../shots/board.webp"
+           srcset="../shots/board-992.webp 992w, ../shots/board.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -288,63 +293,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/display.jpg" alt="Vue projecteur : toutes les phases d’intervention côte à côte sur un écran" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/display.webp" alt="Vue projecteur : toutes les phases d’intervention côte à côte sur un écran" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Vue projecteur</div>
           <div class="cap-s">Pour le mur du PC dans la pénombre : toutes les phases côte à côte, sans éléments de commande</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/status.jpg" alt="Vue Statut : véhicules, interventions, personnel et matériel côte à côte, chacun avec sa disponibilité et son affectation" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/status.webp" alt="Vue Statut : véhicules, interventions, personnel et matériel côte à côte, chacun avec sa disponibilité et son affectation" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Statut</div>
           <div class="cap-s">Véhicules, interventions, personnel et matériel côte à côte – qui est libre, qui est engagé, qui est où</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/karte.jpg" alt="Vue carte : interventions par priorité, positions des véhicules et affectations" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/karte.webp" alt="Vue carte : interventions par priorité, positions des véhicules et affectations" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Carte</div>
           <div class="cap-s">Toutes les interventions par priorité, avec les positions des véhicules et les affectations entre les deux</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/disposition.jpg" alt="Statut des véhicules : véhicules avec indicatif radio, conducteur, destination et statut" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/disposition.webp" alt="Statut des véhicules : véhicules avec indicatif radio, conducteur, destination et statut" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Véhicules</div>
           <div class="cap-s">Indicatif radio, conducteur, destination et statut de chaque véhicule d’un coup d’œil</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/meldung.jpg" alt="Formulaire d’annonce : adresse, annonce, priorité, type d’intervention et indications sur l’annonceur" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/meldung.webp" alt="Formulaire d’annonce : adresse, annonce, priorité, type d’intervention et indications sur l’annonceur" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Formulaire d’annonce</div>
           <div class="cap-s">Saisir de façon structurée les annonces téléphoniques et les personnes qui se présentent – par lien ou code QR, sans compte</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/reko.jpg" alt="Formulaire de reconnaissance : intervention, «&nbsp;je suis sur place&nbsp;» et dangers à cocher" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/reko.webp" alt="Formulaire de reconnaissance : intervention, «&nbsp;je suis sur place&nbsp;» et dangers à cocher" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Formulaire de reconnaissance</div>
           <div class="cap-s">Sur le téléphone privé de la reconnaissance : s’annoncer sur place, cocher les dangers, joindre des photos</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/feld.jpg" alt="Vue terrain : sa propre place sinistrée avec les annonces au PC, la situation et l’effectif" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/feld.webp" alt="Vue terrain : sa propre place sinistrée avec les annonces au PC, la situation et l’effectif" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Terrain</div>
           <div class="cap-s">Chaque groupe ne voit que ses propres places sinistrées – arrivé, récupération, intervention terminée, sans radio</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/auftraege.jpg" alt="Missions : plusieurs interventions regroupées en une tournée" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/auftraege.webp" alt="Missions : plusieurs interventions regroupées en une tournée" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Missions</div>
           <div class="cap-s">Plusieurs interventions comme une seule tournée – avec l’effectif, les moyens et un ordre que le tableau optimise selon la distance</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/training.jpg" alt="Commande d’exercice : générer des interventions isolées ou ciblées, automatisme et simulation de terrain" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/training.webp" alt="Commande d’exercice : générer des interventions isolées ou ciblées, automatisme et simulation de terrain" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Exercice</div>
           <div class="cap-s">Injecter des situations d’exercice au lieu de les inventer – proprement séparées du cas réel</div>

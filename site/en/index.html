@@ -66,6 +66,8 @@
   ]
 }
 </script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -129,7 +131,10 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">BOARD · STORM · 17 INCIDENTS ACTIVE</span>
       </div>
-      <img src="../shots/board.jpg" alt="Incident board: columns from received through to closed, incident cards in between, crews on the left, equipment on the right" width="1500" height="937">
+      <img src="../shots/board.webp"
+           srcset="../shots/board-992.webp 992w, ../shots/board.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Incident board: columns from received through to closed, incident cards in between, crews on the left, equipment on the right" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -259,63 +264,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/display.jpg" alt="Projector view: every incident phase side by side on one screen" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/display.webp" alt="Projector view: every incident phase side by side on one screen" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Projector view</div>
           <div class="cap-s">For the wall in the darkened command post: all phases side by side, without controls</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/status.jpg" alt="Status view: vehicles, incidents, crews and equipment side by side, each with availability and assignment" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/status.webp" alt="Status view: vehicles, incidents, crews and equipment side by side, each with availability and assignment" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Status</div>
           <div class="cap-s">Vehicles, incidents, crews and equipment side by side – who is free, who is committed, who is where</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/karte.jpg" alt="Map view: incidents by priority, vehicle positions and assignments" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/karte.webp" alt="Map view: incidents by priority, vehicle positions and assignments" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Map</div>
           <div class="cap-s">Every incident by priority, plus the vehicle positions and the assignments between them</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/disposition.jpg" alt="Vehicle status: vehicles with call sign, driver, destination and status" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/disposition.webp" alt="Vehicle status: vehicles with call sign, driver, destination and status" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Vehicles</div>
           <div class="cap-s">Call sign, driver, destination and status of every vehicle at a glance</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/meldung.jpg" alt="Reporting form: address, report, priority, incident type and caller details" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/meldung.webp" alt="Reporting form: address, report, priority, incident type and caller details" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Reporting form</div>
           <div class="cap-s">Capture telephone reports and walk-ins in a structured way – by link or QR code, without an account</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/reko.jpg" alt="Recon form: incident, «I am on scene» and hazards to tick" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/reko.webp" alt="Recon form: incident, «I am on scene» and hazards to tick" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Recon form</div>
           <div class="cap-s">On the recon team's own phone: report on scene, tick the hazards, attach photos</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/feld.jpg" alt="Field view: the crew's own site with its reports to the command post, the situation and the crew" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/feld.webp" alt="Field view: the crew's own site with its reports to the command post, the situation and the crew" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Field</div>
           <div class="cap-s">Each crew sees only its own sites – arrived, pick-up needed, incident finished, without the radio</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/auftraege.jpg" alt="Assignments: several incidents bundled into one route" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/auftraege.webp" alt="Assignments: several incidents bundled into one route" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Assignments</div>
           <div class="cap-s">Several incidents as one route – with crew, resources and an order the board optimises by distance</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/training.jpg" alt="Exercise controls: generate single or targeted incidents, automation and field simulation" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/training.webp" alt="Exercise controls: generate single or targeted incidents, automation and field simulation" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Exercise</div>
           <div class="cap-s">Feed in exercise situations instead of inventing them – cleanly separated from the real thing</div>

@@ -29,7 +29,8 @@
     "ctaNote": "Ohne Konto – Rolle wählen und loslegen",
     "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
     "frameAlt": "Einsatzboard: Spalten von Eingegangen bis Beendet, dazwischen Einsatzkarten, links das Personal, rechts das Material",
-    "frameFile": "board.jpg",
+    "frameFile": "board.webp",
+    "frameFileSmall": "board-992.webp",
     "frameW": 1500,
     "frameH": 937
   },
@@ -129,7 +130,7 @@
     "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klick auf\n        «Demo öffnen», und du stehst an demselben Board.",
     "items": [
       {
-        "file": "display.jpg",
+        "file": "display.webp",
         "w": 1500,
         "h": 937,
         "alt": "Beamer-Ansicht: alle Einsatzphasen nebeneinander auf einem Bildschirm",
@@ -137,7 +138,7 @@
         "sub": "Für die Wand im abgedunkelten KP: alle Phasen nebeneinander, ohne Bedienelemente"
       },
       {
-        "file": "status.jpg",
+        "file": "status.webp",
         "w": 1500,
         "h": 937,
         "alt": "Status-Ansicht: Fahrzeuge, Einsätze, Personal und Material nebeneinander, je mit Verfügbarkeit und Zuteilung",
@@ -145,7 +146,7 @@
         "sub": "Fahrzeuge, Einsätze, Personal und Material nebeneinander – wer ist frei, wer ist gebunden, wer ist wo"
       },
       {
-        "file": "karte.jpg",
+        "file": "karte.webp",
         "w": 1500,
         "h": 937,
         "alt": "Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen",
@@ -153,7 +154,7 @@
         "sub": "Alle Einsätze nach Priorität, dazu die Fahrzeugpositionen und die Zuweisungen dazwischen"
       },
       {
-        "file": "disposition.jpg",
+        "file": "disposition.webp",
         "w": 1500,
         "h": 937,
         "alt": "Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status",
@@ -161,7 +162,7 @@
         "sub": "Funkrufname, Fahrer, Ziel und Status jedes Fahrzeugs auf einen Blick"
       },
       {
-        "file": "meldung.jpg",
+        "file": "meldung.webp",
         "w": 900,
         "h": 562,
         "alt": "Meldeformular: Adresse, Meldung, Priorität, Einsatzart und Angaben zum Melder",
@@ -169,7 +170,7 @@
         "sub": "Telefonmeldungen und Laufkundschaft strukturiert erfassen – per Link oder QR-Code, ohne Konto"
       },
       {
-        "file": "reko.jpg",
+        "file": "reko.webp",
         "w": 900,
         "h": 562,
         "alt": "Reko-Formular: Einsatz, «Ich bin vor Ort» und Gefahren zum Ankreuzen",
@@ -177,7 +178,7 @@
         "sub": "Auf dem privaten Handy der Reko: vor Ort melden, Gefahren ankreuzen, Fotos anhängen"
       },
       {
-        "file": "feld.jpg",
+        "file": "feld.webp",
         "w": 900,
         "h": 562,
         "alt": "Feld-Ansicht: der eigene Schadenplatz mit den Meldungen an den KP, der Lage und der Mannschaft",
@@ -185,7 +186,7 @@
         "sub": "Jeder Trupp sieht nur seine eigenen Schadenplätze – angekommen, Abholung, Einsatz beendet, ohne Funk"
       },
       {
-        "file": "auftraege.jpg",
+        "file": "auftraege.webp",
         "w": 1500,
         "h": 937,
         "alt": "Aufträge: mehrere Einsätze zu einer Route gebündelt",
@@ -193,7 +194,7 @@
         "sub": "Mehrere Einsätze als eine Route – mit Mannschaft, Mitteln und einer Reihenfolge, die das Board nach Distanz optimiert"
       },
       {
-        "file": "training.jpg",
+        "file": "training.webp",
         "w": 1500,
         "h": 937,
         "alt": "Übungs-Steuerung: einzelne oder gezielte Einsätze generieren, Automatik und Feld-Simulation",

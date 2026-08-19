@@ -66,6 +66,8 @@
   ]
 }
 </script>
+<link rel="preload" href="fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -131,7 +133,10 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">BOARD · UNWETTER · 17 EINSÄTZE AKTIV</span>
       </div>
-      <img src="shots/board.jpg" alt="Einsatzboard: Spalten von Eingegangen bis Beendet, dazwischen Einsatzkarten, links das Personal, rechts das Material" width="1500" height="937">
+      <img src="shots/board.webp"
+           srcset="shots/board-992.webp 992w, shots/board.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Einsatzboard: Spalten von Eingegangen bis Beendet, dazwischen Einsatzkarten, links das Personal, rechts das Material" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -283,63 +288,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="shots/display.jpg" alt="Beamer-Ansicht: alle Einsatzphasen nebeneinander auf einem Bildschirm" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/display.webp" alt="Beamer-Ansicht: alle Einsatzphasen nebeneinander auf einem Bildschirm" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Beamer-Ansicht</div>
           <div class="cap-s">Für die Wand im abgedunkelten KP: alle Phasen nebeneinander, ohne Bedienelemente</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/status.jpg" alt="Status-Ansicht: Fahrzeuge, Einsätze, Personal und Material nebeneinander, je mit Verfügbarkeit und Zuteilung" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/status.webp" alt="Status-Ansicht: Fahrzeuge, Einsätze, Personal und Material nebeneinander, je mit Verfügbarkeit und Zuteilung" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Status</div>
           <div class="cap-s">Fahrzeuge, Einsätze, Personal und Material nebeneinander – wer ist frei, wer ist gebunden, wer ist wo</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/karte.jpg" alt="Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/karte.webp" alt="Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Karte</div>
           <div class="cap-s">Alle Einsätze nach Priorität, dazu die Fahrzeugpositionen und die Zuweisungen dazwischen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/disposition.jpg" alt="Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/disposition.webp" alt="Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Fahrzeuge</div>
           <div class="cap-s">Funkrufname, Fahrer, Ziel und Status jedes Fahrzeugs auf einen Blick</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/meldung.jpg" alt="Meldeformular: Adresse, Meldung, Priorität, Einsatzart und Angaben zum Melder" width="900" height="562" loading="lazy" decoding="async">
+        <img src="shots/meldung.webp" alt="Meldeformular: Adresse, Meldung, Priorität, Einsatzart und Angaben zum Melder" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Meldeformular</div>
           <div class="cap-s">Telefonmeldungen und Laufkundschaft strukturiert erfassen – per Link oder QR-Code, ohne Konto</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/reko.jpg" alt="Reko-Formular: Einsatz, «Ich bin vor Ort» und Gefahren zum Ankreuzen" width="900" height="562" loading="lazy" decoding="async">
+        <img src="shots/reko.webp" alt="Reko-Formular: Einsatz, «Ich bin vor Ort» und Gefahren zum Ankreuzen" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Reko-Formular</div>
           <div class="cap-s">Auf dem privaten Handy der Reko: vor Ort melden, Gefahren ankreuzen, Fotos anhängen</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/feld.jpg" alt="Feld-Ansicht: der eigene Schadenplatz mit den Meldungen an den KP, der Lage und der Mannschaft" width="900" height="562" loading="lazy" decoding="async">
+        <img src="shots/feld.webp" alt="Feld-Ansicht: der eigene Schadenplatz mit den Meldungen an den KP, der Lage und der Mannschaft" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Feld</div>
           <div class="cap-s">Jeder Trupp sieht nur seine eigenen Schadenplätze – angekommen, Abholung, Einsatz beendet, ohne Funk</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/auftraege.jpg" alt="Aufträge: mehrere Einsätze zu einer Route gebündelt" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/auftraege.webp" alt="Aufträge: mehrere Einsätze zu einer Route gebündelt" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Aufträge</div>
           <div class="cap-s">Mehrere Einsätze als eine Route – mit Mannschaft, Mitteln und einer Reihenfolge, die das Board nach Distanz optimiert</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/training.jpg" alt="Übungs-Steuerung: einzelne oder gezielte Einsätze generieren, Automatik und Feld-Simulation" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="shots/training.webp" alt="Übungs-Steuerung: einzelne oder gezielte Einsätze generieren, Automatik und Feld-Simulation" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Übung</div>
           <div class="cap-s">Übungslagen einspeisen, statt sie zu erfinden – sauber vom Ernstfall getrennt</div>
