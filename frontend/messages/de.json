@@ -3229,7 +3229,12 @@
       "notMeTitle": "Abmelden?",
       "notMeDescription": "Dieses Gerät wird abgemeldet. Wer es als Nächstes benutzt, braucht den Feld-Code.",
       "auftrag": "{name} · {count} Stops",
-      "navigate": "Navigation starten"
+      "navigate": "Navigation starten",
+      "journey": {
+        "approach": "Anfahrt",
+        "onSite": "Vor Ort",
+        "returning": "Rückfahrt"
+      }
     },
     "briefing": {
       "title": "Lage und Ressourcen",

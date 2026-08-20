@@ -338,6 +338,16 @@ function FitBounds({ incidents }: { incidents: Incident[] }) {
   return null
 }
 
+/**
+ * The band a focused incident is readable in — see `PanToSelected`.
+ *
+ * Below 13 a marker sits somewhere in the Baselbiet with no street to read it
+ * against; above 17 the map is one building and the operator loses the
+ * neighbours. Between the two, whatever scale they chose is the right one.
+ */
+const MIN_FOCUS_ZOOM = 13
+const MAX_FOCUS_ZOOM = 17
+
 // Component to pan/zoom to selected incident
 function PanToSelected({ selectedIncidentId, incidents, trigger }: { selectedIncidentId: string | null; incidents: Incident[]; trigger?: number }) {
   const map = useMap()
@@ -354,8 +364,16 @@ function PanToSelected({ selectedIncidentId, incidents, trigger }: { selectedInc
     const incident = incidentsRef.current.find((inc) => inc.id === selectedIncidentId)
     if (!incident || !incident.location_lat || !incident.location_lng) return
 
-    // Pan and zoom to the selected marker (always, even if same ID due to trigger)
-    map.flyTo([incident.location_lat, incident.location_lng], 16, {
+    // Pan to the selected marker, KEEPING the operator's zoom.
+    //
+    // This used to fly to 16 every time, so clicking down a list of incidents
+    // zoomed in, out, in again — the operator set a working scale and every
+    // click threw it away. The zoom is only touched when it is outside the band
+    // where a marker is actually readable: too far out to see which street, or
+    // so far in that the next incident is off-screen.
+    const zoom = map.getZoom()
+    const clamped = Math.min(Math.max(zoom, MIN_FOCUS_ZOOM), MAX_FOCUS_ZOOM)
+    map.flyTo([incident.location_lat, incident.location_lng], clamped, {
       duration: 0.8,
     })
   }, [selectedIncidentId, map, trigger]) // Only trigger on selection or trigger change, not incidents
@@ -1296,6 +1314,12 @@ export default function MapView({
           vehiclePositions={mappedVehiclePositions}
           visible={showAssignmentLines}
           showDistances={showDistances}
+          // Independent of «Routen anzeigen»: that switch draws the route
+          // itself, this one answers where the vehicles are — a route vehicle
+          // should not need a second switch to get the line every other
+          // vehicle has.
+          groups={groups}
+          groupResourcesFor={groupResourcesFor}
         />
 
         {/* Auftrag (incident group) route polylines + numbered stop markers */}

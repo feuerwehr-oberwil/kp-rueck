@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { Marker, Polyline, Tooltip } from "react-leaflet"
 import L from "leaflet"
 import type { Incident } from "@/lib/types/incidents"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { ApiVehiclePosition } from "@/lib/api-client"
 import { STATUS_TO_GROUP, type IncidentStatus } from "@/lib/types/incidents"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
@@ -23,6 +24,30 @@ interface AssignmentLinesProps {
   visible?: boolean
   /** Show the vehicle→incident distance as a label on each assignment. */
   showDistances?: boolean
+  /** The Aufträge, so a vehicle assigned to a ROUTE gets a line too — see
+   *  `routeTargets`. Without these it drew none at all. */
+  groups?: IncidentGroup[]
+  /** Resolves a route's own resources (the vehicle names live here, not on the
+   *  stops). Same resolver the route overlay and the hover card use. */
+  groupResourcesFor?: (groupId: string) => GroupResources
+}
+
+/**
+ * Which stop of an Auftrag its vehicles are driving to *now*.
+ *
+ * A route is worked in order, so one line per vehicle — to the stop in hand —
+ * says where it is going. Drawing one to every remaining stop would fan five
+ * red lines out of one MTW and answer a question nobody asked. A crew already
+ * on site (`active`) is the stop in hand even if an earlier one is still open;
+ * otherwise it is the first stop that is not finished.
+ */
+function currentStop(group: IncidentGroup, byId: Map<string, Incident>): Incident | undefined {
+  const stops = group.stopIds.map(id => byId.get(id)).filter((stop): stop is Incident => stop !== undefined)
+  const located = stops.filter(stop => stop.location_lat != null && stop.location_lng != null)
+  return (
+    located.find(stop => stop.status === "active")
+    ?? located.find(stop => STATUS_TO_GROUP[stop.status as IncidentStatus] !== "completed")
+  )
 }
 
 // Haversine distance in meters (same formula as the backend geofence checks).
@@ -117,12 +142,20 @@ export function AssignmentLines({
   vehiclePositions,
   visible = true,
   showDistances = false,
+  groups,
+  groupResourcesFor,
 }: AssignmentLinesProps) {
   const t = useTranslations('map')
   const lines = useMemo(() => {
     if (!visible && !showDistances) return []
 
     const result: AssignmentLine[] = []
+    // One line per vehicle per place, however the vehicle got there: a route
+    // vehicle that is also assigned to the stop itself must not be drawn twice.
+    const drawn = new Set<string>()
+
+    // Stops are ordinary incidents; the route only carries their ids.
+    const byId = new Map(incidents.map(incident => [incident.id, incident]))
 
     // Build lookup maps for vehicle positions
     const byExact = new Map<string, ApiVehiclePosition>()
@@ -142,29 +175,44 @@ export function AssignmentLines({
       if (group === "completed") continue
 
       for (const vehicle of incident.assigned_vehicles) {
-        const vp = findMatchingPosition(vehicle.name, byExact, byNormalized, vehiclePositions)
-        // No match is the normal case for a vehicle without a tracker, so it is
-        // silent: logging it fired once per vehicle per render.
-        if (!vp) continue
+        addLine(vehicle.name, incident)
+      }
+    }
 
-        result.push({
-          vehicleName: vehicle.name,
-          vehiclePosition: [vp.latitude, vp.longitude],
-          incidentPosition: [incident.location_lat, incident.location_lng],
-          // title is usually the raw address, so strip the home town from either
-          incidentTitle: (incident.location_display ?? formatLocationForDisplay(incident.title || incident.location_address || '', getGlobalHomeCity())) || t('assignmentLines.incidentFallback'),
-          distanceMeters: distanceMeters(
-            vp.latitude,
-            vp.longitude,
-            incident.location_lat,
-            incident.location_lng,
-          ),
-        })
+    // The Aufträge: their vehicles belong to the ROUTE and hold no assignment on
+    // any single stop, so every one of them was missing from this layer — the
+    // squad the KP sent out as one job was the squad with no line on the map.
+    for (const group of groups ?? []) {
+      const stop = currentStop(group, byId)
+      if (!stop) continue
+      for (const vehicle of groupResourcesFor?.(group.id)?.vehicles ?? []) {
+        addLine(vehicle.name, stop)
       }
     }
 
     return result
-  }, [incidents, vehiclePositions, visible, showDistances, t])
+
+    /** Push one vehicle→place line, once, if that vehicle has a GPS fix. */
+    function addLine(vehicleName: string, incident: Incident) {
+      if (incident.location_lat == null || incident.location_lng == null) return
+      const key = `${normalizeName(vehicleName)}|${incident.id}`
+      if (drawn.has(key)) return
+      const vp = findMatchingPosition(vehicleName, byExact, byNormalized, vehiclePositions)
+      // No match is the normal case for a vehicle without a tracker, so it is
+      // silent: logging it fired once per vehicle per render.
+      if (!vp) return
+      drawn.add(key)
+
+      result.push({
+        vehicleName,
+        vehiclePosition: [vp.latitude, vp.longitude],
+        incidentPosition: [incident.location_lat, incident.location_lng],
+        // title is usually the raw address, so strip the home town from either
+        incidentTitle: (incident.location_display ?? formatLocationForDisplay(incident.title || incident.location_address || '', getGlobalHomeCity())) || t('assignmentLines.incidentFallback'),
+        distanceMeters: distanceMeters(vp.latitude, vp.longitude, incident.location_lat, incident.location_lng),
+      })
+    }
+  }, [incidents, vehiclePositions, visible, showDistances, groups, groupResourcesFor, t])
 
   if ((!visible && !showDistances) || lines.length === 0) return null
 
@@ -182,7 +230,10 @@ export function AssignmentLines({
         }
       `}</style>
 
-      {visible &&
+      {/* A distance is a property OF a line. Drawn only while «Linien» was on,
+          the labels became red pills floating in open country with nothing to
+          measure — so switching distances on brings the lines with it. */}
+      {(visible || showDistances) &&
         lines.map((line, idx) => (
           <Polyline
             key={`${line.vehicleName}-${idx}`}
@@ -203,7 +254,7 @@ export function AssignmentLines({
           </Polyline>
         ))}
 
-      {/* Distance labels at the line midpoints (independent of line visibility) */}
+      {/* Distance labels at the line midpoints */}
       {showDistances &&
         lines.map((line, idx) => (
           <Marker

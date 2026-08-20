@@ -565,7 +565,12 @@
       "notMeTitle": "Se déconnecter ?",
       "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain.",
       "auftrag": "{name} · {count} arrêts",
-      "navigate": "Lancer la navigation"
+      "navigate": "Lancer la navigation",
+      "journey": {
+        "approach": "Trajet aller",
+        "onSite": "Sur place",
+        "returning": "Trajet retour"
+      }
     },
     "briefing": {
       "title": "Situation et ressources",

@@ -194,6 +194,41 @@ function KpStatusLine({ status }: { status: string }) {
 }
 
 /**
+ * Where this row is in the crew's own evening: hin — dran — zurück.
+ *
+ * Deliberately NOT the board's status. «Disponiert» is the KP's word for a
+ * decision they made, and a crew already standing in the water reads it as a
+ * claim about themselves; that is why the rows carried no status at all. But
+ * carrying none made a Schadenplatz somebody had finished look exactly like the
+ * one they are driving to — a Rückfahrt sat at the top of the list saying
+ * nothing. The journey is the part that IS about them, and every state below is
+ * read off their own taps (plus the one status that says the job is over).
+ */
+function journeyState(assignment: ApiFeldAssignment): 'approach' | 'onSite' | 'returning' | null {
+  if (!isLiveAssignment(assignment)) return null
+  if (assignment.field_complete_reported_at || assignment.incident_status === 'returning') return 'returning'
+  if (assignment.arrived_at) return 'onSite'
+  return 'approach'
+}
+
+/** The journey as a chip. «Vor Ort» carries the weight — it is the one of the
+ *  three that means "this is what you are doing right now". */
+function JourneyChip({ assignment }: { assignment: ApiFeldAssignment }) {
+  const t = useTranslations('feld.assignments.journey')
+  const state = journeyState(assignment)
+  if (!state) return null
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
+        state === 'onSite' ? 'bg-secondary font-medium text-foreground' : 'bg-muted text-muted-foreground'
+      }`}
+    >
+      {t(state)}
+    </span>
+  )
+}
+
+/**
  * The EL briefing (decision 22): every `/feld` surface names the Einsatzleiter
  * of that Schadenplatz BEFORE the form opens, so a crew knows who is normally
  * expected to file. Briefed, never enforced — anybody assigned may still file.
@@ -1600,6 +1635,10 @@ function FeldSurface() {
                   </p>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Hin — dran — zurück, before anything the row owes: it is
+                      what tells a finished Schadenplatz apart from the one
+                      being driven to, which the list could not say at all. */}
+                  <JourneyChip assignment={assignment} />
                   {assignmentRapportApplies(assignment) && (
                     <RapportStateChip state={assignment.rapport_state} />
                   )}

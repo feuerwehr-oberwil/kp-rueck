@@ -652,6 +652,67 @@ describe('/feld when the Reko window has closed', () => {
 })
 
 /**
+ * Hin — dran — zurück: the row says where the crew is in its own evening.
+ *
+ * The board's own status stays off the rows (a crew reads «Disponiert» as a
+ * claim about themselves), but carrying nothing at all made a Schadenplatz
+ * somebody had finished look exactly like the one they were driving to.
+ */
+describe('/feld says where the crew is on each row', () => {
+  const withRow = (overrides: Partial<ApiFeldAssignment>) => {
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [assignment(overrides)],
+      message_chips: [],
+    })
+    setParams({ token: 'feld-token' })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    seedDevice()
+    document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+  })
+
+  it('reads «Anfahrt» before they get there', async () => {
+    withRow({})
+    renderWithIntl(<FeldPage />)
+
+    expect(await screen.findByText('Anfahrt')).toBeInTheDocument()
+  })
+
+  it('reads «Vor Ort» once they reported arriving', async () => {
+    withRow({ arrived_at: '2026-08-20T09:00:00Z' })
+    renderWithIntl(<FeldPage />)
+
+    expect(await screen.findByText('Vor Ort')).toBeInTheDocument()
+  })
+
+  it('reads «Rückfahrt» on the job they have finished', async () => {
+    // The reported case: the KP moved the card to «Beendet / Rückfahrt» and the
+    // row went on sitting at the top of the list saying nothing.
+    withRow({ incident_status: 'returning', arrived_at: '2026-08-20T09:00:00Z' })
+    renderWithIntl(<FeldPage />)
+
+    expect(await screen.findByText('Rückfahrt')).toBeInTheDocument()
+    expect(screen.queryByText('Vor Ort')).not.toBeInTheDocument()
+  })
+
+  it('says nothing on a row that is no longer theirs', async () => {
+    withRow({ is_active_assignment: false })
+    renderWithIntl(<FeldPage />)
+
+    expect(await screen.findByText('Nicht mehr zugeteilt')).toBeInTheDocument()
+    expect(screen.queryByText('Anfahrt')).not.toBeInTheDocument()
+  })
+})
+
+/**
  * A Materialwart who is ALSO out on a Schadenplatz — a normal militia evening,
  * and the case that made the page look broken: the inventory is thirty-eight
  * rows, it opened the screen, and the two stops of their own Auftrag sat below

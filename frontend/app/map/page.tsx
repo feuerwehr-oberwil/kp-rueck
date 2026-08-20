@@ -1107,7 +1107,15 @@ export default function MapPage() {
                         </DropdownMenuCheckboxItem>
                         <DropdownMenuCheckboxItem
                           checked={showDistances}
-                          onSelect={(e) => { e.preventDefault(); setShowDistances(!showDistances) }}
+                          // A distance measures a line, so switching it on
+                          // switches «Linien» on too — otherwise the menu says
+                          // the lines are off while the map is drawing them.
+                          onSelect={(e) => {
+                            e.preventDefault()
+                            const next = !showDistances
+                            setShowDistances(next)
+                            if (next) setShowAssignmentLines(true)
+                          }}
                         >
                           <span className="flex-1">{t('page.distance')}</span>
                         </DropdownMenuCheckboxItem>
