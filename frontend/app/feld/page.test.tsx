@@ -23,6 +23,7 @@ const getFeldAssignments = vi.hoisted(() => vi.fn())
 const unlockFeld = vi.hoisted(() => vi.fn())
 const claimFeldPerson = vi.hoisted(() => vi.fn())
 const mintFeldRekoLink = vi.hoisted(() => vi.fn())
+const getFeldMaterial = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
@@ -31,7 +32,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { getFeldPersonnel, getFeldAssignments, unlockFeld, claimFeldPerson, mintFeldRekoLink },
+  apiClient: { getFeldPersonnel, getFeldAssignments, unlockFeld, claimFeldPerson, mintFeldRekoLink, getFeldMaterial },
 }))
 
 // The detail view is a stack of sections; this test is about which section the
@@ -647,5 +648,69 @@ describe('/feld when the Reko window has closed', () => {
     // a Reko row owes none.
     await waitFor(() => expect(screen.getByTestId('feld-actions')).toBeInTheDocument())
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * A Materialwart who is ALSO out on a Schadenplatz — a normal militia evening,
+ * and the case that made the page look broken: the inventory is thirty-eight
+ * rows, it opened the screen, and the two stops of their own Auftrag sat below
+ * it where nobody scrolls. Their own work leads now; the table follows, folded.
+ */
+describe('/feld for a Magazin person who also has own work', () => {
+  const withOwnWork = (assignments: ApiFeldAssignment[]) => {
+    getFeldMaterial.mockResolvedValue({
+      materials: [
+        { material_id: 'm-1', name: 'Tauchpumpe', state: 'out', at: 'Hauptstrasse 1', home_location: 'Magazin' },
+        { material_id: 'm-2', name: 'Wassersauger', state: 'in', at: null, home_location: 'Magazin' },
+      ],
+    })
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Materialwart',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments,
+      message_chips: [],
+      functions: ['magazin'],
+    })
+    setParams({ token: 'feld-token' })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    seedDevice()
+    document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+  })
+
+  it('lists their own Schadenplätze and folds the material table away', async () => {
+    withOwnWork([assignment({ incident_id: 'inc-1', location_address: 'Hauptstrasse 1' })])
+    renderWithIntl(<FeldPage />)
+
+    // The regression: the crew row is on the page at all.
+    expect(await screen.findByText('Hauptstrasse 1')).toBeInTheDocument()
+    // Folded: the header states the count, the rows themselves stay away.
+    expect(await screen.findByText('1 von 2 draussen')).toBeInTheDocument()
+    expect(screen.queryByText('Tauchpumpe')).not.toBeInTheDocument()
+  })
+
+  it('opens the table on tap', async () => {
+    withOwnWork([assignment({ incident_id: 'inc-1' })])
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByRole('button', { name: /Material/ }))
+
+    expect(await screen.findByText('Tauchpumpe')).toBeInTheDocument()
+  })
+
+  it('leads with the material table when there is no own work', async () => {
+    withOwnWork([])
+    renderWithIntl(<FeldPage />)
+
+    // Nothing of their own to do: the inventory IS the page, so it stands open.
+    expect(await screen.findByText('Tauchpumpe')).toBeInTheDocument()
   })
 })

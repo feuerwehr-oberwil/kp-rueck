@@ -17,7 +17,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Star, Truck, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Star, Truck, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
@@ -902,6 +902,34 @@ function FeldSurface() {
   }, [feed])
 
   /**
+   * Which stop of each Auftrag is the job in hand.
+   *
+   * A route is driven in order, so exactly one of its stops is where the squad
+   * is *now*: the one they have already reached, or else the earliest one still
+   * live. The stops after it stay on the page — a crew wants to know what comes
+   * next — but dimmed, because a route drawn in one weight makes the phone
+   * answer «du hast drei Stopps» when the question was «wo bin ich».
+   */
+  const auftragCurrentStop = useMemo(() => {
+    const best = new Map<string, { incidentId: string; position: number; arrived: boolean }>()
+    for (const assignment of feed) {
+      if (!assignment.group_id || !isLiveAssignment(assignment)) continue
+      const candidate = {
+        incidentId: assignment.incident_id,
+        position: assignment.group_position ?? 0,
+        arrived: Boolean(assignment.arrived_at),
+      }
+      const held = best.get(assignment.group_id)
+      // Standing at a stop beats route order — a squad that drove past one and
+      // reported «Angekommen» at the next is at the next.
+      const wins =
+        !held || (candidate.arrived !== held.arrived ? candidate.arrived : candidate.position < held.position)
+      if (wins) best.set(assignment.group_id, candidate)
+    }
+    return new Map(Array.from(best, ([groupId, stop]) => [groupId, stop.incidentId]))
+  }, [feed])
+
+  /**
    * Fold the server's answer to a field action back into the list row.
    *
    * Merged locally rather than refetched: the crew is on a phone at the edge of
@@ -956,6 +984,57 @@ function FeldSurface() {
    * The FAB belongs to the person, not to a row: same corner in both views, so
    * it is the same button rather than two that happen to look alike.
    */
+  /**
+   * Does this person have work of their own on the page?
+   *
+   * The one question that decides where the Magazin's table goes. A Materialwart
+   * is regularly ALSO on a Schadenplatz — a militia brigade sends whoever is
+   * there — and for that evening the inventory is the smaller half of their
+   * night, not the page.
+   */
+  const hasOwnWork = feed.length > 0
+  /** Folded by default once they have own work; their tap wins over that. */
+  const [materialOpen, setMaterialOpen] = useState<boolean | null>(null)
+  const materialExpanded = materialOpen ?? !hasOwnWork
+
+  /**
+   * The Magazin's own view, rendered in one of two places (see the two call
+   * sites): it leads the page for somebody whose whole job it is, and follows
+   * the feed — folded — for somebody who is also out on a Schadenplatz.
+   */
+  const materialSection = functions.includes('magazin') ? (
+    <section className="mb-6 rounded-xl bg-secondary/30 p-4">
+      <button
+        type="button"
+        onClick={() => setMaterialOpen(!materialExpanded)}
+        aria-expanded={materialExpanded}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('material.title')}</h2>
+        {/* Folded, the header carries the one number worth carrying — the table
+            says the same thing in its own first line once it is open. */}
+        {!materialExpanded && (
+          <span className="text-xs text-muted-foreground">
+            {t('material.summary', {
+              out: materials.filter(item => item.state !== 'in').length,
+              total: materials.length,
+            })}
+          </span>
+        )}
+        <ChevronDown
+          className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+            materialExpanded ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+      {materialExpanded && (
+        <div className="mt-3">
+          <FeldMaterialTable materials={materials} />
+        </div>
+      )}
+    </section>
+  ) : null
+
   const meldenFab =
     token && selectedPerson && !atTheStation(functions) ? (
       <>
@@ -1376,17 +1455,10 @@ function FeldSurface() {
           </section>
         )}
 
-        {/* The Magazin's section. Above the feed for somebody whose job this
-            is — a Materialwart opens the page to look at material, and their own
-            Schadenplätze (if any) are the smaller half of their night. */}
-        {functions.includes('magazin') && (
-          <section className="mb-6 rounded-xl bg-secondary/30 p-4">
-            <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t('material.title')}
-            </h2>
-            <FeldMaterialTable materials={materials} />
-          </section>
-        )}
+        {/* The Magazin's inventory, when the Materialwart has nothing else on:
+            then it IS their page, and it opens the screen. Somebody who is also
+            out on a Schadenplatz gets it after their own work — see below. */}
+        {!hasOwnWork && materialSection}
 
         {/* "Noch kein Auftrag" is for somebody whose page is otherwise empty.
             A Materialwart reading a full table of material has not been told
@@ -1442,6 +1514,10 @@ function FeldSurface() {
             const startsAuftrag =
               auftragCount > 1 &&
               (index === 0 || feed[index - 1].group_id !== assignment.group_id)
+            // Where the squad is on this route, and what is still ahead of them.
+            const currentStopId = assignment.group_id ? auftragCurrentStop.get(assignment.group_id) : undefined
+            const isCurrentStop = auftragCount > 1 && currentStopId === assignment.incident_id
+            const isLaterStop = auftragCount > 1 && live && currentStopId !== undefined && !isCurrentStop
             const rowNavigateUrl = navigationUrl(assignment)
             const kpMessages = assignment.kp_messages ?? []
             const lastKpMessage = kpMessages.length > 0 ? kpMessages[kpMessages.length - 1] : null
@@ -1471,7 +1547,9 @@ function FeldSurface() {
                   live
                     ? 'bg-secondary/50 hover:bg-secondary'
                     : 'bg-muted/30 hover:bg-muted/50'
-                } ${settled ? 'opacity-60 hover:opacity-100' : ''}`}
+                } ${settled ? 'opacity-60 hover:opacity-100' : ''} ${
+                  isCurrentStop ? 'ring-1 ring-info/40' : ''
+                } ${isLaterStop ? 'opacity-60 hover:opacity-100' : ''}`}
               >
                 {/* Address first, Meldung underneath — the same order the detail
                     view and the board's own cards use. A crew standing on a
@@ -1483,7 +1561,11 @@ function FeldSurface() {
                         reason a crew reads the group as an Auftrag rather than
                         a coincidence — it says what to drive to next. */}
                     {startsAuftrag || (auftragCount > 1 && assignment.group_position !== null) ? (
-                      <span className="mt-0.5 inline-grid size-5 shrink-0 place-items-center rounded-full bg-info text-[11px] font-bold text-white">
+                      <span
+                        className={`mt-0.5 inline-grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
+                          isLaterStop ? 'bg-info/25 text-info' : 'bg-info text-white'
+                        }`}
+                      >
                         {(assignment.group_position ?? 0) + 1}
                       </span>
                     ) : null}
@@ -1628,6 +1710,13 @@ function FeldSurface() {
             })}
           </>
         )}
+
+        {/* The same inventory, for a Materialwart who is ALSO out on a job:
+            below their own Schadenplätze and folded, because for them the table
+            is reference — «wo ist die zweite Pumpe?» — and their own stops are
+            what decides the next hour. Unfolded it is thirty-eight rows, which
+            is how it came to hide a two-stop Auftrag under itself. */}
+        {hasOwnWork && materialSection}
 
         {/* No «Eingecheckt» row. Checking IN is the crew's and checking out is
             not — abmelden from a phone in a vehicle edits the roll call the KP
